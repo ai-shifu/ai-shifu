@@ -15,7 +15,6 @@ from models.script import *
 
 _ = load_dotenv(find_dotenv())
 
-
 # 头像配置
 ICON_USER = 'user'
 ICON_SIFU = 'static/sunner_icon.jpg'
@@ -60,7 +59,7 @@ def simulate_streaming(chat_box, template: str, variables=None,
     """
     if not update:
         chat_box.ai_say(Markdown('', in_expander=False))
-        
+
     if variables:
         # 变量字典
         vars = {}
@@ -68,7 +67,7 @@ def simulate_streaming(chat_box, template: str, variables=None,
             vars[v] = st.session_state[v]
         prompt_template = PromptTemplate(input_variables=list(vars.keys()), template=template)
         template = prompt_template.format(**vars)
-        
+
     current_text = ''
     for t in template:
         current_text += t
@@ -80,7 +79,7 @@ def simulate_streaming(chat_box, template: str, variables=None,
     return current_text
 
 
-def streaming_from_template(chat_box, template, variables, 
+def streaming_from_template(chat_box, template, variables,
                             input_done_with=None, parse_keys=None, update=False,
                             model=None, temperature=None):
     """
@@ -129,23 +128,23 @@ def streaming_from_template(chat_box, template, variables,
             # print(chunk.content, end='', flush=True)
             print(f'{count}: {chunk.content}, len:{len(full_result)}')
             count += 1
-            
+
         if input_done_with and full_result.startswith(input_done_with):
             chat_box.update_msg(input_done_with, element_index=0, streaming=False, state="complete")
         else:
             chat_box.update_msg(full_result, element_index=0, streaming=True)
             need_streaming_complete = True
-    
+
     if need_streaming_complete:
         chat_box.update_msg(full_result, element_index=0, streaming=False, state="complete")
 
     if logging.getLogger().level == logging.DEBUG:
         print()
-    
+
     if parse_keys is not None and full_result.startswith(input_done_with):
         # 清理字符串
         parse_json = full_result.replace(input_done_with, '').strip()
-        
+
         logging.debug(f'解析JSON：{parse_json}')
         try:
             parse_json = json.loads(parse_json)
@@ -156,7 +155,7 @@ def streaming_from_template(chat_box, template, variables,
             logging.error(f'解析JSON失败：{e}')
             full_result = '抱歉出现错误，请再次尝试~'
             chat_box.update_msg(full_result, element_index=0, streaming=False, state="complete")
-        
+
     return full_result
 
 
@@ -199,8 +198,6 @@ def parse_vars_from_template(chat_box, template, variables, parse_keys=None,
         chat_box.ai_say('抱歉出现错误，请再次尝试~')
 
 
-
-
 def from_template(template, variables=None, system_role=None, model=None, temperature=None):
     """
     直接通过剧本输出，根据剧本类型自动判断是普通Prompt给AI，还是检查用户输入的Prompt给AI
@@ -218,7 +215,6 @@ def from_template(template, variables=None, system_role=None, model=None, temper
     logging.debug('=====================')
 
     llm = load_llm(model, temperature)
-
 
     if system_role:
         # 普通Prompt
@@ -294,7 +290,8 @@ def load_scripts_and_system_role(
             if st.session_state.script_list[0].type == ScriptType.SYSTEM:
                 system_role_script = st.session_state.script_list.pop(0)
                 template = system_role_script.template
-                variables = {v: st.session_state[v] for v in system_role_script.template_vars} if system_role_script.template_vars else None
+                variables = {v: st.session_state[v] for v in
+                             system_role_script.template_vars} if system_role_script.template_vars else None
 
                 if variables:
                     prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
@@ -305,6 +302,17 @@ def load_scripts_and_system_role(
                 st.session_state.system_role = prompt
 
             st.session_state.script_list_len = len(st.session_state.script_list)
+            st.session_state.progress = st.session_state.select_progress - (
+                2 if 'system_role' in st.session_state else 1)
+
+
+def extract_variables(template: str) -> list:
+    # 使用正则表达式匹配单层 {} 中的内容
+    pattern = r'\{([^{}]+)\}'
+    matches = re.findall(pattern, template)
+
+    # 返回去重后的变量名列表
+    return list(set(matches))
 
 
 def extract_variables(template: str) -> list:
