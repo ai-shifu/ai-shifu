@@ -89,7 +89,7 @@ def get_bitable_records(app_token, table_id, view_id) -> Optional[list[AppTableR
     request = (SearchAppTableRecordRequest.builder()
                .app_token(app_token)
                .table_id(table_id)
-               .page_size(100)
+               .page_size(500)
                .request_body(SearchAppTableRecordRequestBody.builder()
                              .view_id(view_id)
                              .build())

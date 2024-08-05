@@ -1,6 +1,6 @@
 simulate_streaming_random_sleep:
-  min: 0.0002  # 0.005
-  max: 0.01  # 0.2
+  min: 0.001  # 0.005
+  max: 0.02  # 0.2
 
 llm:
 #  default_vendor: wenxin

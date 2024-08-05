@@ -20,32 +20,6 @@ ICON_USER = 'user'
 ICON_SIFU = 'static/sunner_icon.jpg'
 
 
-def fix_sidebar_add_logo(logo_url: str):
-    if validators.url(logo_url) is True:
-        logo = f"url({logo_url})"
-    else:
-        logo = f"url(data:image/png;base64,{base64.b64encode(Path(logo_url).read_bytes()).decode()})"
-
-    st.markdown(
-        f"""
-        <style>
-            [data-testid="stSidebarNav"] {{
-                background-image: {logo};
-                background-repeat: no-repeat;
-                background-size: contain;
-                padding-top: 130px;
-                background-position: 0px 0px;
-            }}
-            [data-testid="stSidebar"] {{
-                max-width: 300px !important;
-                min-width: 300px !important;
-            }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def simulate_streaming(chat_box, template: str, variables=None,
                        random_min=cfg.SIM_STM_MIN, random_max=cfg.SIM_STM_MAX, update=False):
     """
@@ -302,8 +276,6 @@ def load_scripts_and_system_role(
                 st.session_state.system_role = prompt
 
             st.session_state.script_list_len = len(st.session_state.script_list)
-            st.session_state.progress = st.session_state.select_progress - (
-                2 if 'system_role' in st.session_state else 1)
 
 
 def extract_variables(template: str) -> list:
@@ -311,8 +283,11 @@ def extract_variables(template: str) -> list:
     pattern = r'\{([^{}]+)\}'
     matches = re.findall(pattern, template)
 
-    # 返回去重后的变量名列表
-    return list(set(matches))
+    # 去重并过滤包含双引号的元素
+    variables = list(set(matches))
+    filtered_variables = [var for var in variables if '"' not in var]
+
+    return filtered_variables
 
 
 def extract_variables(template: str) -> list:
