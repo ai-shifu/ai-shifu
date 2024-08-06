@@ -6,16 +6,28 @@ credentials:
   usernames:
     '017':
       email: 15510550064@163.com
-      failed_login_attempts: 0
+      failed_login_attempts: 3
       logged_in: false
       name: '017'
-      password: $2b$12$810mLb3tPE.NwStl/ZhUteclUE3gblTU71kdqTQgx2BB2gGgS4zQi
+      password: $2b$12$3Cy7rccuIiFhxYT/mQ97Oexb585D6z64ubBEtTrj1o46vJOOvg4qC
     kenrick:
       email: Kenrick.Zhou@gmail.com
-      failed_login_attempts: 0
+      failed_login_attempts: 3
       logged_in: false
       name: KenrickZ
       password: $2b$12$PXvcCwh8eZEGBxz.upGnCuzlsdZn1qT3gXZuj/w7XDYksJQFOSIOm
+    sunner:
+      email: sunner@gmail.com
+      failed_login_attempts: 3
+      logged_in: false
+      name: 'Sun Zhigang'
+      password: ai-shifu
+    yfge:
+      email: geyunfei@gmail.com
+      failed_login_attempts: 3
+      logged_in: false
+      name: 'yfge'
+      password: ai-shifu
 pre-authorized:
   emails:
-  - melsby@gmail.com
+  - abc@gmail.com

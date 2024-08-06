@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
-import { sendSmsCode } from '@Api/user.js';
+import { sendSmsCode } from 'Api/user.js';
+import { memo } from 'react';
 
 const DEFAULT_COUNTDOWN = 60;
 const DEFAULT_COUNTDOWN_INTERVAL = 1000;
@@ -41,4 +42,4 @@ export const useSendCode = ({ countDownTime = DEFAULT_COUNTDOWN }) => {
   return [countDown, sendCode, reset];
 }
 
-export default useSendCode;
+export default memo(useSendCode);

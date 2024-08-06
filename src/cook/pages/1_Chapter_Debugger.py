@@ -67,6 +67,12 @@ if login():
 
     if not st.session_state.has_started:
         courses = get_courses_by_user_from_sqlite(st.session_state["username"])
+        if not courses:
+            st.warning(' 暂无课程，请前往我的账户新建课程。  ⬇️ ⬇️ ⬇️', icon='⚠️')
+            if st.button('前往我的账户', type='primary', use_container_width=True):
+                st.switch_page("pages/100_My_Account.py")
+            st.stop()
+
 
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:

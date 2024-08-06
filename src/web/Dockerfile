@@ -22,7 +22,6 @@ RUN pnpm run build
 
 RUN pnpm install -g serve
 
-
 # 声明服务运行在5000端口
 EXPOSE 5000
 

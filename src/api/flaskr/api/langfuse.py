@@ -4,6 +4,7 @@ from flask import Flask
 
 def init_langfuse(app: Flask):
     global langfuse_client 
+    app.logger.info("Initializing Langfuse client")
     langfuse_client= Langfuse(
     public_key= app.config["LANGFUSE_PUBLIC_KEY"],
     secret_key= app.config["LANGFUSE_SECRET_KEY"],

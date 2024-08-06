@@ -1,0 +1,39 @@
+.payLeft {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  color: var(--color-20);
+
+  .logoWrapper {
+    position: absolute;
+    top: 25px;
+    left: 30px;
+  }
+
+  .description {
+    font-size: var(--font-size-5);
+    color: var(--color-5);
+    position: absolute;
+    top: 85px;
+    left: 38px;
+  }
+
+  .infoTitle {
+    font-size: var(--font-size-1);
+    font-weight: 1000;
+    position: absolute;
+    top: 240px;
+    left: 30px;
+  }
+
+  .infoLines {
+    position: absolute;
+    top: 290px;
+    left: 30px;
+
+    .infoTitle {
+      font-size: var(--font-size-5);
+      line-height: 1.8em;
+    }
+  }
+}
