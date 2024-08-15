@@ -163,7 +163,7 @@ def handle_input_phone(app:Flask,user_id:str,attend:AICourseLessonAttend,script_
             yield make_script_dto("text",i,script_info.script_id)
             time.sleep(0.01)
         yield make_script_dto("text_end","",script_info.script_id)
-        yield make_script_dto(UI_TYPE_PHONE,script_info.script_ui_content,script_info.script_id) 
+        yield make_script_dto(INPUT_TYPE_PHONE,script_info.script_ui_content,script_info.script_id) 
         log_script = generation_attend(app,attend,script_info)
         log_script.script_content = response_text
         log_script.script_role = ROLE_TEACHER
