@@ -89,7 +89,7 @@ def get_bitable_records(app_token, table_id, view_id) -> Optional[list[AppTableR
     request = (SearchAppTableRecordRequest.builder()
                .app_token(app_token)
                .table_id(table_id)
-               .page_size(500)
+               .page_size(100)
                .request_body(SearchAppTableRecordRequestBody.builder()
                              .view_id(view_id)
                              .build())
@@ -114,34 +114,6 @@ def get_bitable_records(app_token, table_id, view_id) -> Optional[list[AppTableR
     return response.data.items
 
 
-def update_bitable_record(app_token, table_id, record_id, key, value):
-    client = get_lark_client()
-
-    # 构造请求对象
-    request = (UpdateAppTableRecordRequest.builder()
-               .app_token(app_token)
-               .table_id(table_id)
-               .record_id(record_id)
-               .request_body(AppTableRecord.builder()
-                             .fields({key: value})
-                             .build())
-               .build())
-    # 发起请求
-    response: UpdateAppTableRecordResponse = client.bitable.v1.app_table_record.update(request)
-
-    # 处理失败返回
-    if not response.success():
-        lark.logger.error(
-            f"client.bitable.v1.app_table_record.update failed, code: {response.code}, msg: {response.msg}, log_id: {response.get_log_id()}")
-        return False
-
-    # 处理业务结果
-    lark.logger.info(lark.JSON.marshal(response.data, indent=4))
-
-    return True
-
-
-
 if __name__ == '__main__':
     # token = get_tenant_access_token()
     # print(token)
@@ -150,11 +122,5 @@ if __name__ == '__main__':
     # items = get_bitable_records(cfg.LARK_APP_TOKEN, cfg.DEF_LARK_TABLE_ID, cfg.DEF_LARK_VIEW_ID)
     # print(items)
 
-    # items = get_bitable_tables('NlBbbzxRkaF986sUZTTcNdixnSi')
-    # print(items[0].table_id)
-
-    update_bitable_record('CGRjb9MY0aANXismmTIcHhFGnOd',
-                          'tblJQLYhyYC2soOU',
-                          'recrQVOMOX',
-                          '模版内容',
-                          "嗨～ 你好呀！\n欢迎来到  `《跟 AI 学 Python》` 课程！")
+    items = get_bitable_tables('NlBbbzxRkaF986sUZTTcNdixnSi')
+    print(items[0].table_id)

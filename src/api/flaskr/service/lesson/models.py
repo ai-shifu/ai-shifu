@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, Numeric, text,DECIMAL
+from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, Numeric, text, ForeignKey,DECIMAL
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
@@ -21,7 +21,7 @@ class AILesson(db.Model):
     __tablename__ = 'ai_lesson'
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     lesson_id = Column(String(36), nullable=False, default='', comment='Lesson UUID')
-    course_id = Column(String(36), nullable=False, default='', comment='Course UUID')
+    course_id = Column(String(36), ForeignKey('ai_course.course_id'), nullable=False, default='', comment='Course UUID')
     lesson_name = Column(String(255), nullable=False, default='', comment='Lesson name')
     lesson_desc = Column(Text, nullable=False, comment='Lesson description')
     lesson_no = Column(String(32), nullable=True, default='0', comment='Lesson number')
@@ -33,7 +33,6 @@ class AILesson(db.Model):
     created = Column(TIMESTAMP, nullable=False, default=func.now(), comment='Creation time')
     updated = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now(), comment='Update time')
     status = Column(Integer, nullable=False, default=0, comment='Status of the lesson')
-    
     def is_final(self):
         return len(self.lesson_no)>2 
 
@@ -43,7 +42,7 @@ class AILessonScript(db.Model):
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment='Unique ID')
     script_id = Column(String(36), nullable=False, default='', comment='Script UUID')
-    lesson_id = Column(String(36), nullable=False, default='', comment='Lesson UUID')
+    lesson_id = Column(String(36), ForeignKey('ai_lesson.lesson_id'), nullable=False, default='', comment='Lesson UUID')
     script_name = Column(String(255), nullable=False, default='', comment='Script name')
     script_desc = Column(Text, nullable=False, comment='Script description')
     script_index = Column(Integer, nullable=False, default=0, comment='Script index')

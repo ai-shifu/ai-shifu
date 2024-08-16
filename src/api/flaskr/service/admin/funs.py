@@ -5,13 +5,13 @@ import string
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import Date
-from sympy import Q
 
 from ...service.common.dtos import UserInfo, UserToken
 from ...api.aliyun import send_sms_code_ali
 from ...common.swagger import register_schema_to_swagger
 from ...service.common.models import CHECK_CODE_ERROR, CHECK_CODE_EXPIRED, SMS_CHECK_ERROR, SMS_SEND_EXPIRED
 from ...service.common.dtos import USE_STATE_VALUES, USER_STATE_REGISTERED, USER_STATE_UNTEGISTERED
+from ...service.user.models import User as CUser
 from ...dao import db,redis_client as redis
 from ...api.sendcloud import send_email
 import uuid
@@ -24,6 +24,13 @@ from captcha.image import ImageCaptcha
 import oss2
 
 
+endpoint = "oss-cn-beijing.aliyuncs.com"
+
+ALI_API_ID="LTAI5tHek7vMAYvpYVn6cPyg"
+ALI_API_SECRET="uV6LPxtupiGRPzkJSp8gQHjQnb0pro"
+base = "https://kt-ai-assistant.oss-cn-beijing.aliyuncs.com"
+auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
+bucket = oss2.Bucket(auth, endpoint, 'pillow-avtar')
 
 FIX_CHECK_CODE = "0615"
 
@@ -43,6 +50,9 @@ def create_new_user(app:Flask, username: str, name: str, raw_password: str, emai
         return UserToken(
             UserInfo(user_id=user_id, username=username, name=name, email=email, mobile=mobile,model=new_user.default_model,user_state=new_user.user_state),
             token=token)
+
+
+
 def generate_token(app:Flask, user_id: str) -> str:
     with app.app_context():
         token = jwt.encode({'user_id': user_id,"time_stamp": time.time()}, app.config['SECRET_KEY'], algorithm='HS256')
@@ -158,7 +168,7 @@ def reset_pwd(app:Flask,login:str,code:int,newpwd:str):
     
 
 # 生成图片验证码
-def generation_img_chk(app:Flask,mobile:str):
+def generation_img_chk(app:Flask,mobile:str)->str:
     with app.app_context():
         image_captcha = ImageCaptcha()
         characters = string.ascii_uppercase + string.digits
@@ -197,3 +207,125 @@ def send_sms_code(app:Flask,phone:str,chekcode:str):
             return {
                 "expire_in":app.config['PHONE_CODE_EXPIRE_TIME']
             } 
+
+# 发送短信验证码
+def send_sms_code_without_check(app:Flask,user_id:str,phone:str)->str:
+    with app.app_context():
+        user = User.query.filter(User.user_id==user_id).first()
+        user.mobile = phone
+        characters =  string.digits
+        random_string = ''.join(random.choices(characters, k=4))
+        # 发送短信验证码
+        redis.set(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id,phone,ex=app.config.get("PHONE_EXPIRE_TIME",60*30))
+        redis.set(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone, random_string,ex=app.config['PHONE_CODE_EXPIRE_TIME'])
+        send_sms_code_ali(app,phone,random_string)
+        db.session.commit()
+        return {
+            "expire_in":app.config['PHONE_CODE_EXPIRE_TIME'],
+            "phone":phone
+        } 
+def get_sms_code_info(app:Flask,user_id:str,resend:bool):
+    with app.app_context():
+        phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id)
+        if phone == None:
+            user = User.query.filter(User.user_id == user_id).first()
+            phone = user.mobile 
+        else:
+            phone = str(phone,encoding="utf-8")
+        ttl = redis.ttl(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
+        if ttl < 0 :
+            ttl = 0
+        return {
+            "expire_in":ttl,
+            "phone":phone
+        }
+        
+
+def verify_sms_code_without_phone(app:Flask,user_id:str,checkcode)->UserToken:
+    with app.app_context():
+        phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id)
+        if phone == None:
+            user = User.query.filter(User.user_id == user_id).first()
+            phone = user.mobile
+        else:
+            phone = str(phone,encoding="utf-8")
+        return verify_sms_code(app,user_id,phone,checkcode,False)
+# 验证短信验证码
+def verify_sms_code(app:Flask,user_id,phone:str,chekcode:str,updateToken=True)->UserToken:
+    with app.app_context():
+        app.logger.info("phone:"+phone+" chekcode:"+chekcode)
+        check_save = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
+        if check_save == None:
+            raise SMS_SEND_EXPIRED
+        check_save_str = str(check_save,encoding="utf-8") 
+        if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
+            raise SMS_CHECK_ERROR
+        else:
+            if user_id:
+                user_info = User.query.filter_by(user_id=user_id).first()
+                user_info.mobile = phone
+                user_info.user_state = USER_STATE_REGISTERED 
+            else:
+                user_info = User.query.filter_by(mobile=phone).first()
+            if user_info is None:
+                user_id = str(uuid.uuid4()).replace('-', '')
+                user_info = User(user_id=user_id, username="", name="", email="", mobile=phone,default_model=app.config["OPENAI_DEFAULT_MODEL"])
+                user_info.user_state = USER_STATE_REGISTERED
+                db.session.add(user_info)
+            if updateToken:
+                token = generate_token(app,user_id=user_info.user_id)
+            else:
+                token = ""
+            db.session.commit()
+            return UserToken(UserInfo(user_id=user_info.user_id, username=user_info.username, name=user_info.name, email=user_info.email, mobile=user_info.mobile,model=user_info.default_model,user_state=user_info.user_state),token)
+
+class UserItemDTO:
+    def __init__(self,user_id:str,mobile:str,nickname:str,sex:int,birth:Date) -> None:
+        self.user_id = user_id
+        self.mobile = mobile
+        self.nickname = nickname
+        self.sex = sex
+        self.birth = birth.strftime("%Y-%m-%d")
+    def __json__(self):
+        return {
+            "user_id": self.user_id,
+            "mobile": self.mobile,
+            "nickname": self.nickname,
+            "sex":self.sex,
+            "birth":self.birth
+        }
+
+
+class PageNationDTO:
+    def __init__(self,page:int,page_size:int,total:int,data) -> None:
+        self.page = page
+        self.page_size = page_size
+        self.total = total
+        self.page_count = total//page_size + 1
+        self.data = data
+    def __json__(self):
+        return {
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count":self.page_count,
+            "items":self.data
+        }
+def get_user_list(app:Flask,page:int=1,page_size:int=20,query=None):
+    with app.app_context():
+        app.logger.info("query:"+str(query)+" page:"+str(page)+" page_size:"+str(page_size))
+        db_query = CUser.query
+        if query:
+            if query.get("mobile"):
+                db_query = db_query.filter(CUser.mobile.like("%"+query.get("mobile")+"%"))
+            if query.get("nickname"):
+                db_query = db_query.filter(CUser.username.like("%"+query.get("nickname")+"%"))
+            if query.get("user_id"):
+                db_query = db_query.filter(CUser.user_id == query.get("user_id"))
+        count = db_query.count()
+        if count == 0:
+            return {}
+        users = db_query.order_by(CUser.created.desc()).offset((page-1)*page_size).limit(page_size)
+        items =  [UserItemDTO(user.user_id,user.mobile,user.username,user.user_sex,user.user_birth) for user in users]
+        return PageNationDTO(page,page_size,count,items)
+    

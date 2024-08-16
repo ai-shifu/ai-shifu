@@ -8,8 +8,11 @@ from flask import Flask
 
 from flaskr.api.llm import invoke_llm
 from flaskr.service.common.models import AppException
-from flaskr.service.study.utils import  generation_attend, get_fmt_prompt
+from flaskr.service.profile.funcs import save_user_profiles
+from flaskr.service.study.utils import extract_json, generation_attend, get_fmt_prompt
+from flaskr.service.user.funs import verify_sms_code_without_phone
 
+from ...service.study.runscript import check_phone_number, get_profile_array
 from ...service.lesson.models import AILessonScript
 from ...service.order.models import AICourseLessonAttend
 from ...service.study.const import INPUT_TYPE_LOGIN, ROLE_STUDENT, ROLE_TEACHER
@@ -81,4 +84,4 @@ def handle_output(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:
         raise AppException("script type not found")
     span = trace.span(name="output_script")
     span.end()
-    db.session.flush()
+    db.session.commit()

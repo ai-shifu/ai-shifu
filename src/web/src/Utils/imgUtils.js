@@ -62,6 +62,7 @@ export const genCroppedImg = async (
   ctx.drawImage(image, 0, 0)
 
   const croppedCanvas = document.createElement('canvas')
+
   const croppedCtx = croppedCanvas.getContext('2d')
 
   if (!croppedCtx) {
@@ -83,14 +84,17 @@ export const genCroppedImg = async (
     0,
     pixelCrop.width,
     pixelCrop.height
-  );
+  )
 
-  return new Promise((resolve) => {
-    croppedCanvas.toBlob((blob) => {
-      const file = new File([blob], 'image.png', {});
-      resolve(file);
-    });
-  });
+  // As Base64 string
+  // return croppedCanvas.toDataURL('image/jpeg');
+
+  // As a blob
+  // return new Promise((resolve, reject) => {
+  //   croppedCanvas.toDataURL('image/png')
+  // })
+
+  return croppedCanvas.toDataURL('image/png');
 }
 
 

@@ -5,7 +5,6 @@ import {
 import styles from './ChatInputButton.module.scss';
 import MainButton from 'Components/MainButton.jsx';
 import { useEffect } from 'react';
-import { memo } from 'react';
 
 export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   const onBtnClick = () => {
@@ -54,4 +53,4 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   );
 };
 
-export default memo(ChatInputButton);
+export default ChatInputButton;

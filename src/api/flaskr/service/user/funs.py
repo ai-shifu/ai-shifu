@@ -1,5 +1,4 @@
 import base64
-from cgi import FieldStorage
 from io import BytesIO
 import random
 import string
@@ -7,11 +6,10 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
 
-
 from ...service.common.dtos import UserInfo, UserToken
 from ...api.aliyun import send_sms_code_ali
 from ...common.swagger import register_schema_to_swagger
-from ...service.common.models import CHECK_CODE_ERROR, CHECK_CODE_EXPIRED, SMS_CHECK_ERROR, SMS_SEND_EXPIRED,FILE_UPLOAD_ERROR,FILE_TYPE_NOT_SUPPORT,FILE_SIZE_EXCEED
+from ...service.common.models import CHECK_CODE_ERROR, CHECK_CODE_EXPIRED, SMS_CHECK_ERROR, SMS_SEND_EXPIRED
 from ...service.common.dtos import USE_STATE_VALUES, USER_STATE_REGISTERED, USER_STATE_UNTEGISTERED
 from ...dao import db,redis_client as redis
 from ...api.sendcloud import send_email
@@ -22,15 +20,14 @@ from ..common import USER_NOT_FOUND,USER_PASSWORD_ERROR,USER_ALREADY_EXISTS,USER
 import jwt
 import time
 from captcha.image import ImageCaptcha 
-from flaskr.common.config import get_config
 import oss2
 
 
 endpoint = "oss-cn-beijing.aliyuncs.com"
 
-ALI_API_ID= get_config("ALIBABA_CLOUD_ACCESS_KEY_ID")
-ALI_API_SECRET=get_config("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
-base = "https://avtar.agiclass.cn"
+ALI_API_ID="LTAI5tHek7vMAYvpYVn6cPyg"
+ALI_API_SECRET="uV6LPxtupiGRPzkJSp8gQHjQnb0pro"
+base = "https://kt-ai-assistant.oss-cn-beijing.aliyuncs.com"
 auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
 bucket = oss2.Bucket(auth, endpoint, 'pillow-avtar')
 
@@ -91,24 +88,11 @@ def validate_user(app:Flask, token: str) -> UserInfo:
         if(token == None):
             raise USER_NOT_LOGIN
         try:
-            app.logger.info("token:"+token)
-            app.logger.info("env:"+app.config.get('ENVERIMENT','prod'))
-            if app.config.get('ENVERIMENT','prod') == 'dev':
-                user_id = token
-                user = User.query.filter_by(user_id=user_id).first()
-                if user:
-                    return UserInfo(user_id=user.user_id, username=user.username, name=user.name, email=user.email, mobile=user.mobile,model=user.default_model, user_state=user.user_state)
-            else:
-                user_id = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])['user_id']
-
-            app.logger.info("user_id:"+user_id) 
+            user_id = jwt.decode(token, app.config['SECRET_KEY'], algorithms=['HS256'])['user_id']
             redis_token = redis.get(app.config["REDIS_KEY_PRRFIX_USER"] + user_id);
             if(redis_token == None):
-                app.logger.info("redis_token is None")
                 raise USER_TOKEN_EXPIRED 
-            app.logger.info("redis_token_key:"+str(app.config["REDIS_KEY_PRRFIX_USER"] + user_id))
             set_token = str(redis.get(app.config["REDIS_KEY_PRRFIX_USER"] + user_id),encoding="utf-8")
-
             if set_token == token:
                 user = User.query.filter_by(user_id=user_id).first()
                 if user:
@@ -233,19 +217,20 @@ def send_sms_code(app:Flask,phone:str,chekcode:str):
 
 # 发送短信验证码
 def send_sms_code_without_check(app:Flask,user_id:str,phone:str)->str:
-    user = User.query.filter(User.user_id==user_id).first()
-    user.mobile = phone
-    characters =  string.digits
-    random_string = ''.join(random.choices(characters, k=4))
-    # 发送短信验证码
-    redis.set(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id,phone,ex=app.config.get("PHONE_EXPIRE_TIME",60*30))
-    redis.set(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone, random_string,ex=app.config['PHONE_CODE_EXPIRE_TIME'])
-    send_sms_code_ali(app,phone,random_string)
-    db.session.flush()
-    return {
-        "expire_in":app.config['PHONE_CODE_EXPIRE_TIME'],
-        "phone":phone
-    } 
+    with app.app_context():
+        user = User.query.filter(User.user_id==user_id).first()
+        user.mobile = phone
+        characters =  string.digits
+        random_string = ''.join(random.choices(characters, k=4))
+        # 发送短信验证码
+        redis.set(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id,phone,ex=app.config.get("PHONE_EXPIRE_TIME",60*30))
+        redis.set(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone, random_string,ex=app.config['PHONE_CODE_EXPIRE_TIME'])
+        send_sms_code_ali(app,phone,random_string)
+        db.session.commit()
+        return {
+            "expire_in":app.config['PHONE_CODE_EXPIRE_TIME'],
+            "phone":phone
+        } 
 def get_sms_code_info(app:Flask,user_id:str,resend:bool):
     with app.app_context():
         phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id)
@@ -267,65 +252,39 @@ def verify_sms_code_without_phone(app:Flask,user_id:str,checkcode)->UserToken:
     with app.app_context():
         phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"]+user_id)
         if phone == None:
-            app.logger.info("cache user_id:"+user_id + " phone is None")
-            user = User.query.filter(User.user_id == user_id).order_by(User.id.asc()).first()
+            user = User.query.filter(User.user_id == user_id).first()
             phone = user.mobile
         else:
             phone = str(phone,encoding="utf-8")
-            user = User.query.filter(User.mobile == phone).order_by(User.id.asc()).first()
+            user = User.query.filter(User.mobile == phone).first()
             if user:
                 user_id = user.user_id
-        return verify_sms_code(app,user_id,phone,checkcode)
+        return verify_sms_code(app,user_id,phone,checkcode,False)
 # 验证短信验证码
-def verify_sms_code(app:Flask,user_id,phone:str,chekcode:str)->UserToken:
-    app.logger.info("phone:"+phone+" chekcode:"+chekcode)
-    check_save = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
-    if check_save == None:
-        raise SMS_SEND_EXPIRED
-    check_save_str = str(check_save,encoding="utf-8") 
-    if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
-        raise SMS_CHECK_ERROR
-    else:
-        user_info = User.query.filter(User.mobile==phone).order_by(User.id.asc()).first()
-        if not user_info:
-            user_info = User.query.filter(User.user_id==user_id).order_by(User.id.asc()).first()
-
-        if user_info is None:
-            user_id = str(uuid.uuid4()).replace('-', '')
-            user_info = User(user_id=user_id, username="", name="", email="", mobile=phone)
-            user_info.user_state = USER_STATE_REGISTERED
-            user_info.mobile = phone
-            db.session.add(user_info)
-        user_id = user_info.user_id
-        token = generate_token(app,user_id=user_id)
-        db.session.flush()
-        return UserToken(UserInfo(user_id=user_info.user_id, username=user_info.username, name=user_info.name, email=user_info.email, mobile=user_info.mobile,model=user_info.default_model,user_state=user_info.user_state),token)
-
-def get_content_type(filename):
-    extension = filename.rsplit('.', 1)[1].lower()
-    if extension in ['jpg', 'jpeg']:
-        return 'image/jpeg'
-    elif extension == 'png':
-        return 'image/png'
-    elif extension == 'gif':
-        return 'image/gif'
-    raise FILE_TYPE_NOT_SUPPORT
-
-def upload_user_avatar(app:Flask,user_id:str,avatar)->str:
+def verify_sms_code(app:Flask,user_id,phone:str,chekcode:str,updateToken=True)->UserToken:
     with app.app_context():
-        user = User.query.filter(User.user_id==user_id).first()
-        if user:
-            # 上传头像
-            file_id = str(uuid.uuid4()).replace('-', '')
-            # 得到原有的头像文件名
-            old_avatar = user.user_avatar
-            # 得到原有的头像文件名
-            if old_avatar:
-                old_file_id = old_avatar.split('/')[-1]
-                bucket.delete_object(old_file_id)    
-            app.logger.info("filename:"+avatar.filename+" file_size:"+str(avatar.content_length) )
-            bucket.put_object(file_id, avatar,headers={'Content-Type': get_content_type(avatar.filename)})
-            url =  base + '/' + file_id
-            user.user_avatar = url
+        app.logger.info("phone:"+phone+" chekcode:"+chekcode)
+        check_save = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
+        if check_save == None:
+            raise SMS_SEND_EXPIRED
+        check_save_str = str(check_save,encoding="utf-8") 
+        if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
+            raise SMS_CHECK_ERROR
+        else:
+            if user_id:
+                user_info = User.query.filter_by(user_id=user_id).first()
+                user_info.mobile = phone
+                user_info.user_state = USER_STATE_REGISTERED 
+            else:
+                user_info = User.query.filter_by(mobile=phone).first()
+            if user_info is None:
+                user_id = str(uuid.uuid4()).replace('-', '')
+                user_info = User(user_id=user_id, username="", name="", email="", mobile=phone,default_model=app.config["OPENAI_DEFAULT_MODEL"])
+                user_info.user_state = USER_STATE_REGISTERED
+                db.session.add(user_info)
+            if updateToken:
+                token = generate_token(app,user_id=user_info.user_id)
+            else:
+                token = ""
             db.session.commit()
-            return url
+            return UserToken(UserInfo(user_id=user_info.user_id, username=user_info.username, name=user_info.name, email=user_info.email, mobile=user_info.mobile,model=user_info.default_model,user_state=user_info.user_state),token)

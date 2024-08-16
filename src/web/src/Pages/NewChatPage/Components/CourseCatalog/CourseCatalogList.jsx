@@ -1,7 +1,6 @@
 // 课程目录
-import { memo } from 'react';
-import CourseCatalog from './CourseCatalog.jsx';
-import styles from './CourseCatalogList.module.scss';
+import CourseCatalog from "./CourseCatalog.jsx";
+import styles from "./CourseCatalogList.module.scss";
 
 export const CourseCatalogList = ({
   catalogs = [],
@@ -9,7 +8,6 @@ export const CourseCatalogList = ({
   lessonCount = 0,
   onChapterCollapse = ({ id }) => {},
   onLessonSelect = ({ id }) => {},
-  onTryLessonSelect = ({ chapterId, lessonId}) => {},
 }) => {
   return (
     <div className={styles.courseCatalogList}>
@@ -17,7 +15,7 @@ export const CourseCatalogList = ({
         <div className={styles.titleArea}>
           <img
             className={styles.icon}
-            src={require('@Assets/newchat/light/icon16-course-list.png')}
+            src={require("@Assets/newchat/light/icon16-course-list.png")}
             alt="课程列表"
           />
           <div className={styles.titleName}>课程列表</div>
@@ -37,7 +35,6 @@ export const CourseCatalogList = ({
               collapse={catalog.collapse}
               onCollapse={onChapterCollapse}
               onLessonSelect={onLessonSelect}
-              onTrySelect={onTryLessonSelect}
             />
           );
         })}
@@ -46,4 +43,4 @@ export const CourseCatalogList = ({
   );
 };
 
-export default memo(CourseCatalogList);
+export default CourseCatalogList;

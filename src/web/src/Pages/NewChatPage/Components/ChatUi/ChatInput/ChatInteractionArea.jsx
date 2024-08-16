@@ -6,9 +6,9 @@ import styles from './ChatInteractionArea.module.scss';
 import ChatInputText from './ChatInputText.jsx';
 import ChatButtonGroup from './ChatButtonGroup.jsx';
 import ChatInputButton from './ChatInputButton.jsx';
-import { INTERACTION_TYPE, INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
+import { INTERACTION_TYPE, INTERACTION_DISPLAY_TYPE } from '@constants/courseConstants.js';
 import classNames from 'classnames';
-import { memo } from 'react';
+import { useState } from 'react';
 
 const INTERACTION_DISPLAY_MAP = {
   [INTERACTION_TYPE.CONTINUE]: INTERACTION_DISPLAY_TYPE.BUTTON,
@@ -70,4 +70,4 @@ export const ChatInteractionArea = ({
   );
 };
 
-export default memo(ChatInteractionArea);
+export default ChatInteractionArea;

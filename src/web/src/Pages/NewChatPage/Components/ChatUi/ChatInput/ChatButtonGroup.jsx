@@ -1,7 +1,6 @@
 import MainButton from "Components/MainButton.jsx";
 import styles from './ChatButtonGroup.module.scss';
-import { INTERACTION_OUTPUT_TYPE } from 'constants/courseConstants.js';
-import { memo } from "react";
+import { INTERACTION_OUTPUT_TYPE } from '@constants/courseConstants.js';
 
 
 /**
@@ -28,4 +27,4 @@ export const ChatButtonGroup = ({ type, props = [], onClick = (val) => {}, disab
   );
 }
 
-export default memo(ChatButtonGroup);
+export default ChatButtonGroup;

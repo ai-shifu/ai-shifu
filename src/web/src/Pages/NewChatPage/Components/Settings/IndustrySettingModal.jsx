@@ -1,7 +1,6 @@
 import SettingBaseModal from "./SettingBaseModal.jsx";
 import { Form, Input } from "antd";
 import styles from "./IndustrySettingModal.module.scss";
-import { memo } from "react";
 
 export const IndustrySettingModal = ({
   open,
@@ -45,4 +44,4 @@ export const IndustrySettingModal = ({
   );
 };
 
-export default memo(IndustrySettingModal);
+export default IndustrySettingModal;

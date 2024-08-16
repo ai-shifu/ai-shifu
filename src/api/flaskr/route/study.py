@@ -56,13 +56,7 @@ def register_study_handler(app:Flask,path_prefix:str)->Flask:
         if course_id =="" or course_id is None:
             course_id = 'dfca19aab2654fe4882e002a58567240' 
         user_id = request.user.user_id
-
-        try: 
-            return Response(run_script(app,course_id=course_id,lesson_id=lesson_id,user_id=user_id,input=input,input_type=input_type,script_id = script_id), headers={'Cache-Control': 'no-cache'}, mimetype="text/event-stream")
-        except Exception as e:
-            app.logger.error(e)
-            # return make_common_response("系统错误")
-    # ensure the instance folder exists
+        return Response(run_script(app,course_id=course_id,lesson_id=lesson_id,user_id=user_id,input=input,input_type=input_type,script_id = script_id), mimetype="text/event-stream")
    
 
     @app.route(path_prefix+'/get_lesson_tree', methods=['GET'])

@@ -12,7 +12,7 @@ from sqlalchemy import func
 
 from flaskr.api.llm import invoke_llm
 from flaskr.service.common.models import AppException
-from flaskr.service.profile.funcs import save_user_profiles, get_user_profile_labels,update_user_profile_with_lable
+from flaskr.service.profile.funcs import save_user_profiles
 from flaskr.service.study.utils import extract_json, generation_attend, get_fmt_prompt
 from flaskr.service.user.funs import verify_sms_code_without_phone
 
@@ -23,22 +23,10 @@ from ...service.study.const import INPUT_TYPE_LOGIN, ROLE_STUDENT, ROLE_TEACHER
 from ...dao import db
 from .utils import *
 
- 
-
 
 class BreakException(Exception):
     pass
 
-UI_HANDLE_MAP = {
-}
-def register_input_handler(input_type:str):
-    def decorator(func):
-        print(f"register_input_handler {input_type} ==> {func.__name__}")
-        UI_HANDLE_MAP[input_type] = func
-        return func
-    return decorator
-   
-@register_input_handler(input_type=INPUT_TYPE_TEXT)
 def handle_input_text(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
     prompt = get_fmt_prompt(app,user_id,script_info.script_check_prompt,input,script_info.script_profile)
     ## todo 换成通用的
@@ -69,8 +57,11 @@ def handle_input_text(app:Flask,user_id:str,attend:AICourseLessonAttend,script_i
         for key in profile_tosave:
             yield make_script_dto("profile_update",{"key":key,"value":profile_tosave[key]},script_info.script_id)
             time.sleep(0.01)
+        # input = None
+        # next = True
+        # input_type = None 
         span.end()
-        db.session.flush()
+        db.session.commit() 
         
     else:
         reason = jsonObj.get("reason",response_text)
@@ -85,12 +76,11 @@ def handle_input_text(app:Flask,user_id:str,attend:AICourseLessonAttend,script_i
         span.end(output=response_text)
         trace_args ["output"] = trace_args["output"]+"\r\n"+response_text
         trace.update(**trace_args)
-        db.session.flush()
+        db.session.commit()
         yield make_script_dto("input",script_info.script_ui_content,script_info.script_id) 
         raise BreakException
 
 
-@register_input_handler(input_type=INPUT_TYPE_CONTINUE)
 def handle_input_continue(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
     log_script = generation_attend(app,attend,script_info)
     log_script.script_content = "继续"
@@ -129,9 +119,8 @@ def handle_input_continue(app:Flask,user_id:str,attend:AICourseLessonAttend,scri
                             attend_info = next_attend
                             app.logger.info("branch jump")
 
-    db.session.flush()
+    db.session.commit()
 
-@register_input_handler(input_type=INPUT_TYPE_SELECT)
 def handle_input_select(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
     profile_keys = get_profile_array(script_info.script_ui_profile)
     profile_tosave = {}
@@ -146,16 +135,20 @@ def handle_input_select(app:Flask,user_id:str,attend:AICourseLessonAttend,script
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
     db.session.add(log_script)
+    # input = None
+    # next = True
+    # input_type = None
     span = trace.span(name="user_select",input=input)
     span.end()
-    db.session.flush()
-
-@register_input_handler(input_type=INPUT_TYPE_PHONE)  
+    db.session.commit()
+    
 def handle_input_phone(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
     log_script = generation_attend(app,attend,script_info)
     log_script.script_content = input
-    log_script.script_role = ROLE_STUDENT # type: ignore
+    log_script.script_role = ROLE_STUDENT
     db.session.add(log_script)
+    # input = None
+    input_type =  None 
     span = trace.span(name="user_input_phone",input=input)
     response_text ="请输入正确的手机号" 
     if not check_phone_number(app,user_id,input):
@@ -163,30 +156,26 @@ def handle_input_phone(app:Flask,user_id:str,attend:AICourseLessonAttend,script_
             yield make_script_dto("text",i,script_info.script_id)
             time.sleep(0.01)
         yield make_script_dto("text_end","",script_info.script_id)
-        yield make_script_dto(INPUT_TYPE_PHONE,script_info.script_ui_content,script_info.script_id) 
+        yield make_script_dto(UI_TYPE_PHONE,script_info.script_ui_content,script_info.script_id) 
         log_script = generation_attend(app,attend,script_info)
         log_script.script_content = response_text
         log_script.script_role = ROLE_TEACHER
         db.session.add(log_script)
         span.end(output=response_text)
-        db.session.flush()
+        # span.end()
+        db.session.commit()
         raise BreakException
     span.end()
-@register_input_handler(input_type=INPUT_TYPE_CHECKCODE)
+
 def handle_input_checkcode(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
     try:
-        origin_user_id = user_id
         ret = verify_sms_code_without_phone(app,user_id,input)
-        verify_user_id = ret.userInfo.user_id
-        if origin_user_id != verify_user_id:
-            app.logger.info(f"origin_user_id:{origin_user_id},verify_user_id:{verify_user_id} copy profile")
-            new_profiles = get_user_profile_labels(app,origin_user_id)
-            update_user_profile_with_lable(app,verify_user_id,new_profiles)
         yield make_script_dto("profile_update",{"key":"phone","value":ret.userInfo.mobile},script_info.script_id)
-        yield make_script_dto("user_login",{"phone":ret.userInfo.mobile,"user_id":ret.userInfo.user_id,"token":ret.token},script_info.script_id)
+        yield make_script_dto("user_login",{"phone":ret.userInfo.mobile,"user_id":ret.userInfo.user_id},script_info.script_id)
         input = None
         span = trace.span(name="user_input_phone",input=input)
         span.end()
+        
     except AppException as e:
         for i in e.message:
             yield make_script_dto("text",i,script_info.script_id)
@@ -198,14 +187,24 @@ def handle_input_checkcode(app:Flask,user_id:str,attend:AICourseLessonAttend,scr
         log_script.script_role = ROLE_TEACHER
         db.session.add(log_script)
         raise BreakException
-@register_input_handler(input_type=INPUT_TYPE_LOGIN)
+
 def handle_input_login(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
-    #todo
     yield make_script_dto(INPUT_TYPE_LOGIN,{"phone":ret.userInfo.mobile,"user_id":ret.userInfo.user_id},script_info.script_id)
-@register_input_handler(input_type=INPUT_TYPE_START)
+
 def handle_input_start(app:Flask,user_id:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args):
+    # yield make_script_dto("text","",script_info.script_id)
     return None
 
+UI_HANDLE_MAP = {
+   INPUT_TYPE_START:handle_input_start,
+    INPUT_TYPE_TEXT:handle_input_text,
+    INPUT_TYPE_CONTINUE:handle_input_continue,
+    INPUT_TYPE_SELECT:handle_input_select,
+    INPUT_TYPE_PHONE:handle_input_phone,
+    INPUT_TYPE_CHECKCODE:handle_input_checkcode,
+    INPUT_TYPE_LOGIN:handle_input_login,
+    # INPUT_TYPE_TO_PAY:handle_input_to_pay, 
+}
 
 def handle_input(app:Flask,user_id:str,input_type:str,attend:AICourseLessonAttend,script_info:AILessonScript,input:str,trace:Trace,trace_args
 ):

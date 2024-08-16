@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { getLessonTree } from 'Api/lesson.js';
+import { getLessonTree } from '@Api/lesson.js';
 import { produce } from 'immer';
-import { LESSON_STATUS } from "constants/courseConstants.js";
-import { useTracking, EVENT_NAMES } from "common/hooks/useTracking.js";
+import { LESSON_STATUS } from "@constants/courseConstants.js";
 
 export const checkChapterCanLearning = ({ status }) => {
   return status === LESSON_STATUS.LEARNING || status === LESSON_STATUS.COMPLETED || status === LESSON_STATUS.PREPARE_LEARNING;
@@ -45,7 +44,6 @@ export const initialSelectedChapter = (tree) => {
 }
 
 export const useLessonTree = () => {
-  const { trackEvent } = useTracking();
   const [tree, setTree] = useState(null);
 
   const loadTreeInner = async () => {
@@ -255,35 +253,6 @@ export const useLessonTree = () => {
     return chapter;
   }
 
-  const onTryLessonSelect = ({ lessonId }) => {
-    if (!tree) {
-      return
-    }
-
-    let from = '';
-    let to = '';
-
-    for (let catalog of tree.catalogs) {
-      const lesson = catalog.lessons.find(v => v.selected === true);
-
-      if (lesson) {
-        from = `${catalog.name}|${lesson.name}`;
-      }
-
-      const toLesson = catalog.lessons.find(v => v.id === lessonId);
-      if (toLesson) {
-        to = `${catalog.name}|${toLesson.name}`;
-      }
-    }
-
-    const eventData = {
-      from,
-      to,
-    }
-
-    trackEvent(EVENT_NAMES.NAV_SECTION_SWITCH, eventData);
-  }
-
 
   return {
     tree,
@@ -297,6 +266,5 @@ export const useLessonTree = () => {
     updateChapter,
     getCurrElementStatic,
     getChapterByLesson,
-    onTryLessonSelect,
   }
 }

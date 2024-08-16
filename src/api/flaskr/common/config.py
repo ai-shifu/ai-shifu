@@ -13,10 +13,9 @@ from flaskr.service.common.models import AppException
 
 
 class Config(FlaskConfig):
-    def __init__(self, parent: FlaskConfig,app:Flask, defaults: dict = {}):
+    def __init__(self, parent: FlaskConfig, defaults: dict = {}):
         global __INSTANCE__
         self.parent = parent
-        self.app = app
         __INSTANCE__ = self
     def __getitem__(self, key: Any) -> Any:
         if key in os.environ:
@@ -26,22 +25,20 @@ class Config(FlaskConfig):
         if key in os.environ:
             return os.environ[key]
         return self.parent.__getattr__(key)
-    def __setitem__(self, key: Any, value: Any) -> None:
-        self.app.logger.info("set {}={}".format(key,value))
-        self.parent.__setitem__(key,value)
-        os.environ[key] = str(value)
     def get(self, key: Any, default: Any = None) -> Any:
-        self.app.logger.info("get {}".format(key))
+        print("get attr=======",key)
         if key in os.environ:
             return os.environ[key]
         return self.parent.get(key,default)
     def __call__(self, *args: Any, **kwds: Any) -> Any:
+
         return self.parent.__call__(*args, **kwds)
     def setdefault(self, key: Any, default: Any = None) -> Any:
-        if key in os.environ:
-            return os.environ[key]
         return self.parent.setdefault(key,default)
     
+ 
+
+
 
 
 def get_config(key:str,default:Any=None)->Any:

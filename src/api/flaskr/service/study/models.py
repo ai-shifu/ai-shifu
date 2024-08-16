@@ -15,7 +15,7 @@ class AICourseLessonAttendScript(db.Model):
     user_id = Column(String(36), nullable=False, default='', comment='User UUID')
     script_index = Column(Integer, nullable=False, default=0, comment='Script index')
     script_role = Column(Integer, nullable=False, default=0, comment='Script role')
-    script_content = Column(Text, nullable=False, comment='Script content') 
+    script_content = Column(Text, nullable=False, comment='Script content')
     status = Column(Integer, nullable=False, default=0, comment='Status of the attend')
     created = Column(TIMESTAMP, nullable=False, default=func.now(), comment='Creation time')
     updated = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now(), comment='Update time')

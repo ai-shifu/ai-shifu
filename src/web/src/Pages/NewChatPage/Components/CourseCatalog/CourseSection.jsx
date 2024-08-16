@@ -1,8 +1,6 @@
-import classNames from 'classnames';
-import styles from './CourseSection.module.scss';
-import { LESSON_STATUS } from 'constants/courseConstants.js';
-import { useCallback } from 'react';
-import { memo } from 'react';
+import classNames from "classnames";
+import styles from "./CourseSection.module.scss";
+import { LESSON_STATUS } from "constants/courseConstants.js";
 
 export const CourseSection = ({
   id,
@@ -11,7 +9,6 @@ export const CourseSection = ({
   selected,
   canLearning = false,
   onSelect = ({ id }) => {},
-  onTrySelect= ({ id }) => {},
 }) => {
   const genIconClassName = () => {
     switch (status) {
@@ -21,20 +18,11 @@ export const CourseSection = ({
       case LESSON_STATUS.PREPARE_LEARNING:
       case LESSON_STATUS.LEARNING:
       case LESSON_STATUS.COMPLETED:
-        return '';
+        return "";
       default:
         return styles.small;
     }
   };
-
-  const onSectionClick = useCallback(() => {
-    onTrySelect?.({ id });
-    if (status === LESSON_STATUS.NOT_START || status === LESSON_STATUS.LOCKED) {
-      return;
-    }
-
-    onSelect?.({ id });
-  }, [onTrySelect, id, status, onSelect]);
 
   return (
     <div
@@ -43,7 +31,7 @@ export const CourseSection = ({
         selected && styles.selected,
         canLearning ? styles.available : styles.unavailable
       )}
-      onClick={onSectionClick}
+      onClick={() => onSelect({ id })}
     >
       <div className={classNames(styles.iconWrapper, genIconClassName())}>
         <div className={styles.topLine}></div>
@@ -52,18 +40,17 @@ export const CourseSection = ({
             status === LESSON_STATUS.LOCKED) && (
             <div className={styles.smallIcon}></div>
           )}
-          {(status === LESSON_STATUS.LEARNING ||
-            status === LESSON_STATUS.PREPARE_LEARNING) &&
+          {(status === LESSON_STATUS.LEARNING || status === LESSON_STATUS.PREPARE_LEARNING) &&
             (selected ? (
               <img
                 className={styles.bigIcon}
-                src={require('@Assets/newchat/light/icon16-learning-selected.png')}
+                src={require("@Assets/newchat/light/icon16-learning-selected.png")}
                 alt=""
               />
             ) : (
               <img
                 className={styles.bigIcon}
-                src={require('@Assets/newchat/light/icon16-learning.png')}
+                src={require("@Assets/newchat/light/icon16-learning.png")}
                 alt=""
               />
             ))}
@@ -71,13 +58,13 @@ export const CourseSection = ({
             (selected ? (
               <img
                 className={styles.bigIcon}
-                src={require('@Assets/newchat/light/icon16-learning-completed-selected.png')}
+                src={require("@Assets/newchat/light/icon16-learning-completed-selected.png")}
                 alt=""
               />
             ) : (
               <img
                 className={styles.bigIcon}
-                src={require('@Assets/newchat/light/icon16-learning-completed.png')}
+                src={require("@Assets/newchat/light/icon16-learning-completed.png")}
                 alt=""
               />
             ))}
@@ -86,10 +73,12 @@ export const CourseSection = ({
       </div>
       <div className={styles.textArea}>
         <div className={styles.label}>{status}</div>
-        <div className={styles.courseTitle}>{name}</div>
+        <div className={styles.courseTitle}>
+          {name}
+        </div>
       </div>
     </div>
   );
 };
 
-export default memo(CourseSection);
+export default CourseSection;

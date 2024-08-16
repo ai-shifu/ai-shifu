@@ -136,33 +136,9 @@ export const verifySmsCode = ({ mobile, sms_code }) => {
 }
 
 
-// 获取用户详细信息
 export const getUserProfile = () => {
   return request({
     url: '/api/user/get_profile',
     method: 'get',
   });
-}
-
-// 上传头像
-export const uploadAvatar = ({ avatar }) => {
-  const formData = new FormData();
-  formData.append('avatar', avatar);
-  return request({
-    headers: { 'Content-Type': 'multipart/form-data' },
-    method: 'POST',
-    url: '/api/user/upload_avatar',
-    data: formData,
-  })
-}
-
-// 更新用户详细信息
-export const updateUserProfile = (data) => {
-  return request({
-    url: '/api/user/update_profile',
-    method: 'POST',
-    data: {
-      "profiles": data
-    }
-  })
 }

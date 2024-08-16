@@ -11,6 +11,12 @@
     display: flex;
     flex-flow: row nowrap;
     align-items: center;
+
+    .productName {
+      font-weight: var(--font-weight-bold); 
+      color: var(--font-color-title);
+      margin-left: 10px;
+    }
   }
 
   .actionBtn {
@@ -31,13 +37,12 @@
   &.collapse {
     padding: 22px 0;
     width: 60px;
-    flex-flow: column nowrap;
+    flex-flow: column-reverse nowrap;
 
     .actionBtn {
       .icon {
         transform: rotate(0deg);
       }
-      margin-bottom: 20px;
     }
   }
 }
