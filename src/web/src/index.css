@@ -24,6 +24,7 @@ body {
   --font-size-5: 12px;
   --font-weight-5-1: 400;
   --font-weight-5-2: 500;
+  --font-size-20: 42px;
 
   --font-size-main: 14px;
   --font-weight-main: 400;
@@ -42,6 +43,7 @@ body {
   --color-7: #38547d;
   --color-8: #9ba9be;
   --color-9: #cdd4df;
+  --color-20: #8C4B1D;
 
 
   /* 状态颜色 */

@@ -1,10 +1,10 @@
 import { Avatar } from 'antd';
-import PopupModal from '@Components/PopupModal';
+import PopupModal from 'Components/PopupModal';
 import styles from './SettingModal.module.scss';
 import classNames from 'classnames';
-import { useUserStore } from '@stores/useUserStore.js';
+import { useUserStore } from 'stores/useUserStore.js';
 import { Modal } from 'antd';
-import { useState } from 'react';
+import { memo } from 'react';
 
 export const SettingModal = ({
   open,
@@ -52,7 +52,7 @@ export const SettingModal = ({
             <div className={styles.loginLeft}>
               <Avatar src={avatar} size={20} />
               <div className={styles.userName}>
-                {hasLogin ? userInfo?.name || '' : '未登录'}
+                {hasLogin ? userInfo?.name || '默认名称' : '未登录'}
               </div>
             </div>
             <img className={styles.rowIcon} src={require('@Assets/newchat/light/icon16-edit.png')} alt="" />
@@ -85,4 +85,4 @@ export const SettingModal = ({
   );
 };
 
-export default SettingModal;
+export default memo(SettingModal);

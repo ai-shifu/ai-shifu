@@ -25,10 +25,12 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 # 复制当前目录内容到容器的/app内
-COPY . .
+COPY app.py app.py
+COPY flaskr flaskr
+COPY migrations migrations
+
 
 # 声明服务运行在5800端口
 EXPOSE 5800
-
 # 启动flask服务
-CMD gunicorn -w 4 -b 0.0.0.0:5800 "flaskr:create_app()" --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output
+CMD gunicorn -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output

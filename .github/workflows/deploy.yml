@@ -24,4 +24,5 @@ jobs:
             cd /item/cd ai-shifu
             git checkout develop
             git pull
-            bash /item/ai-shifu/scripts/deploy-develop/deploy-sifu-api-test.sh
+            bash /item/ai-shifu/scripts/deploy-develop/deploy-shifu-api-test.sh
+            bash /item/ai-shifu/scripts/deploy-develop/deploy-shifu-web-test.sh

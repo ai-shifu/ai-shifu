@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router-dom";
-import {authRoutes} from "../../Router/index";
 import { Menu } from "antd";
 
 /**
@@ -8,8 +7,7 @@ import { Menu } from "antd";
  * @return {*} 
  */
 const generateMenuItemlist = () => {
-    const menuItemList = authRoutes.map(({ title, path, icon }) => ({ title, key:path, label:title, icon }));
-    return menuItemList;
+  return []
 }
 
 

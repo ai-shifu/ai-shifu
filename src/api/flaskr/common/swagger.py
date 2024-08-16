@@ -6,10 +6,15 @@ import inspect
 swagger_config = {
     "openapi": "3.0.2",
     "info": {
-        "title": "枕头编程-API 文档",
+        "title": "哎！师傅-API 文档",
         "version": "1.0.0"
     },
     'optional_fields': ['components'],
+    
+
+    'tags': [
+        '用户','课程','订单','支付'
+        ],
     "components": {
         "schemas": {
         }

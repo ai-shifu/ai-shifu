@@ -6,7 +6,7 @@ import openai
 from typing import Generator
 from flask import Flask, typing
 
-from flaskr.service.study.const import INPUT_TYPE_BRANCH, INPUT_TYPE_CHECKCODE, INPUT_TYPE_CONTINUE, INPUT_TYPE_LOGIN, INPUT_TYPE_PHONE, INPUT_TYPE_SELECT, ROLE_VALUES
+from flaskr.service.study.const import INPUT_TYPE_BRANCH, INPUT_TYPE_CHECKCODE, INPUT_TYPE_CONTINUE, INPUT_TYPE_LOGIN, INPUT_TYPE_PHONE, INPUT_TYPE_SELECT, ROLE_TEACHER, ROLE_VALUES
 from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO
 from ...service.user.models import User
 from ...service.common  import AppException
@@ -73,7 +73,6 @@ def get_lesson_tree_to_study(app:Flask,user_id:str,course_id:str)->AICourseDTO:
 
 def get_study_record(app:Flask,user_id:str,lesson_id:str)->StudyRecordDTO:
     with app.app_context():
-
         lesson_info = AILesson.query.filter_by(lesson_id=lesson_id).first()
         lesson_ids = [lesson_id]
         if not lesson_info:
@@ -88,10 +87,9 @@ def get_study_record(app:Flask,user_id:str,lesson_id:str)->StudyRecordDTO:
             return None
         attend_ids = [attend_info.attend_id for attend_info in attend_infos]
         app.logger.info("attend_ids:{}".format(attend_ids))
-        attend_scripts = AICourseLessonAttendScript.query.filter(AICourseLessonAttendScript.attend_id.in_(attend_ids)).order_by(AICourseLessonAttendScript.id).all()
+        attend_scripts = AICourseLessonAttendScript.query.filter(AICourseLessonAttendScript.attend_id.in_(attend_ids)).order_by(AICourseLessonAttendScript.id.asc()).all()
         app.logger.info("attend_scripts:{}".format(len(attend_scripts)))
         index = len(attend_scripts)-1
-       
         if len(attend_scripts) == 0:
             return StudyRecordDTO(None)
         lesson_id = attend_scripts[-1].lesson_id
@@ -101,12 +99,19 @@ def get_study_record(app:Flask,user_id:str,lesson_id:str)->StudyRecordDTO:
         items =  [StudyRecordItemDTO(i.script_index,ROLE_VALUES[i.script_role],0,i.script_content,i.lesson_id if i.lesson_id in lesson_ids else lesson_id,i.id) for i in attend_scripts]
         ret = StudyRecordDTO(items)
         last_script_id = attend_scripts[-1].script_id
-       
-
-
         last_script = AILessonScript.query.filter_by(script_id=last_script_id).first()
-        app.logger.info("last_script:{}".format(last_script)) 
-        if last_script.script_ui_type == UI_TYPE_INPUT:
+        app.logger.info("last_script: id:{},type:{},ui_type:{}" .format(last_script_id,last_script.script_type,last_script.script_ui_type))
+        last_lesson_id = last_script.lesson_id
+        last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
+        if len(last_attends) == 0:
+            app.logger.info("last_attends is empty")
+            return ret
+        last_attend = last_attends[-1]
+        last_attend_script=attend_scripts[-1]
+        if last_attend.status == ATTEND_STATUS_COMPLETED :
+            app.logger.info("last_attend is completed")
+            # return ret
+        if last_script.script_ui_type == UI_TYPE_INPUT and last_attend_script.script_role ==ROLE_TEACHER:
             ret.ui = StudyUIDTO("input",last_script.script_ui_content,lesson_id)
         elif last_script.script_ui_type == UI_TYPE_BUTTON:
             btn = [{
@@ -133,13 +138,12 @@ def get_study_record(app:Flask,user_id:str,lesson_id:str)->StudyRecordDTO:
         elif last_script.script_ui_type == UI_TYPE_LOGIN:
             ret.ui = StudyUIDTO(INPUT_TYPE_LOGIN,last_script.script_ui_content,lesson_id)
         elif last_script.script_ui_type == UI_TYPE_TO_PAY:
-            order =  init_buy_record(app,user_id,lesson_info.course_id,999)
+            order =  init_buy_record(app,user_id,lesson_info.course_id)
             btn = [{
                         "label":last_script.script_ui_content,
-                        "value":order.record_id
+                        "value":order.order_id
                     }]
             ret.ui = StudyUIDTO("order",{"title":"买课！","buttons":btn},lesson_id)
-            # ret.ui = StudyUIDTO("buttons",{"title":"继续","buttons":[{"label":"继续","value":"继续"}]},last_script.lesson_id)
         
         return ret
 # 重置用户信息
@@ -149,7 +153,6 @@ def reset_user_study_info(app:Flask,user_id:str):
         db.session.execute(text("delete from ai_course_buy_record where user_id = :user_id"),{"user_id":user_id})
         db.session.execute(text("delete from ai_course_lesson_attend where user_id = :user_id"),{"user_id":user_id})
         db.session.execute(text("delete from ai_course_lesson_attendscript where user_id = :user_id"),{"user_id":user_id})
-        db.session.execute(text("delete from ai_course_lesson_generation where user_id = :user_id"),{"user_id":user_id})
         db.session.execute(text("delete from user_profile where user_id = :user_id"),{"user_id":user_id})
         db.session.commit()
         return True

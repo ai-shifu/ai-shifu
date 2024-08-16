@@ -10,9 +10,9 @@ from openai.types.chat import ChatCompletionStreamOptionsParam
 from openai.types.chat.completion_create_params import ResponseFormat
 
 
+from flaskr.common.config import get_config
 
-client = openai.Client(api_key="sk-proj-TsOFXPGAkp6GZKt1AUinT3BlbkFJiFiJO0hAu7om7TOl4RRY",base_url="https://openai-api.kattgatt.com/v1") 
-
+client = openai.Client(api_key=get_config("OPENAI_API_KEY"),base_url=get_config("OPENAI_BASE_URL"))
 
 try:
     OPENAI_MODELS = [i.id for i in client.models.list().data if i.id.startswith("gpt")]

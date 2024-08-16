@@ -1,0 +1,11 @@
+.couponCodeModal {
+  .payModalContent {
+    display: flex;
+
+    .paySection {
+      display: flex;
+      flex-flow: column nowrap;
+      align-items: center;
+    }
+  }
+}

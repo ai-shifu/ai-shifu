@@ -3,46 +3,61 @@ import classNames from 'classnames';
 import styles from './ChangeAvatar.module.scss';
 import { Avatar } from 'antd';
 import AvatarSettingModal from './AvatarSettingModal.jsx';
-import { convertFileToDataUrl } from '@Utils/imgUtils';
+import { convertFileToDataUrl } from 'Utils/imgUtils';
+import { memo } from 'react';
+import { useCallback } from 'react';
+import { uploadAvatar } from 'Api/user.js';
 import { useEffect } from 'react';
 
 export const ChangeAvatar = ({
   className,
   image,
-  onChange = ({dataUrl}) => {},
+  onChange = ({ dataUrl }) => {},
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const uploadRef = useRef(null);
   const [img, setImg] = useState(image);
   const [uploadImage, setUploadedImage] = useState(null);
 
+  useEffect(() => {
+    console.log('setImg', image);
+    setImg(image);
+  }, [image])
   const onAvatarClick = () => {
     uploadRef.current.click();
-
-  }; 
-
-  const onAvatarSettingModalOk = async ({ img }) => {
-    onChange?.({ dataUrl: img });
-    setImg(img);
-    setModalOpen(false);
   };
 
-  const onAvatarUploadChange = async (e) => {
+  const onAvatarSettingModalOk = useCallback(
+    async ({ img }) => {
+      const { data: imgUrl } = await uploadAvatar({ avatar: img });
+      onChange?.({ dataUrl: imgUrl });
+      setImg(imgUrl);
+      setModalOpen(false);
+    },
+    [onChange]
+  );
+
+  const onAvatarUploadChange = useCallback(async (e) => {
     if (e.target.files.length === 0) {
       return;
     }
 
     const file = e.target.files[0];
-    setUploadedImage(await convertFileToDataUrl(file))
+    setUploadedImage(await convertFileToDataUrl(file));
     setModalOpen(true);
-  };
+  }, []);
+
+  const onAvatarSettingModalClose = useCallback(() => {
+    setModalOpen(false);
+  }, []);
+
   return (
     <>
-      {(uploadImage && modalOpen) && (
+      {uploadImage && modalOpen && (
         <AvatarSettingModal
           image={uploadImage}
           open={modalOpen}
-          onClose={() => setModalOpen(false)}
+          onClose={onAvatarSettingModalClose}
           onOk={onAvatarSettingModalOk}
         />
       )}
@@ -66,4 +81,4 @@ export const ChangeAvatar = ({
   );
 };
 
-export default ChangeAvatar;
+export default memo(ChangeAvatar);

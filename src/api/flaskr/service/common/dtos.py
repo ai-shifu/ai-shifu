@@ -59,3 +59,25 @@ class UserToken:
             "token": self.token,
         }
 
+
+
+
+
+
+
+@register_schema_to_swagger
+class PageNationDTO:
+    def __init__(self,page:int,page_size:int,total:int,data) -> None:
+        self.page = page
+        self.page_size = page_size
+        self.total = total
+        self.page_count = total//page_size + 1
+        self.data = data
+    def __json__(self):
+        return {
+            "page": self.page,
+            "page_size": self.page_size,
+            "total": self.total,
+            "page_count":self.page_count,
+            "items":self.data
+        }

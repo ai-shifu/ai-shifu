@@ -3,22 +3,23 @@ import { useParams, useNavigate } from 'react-router-dom';
 import classNames from 'classnames';
 import styles from './NewChatPage.module.scss';
 import { Skeleton } from 'antd';
-import { calcFrameLayout } from '@constants/uiConstants.js';
-import { useUiLayoutStore } from '@stores/useUiLayoutStore.js';
-import { useUserStore } from '@stores/useUserStore.js';
-import { AppContext } from '@Components/AppContext.js';
+import { calcFrameLayout } from 'constants/uiConstants.js';
+import { useUiLayoutStore } from 'stores/useUiLayoutStore.js';
+import { useUserStore } from 'stores/useUserStore.js';
+import { AppContext } from 'Components/AppContext.js';
 import NavDrawer from './Components/NavDrawer/NavDrawer.jsx';
 import ChatUi from './Components/ChatUi/ChatUi.jsx';
 import LoginModal from './Components/Login/LoginModal.jsx';
 import { useLessonTree } from './hooks/useLessonTree.js';
-import { useCourseStore } from '@stores/useCourseStore';
+import { useCourseStore } from 'stores/useCourseStore';
+import TrackingVisit from 'Components/TrackingVisit.jsx';
 
 // 课程学习主页面
 const NewChatPage = (props) => {
-  const {frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
+  const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const {hasLogin, userInfo, checkLogin} = useUserStore((state) => state);
+  const { hasLogin, userInfo, checkLogin } = useUserStore((state) => state);
   const {
     tree,
     loadTree,
@@ -29,9 +30,10 @@ const NewChatPage = (props) => {
     getCurrElementStatic,
     updateChapter,
     getChapterByLesson,
+    onTryLessonSelect,
   } = useLessonTree();
   const { cid } = useParams();
-  const [ currChapterId, setCurrChapterId] = useState(null);
+  const [currChapterId, setCurrChapterId] = useState(null);
   const { lessonId, changeCurrLesson } = useCourseStore((state) => state);
   const [showUserSettings, setShowUserSettings] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -46,7 +48,6 @@ const NewChatPage = (props) => {
     };
     window.addEventListener('resize', onResize);
     onResize();
-
     return () => {
       window.removeEventListener('resize', onResize);
     };
@@ -57,25 +58,26 @@ const NewChatPage = (props) => {
   };
 
   useEffect(() => {
-    (async () => {
-      await checkLogin();
-      setInitialized(true);
-    })();
+    if (!initialized) {
+      (async () => {
+        await checkLogin();
+        setInitialized(true);
+      })();
+    }
   }, []);
-
 
   // 定位当前课程位置
   useEffect(() => {
     if (!initialized) {
-      return
+      return;
     }
     (async () => {
       let nextTree;
       if (!tree) {
-        setLoading(true)
+        setLoading(true);
         nextTree = await loadTree(cid, lessonId);
       } else {
-        setLoading(true)
+        setLoading(true);
         nextTree = await reloadTree(cid, lessonId);
       }
 
@@ -98,7 +100,7 @@ const NewChatPage = (props) => {
         }
 
         if (data.catalog) {
-          navigate(`/newchat/${data.catalog.id}`)
+          navigate(`/newchat/${data.catalog.id}`);
         }
       }
     })();
@@ -123,13 +125,13 @@ const NewChatPage = (props) => {
 
   const onPurchased = () => {
     reloadTree();
-  }
+  };
 
   const onGoToSetting = () => {
     setShowUserSettings(true);
-  }
+  };
 
-  const onLessonSelect = ({id}) => {
+  const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
     if (!chapter) {
       return;
@@ -138,10 +140,10 @@ const NewChatPage = (props) => {
     changeCurrLesson(id);
     setTimeout(() => {
       if (chapter.id !== currChapterId) {
-        navigate(`/newchat/${chapter.id}`)
+        navigate(`/newchat/${chapter.id}`);
       }
-    }, 0)
-  }
+    }, 0);
+  };
 
   return (
     <div className={classNames(styles.newChatPage)}>
@@ -160,6 +162,7 @@ const NewChatPage = (props) => {
             onChapterCollapse={toggleCollapse}
             onLessonSelect={onLessonSelect}
             onGoToSetting={onGoToSetting}
+            onTryLessonSelect={onTryLessonSelect}
           />
           {
             <ChatUi
@@ -179,6 +182,7 @@ const NewChatPage = (props) => {
             destroyOnClose={true}
           />
         )}
+        {initialized && <TrackingVisit />}
       </AppContext.Provider>
     </div>
   );

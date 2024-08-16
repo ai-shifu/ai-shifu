@@ -1,4 +1,5 @@
-import PopupModal from '@Components/PopupModal';
+import PopupModal from 'Components/PopupModal';
+import { memo } from 'react';
 
 export const ThemeWindow = ({ open, onClose, style, className }) => {
   return (
@@ -23,4 +24,4 @@ export const ThemeWindow = ({ open, onClose, style, className }) => {
   );
 };
 
-export default ThemeWindow;
+export default memo(ThemeWindow);

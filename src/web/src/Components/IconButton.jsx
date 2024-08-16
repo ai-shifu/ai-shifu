@@ -35,12 +35,12 @@ export const IconButton = ({
     };
 
     const elem = topRef.current;
-    if (elem) {
-      elem.addEventListener('mouseenter', onMouseEnter);
-      elem.addEventListener('mouseleave', onMouseLeave);
-      elem.addEventListener('mousedown', onMouseDown);
-      elem.addEventListener('mouseup', onMouseUp);
-    }
+    // if (elem) {
+    //   elem.addEventListener('mouseenter', onMouseEnter);
+    //   elem.addEventListener('mouseleave', onMouseLeave);
+    //   elem.addEventListener('mousedown', onMouseDown);
+    //   elem.addEventListener('mouseup', onMouseUp);
+    // }
 
     return () => {
       elem.removeEventListener('mouseenter', onMouseEnter);

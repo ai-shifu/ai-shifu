@@ -67,6 +67,12 @@ if login():
 
     if not st.session_state.has_started:
         courses = get_courses_by_user_from_sqlite(st.session_state["username"])
+        if not courses:
+            st.warning(' 暂无课程，请前往我的账户新建课程。  ⬇️ ⬇️ ⬇️', icon='⚠️')
+            if st.button('前往我的账户', type='primary', use_container_width=True):
+                st.switch_page("pages/100_My_Account.py")
+            st.stop()
+
 
         col1, col2, col3 = st.columns([2, 2, 1])
         with col1:
@@ -82,7 +88,11 @@ if login():
                     table.name for table in tables if not table.name.startswith('字典-')))
 
             with col3:
+<<<<<<< HEAD
                 select_progress = st.number_input('开始位置:', value=2, min_value=1, step=1)
+=======
+                st.session_state.select_progress = st.number_input('开始位置:', value=2, min_value=1, step=1)
+>>>>>>> fcc7d9e (fix wrong branch commit)
 
 
         if st.button('启动剧本', type='primary', use_container_width=True):
@@ -99,7 +109,11 @@ if login():
 
             # 加载剧本及系统角色
             load_scripts_and_system_role(st.session_state.lark_app_token, st.session_state.lark_table_id)
+<<<<<<< HEAD
             st.session_state.progress = select_progress - (2 if 'system_role' in st.session_state else 1)
+=======
+
+>>>>>>> fcc7d9e (fix wrong branch commit)
 
             # 获取剧本总长度，并在结束时停止
             if st.session_state.progress >= st.session_state.script_list_len:
