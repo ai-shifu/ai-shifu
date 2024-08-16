@@ -1,6 +1,7 @@
 import { SSE } from "sse.js";
+import Cookies from "js-cookie";
+import store from "store";
 import request from "../Service/Request";
-
 const token = process.env.REACT_APP_TOKEN
 console.log('token',token)
 const url = (process.env.REACT_APP_BASEURL || "") + "/api/study/run";

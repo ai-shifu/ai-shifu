@@ -4,7 +4,7 @@
   padding: 0 10px;
 
   .inputForm {
-    width: 96%;
+    width: 100%;
     display: flex;
     flex-flow: row nowrap;
 
@@ -16,7 +16,7 @@
     .sendIcon {
       position: absolute;
       right: 5px;
-      bottom: 5px;
+      top: 5px;
       width: 30px;
       height: 30px;
       cursor: pointer;
@@ -41,7 +41,7 @@
       font-size: var(--font-size-3);
       padding: 8px 36px 8px 16px;
       color: var(--font-color-main);
-      border-radius: 20px;
+      border-radius: 40px;
     }
   }
 }

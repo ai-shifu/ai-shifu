@@ -1,5 +1,3 @@
-import logging
-
 import streamlit as st
 import streamlit_authenticator as stauth
 
@@ -22,16 +20,21 @@ def get_authenticator():
 
 
 def login():
-    # st.write(st.session_state)
-    # if 'username' not in st.session_state:
-    logging.debug('=== need login')
     authenticator, config = get_authenticator()
 
     # 初始化登录成功欢迎记录
     if 'is_login_welcome' not in st.session_state:
         st.session_state.is_login_welcome = False
 
-    login_result = authenticator.login()
+    login_result = authenticator.login(
+        max_login_attempts=5,
+        fields={
+            'Form name': '管理员登录',
+            'Username': '用户名',
+            'Password': '密码',
+            'Login': '登录'
+        }
+    )
 
     if login_result[1]:
         if not st.session_state.is_login_welcome:
@@ -39,10 +42,7 @@ def login():
             st.session_state.is_login_welcome = True
         return authenticator, config
     else:
-        return False, False
-    # else:
-    #     logging.debug(f'username: {st.session_state.username}')
-    #     return True, True
+        return False
 
 
 

@@ -15,9 +15,36 @@ from models.script import *
 
 _ = load_dotenv(find_dotenv())
 
+
 # 头像配置
 ICON_USER = 'user'
 ICON_SIFU = 'static/sunner_icon.jpg'
+
+
+def fix_sidebar_add_logo(logo_url: str):
+    if validators.url(logo_url) is True:
+        logo = f"url({logo_url})"
+    else:
+        logo = f"url(data:image/png;base64,{base64.b64encode(Path(logo_url).read_bytes()).decode()})"
+
+    st.markdown(
+        f"""
+        <style>
+            [data-testid="stSidebarNav"] {{
+                background-image: {logo};
+                background-repeat: no-repeat;
+                background-size: contain;
+                padding-top: 130px;
+                background-position: 0px 0px;
+            }}
+            [data-testid="stSidebar"] {{
+                max-width: 300px !important;
+                min-width: 300px !important;
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def simulate_streaming(chat_box, template: str, variables=None,
@@ -33,7 +60,7 @@ def simulate_streaming(chat_box, template: str, variables=None,
     """
     if not update:
         chat_box.ai_say(Markdown('', in_expander=False))
-
+        
     if variables:
         # 变量字典
         vars = {}
@@ -41,7 +68,7 @@ def simulate_streaming(chat_box, template: str, variables=None,
             vars[v] = st.session_state[v]
         prompt_template = PromptTemplate(input_variables=list(vars.keys()), template=template)
         template = prompt_template.format(**vars)
-
+        
     current_text = ''
     for t in template:
         current_text += t
@@ -53,7 +80,7 @@ def simulate_streaming(chat_box, template: str, variables=None,
     return current_text
 
 
-def streaming_from_template(chat_box, template, variables,
+def streaming_from_template(chat_box, template, variables, 
                             input_done_with=None, parse_keys=None, update=False,
                             model=None, temperature=None):
     """
@@ -81,13 +108,13 @@ def streaming_from_template(chat_box, template, variables,
         prompt = prompt.format(**variables)
     else:
         prompt = template
-    logging.debug(f'调用LLM（Human）：\n{prompt}')
+    logging.debug(f'调用LLM（Human）：{prompt}')
     llm_input = [HumanMessage(prompt)]
 
     # 有配置 系统角色 且 不是检查用户输入内容的Prompt时，加入系统角色
     if 'system_role' in st.session_state and parse_keys is None:
         llm_input.append(SystemMessage(st.session_state.system_role))
-        logging.debug(f'调用LLM（System）：\n{st.session_state.system_role}')
+        logging.debug(f'调用LLM（System）：{st.session_state.system_role}')
 
     full_result = ''
     parse_json = ''
@@ -102,23 +129,23 @@ def streaming_from_template(chat_box, template, variables,
             # print(chunk.content, end='', flush=True)
             print(f'{count}: {chunk.content}, len:{len(full_result)}')
             count += 1
-
+            
         if input_done_with and full_result.startswith(input_done_with):
             chat_box.update_msg(input_done_with, element_index=0, streaming=False, state="complete")
         else:
             chat_box.update_msg(full_result, element_index=0, streaming=True)
             need_streaming_complete = True
-
+    
     if need_streaming_complete:
         chat_box.update_msg(full_result, element_index=0, streaming=False, state="complete")
 
     if logging.getLogger().level == logging.DEBUG:
         print()
-
+    
     if parse_keys is not None and full_result.startswith(input_done_with):
         # 清理字符串
         parse_json = full_result.replace(input_done_with, '').strip()
-
+        
         logging.debug(f'解析JSON：{parse_json}')
         try:
             parse_json = json.loads(parse_json)
@@ -129,7 +156,7 @@ def streaming_from_template(chat_box, template, variables,
             logging.error(f'解析JSON失败：{e}')
             full_result = '抱歉出现错误，请再次尝试~'
             chat_box.update_msg(full_result, element_index=0, streaming=False, state="complete")
-
+        
     return full_result
 
 
@@ -172,6 +199,8 @@ def parse_vars_from_template(chat_box, template, variables, parse_keys=None,
         chat_box.ai_say('抱歉出现错误，请再次尝试~')
 
 
+
+
 def from_template(template, variables=None, system_role=None, model=None, temperature=None):
     """
     直接通过剧本输出，根据剧本类型自动判断是普通Prompt给AI，还是检查用户输入的Prompt给AI
@@ -189,6 +218,7 @@ def from_template(template, variables=None, system_role=None, model=None, temper
     logging.debug('=====================')
 
     llm = load_llm(model, temperature)
+
 
     if system_role:
         # 普通Prompt
@@ -264,8 +294,7 @@ def load_scripts_and_system_role(
             if st.session_state.script_list[0].type == ScriptType.SYSTEM:
                 system_role_script = st.session_state.script_list.pop(0)
                 template = system_role_script.template
-                variables = {v: st.session_state[v] for v in
-                             system_role_script.template_vars} if system_role_script.template_vars else None
+                variables = {v: st.session_state[v] for v in system_role_script.template_vars} if system_role_script.template_vars else None
 
                 if variables:
                     prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
@@ -274,58 +303,8 @@ def load_scripts_and_system_role(
                     prompt = template
 
                 st.session_state.system_role = prompt
-                st.session_state.system_role_id = system_role_script.id
 
             st.session_state.script_list_len = len(st.session_state.script_list)
-
-
-def load_scripts(
-        app_token=cfg.LARK_APP_TOKEN,
-        table_id=cfg.DEF_LARK_TABLE_ID,
-        view_id=cfg.DEF_LARK_VIEW_ID
-):
-    if 'system_role' in st.session_state:
-        del st.session_state['system_role']
-    if 'system_role_id' in st.session_state:
-        del st.session_state['system_role_id']
-    # system_role_script = None
-    if 'script_list' not in st.session_state:
-        with st.spinner('正在加载剧本...'):
-            st.session_state.script_list = load_scripts_from_bitable(app_token, table_id, view_id)
-            if st.session_state.script_list[0].type == ScriptType.SYSTEM:
-                # system_role_script = st.session_state.script_list.pop(0)
-                st.session_state.system_role_script = st.session_state.script_list.pop(0)
-                template = st.session_state.system_role_script.template
-                if not st.session_state.system_role_script.template_vars:
-                    st.session_state.system_role = template
-                    st.session_state.system_role_id = st.session_state.system_role_script.id
-
-                # variables = {v: st.session_state[v] for v in
-                #              system_role_script.template_vars} if system_role_script.template_vars else None
-                #
-                # if variables:
-                #     prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
-                #     prompt = prompt.format(**variables)
-                # else:
-                #     prompt = template
-                #
-                # st.session_state.system_role = prompt
-                # st.session_state.system_role_id = system_role_script.id
-
-            st.session_state.script_list_len = len(st.session_state.script_list)
-    # return system_role_script
-
-
-def extract_variables(template: str) -> list:
-    # 使用正则表达式匹配单层 {} 中的内容
-    pattern = r'\{([^{}]+)\}'
-    matches = re.findall(pattern, template)
-
-    # 去重并过滤包含双引号的元素
-    variables = list(set(matches))
-    filtered_variables = [var for var in variables if '"' not in var]
-
-    return filtered_variables
 
 
 def extract_variables(template: str) -> list:

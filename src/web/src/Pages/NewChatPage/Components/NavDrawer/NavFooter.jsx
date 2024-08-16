@@ -1,7 +1,6 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react';
 import styles from  './NavFooter.module.scss';
 import classNames from 'classnames';
-import { memo } from 'react';
 
 
 export const NavFooter = forwardRef(({
@@ -40,4 +39,4 @@ export const NavFooter = forwardRef(({
   </div>);
 });
 
-export default memo(NavFooter);
+export default NavFooter;

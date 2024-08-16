@@ -2,8 +2,7 @@ import { useRef, useState } from 'react';
 import styles from './AvatarSettingModal.module.scss';
 import SettingBaseModal from './SettingBaseModal.jsx';
 import Cropper from 'react-easy-crop';
-import { genCroppedImg } from 'Utils/imgUtils';
-import { memo } from 'react';
+import { genCroppedImg } from '@Utils/imgUtils';
 
 export const AvatarSettingModal = ({
   open,
@@ -12,10 +11,11 @@ export const AvatarSettingModal = ({
   onOk = ({ img }) => {},
   initialValues = {},
 }) => {
-  const [srcImg] = useState(image);
+  const [srcImg, setSrcImg] = useState(image);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
 
   const onOkClick = async () => {
     if (!croppedAreaPixels) {
@@ -26,28 +26,30 @@ export const AvatarSettingModal = ({
     onOk?.({ img });
   };
 
-  const onCropComplete = (_croppedArea, croppedAreaPixels) => {
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
     setCroppedAreaPixels(croppedAreaPixels);
   };
 
   return (
-    <SettingBaseModal open={open} onClose={onClose} onOk={onOkClick}>
-      <div className={styles.avatarSettingModalWrapper}>
-        <div className={styles.avatarSettingModal}>
-          <Cropper
-            image={image}
-            crop={crop}
-            zoom={zoom}
-            aspect={1}
-            onCropChange={setCrop}
-            onCropComplete={onCropComplete}
-            onZoomChange={setZoom}
-            style={{ height: '200px', width: '200px;' }}
-          />
-        </div>
+    <SettingBaseModal
+      className={styles.AvatarSettingModal}
+      open={open}
+      onClose={onClose}
+      onOk={onOkClick}
+    >
+      <div className={styles.AvatarSettingModal} >
+        <Cropper
+          image={image}
+          crop={crop}
+          zoom={zoom}
+          onCropChange={setCrop}
+          onCropComplete={onCropComplete}
+          onZoomChange={setZoom}
+          style={{ height: '200px', width: '200px;' }}
+        />
       </div>
     </SettingBaseModal>
   );
 };
 
-export default memo(AvatarSettingModal);
+export default AvatarSettingModal;

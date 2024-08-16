@@ -4,16 +4,15 @@ services:
   ai-shifu-api-dev:
     container_name: ai-shifu-api-dev
     image: ai-shifu-api-dev:latest
-    command: flask run --debug  --host=0.0.0.0 --port=5800
+    command:  flask --app flaskr run  --debug --host=0.0.0 --port=5800
     env_file:
       - ./.env
     volumes:
-      - ../src/api/:/app/
-      - /Users/geyunfei/dev/agiclass/keys/pingxx_test_key.gem:/app/pingxx_key.gem
+      - ../src/api/flaskr:/app/flaskr
   ai-shifu-web-dev:
     container_name:  ai-shifu-web-dev
     image: ai-shifu-web-dev:latest
-    command:  pnpm run start:dev-local
+    command:  pnpm run start:dev
     depends_on:
       - ai-shifu-api-dev
     volumes:

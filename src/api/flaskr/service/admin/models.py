@@ -4,8 +4,10 @@ from sqlalchemy.sql import func
 from sqlalchemy.ext.declarative import declarative_base
 from ...dao import db
 
+
 class AdminUser(db.Model):
     __tablename__ = 'admin_info'
+
     id = Column(BIGINT, primary_key=True, comment='Unique ID', autoincrement=True)
     user_id = Column(String(36), nullable=False, default='', comment='User UUID')
     username = Column(String(255), nullable=False, default='', comment='Login username')
@@ -20,6 +22,7 @@ class AdminUser(db.Model):
     user_sex = Column(Integer, nullable=True, default=0, comment='user sex')   
     user_birth =Column(Date,nullable=True,default='1984-1-1', comment='user birth')
     user_avatar = Column(String(255), nullable=True, default='', comment='user avatar')
+
     def __init__(self, user_id, username="", name="", password_hash="", email="", mobile="",default_model="gpt-3.5-turbo-0613",user_state=0):
         self.user_id = user_id
         self.username = username

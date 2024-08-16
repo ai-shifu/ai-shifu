@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
 import { Input } from '@chatui/core';
+import SubButton from 'Components/SubButton.jsx';
 import {
   INTERACTION_TYPE,
   INTERACTION_OUTPUT_TYPE,
-} from 'constants/courseConstants.js';
+} from '@constants/courseConstants.js';
 
 import styles from './ChatInputText.module.scss';
-import { memo } from 'react';
 
 const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.INPUT]: INTERACTION_OUTPUT_TYPE.TEXT,
@@ -69,4 +69,4 @@ export const ChatInputText = ({ onClick, type, disabled = false }) => {
   );
 };
 
-export default memo(ChatInputText);
+export default ChatInputText;

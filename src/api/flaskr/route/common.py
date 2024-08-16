@@ -49,6 +49,7 @@ def fmt(o):
 T = TypeVar('T')
 
     
+
  
 @register_schema_to_swagger
 class CommonResponse(Generic[T]):

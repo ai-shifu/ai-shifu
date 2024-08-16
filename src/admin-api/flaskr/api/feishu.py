@@ -1,5 +1,4 @@
 
-from tkinter import NO
 from flask import Flask 
 import requests
 import json
@@ -179,6 +178,8 @@ def list_views(app:Flask,app_token:str,table_id:str):
 
 
 
+
+
 def list_records(app:Flask,app_token:str,table_id:str,view_id:str=None,page_token:str=None,page_size:int=None):
     token = get_tenat_token(app)
     # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id/records/search
@@ -216,65 +217,3 @@ def list_tables(app:Flask,app_token:str):
     return r.json()
    
 
-##  创建多维表格
-def create_app(app:Flask,name:str=None,folder_token:str=None,time_zone:str="Asia/Shanghai"):
-    token = get_tenat_token(app)
-
-    url = "https://open.feishu.cn/open-apis/bitable/v1/apps"
-    headers = {'Content-Type': 'application/json','Authorization':'Bearer '+token}
-    data = {}
-    if name:
-        data['name']=name
-    if folder_token:
-        data['folder_token']=folder_token
-    if time_zone:
-        data['time_zone']=time_zone
-    r = requests.post(url,headers=headers,data=json.dumps(data))
-    return r.json()
-
-
-## 新建数据表
-def create_table(app:Flask,app_token:str,name:str):
-    token = get_tenat_token(app)
-    # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables
-    url = "https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables".format(app_token=app_token)
-    headers = {'Content-Type': 'application/json','Authorization':'Bearer '+token}
-    data = {
-        "name":name
-    }
-    r = requests.post(url,headers=headers,data=json.dumps(data))
-    return r.json()
-
-# 更新数据表
-def update_table(app:Flask,app_token:str,table_id:str,name:str):
-    token = get_tenat_token(app)
-    # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id
-    url = "https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}".format(app_token=app_token,table_id=table_id)
-    headers = {'Content-Type': 'application/json','Authorization':'Bearer '+token}
-    data = {
-        "name":name
-    }
-    r = requests.put(url,headers=headers,data=json.dumps(data))
-    return r.json()
-
-
-# 列出字段
-def list_fields(app:Flask,app_token:str,table_id:str):
-    token = get_tenat_token(app)
-    # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id/fields
-    # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id/fields
-    url = "https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/fields".format(app_token=app_token,table_id=table_id)
-    headers = {'Content-Type': 'application/json','Authorization':'Bearer '+token}
-    r = requests.get(url,headers=headers)
-    return r.json()
-
-# 创建字段
-def create_field(app:Flask,app_token:str,table_id:str,field_info):
-    token = get_tenat_token(app)
-    # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id/fields
-    # https://open.feishu.cn/open-apis/bitable/v1/apps/:app_token/tables/:table_id/fields
-    url = "https://open.feishu.cn/open-apis/bitable/v1/apps/{app_token}/tables/{table_id}/fields".format(app_token=app_token,table_id=table_id)
-    headers = {'Content-Type': 'application/json','Authorization':'Bearer '+token}
-    data = field_info
-    r = requests.post(url,headers=headers,data=json.dumps(data))
-    return r.json()

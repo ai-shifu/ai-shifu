@@ -4,7 +4,6 @@ import json
 from enum import Enum
 
 from dotenv import load_dotenv, find_dotenv
-import streamlit as st
 import lark_oapi as lark
 from lark_oapi.api.auth.v3 import *
 from lark_oapi.api.bitable.v1 import *
@@ -92,17 +91,16 @@ class Script:
         self.custom_model: Optional[str] = custom_model
         self.temperature: Optional[float] = temperature
 
-    def __repr__(self):
-        return f'{self.desc}'
 
 
-    def __eq__(self, other):
-        if isinstance(other, Script):
-            return self.id == other.id
-        return False
 
 
-@st.cache_data(show_spinner="Load scripts from Lark's bitable...")
+
+
+
+
+
+
 def load_scripts_from_bitable(app_token, table_id, view_id) -> List[Script]:
     logging.info(f'开始加载剧本记录：app_token={app_token}, table_id={table_id}, view_id={view_id}')
     items = get_bitable_records(app_token, table_id, view_id)

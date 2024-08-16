@@ -3,12 +3,10 @@ import { useState } from 'react';
 import { Modal, Input, Button, Checkbox, Form, message } from 'antd';
 import { useSendCode } from './useSendCode.js';
 import styles from './LoginModal.module.scss';
-import MainButton from 'Components/MainButton.jsx';
-import { calModalWidth } from 'Utils/common.js';
-import { genCheckCode } from 'Api/user.js';
-import { useUserStore } from 'stores/useUserStore.js';
-import { useTranslation } from 'react-i18next';
-import { memo } from 'react';
+import MainButton from '@Components/MainButton.jsx';
+import { calModalWidth } from '@Utils/common.js';
+import { genCheckCode } from '@Api/user.js';
+import { useUserStore } from '@stores/useUserStore.js';
 
 const MODAL_STEP = {
   MOBILE: 1,
@@ -32,7 +30,6 @@ export const LoginModal = ({
   const [verifyCodeImage, setVerifyCodeImage] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
   const login = useUserStore((state) => state.login);
-  const { t } = useTranslation();
 
   const updateVerifyCodeImage = async (mobile) => {
     const { data: res } = await genCheckCode(mobile);
@@ -219,7 +216,7 @@ export const LoginModal = ({
       </div>
       <div className={styles.btnWrapper}>
         <MainButton onClick={onLoginClick} width="100%">
-          {t('user.loginMainButton')}
+          登录/注册
         </MainButton>
       </div>
       {contextHolder}
@@ -227,4 +224,4 @@ export const LoginModal = ({
   );
 };
 
-export default memo(LoginModal);
+export default LoginModal;

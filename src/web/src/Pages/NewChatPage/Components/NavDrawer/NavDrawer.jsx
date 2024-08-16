@@ -1,7 +1,7 @@
 /*
  * 左侧导航控件容器
  */
-import { AppContext } from 'Components/AppContext.js';
+import { AppContext } from '@Components/AppContext.js';
 import { useContext, useState, useRef } from 'react';
 
 import NavHeader from './NavHeader.jsx';
@@ -14,13 +14,12 @@ import CourseCatalogList from '../CourseCatalog/CourseCatalogList.jsx';
 import styles from './NavDrawer.module.scss';
 import FeedbackModal from '../FeedbackModal/FeedbackModal.jsx';
 import classNames from 'classnames';
-import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking.js';
 
 import {
   FRAME_LAYOUT_PAD,
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
-} from 'constants/uiConstants';
+} from '@constants/uiConstants';
 
 /**
  * 导航栏展示形式
@@ -62,10 +61,8 @@ const NavDrawer = ({
   lessonTree,
   onChapterCollapse = () => {},
   onLessonSelect = () => {},
-  onTryLessonSelect = ({ chapterId, lessonId }) => {},
   onGoToSetting = () => {},
 }) => {
-  const { trackEvent } = useTracking();
   const { frameLayout, hasLogin } = useContext(AppContext);
   const [isCollapse, setIsCollapse] = useState(false);
   const [popupModalState, setPopupModalState] = useState(
@@ -99,10 +96,7 @@ const NavDrawer = ({
 
   return (
     <div
-      className={classNames(
-        styles.navDrawerWrapper,
-        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : ''
-      )}
+      className={classNames(styles.navDrawerWrapper, frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '')}
       style={{ width: isCollapse ? COLLAPSE_WIDTH : calcNavWidth(frameLayout) }}
     >
       <div className={styles.navDrawer}>
@@ -120,7 +114,6 @@ const NavDrawer = ({
                 lessonCount={lessonTree?.lessonCount || 0}
                 onChapterCollapse={onChapterCollapse}
                 onLessonSelect={onLessonSelect}
-                onTryLessonSelect={onTryLessonSelect}
               />
             ) : (
               <NavBody onLoginClick={onLoginClick} />
@@ -130,7 +123,6 @@ const NavDrawer = ({
           ref={footerRef}
           isCollapse={isCollapse}
           onFilingClick={() => {
-            trackEvent(EVENT_NAMES.NAV_BOTTOM_BEIAN, {});
             if (popupModalState === POPUP_WINDOW_STATE_FILING) {
               setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
             } else {
@@ -138,7 +130,6 @@ const NavDrawer = ({
             }
           }}
           onThemeClick={() => {
-            trackEvent(EVENT_NAMES.NAV_BOTTOM_SKIN, {});
             if (popupModalState === POPUP_WINDOW_STATE_THEME) {
               setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
             } else {
@@ -146,7 +137,6 @@ const NavDrawer = ({
             }
           }}
           onSettingsClick={() => {
-            trackEvent(EVENT_NAMES.NAV_BOTTOM_SETTING, {});
             if (popupModalState === POPUP_WINDOW_STATE_SETTING) {
               setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
             } else {

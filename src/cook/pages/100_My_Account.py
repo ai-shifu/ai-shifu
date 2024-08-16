@@ -10,7 +10,7 @@ from models.course import *
 from tools.auth import login
 
 
-@st.dialog('✏️ 修改 课程')
+@st.experimental_dialog('✏️ 修改 课程')
 def edit_course(course: Series, user_name):
     with st.form('edit_row'):
         course_name = st.text_input('课程名称', value=course['course_name'])
@@ -20,7 +20,7 @@ def edit_course(course: Series, user_name):
             st.rerun()
 
 
-@st.dialog('❌ 删除 课程')
+@st.experimental_dialog('❌ 删除 课程')
 def delete_course(course: Series):
     with st.form('delete_row'):
         st.text_input('课程名称', course['course_name'], disabled=True)

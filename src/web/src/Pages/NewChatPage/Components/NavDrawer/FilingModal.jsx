@@ -1,8 +1,7 @@
-import PopupModal from 'Components/PopupModal';
+import PopupModal from '@Components/PopupModal';
 import { Button } from 'antd';
 
 import styles from './FilingModal.module.scss';
-import { memo } from 'react';
 
 export const FillingModal = ({
   open,
@@ -28,7 +27,7 @@ export const FillingModal = ({
             target="_blank"
             rel="noreferrer"
           >
-            京ICP备2024076754号-2
+            京ICP备2024076754号-1
           </a>
         </div>
         <div className={styles.gonganRow}>
@@ -37,7 +36,7 @@ export const FillingModal = ({
             src={require('@Assets/newchat/light/beian.png')}
             alt="备案"
           />
-          <div>京公网安备11010502055644号</div>
+          <div>京公网安备11010502055579号</div>
         </div>
         <div className={styles.btnGroup}>
           <Button
@@ -73,4 +72,4 @@ export const FillingModal = ({
   );
 };
 
-export default memo(FillingModal);
+export default FillingModal;
