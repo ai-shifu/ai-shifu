@@ -1,0 +1,11 @@
+{
+    "hello": {
+        "world": "Hello World!"
+    },
+    "user": {
+        "loginMainButton": "Login/Register"
+    },
+    "pay": {
+        "payModalTitle": "Payment"
+    }
+}

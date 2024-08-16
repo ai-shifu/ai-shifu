@@ -2,6 +2,7 @@ import { Modal, Form, Input } from 'antd';
 import MainButton from 'Components/MainButton.jsx';
 import { calModalWidth } from 'Utils/common.js';
 import styles from './FeedbackModal.module.scss';
+import { memo } from 'react';
 
 const FEEDBACK_MAX_LENGTH = 300;
 
@@ -37,4 +38,4 @@ export const FeedbackModal = ({ open, onClose, inMobile = false }) => {
   );
 };
 
-export default FeedbackModal;
+export default memo(FeedbackModal);

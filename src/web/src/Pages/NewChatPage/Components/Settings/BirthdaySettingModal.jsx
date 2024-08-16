@@ -1,20 +1,26 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
 import styles from './BirthdaySettingModal.module.scss';
 import SettingBaseModal from './SettingBaseModal.jsx';
-import { DatePickerView, Modal } from 'antd-mobile';
-import { useEffect } from 'react';
+import { DatePickerView } from 'antd-mobile';
+import { useState, memo } from 'react';
 
 export const BirthdaySettingModal = ({
   open,
   onClose,
   onOk = ({ birthday }) => {},
-  initialValues = {},
 }) => {
   const [value, setValue] = useState(new Date());
   const [showPicker, setShowPicker] = useState(true);
-  const onOkClick = () => {};
+  const onOkClick = () => {
+    onOk({ birthday: value });
+  };
   const now = new Date();
+  const min = new Date();
+  min.setFullYear(now.getFullYear() - 100);
 
+  const _onChange = useCallback((val) => {
+    setValue(val);
+  }, []);
 
   return (
     <SettingBaseModal
@@ -27,12 +33,12 @@ export const BirthdaySettingModal = ({
     >
       <DatePickerView
         defaultValue={now}
-        onChange={(val) => {
-          setValue(val);
-        }}
+        onChange={_onChange}
+        min={min}
+        mouseWheel={true}
       />
     </SettingBaseModal>
   );
 };
 
-export default BirthdaySettingModal;
+export default memo(BirthdaySettingModal);

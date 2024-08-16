@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 import pytz
 import urllib.parse
-
+from flaskr.common.config import get_config
 
 # 飞书相关的调用封装
 # ref: https://open.feishu.cn/document/server-docs/docs/docs-overview
@@ -18,10 +18,12 @@ import urllib.parse
 
 
 ## AI 课程
-APPID = 'cli_a69aa732b7381013'
-APP_SECRET='B1WHwspm28Jq6glXHuCRgbABDHCafAjV'
+APPID = get_config("FEISHU_APP_ID") 
+#'cli_a69aa732b7381013'
+APP_SECRET= get_config("FEISHU_APP_SECRET")
 FOLDER_ID='QSN2fIQWqlubNxdHHoJcSbVknVh'
 REDIS_KEY_PREFIX = 'feishu:token:'
+
 
 
 # 设置东八区时区

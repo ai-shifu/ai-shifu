@@ -22,6 +22,7 @@ class ConfigManager:
             _cfg_llm = config['llm']
             # DEFAULT_VENDOR = _cfg_openai['default_vendor']
             self.DEFAULT_MODEL = _cfg_llm['default_model']
+            self.DEFAULT_TMP = _cfg_llm['default_temperature']
             self.ORIGINAL_DEFAULT_MODEL = _cfg_llm['default_model']
             self.QIANFAN_MODELS = _cfg_llm['qianfan']['models']
             self.QIANFAN_DEF_TMP = _cfg_llm['qianfan']['default_temperature']

@@ -1,8 +1,9 @@
 import { Modal } from 'antd-mobile';
-import { calModalWidth } from '@Utils/common.js';
-import { useUiLayoutStore } from '@stores/useUiLayoutStore.js';
+import { calModalWidth } from 'Utils/common.js';
+import { useUiLayoutStore } from 'stores/useUiLayoutStore.js';
 import MainButton from 'Components/MainButton.jsx';
 import styles from './SettingBaseModal.module.scss';
+import { memo } from 'react';
 
 export const SettingBaseModal = ({
   open,
@@ -19,9 +20,8 @@ export const SettingBaseModal = ({
     <Modal
       visible={open}
       onClose={onClose}
-      destroyOnClose={true}
-      closeOnMaskClick={true}
       className={styles.SettingBaseModal}
+      closeOnMaskClick={true}
       content={
         <div
           style={{ width: calModalWidth({ inMobile, width: defaultWidth }) }}
@@ -40,4 +40,4 @@ export const SettingBaseModal = ({
   );
 };
 
-export default SettingBaseModal;
+export default memo(SettingBaseModal);

@@ -6,8 +6,10 @@ from redis import Redis
 def init_db(app : Flask):
     global db
     app.logger.info('init db')
+    app.config['kkk']='dd'
     if app.config.get('MYSQL_HOST',None) != None and app.config.get('MYSQL_PORT',None)!= None and app.config.get('MYSQL_DB',None) != None and app.config['MYSQL_USER'] != None and app.config.get('MYSQL_PASSWORD') != None:
         app.logger.info('init dbconfig from env')
+     
         app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql://'+app.config['MYSQL_USER']+':'+app.config['MYSQL_PASSWORD']+'@'+app.config['MYSQL_HOST']+':'+str(app.config['MYSQL_PORT'])+'/'+app.config['MYSQL_DB']
     else:
         app.logger.info('init dbconfig from config')
@@ -24,14 +26,17 @@ def init_redis(app:Flask):
         redis_client = Redis(host=app.config['REDIS_HOST'], port=app.config['REDIS_PORT'], db=app.config['REDIS_DB'])
     app.logger.info('init redis done')
 
-def run_with_redis(ctx,key,timeout:int,func):
-    with ctx:
+def run_with_redis(app,key,timeout:int,func,args):
+    with app.app_context():
         global redis_client
+        app.logger.info('run_with_redis start {}'.format(key))
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):
+            app.logger.info('run_with_redis get lock {}'.format(key))
             try:
-                return func()
+                return func(*args)
             finally:
                 lock.release()
         else:
+            app.logger.info('run_with_redis get lock failed {}'.format(key))
             return None

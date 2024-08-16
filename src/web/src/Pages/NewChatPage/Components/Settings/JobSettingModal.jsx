@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import styles from './JobSettingModal.module.scss';
 import SettingBaseModal from './SettingBaseModal.jsx';
 import { Form, Input } from 'antd';
@@ -38,4 +39,4 @@ export const JobSettingModal = ({
   );
 };
 
-export default JobSettingModal;
+export default memo(JobSettingModal);

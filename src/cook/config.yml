@@ -1,10 +1,11 @@
 simulate_streaming_random_sleep:
-  min: 0.0002  # 0.005
-  max: 0.01  # 0.2
+  min: 0.001  # 0.005
+  max: 0.02  # 0.2
 
 llm:
 #  default_vendor: wenxin
   default_model: ERNIE-4.0-8K-Preview-0518
+  default_temperature: 0.4
   qianfan:
     models:
       - ERNIE-4.0-8K-0329
@@ -32,8 +33,8 @@ llm:
     default_temperature: 0.4  # [0, 2.0]
 
 lark:
-  app_token: LLwmbSyMcakFVJsM5yacT5Gqnse
-  default_table_id: tblk9OFSKLeUPunv  # 《剧本》：00-了解 AI 编程这回事
+  app_token: IjfsbaLaQah0Wts1VaDcq0ePnGe  # 新主体 Python 教练 正式剧本
+  default_table_id: tbldUsmPMh6vcBxh  # 《剧本》：00-了解 AI 编程这回事
 
 #  app_token: MOpQbqTG3ai5I3sqymUcMK1rnti  # 《剧本v2(0718)》
 #  default_table_id: tblm5XfXmxv2VFhN  # 《剧本v2(0718)》：01- 如何向 AI 提项目需求？
@@ -53,4 +54,4 @@ db:
 
 api:
   test_url: https://test-api-sifu.agiclass.cn/api
-  prod_url: https://api-sifu.agiclass.cn/api
+  prod_url: https://api.ai-shifu.com/api
