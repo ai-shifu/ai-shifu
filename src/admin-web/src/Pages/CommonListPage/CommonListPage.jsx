@@ -27,34 +27,21 @@ const CommonListPage = ({viewName}) => {
   const [loading, setLoading] = useState(false);
   const [colum, setColum] = useState([]);
   const [searchParams, setSearchParams] = useState({});
-<<<<<<< HEAD
   const [searchDefine,setSearchDefine]=useState({})
-=======
-  const [query, setQuery] = useState({});
->>>>>>> f7a6c9d (add user model update)
   /**
    *@description 点击搜索的方法
    *
    * @param {*} searchParams 搜索表单中的条件
    */
   const onSearch = (searchParams) => {
-<<<<<<< HEAD
     setSearchParams(searchParams)
     console.log(searchParams);
-=======
-    setQuery(searchParams);
->>>>>>> f7a6c9d (add user model update)
     setCurrentPage(1);
   };
 
   const onReset = (searchParams) => {
-<<<<<<< HEAD
     searchParams(searchParams)
     // queryAllContacts();
-=======
-    setQuery({});
-    setCurrentPage(1);
->>>>>>> f7a6c9d (add user model update)
   };
 
   useEffect(() => {
@@ -78,12 +65,7 @@ const CommonListPage = ({viewName}) => {
    * @description 联系人数据
    */
   const queryAllContacts = () => {
-<<<<<<< HEAD
     queryView(viewName,currentPage,pageSize,searchParams)
-=======
-    setLoading(true);
-    queryView(viewName,currentPage,pageSize,query)
->>>>>>> f7a6c9d (add user model update)
       .then((res) => {
         setTotal(res.data.total);
         setContactInfoList(res.data.items);
@@ -186,11 +168,7 @@ const CommonListPage = ({viewName}) => {
 
   useEffect(() => {
     queryAllContacts();
-<<<<<<< HEAD
   }, [pageSize,currentPage,searchParams]);
-=======
-  }, [pageSize,currentPage,query]);
->>>>>>> f7a6c9d (add user model update)
   return (
     <Space direction="vertical" size="large" style={{ display: "flex" }}>
       <SearchForm onSearch={onSearch} onReset={onReset} inputs={searchDefine}></SearchForm>
