@@ -11,7 +11,7 @@ from ...service.lesson.const import (
     UI_TYPE_PHONE,
     UI_TYPE_TO_PAY,
 )
-from ...service.lesson.models import AILesson
+from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_IN_PROGRESS,
@@ -24,7 +24,7 @@ from ...service.order.funs import (
     init_trial_lesson,
     query_raw_buy_record,
 )
-from ...service.order.models import AICourseBuyRecord, AICourseLessonAttend
+from ...service.order.models import AICourseLessonAttend
 from ...service.study.const import (
     INPUT_TYPE_ASK,
     INPUT_TYPE_START,
@@ -58,24 +58,28 @@ def run_script_inner(
             user_info = User.query.filter(User.user_id == user_id).first()
             if not lesson_id:
                 app.logger.info("lesson_id is None")
-                if not course_id:
+                course_info = AICourse.query.filter(
+                    AICourse.status == 1,
+                ).first()
+                if not course_info:
                     raise COURSE_NOT_FOUND
-                lesson_info = AILesson.query.filter(
-                    AILesson.lesson_id == lesson_id,
-                    AILesson.status == 1,
-                ).first()
-                if not lesson_info:
-                    raise LESSON_NOT_FOUND_IN_COURSE
-                course_id = lesson_info.course_id
-                buy_record = AICourseBuyRecord.query.filter_by(
-                    user_id=user_id, course_id=course_id
-                ).first()
-                if not buy_record:
-                    app.logger.info(
-                        "user_id:{},course_id:{},lesson_id:{}".format(
-                            user_id, course_id, lesson_id
-                        )
-                    )
+                course_id = course_info.course_id
+                # lesson_info = AILesson.query.filter(
+                #     AILesson.lesson_id == lesson_id,
+                #     AILesson.status == 1,
+                # ).first()
+                # if not lesson_info:
+                #     raise LESSON_NOT_FOUND_IN_COURSE
+                # course_id = lesson_info.course_id
+                # buy_record = AICourseBuyRecord.query.filter_by(
+                #     user_id=user_id, course_id=course_id
+                # ).first()
+                # if not buy_record:
+                #     app.logger.info(
+                #         "user_id:{},course_id:{},lesson_id:{}".format(
+                #             user_id, course_id, lesson_id
+                #         )
+                #     )
                 lessons = init_trial_lesson(app, user_id, course_id)
                 attend = get_current_lesson(app, lessons)
                 app.logger.info("{}".format(attend))
