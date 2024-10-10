@@ -34,13 +34,12 @@ from ...dao import db, redis_client
 from .utils import (
     make_script_dto,
     get_script,
-    get_script_by_id,
     update_attend_lesson_info,
     get_current_lesson,
 )
-from .input_funcs import BreakException, handle_input
+from .input_funcs import BreakException
 from .output_funcs import handle_output
-from .ui_funcs import handle_ui
+from .plugin import handle_input, handle_ui
 
 
 def run_script_inner(
@@ -173,36 +172,30 @@ def run_script_inner(
             next = 0
             is_first_add = False
             # 如果有用户输入,就得到当前这一条,否则得到下一条
-            if script_id:
-                # 如果有指定脚本
-                # 为了测试使用
-                script_info = get_script_by_id(app, script_id)
-            else:
-                # 获取当前脚本
-                script_info, attend_updates, is_first_add = get_script(
-                    app, attend_id=attend.attend_id, next=next
-                )
-                if len(attend_updates) > 0:
-                    for attend_update in attend_updates:
-                        if len(attend_update.lesson_no) > 2:
+            script_info, attend_updates, is_first_add = get_script(
+                app, attend_id=attend.attend_id, next=next
+            )
+            if len(attend_updates) > 0:
+                for attend_update in attend_updates:
+                    if len(attend_update.lesson_no) > 2:
+                        yield make_script_dto(
+                            "lesson_update", attend_update.__json__(), ""
+                        )
+                    else:
+                        yield make_script_dto(
+                            "chapter_update", attend_update.__json__(), ""
+                        )
+                        if (
+                            attend_update.status
+                            == ATTEND_STATUS_VALUES[ATTEND_STATUS_NOT_STARTED]
+                        ):
                             yield make_script_dto(
-                                "lesson_update", attend_update.__json__(), ""
+                                "next_chapter", attend_update.__json__(), ""
                             )
-                        else:
-                            yield make_script_dto(
-                                "chapter_update", attend_update.__json__(), ""
-                            )
-                            if (
-                                attend_update.status
-                                == ATTEND_STATUS_VALUES[ATTEND_STATUS_NOT_STARTED]
-                            ):
-                                yield make_script_dto(
-                                    "next_chapter", attend_update.__json__(), ""
-                                )
             if script_info:
                 try:
                     check_paid = True
-                    # 如果是购课的脚本
+                    # to do  seperate
                     if script_info.script_ui_type == UI_TYPE_TO_PAY:
                         order = query_raw_buy_record(app, user_id, course_id)
                         if order and order.status == BUY_STATUS_SUCCESS:
