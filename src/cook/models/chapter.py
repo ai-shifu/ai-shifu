@@ -17,12 +17,14 @@ LESSON_TYPES = {
     "正式课": LESSON_TYPE_NORMAL,
     # "延展课": LESSON_TYPE_EXTEND,
     # "分支课": LESSON_TYPE_BRANCH,
-    "隐藏分支课": LESSON_TYPE_BRANCH_HIDDEN
+    "隐藏分支课": LESSON_TYPE_BRANCH_HIDDEN,
 }
 
 
 class Chapter:
-    def __init__(self, id, name, lesson_id, lark_table_id, lark_view_id, rank, chapter_type=None):
+    def __init__(
+        self, id, name, lesson_id, lark_table_id, lark_view_id, rank, chapter_type=None
+    ):
         self.id = id
         self.name = name
         self.lesson_id = lesson_id
@@ -32,36 +34,38 @@ class Chapter:
         self.chapter_type = chapter_type
 
     def __repr__(self):
-        return f'{self.name}  ({self.lark_table_id})'
+        return f"{self.name}  ({self.lark_table_id})"
 
 
-def load_chapters_from_api(doc_id=cfg.LARK_APP_TOKEN, base_url=cfg.API_URL) -> tuple[list[Chapter], str]:
-    url = f'{base_url}/lesson/get_chatper_info'
-    params = {
-        'doc_id': doc_id
-    }
+def load_chapters_from_api(
+    doc_id=cfg.LARK_APP_TOKEN, base_url=cfg.API_URL
+) -> tuple[list[Chapter], str]:
+    url = f"{base_url}/lesson/get_chatper_info"
+    params = {"doc_id": doc_id}
 
     response = requests.get(url, params=params)
-    logging.debug(f'load_chapters_from_api: {url}, {params}')
-    logging.info(f'load_chapters_from_api: {response.json()}')
+    logging.debug(f"load_chapters_from_api: {url}, {params}")
+    logging.info(f"load_chapters_from_api: {response.json()}")
 
     chapters = []
     coures_id = None
     if response.status_code == 200:
         data = response.json()
         print(data)
-        coures_id = data['data']['course_id']
-        for item in data['data']['lesson_list']:
+        coures_id = data["data"]["course_id"]
+        for item in data["data"]["lesson_list"]:
             print(item)
-            chapters.append(Chapter(
-                id=item['lesson_no'],
-                name=item['lesson_name'],
-                lesson_id=item['lesson_id'],
-                lark_table_id=item['feishu_id'],
-                lark_view_id=cfg.DEF_LARK_VIEW_ID,
-                rank=int(item['lesson_no']),
-                chapter_type=item['lesson_type']
-            ))
+            chapters.append(
+                Chapter(
+                    id=item["lesson_no"],
+                    name=item["lesson_name"],
+                    lesson_id=item["lesson_id"],
+                    lark_table_id=item["feishu_id"],
+                    lark_view_id=cfg.DEF_LARK_VIEW_ID,
+                    rank=int(item["lesson_no"]),
+                    chapter_type=item["lesson_type"],
+                )
+            )
 
     else:
         print(f"Failed to retrieve data: {response.status_code}")
@@ -69,20 +73,22 @@ def load_chapters_from_api(doc_id=cfg.LARK_APP_TOKEN, base_url=cfg.API_URL) -> t
     return chapters, coures_id
 
 
-def update_chapter_from_api(table_id, view_id, title, index, lesson_type, base_url=cfg.API_URL):
-    url = f'{base_url}/lesson/update_lesson'
+def update_chapter_from_api(
+    table_id, view_id, title, index, lesson_type, base_url=cfg.API_URL
+):
+    url = f"{base_url}/lesson/update_lesson"
     params = {
-        'doc_id': cfg.LARK_APP_TOKEN,
-        'table_id': table_id,
-        'view_id': view_id,
-        'title': title,
-        'index': index,
-        'lesson_type': lesson_type,
+        "doc_id": cfg.LARK_APP_TOKEN,
+        "table_id": table_id,
+        "view_id": view_id,
+        "title": title,
+        "index": index,
+        "lesson_type": lesson_type,
     }
 
     response = requests.get(url, params=params)
-    logging.debug(f'update_chapter_from_api: {url}, {params}')
-    logging.info(f'update_chapter_from_api: {response.json()}')
+    logging.debug(f"update_chapter_from_api: {url}, {params}")
+    logging.info(f"update_chapter_from_api: {response.json()}")
 
     if response.status_code == 200:
         print(response.json())
@@ -93,17 +99,17 @@ def update_chapter_from_api(table_id, view_id, title, index, lesson_type, base_u
 
 
 def delete_chapter_from_api(table_id, course_id, lesson_no, base_url=cfg.API_URL):
-    url = f'{base_url}/lesson/delete_lesson'
+    url = f"{base_url}/lesson/delete_lesson"
     params = {
         # 'doc_id': cfg.LARK_APP_TOKEN,
         # 'table_id': table_id,
-        'course_id': course_id,
-        'lesson_no': lesson_no
+        "course_id": course_id,
+        "lesson_no": lesson_no,
     }
 
     response = requests.get(url, params=params)
-    logging.debug(f'delete_chapter_from_api: {url}, {params}')
-    logging.info(f'delete_chapter_from_api: {response.json()}')
+    logging.debug(f"delete_chapter_from_api: {url}, {params}")
+    logging.info(f"delete_chapter_from_api: {response.json()}")
 
     if response.status_code == 200:
         print(response.json())
@@ -113,13 +119,12 @@ def delete_chapter_from_api(table_id, course_id, lesson_no, base_url=cfg.API_URL
         streamlit.toast(f"删除失败，错误码: {response.status_code}", icon="🚨")
 
 
-
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     # 从API获取章节信息
-    chapters = load_chapters_from_api(doc_id='IjfsbaLaQah0Wts1VaDcq0ePnGe', base_url=cfg.API_URL_TEST)
+    chapters = load_chapters_from_api(
+        doc_id="IjfsbaLaQah0Wts1VaDcq0ePnGe", base_url=cfg.API_URL_TEST
+    )
     print(chapters)
     print(len(chapters))
     print(chapters[0], chapters[0].lesson_id)
@@ -132,7 +137,6 @@ if __name__ == '__main__':
     #
     # chapters_df = DataFrame([chapter.__dict__ for chapter in chapters])
     # print(chapters_df)
-
 
     # # 测试新增章节
     # update_chapter_from_api(
@@ -153,4 +157,3 @@ if __name__ == '__main__':
     # 测试删除章节
     # delete_chapter_from_api('tblkkj1WaozcngwQ')
     # delete_chapter_from_api('tblQhi1ZutfUhW2T')
-

@@ -54,6 +54,7 @@ def get_field_schema(typ, description: str = ""):
             field_schema["type"] = "integer"
         elif typ == float:
             field_schema["type"] = "number"
+    # 处理列表类型
     elif origin == list:
         item_type = args[0]
         field_schema["type"] = "array"
@@ -89,4 +90,5 @@ def register_schema_to_swagger(cls):
         "required": required,
     }
     swagger_config["components"]["schemas"][cls.__name__] = schema
+
     return cls

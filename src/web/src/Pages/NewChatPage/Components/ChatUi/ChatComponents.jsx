@@ -170,6 +170,7 @@ export const ChatComponents = forwardRef(
 
     const [autoScroll, setAutoScroll] = useState(true);
     const [askMode, setAskMode] = useState(false);
+    const [userScrolled, setUserScrolled] = useState(false);
 
     const { userInfo, mobileStyle } = useContext(AppContext);
     const chatRef = useRef();
@@ -373,41 +374,36 @@ export const ChatComponents = forwardRef(
           return;
         }
 
-        if (
-          scrollWrapper.scrollTop > 0 &&
-          scrollWrapper.scrollTop + scrollWrapper.clientHeight <
-            inner.clientHeight - SCROLL_BOTTOM_THROTTLE
-        ) {
-          if (
-            messages.length &&
-            messages[messages.length - 1].position === 'pop'
-          ) {
-            return;
-          }
+        const isAtBottom = scrollWrapper.scrollTop + scrollWrapper.clientHeight >= inner.clientHeight - 10;
+
+        if (!isAtBottom) {
+          setUserScrolled(true);
           setAutoScroll(false);
-          appendMsg({ type: 'loading', position: 'pop' });
         } else {
-          if (
-            messages.length &&
-            messages[messages.length - 1].position === 'pop'
-          ) {
-            setAutoScroll(true);
-            deleteMsg(messages[messages.length - 1]._id);
-          }
+          setUserScrolled(false);
+          setAutoScroll(true);
         }
       },
-      [appendMsg, messages, deleteMsg]
+      []
     );
 
     const scrollToBottom = useCallback(() => {
-      const inner = document.querySelector(
-        `.${styles.chatComponents} .PullToRefresh-inner`
-      );
-      const wrapper = document.querySelector(
-        `.${styles.chatComponents} .PullToRefresh`
-      );
-      smoothScroll({ el: wrapper, to: inner.clientHeight });
-    }, []);
+      if (!userScrolled) {
+        const inner = document.querySelector(
+          `.${styles.chatComponents} .PullToRefresh-inner`
+        );
+        const wrapper = document.querySelector(
+          `.${styles.chatComponents} .PullToRefresh`
+        );
+        smoothScroll({ el: wrapper, to: inner.clientHeight });
+      }
+    }, [userScrolled]);
+
+    useEffect(() => {
+      if (isStreaming && !userScrolled) {
+        scrollToBottom();
+      }
+    }, [isStreaming, userScrolled, scrollToBottom]);
 
     const onImageLoaded = useCallback(() => {
       if (!autoScroll) {
@@ -583,6 +579,8 @@ export const ChatComponents = forwardRef(
 
         setTyping(true);
         setInputDisabled(true);
+        setUserScrolled(false);
+        setAutoScroll(true);
         scrollToBottom();
         nextStep({ chatId, lessonId, type, val, scriptId });
       },

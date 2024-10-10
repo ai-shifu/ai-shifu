@@ -76,6 +76,8 @@ class ConfigManager:
             
             _cfg_log = config['log']
             self.LOG_LEVEL = _cfg_log['level']
+            self.LOG_DIR = _cfg_log['log_dir']
+            os.makedirs(self.LOG_DIR) if not os.path.exists(self.LOG_DIR) else None
             self.LOG_OUT_LEVEL = _cfg_log['out_level']
             self.LOG_OUT_PATH = _cfg_log['out_path']
             self.LOG_ERR_LEVEL = _cfg_log['err_level']

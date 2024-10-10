@@ -2,6 +2,7 @@ from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.common.models import LESSON_NOT_FOUND
 from .models import AICourse, AILesson, AILessonScript
 from .const import (
+    ASK_MODE_DEFAULT,
     ASK_MODE_ENABLE,
     CONTENT_TYPE_TEXT,
     CONTENT_TYPES,
@@ -450,7 +451,7 @@ def update_lesson_info(
                 scripDb["status"] = 1
                 scripDb["script_temprature"] = 0.4
                 scripDb["ask_count_limit"] = 5
-                scripDb["ask_mode"] = ASK_MODE_ENABLE
+                scripDb["ask_mode"] = ASK_MODE_DEFAULT
                 scripDb["ask_prompt"] = ""
                 scripDb["ask_with_history"] = 5
                 scripDb["ask_model"] = "deepseek-chat"

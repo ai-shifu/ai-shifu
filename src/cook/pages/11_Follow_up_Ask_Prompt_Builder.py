@@ -114,7 +114,7 @@ def show_and_update_summary(table, selected_course, model):
                 f'Chapter `{table.name}` Summary:',
                 value=STSS.chapters_summary[table.name],
                 height=count_lines(STSS.chapters_summary[table.name], 40)[1]*26,
-                label_visibility='hidden'
+                label_visibility='collapsed'
             )
 
         del st.session_state['script_list']  # clear before next iteration
