@@ -24,6 +24,8 @@ const INTERACTION_DISPLAY_MAP = {
   [INTERACTION_TYPE.PHONE]: INTERACTION_DISPLAY_TYPE.TEXT,
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_DISPLAY_TYPE.TEXT,
   [INTERACTION_TYPE.ORDER]: INTERACTION_DISPLAY_TYPE.BUTTON,
+  [INTERACTION_TYPE.REQUIRE_LOGIN]: INTERACTION_DISPLAY_TYPE.BUTTON,
+
 };
 
 export const ChatInteractionArea = ({
@@ -34,6 +36,8 @@ export const ChatInteractionArea = ({
   askMode = false,
   onSizeChange = ({ width, height }) => {},
 }) => {
+
+  console.log('ChatInteractionArea type', type);
   const displayType = INTERACTION_DISPLAY_MAP[type];
   const elemRef = useRef();
   const {t} = useTranslation();
@@ -43,10 +47,13 @@ export const ChatInteractionArea = ({
     if (disabled) {
       return;
     }
+    console.log('onSendFunc type', type);
     onSend?.(type, val, props.scriptId);
   };
 
   const genRenderControl = () => {
+    console.log('genRenderControl displayType', displayType);
+    console.log('genRenderControl type', type);
     switch (displayType) {
       case INTERACTION_DISPLAY_TYPE.BUTTON:
         return (

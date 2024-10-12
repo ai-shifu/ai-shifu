@@ -23,6 +23,7 @@ export const INTERACTION_TYPE = {
   CHECKCODE: 'checkcode', // 输入验证码
   ORDER: 'order', // 购买课程
   ASK: 'ask', // 追问
+  REQUIRE_LOGIN: 'require_login', // 需要登录
 }
 
 // 交互组件的输出类型
@@ -36,6 +37,7 @@ export const INTERACTION_OUTPUT_TYPE = {
   CHECKCODE: 'checkcode', // 输入短信验证码
   ORDER: 'order', // 购买课程
   ASK: 'ask', // 追问
+  REQUIRE_LOGIN: 'require_login', // 需要登录
 }
 
 // sse 返回的事件类型
@@ -53,7 +55,8 @@ export const RESP_EVENT_TYPE = {
   USER_LOGIN: 'user_login', // 用户登录成功
   PROFILE_UPDATE: 'profile_update', // 用户信息更新
   ASK_MODE: 'ask_mode', // 追问模式
-  TEACHER_AVATOR: 'teacher_avator', // 老师头像
+  TEACHER_AVATOR: 'teacher_avator', //
+  REQUIRE_LOGIN: 'require_login', // need to login
 }
 
 // chat message 类型

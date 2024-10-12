@@ -272,6 +272,10 @@ def run_script_inner(
                             )
                             if response:
                                 yield from response
+
+                            app.logger.info(
+                                "script ui type {}".format(script_info.script_ui_type)
+                            )
                             if script_info.script_ui_type == UI_TYPE_CONTINUED:
                                 continue
                             if (
