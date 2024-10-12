@@ -20,6 +20,10 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
       onClick?.(INTERACTION_OUTPUT_TYPE.ORDER, { orderId: props.value });
       return
     }
+    if (type === INTERACTION_TYPE.REQUIRE_LOGIN) {
+      onClick?.(INTERACTION_OUTPUT_TYPE.REQUIRE_LOGIN, props.value);
+      return;
+    }
 
     onClick?.(INTERACTION_OUTPUT_TYPE.CONTINUE, props.value);
   }

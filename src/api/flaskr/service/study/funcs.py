@@ -9,7 +9,7 @@ from flaskr.service.study.const import (
     INPUT_TYPE_BRANCH,
     INPUT_TYPE_CHECKCODE,
     INPUT_TYPE_CONTINUE,
-    INPUT_TYPE_LOGIN,
+    INPUT_TYPE_REQUIRE_LOGIN,
     INPUT_TYPE_PHONE,
     INPUT_TYPE_SELECT,
     ROLE_TEACHER,
@@ -270,7 +270,18 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
             ret.ui = StudyUIDTO(INPUT_TYPE_CHECKCODE, expires, lesson_id)
         elif last_script.script_ui_type == UI_TYPE_LOGIN:
             ret.ui = StudyUIDTO(
-                INPUT_TYPE_LOGIN, last_script.script_ui_content, lesson_id
+                INPUT_TYPE_REQUIRE_LOGIN,
+                {
+                    "title": "继续",
+                    "buttons": [
+                        {
+                            "label": last_script.script_ui_content,
+                            "value": last_script.script_ui_content,
+                            "type": INPUT_TYPE_REQUIRE_LOGIN,
+                        }
+                    ],
+                },
+                lesson_id,
             )
         elif last_script.script_ui_type == UI_TYPE_TO_PAY:
             order = init_buy_record(app, user_id, lesson_info.course_id)

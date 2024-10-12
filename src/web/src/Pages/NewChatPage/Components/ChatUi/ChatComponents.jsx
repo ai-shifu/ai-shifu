@@ -25,6 +25,7 @@ import classNames from 'classnames';
 import { useUserStore } from 'stores/useUserStore.js';
 import { fixMarkdown, fixMarkdownStream } from 'Utils/markdownUtils.js';
 import PayModal from '../Pay/PayModal.jsx';
+import LoginModal from '../Login/LoginModal.jsx';
 import { useDisclosture } from 'common/hooks/useDisclosture.js';
 import { memo } from 'react';
 import { useCallback } from 'react';
@@ -102,6 +103,8 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
 };
 
 const convertEventInputModal = ({ type, content }) => {
+
+  console.log('convertEventInputModal',type)
   if (type === RESP_EVENT_TYPE.PHONE || type === RESP_EVENT_TYPE.CHECKCODE) {
     return {
       type,
@@ -114,17 +117,22 @@ const convertEventInputModal = ({ type, content }) => {
     };
   } else if (
     type === RESP_EVENT_TYPE.BUTTONS ||
-    type === RESP_EVENT_TYPE.ORDER
+    type === RESP_EVENT_TYPE.ORDER ||
+    type === RESP_EVENT_TYPE.REQUIRE_LOGIN
   ) {
+
     const getBtnType = (type) => {
       if (type === INTERACTION_TYPE.ORDER) {
         return INTERACTION_TYPE.ORDER;
+      }
+      if (type === RESP_EVENT_TYPE.REQUIRE_LOGIN) {
+        console.log(' getBtnType require login');
+        return INTERACTION_TYPE.REQUIRE_LOGIN;
       }
 
       return INTERACTION_TYPE.CONTINUE;
     };
     const btnType = getBtnType(type);
-
     const buttons = content.buttons;
     if (buttons.length === 1) {
       return {
@@ -200,10 +208,21 @@ export const ChatComponents = forwardRef(
       onClose: onPayModalClose,
     } = useDisclosture();
 
+    const {
+      open: loginModalOpen,
+      onOpen: onLoginModalOpen,
+      onClose: onLoginModalClose,
+    } = useDisclosture();
+
     const _onPayModalClose = useCallback(() => {
       onPayModalClose();
       setInputDisabled(false);
     }, [onPayModalClose]);
+
+    const _onLoginModalClose = useCallback(() => {
+      onLoginModalClose();
+      setInputDisabled(false);
+    }, [onLoginModalClose]);
 
     useEffect(() => {
       setLessonId(currLessonId);
@@ -255,7 +274,6 @@ export const ChatComponents = forwardRef(
           });
 
 
-
           if (response.type === RESP_EVENT_TYPE.TEACHER_AVATOR) {
             teach_avator = response.content;
           }
@@ -268,6 +286,7 @@ export const ChatComponents = forwardRef(
               RESP_EVENT_TYPE.CHECKCODE,
               RESP_EVENT_TYPE.ORDER,
               RESP_EVENT_TYPE.USER_LOGIN,
+              RESP_EVENT_TYPE.REQUIRE_LOGIN,
             ].includes(response.type)
           ) {
             trackTrailProgress(scriptId);
@@ -317,7 +336,8 @@ export const ChatComponents = forwardRef(
               setInputDisabled(false);
             } else if (
               response.type === RESP_EVENT_TYPE.BUTTONS ||
-              response.type === RESP_EVENT_TYPE.ORDER
+              response.type === RESP_EVENT_TYPE.ORDER ||
+              response.type === RESP_EVENT_TYPE.REQUIRE_LOGIN
             ) {
               if (isEnd) {
                 return;
@@ -667,10 +687,16 @@ export const ChatComponents = forwardRef(
           onPayModalOpen();
           return;
         }
+        if (type === INTERACTION_OUTPUT_TYPE.REQUIRE_LOGIN) {
+          setInputDisabled(true);
+          trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'script', way: 'manual' });
+          onLoginModalOpen();
+          return;
+        }
 
         handleSend(type, val, scriptId);
       },
-      [handleSend, onGoChapter, onPayModalOpen, trackEvent]
+      [handleSend, onGoChapter, onLoginModalOpen, onPayModalOpen, trackEvent]
     );
 
     useImperativeHandle(ref, () => ({}));
@@ -734,6 +760,9 @@ export const ChatComponents = forwardRef(
               onOk={onPayModalOk}
             />
           ))}
+        {loginModalOpen && (
+          <LoginModal open={loginModalOpen} onClose={_onLoginModalClose} />
+        )}
       </div>
     );
   }

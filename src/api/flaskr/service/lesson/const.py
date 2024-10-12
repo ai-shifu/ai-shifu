@@ -35,6 +35,7 @@ UI_TYPES = {
     "输入 手机号": UI_TYPE_PHONE,
     "输入 验证码": UI_TYPE_CHECKCODE,
     "弹出 登录注册框": UI_TYPE_LOGIN,
+    "显示 登录注册框": UI_TYPE_LOGIN,
     "无": UI_TYPE_CONTINUED,
     "跳转按钮": UI_TYPE_BRANCH,
 }
