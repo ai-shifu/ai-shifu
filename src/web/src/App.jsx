@@ -55,18 +55,15 @@ const App = () => {
   }, [params.code, updateWechatCode, wechatCode])
 
   useEffect(() => {
+    let id = courseId
     if (params.courseId) {
       updateCourseId(params.courseId);
+      id = params.courseId
     }
-  }, [params.courseId, updateCourseId]);
-
-  useEffect(() => {
-    if (courseId) {
-      getCourseInfo(courseId).then((resp) => {
+      getCourseInfo(id).then((resp) => {
         setShowVip(resp.data.course_price > 0);
       });
-    }
-  }, [courseId, setShowVip]);
+  }, []);
 
   // 挂载 debugger
   useEffect(() => {

@@ -109,7 +109,7 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
     },
     [payChannel, couponCode]
   );
-
+  const { courseId } = useSystemStore();
   const loadPayInfo = useCallback(async () => {
     setIsLoading(true);
     setIsTimeout(false);
@@ -119,8 +119,8 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
     setInterval(null);
     setCouponCode('');
     setDiscount('');
-    const { course_id } = useSystemStore.getState();
-    const { data: resp } = await initOrder(course_id);
+    console.log('init order course id ',courseId)
+    const { data: resp } = await initOrder(courseId);
     setPrice(resp.value_to_pay);
     const orderId = resp.order_id;
     setOrderId(orderId);

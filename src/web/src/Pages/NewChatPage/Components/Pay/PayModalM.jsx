@@ -69,11 +69,12 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
     onClose: onCouponCodeModalClose,
     onOpen: onCouponCodeModalOpen,
   } = useDisclosture();
-
+  const { courseId } = useSystemStore();
   useEffect(() => {
     (async () => {
-      const { course_id } = useSystemStore.getState();
-      const { data: resp } = await initOrder(course_id);
+
+      console.log('init order  course id ',courseId)
+      const { data: resp } = await initOrder(courseId);
       setPrice(resp.value_to_pay);
       const orderId = resp.order_id;
       setOrderId(orderId);
