@@ -104,7 +104,6 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
 
 const convertEventInputModal = ({ type, content }) => {
 
-  console.log('convertEventInputModal',type)
   if (type === RESP_EVENT_TYPE.PHONE || type === RESP_EVENT_TYPE.CHECKCODE) {
     return {
       type,
@@ -126,7 +125,6 @@ const convertEventInputModal = ({ type, content }) => {
         return INTERACTION_TYPE.ORDER;
       }
       if (type === RESP_EVENT_TYPE.REQUIRE_LOGIN) {
-        console.log(' getBtnType require login');
         return INTERACTION_TYPE.REQUIRE_LOGIN;
       }
 
@@ -427,7 +425,6 @@ export const ChatComponents = forwardRef(
     );
 
     const scrollToBottom = useCallback(() => {
-      console.log('scrollToBottom')
       const inner = document.querySelector(
         `.${styles.chatComponents} .PullToRefresh-inner`
       );
@@ -599,6 +596,7 @@ export const ChatComponents = forwardRef(
             type === INTERACTION_OUTPUT_TYPE.CONTINUE ||
             type === INTERACTION_OUTPUT_TYPE.PHONE ||
             type === INTERACTION_OUTPUT_TYPE.CHECKCODE ||
+            type === INTERACTION_OUTPUT_TYPE.LOGIN ||
             type === INTERACTION_OUTPUT_TYPE.ASK) &&
           val.trim()
         ) {
@@ -714,6 +712,14 @@ export const ChatComponents = forwardRef(
       messageListElem.style.paddingBottom = `${height}px`;
     }, []);
 
+    const onLogin = useCallback(async () => {
+
+      console.log('onLogin');
+      await refreshUserInfo();
+      handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, '已经登录成功登录了');
+
+    }, [handleSend, refreshUserInfo]);
+
     return (
       <div
         className={classNames(
@@ -761,7 +767,7 @@ export const ChatComponents = forwardRef(
             />
           ))}
         {loginModalOpen && (
-          <LoginModal open={loginModalOpen} onClose={_onLoginModalClose} />
+          <LoginModal open={loginModalOpen} onClose={_onLoginModalClose} onLogin={onLogin} />
         )}
       </div>
     );

@@ -24,6 +24,7 @@ export const LoginModal = ({
   onClose = () => {},
   inMobile = false,
   onFeedbackClick,
+  onLogin = () => {},
 }) => {
   const [mobile, setMobile] = useState('');
   const [mobileForm] = Form.useForm();
@@ -89,6 +90,7 @@ export const LoginModal = ({
 
       await login({ mobile, smsCode });
       messageApi.success(t('user.msgLoginSuccess'));
+      onLogin?.();
       onClose?.();
     } catch {}
   };
