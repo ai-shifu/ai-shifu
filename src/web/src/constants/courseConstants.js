@@ -38,6 +38,7 @@ export const INTERACTION_OUTPUT_TYPE = {
   ORDER: 'order', // 购买课程
   ASK: 'ask', // 追问
   REQUIRE_LOGIN: 'require_login', // 需要登录
+  LOGIN: 'login', // 登录
 }
 
 // sse 返回的事件类型

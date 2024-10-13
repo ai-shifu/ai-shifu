@@ -215,7 +215,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return resp
 
     @app.route(path_prefix + "/generate_chk_code", methods=["POST"])
-    @bypass_token_validation
+    # @bypass_token_validation
     def generate_chk_code():
         """
         生成图形验证码
@@ -229,7 +229,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(generation_img_chk(app, mobile))
 
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
-    @bypass_token_validation
+    # @bypass_token_validation
     def send_sms_code_api():
         """
         发送短信验证码
@@ -286,9 +286,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(send_sms_code(app, mobile, check_code))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
-    @bypass_token_validation
+    # @bypass_token_validation
     def verify_sms_code_api():
         with app.app_context():
+
             mobile = request.get_json().get("mobile", None)
             sms_code = request.get_json().get("sms_code", None)
             user_id = (

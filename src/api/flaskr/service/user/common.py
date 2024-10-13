@@ -323,7 +323,7 @@ def verify_sms_code_without_phone(app: Flask, user_id: str, checkcode) -> UserTo
 # 验证短信验证码
 def verify_sms_code(app: Flask, user_id, phone: str, chekcode: str) -> UserToken:
     User = get_model(app)
-    app.logger.info("phone:" + phone + " chekcode:" + chekcode)
+    app.logger.info("phone:" + phone + " chekcode:" + chekcode + " user_id:" + user_id)
     check_save = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
     if check_save is None and chekcode != FIX_CHECK_CODE:
         raise SMS_SEND_EXPIRED

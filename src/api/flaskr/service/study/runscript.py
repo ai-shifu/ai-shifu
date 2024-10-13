@@ -8,6 +8,7 @@ from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
     UI_TYPE_CHECKCODE,
     UI_TYPE_CONTINUED,
+    UI_TYPE_LOGIN,
     UI_TYPE_PHONE,
     UI_TYPE_TO_PAY,
 )
@@ -285,6 +286,11 @@ def run_script_inner(
                                 continue
                             if (
                                 script_info.script_ui_type == UI_TYPE_CHECKCODE
+                                and user_info.user_state != 0
+                            ):
+                                continue
+                            if (
+                                script_info.script_ui_type == UI_TYPE_LOGIN
                                 and user_info.user_state != 0
                             ):
                                 continue
