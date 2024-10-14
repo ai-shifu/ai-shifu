@@ -48,11 +48,17 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
           <Input
-            autoSize
+            autoSize={{ minRows: 1, maxRows: 5 }} // 自动显示多行
             type="text"
             value={input}
-            onChange={(v) => setInput(v)}
-            placeholder= { props?.content || t('chat.chatInputPlaceholder')}
+            onChange={(v) => {
+              let newValue = v;
+              if (newValue.endsWith('\n')) {
+                newValue = newValue.slice(0, -1);
+              }
+              setInput(newValue);
+            }}
+            placeholder={props?.content || t('chat.chatInputPlaceholder')}
             className={styles.inputField}
             disabled={disabled}
             onKeyDown={(e) => {
