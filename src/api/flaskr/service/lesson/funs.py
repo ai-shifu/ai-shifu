@@ -14,8 +14,8 @@ from .const import (
 )
 from flask import Flask
 from ...dao import db
-from ...api.feishu import list_records
-from ...util.uuid import generate_id
+from flaskr.api.doc.feishu import list_records
+from flaskr.util.uuid import generate_id
 from sqlalchemy import func, text
 
 

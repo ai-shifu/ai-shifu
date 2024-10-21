@@ -14,7 +14,7 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from sqlalchemy import text
-from ...api.aliyun import send_sms_code_ali
+from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.service.order.models import AICourseLessonAttend
 from ..common.dtos import (
     USER_STATE_REGISTERED,
