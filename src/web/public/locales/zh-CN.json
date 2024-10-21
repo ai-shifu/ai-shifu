@@ -6,7 +6,8 @@
     "companyName": "北京潺潺山木科技有限公司",
     "companyAddress": "北京朝阳区望京东煌大厦19层163室",
     "settings": "设置",
-    "ok": "确定"
+    "ok": "确定",
+    "networkError": "无法连接到服务器请检查网络设置"
   },
   "user": {
     "loginMainButton": "登录/注册",

@@ -6,7 +6,8 @@
     "companyName": "Beijing Chanchan Shanmu Technology Co., Ltd.",
     "companyAddress": "Room 163, 19th Floor, Donghuang Building, Wangjing, Chaoyang District, Beijing",
     "ok": "OK",
-    "settings": "Settings"
+    "settings": "Settings",
+    "networkError": "Unable to connect to the server, please check the network settings"
   },
   "user": {
     "loginMainButton": "Login/Register",

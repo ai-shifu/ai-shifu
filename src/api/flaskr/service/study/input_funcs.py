@@ -4,7 +4,7 @@ from flask import Flask
 
 from flaskr.service.study.models import AICourseLessonAttendScript
 from flaskr.api.llm import invoke_llm
-from flaskr.api.edun import (
+from flaskr.api.check.edun import (
     EDUN_RESULT_SUGGESTION_PASS,
     EDUN_RESULT_SUGGESTION_REJECT,
     RISK_LABLES,

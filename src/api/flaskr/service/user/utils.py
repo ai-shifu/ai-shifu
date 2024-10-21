@@ -8,7 +8,7 @@ import random
 from ..common.models import raise_error
 from ...dao import redis_client as redis
 from captcha.image import ImageCaptcha
-from ...api.aliyun import send_sms_code_ali
+from flaskr.api.sms.aliyun import send_sms_code_ali
 from io import BytesIO
 
 
