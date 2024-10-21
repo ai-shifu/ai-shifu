@@ -1,20 +1,16 @@
-import styles from './ChatInteractionArea.module.scss';
-import ChatInputText from './ChatInputText.jsx';
-import ChatButtonGroup from './ChatButtonGroup.jsx';
-import ChatInputButton from './ChatInputButton.jsx';
+import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button } from 'antd';
-
-import {
-  INTERACTION_TYPE,
-  INTERACTION_DISPLAY_TYPE,
-} from 'constants/courseConstants.js';
+import { Button, ConfigProvider } from 'antd';
 import classNames from 'classnames';
-import { memo, useRef, useEffect } from 'react';
-import { useCallback } from 'react';
-import React, { useState } from 'react';
-import { ConfigProvider } from 'antd';
+import styles from './ChatInteractionArea.module.scss';
 import askIcon from '@Assets/newchat/light/svg-ask-16.svg';
+import { INTERACTION_TYPE, INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
+import { getInteractionComponent } from './interactionRegistry';
+import ChatInputText from './InputComponents/ChatInputText';
+
+// 动态导入所有交互组件
+const importAll = (r) => r.keys().forEach(r);
+importAll(require.context('./InputComponents', true, /\.jsx$/));
 
 const INTERACTION_DISPLAY_MAP = {
   [INTERACTION_TYPE.CONTINUE]: INTERACTION_DISPLAY_TYPE.BUTTON,
@@ -25,7 +21,6 @@ const INTERACTION_DISPLAY_MAP = {
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_DISPLAY_TYPE.TEXT,
   [INTERACTION_TYPE.ORDER]: INTERACTION_DISPLAY_TYPE.BUTTON,
   [INTERACTION_TYPE.REQUIRE_LOGIN]: INTERACTION_DISPLAY_TYPE.BUTTON,
-
 };
 
 export const ChatInteractionArea = ({
@@ -36,10 +31,9 @@ export const ChatInteractionArea = ({
   askMode = false,
   onSizeChange = ({ width, height }) => {},
 }) => {
-
   const displayType = INTERACTION_DISPLAY_MAP[type];
   const elemRef = useRef();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
 
   const onSendFunc = (type, val) => {
@@ -50,37 +44,18 @@ export const ChatInteractionArea = ({
   };
 
   const genRenderControl = () => {
-    switch (displayType) {
-      case INTERACTION_DISPLAY_TYPE.BUTTON:
-        return (
-          <ChatInputButton
-            disabled={disabled}
-            type={type}
-            props={props}
-            onClick={onSendFunc}
-          />
-        );
-      case INTERACTION_DISPLAY_TYPE.TEXT:
-        return (
-          <ChatInputText
-            disabled={disabled}
-            type={type}
-            props={props}
-            onClick={onSendFunc}
-          />
-        );
-      case INTERACTION_DISPLAY_TYPE.BUTTONS:
-        return (
-          <ChatButtonGroup
-            disabled={disabled}
-            type={type}
-            props={props}
-            onClick={onSendFunc}
-          />
-        );
-      default:
-        return <></>;
+    const Component = getInteractionComponent(displayType);
+    if (Component) {
+      return (
+        <Component
+          disabled={disabled}
+          type={type}
+          props={props}
+          onClick={onSendFunc}
+        />
+      );
     }
+    return <></>;
   };
 
   const resizeChange = useCallback((e) => {
@@ -89,6 +64,7 @@ export const ChatInteractionArea = ({
       height: e.contentRect.height,
     });
   }, [onSizeChange]);
+
   const handleAskClick = () => {
     setInputVisible(!isInputVisible);
   };

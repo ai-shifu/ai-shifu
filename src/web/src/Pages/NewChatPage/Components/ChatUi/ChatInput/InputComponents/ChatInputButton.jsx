@@ -6,6 +6,8 @@ import styles from './ChatInputButton.module.scss';
 import MainButton from 'Components/MainButton.jsx';
 import { useEffect } from 'react';
 import { memo } from 'react';
+import { registerInteractionType } from '../interactionRegistry';
+import { INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
 
 export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   const onBtnClick = () => {
@@ -58,4 +60,6 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   );
 };
 
-export default memo(ChatInputButton);
+const ChatInputButtonMemo = memo(ChatInputButton);
+registerInteractionType(INTERACTION_DISPLAY_TYPE.BUTTON, ChatInputButtonMemo);
+export default ChatInputButtonMemo;
