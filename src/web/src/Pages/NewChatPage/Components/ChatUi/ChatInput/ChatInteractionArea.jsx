@@ -8,7 +8,7 @@ import { INTERACTION_TYPE, INTERACTION_DISPLAY_TYPE } from 'constants/courseCons
 import { getInteractionComponent } from './interactionRegistry';
 import ChatInputText from './InputComponents/ChatInputText';
 
-// 动态导入所有交互组件
+// import all interaction components
 const importAll = (r) => r.keys().forEach(r);
 importAll(require.context('./InputComponents', true, /\.jsx$/));
 
