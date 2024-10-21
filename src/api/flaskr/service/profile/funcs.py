@@ -64,7 +64,7 @@ def get_profile_labels():
             "items": ["中文", "English"],
             "mapping": "user_language",
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
-            "default": "zh-CN",
+            "default": "",
         },
         "ai_tools": {
             "label": _("PROFILE.AI_TOOLS"),
@@ -269,7 +269,11 @@ def update_user_profile_with_lable(app: Flask, user_id: str, profiles: list):
                         default_value, profile_value
                     )
                 )
-                if profile_lable.get("mapping") and (profile_value != default_value):
+                if (
+                    profile_lable.get("mapping")
+                    and (profile_value != default_value)
+                    and getattr(user_info, profile_lable["mapping"]) != profile_value
+                ):
                     app.logger.info(
                         "update user info: {} - {}".format(profile, profile_value)
                     )
