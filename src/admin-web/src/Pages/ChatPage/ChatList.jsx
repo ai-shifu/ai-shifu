@@ -17,9 +17,9 @@ import { Get } from "../../Api/lesson";
 
 const { SubMenu } = Menu;
 
- 
 
- 
+
+
 /**
  * @description 文档列表组件
  * @param {*} onClickListItem - 事件 点击列表中某一行的的方法
@@ -70,23 +70,23 @@ const ChatList = forwardRef(
         if  (lessonData){
           for( let i in lessonData){
             if(lessonData[i].lesson_id === updateAttendInfo.lesson_id){
-              lessonData[i].status = updateAttendInfo.status  
+              lessonData[i].status = updateAttendInfo.status
             }
             for(let c in lessonData[i].children){
               if(lessonData[i].children[c].lesson_id === updateAttendInfo.lesson_id){
-              lessonData[i].children[c].status = updateAttendInfo.status  
-              } 
+              lessonData[i].children[c].status = updateAttendInfo.status
+              }
             }
           }
           const newLessonData = lessonData.map(l=>l)
           setLessonData(newLessonData)
-        } 
+        }
       },
       updateLessonList:()=>{
         queryAllChatsList()
       }
     }));
-  
+
     const queryAllChatsList = () => {
       getLessonTree().then((res) => {
         setLessonData(res.data.lessons);
@@ -127,7 +127,7 @@ const ChatList = forwardRef(
         case "未解锁":
             icon = <LockOutlined style={{ color: 'green', float: 'right' }} />
             break;
-            
+
         default:
           icon = <LockOutlined style={{ color: 'green', float: 'right' }} />
           break;
@@ -141,7 +141,7 @@ const ChatList = forwardRef(
       <Menu
         mode="inline"
         expandIcon={getIcon}
-        
+
       >
         {
           lessonData.map((item,index)=>{
@@ -149,7 +149,7 @@ const ChatList = forwardRef(
               {
                 item.children.map((chapter,index)=>{
                   return <Menu.Item key={chapter.lesson_no} datasource={chapter} onClick={(e)=>clickMenuItem(e,chapter)}  >
-                    {chapter.lesson_name} 
+                    {chapter.lesson_name}
                   { getIcon(chapter)}
                     </Menu.Item>
                 })
@@ -157,12 +157,12 @@ const ChatList = forwardRef(
             </SubMenu>
           })
         }
-        
-      </Menu> 
-       
-        
+
+      </Menu>
+
+
         </div>
-      
+
     );
   }
 );

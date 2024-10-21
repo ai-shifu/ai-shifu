@@ -12,7 +12,6 @@ def register_course_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_course_info", methods=["POST"])
     @bypass_token_validation
     def update_course_info_api():
-
         """
 
         update course info

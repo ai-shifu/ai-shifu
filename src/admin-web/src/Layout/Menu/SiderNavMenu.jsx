@@ -5,7 +5,7 @@ import { Menu } from "antd";
 /**
  *
  *@description 生成导航菜单项
- * @return {*} 
+ * @return {*}
  */
 const generateMenuItemlist = () => {
     const menuItemList = authRoutes.map(({ title, path, icon }) => ({ title, key:path, label:title, icon }));

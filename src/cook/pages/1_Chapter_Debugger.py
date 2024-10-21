@@ -37,7 +37,9 @@ st.set_page_config(
 )
 # The main title and subtitle on the page
 "# Chapter Debugger ⌨️🧙‍♂️⌨️"  # 📚
-st.caption("📚 Loading chapter script to simulate user experience for linear debugging.")
+st.caption(
+    "📚 Loading chapter script to simulate user experience for linear debugging."
+)
 
 
 # ========== Debug init ==========
@@ -175,7 +177,7 @@ if not st.session_state.has_started:
                     st.session_state.lark_app_token, st.session_state.lark_table_id
                 )
 
-            with (col3):
+            with col3:
                 select_script = st.selectbox(
                     "Starting position:", st.session_state.script_list
                 )
@@ -370,9 +372,11 @@ else:
                     full_result = streaming_from_template(
                         chat_box,
                         script.template,
-                        {v: st.session_state[v] for v in script.template_vars}
-                        if script.template_vars
-                        else None,
+                        (
+                            {v: st.session_state[v] for v in script.template_vars}
+                            if script.template_vars
+                            else None
+                        ),
                         model=script.custom_model,
                         temperature=script.temperature,
                     )
@@ -445,9 +449,9 @@ else:
                                 use_container_width=True,
                             ):
                                 # Get the value of the button clicked by the user
-                                st.session_state[
-                                    script.btn_group_cfg["var_name"]
-                                ] = btn["value"]
+                                st.session_state[script.btn_group_cfg["var_name"]] = (
+                                    btn["value"]
+                                )
                                 chat_box.user_say(
                                     btn["value"]
                                 )  # Show user input message
@@ -544,7 +548,7 @@ else:
                 st.session_state.progress += 1
                 st.rerun()
 
-            with (bottom()):
+            with bottom():
                 # follow_up_history_count = 0  # 0 Indicates all history
                 col1, col2 = st.columns([1, 2])
                 with col1:

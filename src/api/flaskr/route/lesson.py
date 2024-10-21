@@ -10,7 +10,6 @@ def register_lesson_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_lesson", methods=["GET"])
     @bypass_token_validation
     def update_lesson():
-
         """
         从飞书文档中更新课程
         ---

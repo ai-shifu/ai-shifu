@@ -21,10 +21,10 @@ export const CreateSchedule = async (data) => {
 };
 
 /**
- * 
- * @param {*} data 
- * @returns 
- *      
+ *
+ * @param {*} data
+ * @returns
+ *
  *      schedule_id = request.get_json().get('schedule_id', '')
         description = request.get_json().get('description', '')
         datetime = request.get_json().get('datetime', '')

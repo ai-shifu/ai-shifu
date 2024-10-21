@@ -25,14 +25,14 @@ const EditContactName = ({cRef, onFieldsChange }) => {
 
 
 
-  
+
 
   return (
     <Row className="form-container" justify="center" style={{ textAlign: "center" }}>
       <Space direction="vertical">
         <PhoneOutlined style={{ fontSize: 64, color: "#1677ff" }}></PhoneOutlined>
         <h1>手机号和电子邮件</h1>
-        <Form 
+        <Form
           form={form}
           onFieldsChange={onFieldsChange}>
           <Form.Item name="mobile">

@@ -9,8 +9,8 @@ import { useEffect, useState } from "react";
 
 /**
  * @description 处理备注字段没有数据时的
- * @param {*} 
- * @returns 
+ * @param {*}
+ * @returns
  */
 const RemarkInfo = ({remark})=>{
     if(remark){
@@ -53,9 +53,9 @@ const ContactDetailModal = ({open, detailData, onCompleted, onCancel})=>{
                 wrapperCol={{span:24}}>
                 <Row
                     justify="center">
-                        {<Avatar 
+                        {<Avatar
                             style={{fontSize:48}}
-                            size={120} 
+                            size={120}
                             src={detailData.avatar}
                             icon={contactName?false:<UserOutlined />}>
                             {contactName.slice(0,1)}
@@ -95,7 +95,7 @@ const ContactDetailModal = ({open, detailData, onCompleted, onCancel})=>{
                         </>)
                 }}
             </Form.List>
-            
+
             <Divider></Divider>
 
             <Form.List

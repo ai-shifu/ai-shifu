@@ -21,13 +21,13 @@ export const CourseSection = ({ status = SECTION_STATUS.learning, selected }) =>
     <div className={classNames(styles.iconWrapper, genIconClassName())}>
       <div className={styles.topLine}></div>
       <div className={styles.icon} >
-        { 
-          (status === SECTION_STATUS.notStart || status === SECTION_STATUS.unavailable) 
+        {
+          (status === SECTION_STATUS.notStart || status === SECTION_STATUS.unavailable)
           && <div className={styles.smallIcon}></div>
         }
-        { status === SECTION_STATUS.learning 
+        { status === SECTION_STATUS.learning
           && <img className={styles.bigIcon} src={require('@Assets/newchat/light/icon16-learning.png')} alt="" /> }
-        { status === SECTION_STATUS.completed 
+        { status === SECTION_STATUS.completed
           && <img className={styles.bigIcon} src={require('@Assets/newchat/light/icon16-learning-completed.png')} alt="" /> }
       </div>
       <div className={styles.bottomLine}></div>

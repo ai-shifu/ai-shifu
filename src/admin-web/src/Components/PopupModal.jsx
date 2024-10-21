@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import styles from './PopupModal.module.scss'
 
-export const PopupModal = ({ 
-  open = false, 
+export const PopupModal = ({
+  open = false,
   onClose = () => {},
-  children, 
-  style, 
-  wrapStyle, 
+  children,
+  style,
+  wrapStyle,
 }) => {
   const popupRef = useRef(null);
 

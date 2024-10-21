@@ -1,7 +1,7 @@
 import request from '../Service/Request';
 
 /**
- * 提交反馈 
+ * 提交反馈
  */
 export const submitFeedback = (feedback) => {
   return request({

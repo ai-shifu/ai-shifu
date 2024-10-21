@@ -19,8 +19,8 @@ module.exports = {
     devServer:{
         client:{
             overlay: {
-                errors: true, 
-                warnings: false, 
+                errors: true,
+                warnings: false,
                 runtimeErrors: false, // 停止运行时错误的 overlay 提示
             }
         },
@@ -31,19 +31,19 @@ module.exports = {
         //         changeOrigin:true,
         //         /**
         //          * @desc 收到响应的钩子， 拦截来自后台的 response 获取其中的 cookie，并转发
-        //          * @param {*} proxyRes 
-        //          * @param {*} req 
-        //          * @param {*} res 
+        //          * @param {*} proxyRes
+        //          * @param {*} req
+        //          * @param {*} res
         //          */
         //         onProxyRes(proxyRes, req, res){
-                    
+
         //             const cookies = proxyRes.headers['set-cookie'];
         //             console.log(cookies);
         //             delete proxyRes.headers['set-cookie'];
         //             proxyRes.headers['set-cookie'] = cookies;
         //         },
         //         // onProxyReq(proxyReq){
-                    
+
         //         // }
         //     }
         // }

@@ -27,7 +27,7 @@ services:
       - MODE=admin
     volumes:
       - ../src/api/:/app/
-  ai-shifu-admin-web-dev: 
+  ai-shifu-admin-web-dev:
     container_name:  ai-shifu-admin-web-dev
     image: ai-shifu-admin-web-dev:latest
     command:  pnpm run start:dev
@@ -38,15 +38,14 @@ services:
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev
     image: nginx:latest
-    ports: 
+    ports:
       - "8080:8080"
       - "8081:8081"
     depends_on:
-      - ai-shifu-web-dev 
+      - ai-shifu-web-dev
       - ai-shifu-api-dev
       - ai-shifu-admin-web-dev
       - ai-shifu-admin-api-dev
     restart: always
     volumes:
       - ./nginx.dev.conf:/etc/nginx/nginx.conf
-

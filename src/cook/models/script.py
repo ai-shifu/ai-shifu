@@ -128,16 +128,20 @@ def load_scripts_from_bitable(app_token, table_id, view_id) -> List[Script]:
                 continue
 
             desc = "".join(
-                item["text"] for item in item.fields.get("剧本简述", [{"text": "未填写！"}])
+                item["text"]
+                for item in item.fields.get("剧本简述", [{"text": "未填写！"}])
             )
             script_type = ScriptType(item.fields.get("剧本类型", "固定剧本"))
             script_format = ScriptFormat(item.fields.get("内容格式", "文本"))
             template = "".join(
-                item["text"] for item in item.fields.get("模版内容", [{"text": "未填写！"}])
+                item["text"]
+                for item in item.fields.get("模版内容", [{"text": "未填写！"}])
             )
             template_vars = item.fields.get("模版变量")
             media_url = (
-                item.fields.get("媒体URL")["text"] if item.fields.get("媒体URL") else None
+                item.fields.get("媒体URL")["text"]
+                if item.fields.get("媒体URL")
+                else None
             )
             next_action = NextAction(item.fields.get("后续交互", "无"))
             btn_label = "".join(
@@ -145,22 +149,27 @@ def load_scripts_from_bitable(app_token, table_id, view_id) -> List[Script]:
             )
             btn_group_cfg = json.loads(
                 "".join(
-                    item["text"] for item in item.fields.get("按钮组配置", [{"text": "{}"}])
+                    item["text"]
+                    for item in item.fields.get("按钮组配置", [{"text": "{}"}])
                 )
             )
             btn_jump_cfg = json.loads(
                 "".join(
-                    item["text"] for item in item.fields.get("跳转配置", [{"text": "{}"}])
+                    item["text"]
+                    for item in item.fields.get("跳转配置", [{"text": "{}"}])
                 )
             )
             input_placeholder = "".join(
-                item["text"] for item in item.fields.get("输入框提示", [{"text": "请输入"}])
+                item["text"]
+                for item in item.fields.get("输入框提示", [{"text": "请输入"}])
             )
             check_template = "".join(
-                item["text"] for item in item.fields.get("检查模版内容", [{"text": "未填写！"}])
+                item["text"]
+                for item in item.fields.get("检查模版内容", [{"text": "未填写！"}])
             )
             check_ok_sign = "".join(
-                item["text"] for item in item.fields.get("输入成功标识", [{"text": "OK"}])
+                item["text"]
+                for item in item.fields.get("输入成功标识", [{"text": "OK"}])
             )
             parse_vars = item.fields.get("解析用户输入内容", None)
             custom_model = item.fields.get("自定义模型", None)

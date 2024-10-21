@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { memo } from 'react';
 import LogoWithText from 'Components/logo/LogoWithText.jsx';
 
-export const NavBody = ({ 
+export const NavBody = ({
   onLoginClick = () => {},
 }) => {
   const { t } = useTranslation();

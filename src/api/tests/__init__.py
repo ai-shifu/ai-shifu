@@ -8,4 +8,4 @@ from .test_app import *
 
 import os
 
-os.environ['DJANGO_SETTINGS_MODULE'] = 'api.settings'
+os.environ["DJANGO_SETTINGS_MODULE"] = "api.settings"

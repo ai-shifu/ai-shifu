@@ -49,8 +49,7 @@ export const useTracking = () => {
         progress_desc: scriptInfo.script_name,
       });
     } catch { }
-  }, [trackEvent]) 
+  }, [trackEvent])
 
   return { trackEvent, trackTrailProgress }
 }
-

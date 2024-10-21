@@ -95,7 +95,9 @@ def update_chapter_from_api(
         streamlit.toast(f"《{title}》更新成功", icon="🎉")
     else:
         print(f"Failed to update data: {response.status_code}")
-        streamlit.toast(f"《{title}》更新失败，错误码: {response.status_code}", icon="🚨")
+        streamlit.toast(
+            f"《{title}》更新失败，错误码: {response.status_code}", icon="🚨"
+        )
 
 
 def delete_chapter_from_api(table_id, course_id, lesson_no, base_url=cfg.API_URL):

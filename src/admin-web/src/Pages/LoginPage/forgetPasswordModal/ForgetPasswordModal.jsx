@@ -9,7 +9,7 @@ import { resetPassword,requireResetPasswordCode } from '../../../Api/user';
 const { Modal } = require("antd");
 
 const Title = ()=>(
-    <div className="forget-password-modal_title">          
+    <div className="forget-password-modal_title">
         <img
             className='logo'
             src={require('../../../Assets/logo-03.png')} alt="" />
@@ -21,7 +21,7 @@ const Title = ()=>(
 
 const ForgetPasswordModal = ({open, asyncOk, cancel})=>{
     const [form]  = useForm();
-    let [verificationButtonText, setVerificationButtonText] = useState("获取验证码"); 
+    let [verificationButtonText, setVerificationButtonText] = useState("获取验证码");
     let [verificationButtonDisabled, setVerificationButtonDisabled] = useState(false);
     const [loading, setLoading] = useState(false);
     /**
@@ -129,7 +129,7 @@ const ForgetPasswordModal = ({open, asyncOk, cancel})=>{
                     type='primary'
                     htmlType='submit'
                     loading={loading}>
-                    立即重置    
+                    立即重置
                 </Button>
             </FormItem>
             <FormItem>

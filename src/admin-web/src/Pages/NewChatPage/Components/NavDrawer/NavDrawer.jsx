@@ -68,7 +68,7 @@ const NavDrawer = ({ showType = NAV_SHOW_TYPE_NORMAL }) => {
   }
 
   const popupWindowStyle = {
-    left: '50%', transform: 'translate(-50%)', width: '250px', top: 'auto', bottom: 80 
+    left: '50%', transform: 'translate(-50%)', width: '250px', top: 'auto', bottom: 80
   }
 
   return (
@@ -93,7 +93,7 @@ const NavDrawer = ({ showType = NAV_SHOW_TYPE_NORMAL }) => {
           style={popupWindowStyle}
           onClose={onPopupModalClose}
         />
-        <ThemeWindow 
+        <ThemeWindow
           open={popupModalState === POPUP_WINDOW_STATE_THEME}
           style={popupWindowStyle}
           onClose={onPopupModalClose}

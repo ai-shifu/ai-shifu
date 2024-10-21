@@ -44,7 +44,7 @@ const ChatPage = () => {
   };
   return (
     <div className="chat-page full-height">
-      <ChatList 
+      <ChatList
         onClickListItem={onClickListItem}
         onClickMenuItem={onClickMenuItem}
 

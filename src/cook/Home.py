@@ -35,7 +35,11 @@ add_vertical_space(3)
 ## 章节剧本线性调试器
 模拟用户端的体验，顺序的进行调试。  (⬇️ 这是个真按钮，能点 ⬇️)
 """
-if st.button("前往章节剧本线性调试器（Chapter Debugger）", type="primary", use_container_width=True):
+if st.button(
+    "前往章节剧本线性调试器（Chapter Debugger）",
+    type="primary",
+    use_container_width=True,
+):
     st.switch_page("pages/1_Chapter_Debugger.py")
 """
 * 首次进入没有课程，需要前往个人中心配置课程：

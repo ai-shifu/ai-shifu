@@ -62,9 +62,11 @@ class ConfigManager:
 
             _cfg_fileupload = config["fileupload"]
             self.IMG_LOCAL_DIR = _cfg_fileupload["img_local_dir"]
-            os.makedirs(self.IMG_LOCAL_DIR) if not os.path.exists(
-                self.IMG_LOCAL_DIR
-            ) else None
+            (
+                os.makedirs(self.IMG_LOCAL_DIR)
+                if not os.path.exists(self.IMG_LOCAL_DIR)
+                else None
+            )
             self.IMG_OSS_ANAME = _cfg_fileupload["img_oss_aname"]
             self.IMG_OSS_ENDPOINT = _cfg_fileupload["img_oss_endpoint"]
             self.IMG_OSS_BUCKET = _cfg_fileupload["img_oss_bucket"]

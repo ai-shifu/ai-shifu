@@ -75,7 +75,10 @@ def get_profile_labels():
                 "Cursor": "Cursor",
             },
         },
-        "style": {"label": _("PROFILE.STYLE"), "items": ["幽默风趣", "严肃专业", "鼓励温暖"]},
+        "style": {
+            "label": _("PROFILE.STYLE"),
+            "items": ["幽默风趣", "严肃专业", "鼓励温暖"],
+        },
         "programming": {
             "label": _("PROFILE.PROGRAMMING"),
             "items": ["完全没接触过", "学过但还无法编写程序", "会1门及以上语言"],
@@ -221,14 +224,18 @@ def get_user_profile_labels(app: Flask, user_id: str):
                     "label": PROFILES_LABLES[user_profile.profile_key]["label"],
                     "type": PROFILES_LABLES[user_profile.profile_key].get(
                         "type",
-                        "select"
-                        if "items" in PROFILES_LABLES[user_profile.profile_key]
-                        else "text",
+                        (
+                            "select"
+                            if "items" in PROFILES_LABLES[user_profile.profile_key]
+                            else "text"
+                        ),
                     ),
                     "value": user_profile.profile_value,
-                    "items": PROFILES_LABLES[user_profile.profile_key]["items"]
-                    if "items" in PROFILES_LABLES[user_profile.profile_key]
-                    else None,
+                    "items": (
+                        PROFILES_LABLES[user_profile.profile_key]["items"]
+                        if "items" in PROFILES_LABLES[user_profile.profile_key]
+                        else None
+                    ),
                 }
                 result.append(item)
 

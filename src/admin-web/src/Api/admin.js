@@ -2,12 +2,12 @@ import request from '../Service/Request';
 
 /**
  * @description 用户注册接口
- * @param {*} username 
- * @param {*} password 
- * @param {*} name 
- * @param {*} mobile 
- * @param {*} email 
- * @returns 
+ * @param {*} username
+ * @param {*} password
+ * @param {*} name
+ * @param {*} mobile
+ * @param {*} email
+ * @returns
  */
 export const register = ({ username, password, mobile, email }) => {
   return request({
@@ -19,9 +19,9 @@ export const register = ({ username, password, mobile, email }) => {
 
 /**
  * 用户注册接口
- * @param {*} username 
- * @param {*} password 
- * @returns 
+ * @param {*} username
+ * @param {*} password
+ * @returns
  */
 export const login = (username, password) => {
   return request({
@@ -33,7 +33,7 @@ export const login = (username, password) => {
 
 /**
  * @description 查询用户信息
- * @returns 
+ * @returns
  */
 export const getUserInfo = () => {
   return request({
@@ -44,7 +44,7 @@ export const getUserInfo = () => {
 
 
 /**
- * 
+ *
  */
 export const updateUserInfo = (name) => {
   return request({
@@ -91,10 +91,10 @@ export const requireTmp = (temp_id,source)=>{
 
 
 /**
- * 
- * @param {*} data 
- * @returns 
- * 
+ *
+ * @param {*} data
+ * @returns
+ *
  *  page_size = request.get_json().get('page_size',20)
         page_index = request.get_json().get('page_index',1)
         query = request.get_json().get('query',{})

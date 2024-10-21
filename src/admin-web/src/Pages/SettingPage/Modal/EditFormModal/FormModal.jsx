@@ -15,7 +15,7 @@ const FormModal = ({formKey, open, onCancel, onAsyncOk})=> {
 
     const onInnerAsyncOk = ()=>{
         setLoading(true);
-        
+
         ref.current.onFinish(ref.current.getFieldsValue()).then(()=>{
             setLoading(false);
             onAsyncOk();
@@ -28,7 +28,7 @@ const FormModal = ({formKey, open, onCancel, onAsyncOk})=> {
         console.log(changeValues, allValues);
         const haveValue = allValues.some(item => item.value!=="")
         setFooterShow(haveValue?undefined:null);
-        
+
     }
 
     const formKeyFormElementMap = {
@@ -38,13 +38,13 @@ const FormModal = ({formKey, open, onCancel, onAsyncOk})=> {
         password:<EditPasswordName cRef={ref} onFieldsChange={ onFieldsChange}></EditPasswordName>
     }
     return (
-        <Modal 
+        <Modal
             footer={footerShow}
             okButtonProps={{loading}}
             cancelButtonProps={{style:{float:"left"}}}
             open={open}
             onOk={onInnerAsyncOk}
-            onCancel={onCancel}>   
+            onCancel={onCancel}>
             {formKeyFormElementMap[formKey]}
         </Modal>
     )

@@ -18,7 +18,7 @@ export const NavHeader = ({
       </div>
       {showCollapseBtn && (<div className={styles.actionBtn} onClick={() => onToggle?.({ isCollapse: !isCollapse })}>{ isCollapse ? '>' : '<' }</div>)}
       {showCloseBtn && <div className={styles.actionBtn} onClick={onClose}>X</div>}
-      
+
     </div>
   );
 };

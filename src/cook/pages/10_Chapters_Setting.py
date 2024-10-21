@@ -42,7 +42,9 @@ def add_chapter(max_index_now, base_url):
         params = {
             "name": st.text_input("章节名称"),
             "lark_table_id": st.text_input("飞书表格 ID"),
-            "lark_view_id": st.text_input("飞书表格 ViewID", value=cfg.DEF_LARK_VIEW_ID),
+            "lark_view_id": st.text_input(
+                "飞书表格 ViewID", value=cfg.DEF_LARK_VIEW_ID
+            ),
             "chapter_type": LESSON_TYPES[
                 st.selectbox("章节类型", list(LESSON_TYPES.keys()), index=1)
             ],
@@ -76,7 +78,9 @@ def edit_chapter(df: DataFrame, chapter_id, base_url):
             "lark_view_id": st.text_input(
                 "飞书表格 ViewID", df.loc[chapter_id, "lark_view_id"]
             ),
-            "chapter_type": st.text_input("章节类型", df.loc[chapter_id, "chapter_type"]),
+            "chapter_type": st.text_input(
+                "章节类型", df.loc[chapter_id, "chapter_type"]
+            ),
             "chapter_id": st.text_input("lesson_no(index)", chapter_id),
         }
 
@@ -104,7 +108,9 @@ def delete_chapter(df: DataFrame, chapter_id, base_url):
         table_id = st.text_input(
             "飞书表格 ID", df.loc[chapter_id, "lark_table_id"], disabled=True
         )
-        st.text_input("飞书表格 ViewID", df.loc[chapter_id, "lark_view_id"], disabled=True)
+        st.text_input(
+            "飞书表格 ViewID", df.loc[chapter_id, "lark_view_id"], disabled=True
+        )
         st.number_input("排序权重", value=df.loc[chapter_id, "rank"], disabled=True)
 
         submit_button = st.form_submit_button(
@@ -146,7 +152,9 @@ def stdf_manage(df, title, has_delete=True, base_url=cfg.API_URL):
 
         cols = st.columns(3 if has_delete else 2)
         with cols[0]:
-            if st.button(f'⬆️ 更新 {selected_chapter["name"]}', use_container_width=True):
+            if st.button(
+                f'⬆️ 更新 {selected_chapter["name"]}', use_container_width=True
+            ):
                 update_chapter_from_api(
                     doc_id=STSS.selected_course[base_url].lark_app_token,
                     table_id=selected_chapter["lark_table_id"],
@@ -158,7 +166,9 @@ def stdf_manage(df, title, has_delete=True, base_url=cfg.API_URL):
                 )
 
         with cols[1]:
-            if st.button(f'✏️ 修改 {selected_chapter["name"]}', use_container_width=True):
+            if st.button(
+                f'✏️ 修改 {selected_chapter["name"]}', use_container_width=True
+            ):
                 edit_chapter(df, selected_chapter.name, base_url=base_url)
 
         if has_delete:
@@ -240,7 +250,9 @@ def display_chapter_management(base_url):
         stdf_manage(df_chapters_hidden, "隐藏分支章节配置", base_url=base_url)
 
         "-----"
-        if st.button("➕ 添加章节", use_container_width=True, key=f"add_chapter_{base_url}"):
+        if st.button(
+            "➕ 添加章节", use_container_width=True, key=f"add_chapter_{base_url}"
+        ):
             add_chapter(max_index, base_url=base_url)
 
 

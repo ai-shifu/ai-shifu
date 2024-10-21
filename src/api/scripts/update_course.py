@@ -13,7 +13,7 @@ COURSE = {}
 # COURSE["tbl6bRlnHZ24ogP4"]=["Windows 上配置Python","vewlGkI2Jp",405]
 # COURSE["tblQhi1ZutfUhW2T"]=["Mac上配置Python","vewlGkI2Jp",405]
 
-HOST="http://127.0.0.1:5800"
+HOST = "http://127.0.0.1:5800"
 # HOST="https://test-api-sifu.agiclass.cn/"
 
 
@@ -35,28 +35,30 @@ HOST="http://127.0.0.1:5800"
 # }
 
 
-COURSE["tblk9OFSKLeUPunv"]=["开篇","vewlGkI2Jp",401]                          
-COURSE["tblQ95GHoVKWLsux"]=["如何用 AI 写出程序？","vewlGkI2Jp",402]                
-COURSE["tblJxFaqo31vAwYm"]=["如何用 AI 来学习 python ？","vewlGkI2Jp",402]         
-COURSE["tblPI00k8B14kD5m"]=["AI 编程运行的初体验","vewlGkI2Jp",402]                 
-COURSE["tbl7G4WqBtv6hycy"]=["如何借助 AI 读懂代码？","vewlGkI2Jp",402]               
-COURSE["tblFrdiqdXzebDZa"]=["如何用 AI 优化代码质量？","vewlGkI2Jp",402]              
-COURSE["tbl93C7esgLzrtNT"]=["如何用 AI 处理运行错误","vewlGkI2Jp",402]               
-COURSE["tbl9MytJGjsfvhvT"]=["用 AI 完成一个简单的程序","vewlGkI2Jp",402]              
-COURSE["tbl9MytJGjsfvhvT"]=["初学者怎么用 AI 自动补代码？","vewlGkI2Jp",402]            
-COURSE["tblDUfFbHGnM4LQl"]=["通义灵码","vewlGkI2Jp",405]                        
-COURSE["tbl9gl38im3rd1HB"]=["Copilot","vewlGkI2Jp",405]                      
-COURSE["tbl6bRlnHZ24ogP4"]=["Windows 上配置Python","vewlGkI2Jp",405]           
-COURSE["tblQhi1ZutfUhW2T"]=["Mac上配置Python","vewlGkI2Jp",405]                
-COURSE["tblQhi1ZutfUhW2T"]=["Mac上配置Python3","vewlGkI2Jp",405]               
-COURSE["tblQhi1ZutfUhW2T"]=["Mac上配置Python2","vewlGkI2Jp",405]               
+COURSE["tblk9OFSKLeUPunv"] = ["开篇", "vewlGkI2Jp", 401]
+COURSE["tblQ95GHoVKWLsux"] = ["如何用 AI 写出程序？", "vewlGkI2Jp", 402]
+COURSE["tblJxFaqo31vAwYm"] = ["如何用 AI 来学习 python ？", "vewlGkI2Jp", 402]
+COURSE["tblPI00k8B14kD5m"] = ["AI 编程运行的初体验", "vewlGkI2Jp", 402]
+COURSE["tbl7G4WqBtv6hycy"] = ["如何借助 AI 读懂代码？", "vewlGkI2Jp", 402]
+COURSE["tblFrdiqdXzebDZa"] = ["如何用 AI 优化代码质量？", "vewlGkI2Jp", 402]
+COURSE["tbl93C7esgLzrtNT"] = ["如何用 AI 处理运行错误", "vewlGkI2Jp", 402]
+COURSE["tbl9MytJGjsfvhvT"] = ["用 AI 完成一个简单的程序", "vewlGkI2Jp", 402]
+COURSE["tbl9MytJGjsfvhvT"] = ["初学者怎么用 AI 自动补代码？", "vewlGkI2Jp", 402]
+COURSE["tblDUfFbHGnM4LQl"] = ["通义灵码", "vewlGkI2Jp", 405]
+COURSE["tbl9gl38im3rd1HB"] = ["Copilot", "vewlGkI2Jp", 405]
+COURSE["tbl6bRlnHZ24ogP4"] = ["Windows 上配置Python", "vewlGkI2Jp", 405]
+COURSE["tblQhi1ZutfUhW2T"] = ["Mac上配置Python", "vewlGkI2Jp", 405]
+COURSE["tblQhi1ZutfUhW2T"] = ["Mac上配置Python3", "vewlGkI2Jp", 405]
+COURSE["tblQhi1ZutfUhW2T"] = ["Mac上配置Python2", "vewlGkI2Jp", 405]
 
-i = 0 
+i = 0
 for k in COURSE.keys():
     print(k)
     print(COURSE.get(k))
-    name= COURSE.get(k)
-    url = '''{}/api/lesson/update_lesson?doc_id=LLwmbSyMcakFVJsM5yacT5Gqnse&table_id={}&view_id={}&title={}&index={}&lesson_type={}'''.format(HOST,k,name[1],name[0],i,name[2])
-    i = i + 1 
+    name = COURSE.get(k)
+    url = """{}/api/lesson/update_lesson?doc_id=LLwmbSyMcakFVJsM5yacT5Gqnse&table_id={}&view_id={}&title={}&index={}&lesson_type={}""".format(
+        HOST, k, name[1], name[0], i, name[2]
+    )
+    i = i + 1
     print(url)
     print(requests.get(url=url).json())

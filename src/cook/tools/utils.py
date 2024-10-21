@@ -234,7 +234,9 @@ def parse_vars_from_template(
         if parse_json["result"] == "ok":
             for k in parse_keys:
                 st.session_state[k] = parse_json["parse_vars"][k]
-                logging.debug(f'已将"{parse_json["parse_vars"][k]}"存入session："{k}"中')
+                logging.debug(
+                    f'已将"{parse_json["parse_vars"][k]}"存入session："{k}"中'
+                )
             return True
         else:
             reason = parse_json["reason"]
@@ -322,7 +324,9 @@ def distribute_elements(btns, max_cols, min_cols):
         # 从倒数第二行开始借元素
         for i in range(len(result) - 2, -1, -1):
             while len(result[i]) > min_cols and len(result[-1]) < min_cols:
-                result[-1].insert(0, result[i].pop())  # 从前一行的末尾取元素到最后一行的开头
+                result[-1].insert(
+                    0, result[i].pop()
+                )  # 从前一行的末尾取元素到最后一行的开头
             if len(result[-1]) >= min_cols:
                 break
         else:

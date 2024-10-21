@@ -21,7 +21,7 @@
   &.selected {
     .textArea {
       background-color: var(--color-2);
-      
+
       .courseTitle {
         color: var(--color-4);
       }
@@ -103,7 +103,7 @@
     border-radius: 10px;
     flex: 1 0 0;
 
-    .label { 
+    .label {
       display: inline-block;
       text-align: center;
       width: 40px;
@@ -114,7 +114,7 @@
       background: var(--color-8);
       color: var(--color-4);
     }
-    
+
     .courseTitle {
       display: inline;
       padding-left: 5px;

@@ -37,5 +37,3 @@ echo "Pushing Docker image to registry..."
 docker push "$REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
 echo "Pushing Docker latest image to registry..."
 docker push "$REGISTRY/$IMAGE_NAME:$LATETST_TAG"
-
-

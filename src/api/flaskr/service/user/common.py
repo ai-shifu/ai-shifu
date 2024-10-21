@@ -123,9 +123,9 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                     raise_error("USER.USER_TOKEN_EXPIRED")
             else:
                 raise_error("USER.USER_TOKEN_EXPIRED")
-        except (jwt.exceptions.ExpiredSignatureError):
+        except jwt.exceptions.ExpiredSignatureError:
             raise_error("USER.USER_TOKEN_EXPIRED")
-        except (jwt.exceptions.DecodeError):
+        except jwt.exceptions.DecodeError:
             raise_error("USER.USER_NOT_FOUND")
 
 

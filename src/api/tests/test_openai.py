@@ -18,7 +18,10 @@ def testopenai(app):
         model="gpt-4o-mini-2024-07-18",  # 必须是版本大于 gpt-4o-mini-2024-07-18 或 gpt-4o-2024-08-06 的模型
         messages=[
             {"role": "system", "content": "解析出事件信息。"},
-            {"role": "user", "content": "一般在周一晚上，孙志岗会在他的视频号邀请一名 AI 全栈工程师课程的学员连麦直播。"},
+            {
+                "role": "user",
+                "content": "一般在周一晚上，孙志岗会在他的视频号邀请一名 AI 全栈工程师课程的学员连麦直播。",
+            },
         ],
         response_format=CalendarEvent,
     )

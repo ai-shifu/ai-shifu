@@ -211,11 +211,13 @@ class ViewDef:
                 {
                     "id": data.id,
                     **{
-                        get_column_name(item.column): item.items.get(
-                            getattr(data, get_column_name(item.column)), ""
+                        get_column_name(item.column): (
+                            item.items.get(
+                                getattr(data, get_column_name(item.column)), ""
+                            )
+                            if item.items
+                            else str(getattr(data, get_column_name(item.column)))
                         )
-                        if item.items
-                        else str(getattr(data, get_column_name(item.column)))
                         for item in self.items
                     },
                 }

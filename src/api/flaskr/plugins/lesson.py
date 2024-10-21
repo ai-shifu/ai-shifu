@@ -39,7 +39,9 @@ AILessonView = ViewDef(
         InputItem(
             "lesson_type", "类型", "like", INPUT_TYPE_TEXT, input_options=LESSON_TYPES
         ),
-        InputItem("status", "状态", "like", INPUT_TYPE_TEXT, input_options=LESSON_STATUS),
+        InputItem(
+            "status", "状态", "like", INPUT_TYPE_TEXT, input_options=LESSON_STATUS
+        ),
         InputItem("created", "创建时间", "like", INPUT_TYPE_TEXT),
         InputItem("updated", "更新时间", "like", INPUT_TYPE_TEXT),
     ],
@@ -106,7 +108,9 @@ AILessonScriptView = ViewDef(
         InputItem(
             "script_type", "类型", "like", INPUT_TYPE_TEXT, input_options=SCRIPT_TYPES
         ),
-        InputItem("status", "状态", "like", INPUT_TYPE_TEXT, input_options=SCRIPT_STATUS),
+        InputItem(
+            "status", "状态", "like", INPUT_TYPE_TEXT, input_options=SCRIPT_STATUS
+        ),
         InputItem(
             "script_ui_type", "UI类型", "like", INPUT_TYPE_TEXT, input_options=UI_TYPES
         ),

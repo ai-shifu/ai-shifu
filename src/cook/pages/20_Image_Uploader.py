@@ -54,7 +54,9 @@ with login():
         # 文件上传到OSS
         st.session_state.bucket.put_object(file_name, bytes_data)
 
-        st.success(f"文件 '{file_name}' 上传成功，URL如下（鼠标Hover后 右侧会出现复制按钮）：")
+        st.success(
+            f"文件 '{file_name}' 上传成功，URL如下（鼠标Hover后 右侧会出现复制按钮）："
+        )
         st.code(f"https://{cfg.IMG_OSS_ANAME}/{file_name}")
 
     "---------------"

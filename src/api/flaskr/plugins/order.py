@@ -127,7 +127,11 @@ DisCountRecordView = ViewDef(
     [
         InputItem("discount_value", "折扣金额", "like", INPUT_TYPE_TEXT),
         InputItem(
-            "status", "状态", "like", INPUT_TYPE_TEXT, input_options=DISCOUNT_STATUS_TYPES
+            "status",
+            "状态",
+            "like",
+            INPUT_TYPE_TEXT,
+            input_options=DISCOUNT_STATUS_TYPES,
         ),
     ],
     DiscountRecord,

@@ -203,7 +203,9 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                     "type": INPUT_TYPE_CONTINUE,
                 }
             ]
-            ret.ui = StudyUIDTO("buttons", {"title": "接下来", "buttons": btn}, lesson_id)
+            ret.ui = StudyUIDTO(
+                "buttons", {"title": "接下来", "buttons": btn}, lesson_id
+            )
             return ret
         if (
             last_script.script_ui_type == UI_TYPE_INPUT
@@ -220,7 +222,9 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                     "type": INPUT_TYPE_CONTINUE,
                 }
             ]
-            ret.ui = StudyUIDTO("buttons", {"title": "接下来", "buttons": btn}, lesson_id)
+            ret.ui = StudyUIDTO(
+                "buttons", {"title": "接下来", "buttons": btn}, lesson_id
+            )
         elif last_script.script_ui_type == UI_TYPE_CONTINUED:
             ret.ui = StudyUIDTO(
                 "buttons",

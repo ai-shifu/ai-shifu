@@ -24,4 +24,3 @@ export const tracking = async (eventName, eventData) => {
     umami.track(eventName, eventData);
   } catch (error) { }
 };
-

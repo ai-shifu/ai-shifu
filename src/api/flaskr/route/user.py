@@ -463,7 +463,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
     def sumbit_feedback_api():
-
         """
         提交反馈
         ---

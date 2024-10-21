@@ -10,7 +10,7 @@ import { useEffect } from "react";
 const EditPasswordName = ({cRef, onFieldsChange }) => {
 
   const [form] = useForm();
-  
+
   const onFinish = async(value)=>{
     await form.validateFields().then();
     return new Promise((resolve, reject)=>{
@@ -37,30 +37,30 @@ const EditPasswordName = ({cRef, onFieldsChange }) => {
 
 
 
-  
+
 
   return (
     <Row className="form-container" justify="center" style={{ textAlign: "center" }}>
       <Space direction="vertical">
         <LockOutlined style={{ fontSize: 64, color: "#1677ff" }}></LockOutlined>
         <h1>修改密码</h1>
-        <Form 
+        <Form
           form={form}
           onFieldsChange={onFieldsChange}
           onFinish={onFinish}>
-          <Form.Item 
+          <Form.Item
             name="old_password"
             rules={[{ required: true, message: '请输入密码!' }]}>
-            <Input 
-              placeholder="输入旧密码" 
+            <Input
+              placeholder="输入旧密码"
               type="password" />
           </Form.Item>
-          <Form.Item 
+          <Form.Item
             name="new_password"
             rules={[{ required: true, message: '请输入密码!' }]}>
             <Input placeholder="输入你的新密码" type="password" />
           </Form.Item>
-          <Form.Item 
+          <Form.Item
             name="again_password"
             rules={[
               { required: true, message: '请输入密码!' },

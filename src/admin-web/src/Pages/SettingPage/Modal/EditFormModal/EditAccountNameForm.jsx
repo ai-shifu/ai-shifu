@@ -25,14 +25,14 @@ const EditAccountName = ({cRef, onFieldsChange }) => {
 
 
 
-  
+
 
   return (
     <Row className="form-container" justify="center" style={{ textAlign: "center" }}>
       <Space direction="vertical">
         <ContactsOutlined style={{ fontSize: 64, color: "#1677ff" }}></ContactsOutlined>
         <h1>账号名称</h1>
-        <Form 
+        <Form
           form={form}
           onFieldsChange={onFieldsChange}>
           <Form.Item name="accountName">

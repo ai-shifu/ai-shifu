@@ -620,7 +620,7 @@ CREATE table `ai_course_lesson_attend_association`  (
   key `ix_from_attend_id`(`from_attend_id`),
   key `ix_to_attend_id`(`to_attend_id`),
   key `ix_user_id`(`user_id`)
-)  ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; 
+)  ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 

@@ -2,7 +2,7 @@ import styles from  './NavFooter.module.scss';
 import { ApartmentOutlined } from '@ant-design/icons';
 import classNames from 'classnames';
 
-export const NavFooter = ({ 
+export const NavFooter = ({
   isCollapse = false,
   onFilingClick = () => {},
   onThemeClick = () => {},

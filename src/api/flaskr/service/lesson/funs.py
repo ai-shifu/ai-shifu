@@ -281,7 +281,11 @@ DB_SAVE_MAP = {
 }
 
 
-DB_SAVE_DICT_MAP = {"剧本类型": SCRIPT_TYPES, "内容格式": CONTENT_TYPES, "后续交互": UI_TYPES}
+DB_SAVE_DICT_MAP = {
+    "剧本类型": SCRIPT_TYPES,
+    "内容格式": CONTENT_TYPES,
+    "后续交互": UI_TYPES,
+}
 
 
 def update_lesson_info(

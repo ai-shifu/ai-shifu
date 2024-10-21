@@ -1,6 +1,7 @@
 def test_llm_glm(app):
     from flaskr.api.llm import invoke_llm
     from flaskr.api.langfuse import langfuse_client
+
     msg = """向 wj 学员讲解用 AI 给出提升工作效率的 Python 项目思路。
 
 结合学员的背景 ：在 教育  行业的 中学信息老师 岗位，给出具体工作中有哪种类型的项目适合用编程来解决，举出它们共性的特点，以便在面对它们的时候可以想到用编程来解决。
@@ -57,7 +58,9 @@ def test_llm_glm(app):
 - 直接用讲师的口吻讲述，请避免讨论我发送的内容，只需要按指令里的内容做回答，不需要回复过多内容，不需要自我介绍。
 - Don't talk nonsense and make up facts."""
 
-    res = invoke_llm(app, langfuse_client.span(),model="GLM-4-0520" ,message=  msg,temperature="0.5")
+    res = invoke_llm(
+        app, langfuse_client.span(), model="GLM-4-0520", message=msg, temperature="0.5"
+    )
     for message in res:
         print(message)
     pass

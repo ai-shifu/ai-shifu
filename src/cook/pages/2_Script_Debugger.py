@@ -177,7 +177,7 @@ with login():
                 st.session_state.lark_app_token, st.session_state.lark_table_id
             )
 
-        with (col3):
+        with col3:
             select_script = st.selectbox("开始位置:", st.session_state.script_list)
             st.session_state.progress = st.session_state.script_list.index(
                 select_script
@@ -355,15 +355,19 @@ with login():
                             model,
                             temperature,
                             st.session_state.debug_script,
-                            {
-                                v: st.session_state[v]
-                                for v in st.session_state.debug_script.template_vars
-                            }
-                            if st.session_state.debug_script.template_vars
-                            else None,
-                            st.session_state.system_role
-                            if "system_role" in st.session_state
-                            else None,
+                            (
+                                {
+                                    v: st.session_state[v]
+                                    for v in st.session_state.debug_script.template_vars
+                                }
+                                if st.session_state.debug_script.template_vars
+                                else None
+                            ),
+                            (
+                                st.session_state.system_role
+                                if "system_role" in st.session_state
+                                else None
+                            ),
                             st.session_state.debugger_user_input,
                         )
                         futures.append(future)

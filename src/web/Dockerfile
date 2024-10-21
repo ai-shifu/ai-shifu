@@ -14,7 +14,7 @@ COPY package*.json ./
 # 复制项目源代码
 COPY . .
 
-RUN pnpm install  
+RUN pnpm install
 
 
 
