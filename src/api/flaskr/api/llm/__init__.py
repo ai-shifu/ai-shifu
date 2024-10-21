@@ -11,20 +11,35 @@ from openai.types.shared_params import ResponseFormatJSONObject
 
 from flaskr.common.config import get_config
 
-openai_client = openai.Client(
-    api_key=get_config("OPENAI_API_KEY"), base_url=get_config("OPENAI_BASE_URL")
-)
+if get_config("OPENAI_API_KEY"):
+    openai_client = openai.Client(
+        api_key=get_config("OPENAI_API_KEY"), base_url=get_config("OPENAI_BASE_URL")
+    )
+else:
+    openai_client = None
 
-deepseek_client = openai.Client(
-    api_key=get_config("DEEP_SEEK_API_KEY"), base_url=get_config("DEEP_SEEK_API_URL")
-)
-qwen_client = openai.Client(
-    api_key=get_config("QWEN_API_KEY"), base_url=get_config("QWEN_API_URL")
-)
+if get_config("DEEP_SEEK_API_KEY"):
+    deepseek_client = openai.Client(
+        api_key=get_config("DEEP_SEEK_API_KEY"),
+        base_url=get_config("DEEP_SEEK_API_URL"),
+    )
+else:
+    deepseek_client = None
+
+if get_config("QWEN_API_KEY"):
+    qwen_client = openai.Client(
+        api_key=get_config("QWEN_API_KEY"), base_url=get_config("QWEN_API_URL")
+    )
+else:
+    qwen_client = None
+
 try:
-    OPENAI_MODELS = [
-        i.id for i in openai_client.models.list().data if i.id.startswith("gpt")
-    ]
+    if openai_client:
+        OPENAI_MODELS = [
+            i.id for i in openai_client.models.list().data if i.id.startswith("gpt")
+        ]
+    else:
+        OPENAI_MODELS = []
 except Exception as e:
     print(e)
     # app.logger.error(f"get openai models error: {e}")
@@ -122,6 +137,9 @@ def invoke_llm(
             client = qwen_client
         elif model in DEEP_SEEK_MODELS:
             client = deepseek_client
+        if not client:
+            app.logger.error(f"model {model} not found,use ERNIE-4.0-8K-Preview-0518")
+            client = openai_client
         messages = []
         if system:
             messages.append({"content": system, "role": "system"})
