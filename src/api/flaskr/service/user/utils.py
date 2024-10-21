@@ -4,6 +4,9 @@ import time
 import base64
 import string
 import random
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 from ..common.models import raise_error
 from ...dao import redis_client as redis
@@ -89,3 +92,30 @@ def send_sms_code(app: Flask, phone: str, chekcode: str):
             )
             send_sms_code_ali(app, phone, random_string)
             return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
+
+
+def send_email_code(app: Flask, email: str, code: str, checkcode: str):
+    with app.app_context():
+        # Create the email content
+        msg = MIMEMultipart()
+        msg["From"] = app.config["SMTP_SENDER"]
+        msg["To"] = email
+        msg["Subject"] = "AI-Shifu:Your Verification Code"
+
+        body = f"Your verification code is: {code}"
+        msg.attach(MIMEText(body, "plain"))
+
+        try:
+            # Connect to the SMTP server
+            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
+            server.starttls()
+            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
+
+            # Send the email
+            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
+            server.quit()
+
+            app.logger.info(f"Verification code sent to {email}")
+        except Exception as e:
+            app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
+            raise_error("USER.EMAIL_SEND_FAILED")
