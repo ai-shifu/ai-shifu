@@ -8,11 +8,11 @@ repos:
     -   id: flake8
         args: [--max-line-length=200,--ignore=F403,--ignore=W503]
 -   repo: https://github.com/psf/black
-    rev: 22.10.0
+    rev: 24.10.0
     hooks:
     -   id: black
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v2.17.9  # use latest stable version
+    rev: v3.29.1  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]
@@ -20,7 +20,7 @@ repos:
 
         # args: ["--config=.cz.yaml"]
 -   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v7.32.0
+    rev: v9.13.0
     hooks:
     -   id: eslint
         # args: [--ext, .js,.jsx,.ts,.tsx]
