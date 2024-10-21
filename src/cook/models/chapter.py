@@ -1,6 +1,5 @@
 import logging
 import requests
-import sqlite3
 
 import streamlit
 
@@ -52,7 +51,7 @@ def load_chapters_from_api(
     if response.status_code == 200:
         data = response.json()
         print(data)
-        if data['data']:
+        if data["data"]:
             coures_id = data["data"]["course_id"]
             for item in data["data"]["lesson_list"]:
                 print(item)

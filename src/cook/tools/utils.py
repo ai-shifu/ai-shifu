@@ -1,28 +1,33 @@
-import base64
 import random
 import time
 import re
-from pathlib import Path
+import logging
+import json
 
 import streamlit as st
-import validators
-from streamlit_chatbox import *
+from streamlit_chatbox import Markdown
 from langchain_core.prompts import PromptTemplate
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from init import *
+from init import cfg, load_llm, load_dotenv, find_dotenv
 from models.chapters_follow_up_ask_prompt import get_follow_up_ask_prompt_template
-from models.script import *
+from models.script import ScriptType, load_scripts_from_bitable
 
 _ = load_dotenv(find_dotenv())
 
 # 头像配置
-ICON_USER = 'user'
-ICON_SIFU = 'static/sunner_icon.jpg'
+ICON_USER = "user"
+ICON_SIFU = "static/sunner_icon.jpg"
 
 
-def simulate_streaming(chat_box, template: str, variables=None,
-                       random_min=cfg.SIM_STM_MIN, random_max=cfg.SIM_STM_MAX, update=False):
+def simulate_streaming(
+    chat_box,
+    template: str,
+    variables=None,
+    random_min=cfg.SIM_STM_MIN,
+    random_max=cfg.SIM_STM_MAX,
+    update=False,
+):
     """
     模拟流式输出
     :param chat_box: ChatBox 对象
@@ -33,24 +38,32 @@ def simulate_streaming(chat_box, template: str, variables=None,
     :param update: 是否更新之前的 chat_box 输出，默认是开启一段新对话
     """
     if not update:
-        chat_box.ai_say(Markdown('', in_expander=False))
+        chat_box.ai_say(Markdown("", in_expander=False))
 
     if variables:
         # 变量字典
         vars = {}
         for v in variables:
             vars[v] = st.session_state[v]
-        prompt_template = PromptTemplate(input_variables=list(vars.keys()), template=template)
+        prompt_template = PromptTemplate(
+            input_variables=list(vars.keys()), template=template
+        )
         template = prompt_template.format(**vars)
 
-    current_text = ''
+    current_text = ""
     for t in template:
         current_text += t
         chat_box.update_msg(current_text, element_index=0, streaming=True)
-        time.sleep(random.uniform(random_min / 20 if st.session_state.DEV_MODE else random_min,
-                                  random_max / 20 if st.session_state.DEV_MODE else random_max))
+        time.sleep(
+            random.uniform(
+                random_min / 20 if st.session_state.DEV_MODE else random_min,
+                random_max / 20 if st.session_state.DEV_MODE else random_max,
+            )
+        )
 
-    chat_box.update_msg(current_text, element_index=0, streaming=False, state="complete")
+    chat_box.update_msg(
+        current_text, element_index=0, streaming=False, state="complete"
+    )
     return current_text
 
 
@@ -64,37 +77,49 @@ def streaming_for_follow_up_ask(chat_box, user_input, chat_history):
     llm = load_llm()
 
     chat_box.ai_say
-    chat_box.ai_say(Markdown('', in_expander=False))
+    chat_box.ai_say(Markdown("", in_expander=False))
 
-    prompt = PromptTemplate.from_template(get_follow_up_ask_prompt_template(st.session_state.lark_table_id))
+    prompt = PromptTemplate.from_template(
+        get_follow_up_ask_prompt_template(st.session_state.lark_table_id)
+    )
     prompt = prompt.format(input=user_input)
 
     llm_input = []
 
     # 有配置 系统角色 且 不是检查用户输入内容的Prompt时，加入系统角色
-    if 'system_role' in st.session_state:
+    if "system_role" in st.session_state:
         llm_input.append(SystemMessage(st.session_state.system_role))
-        logging.debug(f'调用LLM（System）：{st.session_state.system_role}')
+        logging.debug(f"调用LLM（System）：{st.session_state.system_role}")
 
     llm_input += chat_history
     llm_input.append(HumanMessage(prompt))
     print(llm_input)
 
-
-    full_result = ''
+    full_result = ""
     for chunk in llm.stream(llm_input):
         full_result += chunk.content
         chat_box.update_msg(full_result, element_index=0, streaming=True)
 
-    chat_box.update_msg(full_result + '\n\n 没有其他问题的话，就让我们继续学习吧~',
-                        element_index=0, streaming=False, state="complete")
+    chat_box.update_msg(
+        full_result + "\n\n 没有其他问题的话，就让我们继续学习吧~",
+        element_index=0,
+        streaming=False,
+        state="complete",
+    )
 
     return full_result
 
 
-def streaming_from_template(chat_box, template, variables,
-                            input_done_with=None, parse_keys=None, update=False,
-                            model=None, temperature=None):
+def streaming_from_template(
+    chat_box,
+    template,
+    variables,
+    input_done_with=None,
+    parse_keys=None,
+    update=False,
+    model=None,
+    temperature=None,
+):
     """
     通过给定模版和遍历调用LLM，并流式输出（作为AI身份输出）。
     :param chat_box: ChatBox 对象
@@ -113,23 +138,25 @@ def streaming_from_template(chat_box, template, variables,
     chat_box.ai_say
 
     if not update:
-        chat_box.ai_say(Markdown('', in_expander=False))
+        chat_box.ai_say(Markdown("", in_expander=False))
 
     if variables:
-        prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
+        prompt = PromptTemplate(
+            input_variables=list(variables.keys()), template=template
+        )
         prompt = prompt.format(**variables)
     else:
         prompt = template
-    logging.debug(f'调用LLM（Human）：\n{prompt}')
+    logging.debug(f"调用LLM（Human）：\n{prompt}")
     llm_input = [HumanMessage(prompt)]
 
     # 有配置 系统角色 且 不是检查用户输入内容的Prompt时，加入系统角色
-    if 'system_role' in st.session_state and parse_keys is None:
+    if "system_role" in st.session_state and parse_keys is None:
         llm_input.append(SystemMessage(st.session_state.system_role))
-        logging.debug(f'调用LLM（System）：\n{st.session_state.system_role}')
+        logging.debug(f"调用LLM（System）：\n{st.session_state.system_role}")
 
-    full_result = ''
-    parse_json = ''
+    full_result = ""
+    parse_json = ""
     need_streaming_complete = False
     count = 0
     # for chunk in llm.stream(prompt, system=st.session_state.system_role):
@@ -139,41 +166,48 @@ def streaming_from_template(chat_box, template, variables,
         full_result += chunk.content
         if logging.getLogger().level == logging.DEBUG:
             # print(chunk.content, end='', flush=True)
-            print(f'{count}: {chunk.content}, len:{len(full_result)}')
+            print(f"{count}: {chunk.content}, len:{len(full_result)}")
             count += 1
 
         if input_done_with and full_result.startswith(input_done_with):
-            chat_box.update_msg(input_done_with, element_index=0, streaming=False, state="complete")
+            chat_box.update_msg(
+                input_done_with, element_index=0, streaming=False, state="complete"
+            )
         else:
             chat_box.update_msg(full_result, element_index=0, streaming=True)
             need_streaming_complete = True
 
     if need_streaming_complete:
-        chat_box.update_msg(full_result, element_index=0, streaming=False, state="complete")
+        chat_box.update_msg(
+            full_result, element_index=0, streaming=False, state="complete"
+        )
 
     if logging.getLogger().level == logging.DEBUG:
         print()
 
     if parse_keys is not None and full_result.startswith(input_done_with):
         # 清理字符串
-        parse_json = full_result.replace(input_done_with, '').strip()
+        parse_json = full_result.replace(input_done_with, "").strip()
 
-        logging.debug(f'解析JSON：{parse_json}')
+        logging.debug(f"解析JSON：{parse_json}")
         try:
             parse_json = json.loads(parse_json)
             for k in parse_keys:
                 st.session_state[k] = parse_json[k]
                 logging.debug(f'已将"{parse_json[k]}"存入session："{k}"中')
         except Exception as e:
-            logging.error(f'解析JSON失败：{e}')
-            full_result = '抱歉出现错误，请再次尝试~'
-            chat_box.update_msg(full_result, element_index=0, streaming=False, state="complete")
+            logging.error(f"解析JSON失败：{e}")
+            full_result = "抱歉出现错误，请再次尝试~"
+            chat_box.update_msg(
+                full_result, element_index=0, streaming=False, state="complete"
+            )
 
     return full_result
 
 
-def parse_vars_from_template(chat_box, template, variables, parse_keys=None,
-                             model=None, temperature=None):
+def parse_vars_from_template(
+    chat_box, template, variables, parse_keys=None, model=None, temperature=None
+):
     """
     通过给定模版调用 JSON mode，目前仅用于解析用户输入内容。
     :param chat_box: ChatBox 对象
@@ -189,29 +223,31 @@ def parse_vars_from_template(chat_box, template, variables, parse_keys=None,
     prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
     prompt = prompt.format(**variables)
 
-    logging.debug(f'调用LLM（Human）JSON mode：{prompt}')
+    logging.debug(f"调用LLM（Human）JSON mode：{prompt}")
     llm_input = [HumanMessage(prompt)]
 
     response = llm.invoke(llm_input)
-    logging.debug(f'parse_vars_from_template 返回结果：{response.content}')
+    logging.debug(f"parse_vars_from_template 返回结果：{response.content}")
 
     try:
         parse_json = json.loads(response.content)
-        if parse_json['result'] == 'ok':
+        if parse_json["result"] == "ok":
             for k in parse_keys:
-                st.session_state[k] = parse_json['parse_vars'][k]
+                st.session_state[k] = parse_json["parse_vars"][k]
                 logging.debug(f'已将"{parse_json["parse_vars"][k]}"存入session："{k}"中')
             return True
         else:
-            reason = parse_json['reason']
+            reason = parse_json["reason"]
             chat_box.ai_say(reason)
             return False
     except Exception as e:
-        logging.error(f'解析JSON失败：{e}')
-        chat_box.ai_say('抱歉出现错误，请再次尝试~')
+        logging.error(f"解析JSON失败：{e}")
+        chat_box.ai_say("抱歉出现错误，请再次尝试~")
 
 
-def from_template(template, variables=None, system_role=None, model=None, temperature=None):
+def from_template(
+    template, variables=None, system_role=None, model=None, temperature=None
+):
     """
     直接通过剧本输出，根据剧本类型自动判断是普通Prompt给AI，还是检查用户输入的Prompt给AI
     :param script: 单条剧本
@@ -219,37 +255,41 @@ def from_template(template, variables=None, system_role=None, model=None, temper
     :param temperature: 温度参数，用于控制生成文本的多样性
     """
 
-    logging.debug('=====================')
-    logging.debug(f'== 调用剧本输出：{template}')
-    logging.debug(f'== 变量：{variables}')
-    logging.debug(f'== 系统角色：{system_role}')
-    logging.debug(f'== 自定义模型：{model}')
-    logging.debug(f'== 温度：{temperature}')
-    logging.debug('=====================')
+    logging.debug("=====================")
+    logging.debug(f"== 调用剧本输出：{template}")
+    logging.debug(f"== 变量：{variables}")
+    logging.debug(f"== 系统角色：{system_role}")
+    logging.debug(f"== 自定义模型：{model}")
+    logging.debug(f"== 温度：{temperature}")
+    logging.debug("=====================")
 
     llm = load_llm(model, temperature)
 
     if system_role:
         # 普通Prompt
         if variables:
-            prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
+            prompt = PromptTemplate(
+                input_variables=list(variables.keys()), template=template
+            )
             prompt = prompt.format(**variables)
         else:
             prompt = template
     else:  # user_input is not None:
         # 检查用户输入的Prompt
-        prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
+        prompt = PromptTemplate(
+            input_variables=list(variables.keys()), template=template
+        )
         prompt = prompt.format(**variables)
     # else:
     #     raise Exception('有检查用户输入的Prompt内容，但没有提供用户输入！')
 
-    logging.debug(f'调用LLM（Human）：{prompt}')
+    logging.debug(f"调用LLM（Human）：{prompt}")
     llm_input = [HumanMessage(prompt)]
 
     # 有配置 系统角色 且 不是检查用户输入内容的Prompt时，加入系统角色
     if system_role:
         llm_input.append(SystemMessage(system_role))
-        logging.debug(f'调用LLM（System）：{system_role}')
+        logging.debug(f"调用LLM（System）：{system_role}")
 
     rtn_msg = llm.invoke(llm_input)
     print(rtn_msg)
@@ -293,21 +333,28 @@ def distribute_elements(btns, max_cols, min_cols):
 
 
 def load_scripts_and_system_role(
-        app_token=cfg.LARK_APP_TOKEN,
-        table_id=cfg.DEF_LARK_TABLE_ID,
-        view_id=cfg.DEF_LARK_VIEW_ID
+    app_token=cfg.LARK_APP_TOKEN,
+    table_id=cfg.DEF_LARK_TABLE_ID,
+    view_id=cfg.DEF_LARK_VIEW_ID,
 ):
-    if 'script_list' not in st.session_state:
-        with st.spinner('正在加载剧本...'):
-            st.session_state.script_list = load_scripts_from_bitable(app_token, table_id, view_id)
+    if "script_list" not in st.session_state:
+        with st.spinner("正在加载剧本..."):
+            st.session_state.script_list = load_scripts_from_bitable(
+                app_token, table_id, view_id
+            )
             if st.session_state.script_list[0].type == ScriptType.SYSTEM:
                 system_role_script = st.session_state.script_list.pop(0)
                 template = system_role_script.template
-                variables = {v: st.session_state[v] for v in
-                             system_role_script.template_vars} if system_role_script.template_vars else None
+                variables = (
+                    {v: st.session_state[v] for v in system_role_script.template_vars}
+                    if system_role_script.template_vars
+                    else None
+                )
 
                 if variables:
-                    prompt = PromptTemplate(input_variables=list(variables.keys()), template=template)
+                    prompt = PromptTemplate(
+                        input_variables=list(variables.keys()), template=template
+                    )
                     prompt = prompt.format(**variables)
                 else:
                     prompt = template
@@ -319,25 +366,31 @@ def load_scripts_and_system_role(
 
 
 def load_scripts(
-        app_token=cfg.LARK_APP_TOKEN,
-        table_id=cfg.DEF_LARK_TABLE_ID,
-        view_id=cfg.DEF_LARK_VIEW_ID
+    app_token=cfg.LARK_APP_TOKEN,
+    table_id=cfg.DEF_LARK_TABLE_ID,
+    view_id=cfg.DEF_LARK_VIEW_ID,
 ):
-    if 'system_role' in st.session_state:
-        del st.session_state['system_role']
-    if 'system_role_id' in st.session_state:
-        del st.session_state['system_role_id']
+    if "system_role" in st.session_state:
+        del st.session_state["system_role"]
+    if "system_role_id" in st.session_state:
+        del st.session_state["system_role_id"]
     # system_role_script = None
-    if 'script_list' not in st.session_state:
-        with st.spinner('Loading script...'):
-            st.session_state.script_list = load_scripts_from_bitable(app_token, table_id, view_id)
+    if "script_list" not in st.session_state:
+        with st.spinner("Loading script..."):
+            st.session_state.script_list = load_scripts_from_bitable(
+                app_token, table_id, view_id
+            )
             if st.session_state.script_list[0].type == ScriptType.SYSTEM:
                 # system_role_script = st.session_state.script_list.pop(0)
-                st.session_state.system_role_script = st.session_state.script_list.pop(0)
+                st.session_state.system_role_script = st.session_state.script_list.pop(
+                    0
+                )
                 template = st.session_state.system_role_script.template
                 if not st.session_state.system_role_script.template_vars:
                     st.session_state.system_role = template
-                    st.session_state.system_role_id = st.session_state.system_role_script.id
+                    st.session_state.system_role_id = (
+                        st.session_state.system_role_script.id
+                    )
 
             st.session_state.script_list_len = len(st.session_state.script_list)
     # return system_role_script
@@ -345,7 +398,7 @@ def load_scripts(
 
 def extract_variables(template: str) -> list:
     # 使用正则表达式匹配单层 {} 中的内容
-    pattern = r'\{([^{}]+)\}'
+    pattern = r"\{([^{}]+)\}"
     matches = re.findall(pattern, template)
 
     # 去重并过滤包含双引号的元素
@@ -355,29 +408,20 @@ def extract_variables(template: str) -> list:
     return filtered_variables
 
 
-def extract_variables(template: str) -> list:
-    # 使用正则表达式匹配单层 {} 中的内容
-    pattern = r'\{([^{}]+)\}'
-    matches = re.findall(pattern, template)
-
-    # 返回去重后的变量名列表
-    return list(set(matches))
-
-
 def count_lines(text: str, one_line_max=60):
     """
     计算文本的行数
     返回的第一个数值是正常的行数
     返回的第二个数值按照一行的最大值计算折行后的总行数（单行总数/最大值 之后 取上整）
     """
-    lines = text.split('\n')
+    lines = text.split("\n")
     total_lines = len(lines)
     total_lines_with_wrap = sum([len(line) // one_line_max + 1 for line in lines])
 
     return total_lines, total_lines_with_wrap
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # print(get_current_time())
     template = """
 从用户输入的内容中提取昵称，并判断是否合法，返回 JSON 格式的结果。

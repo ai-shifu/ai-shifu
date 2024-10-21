@@ -2,12 +2,17 @@ import time
 
 import pandas as pd
 import streamlit as st
-from streamlit_extras.add_vertical_space import add_vertical_space
 from pandas import DataFrame
 
-from models.chapter import *
+from models.chapter import (
+    LESSON_TYPES,
+    update_chapter_from_api,
+    delete_chapter_from_api,
+    load_chapters_from_api,
+)
 from models.course import get_courses_by_user
 from tools.auth import login
+from init import cfg
 
 # ==================== 各种初始化工作 ====================
 # 设置页面标题和图标
@@ -106,7 +111,9 @@ def delete_chapter(df: DataFrame, chapter_id, base_url):
             "确认删除", type="primary", use_container_width=True
         )
         if submit_button:
-            delete_chapter_from_api(table_id, STSS.course_id[base_url], chapter_id, base_url)
+            delete_chapter_from_api(
+                table_id, STSS.course_id[base_url], chapter_id, base_url
+            )
             st.rerun()
 
 
@@ -233,9 +240,7 @@ def display_chapter_management(base_url):
         stdf_manage(df_chapters_hidden, "隐藏分支章节配置", base_url=base_url)
 
         "-----"
-        if st.button(
-            f"➕ 添加章节", use_container_width=True, key=f"add_chapter_{base_url}"
-        ):
+        if st.button("➕ 添加章节", use_container_width=True, key=f"add_chapter_{base_url}"):
             add_chapter(max_index, base_url=base_url)
 
 
