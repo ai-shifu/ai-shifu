@@ -1282,7 +1282,7 @@ packages:
     resolution: {integrity: sha512-Vo+PSpZG2/fmgmiNzYK9qWRh8h/CHrwD0mo1h1DzL4yzHNSfWYujGTYsWGreD000gcgmZ7K4Ys6Tx9TxtsKdDw==}
 
   '@nanostores/react@git+https://git@github.com:ai/react.git#0539a51e1e94cdd101fdd3d3960f26442b979d12':
-    resolution: {commit: 0539a51e1e94cdd101fdd3d3960f26442b979d12, repo: git@github.com:ai/react.git, type: git}
+    resolution: {commit: 0539a51e1e94cdd101fdd3d3960f26442b979d12, repo: "git@github.com:ai/react.git", type: git}
     version: 0.7.2
     engines: {node: ^18.0.0 || >=20.0.0}
     peerDependencies:
