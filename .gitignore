@@ -197,3 +197,8 @@ cython_debug/
 
 # VS Code
 .vscode/
+
+
+
+# 但不忽略 src/api/tests
+!src/api/tests

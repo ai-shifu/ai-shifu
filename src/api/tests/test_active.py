@@ -1,8 +1,4 @@
-from operator import ge
-
-
 def test_create_active(app):
-    import datetime
     from flaskr.service.active.funcs import create_active
     from flaskr.service.active.models import Active
     from flaskr.service.lesson.models import AICourse
@@ -12,7 +8,6 @@ def test_create_active(app):
         course_id = course.course_id
         active_name = "早鸟价格立减"
         active_desc = "早鸟活动"
-        active_type = 1
         active = Active.query.filter(Active.active_name == active_name).first()
         if active:
             app.logger.info("活动已存在")
@@ -25,7 +20,6 @@ def test_create_active(app):
 
 def test_create_order_with_active(app):
     from flaskr.service.lesson.models import AICourse
-    from flaskr.service.order.models import AICourseBuyRecord
     from flaskr.service.order import init_buy_record
     from flaskr.service.user import generate_temp_user
     from flaskr.util import generate_id

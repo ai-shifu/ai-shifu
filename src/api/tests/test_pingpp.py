@@ -1,8 +1,3 @@
-import uuid
-
-from sympy import product
-
-
 def test_pingxx_order(app):
     from flaskr.service.order.pingxx_order import create_pingxx_order, init_pingxx
     from flaskr.util.uuid import generate_id
@@ -34,7 +29,6 @@ def test_pingxx_ali_order(app):
     init_pingxx(app)
     order_no = generate_id(app)
     pingxx_id = "app_D8qDWTPyj5yPCGWr"
-    product_id = "YourProductId"
 
     order = create_pingxx_order(
         app,

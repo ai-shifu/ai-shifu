@@ -1,6 +1,3 @@
-import pytest
-import json
-
 from tests.common import print_json
 
 
@@ -22,8 +19,6 @@ def test_get_user_profile(app):
                 update_user_profile(app, "42e03ab0a33d4904bf84793d5fc1f71b", resp)
         print_json(resp)
 
-
-import random
 
 # def test_admin_create_new_user(app):
 #     from flaskr.service.user import create_new_user
