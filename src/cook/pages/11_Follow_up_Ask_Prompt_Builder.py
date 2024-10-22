@@ -140,7 +140,7 @@ with login():
 
     with st.expander("The beginning of the **Follow-up Ask Prompt Template**:"):
         STSS.prompt_follow_up_ask = st.text_area(
-            "Please KEEP the variable name for follow-up ask as `follow_up_ask`:",
+            "Please KEEP the variable name for follow-up ask as `input`:",
             STSS.prompt_follow_up_ask,
             height=500,
         )
