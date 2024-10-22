@@ -9,13 +9,12 @@ from tools.lark import get_bitable_tables, update_bitable_record
 from tools.utils import (
     st,
     from_template,
-    get_default_temperature,
     count_lines,
     extract_variables,
     load_scripts_and_system_role,
 )
 from models.script import Script, ScriptType
-from init import cfg, load_dotenv, find_dotenv
+from init import cfg, get_default_temperature, load_dotenv, find_dotenv
 
 
 _ = load_dotenv(find_dotenv())
