@@ -4,16 +4,15 @@ from collections import defaultdict
 
 import yaml
 from yaml.loader import SafeLoader
+import streamlit as st
 import streamlit_authenticator as stauth
+from streamlit_chatbox import ChatBox, Image
 from streamlit_extras.bottom_container import bottom
 from langchain_core.messages import HumanMessage, AIMessage
 
 from models.course import get_courses_by_user
 from tools.lark import get_bitable_tables
 from tools.utils import (
-    st,
-    ChatBox,
-    Image,
     ICON_SIFU,
     PromptTemplate,
     load_scripts,

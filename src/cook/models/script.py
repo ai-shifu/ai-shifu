@@ -145,7 +145,7 @@ def load_scripts_from_bitable(app_token, table_id, view_id) -> List[Script]:
             )
             next_action = NextAction(item.fields.get("后续交互", "无"))
             btn_label = "".join(
-                item["text"] for item in item.fields.get("按钮题", [{"text": "继续"}])
+                item["text"] for item in item.fields.get("按钮标题", [{"text": "继续"}])
             )
             btn_group_cfg = json.loads(
                 "".join(
