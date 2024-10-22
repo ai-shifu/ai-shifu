@@ -25,3 +25,6 @@ repos:
     -   id: eslint
         # args: [--ext, .js,.jsx,.ts,.tsx]
         # types: [javascript, jsx, ts, tsx]  # 移除 typescript 标签
+        args: [--ext, .js,.jsx,.ts,.tsx]
+        files: ^src/(web|admin-web)/
+        types: [javascript, jsx, ts, tsx]  # 添加 typescript 标签
