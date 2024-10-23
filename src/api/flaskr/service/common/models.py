@@ -84,5 +84,5 @@ def raise_param_error(param_message):
 def raise_error(error_name):
     raise AppException(
         _(error_name),
-        ERROR_CODE[error_name],
+        ERROR_CODE.get(error_name, ERROR_CODE["COMMON.UNKNOWN_ERROR"]),
     )
