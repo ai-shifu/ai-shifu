@@ -80,7 +80,10 @@ jobs:
 
       - name: Prepare artifact name
         id: prepare_artifact_name
-        run: echo "artifact_name=digests-${{ matrix.context//\//_ }}-${{ env.PLATFORM_PAIR }}" >> $GITHUB_ENV
+        run: |
+          context="${{ matrix.context }}"
+          context_sanitized="${context//\//_}"
+          echo "artifact_name=digests-${context_sanitized}-${{ env.PLATFORM_PAIR }}" >> $GITHUB_ENV
 
       - name: Upload digest
         uses: actions/upload-artifact@v4
