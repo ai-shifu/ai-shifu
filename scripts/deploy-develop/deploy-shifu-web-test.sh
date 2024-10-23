@@ -64,7 +64,7 @@ if ! command -v pnpm &> /dev/null; then
 fi
 
 # Install dependencies with pnpm
-pnpm install
+CI=false pnpm install
 
 # Build the project with pnpm
 CI=false pnpm run build:staging
