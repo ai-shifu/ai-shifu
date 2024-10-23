@@ -30,8 +30,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 # Reset any changes and pull the latest code forcefully
-git fetch --all
-git reset --hard origin/develop
+
 
 
 

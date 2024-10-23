@@ -23,8 +23,6 @@ GIT_COMMIT=$(git rev-parse --short HEAD)
 RANDOM_STRING=$(openssl rand -hex 2)
 
 
-# 拉取最新代码
-git pull origin develop
 
 # 切换到 api 目录
 cd /item/ai-shifu/src/api || exit
