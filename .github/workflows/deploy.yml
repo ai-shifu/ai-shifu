@@ -1,59 +1,22 @@
-name: deploy sifu api test
-
+name: deploy test
 on:
-  push:
-    branches: ["develop"] # Trigger only on push to the develop branch
-
+  pull_request:
 jobs:
-  pre-commit:
-    runs-on: ubuntu-latest
-
+  checkout-pr:
+    if: github.repository == 'ai-shifu/ai-shifu'
+    runs-on: self-hosted
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0  # get full commit history to correctly detect changed files
-      - name: setup python environment
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.11'
-      - name: install pre-commit
+      - name: Checkout PR
         run: |
-          pip install pre-commit
-      - name: run pre-commit (auto fix)
+          gh pr checkout ${{ github.event.pull_request.number }}
+      - name: Build and Sync API
         run: |
-          pre-commit run
-      - name: commit changes
-        if: ${{success()}}
+          bash scripts/deploy-develop/deploy-shifu-api-test.sh
+      - name: Build and Sync Web
         run: |
-          git config --local user.name "github-actions[bot]"
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "chore: refactor code" || echo "No changes to commit"
-          echo ${{ github.head_ref }}
-
-      # - name: push changes
-        # uses: ad-m/github-push-action@v0.6.0
-        # with:
-          # github_token: ${{ secrets.GITHUB_TOKEN }}
-          # branch: ${{ github.head_ref }}
-  build-and-sync:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: SSH to remote server and execute deployment script
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          password: ${{ secrets.PASSWORD }}
-          port: ${{ secrets.PORT }}
-          script: |
-            sudo su -
-            cd /item/cd ai-shifu
-            git checkout develop
-            git pull
-            bash /item/ai-shifu/scripts/deploy-develop/deploy-shifu-api-test.sh
-            bash /item/ai-shifu/scripts/deploy-develop/deploy-shifu-web-test.sh
-            bash /item/ai-shifu/scripts/deploy-develop/deploy-shifu-admin-web-test.sh
+          bash scripts/deploy-develop/deploy-shifu-web-test.sh
+      - name: Build and Sync Admin Web
+        run: |
+          bash scripts/deploy-develop/deploy-shifu-admin-web-test.sh
