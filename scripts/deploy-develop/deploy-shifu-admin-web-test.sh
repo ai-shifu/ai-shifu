@@ -19,7 +19,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 nvm use v20.14.0
 
 # Change to the project directory
-cd /item/ai-shifu/src/admin-web/
+cd src/admin-web/
 
 
 

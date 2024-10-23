@@ -14,7 +14,7 @@ trap 'handle_error $LINENO' ERR
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 
 # 切换到项目目录
-cd /item/ai-shifu/src/api || exit
+cd src/api || exit
 
 # 获取 Git 提交哈希的简短版本
 GIT_COMMIT=$(git rev-parse --short HEAD)
@@ -24,8 +24,6 @@ RANDOM_STRING=$(openssl rand -hex 2)
 
 
 
-# 切换到 api 目录
-cd /item/ai-shifu/src/api || exit
 
 # 组合组件生成镜像标签
 IMAGE_TAG="v1-$GIT_COMMIT-$RANDOM_STRING"
