@@ -3,6 +3,7 @@ import axios from "axios";
 import { message } from "antd";
 import { tokenTool } from "./storeUtil.js";
 import { v4 } from "uuid";
+import { useTranslation } from "react-i18next";
 /**
  *
  * @param {*} token
@@ -73,9 +74,10 @@ axiosrequest.interceptors.response.use(
     }
     return response.data;
   },error => {
+    const { t } = useTranslation();
     const apiError = new CustomEvent("apiError", {detail:error});
     document.dispatchEvent(apiError);
-    message.error("无法连接到服务器请检查网络设置");
+    message.error(t("common.networkError"));
     return Promise.reject(error);
   })
 

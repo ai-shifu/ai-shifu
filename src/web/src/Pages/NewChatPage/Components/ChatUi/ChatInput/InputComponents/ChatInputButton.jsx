@@ -7,7 +7,6 @@ import MainButton from 'Components/MainButton.jsx';
 import { useEffect } from 'react';
 import { memo } from 'react';
 import { registerInteractionType } from '../interactionRegistry';
-import { INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
 
 export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   const onBtnClick = () => {
@@ -61,5 +60,8 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
 };
 
 const ChatInputButtonMemo = memo(ChatInputButton);
-registerInteractionType(INTERACTION_DISPLAY_TYPE.BUTTON, ChatInputButtonMemo);
+registerInteractionType(INTERACTION_TYPE.CONTINUE, ChatInputButtonMemo);
+registerInteractionType(INTERACTION_TYPE.NEXT_CHAPTER, ChatInputButtonMemo);
+registerInteractionType(INTERACTION_TYPE.ORDER, ChatInputButtonMemo);
+registerInteractionType(INTERACTION_TYPE.REQUIRE_LOGIN, ChatInputButtonMemo);
 export default ChatInputButtonMemo;

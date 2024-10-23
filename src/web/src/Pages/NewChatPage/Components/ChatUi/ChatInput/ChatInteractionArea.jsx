@@ -8,20 +8,9 @@ import { INTERACTION_TYPE, INTERACTION_DISPLAY_TYPE } from 'constants/courseCons
 import { getInteractionComponent } from './interactionRegistry';
 import ChatInputText from './InputComponents/ChatInputText';
 
-// 动态导入所有交互组件
+// import all interaction components
 const importAll = (r) => r.keys().forEach(r);
 importAll(require.context('./InputComponents', true, /\.jsx$/));
-
-const INTERACTION_DISPLAY_MAP = {
-  [INTERACTION_TYPE.CONTINUE]: INTERACTION_DISPLAY_TYPE.BUTTON,
-  [INTERACTION_TYPE.INPUT]: INTERACTION_DISPLAY_TYPE.TEXT,
-  [INTERACTION_TYPE.BUTTONS]: INTERACTION_DISPLAY_TYPE.BUTTONS,
-  [INTERACTION_TYPE.NEXT_CHAPTER]: INTERACTION_DISPLAY_TYPE.BUTTON,
-  [INTERACTION_TYPE.PHONE]: INTERACTION_DISPLAY_TYPE.TEXT,
-  [INTERACTION_TYPE.CHECKCODE]: INTERACTION_DISPLAY_TYPE.TEXT,
-  [INTERACTION_TYPE.ORDER]: INTERACTION_DISPLAY_TYPE.BUTTON,
-  [INTERACTION_TYPE.REQUIRE_LOGIN]: INTERACTION_DISPLAY_TYPE.BUTTON,
-};
 
 export const ChatInteractionArea = ({
   type = INTERACTION_DISPLAY_TYPE.TEXT,
@@ -31,7 +20,6 @@ export const ChatInteractionArea = ({
   askMode = false,
   onSizeChange = ({ width, height }) => {},
 }) => {
-  const displayType = INTERACTION_DISPLAY_MAP[type];
   const elemRef = useRef();
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
@@ -44,7 +32,7 @@ export const ChatInteractionArea = ({
   };
 
   const genRenderControl = () => {
-    const Component = getInteractionComponent(displayType);
+    const Component = getInteractionComponent(type);
     if (Component) {
       return (
         <Component

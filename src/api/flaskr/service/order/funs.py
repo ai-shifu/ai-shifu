@@ -17,7 +17,7 @@ from flaskr.service.user.models import User, UserConversion
 from flaskr.service.active import query_active_record, query_and_join_active
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.api.feishu import send_notify
+from flaskr.api.doc.feishu import send_notify
 from .models import AICourseBuyRecord, PingxxOrder
 from flask import Flask
 from ...dao import db, redis_client

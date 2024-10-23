@@ -3,7 +3,7 @@ import styles from './ChatButtonGroup.module.scss';
 import { INTERACTION_OUTPUT_TYPE } from 'constants/courseConstants.js';
 import { memo } from "react";
 import { registerInteractionType } from '../interactionRegistry';
-import { INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
+import { INTERACTION_TYPE } from 'constants/courseConstants.js';
 
 export const ChatButtonGroup = ({ type, props = [], onClick = (val) => {}, disabled = false }) => {
   const buttons = props.buttons;
@@ -26,5 +26,5 @@ export const ChatButtonGroup = ({ type, props = [], onClick = (val) => {}, disab
 }
 
 const ChatButtonGroupMemo = memo(ChatButtonGroup);
-registerInteractionType(INTERACTION_DISPLAY_TYPE.BUTTONS, ChatButtonGroupMemo);
+registerInteractionType(INTERACTION_TYPE.BUTTONS, ChatButtonGroupMemo);
 export default ChatButtonGroupMemo;

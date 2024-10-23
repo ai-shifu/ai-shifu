@@ -10,7 +10,6 @@ import {
 import styles from './ChatInputText.module.scss';
 import { memo } from 'react';
 import { registerInteractionType } from '../interactionRegistry';
-import { INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
 
 const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.INPUT]: INTERACTION_OUTPUT_TYPE.TEXT,
@@ -80,5 +79,7 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
 };
 
 const ChatInputTextMemo = memo(ChatInputText);
-registerInteractionType(INTERACTION_DISPLAY_TYPE.TEXT, ChatInputTextMemo);
+registerInteractionType(INTERACTION_TYPE.INPUT, ChatInputTextMemo);
+registerInteractionType(INTERACTION_TYPE.PHONE, ChatInputTextMemo);
+registerInteractionType(INTERACTION_TYPE.CHECKCODE, ChatInputTextMemo);
 export default ChatInputTextMemo;

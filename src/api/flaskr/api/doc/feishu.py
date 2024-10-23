@@ -6,23 +6,20 @@ import pytz
 import urllib.parse
 from flaskr.common.config import get_config
 
-# 飞书相关的调用封装
+# feishu api
 # ref: https://open.feishu.cn/document/server-docs/docs/docs-overview
 
 
-# AI 课程
 APPID = get_config("FEISHU_APP_ID")
-# 'cli_a69aa732b7381013'
 APP_SECRET = get_config("FEISHU_APP_SECRET")
 FOLDER_ID = "QSN2fIQWqlubNxdHHoJcSbVknVh"
 REDIS_KEY_PREFIX = "feishu:token:"
 
-# 设置东八区时区
 TIME_ZONE = pytz.timezone("Asia/Shanghai")
 
 
 def get_tenat_token(app: Flask, app_id=APPID, app_secrect=APP_SECRET):
-    from ..dao import redis_client as redis
+    from ...dao import redis_client as redis
 
     token = redis.get(REDIS_KEY_PREFIX + app_id + "token")
     if token:
@@ -137,16 +134,16 @@ def remove_text_element(app: Flask, doc_id: str, block_id: str):
     return r.json()
 
 
-# 以下是表格相关的操作
+# api of smart table
 # ref: https://open.feishu.cn/document/ukTMukTMukTM/uEDO04SM4QjLxgDN
-# 逻辑
-# 1. 列出所有的表格
-# 2. 列出表格的所有视图
-# 3. 获取表格的所有数据
+# logic
+# 1. list all tables
+# 2. list all views of a table
+# 3. get all records of a table
 
-# 一篇多维表格可以理解成是一个 app，他的唯一标识就是 app_token。
-# app 是由一个个 table 组成，我们称 table 为数据表，他的标识就是 table_id。
-# table 由 record(记录) 和 field(字段) 组成, 同时可以拥有多个 view (视图)。
+# a smart table can be understood as an app, its unique identifier is app_token.
+# an app is composed of tables, we call a table as a data table, its identifier is table_id.
+# a table is composed of records and fields, at the same time, it can have multiple views.
 
 
 def get_document_info(app: Flask, doc_id: str, block_id: str):
@@ -210,7 +207,7 @@ def list_records(
     return r.json()
 
 
-""" 列出数据表
+""" list all tables of an app
 """
 
 
