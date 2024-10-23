@@ -195,9 +195,15 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
         discountRecord.updated = now
         discount.discount_used = discount.discount_used + 1
         db.session.commit()
-        send_feishu_discount_code(
-            app, user_id, discount_code, discount.discount_name, discount.discount_value
-        )
+
         if buy_record.discount_value >= buy_record.price:
             return success_buy_record(app, buy_record.record_id)
+        else:
+            send_feishu_discount_code(
+                app,
+                user_id,
+                discount_code,
+                discount.discount_channel,
+                discount.discount_value,
+            )
         return query_buy_record(app, buy_record.record_id)

@@ -17,24 +17,6 @@ services:
       - ai-shifu-api-dev
     volumes:
       - ../src/web:/usr/src/app
-  ai-shifu-admin-api-dev:
-    container_name: ai-shifu-admin-api-dev
-    image: ai-shifu-api-dev:latest
-    command:  flask run --debug  --host=0.0.0.0 --port=5800
-    env_file:
-      - ./.env
-    environment:
-      - MODE=admin
-    volumes:
-      - ../src/api/:/app/
-  ai-shifu-admin-web-dev:
-    container_name:  ai-shifu-admin-web-dev
-    image: ai-shifu-admin-web-dev:latest
-    command:  pnpm run start:dev
-    depends_on:
-      - ai-shifu-api-dev
-    volumes:
-      - ../src/admin-web:/usr/src/app
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev
     image: nginx:latest
@@ -44,8 +26,26 @@ services:
     depends_on:
       - ai-shifu-web-dev
       - ai-shifu-api-dev
-      - ai-shifu-admin-web-dev
-      - ai-shifu-admin-api-dev
     restart: always
     volumes:
       - ./nginx.dev.conf:/etc/nginx/nginx.conf
+  ai-shifu-mysql:
+    container_name: ai-shifu-mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=ai-shifu
+      - MYSQL_DATABASE=ai-shifu
+    image: mysql:latest
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql_data:/var/lib/mysql
+  ai-shifu-redis:
+    container_name: ai-shifu-redis
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    environment:
+      - REDIS_PASSWORD=ai-shifu
+      - REDIS_USER=root
+    volumes:
+      - ./redis_data:/data

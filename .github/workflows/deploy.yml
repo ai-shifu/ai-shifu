@@ -3,7 +3,7 @@ on:
   pull_request:
 jobs:
   checkout-pr:
-    if: github.repository == 'ai-shifu/ai-shifu' && contains(github.event.pull_request.user.login, 'ai-shifu')
+    if: github.repository == 'ai-shifu/ai-shifu'
     runs-on: self-hosted
     env:
       GH_TOKEN: ${{ github.token }}

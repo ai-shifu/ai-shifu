@@ -27,6 +27,7 @@ class User(db.Model):
         TIMESTAMP,
         nullable=False,
         onupdate=func.now(),
+        default=func.now(),
         comment="Update time",
     )
     default_model = Column(
