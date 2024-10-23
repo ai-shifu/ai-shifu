@@ -87,7 +87,7 @@ jobs:
       - name: Upload digest
         uses: actions/upload-artifact@v4
         with:
-          name: digests-${{ matrix.context }}-${{ env.PLATFORM_PAIR }}
+          name: digests-${{ matrix.context//\//_ }}-${{ env.PLATFORM_PAIR }}
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
