@@ -1,5 +1,5 @@
 ### 使用一个官方Python运行时作为父镜像
-FROM python:3.9
+FROM python:3.11
 
 # 确保 /etc/apt/sources.list 存在并更改APT源为国内的镜像源
 RUN if [ -f /etc/apt/sources.list ]; then \
@@ -15,6 +15,7 @@ RUN if [ -f /etc/apt/sources.list ]; then \
 
 # 设置工作目录
 WORKDIR /app
+RUN pip install --upgrade pip
 
 # # 设置pip镜像源
 # ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
