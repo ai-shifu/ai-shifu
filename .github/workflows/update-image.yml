@@ -15,13 +15,13 @@ concurrency:
 env:
   DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
-  AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'ai-sifu/ai-sifu-web' }}
-  AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-sifu/ai-sifu-api' }}
+  AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'ai-shifu/ai-shifu-web' }}
+  AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-shifu/ai-shifu-api' }}
 
 jobs:
   build:
     runs-on: ${{ matrix.platform == 'linux/arm64' && 'arm64_runner' || 'ubuntu-latest' }}
-    if: github.repository == 'ai-sifu/ai-sifu'
+    if: github.repository == 'ai-shifu/ai-shifu'
     strategy:
       matrix:
         include:
@@ -95,7 +95,7 @@ jobs:
   create-manifest:
     needs: build
     runs-on: ubuntu-latest
-    if: github.repository == 'ai-sifu/ai-sifu'
+    if: github.repository == 'ai-shifu/ai-shifu'
     strategy:
       matrix:
         include:
