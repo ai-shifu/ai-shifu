@@ -77,6 +77,10 @@ jobs:
           outputs: type=image,name=${{ env[matrix.image_name_env] }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=${{ matrix.service_name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service_name }}
+      - name: Push Docker image
+        run: |
+          docker push ${{ env[matrix.image_name_env] }}
+
       - name: Export digest
         run: |
           mkdir -p /tmp/digests
