@@ -222,7 +222,10 @@ def list_tables(app: Flask, app_token: str):
 
 
 def send_notify(app: Flask, title, msgs):
-    url = app.config["FEISHU_NOTIFY_URL"]
+    url = app.config.get("FEISHU_NOTIFY_URL", None)
+    if not url:
+        app.logger.warning("feishu notify url not found")
+        return
     headers = {"Content-Type": "application/json"}
     data = {
         "msg_type": "post",

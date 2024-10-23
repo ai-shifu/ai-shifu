@@ -9,6 +9,8 @@ from datetime import datetime
 import random
 import string
 import pytz
+
+from ...api.doc.feishu import send_notify
 from ...service.order.funs import (
     query_buy_record,
     success_buy_record,
@@ -26,6 +28,7 @@ from .consts import (
 from flask import Flask
 from ...util import generate_id
 from ..common import raise_error
+from ..user.models import User, UserConversion
 
 
 # generate discount code
@@ -89,6 +92,29 @@ def generate_discount_code_by_rule(app: Flask, discount_id):
         discount_info.discount_count = discount_info.discount_count + 1
         db.session.add(discountRecord)
         db.session.commit()
+
+
+# send_feishu
+def send_feishu_discount_code(
+    app: Flask, user_id, discount_code, discount_name, discount_value
+):
+    with app.app_context():
+        user_info = User.query.filter(User.user_id == user_id).first()
+        title = "优惠码通知"
+        msgs = []
+        msgs.append("用户手机号:{}".format(user_info.mobile))
+        msgs.append("用户姓名:{}".format(user_info.name))
+        msgs.append("优惠码:{}".format(discount_code))
+        msgs.append("优惠名称:{}".format(discount_name))
+        msgs.append("优惠值:{}".format(discount_value))
+        user_convertion = UserConversion.query.filter(
+            UserConversion.user_id == user_id
+        ).first()
+        channel = ""
+        if user_convertion:
+            channel = user_convertion.conversion_source
+        msgs.append("用户渠道:{}".format(channel))
+        send_notify(app, title, msgs)
 
 
 # use discount code
@@ -169,6 +195,9 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
         discountRecord.updated = now
         discount.discount_used = discount.discount_used + 1
         db.session.commit()
+        send_feishu_discount_code(
+            app, user_id, discount_code, discount.discount_name, discount.discount_value
+        )
         if buy_record.discount_value >= buy_record.price:
             return success_buy_record(app, buy_record.record_id)
         return query_buy_record(app, buy_record.record_id)

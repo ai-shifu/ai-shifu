@@ -12,7 +12,7 @@ from flaskr.service.order.consts import (
     BUY_STATUS_TO_BE_PAID,
     BUY_STATUS_VALUES,
 )
-from flaskr.service.common.dtos import USER_STATE_PAID
+from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import User, UserConversion
 from flaskr.service.active import query_active_record, query_and_join_active
 from flaskr.service.order.query_discount import query_discount_record
@@ -65,12 +65,14 @@ class PayItemDto:
     price_name: str
     price: str
     is_discount: bool
+    discount_code: str
 
-    def __init__(self, name, price_name, price, is_discount):
+    def __init__(self, name, price_name, price, is_discount, discount_code):
         self.name = name
         self.price_name = price_name
         self.price = price
         self.is_discount = is_discount
+        self.discount_code = discount_code
 
     def __json__(self):
         return {
@@ -139,6 +141,14 @@ def send_order_feishu(app: Flask, record_id: str):
     msgs.append("用户渠道:{}".format(channel))
     for item in order_info.price_item:
         msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
+        if item.is_discount:
+            msgs.append("优惠码:{}".format(item.discount_code))
+    user_count = User.query.filter(User.user_state == USER_STATE_PAID).count()
+    msgs.append("当前付费用户数:{}".format(user_count))
+    user_reg_count = User.query.filter(User.user_state >= USER_STATE_REGISTERED).count()
+    msgs.append("当前注册用户数:{}".format(user_reg_count))
+    user_total_count = User.query.count()
+    msgs.append("当前总用户数:{}".format(user_total_count))
     send_notify(app, title, msgs)
 
 
@@ -169,7 +179,9 @@ def init_buy_record(app: Flask, user_id: str, course_id: str):
         buy_record.discount_value = decimal.Decimal(0.00)
         buy_record.pay_value = course_info.course_price
         price_items = []
-        price_items.append(PayItemDto("商品", "基础价格", buy_record.price, False))
+        price_items.append(
+            PayItemDto("商品", "基础价格", buy_record.price, False, None)
+        )
         if active_records:
             for active_record in active_records:
                 buy_record.discount_value = decimal.Decimal(
@@ -177,7 +189,11 @@ def init_buy_record(app: Flask, user_id: str, course_id: str):
                 ) + decimal.Decimal(active_record.price)
                 price_items.append(
                     PayItemDto(
-                        "活动", active_record.active_name, active_record.price, True
+                        "活动",
+                        active_record.active_name,
+                        active_record.price,
+                        True,
+                        None,
                     )
                 )
         buy_record.pay_value = decimal.Decimal(buy_record.price) - decimal.Decimal(
@@ -250,6 +266,15 @@ def generate_charge(
         order_no = str(get_uuid(app))
         qr_url = None
         pingpp_id = app.config.get("PINGPP_APP_ID")
+        if amount == 0:
+            success_buy_record(app, buy_record.record_id)
+            return BuyRecordDTO(
+                buy_record.record_id,
+                buy_record.user_id,
+                buy_record.price,
+                channel,
+                qr_url,
+            )
         if channel == "wx_pub_qr":  # wxpay scan
             extra = dict({"product_id": product_id})
             charge = create_pingxx_order(
@@ -460,6 +485,7 @@ def success_buy_record(app: Flask, record_id: str):
                     attend.status = ATTEND_STATUS_LOCKED
                 db.session.add(attend)
             db.session.commit()
+            send_order_feishu(app, buy_record.record_id)
             return query_buy_record(app, record_id)
         else:
             app.logger.error("record:{} not found".format(record_id))
@@ -546,7 +572,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
         ).first()
         if buy_record:
             item = []
-            item.append(PayItemDto("商品", "基础价格", buy_record.price, False))
+            item.append(PayItemDto("商品", "基础价格", buy_record.price, False, None))
             if buy_record.discount_value > 0:
                 aitive_records = query_active_record(app, record_id)
                 if aitive_records:
@@ -557,6 +583,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                                 active_record.active_name,
                                 active_record.price,
                                 True,
+                                None,
                             )
                         )
 
@@ -569,6 +596,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                                 discount_record.discount_name,
                                 discount_record.discount_value,
                                 True,
+                                discount_record.discount_code,
                             )
                         )
             return AICourseBuyRecordDTO(
