@@ -70,7 +70,7 @@ CI=false pnpm install
 CI=false pnpm run build:staging
 
 # Sync build files to the specified directory
-rsync -av --delete /item/ai-shifu/src/web/build/ /opt/1panel/apps/openresty/openresty/www/sites/test-sifu.agiclass.cn/index
+rsync -av --delete build/ /opt/1panel/apps/openresty/openresty/www/sites/test-sifu.agiclass.cn/index
 
 
 
@@ -78,3 +78,5 @@ rsync -av --delete /item/ai-shifu/src/web/build/ /opt/1panel/apps/openresty/open
 sh $script_dir/send_feishu.sh "sifu_web 部署成功" "部署成功！"
 
 echo "Deployment completed successfully."
+cd ..
+cd ..
