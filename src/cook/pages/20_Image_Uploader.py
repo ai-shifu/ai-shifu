@@ -1,5 +1,4 @@
 import oss2
-from oss2.credentials import EnvironmentVariableCredentialsProvider
 
 from tools.utils import st, time
 from tools.auth import login
@@ -25,7 +24,10 @@ with login():
     # 初始化 OSS bucket 对象
     if "bucket" not in st.session_state:
         st.session_state.bucket = oss2.Bucket(
-            oss2.ProviderAuth(EnvironmentVariableCredentialsProvider()),
+            oss2.Auth(
+                cfg.OSS_ACCESS_KEY_ID,
+                cfg.OSS_ACCESS_KEY_SECRET,
+            ),
             cfg.IMG_OSS_ENDPOINT,
             cfg.IMG_OSS_BUCKET,
         )
