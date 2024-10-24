@@ -43,7 +43,7 @@ git clone git@github.com:ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 cp .env.example .env
 # Edit .env file to fill your configure
-./dev_in_docker.sh
+./run_in_docker.sh
 ```
 
 # Contributors

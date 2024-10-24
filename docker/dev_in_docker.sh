@@ -8,6 +8,8 @@ cd ../src/api
 docker build ./ -t ai-shifu-api-dev
 cd ../web
 docker build ./ -t ai-shifu-web-dev
+cd ../cook
+docker build ./ -t ai-shifu-cook-dev
 cd ..
 cd ..
 cd docker

@@ -1,31 +1,35 @@
 from node:20-slim
-# 使用官方的node运行时作为父镜像
+# use pnpm
 RUN corepack enable
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
 
-# 设置工作目录
+# set work directory
 WORKDIR /usr/src/app
 
-# 安装项目依赖
-# 复制package.json和package-lock.json文件
+# install project dependencies
+# copy package.json and package-lock.json files
 COPY package*.json ./
-# 复制项目源代码
+
+# copy ecosystem.config.js file
+COPY ecosystem.config.js ./
+
+# copy project source code
 COPY . .
 
 RUN pnpm install
 
-
-
-
-# 构建项目
+# build project
 RUN pnpm run build
 
 RUN pnpm install -g serve
 
-# 声明服务运行在5000端口
+RUN pnpm install -g pm2
+
+# expose port
+
 EXPOSE 5000
 
-# 启动服务
-CMD ["serve", "-s", "build", "-l", "5000"]
+# start service
+CMD ["pm2-runtime", "ecosystem.config.js"]

@@ -12,11 +12,15 @@ services:
   ai-shifu-web-dev:
     container_name:  ai-shifu-web-dev
     image: ai-shifu-web-dev:latest
-    command:  pnpm run start:dev-local
     depends_on:
       - ai-shifu-api-dev
+    env_file:
+      - ./.env
+  ai-shifu-cook-dev:
+    container_name: ai-shifu-cook-dev
+    image: ai-shifu-cook-dev:latest
     volumes:
-      - ../src/web:/usr/src/app
+      - ./cook_data:/data
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev
     image: nginx:latest
@@ -29,6 +33,7 @@ services:
     restart: always
     volumes:
       - ./nginx.dev.conf:/etc/nginx/nginx.conf
+
   ai-shifu-mysql:
     container_name: ai-shifu-mysql
     environment:
@@ -45,7 +50,7 @@ services:
     ports:
       - "6379:6379"
     environment:
-      - REDIS_PASSWORD=ai-shifu
+      - REDISPASS=ai-shifu
       - REDIS_USER=root
     volumes:
       - ./redis_data:/data

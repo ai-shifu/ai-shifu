@@ -10,6 +10,20 @@ import { inWechat, wechatLogin } from 'constants/uiConstants.js';
 import { getBoolEnv } from 'Utils/envUtils.js';
 import { userInfoStore } from 'Service/storeUtil.js';
 import { getCourseInfo } from './Api/course.js';
+
+
+// load umami script
+document.addEventListener("DOMContentLoaded", function() {
+  const scriptSrc = process.env.REACT_APP_UMAMI_SCRIPT_SRC;
+  const dataId = process.env.REACT_APP_UMAMI_WEBSITE_ID;
+  if (scriptSrc && dataId) {
+    const script = document.createElement("script");
+    script.defer = true;
+    script.src = scriptSrc;
+    script.setAttribute("data-website-id", dataId);
+    document.head.appendChild(script);
+  }
+});
 if (getBoolEnv('REACT_APP_ERUDA')) {
   import('eruda').then(eruda => eruda.default.init());
 }
@@ -17,6 +31,7 @@ if (getBoolEnv('REACT_APP_ERUDA')) {
 const RouterView = () => useRoutes(routes);
 
 const App = () => {
+  // get browser language
   const { updateChannel, channel, wechatCode, updateWechatCode, courseId, updateCourseId, setShowVip, updateLanguage } =
     useSystemStore();
   // get browser language
@@ -68,7 +83,7 @@ const App = () => {
     });
   }, []);
 
-  // 挂载 debugger
+  // mount debugger
   useEffect(() => {
     window.ztDebug = {};
     return () => {
