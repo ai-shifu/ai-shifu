@@ -76,3 +76,6 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5800, debug=True)
 else:
     app = create_app()
+    from flaskr.util.plugin import enable_plugins
+
+    enable_plugins(app)
