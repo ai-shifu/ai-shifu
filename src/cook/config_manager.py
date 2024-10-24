@@ -70,6 +70,8 @@ class ConfigManager:
             self.IMG_OSS_ANAME = _cfg_fileupload["img_oss_aname"]
             self.IMG_OSS_ENDPOINT = _cfg_fileupload["img_oss_endpoint"]
             self.IMG_OSS_BUCKET = _cfg_fileupload["img_oss_bucket"]
+            self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
+            self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
 
             _cfg_db = config["db"]
             self.SQLITE_DB_PATH = os.path.join(self.PROJ_DIR, _cfg_db["sqlite"]["path"])
