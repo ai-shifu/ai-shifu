@@ -12,11 +12,10 @@ services:
   ai-shifu-web-dev:
     container_name:  ai-shifu-web-dev
     image: ai-shifu-web-dev:latest
-    command:  pnpm run start:dev-local
     depends_on:
       - ai-shifu-api-dev
-    volumes:
-      - ../src/web:/usr/src/app
+    env_file:
+      - ./.env
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev
     image: nginx:latest
@@ -45,7 +44,7 @@ services:
     ports:
       - "6379:6379"
     environment:
-      - REDIS_PASSWORD=ai-shifu
+      - REDISPASS=ai-shifu
       - REDIS_USER=root
     volumes:
       - ./redis_data:/data
