@@ -29,6 +29,13 @@ services:
     restart: always
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
+  ai-shifu-cook:
+    container_name: ai-shifu-cook
+    image: aishifu/ai-shifu-cook:latest
+    env_file:
+      - ./.env
+    volumes:
+      - ./cook_data:/data
   ai-shifu-mysql:
     container_name: ai-shifu-mysql
     environment:

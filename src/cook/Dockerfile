@@ -33,4 +33,4 @@ COPY . .
 EXPOSE 8501
 
 # 启动streamlit服务
-CMD streamlit run Home.py
+CMD ["streamlit", "run", "Home.py","--server.port=8501","--server.address=0.0.0.0"]

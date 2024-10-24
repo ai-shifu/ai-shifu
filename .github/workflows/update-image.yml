@@ -17,7 +17,7 @@ env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'aishifu/ai-shifu-web' }}
   AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'aishifu/ai-shifu-api' }}
-
+  AI_SHIFU_COOK_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_IMAGE_NAME || 'aishifu/ai-shifu-cook' }}
 jobs:
   build:
     runs-on: ${{ 'ubuntu-latest' }}
@@ -31,6 +31,9 @@ jobs:
           - service_name: "build-web"
             image_name_env: "AI_SHIFU_WEB_IMAGE_NAME"
             context: "src/web"
+          - service_name: "build-cook"
+            image_name_env: "AI_SHIFU_COOK_IMAGE_NAME"
+            context: "src/cook"
 
     steps:
       - name: Login to Docker Hub
