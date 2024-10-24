@@ -49,8 +49,5 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-    environment:
-      - REDISPASS=ai-shifu
-      - REDIS_USER=root
     volumes:
       - ./redis_data:/data
