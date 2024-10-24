@@ -26,7 +26,7 @@ RUN pip install -r requirements.txt
 
 # Copy the contents of the current directory to the /app directory in the container
 COPY . .
-
+COPY auth_config.example.yml auth_config.yml
 # Declare that the service runs on port 8501
 EXPOSE 8501
 
