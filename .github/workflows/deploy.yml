@@ -10,6 +10,7 @@ jobs:
     steps:
       - name: Checkout PR
         run: |
+          git reset --hard FETCH_HEAD
           gh pr checkout ${{ github.event.pull_request.number }}
       - name: Build and Sync API
         run: |
