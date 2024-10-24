@@ -31,7 +31,7 @@ from init import cfg
 # ==================== Initialization ====================
 # Set page title and icon
 st.set_page_config(
-    page_title="Chapter Debugger",
+    page_title="Chapter Debugger | Cook for AI-Shifu",
     page_icon="🧙‍♂️",  # 👨‍🏫
 )
 # The main title and subtitle on the page
