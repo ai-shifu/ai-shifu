@@ -62,19 +62,20 @@ class ConfigManager:
             self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
             self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
 
+            # api   
             self.ENV = os.getenv("COOK_USE_API_ENV")
             self.API_URL_TEST = os.getenv("API_URL_TEST")
             self.API_URL_PROD = os.getenv("API_URL_PROD")
             self.API_URL = self.API_URL_TEST if self.ENV == "test" else self.API_URL_PROD
 
-            _cfg_log = config["log"]
-            self.LOG_LEVEL = _cfg_log["level"]
-            self.LOG_DIR = _cfg_log["log_dir"]
-            os.makedirs(self.LOG_DIR) if not os.path.exists(self.LOG_DIR) else None
-            self.LOG_OUT_LEVEL = _cfg_log["out_level"]
-            self.LOG_OUT_PATH = _cfg_log["out_path"]
-            self.LOG_ERR_LEVEL = _cfg_log["err_level"]
-            self.LOG_ERR_PATH = _cfg_log["err_path"]
+            # log
+            self.LOG_LEVEL = os.getenv("COOK_LOG_LEVEL", "DEBUG")
+            self.LOG_DIR = os.getenv("COOK_LOG_DIR")
+            os.makedirs(self.LOG_DIR, exist_ok=True)
+            self.LOG_OUT_LEVEL = os.getenv("COOK_LOG_OUT_LEVEL")
+            self.LOG_OUT_PATH = os.getenv("COOK_LOG_OUT_PATH")
+            self.LOG_ERR_LEVEL = os.getenv("COOK_LOG_ERR_LEVEL")
+            self.LOG_ERR_PATH = os.getenv("COOK_LOG_ERR_PATH")
 
             self.COOK_CONN_STR = (
                 f'mysql+pymysql://{os.getenv("COOK_DB_USERNAME")}:{os.getenv("COOK_DB_PASSWORD")}'

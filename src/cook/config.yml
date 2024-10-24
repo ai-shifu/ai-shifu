@@ -58,11 +58,3 @@ llm:
 
 lark:
   default_view_id: vewlGkI2Jp  # all lark bitable's default view id
-
-log:
-  level: DEBUG
-  out_level: DEBUG
-  log_dir: /tmp/logs
-  out_path: /tmp/logs/cook.ai-shifu.out.log
-  err_level: ERROR
-  err_path: /tmp/logs/cook.ai-shifu.err.log
