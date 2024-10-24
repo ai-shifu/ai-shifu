@@ -13,7 +13,8 @@ services:
   ai-shifu-web:
     container_name:  ai-shifu-web
     image: aishifu/ai-shifu-web:latest
-    command:  ["serve", "-s", "build", "-l", "5000"]
+    env_file:
+      - ./.env
     depends_on:
       - ai-shifu-api
   ai-shifu-nginx:

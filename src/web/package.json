@@ -1,5 +1,5 @@
 {
-  "name": "chatui",
+  "name": "ai-shifu-web",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
@@ -66,7 +66,7 @@
     "start:dev": "dotenv -e .local.single.env -e .env.dev craco start",
     "start:dev-local": "dotenv -e .local.single.env -e .env.dev-local craco start",
     "lint:knip": "knip",
-    "build": "dotenv -e .local.single.env -e .env.prod craco build",
+    "build": "craco build",
     "build:staging": "dotenv -e .local.single.env -e .env.staging craco build",
     "clean": "rimraf build",
     "test": "craco test",
