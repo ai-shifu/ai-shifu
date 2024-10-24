@@ -62,10 +62,10 @@ class ConfigManager:
             self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
             self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
 
-            _cfg_api = config["api"]
-            self.API_URL = _cfg_api[f'{os.getenv("ENV")}_url']
-            self.API_URL_TEST = _cfg_api["test_url"]
-            self.API_URL_PROD = _cfg_api["prod_url"]
+            self.ENV = os.getenv("COOK_USE_API_ENV")
+            self.API_URL_TEST = os.getenv("API_URL_TEST")
+            self.API_URL_PROD = os.getenv("API_URL_PROD")
+            self.API_URL = self.API_URL_TEST if self.ENV == "test" else self.API_URL_PROD
 
             _cfg_log = config["log"]
             self.LOG_LEVEL = _cfg_log["level"]

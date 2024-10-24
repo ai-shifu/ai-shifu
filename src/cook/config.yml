@@ -59,10 +59,6 @@ llm:
 lark:
   default_view_id: vewlGkI2Jp  # all lark bitable's default view id
 
-api:
-  test_url: https://test-api-sifu.agiclass.cn/api
-  prod_url: https://api.ai-shifu.com/api
-
 log:
   level: DEBUG
   out_level: DEBUG
