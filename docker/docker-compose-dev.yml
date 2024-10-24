@@ -16,6 +16,11 @@ services:
       - ai-shifu-api-dev
     env_file:
       - ./.env
+  ai-shifu-cook-dev:
+    container_name: ai-shifu-cook-dev
+    image: ai-shifu-cook-dev:latest
+    volumes:
+      - ./cook_data:/data
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev
     image: nginx:latest
@@ -28,6 +33,7 @@ services:
     restart: always
     volumes:
       - ./nginx.dev.conf:/etc/nginx/nginx.conf
+
   ai-shifu-mysql:
     container_name: ai-shifu-mysql
     environment:
@@ -43,8 +49,5 @@ services:
     image: redis:latest
     ports:
       - "6379:6379"
-    environment:
-      - REDISPASS=ai-shifu
-      - REDIS_USER=root
     volumes:
       - ./redis_data:/data
