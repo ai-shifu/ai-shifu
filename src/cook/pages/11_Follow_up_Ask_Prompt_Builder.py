@@ -19,7 +19,7 @@ from tools.utils import count_lines, load_scripts
 # ==================== Initialization ====================
 # Set page title and icon
 st.set_page_config(
-    page_title="Follow-up Ask Prompt Builder",
+    page_title="Follow-up Ask Prompt Builder | Cook for AI-Shifu",
     page_icon="🧙‍♂️",  # 👨‍🏫
 )
 

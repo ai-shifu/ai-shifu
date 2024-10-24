@@ -10,7 +10,7 @@ _ = load_dotenv(find_dotenv())
 # ==================== 各种初始化工作 ====================
 # 设置页面标题和图标
 st.set_page_config(
-    page_title="Image Uploader",
+    page_title="Image Uploader | Cook for AI-Shifu",
     page_icon="🧙‍♂️",
 )
 
