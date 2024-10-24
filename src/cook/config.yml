@@ -59,12 +59,6 @@ llm:
 lark:
   default_view_id: vewlGkI2Jp  # all lark bitable's default view id
 
-fileupload:
-  img_local_dir: /tmp/codesifu/img
-  img_oss_aname: img.agiclass.cn
-  img_oss_endpoint: https://oss-cn-beijing.aliyuncs.com
-  img_oss_bucket: codesifu-img
-
 api:
   test_url: https://test-api-sifu.agiclass.cn/api
   prod_url: https://api.ai-shifu.com/api
