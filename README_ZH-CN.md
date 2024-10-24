@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="src/assets/logo_zh.png" width=256></img>
+  <img src="assets/logo_zh.png" width=256></img>
 
 English(README.md) | 简体中文
 </div>
