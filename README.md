@@ -1,3 +1,5 @@
+![cover-v5-optimized](assets/logo_en.png)
+
 AI Shifu is an open-source conversational AI powered by LLM, designed to lead and control dialogues. Unlike other chatbots, AI Shifu guides the conversation, while users can ask questions that influence the content, the dialogue always returns to the AI's main storyline. With human-designed prompt scripts, AI Shifu avoids hallucinations and minimizes user interference, offering a dynamic and autonomous conversational experience ideal for education, storytelling, product demos, surveys, interviews, and game NPCs.
 
 [![GitHub stars](https://img.shields.io/github/stars/ai-shifu/ai-shifu?style=social)](https://github.com/ai-shifu/ai-shifu/stargazers)
