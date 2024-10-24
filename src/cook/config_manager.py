@@ -56,8 +56,6 @@ class ConfigManager:
             )
 
             _cfg_lark = config["lark"]
-            self.LARK_APP_TOKEN = _cfg_lark["app_token"]
-            self.DEF_LARK_TABLE_ID = _cfg_lark["default_table_id"]
             self.DEF_LARK_VIEW_ID = _cfg_lark["default_view_id"]
 
             _cfg_fileupload = config["fileupload"]
