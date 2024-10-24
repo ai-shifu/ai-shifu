@@ -31,5 +31,4 @@ yarl~=1.9.4
 
 PyMySQL~=1.1.1
 SQLAlchemy~=2.0.30
-connectorx==0.3.3
 plotly~=5.23.0
