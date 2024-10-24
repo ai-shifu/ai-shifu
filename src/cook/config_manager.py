@@ -60,13 +60,17 @@ class ConfigManager:
             self.IMG_OSS_ENDPOINT = os.getenv("COOK_IMG_OSS_ENDPOINT")
             self.IMG_OSS_BUCKET = os.getenv("COOK_IMG_OSS_BUCKET")
             self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
-            self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
+            self.OSS_ACCESS_KEY_SECRET = os.getenv(
+                "ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET"
+            )
 
-            # api   
+            # api
             self.ENV = os.getenv("COOK_USE_API_ENV")
             self.API_URL_TEST = os.getenv("API_URL_TEST")
             self.API_URL_PROD = os.getenv("API_URL_PROD")
-            self.API_URL = self.API_URL_TEST if self.ENV == "test" else self.API_URL_PROD
+            self.API_URL = (
+                self.API_URL_TEST if self.ENV == "test" else self.API_URL_PROD
+            )
 
             # log
             self.LOG_LEVEL = os.getenv("COOK_LOG_LEVEL", "DEBUG")

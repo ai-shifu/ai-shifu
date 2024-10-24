@@ -1,5 +1,4 @@
 import oss2
-from oss2.credentials import EnvironmentVariableCredentialsProvider
 
 from tools.utils import st, time
 from tools.auth import login

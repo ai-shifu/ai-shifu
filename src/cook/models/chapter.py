@@ -36,9 +36,7 @@ class Chapter:
         return f"{self.name}  ({self.lark_table_id})"
 
 
-def load_chapters_from_api(
-    doc_id, base_url=cfg.API_URL
-) -> tuple[list[Chapter], str]:
+def load_chapters_from_api(doc_id, base_url=cfg.API_URL) -> tuple[list[Chapter], str]:
     url = f"{base_url}/lesson/get_chatper_info"
     params = {"doc_id": doc_id}
 
