@@ -1,4 +1,8 @@
-![LOGO](assets/logo_zh.png)
+<div align="center">
+  <img src="src/assets/logo_zh.png" width=256></img>
+
+English(README.md) | 简体中文
+</div>
 
 AI 师傅是一个由大语言模型驱动的向导。与其他由人类主导的聊天机器人不同，AI 师傅是 AI 主导对话流，人类只需要跟随。虽然在过程中，人类随时可以提问，影响对话内容，但最终还是会回到 AI 主导的故事线。并且，AI 可以根据用户的身份背景、兴趣偏好等做个性化输出，让用户有被一对一服务的感受。在教育培训、小说故事、产品指南、调查问卷和游戏 NPC 等场景，AI 师傅都能提供更具互动性和沉浸感的体验。
 
@@ -29,31 +33,28 @@ AI 师傅是一个由大语言模型驱动的向导。与其他由人类主导�
 
 - **自建站**
 
-在你的环境中快速启动 AI 师傅，请参考[快速开始](#快速启动)。
+在你的环境中快速启动 AI 师傅，请参考[快速开始](#快速开始)。
 
 # 快速开始
 
-
-Make sure that [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) are installed on your machine. Then run the following command to start AI-Shifu:
+确保你的机器上已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [Docker Compose](https://docs.docker.com/compose/install/)。然后运行以下命令启动 AI 师傅：
 
 ```bash
 git clone git@github.com:ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 cp .env.example .env
-# Edit .env file to fill your configure
+# 编辑 .env 文件，填写你的配置
 ./dev_in_docker.sh
 ```
 
 # Contributors
 
-Code contributions should be checked with pre-commit hooks.
+贡献代码请使用 pre-commit 钩子检查。
 
-1. install pre-commit
+1. 安装 pre-commit
 ```bash
 pip install pre-commit
 pre-commit install
 ```
 
-
-
-To be updated.
+待更新……
