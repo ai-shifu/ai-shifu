@@ -20,7 +20,7 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ matrix.platform == 'linux/arm64' && 'arm64_runner' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.platform == 'linux/arm64' || 'ubuntu-latest' }}
     if: github.repository == 'ai-shifu/ai-shifu'
     strategy:
       matrix:
