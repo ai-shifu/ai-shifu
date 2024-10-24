@@ -65,10 +65,6 @@ fileupload:
   img_oss_endpoint: https://oss-cn-beijing.aliyuncs.com
   img_oss_bucket: codesifu-img
 
-db:
-  sqlite:
-    path: /data/codesifu-demo.db
-
 api:
   test_url: https://test-api-sifu.agiclass.cn/api
   prod_url: https://api.ai-shifu.com/api

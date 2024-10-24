@@ -8,12 +8,8 @@ _ = load_dotenv(find_dotenv())
 
 class ConfigManager:
     def __init__(self, config_filename="config.yml"):
-        # 获取当前文件的绝对路径
         current_file_path = os.path.abspath(__file__)
-        # 获取当前文件所在的目录
         self.PROJ_DIR = os.path.dirname(current_file_path)
-        print(f"PROJ_DIR: {self.PROJ_DIR}")
-        # 构建配置文件的完整路径
         self.config_path = os.path.join(self.PROJ_DIR, config_filename)
 
         with open(self.config_path, "rb") as f:
@@ -26,7 +22,6 @@ class ConfigManager:
             self.SIM_STM_MAX = _cfg_simulate_streaming_random_sleep["max"]
 
             _cfg_llm = config["llm"]
-            # DEFAULT_VENDOR = _cfg_openai['default_vendor']
             self.DEFAULT_MODEL = _cfg_llm["default_model"]
             self.DEFAULT_TMP = _cfg_llm["default_temperature"]
             self.ORIGINAL_DEFAULT_MODEL = _cfg_llm["default_model"]
@@ -71,9 +66,6 @@ class ConfigManager:
             self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
             self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
 
-            _cfg_db = config["db"]
-            self.SQLITE_DB_PATH = os.path.join(self.PROJ_DIR, _cfg_db["sqlite"]["path"])
-
             _cfg_api = config["api"]
             self.API_URL = _cfg_api[f'{os.getenv("ENV")}_url']
             self.API_URL_TEST = _cfg_api["test_url"]
@@ -93,33 +85,32 @@ class ConfigManager:
                 f'@{os.getenv("COOK_DB_HOST")}:3306/{os.getenv("COOK_DB_DATABASE")}'
             )
 
-        # 添加日志配置
+        # Add logging configuration
         self.setup_logging()
 
     def setup_logging(self):
-        # 创建一个日志格式器
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
-        # 创建一个处理器，输出到指定的日志文件
+        # Create a handler to output to the specified log file
         out_handler = logging.FileHandler(self.LOG_OUT_PATH)
         out_handler.setLevel(self.LOG_OUT_LEVEL)
         out_handler.setFormatter(formatter)
 
-        # 创建一个处理器，输出错误日志到指定的文件
+        # Create a handler to output error logs to the specified file
         err_handler = logging.FileHandler(self.LOG_ERR_PATH)
         err_handler.setLevel(self.LOG_ERR_LEVEL)
         err_handler.setFormatter(formatter)
 
-        # 获取根日志记录器
+        # Get the root logger
         root_logger = logging.getLogger()
         root_logger.setLevel(self.LOG_LEVEL)
 
-        # 清除现有的处理器（如果有的话）
+        # Clear existing handlers (if any)
         root_logger.handlers = []
 
-        # 添加处理器到根日志记录器
+        # Add handlers to the root logger
         root_logger.addHandler(out_handler)
         root_logger.addHandler(err_handler)
 
