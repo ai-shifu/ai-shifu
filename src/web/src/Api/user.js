@@ -15,8 +15,8 @@ export const register = ({ username, password, mobile, email }) => {
     url: '/api/user/register',
     method: 'post',
     data: { username, password, email, mobile }
-  })
-}
+  });
+};
 
 /**
  * 用户注册接口
@@ -30,7 +30,7 @@ export const login = (username, password) => {
     method: 'post',
     data: { username, password }
   });
-}
+};
 
 /**
  * @description 查询用户信息
@@ -40,8 +40,8 @@ export const getUserInfo = () => {
   return request({
     url: '/api/user/info',
     method: 'get',
-  })
-}
+  });
+};
 
 
 /**
@@ -52,8 +52,8 @@ export const updateUserInfo = (name) => {
     url: '/api/user/update_info',
     method: 'post',
     data: { name }
-  })
-}
+  });
+};
 
 
 export const updatePassword = (old_password, new_password) => {
@@ -61,16 +61,16 @@ export const updatePassword = (old_password, new_password) => {
     url: '/api/user/update_password',
     method: 'post',
     data: { old_password, new_password }
-  })
-}
+  });
+};
 
 export const requireResetPasswordCode = (username) => {
   return request({
     url: '/api/user/require_reset_code',
     method: 'post',
     data: { username }
-  })
-}
+  });
+};
 
 
 export const resetPassword = (username, new_password, code) => {
@@ -78,8 +78,8 @@ export const resetPassword = (username, new_password, code) => {
     url: '/api/user/reset_password',
     method: 'post',
     data: { username, new_password, code }
-  })
-}
+  });
+};
 
 /**
  * 获取临时 token，在用户正常登录的时候，也需要有一个 token
@@ -99,7 +99,7 @@ export const registerTmp = ({ temp_id }) => {
       data: { temp_id, source, wxcode,language }
     }
   );
-}
+};
 
 /**
  * 更新微信code
@@ -114,7 +114,7 @@ export const updateWxcode = () => {
       data: { wxcode }
     }
   );
-}
+};
 
 /**
  * 获取图形验证码
@@ -125,7 +125,7 @@ export const genCheckCode = (mobile) => {
     method: 'post',
     data: { mobile },
   });
-}
+};
 
 /**
  * 发送手机验证码
@@ -138,7 +138,7 @@ export const sendSmsCode = ({ mobile, check_code }) => {
     method: 'post',
     data: { mobile, check_code },
   });
-}
+};
 
 /**
  * 验证手机号
@@ -152,7 +152,7 @@ export const verifySmsCode = ({ mobile, sms_code }) => {
     method: 'post',
     data: { mobile, sms_code },
   });
-}
+};
 
 
 // 获取用户详细信息
@@ -161,7 +161,7 @@ export const getUserProfile = () => {
     url: '/api/user/get_profile',
     method: 'get',
   });
-}
+};
 
 // 上传头像
 export const uploadAvatar = ({ avatar }) => {
@@ -172,8 +172,8 @@ export const uploadAvatar = ({ avatar }) => {
     method: 'POST',
     url: '/api/user/upload_avatar',
     data: formData,
-  })
-}
+  });
+};
 
 // 更新用户详细信息
 export const updateUserProfile = (data) => {
@@ -183,8 +183,8 @@ export const updateUserProfile = (data) => {
     data: {
       "profiles": data
     }
-  })
-}
+  });
+};
 
 
 // submit feedback
@@ -193,5 +193,5 @@ export const submitFeedback = (feedback) => {
     url: '/api/user/submit-feedback',
     method: 'POST',
     data: {feedback}
-  })
-}
+  });
+};

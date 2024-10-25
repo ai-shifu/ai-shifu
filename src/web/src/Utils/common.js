@@ -3,7 +3,7 @@ const MODAL_DEFAULT_WIDTH = '360px';
 // calculate modal width
 export const calModalWidth = ({ inMobile, width = MODAL_DEFAULT_WIDTH }) => {
   return inMobile ? '100%' : width;
-}
+};
 
 
 // generate uuid

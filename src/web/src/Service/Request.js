@@ -25,7 +25,7 @@ export const SendMsg = (token, chatId, text, onMessage) => {
   source.onmessage = (event) => {
     try {
 
-      var response =JSON.parse (event.data)
+      var response =JSON.parse (event.data);
       if (onMessage) {
         onMessage(response);
       }
@@ -41,7 +41,7 @@ export const SendMsg = (token, chatId, text, onMessage) => {
   };
   source.stream();
   return source;
-}
+};
 
 
 /**
@@ -59,7 +59,7 @@ axiosrequest.interceptors.request.use(async(config)=>{
   config.headers.token = tokenTool.get().token;
   config.headers["X-Request-ID"] = v4().replace(/-/g, '');
   return config;
-})
+});
 
 // 创建响应拦截器
 axiosrequest.interceptors.response.use(
@@ -79,6 +79,6 @@ axiosrequest.interceptors.response.use(
     document.dispatchEvent(apiError);
     message.error(t("common.networkError"));
     return Promise.reject(error);
-  })
+  });
 
 export default axiosrequest;

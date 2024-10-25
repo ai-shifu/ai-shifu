@@ -7,7 +7,7 @@ const DEFAULT_COUNTDOWN_INTERVAL = 1000;
 
 export const useSendCode = ({ countDownTime = DEFAULT_COUNTDOWN }) => {
   const [countDown, setCountDown] = useState(0);
-  let timer = useRef();
+  const timer = useRef();
 
   const sendCode = async (mobile, checkCode) => {
     if (!!countDown) {
@@ -29,7 +29,7 @@ export const useSendCode = ({ countDownTime = DEFAULT_COUNTDOWN }) => {
         return countDown - 1;
       });
     }, DEFAULT_COUNTDOWN_INTERVAL);
-  }
+  };
 
   const reset = () => {
     setCountDown(0);
@@ -37,9 +37,9 @@ export const useSendCode = ({ countDownTime = DEFAULT_COUNTDOWN }) => {
       clearInterval(timer.current);
       timer.current = null;
     }
-  }
+  };
 
   return [countDown, sendCode, reset];
-}
+};
 
 export default memo(useSendCode);

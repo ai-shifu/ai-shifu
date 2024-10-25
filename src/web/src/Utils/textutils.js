@@ -1,7 +1,7 @@
-import { isMobile } from "react-device-detect"
-import { inWechat } from "constants/uiConstants.js"
+import { isMobile } from "react-device-detect";
+import { inWechat } from "constants/uiConstants.js";
 
-const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i)
+const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i);
 
 const copyTextOld = async (text) => {
   return new Promise((resolve) => {
@@ -17,12 +17,12 @@ const copyTextOld = async (text) => {
     textArea.select();
     document.execCommand("copy");
     document.body.removeChild(textArea);
-  })
-}
+  });
+};
 
 const copyTextNew = async (text) => {
   return navigator.clipboard.writeText(text);
-}
+};
 
 export const copyText = async (text) => {
   if (isMobile) {
@@ -42,4 +42,4 @@ export const copyText = async (text) => {
   } else {
     return await copyTextNew(text);
   }
-}
+};

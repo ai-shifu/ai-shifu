@@ -3,7 +3,7 @@ import { getUserInfo, registerTmp } from 'Api/user.js';
 import { userInfoStore, tokenTool } from 'Service/storeUtil.js';
 import { genUuid } from 'Utils/common.js';
 import { verifySmsCode } from 'Api/user.js';
-import { subscribeWithSelector } from 'zustand/middleware'
+import { subscribeWithSelector } from 'zustand/middleware';
 import i18n from '../i18n.js';
 export const useUserStore = create(
   subscribeWithSelector((set) => ({
@@ -33,7 +33,7 @@ export const useUserStore = create(
           hasLogin: false,
           userInfo: null,
         }));
-        return
+        return;
       }
 
 
@@ -84,7 +84,7 @@ export const useUserStore = create(
           hasLogin: false,
           userInfo: null,
         };
-      })
+      });
     },
 
     // 更新用户信息
@@ -95,7 +95,7 @@ export const useUserStore = create(
             ...state.userInfo,
             ...userInfo,
           }
-        }
+        };
       });
     },
 
@@ -105,8 +105,8 @@ export const useUserStore = create(
         userInfo: {
           ...res.data
         }
-      }))
-      await userInfoStore.set(res.data)
+      }));
+      await userInfoStore.set(res.data);
       i18n.changeLanguage(res.data.language);
 
     }

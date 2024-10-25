@@ -45,4 +45,4 @@ export const getLessonStudyRecord = async (lessonId) => {
     url: "/api/study/get_lesson_study_record?lesson_id=" + lessonId,
     method: "get",
   });
-}
+};

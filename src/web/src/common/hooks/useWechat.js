@@ -23,16 +23,16 @@ export const useWechat = () => {
 
   const runInJsBridge = (callback) => {
     if (!inWechat()) {
-      return
+      return;
     }
 
     jsBridegetReady.then(callback);
-  }
+  };
 
   const payByJsApi = async (payData) => {
     return new Promise((resolve, reject) => {
       runInJsBridge(() => {
-          // eslint-disable-next-line
+
           WeixinJSBridge.invoke(
             'getBrandWCPayRequest',
             payData,
@@ -44,9 +44,9 @@ export const useWechat = () => {
               }
             }
           );
-      })
+      });
     });
-  }
+  };
 
   return { runInJsBridge, payByJsApi };
-}
+};
