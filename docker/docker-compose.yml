@@ -37,8 +37,8 @@ services:
   ai-shifu-mysql:
     container_name: ai-shifu-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: ai-shifu
-      MYSQL_DATABASE: ai-shifu
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:ai-shifu}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:ai-shifu}
     image: mysql:latest
     ports:
       - "3306:3306"
