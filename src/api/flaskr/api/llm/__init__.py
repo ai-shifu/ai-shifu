@@ -21,7 +21,7 @@ else:
 if get_config("DEEP_SEEK_API_KEY"):
     deepseek_client = openai.Client(
         api_key=get_config("DEEP_SEEK_API_KEY"),
-        base_url=get_config("DEEP_SEEK_API_URL"),
+        base_url=get_config("DEEP_SEEK_API_URL", "https://api.deepseek.com"),
     )
 else:
     deepseek_client = None

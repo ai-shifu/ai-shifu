@@ -1,3 +1,4 @@
+/* global WeixinJSBridge */
 import { inWechat } from "constants/uiConstants.js";
 
 export const useWechat = () => {

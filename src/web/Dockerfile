@@ -27,6 +27,7 @@ RUN pnpm install -g serve
 
 RUN pnpm install -g pm2
 
+RUN pnpm install -g dotenv
 # expose port
 
 EXPOSE 5000
