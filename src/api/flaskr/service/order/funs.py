@@ -456,6 +456,10 @@ def success_buy_record(app: Flask, record_id: str):
             AICourseBuyRecord.record_id == record_id
         ).first()
         if buy_record:
+            user_info = User.query.filter(User.user_id == buy_record.user_id).first()
+            if not user_info:
+                app.logger.error("user:{} not found".format(buy_record.user_id))
+                user_info.user_state = USER_STATE_PAID
             buy_record.status = BUY_STATUS_SUCCESS
             lessons = AILesson.query.filter(
                 AILesson.course_id == buy_record.course_id,
