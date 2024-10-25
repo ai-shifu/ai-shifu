@@ -23,8 +23,5 @@ repos:
     rev: v9.13.0
     hooks:
     -   id: eslint
-        # args: [--ext, .js,.jsx,.ts,.tsx]
-        # types: [javascript, jsx, ts, tsx]  # 移除 typescript 标签
-        args: [--ext, .js,.jsx,.ts,.tsx]
-        files: ^src/(web|admin-web)/
-        types: [javascript, jsx, ts, tsx]  # 添加 typescript 标签
+        files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
+        types: [file]

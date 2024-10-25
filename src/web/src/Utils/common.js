@@ -1,12 +1,12 @@
 const MODAL_DEFAULT_WIDTH = '360px';
 
-// 计算弹出窗口的宽度
+// calculate modal width
 export const calModalWidth = ({ inMobile, width = MODAL_DEFAULT_WIDTH }) => {
   return inMobile ? '100%' : width;
 }
 
 
-// 创建 uuid
+// generate uuid
 export const genUuid = () => {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     var r = (Math.random() * 16) | 0,

@@ -95,9 +95,9 @@ export const genCroppedImg = async (
 
 
 /**
- * 将文件转为 Data URLs
- * DataURLs 的格式为： data:[<mediatype>][;base64],<data>
- * 参考: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs
+ * convert file to data url
+ * DataURLs format: data:[<mediatype>][;base64],<data>
+ * reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs
  */
 export const convertFileToDataUrl = async (file) => {
   return new Promise((resolve, reject) => {
