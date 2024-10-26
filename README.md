@@ -37,7 +37,7 @@ Quickly get AI-Shifu running in your environment with this [starter guide](#quic
 # Quick Start
 
 
-Please refer to [Welcome to use AI-Shifu (AI-Shifu)](https://github.com/ai-shifu/ai-shifu-doc/blob/main/README.md)
+Please refer to [Welcome to use AI-Shifu (AI-Shifu)](https://github.com/ai-shifu/ai-shifu-doc/blob/main/zh_CN/README.md)
 
 # Contributors
 
