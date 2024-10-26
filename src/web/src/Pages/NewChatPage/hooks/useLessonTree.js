@@ -50,6 +50,7 @@ export const useLessonTree = () => {
   const { trackEvent } = useTracking();
   const [tree, setTree] = useState(null);
   const { checkLogin } = useUserStore();
+  const { updateCourseId } = useEnvStore.getState();
   const loadTreeInner = async () => {
     let resp;
     try {
@@ -60,6 +61,9 @@ export const useLessonTree = () => {
     }
 
     const treeData = resp.data;
+    if (treeData.course_id !== useEnvStore.getState().courseId) {
+      await updateCourseId(treeData.course_id);
+    }
     let lessonCount = 0;
     const catalogs = treeData.lessons.map(l => {
       const lessons = l.children.map(c => {

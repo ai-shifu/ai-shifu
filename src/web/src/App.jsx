@@ -19,13 +19,13 @@ const initializeEnvData = async () => {
       const res = await fetch('/config/env', { method: 'POST',referrer:"no-referrer" });
       if (res.ok) {
         const data = await res.json();
-        await updateCourseId(data.REACT_APP_COURSE_ID);
-        await updateAppId(data.REACT_APP_APP_ID);
-        await updateAlwaysShowLessonTree(data.REACT_APP_ALWAYS_SHOW_LESSON_TREE);
-        await updateUmamiWebsiteId(data.REACT_APP_UMAMI_WEBSITE_ID);
-        await updateUmamiScriptSrc(data.REACT_APP_UMAMI_SCRIPT_SRC);
-        await updateEruda(data.REACT_APP_ERUDA);
-        await updateBaseURL(data.REACT_APP_BASEURL);
+        await updateCourseId(data?.REACT_APP_COURSE_ID || "");
+        await updateAppId(data?.REACT_APP_APP_ID || "");
+        await updateAlwaysShowLessonTree(data?.REACT_APP_ALWAYS_SHOW_LESSON_TREE || "false");
+        await updateUmamiWebsiteId(data?.REACT_APP_UMAMI_WEBSITE_ID || "");
+        await updateUmamiScriptSrc(data?.REACT_APP_UMAMI_SCRIPT_SRC || "");
+        await updateEruda(data?.REACT_APP_ERUDA || "false");
+        await updateBaseURL(data?.REACT_APP_BASEURL || "");
       }
     } catch (error) {
     } finally {
@@ -108,15 +108,20 @@ const App = () => {
   }, [params.code, updateWechatCode, wechatCode, envDataInitialized]);
 
   useEffect(() => {
-    if (!envDataInitialized) return;
-    let id = courseId;
-    if (params.courseId) {
-      updateCourseId(params.courseId);
-      id = params.courseId;
-    }
-    getCourseInfo(id).then((resp) => {
+    const fetchCourseInfo = async () => {
+      if (!envDataInitialized) return;
+      let id = courseId;
+      if (params.courseId) {
+        await updateCourseId(params.courseId);
+        id = params.courseId;
+      }
+      const resp = await getCourseInfo(id);
+      if (resp.data.course_id !== courseId) {
+        await updateCourseId(resp.data.course_id);
+      }
       setShowVip(resp.data.course_price > 0);
-    });
+    };
+    fetchCourseInfo();
   }, [envDataInitialized]);
 
   // mount debugger
