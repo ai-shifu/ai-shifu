@@ -5,7 +5,7 @@ import { LESSON_STATUS_VALUE} from "constants/courseConstants.js";
 import { useTracking, EVENT_NAMES } from "common/hooks/useTracking.js";
 import { useSystemStore } from 'stores/useSystemStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
-
+import { useEnvStore } from 'stores/envStore.js';
 export const checkChapterCanLearning = ({ status }) => {
   return status === LESSON_STATUS_VALUE.LEARNING || status === LESSON_STATUS_VALUE.COMPLETED || status === LESSON_STATUS_VALUE.PREPARE_LEARNING;
 };
@@ -50,16 +50,20 @@ export const useLessonTree = () => {
   const { trackEvent } = useTracking();
   const [tree, setTree] = useState(null);
   const { checkLogin } = useUserStore();
+  const { updateCourseId } = useEnvStore.getState();
   const loadTreeInner = async () => {
     let resp;
     try {
-      resp = await getLessonTree(useSystemStore.getState().courseId);
+      resp = await getLessonTree(useEnvStore.getState().courseId);
     } catch (err) {
       await checkLogin();
-      resp = await getLessonTree(useSystemStore.getState().courseId);
+      resp = await getLessonTree(useEnvStore.getState().courseId);
     }
 
     const treeData = resp.data;
+    if (treeData.course_id !== useEnvStore.getState().courseId) {
+      await updateCourseId(treeData.course_id);
+    }
     let lessonCount = 0;
     const catalogs = treeData.lessons.map(l => {
       const lessons = l.children.map(c => {

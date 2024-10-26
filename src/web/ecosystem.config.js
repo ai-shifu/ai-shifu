@@ -4,7 +4,8 @@ module.exports = {
   apps: [
     {
       name: 'ai-shifu-web',
-      script: 'serve -s build -l '+(process.env.PORT || '5800'),
+      // script: 'serve -s build -l '+(process.env.PORT || '5800'),
+      script: 'node server.js',
       env: {
         PORT: process.env.PORT,
         REACT_APP_BASEURL: process.env.REACT_APP_BASEURL,

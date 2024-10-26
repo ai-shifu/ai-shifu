@@ -76,7 +76,7 @@ const NavDrawer = ({
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
 
-  const alwaysShowLessonTree = getBoolEnv('REACT_APP_ALWAYS_SHOW_LESSON_TREE');
+  const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
   const footerRef = useRef(null);
 
   const onHeaderCloseClick = () => {
