@@ -36,5 +36,5 @@ Quickly get AI-Shifu running in your environment with this [starter guide](#quic
 
 # Quick Start
 
- 
+
 Coming soon...
