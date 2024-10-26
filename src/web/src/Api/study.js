@@ -2,10 +2,10 @@ import { SSE } from "sse.js";
 import request from "../Service/Request";
 import { tokenStore } from "Service/storeUtil.js";
 import { v4 } from "uuid";
-import { useEnvStore } from 'stores/envStore.js';
+import { getStringEnv } from "Utils/envUtils.js";
 
 export const runScript = (course_id, lesson_id, input, input_type, script_id, onMessage) => {
-  const { baseURL } = useEnvStore.getState();
+  const { baseURL } = getStringEnv('baseURL')
   const source = new SSE(`${baseURL || ''}/api/study/run?token=${tokenStore.get()}`, {
     headers: { "Content-Type": "application/json", "X-Request-ID": v4().replace(/-/g, '') },
     payload: JSON.stringify({

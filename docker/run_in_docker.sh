@@ -5,4 +5,5 @@ if [ ! -f ".env" ]; then
 fi
 
 cd docker
+docker images | grep 'aishifu'  | awk -F ' ' '{print $3}' | xargs -I {} docker image rm {}
 docker compose up
