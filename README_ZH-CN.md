@@ -37,17 +37,4 @@ AI 师傅是一个由大语言模型驱动的向导。与其他由人类主导�
 
 # 快速开始
 
-
-请参考[欢迎使用 AI师傅（AI-Shifu）](https://github.com/ai-shifu/ai-shifu-doc/blob/main/zh_CN/README.md)
-
-# Contributors
-
-贡献代码请使用 pre-commit 钩子检查。
-
-1. 安装 pre-commit
-```bash
-pip install pre-commit
-pre-commit install
-```
-
-待更新……
+即将更新...
