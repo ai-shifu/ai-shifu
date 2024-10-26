@@ -30,8 +30,11 @@ def create_app() -> Flask:
     from flaskr.common import Config, init_log
 
     app.config = Config(app.config, app)
+
     # init log
     init_log(app)
+
+    app.logger.info("ai-shifu-api mode: %s", app.config.get("MODE", "api"))
     # init database
     from flaskr import dao
 

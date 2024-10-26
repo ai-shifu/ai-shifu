@@ -1,5 +1,10 @@
 import request from "../Service/Request";
 export const getLessonTree = async (courseId) => {
+  if (courseId === "" || courseId === null || courseId === undefined ) {
+    return request({
+      url: `/api/study/get_lesson_tree`,
+    });
+  }
   return request({
     url: `/api/study/get_lesson_tree?course_id=${courseId}`,
     method: "GET",

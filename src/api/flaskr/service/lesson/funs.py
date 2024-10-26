@@ -684,9 +684,16 @@ def update_course_info(
 
 def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
     with app.app_context():
-        course = AICourse.query.filter(AICourse.course_id == course_id).first()
-        if course is None:
-            raise_error("LESSON.COURSE_NOT_FOUND")
+
+        if course_id is None or course_id == "":
+            course = AICourse.query.filter(AICourse.status == 1).first()
+            if course is None:
+                raise_error("LESSON.HAS_NOT_LESSON")
+        else:
+            course = AICourse.query.filter(AICourse.course_id == course_id).first()
+            if course is None:
+                raise_error("LESSON.COURSE_NOT_FOUND")
+
         return AICourseDTO(
             course.course_id,
             course.course_name,

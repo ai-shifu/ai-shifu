@@ -60,21 +60,29 @@ from ...service.common.models import raise_error
 from .models import AICourseLessonAttendScript, AICourseAttendAsssotion
 
 
-def get_lesson_tree_to_study(app: Flask, user_id: str, course_id: str) -> AICourseDTO:
+def get_lesson_tree_to_study(
+    app: Flask, user_id: str, course_id: str = None
+) -> AICourseDTO:
     with app.app_context():
         attend_status_values = get_attend_status_values()
-        course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
-        if not course_info:
-            course_info = AICourse.query.first()
+        if course_id:
+            course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
+            if not course_info:
+                raise_error("LESSON.COURSE_NOT_FOUND")
+        else:
+            course_info = AICourse.query.order_by(AICourse.id.asc()).first()
+            if not course_info:
+                raise_error("LESSON.HAS_NOT_LESSON")
             course_id = course_info.course_id
-        # 检查有没有购课记录
+
+        # check order of course
         buy_record = AICourseBuyRecord.query.filter_by(
             user_id=user_id, course_id=course_id
         ).first()
         if not buy_record:
             app.logger.info("no buy record found")
-            # 没有购课记录
-            # 生成体验课记录
+            # no order found
+            # generate trial lesson
             init_trial_lesson(app, user_id, course_id)
         lessons = AILesson.query.filter(
             AILesson.course_id == course_id,
@@ -112,9 +120,8 @@ def get_lesson_tree_to_study(app: Flask, user_id: str, course_id: str) -> AICour
                 parent_no = lessonInfo.lesson_no[:-2]
                 if parent_no in lesson_dict:
                     lesson_dict[parent_no].children.append(lessonInfo)
-        course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         ret = AICourseDTO(
-            course_id=course_id,
+            course_id=course_info.course_id,
             course_name=course_info.course_name,
             teach_avator=course_info.course_teacher_avator,
             lessons=lessonInfos,

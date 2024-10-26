@@ -64,7 +64,8 @@ export const useUserStore = create(
         if ((err.status && err.status === 403) || (err.code && err.code === 1005) || (err.code && err.code === 1001)) {
           const res = await registerTmp({ temp_id: genUuid() });
           const token = res.data.token;
-          tokenTool.set({ token, faked: true });
+          await tokenTool.set({ token, faked: true });
+
           set(() => ({
             hasLogin: false,
             userInfo: null,

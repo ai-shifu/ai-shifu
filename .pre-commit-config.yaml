@@ -17,12 +17,3 @@ repos:
     -   id: commitizen
         stages: [commit-msg]
         additional_dependencies: ['markupsafe==2.0.1']
-
-        # args: ["--config=.cz.yaml"]
--   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.13.0
-    hooks:
-    -   id: eslint
-        files: \.[jt]sx?$  # *.js, *.jsx, *.ts 和 *.tsx
-        types: [file]
-        args: ["--fix"]
