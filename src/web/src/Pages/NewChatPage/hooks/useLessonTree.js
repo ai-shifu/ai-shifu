@@ -5,7 +5,7 @@ import { LESSON_STATUS_VALUE} from "constants/courseConstants.js";
 import { useTracking, EVENT_NAMES } from "common/hooks/useTracking.js";
 import { useSystemStore } from 'stores/useSystemStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
-
+import { useEnvStore } from 'stores/envStore.js';
 export const checkChapterCanLearning = ({ status }) => {
   return status === LESSON_STATUS_VALUE.LEARNING || status === LESSON_STATUS_VALUE.COMPLETED || status === LESSON_STATUS_VALUE.PREPARE_LEARNING;
 };
@@ -53,10 +53,10 @@ export const useLessonTree = () => {
   const loadTreeInner = async () => {
     let resp;
     try {
-      resp = await getLessonTree(useSystemStore.getState().courseId);
+      resp = await getLessonTree(useEnvStore.getState().courseId);
     } catch (err) {
       await checkLogin();
-      resp = await getLessonTree(useSystemStore.getState().courseId);
+      resp = await getLessonTree(useEnvStore.getState().courseId);
     }
 
     const treeData = resp.data;

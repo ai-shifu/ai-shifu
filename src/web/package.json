@@ -32,6 +32,7 @@
     "dotenv": "^16.4.5",
     "dotenv-cli": "^7.4.2",
     "eruda": "^3.4.0",
+    "express": "^4.21.1",
     "i18next": "^23.15.1",
     "i18next-http-backend": "^2.6.1",
     "immer": "^10.1.1",
@@ -64,7 +65,7 @@
     "zustand": "^4.5.5"
   },
   "scripts": {
-    "start:dev": "dotenv -e .local.single.env -e .env.dev craco start",
+    "start:dev": "dotenv -e .local.single.env -e .env craco start",
     "start:dev-local": "dotenv -e .local.single.env -e .env.dev-local craco start",
     "lint:knip": "knip",
     "build": "craco build",
