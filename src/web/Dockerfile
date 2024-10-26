@@ -18,18 +18,21 @@ COPY ecosystem.config.js ./
 # copy project source code
 COPY . .
 
-RUN pnpm install
 
-# build project
-RUN pnpm run build
+
 
 RUN pnpm install -g serve
 
 RUN pnpm install -g pm2
 
 RUN pnpm install -g dotenv
-# expose port
 
+RUN pnpm install
+
+# build project
+RUN pnpm run build
+
+# expose port
 EXPOSE 5000
 
 # start service
