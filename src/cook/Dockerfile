@@ -1,4 +1,4 @@
-FROM python:3.11
+FROM aishifu/ai-shifu-cook:latest
 
 # It is recommended to configure apt mirror sources within China.
 # RUN if [ -f /etc/apt/sources.list ]; then \

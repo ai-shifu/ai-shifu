@@ -1,4 +1,4 @@
-from node:20-slim
+FROM aishifu/ai-shifu-web:latest
 # use pnpm
 RUN corepack enable
 ENV PNPM_HOME="/pnpm"
