@@ -37,15 +37,8 @@ AI 师傅是一个由大语言模型驱动的向导。与其他由人类主导�
 
 # 快速开始
 
-确保你的机器上已经安装了 [Docker](https://docs.docker.com/get-docker/) 和 [Docker Compose](https://docs.docker.com/compose/install/)。然后运行以下命令启动 AI 师傅：
 
-```bash
-git clone git@github.com:ai-shifu/ai-shifu.git
-cd ai-shifu/docker
-cp .env.example .env
-# 编辑 .env 文件，填写你的配置
-./dev_in_docker.sh
-```
+请参考[欢迎使用 AI师傅（AI-Shifu）](https://github.com/ai-shifu/ai-shifu-doc/blob/main/zh_CN/README.md)
 
 # Contributors
 

@@ -36,15 +36,8 @@ Quickly get AI-Shifu running in your environment with this [starter guide](#quic
 
 # Quick Start
 
-Make sure that [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) are installed on your machine. Then run the following command to start AI-Shifu:
 
-```bash
-git clone git@github.com:ai-shifu/ai-shifu.git
-cd ai-shifu/docker
-cp .env.example .env
-# Edit .env file to fill your configure
-./run_in_docker.sh
-```
+Please refer to [Welcome to use AI-Shifu (AI-Shifu)](https://github.com/ai-shifu/ai-shifu-doc/blob/main/README.md)
 
 # Contributors
 
