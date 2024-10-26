@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+from flaskr.service.common.models import raise_error
 from flask import Flask
 from flaskr.util.uuid import generate_id
 from langchain.prompts import PromptTemplate
@@ -573,4 +574,53 @@ def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
         ask_limit_count,
         model_args,
         ai_course.ask_mode,
+    )
+
+
+class ModelSetting:
+
+    model_name: str
+    model_args: dict
+
+    def __init__(self, model_name: str, model_args: dict):
+        self.model_name = model_name
+        self.model_args = model_args
+
+    def __json__(self):
+        return {"model_name": self.model_name, "model_args": self.model_args}
+
+
+def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
+    if script_info.script_model and script_info.script_model.strip():
+        return ModelSetting(
+            script_info.script_model, {"temperature": script_info.script_temprature}
+        )
+    ai_lesson = AILesson.query.filter(
+        AILesson.lesson_id == script_info.lesson_id
+    ).first()
+    if (
+        ai_lesson
+        and ai_lesson.lesson_default_model
+        and ai_lesson.lesson_default_model.strip()
+    ):
+        return ModelSetting(
+            ai_lesson.lesson_default_model,
+            {"temperature": ai_lesson.lesson_default_temprature},
+        )
+    ai_course = AICourse.query.filter(AICourse.course_id == ai_lesson.course_id).first()
+    if (
+        ai_course
+        and ai_course.course_default_model
+        and ai_course.course_default_model.strip()
+    ):
+        return ModelSetting(
+            ai_course.course_default_model,
+            {"temperature": ai_course.course_default_temprature},
+        )
+    default_model = app.config.get("DEFAULT_LLM_MODEL", "")
+    if not default_model or default_model == "":
+        raise_error("LLM.NO_DEFAULT_LLM")
+    return ModelSetting(
+        app.config.get("DEFAULT_LLM_MODEL"),
+        {"temperature": float(app.config.get("DEFAULT_LLM_TEMPERATURE"))},
     )

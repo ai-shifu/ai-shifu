@@ -464,14 +464,14 @@ def update_lesson_info(
                 scripDb["script_ui_content"] = "继续"
                 scripDb["script_type"] = SCRIPT_TYPE_FIX
                 scripDb["script_content_type"] = CONTENT_TYPE_TEXT
-                scripDb["script_model"] = "ERNIE-4.0-8K"
+                scripDb["script_model"] = ""
                 scripDb["status"] = 1
                 scripDb["script_temprature"] = 0.4
                 scripDb["ask_count_limit"] = 5
                 scripDb["ask_mode"] = ASK_MODE_DEFAULT
                 scripDb["ask_prompt"] = ""
                 scripDb["ask_with_history"] = 5
-                scripDb["ask_model"] = "deepseek-chat"
+                scripDb["ask_model"] = ""
                 for field in record["fields"]:
                     val_obj = record["fields"][field]
                     db_field = DB_SAVE_MAP.get(field.strip())

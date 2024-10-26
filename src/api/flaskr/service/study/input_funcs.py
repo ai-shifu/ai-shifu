@@ -10,7 +10,7 @@ from flaskr.api.check.edun import (
     RISK_LABLES,
     check_text,
 )
-from flaskr.service.study.utils import generation_attend
+from flaskr.service.study.utils import generation_attend, get_model_setting
 from flaskr.service.check_risk import add_risk_control_result
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
@@ -55,6 +55,7 @@ def check_text_by_edun(
     if result == EDUN_RESULT_SUGGESTION_REJECT:
         label = res.get("result", {}).get("antispam", {}).get("label", 100)
         text = RISK_LABLES.get(label, "")
+        model_setting = get_model_setting(app, script_info)
         prompt = "你是一名在线老师,要回答学生的相应提问，目前学生的问题有一些不合规不合法的地方，请找一个合适的理由拒绝学生，当前的教学内容为:{},学生的问题为：{},拒绝的理由为：{}".format(
             script_info.script_prompt, input, text
         )
@@ -62,9 +63,10 @@ def check_text_by_edun(
             app,
             span,
             message=prompt,
-            model=script_info.script_model,
+            model=model_setting.model_name,
             json=False,
             stream=True,
+            **model_setting.model_args,
         )
         response_text = ""
         for i in res:

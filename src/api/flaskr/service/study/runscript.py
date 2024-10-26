@@ -2,8 +2,9 @@ import traceback
 from typing import Generator
 from flask import Flask
 
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.models import User
+from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
     UI_TYPE_CHECKCODE,
@@ -412,7 +413,10 @@ def run_script(
                 "traceback": traceback.format_exc(),
             }
             app.logger.error(error_info)
-            yield make_script_dto("text", "系统错误", None)
+            if isinstance(e, AppException):
+                yield make_script_dto("text", str(e), None)
+            else:
+                yield make_script_dto("text", _("COMMON.UNKNOWN_ERROR"), None)
             yield make_script_dto("text_end", "", None)
         finally:
 

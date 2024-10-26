@@ -69,8 +69,12 @@ ERROR_CODE = {
     "FILE.FILE_SIZE_EXCEED": 6003,
     # params error
     "COMMON.PARAMS_ERROR": 2001,
-    # admin error
+    # Admin errors
     "ADMIN.VIEW_NOT_FOUND": 7001,
+    # LLM errors
+    "LLM.NO_DEFAULT_LLM": 8001,
+    "LLM.SPECIFIED_LLM_NOT_CONFIGURED": 8002,
+    "LLM.MODEL_NOT_SUPPORTED": 8003,
 }
 
 
@@ -84,5 +88,12 @@ def raise_param_error(param_message):
 def raise_error(error_name):
     raise AppException(
         _(error_name),
+        ERROR_CODE.get(error_name, ERROR_CODE["COMMON.UNKNOWN_ERROR"]),
+    )
+
+
+def raise_error_with_args(error_name, **kwargs):
+    raise AppException(
+        _(error_name).format(**kwargs),
         ERROR_CODE.get(error_name, ERROR_CODE["COMMON.UNKNOWN_ERROR"]),
     )
