@@ -4,8 +4,9 @@ const app = express();
 const port = process.env.PORT || 3000;
 const path = require('path');
 
-app.post('/api/env', (reg, res) => {
+app.post('/config/env', (req, res) => {
   res
+    .set('Cache-Control', 'no-cache')
     .json({
       'REACT_APP_BASEURL': process.env.REACT_APP_BASEURL || '/',
       'REACT_APP_UMAMI_SCRIPT_SRC': process.env.REACT_APP_UMAMI_SCRIPT_SRC  || '',
@@ -13,8 +14,8 @@ app.post('/api/env', (reg, res) => {
       'REACT_APP_COURSE_ID': process.env.REACT_APP_COURSE_ID || '',
       'REACT_APP_ALWAYS_SHOW_LESSON_TREE': process.env.REACT_APP_ALWAYS_SHOW_LESSON_TREE || false,
       'REACT_APP_APP_ID': process.env.REACT_APP_APP_ID || '',
-    })
-    .send();
+      'REACT_APP_ERUDA': process.env.REACT_APP_ERUDA || false,
+    });
 });
 // // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'build')));

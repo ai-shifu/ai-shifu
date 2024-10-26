@@ -90,7 +90,6 @@ export const resetPassword = (username, new_password, code) => {
  */
 export const registerTmp = ({ temp_id }) => {
   const { channel: source, wechatCode: wxcode,language } = useSystemStore.getState();
-  console.log(`registerTmp source: ${source}, wxcode: ${wxcode}, temp_id: ${temp_id}`);
 
   return request(
     {

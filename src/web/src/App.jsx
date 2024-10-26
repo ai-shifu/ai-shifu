@@ -13,25 +13,23 @@ import { getCourseInfo } from './Api/course.js';
 import { useEnvStore } from 'stores/envStore.js';
 
 const initializeEnvData = async () => {
-  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda } = useEnvStore.getState();
+  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL } = useEnvStore.getState();
   const fetchEnvData = async () => {
     try {
-      const res = await fetch('/api/env', { method: 'POST' });
+      const res = await fetch('/config/env', { method: 'POST',referrer:"no-referrer" });
       if (res.ok) {
         const data = await res.json();
-        console.log(data);
         await updateCourseId(data.REACT_APP_COURSE_ID);
         await updateAppId(data.REACT_APP_APP_ID);
         await updateAlwaysShowLessonTree(data.REACT_APP_ALWAYS_SHOW_LESSON_TREE);
         await updateUmamiWebsiteId(data.REACT_APP_UMAMI_WEBSITE_ID);
         await updateUmamiScriptSrc(data.REACT_APP_UMAMI_SCRIPT_SRC);
         await updateEruda(data.REACT_APP_ERUDA);
+        await updateBaseURL(data.REACT_APP_BASEURL);
       }
     } catch (error) {
-      console.error('Failed to fetch environment data:', error);
     } finally {
       const { courseId, appId, alwaysShowLessonTree, umamiWebsiteId, umamiScriptSrc, eruda } = useEnvStore.getState();
-      console.log(courseId, appId, alwaysShowLessonTree, umamiWebsiteId, umamiScriptSrc, eruda);
       if (getBoolEnv('eruda')) {
         import('eruda').then(eruda => eruda.default.init());
       }

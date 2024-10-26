@@ -21,7 +21,6 @@ export const RunScript = (course_id,lesson_id,input,input_type,onMessage) => {
         onMessage(response);
       }
     } catch (e) {
-      console.log("error", e);
     }
   };
   source.onerror = (event) => {

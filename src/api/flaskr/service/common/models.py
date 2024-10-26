@@ -76,7 +76,7 @@ ERROR_CODE = {
 
 def raise_param_error(param_message):
     raise AppException(
-        _(["COMMON.PARAMS_ERROR"]).format(param_message=param_message),
+        _("COMMON.PARAMS_ERROR").format(param_message=param_message),
         ERROR_CODE["COMMON.PARAMS_ERROR"],
     )
 

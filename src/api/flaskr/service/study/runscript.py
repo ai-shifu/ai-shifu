@@ -68,6 +68,8 @@ def run_script_inner(
                     course_info = AICourse.query.filter(
                         AICourse.status == 1,
                     ).first()
+                    if course_info is None:
+                        raise_error("LESSON.HAS_NOT_LESSON")
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
                 yield make_script_dto(

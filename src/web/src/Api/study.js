@@ -19,7 +19,6 @@ export const runScript = (course_id, lesson_id, input, input_type, script_id, on
         onMessage(response);
       }
     } catch (e) {
-      console.log("error", e);
     }
   };
   source.onerror = (event) => {

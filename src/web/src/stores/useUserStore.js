@@ -62,10 +62,8 @@ export const useUserStore = create(
         i18n.changeLanguage(userInfo.language);
       } catch (err) {
         if ((err.status && err.status === 403) || (err.code && err.code === 1005) || (err.code && err.code === 1001)) {
-          console.log('checkLogin error',err)
           const res = await registerTmp({ temp_id: genUuid() });
           const token = res.data.token;
-          console.log('checkLogin token',token)
           await tokenTool.set({ token, faked: true });
 
           set(() => ({
