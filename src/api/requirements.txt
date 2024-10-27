@@ -25,6 +25,7 @@ cfgv==3.4.0
 chardet==5.2.0
 charset-normalizer==3.3.2
 click==8.1.7
+colorlog==6.8.2
 crcmod==1.7
 cryptography==43.0.1
 distlib==0.3.8
