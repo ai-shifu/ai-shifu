@@ -5,8 +5,11 @@ import { v4 } from "uuid";
 import { getStringEnv } from "Utils/envUtils.js";
 
 export const runScript = (course_id, lesson_id, input, input_type, script_id, onMessage) => {
-  const baseURL  = getStringEnv('baseURL');
-  const source = new SSE(`${baseURL || ''}/api/study/run?token=${tokenStore.get()}`, {
+  let baseURL  = getStringEnv('baseURL');
+  if (baseURL === "" || baseURL === "/") {
+    baseURL = window.location.origin;
+  }
+  const source = new SSE(`${baseURL}/api/study/run?token=${tokenStore.get()}`, {
     headers: { "Content-Type": "application/json", "X-Request-ID": v4().replace(/-/g, '') },
     payload: JSON.stringify({
       course_id, lesson_id, input, input_type, script_id,
