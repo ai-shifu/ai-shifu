@@ -41,15 +41,16 @@ def check_text_by_edun(
         .get("antispam", {})
         .get("suggestion", EDUN_RESULT_SUGGESTION_PASS)
     )
+
     add_risk_control_result(
         app,
         log_script.log_id,
         user_id,
         input,
-        "edun",
-        str(res),
-        "",
+        "yidun",
         result,
+        str(res),
+        1 if result == EDUN_RESULT_SUGGESTION_PASS else 0,
         "check_text",
     )
     if result == EDUN_RESULT_SUGGESTION_REJECT:
