@@ -5,6 +5,7 @@ import hashlib
 import random
 import string
 import uuid
+from flaskr.common.config import get_config
 from flask import Flask
 import jwt
 
@@ -28,7 +29,7 @@ from ...dao import redis_client as redis, db
 from .models import User as CommonUser, AdminUser as AdminUser
 
 
-FIX_CHECK_CODE = "0615"
+FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
 
 
 def get_model(app: Flask):
