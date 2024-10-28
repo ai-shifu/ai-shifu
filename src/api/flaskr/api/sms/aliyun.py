@@ -9,9 +9,17 @@ from flask import Flask
 def send_sms_code_ali(
     app: Flask, mobile: str, check_code: str
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
+    if (
+        not app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_ID"]
+        or not app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET"]
+    ):
+        app.logger.warning(
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID or ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET not configured"
+        )
+        return None
     config = open_api_models.Config(
-        access_key_id=app.config["ALIBABA_CLOUD_ACCESS_KEY_ID"],
-        access_key_secret=app.config["ALIBABA_CLOUD_ACCESS_KEY_SECRET"],
+        access_key_id=app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_ID"],
+        access_key_secret=app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET"],
     )
     config.endpoint = "dysmsapi.aliyuncs.com"
     client = Dysmsapi20170525Client(config)
