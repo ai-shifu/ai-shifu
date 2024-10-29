@@ -35,9 +35,24 @@ AI-Shifu is a guide powered by LLM. Unlike other human-led chatbots, AI-Shifu is
 
 ## Self-hosting
 
-Quickly get AI-Shifu running in your environment with this [starter guide](#quick-start).
+Make sure your machine has installed [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 
-# Quick Start
+### Using Docker Hub image
 
+```bash
+git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu/docker
+cp .env.example .env
+# Modify the configuration in the .env file. At least one LLM access key should be configured, and set DEFAULT_LLM_MODEL to the name of the model
+docker compose up -d
+```
 
-Coming soon...
+### Building from source code
+
+```bash
+git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu/docker
+cp .env.example .env
+# Modify the configuration in the .env file. At least one LLM access key should be configured, and set DEFAULT_LLM_MODEL to the name of the model
+./dev_in_docker.sh
+```

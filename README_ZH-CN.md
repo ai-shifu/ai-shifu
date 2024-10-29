@@ -34,8 +34,27 @@ AI 师傅是一个由大语言模型驱动的向导。与其他由人类主导�
 
 ## 自建站
 
-在你的环境中快速启动 AI 师傅，请参考[快速开始](#快速开始)。
+请先确认你的机器已经安装好[Docker](https://docs.docker.com/get-docker/)和[Docker Compose](https://docs.docker.com/compose/install/)。
 
-# 快速开始
+### 使用 Docker Hub 镜像
 
-即将更新...
+```bash
+git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu/docker
+cp .env.example .env
+# 修改 .env 文件中的配置。至少要配置好一个大模型的参数，并将 DEFAULT_LLM_MODEL 设置为该模型的名称
+docker compose up -d
+```
+
+### 从源代码构建
+
+```bash
+git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu/docker
+cp .env.example .env
+# 修改 .env 文件中的配置。至少要配置好一个大模型的参数，并将 DEFAULT_LLM_MODEL 设置为该模型的名称
+./dev_in_docker.sh
+```
+
+
+
