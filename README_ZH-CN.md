@@ -1,5 +1,6 @@
 <div align="center">
   <img src="assets/logo_zh.png" width=256></img>
+<p><strong>师傅模式</strong>：人类主导，AI 交付，用户跟从，随时互动</p>
 
 [English](README.md) | 简体中文
 </div>
@@ -27,11 +28,11 @@ AI 师傅是一个由大语言模型驱动的向导。与其他由人类主导�
 
 # 使用 AI 师傅
 
-- **平台**
+## 平台
 
 [AI-Shifu.com](https://ai-shifu.com) 是一个由 AI 师傅驱动的教育平台。你可以在上面尝试学习由专家开发、AI 主导的课程。
 
-- **自建站**
+## 自建站
 
 在你的环境中快速启动 AI 师傅，请参考[快速开始](#快速开始)。
 

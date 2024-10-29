@@ -1,5 +1,6 @@
 <div align="center">
   <img src="assets/logo_en.png" width=256></img>
+  <p><strong>Shifu (master) mode</strong>: Human-led, AI-delivered, user follows, interaction at any time</p>
 
 English | [简体中文](README_ZH-CN.md)
 </div>
@@ -28,10 +29,12 @@ AI-Shifu is a guide powered by LLM. Unlike other human-led chatbots, AI-Shifu is
 
 # Using AI-Shifu
 
-- **Platform**
-[AI-Shifu.com](https://ai-shifu.com) is an education platform powered by AI-Shifu. You can try it and learn the AI-guided courses developed by experts.
+## Platform
 
-- **Self-hosting**
+[AI-Shifu.com](https://ai-shifu.com) is an education platform powered by AI-Shifu. You can try it and learn the AI-guided courses developed by human experts.
+
+## Self-hosting
+
 Quickly get AI-Shifu running in your environment with this [starter guide](#quick-start).
 
 # Quick Start
