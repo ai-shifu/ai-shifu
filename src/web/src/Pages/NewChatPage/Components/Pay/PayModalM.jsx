@@ -27,8 +27,7 @@ import { useCallback } from 'react';
 import { SettingInputM } from 'Components/m/SettingInputM.jsx';
 import PayModalFooter from './PayModalFooter.jsx';
 import contactBzWechatImg from 'Assets/newchat/contact-bz-wechat.png';
-import { useSystemStore } from 'stores/useSystemStore.js';
-
+import { getStringEnv } from 'Utils/envUtils';
 const CompletedSection = memo(() => {
   return (
     <div className={styles.completedSection}>
@@ -69,7 +68,7 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
     onClose: onCouponCodeModalClose,
     onOpen: onCouponCodeModalOpen,
   } = useDisclosture();
-  const { courseId } = useSystemStore();
+  const courseId = getStringEnv('courseId');
   useEffect(() => {
     (async () => {
 
