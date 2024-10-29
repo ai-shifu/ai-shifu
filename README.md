@@ -47,6 +47,8 @@ cp .env.example .env
 docker compose up -d
 ```
 
+Then visit `http://localhost:8080`.
+
 ### Building from source code
 
 ```bash
@@ -56,3 +58,5 @@ cp .env.example .env
 # Modify the configuration in the .env file. At least one LLM access key should be configured, and set DEFAULT_LLM_MODEL to the name of the model
 ./dev_in_docker.sh
 ```
+
+Then visit `http://localhost:8080`.

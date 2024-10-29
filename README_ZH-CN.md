@@ -46,6 +46,8 @@ cp .env.example .env
 docker compose up -d
 ```
 
+然后访问 `http://localhost:8080`。
+
 ### 从源代码构建
 
 ```bash
@@ -55,3 +57,5 @@ cp .env.example .env
 # 修改 .env 文件中的配置。至少要配置好一个大模型的参数，并将 DEFAULT_LLM_MODEL 设置为该模型的名称
 ./dev_in_docker.sh
 ```
+
+然后访问 `http://localhost:8080`。
