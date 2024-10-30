@@ -79,7 +79,6 @@ def run_script_inner(
                 course_id = course_info.course_id
                 lessons = init_trial_lesson(app, user_id, course_id)
                 attend = get_current_lesson(app, lessons)
-                app.logger.info("{}".format(attend))
                 lesson_id = attend.lesson_id
             else:
                 lesson_info = AILesson.query.filter(
@@ -133,8 +132,7 @@ def run_script_inner(
                 ).first()
 
                 if not attend_info:
-                    init_trial_lesson(app, user_id, course_id)
-                    app.logger.info("found no attend_info")
+
                     lessons.sort(key=lambda x: x.lesson_no)
                     lesson_id = lessons[-1].lesson_id
                     attend_info = AICourseLessonAttend.query.filter(
@@ -143,7 +141,25 @@ def run_script_inner(
                         AICourseLessonAttend.lesson_id == lesson_id,
                     ).first()
 
-                    attends = update_attend_lesson_info(app, attend_info.attend_id)
+                    if not attend_info:
+                        app.logger.info("found no attend_info reinit")
+                        lessons = init_trial_lesson(app, user_id, course_id)
+                        attend_info = AICourseLessonAttend.query.filter(
+                            AICourseLessonAttend.user_id == user_id,
+                            AICourseLessonAttend.course_id == course_id,
+                            AICourseLessonAttend.lesson_id.in_(lesson_ids),
+                            AICourseLessonAttend.status.in_(
+                                [
+                                    ATTEND_STATUS_NOT_STARTED,
+                                    ATTEND_STATUS_IN_PROGRESS,
+                                    ATTEND_STATUS_BRANCH,
+                                ]
+                            ),
+                        ).first()
+                    else:
+                        attend_id = attend_info.attend_id
+
+                    attends = update_attend_lesson_info(app, attend_id)
                     for attend_update in attends:
                         if len(attend_update.lesson_no) > 2:
                             yield make_script_dto(

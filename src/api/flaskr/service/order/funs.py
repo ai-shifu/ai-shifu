@@ -542,7 +542,7 @@ def init_trial_lesson(
             attend.status = ATTEND_STATUS_LOCKED
 
         db.session.add(attend)
-        if lesson.is_final():
+        if lesson.is_final() and attend.status == ATTEND_STATUS_NOT_STARTED:
             response.append(
                 AICourseLessonAttendDTO(
                     attend.attend_id,
