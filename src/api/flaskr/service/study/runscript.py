@@ -156,6 +156,7 @@ def run_script_inner(
                                 ]
                             ),
                         ).first()
+                        attend_id = attend_info.attend_id
                     else:
                         attend_id = attend_info.attend_id
 
