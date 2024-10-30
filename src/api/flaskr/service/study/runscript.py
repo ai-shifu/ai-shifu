@@ -133,6 +133,7 @@ def run_script_inner(
                 ).first()
 
                 if not attend_info:
+                    init_trial_lesson(app, user_id, course_id)
                     app.logger.info("found no attend_info")
                     lessons.sort(key=lambda x: x.lesson_no)
                     lesson_id = lessons[-1].lesson_id
