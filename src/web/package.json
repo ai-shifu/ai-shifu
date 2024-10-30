@@ -68,7 +68,7 @@
     "start:dev": "dotenv -e .local.single.env -e .env craco start",
     "start:dev-local": "dotenv -e .local.single.env -e .env.dev-local craco start",
     "lint:knip": "knip",
-    "build": "craco build",
+    "build": "NODE_ENV=production  craco build",
     "build:staging": "dotenv -e .local.single.env -e .env.staging craco build",
     "clean": "rimraf build",
     "test": "craco test",
