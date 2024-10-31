@@ -77,8 +77,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-          "${{ env[matrix.image_name_env] }}:latest"
-          "${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
-          "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:latest" 
-          "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
-          
+            "${{ env[matrix.image_name_env] }}:latest"
+            "${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
+            "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:latest" 
+            "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
+            
