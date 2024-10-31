@@ -78,7 +78,7 @@ jobs:
           push: true
           tags: |
             "${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:latest"
-            "$${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
+            "${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
             "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:latest" 
             "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
             
