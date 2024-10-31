@@ -18,9 +18,9 @@ env:
   ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com/ai-shifu/' }}
   ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER  }}
   ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN  }}
-  AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'aishifu/ai-shifu-web' }}
-  AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'aishifu/ai-shifu-api' }}
-  AI_SHIFU_COOK_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_IMAGE_NAME || 'aishifu/ai-shifu-cook' }}
+  AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'ai-shifu-web' }}
+  AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-shifu-api' }}
+  AI_SHIFU_COOK_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_IMAGE_NAME || 'ai-shifu-cook' }}
 jobs:
   build:
     runs-on: ${{ 'ubuntu-latest' }}
@@ -77,8 +77,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
-            "${{ env[matrix.image_name_env] }}:latest"
-            "${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
+            "${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:latest"
+            "$${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
             "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:latest" 
             "${{ env.ALIYUN_DOCKER_REGISTRY }}${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}"
             
