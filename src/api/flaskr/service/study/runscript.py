@@ -156,6 +156,8 @@ def run_script_inner(
                                 ]
                             ),
                         ).first()
+                        if not attend_info:
+                            raise_error("COURSE.COURSE_NOT_PURCHASED")
                         attend_id = attend_info.attend_id
                     else:
                         attend_id = attend_info.attend_id
@@ -430,10 +432,12 @@ def run_script(
                 "description": str(e),
                 "traceback": traceback.format_exc(),
             }
-            app.logger.error(error_info)
+
             if isinstance(e, AppException):
+                app.logger.info(error_info)
                 yield make_script_dto("text", str(e), None)
             else:
+                app.logger.error(error_info)
                 yield make_script_dto("text", _("COMMON.UNKNOWN_ERROR"), None)
             yield make_script_dto("text_end", "", None)
         finally:
