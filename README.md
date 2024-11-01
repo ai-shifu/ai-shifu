@@ -1,15 +1,11 @@
 <div align="center">
   <img src="assets/logo_en.png" width=256></img>
-  <p><strong>Shifu (master) mode</strong>: Human-led, AI-delivered, user follows, interaction at any time</p>
+  <p><strong>Shifu (master) mode</strong>: Expert-led, AI-delivered, user follows, interaction at any time</p>
 
 English | [简体中文](README_ZH-CN.md)
 </div>
 
 AI-Shifu is a guide powered by LLM. Unlike other human-led chatbots, AI-Shifu is AI-led chat flow, and humans just need to follow. Although in the process, humans can ask questions at any time and affect the content of the conversation, it will eventually return to the AI-led storyline. And AI can make personalized output based on user identity, interests, and preferences, making users feel like they are being served one-on-one. In education, storytelling, product guides, surveys, and game NPC scenarios, AI-Shifu can provide a more interactive and immersive experience.
-
-
-[![GitHub stars](https://img.shields.io/github/stars/ai-shifu/ai-shifu?style=social)](https://github.com/ai-shifu/ai-shifu/stargazers)
-[![GitHub followers](https://img.shields.io/github/followers/ai-shifu?style=social)](https://github.com/ai-shifu?tab=followers)
 
 # Features
 
