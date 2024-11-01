@@ -3,24 +3,26 @@ import styles from './CourseSection.module.scss';
 import { LESSON_STATUS } from 'constants/courseConstants.js';
 import { useCallback } from 'react';
 import { memo } from 'react';
+import { LESSON_STATUS_VALUE } from 'constants/courseConstants.js';
 
 export const CourseSection = ({
   id,
   name = '',
   status = LESSON_STATUS.LEARNING,
+  status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
   onSelect = ({ id }) => {},
   onTrySelect= ({ id }) => {},
 }) => {
   const genIconClassName = () => {
-    switch (status) {
-      case LESSON_STATUS.NOT_START:
-      case LESSON_STATUS.LOCKED:
+    switch (status_value) {
+      case LESSON_STATUS_VALUE.NOT_START:
+      case LESSON_STATUS_VALUE.LOCKED:
         return styles.small;
-      case LESSON_STATUS.PREPARE_LEARNING:
-      case LESSON_STATUS.LEARNING:
-      case LESSON_STATUS.COMPLETED:
+      case LESSON_STATUS_VALUE.PREPARE_LEARNING:
+      case LESSON_STATUS_VALUE.LEARNING:
+      case LESSON_STATUS_VALUE.COMPLETED:
         return '';
       default:
         return styles.small;
@@ -29,12 +31,12 @@ export const CourseSection = ({
 
   const onSectionClick = useCallback(() => {
     onTrySelect?.({ id });
-    if (status === LESSON_STATUS.NOT_START || status === LESSON_STATUS.LOCKED) {
+    if (status_value === LESSON_STATUS_VALUE.NOT_START || status_value === LESSON_STATUS_VALUE.LOCKED) {
       return;
     }
 
     onSelect?.({ id });
-  }, [onTrySelect, id, status, onSelect]);
+  }, [onTrySelect, id, status_value, onSelect]);
 
   return (
     <div
@@ -48,12 +50,12 @@ export const CourseSection = ({
       <div className={classNames(styles.iconWrapper, genIconClassName())}>
         <div className={styles.topLine}></div>
         <div className={styles.icon}>
-          {(status === LESSON_STATUS.NOT_START ||
-            status === LESSON_STATUS.LOCKED) && (
+          {(status_value === LESSON_STATUS_VALUE.NOT_START ||
+            status_value === LESSON_STATUS_VALUE.LOCKED) && (
             <div className={styles.smallIcon}></div>
           )}
-          {(status === LESSON_STATUS.LEARNING ||
-            status === LESSON_STATUS.PREPARE_LEARNING) &&
+          {(status_value === LESSON_STATUS_VALUE.LEARNING ||
+            status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING) &&
             (selected ? (
               <img
                 className={styles.bigIcon}
@@ -67,7 +69,7 @@ export const CourseSection = ({
                 alt=""
               />
             ))}
-          {status === LESSON_STATUS.COMPLETED &&
+          {status_value === LESSON_STATUS_VALUE.COMPLETED &&
             (selected ? (
               <img
                 className={styles.bigIcon}

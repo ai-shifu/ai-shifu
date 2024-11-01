@@ -67,6 +67,7 @@ export const CourseCatalog = ({
               id={e.id}
               name={e.name}
               status={e.status}
+              status_value={e.status_value}
               selected={e.selected}
               canLearning={e.canLearning}
               onSelect={onLessonSelect}
