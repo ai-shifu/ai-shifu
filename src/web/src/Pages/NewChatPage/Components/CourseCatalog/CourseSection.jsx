@@ -1,6 +1,5 @@
 import classNames from 'classnames';
 import styles from './CourseSection.module.scss';
-import { LESSON_STATUS } from 'constants/courseConstants.js';
 import { useCallback } from 'react';
 import { memo } from 'react';
 import { LESSON_STATUS_VALUE } from 'constants/courseConstants.js';
@@ -8,7 +7,7 @@ import { LESSON_STATUS_VALUE } from 'constants/courseConstants.js';
 export const CourseSection = ({
   id,
   name = '',
-  status = LESSON_STATUS.LEARNING,
+  status = '',
   status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
