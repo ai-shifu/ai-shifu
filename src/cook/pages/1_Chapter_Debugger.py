@@ -513,9 +513,7 @@ else:
 
             # === Show Pay QR Code
             elif script.next_action == NextAction.ShowPayQR:
-                chat_box.ai_say(
-                    "```Show pay QR code, simulate pay process```"
-                )
+                chat_box.ai_say("```Show pay QR code, simulate pay process```")
                 st.session_state.progress += 1
                 st.rerun()
 
