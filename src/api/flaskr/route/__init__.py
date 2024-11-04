@@ -26,17 +26,17 @@ def register_route(app):
     mode = app.config.get("MODE", "api")
     app.logger.info("current run mode:{}".format(mode))
 
-    if app.config.get("MODE", "api") == "admin":
-        app.logger.info("current mode is admin register admin api")
-        from .admin.user import register_user_route
+    # if app.config.get("MODE", "api") == "admin":
+    #     app.logger.info("current mode is admin register admin api")
+    #     from .admin.user import register_user_route
 
-        app = register_user_route(app, prefix + "/user")
-        # register manager
-        from .admin.manager import register_data_manager_route
+    #     app = register_user_route(app, prefix + "/user")
+    #     # register manager
+    #     from .admin.manager import register_data_manager_route
 
-        app = register_data_manager_route(app, prefix + "/manager")
-        from .admin.tools import register_manager_tools_handler
+    #     app = register_data_manager_route(app, prefix + "/manager")
+    #     from .admin.tools import register_manager_tools_handler
 
-        app = register_manager_tools_handler(app, prefix + "/tools")
+    #     app = register_manager_tools_handler(app, prefix + "/tools")
 
     return app

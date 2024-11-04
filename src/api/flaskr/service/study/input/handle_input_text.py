@@ -13,6 +13,7 @@ from flaskr.service.study.utils import (
     generation_attend,
     get_fmt_prompt,
     make_script_dto,
+    get_model_setting,
 )
 from flaskr.dao import db
 
@@ -27,6 +28,8 @@ def handle_input_text(
     trace: Trace,
     trace_args,
 ):
+    model_setting = get_model_setting(app, script_info)
+    app.logger.info(f"model_setting: {model_setting.__json__()}")
     prompt = get_fmt_prompt(
         app, user_id, script_info.script_check_prompt, input, script_info.script_profile
     )
@@ -50,11 +53,11 @@ def handle_input_text(
     resp = invoke_llm(
         app,
         span,
-        model=script_info.script_model,
+        model=model_setting.model_name,
         json=True,
         stream=True,
-        temperature=script_info.script_temprature,
         message=prompt,
+        **model_setting.model_args,
     )
     response_text = ""
     check_success = False

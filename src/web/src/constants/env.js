@@ -1,1 +1,1 @@
-export const tempToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoiMGMzMzIwYjkxOWJkNGFlOTgyYzE0Mzg0M2JkNmQ4YWYiLCJ0aW1lX3N0YW1wIjoxNzE4MTcyMzU3LjczODI5NTZ9.8kqrS7PepZs7pRSk0TeWk8lKBHmwdlxoSJfDydJTbXs"
+export const tempToken = ".";

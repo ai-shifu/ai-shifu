@@ -16,11 +16,11 @@ export const getPayChannelOptions = () => {
     label: item.name,
     value: item.type,
   }));
-}
+};
 
 export const ORDER_STATUS = {
   BUY_STATUS_INIT: 501,
   BUY_STATUS_SUCCESS: 502,
   BUY_STATUS_REFUND: 503,
   BUY_STATUS_TO_BE_PAID: 504,
-}
+};

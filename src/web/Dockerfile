@@ -1,4 +1,4 @@
-from node:20-slim
+FROM aishifu/ai-shifu-web:latest
 # use pnpm
 RUN corepack enable
 ENV PNPM_HOME="/pnpm"
@@ -18,17 +18,21 @@ COPY ecosystem.config.js ./
 # copy project source code
 COPY . .
 
-RUN pnpm install
 
-# build project
-RUN pnpm run build
+
 
 RUN pnpm install -g serve
 
 RUN pnpm install -g pm2
 
-# expose port
+RUN pnpm install -g dotenv
 
+RUN pnpm install
+
+# build project
+RUN pnpm run build
+
+# expose port
 EXPOSE 5000
 
 # start service

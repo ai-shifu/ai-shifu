@@ -12,19 +12,8 @@ repos:
     hooks:
     -   id: black
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v3.29.1  # use latest stable version
+    rev: v3.30.0  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]
         additional_dependencies: ['markupsafe==2.0.1']
-
-        # args: ["--config=.cz.yaml"]
--   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.13.0
-    hooks:
-    -   id: eslint
-        # args: [--ext, .js,.jsx,.ts,.tsx]
-        # types: [javascript, jsx, ts, tsx]  # 移除 typescript 标签
-        args: [--ext, .js,.jsx,.ts,.tsx]
-        files: ^src/(web|admin-web)/
-        types: [javascript, jsx, ts, tsx]  # 添加 typescript 标签

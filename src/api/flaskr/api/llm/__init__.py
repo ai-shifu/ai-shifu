@@ -8,30 +8,62 @@ from langfuse.model import ModelUsage
 
 from openai.types.chat import ChatCompletionStreamOptionsParam
 from openai.types.shared_params import ResponseFormatJSONObject
+from flask import current_app
 
 from flaskr.common.config import get_config
+from flaskr.service.common.models import raise_error_with_args
+
+
+openai_enabled = False
+
 
 if get_config("OPENAI_API_KEY"):
+    openai_enabled = True
     openai_client = openai.Client(
-        api_key=get_config("OPENAI_API_KEY"), base_url=get_config("OPENAI_BASE_URL")
+        api_key=get_config("OPENAI_API_KEY"),
+        base_url=get_config("OPENAI_BASE_URL", "https://api.openai.com/v1"),
     )
 else:
+    current_app.logger.warning("OPENAI_API_KEY not configured")
     openai_client = None
 
-if get_config("DEEP_SEEK_API_KEY"):
+deepseek_enabled = False
+if get_config("DEEPSEEK_API_KEY"):
+    deepseek_enabled = True
     deepseek_client = openai.Client(
-        api_key=get_config("DEEP_SEEK_API_KEY"),
-        base_url=get_config("DEEP_SEEK_API_URL"),
+        api_key=get_config("DEEPSEEK_API_KEY"),
+        base_url=get_config("DEEPSEEK_API_URL", "https://api.deepseek.com"),
     )
 else:
+    current_app.logger.warning("DEEPSEEK_API_KEY not configured")
     deepseek_client = None
 
+qwen_enabled = False
 if get_config("QWEN_API_KEY"):
+    qwen_enabled = True
     qwen_client = openai.Client(
         api_key=get_config("QWEN_API_KEY"), base_url=get_config("QWEN_API_URL")
     )
 else:
+    current_app.logger.warning("QWEN_API_KEY not configured")
     qwen_client = None
+
+ernie_enabled = False
+if get_config("ERNIE_API_ID") and get_config("ERNIE_API_SECRET"):
+    ernie_enabled = True
+else:
+    current_app.logger.warning("ERNIE_API_ID and ERNIE_API_SECRET not configured")
+
+glm_enabled = False
+if get_config("GLM_API_KEY"):
+    glm_enabled = True
+else:
+    current_app.logger.warning("GLM_API_KEY not configured")
+
+if openai_enabled or deepseek_enabled or qwen_enabled or ernie_enabled or glm_enabled:
+    pass
+else:
+    current_app.logger.warning("No LLM Configured")
 
 try:
     if openai_client:
@@ -41,8 +73,7 @@ try:
     else:
         OPENAI_MODELS = []
 except Exception as e:
-    print(e)
-    # app.logger.error(f"get openai models error: {e}")
+    current_app.logger.warning(f"get openai models error: {e}")
     OPENAI_MODELS = []
 ERNIE_MODELS = get_erine_models(Flask(__name__))
 GLM_MODELS = get_zhipu_models(Flask(__name__))
@@ -133,13 +164,28 @@ def invoke_llm(
     ):
         if model in OPENAI_MODELS or model.startswith("gpt"):
             client = openai_client
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="OPENAI_API_KEY,OPENAI_BASE_URL",
+                )
         elif model in QWEN_MODELS:
             client = qwen_client
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="QWEN_API_KEY,QWEN_API_URL",
+                )
         elif model in DEEP_SEEK_MODELS:
             client = deepseek_client
-        if not client:
-            app.logger.error(f"model {model} not found,use ERNIE-4.0-8K-Preview-0518")
-            client = openai_client
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
+                )
         messages = []
         if system:
             messages.append({"content": system, "role": "system"})
@@ -171,6 +217,12 @@ def invoke_llm(
                     total=res.usage.total_tokens,
                 )
     elif model in ERNIE_MODELS:
+        if not ernie_enabled:
+            raise_error_with_args(
+                "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                model=model,
+                config_var="ERNIE_API_ID,ERNIE_API_SECRET",
+            )
         if system:
             kwargs.update({"system": system})
         if json:
@@ -196,6 +248,12 @@ def invoke_llm(
                 res.usage.__dict__,
             )
     elif model.lower() in GLM_MODELS:
+        if not glm_enabled:
+            raise_error_with_args(
+                "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                model=model,
+                config_var="GLM_API_KEY",
+            )
         if kwargs.get("temperature", None) is not None:
             kwargs["temperature"] = str(kwargs["temperature"])
         messages = []
@@ -221,33 +279,10 @@ def invoke_llm(
                 None,
             )
     else:
-        app.logger.error(f"model {model} not found,use ERNIE-4.0-8K-Preview-0518")
-        if system:
-            kwargs.update({"system": system})
-        if json:
-            kwargs["response_format"] = "json_object"
-        if kwargs.get("temperature", None) is not None:
-            kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
-        response = get_ernie_response(
-            app, "ERNIE-4.0-8K-Preview-0518", message, **kwargs
+        raise_error_with_args(
+            "LLM.MODEL_NOT_SUPPORTED",
+            model=model,
         )
-        for res in response:
-            response_text += res.result
-            if res.usage:
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
-                )
-            yield LLMStreamResponse(
-                res.id,
-                res.is_end,
-                res.is_truncated,
-                res.result,
-                res.finish_reason,
-                res.usage.__dict__,
-            )
 
     app.logger.info("invoke_llm response: {response_text} ")
     app.logger.info("invoke_llm usage: " + usage.__str__())
@@ -284,10 +319,28 @@ def chat_llm(
     ):
         if model in OPENAI_MODELS or model.startswith("gpt"):
             client = openai_client
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="OPENAI_API_KEY,OPENAI_BASE_URL",
+                )
         elif model in QWEN_MODELS:
             client = qwen_client
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="QWEN_API_KEY,QWEN_API_URL",
+                )
         elif model in DEEP_SEEK_MODELS:
             client = deepseek_client
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
+                )
         response = client.chat.completions.create(
             model=model, messages=messages, **kwargs
         )
@@ -310,6 +363,12 @@ def chat_llm(
                     total=res.usage.total_tokens,
                 )
     elif model in ERNIE_MODELS:
+        if not ernie_enabled:
+            raise_error_with_args(
+                "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                model=model,
+                config_var="ERNIE_API_ID,ERNIE_API_SECRET",
+            )
         if kwargs.get("temperature", None) is not None:
             kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         response = chat_ernie(app, model, messages, **kwargs)
@@ -331,6 +390,12 @@ def chat_llm(
                 res.usage.__dict__,
             )
     elif model.lower() in GLM_MODELS:
+        if not glm_enabled:
+            raise_error_with_args(
+                "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                model=model,
+                config_var="GLM_API_KEY",
+            )
         if kwargs.get("temperature", None) is not None:
             kwargs["temperature"] = str(kwargs["temperature"])
         response = invoke_glm(app, model.lower(), messages, **kwargs)
@@ -353,29 +418,10 @@ def chat_llm(
             )
 
     else:
-        app.logger.error(f"model {model} not found,use ERNIE-4.0-8K-Preview-0518")
-        if json:
-            kwargs["response_format"] = "json_object"
-        if kwargs.get("temperature", None) is not None:
-            kwargs["temperature"] = str(kwargs["temperature"])
-        response = chat_ernie(app, "ERNIE-4.0-8K-Preview-0518", messages, **kwargs)
-        for res in response:
-            response_text += res.result
-            if res.usage:
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
-                )
-            yield LLMStreamResponse(
-                res.id,
-                res.is_end,
-                res.is_truncated,
-                res.result,
-                res.finish_reason,
-                res.usage.__dict__,
-            )
+        raise_error_with_args(
+            "LLM.MODEL_NOT_SUPPORTED",
+            model=model,
+        )
 
     app.logger.info("invoke_llm response: {response_text} ")
     app.logger.info("invoke_llm usage: " + usage.__str__())

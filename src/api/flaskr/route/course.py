@@ -132,6 +132,7 @@ def register_course_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(get_course_list(app))
 
     @app.route(path_prefix + "/get-course-info", methods=["GET"])
+    @bypass_token_validation
     def get_course_info_api():
         """
 
@@ -163,9 +164,7 @@ def register_course_handler(app: Flask, path_prefix: str) -> Flask:
                                 data:
                                     $ref: '#/components/schemas/AICourseDTO'
         """
-        course_id = request.args.get("course_id")
-        if course_id is None:
-            raise_param_error("course_id is required")
+        course_id = request.args.get("course_id", None)
         return make_common_response(get_course_info(app, course_id))
 
     return app

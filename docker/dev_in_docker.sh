@@ -1,14 +1,7 @@
 #!/bin/bash
+script_path=$(dirname "$0")
 
-if [ ! -f ".env" ]; then
-    cp .env.example .env
-fi
-
-cd ../src/api
-docker build ./ -t ai-shifu-api-dev
-cd ../web
-docker build ./ -t ai-shifu-web-dev
-cd ..
-cd ..
-cd docker
-docker compose -f ./docker-compose-dev.yml up
+docker build $script_path/../src/api -t ai-shifu-api-dev
+docker build $script_path/../src/web -t ai-shifu-web-dev
+docker build $script_path/../src/cook -t ai-shifu-cook-dev
+docker compose -f $script_path/docker-compose-dev.yml up

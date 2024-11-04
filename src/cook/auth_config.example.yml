@@ -4,24 +4,14 @@ cookie:
   name: some_cookie_name
 credentials:
   usernames:
-    jsmith:
-      email: jsmith@gmail.com
+    ai-shifu:
+      email: support@ai-shifu.com
       failed_login_attempts: 0 # Will be managed automatically
       logged_in: False # Will be managed automatically
-      name: John Smith
-      password: abc # Will be hashed automatically
+      name: ai-shifu
+      password: $2b$12$rDZH4G5IrAqm7NETcny/TO.QNNmT0dUi3B2rV43PFHDxRWuHfc/Ki # Will be hashed automatically
       roles:
       - admin
-      - editor
-      - viewer
-    rbriggs:
-      email: rbriggs@gmail.com
-      failed_login_attempts: 0 # Will be managed automatically
-      logged_in: False # Will be managed automatically
-      name: Rebecca Briggs
-      password: def # Will be hashed automatically
-      roles:
-      - viewer
 oauth2:
   google: # Follow instructions: https://developers.google.com/identity/protocols/oauth2
     client_id: # To be filled

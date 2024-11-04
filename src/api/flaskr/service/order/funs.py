@@ -128,27 +128,27 @@ def send_order_feishu(app: Flask, record_id: str):
         return
     title = "购买课程通知"
     msgs = []
-    msgs.append("用户手机号:{}".format(urser_info.mobile))
-    msgs.append("用户姓名:{}".format(urser_info.name))
-    msgs.append("课程名称:{}".format(order_info.course_id))
-    msgs.append("付款金额:{}".format(order_info.value_to_pay))
+    msgs.append("手机号：{}".format(urser_info.mobile))
+    msgs.append("昵称：{}".format(urser_info.name))
+    msgs.append("课程名称：{}".format(order_info.course_id))
+    msgs.append("实付金额：{}".format(order_info.value_to_pay))
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
     ).first()
     channel = ""
     if user_convertion:
         channel = user_convertion.conversion_source
-    msgs.append("用户渠道:{}".format(channel))
+    msgs.append("渠道：{}".format(channel))
     for item in order_info.price_item:
         msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
         if item.is_discount:
-            msgs.append("优惠码:{}".format(item.discount_code))
+            msgs.append("优惠码：{}".format(item.discount_code))
     user_count = User.query.filter(User.user_state == USER_STATE_PAID).count()
-    msgs.append("当前付费用户数:{}".format(user_count))
+    msgs.append("总付费用户数：{}".format(user_count))
     user_reg_count = User.query.filter(User.user_state >= USER_STATE_REGISTERED).count()
-    msgs.append("当前注册用户数:{}".format(user_reg_count))
+    msgs.append("总注册用户数：{}".format(user_reg_count))
     user_total_count = User.query.count()
-    msgs.append("当前总用户数:{}".format(user_total_count))
+    msgs.append("总访客数：{}".format(user_total_count))
     send_notify(app, title, msgs)
 
 
@@ -456,6 +456,10 @@ def success_buy_record(app: Flask, record_id: str):
             AICourseBuyRecord.record_id == record_id
         ).first()
         if buy_record:
+            user_info = User.query.filter(User.user_id == buy_record.user_id).first()
+            if not user_info:
+                app.logger.error("user:{} not found".format(buy_record.user_id))
+                user_info.user_state = USER_STATE_PAID
             buy_record.status = BUY_STATUS_SUCCESS
             lessons = AILesson.query.filter(
                 AILesson.course_id == buy_record.course_id,
@@ -538,7 +542,7 @@ def init_trial_lesson(
             attend.status = ATTEND_STATUS_LOCKED
 
         db.session.add(attend)
-        if lesson.is_final():
+        if lesson.is_final() and attend.status == ATTEND_STATUS_NOT_STARTED:
             response.append(
                 AICourseLessonAttendDTO(
                     attend.attend_id,

@@ -23,7 +23,7 @@ _ = load_dotenv(find_dotenv())
 # ==================== 各种初始化工作 ====================
 # 设置页面标题和图标
 st.set_page_config(
-    page_title="Script Debugger",
+    page_title="Script Debugger | Cook for AI-Shifu",
     page_icon="🧙‍♂️",
     initial_sidebar_state="collapsed",
     layout="wide",

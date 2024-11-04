@@ -10,8 +10,8 @@ from flaskr.common.config import get_config
 # ref: https://open.feishu.cn/document/server-docs/docs/docs-overview
 
 
-APPID = get_config("FEISHU_APP_ID")
-APP_SECRET = get_config("FEISHU_APP_SECRET")
+APPID = get_config("LARK_APP_ID")
+APP_SECRET = get_config("LARK_APP_SECRET")
 FOLDER_ID = "QSN2fIQWqlubNxdHHoJcSbVknVh"
 REDIS_KEY_PREFIX = "feishu:token:"
 

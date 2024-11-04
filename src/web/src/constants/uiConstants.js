@@ -33,7 +33,7 @@ export const calcFrameLayout = (selector) => {
   } else {
     return FRAME_LAYOUT_MOBILE;
   }
-}
+};
 
 /**
  * 主题
@@ -43,17 +43,17 @@ export const THEME_DARK = 'dark';
 
 
 export const inWechat = () => {
-  let ua = navigator.userAgent.toLowerCase();
-  let isWXWork = ua.match(/wxwork/i) === 'wxwork';
-  let isWeixin = !isWXWork && /MicroMessenger/i.test(ua);
+  const ua = navigator.userAgent.toLowerCase();
+  const isWXWork = ua.match(/wxwork/i) === 'wxwork';
+  const isWeixin = !isWXWork && /MicroMessenger/i.test(ua);
 
   return isWeixin;
-}
+};
 
 // 微信登录跳转
 export const wechatLogin = ({ appId, redirectUrl = '', scope = 'snsapi_base', state = '' }) => {
   const _redirectUrl = encodeURIComponent(redirectUrl || window.location.href);
-  const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${_redirectUrl}&response_type=code&scope=${scope}&state=${state}#wechat_redirect`
+  const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${_redirectUrl}&response_type=code&scope=${scope}&state=${state}#wechat_redirect`;
   window.location.assign(url);
   window.location.href = url;
-}
+};

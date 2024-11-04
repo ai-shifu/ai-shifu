@@ -17,7 +17,7 @@ from init import cfg
 # ==================== 各种初始化工作 ====================
 # 设置页面标题和图标
 st.set_page_config(
-    page_title="Chapters Setting",
+    page_title="Chapters Setting | Cook for AI-Shifu",
     page_icon="🧙‍♂️",
 )
 
@@ -259,15 +259,18 @@ def display_chapter_management(base_url):
 # 需要登录
 with login():
 
-    tab1, tab2 = st.tabs(["测试环境", "正式环境"])
-
-    with tab1:
-        "## 👩🏻‍🎓 测试环境 章节配置"
+    if cfg.API_URL_TEST == cfg.API_URL_PROD:
         display_chapter_management(cfg.API_URL_TEST)
+    else:
+        tab1, tab2 = st.tabs(["测试环境", "正式环境"])
 
-    with tab2:
-        "## ⚠️ 警告！这是正式环境，请谨慎操作！ ⚠️"
-        display_chapter_management(cfg.API_URL_PROD)
+        with tab1:
+            "## 👩🏻‍🎓 测试环境 章节配置"
+            display_chapter_management(cfg.API_URL_TEST)
+
+        with tab2:
+            "## ⚠️ 警告！这是正式环境，请谨慎操作！ ⚠️"
+            display_chapter_management(cfg.API_URL_PROD)
 
 
 # Avoid losing already activated tabs after rerun.

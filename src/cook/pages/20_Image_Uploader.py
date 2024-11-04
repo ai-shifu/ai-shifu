@@ -1,5 +1,4 @@
 import oss2
-from oss2.credentials import EnvironmentVariableCredentialsProvider
 
 from tools.utils import st, time
 from tools.auth import login
@@ -11,7 +10,7 @@ _ = load_dotenv(find_dotenv())
 # ==================== 各种初始化工作 ====================
 # 设置页面标题和图标
 st.set_page_config(
-    page_title="Image Uploader",
+    page_title="Image Uploader | Cook for AI-Shifu",
     page_icon="🧙‍♂️",
 )
 
@@ -25,7 +24,10 @@ with login():
     # 初始化 OSS bucket 对象
     if "bucket" not in st.session_state:
         st.session_state.bucket = oss2.Bucket(
-            oss2.ProviderAuth(EnvironmentVariableCredentialsProvider()),
+            oss2.Auth(
+                cfg.OSS_ACCESS_KEY_ID,
+                cfg.OSS_ACCESS_KEY_SECRET,
+            ),
             cfg.IMG_OSS_ENDPOINT,
             cfg.IMG_OSS_BUCKET,
         )

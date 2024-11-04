@@ -33,7 +33,12 @@ def load_llm(model: str = None, temperature: float = None, json_mode=False):
         if json_mode:
             raise Exception("ZhipuAI does not currently support JSON mode")
         else:
-            return ChatZhipuAI(streaming=True, model=model, temperature=temperature)
+            return ChatZhipuAI(
+                streaming=True,
+                model=model,
+                temperature=temperature,
+                api_key=os.getenv("BIGMODEL_API_KEY"),
+            )
     elif model in cfg.OPENAI_MODELS:
         temperature = temperature if temperature else cfg.OPENAI_DEF_TMP
         if json_mode:

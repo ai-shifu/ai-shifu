@@ -17,6 +17,7 @@ from ...dao import db
 from flaskr.api.doc.feishu import list_records
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func, text
+import json
 
 
 @register_schema_to_swagger
@@ -299,6 +300,7 @@ def update_lesson_info(
     app_id: str = None,
     app_secrect: str = None,
     course_id: str = None,
+    file_name: str = None,
 ):
     with app.app_context():
         # 检查课程
@@ -308,14 +310,15 @@ def update_lesson_info(
             course = AICourse.query.filter(AICourse.course_id == course_id).first()
         else:
             course = AICourse.query.filter_by(course_feishu_id=doc_id).first()
-
         if course is None:
+            if course_id is None:
+                course_id = str(generate_id(app))
             course = AICourse()
-            course.course_id = str(generate_id(app))
+            course.course_id = course_id
             course.course_feishu_id = doc_id
             course.status = 1
-            course.course_name = "AI Python"
-            course.course_desc = "AI Python"
+            course.course_name = "Demo Lesson"
+            course.course_desc = "Demo Lesson"
             db.session.add(course)
         course_id = course.course_id
         page_token = None
@@ -329,6 +332,7 @@ def update_lesson_info(
             ),
             {"course_id": course_id, "lesson_no": lessonNo + "%"},
         )
+        print("lessonNo:" + lessonNo + " course_id:" + course_id)
         parent_lesson = AILesson.query.filter(
             AILesson.course_id == course_id,
             AILesson.lesson_no == str(index).zfill(2),
@@ -372,15 +376,23 @@ def update_lesson_info(
         if app_secrect is not None:
             kwargs["app_secrect"] = app_secrect
         while True:
-            resp = list_records(
-                app,
-                doc_id,
-                table_id,
-                view_id=view_id,
-                page_token=page_token,
-                page_size=100,
-                **kwargs
-            )
+            if file_name:
+                with open(file_name, "r") as json_file:
+                    json_data = json_file.read()
+                    resp = json.loads(json_data)
+            else:
+                resp = list_records(
+                    app,
+                    doc_id,
+                    table_id,
+                    view_id=view_id,
+                    page_token=page_token,
+                    page_size=100,
+                    **kwargs
+                )
+                # with open(lessonNo+".json", "w") as f:
+                #     json.dump(resp,f, ensure_ascii=False)
+
             records = resp["data"]["items"]
             app.logger.info("records:" + str(len(records)))
             for record in records:
@@ -464,14 +476,14 @@ def update_lesson_info(
                 scripDb["script_ui_content"] = "继续"
                 scripDb["script_type"] = SCRIPT_TYPE_FIX
                 scripDb["script_content_type"] = CONTENT_TYPE_TEXT
-                scripDb["script_model"] = "ERNIE-4.0-8K"
+                scripDb["script_model"] = ""
                 scripDb["status"] = 1
                 scripDb["script_temprature"] = 0.4
                 scripDb["ask_count_limit"] = 5
                 scripDb["ask_mode"] = ASK_MODE_DEFAULT
                 scripDb["ask_prompt"] = ""
                 scripDb["ask_with_history"] = 5
-                scripDb["ask_model"] = "deepseek-chat"
+                scripDb["ask_model"] = ""
                 for field in record["fields"]:
                     val_obj = record["fields"][field]
                     db_field = DB_SAVE_MAP.get(field.strip())
@@ -684,9 +696,16 @@ def update_course_info(
 
 def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
     with app.app_context():
-        course = AICourse.query.filter(AICourse.course_id == course_id).first()
-        if course is None:
-            raise_error("LESSON.COURSE_NOT_FOUND")
+
+        if course_id is None or course_id == "":
+            course = AICourse.query.filter(AICourse.status == 1).first()
+            if course is None:
+                raise_error("LESSON.HAS_NOT_LESSON")
+        else:
+            course = AICourse.query.filter(AICourse.course_id == course_id).first()
+            if course is None:
+                raise_error("LESSON.COURSE_NOT_FOUND")
+
         return AICourseDTO(
             course.course_id,
             course.course_name,

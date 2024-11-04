@@ -22,7 +22,7 @@ import contactBzWechatImg from 'Assets/newchat/contact-bz-wechat.png';
 import payInfoBg from 'Assets/newchat/pay-info-bg.png';
 import PayModalFooter from './PayModalFooter.jsx';
 import PayChannelSwitch from './PayChannelSwitch.jsx';
-import { useSystemStore } from 'stores/useSystemStore.js';
+import { getStringEnv } from 'Utils/envUtils';
 
 const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
 const MAX_TIMEOUT = 1000 * 60 * 3;
@@ -109,7 +109,7 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
     },
     [payChannel, couponCode]
   );
-  const { courseId } = useSystemStore();
+  const courseId = getStringEnv('courseId');
   const loadPayInfo = useCallback(async () => {
     setIsLoading(true);
     setIsTimeout(false);

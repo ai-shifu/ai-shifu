@@ -15,8 +15,8 @@ const createStore = (key) => {
     remove: () => {
       store.remove(key);
     }
-  }
-}
+  };
+};
 
 const createBoolStore = (key) => {
   return {
@@ -30,8 +30,8 @@ const createBoolStore = (key) => {
     remove: () => {
       store.remove(key);
     }
-  }
-}
+  };
+};
 
 export const tokenStore = createStore(TOKEN_KEY);
 export const userInfoStore = createStore(USERINFO_KEY);
@@ -50,4 +50,4 @@ export const tokenTool = {
     tokenStore.remove();
     tokenFakedStore.remove();
   }
-}
+};

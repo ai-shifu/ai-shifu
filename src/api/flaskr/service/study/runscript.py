@@ -2,8 +2,9 @@ import traceback
 from typing import Generator
 from flask import Flask
 
-from flaskr.service.common.models import raise_error
+from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.models import User
+from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
     UI_TYPE_CHECKCODE,
@@ -68,6 +69,8 @@ def run_script_inner(
                     course_info = AICourse.query.filter(
                         AICourse.status == 1,
                     ).first()
+                    if course_info is None:
+                        raise_error("LESSON.HAS_NOT_LESSON")
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
                 yield make_script_dto(
@@ -76,7 +79,6 @@ def run_script_inner(
                 course_id = course_info.course_id
                 lessons = init_trial_lesson(app, user_id, course_id)
                 attend = get_current_lesson(app, lessons)
-                app.logger.info("{}".format(attend))
                 lesson_id = attend.lesson_id
             else:
                 lesson_info = AILesson.query.filter(
@@ -130,7 +132,7 @@ def run_script_inner(
                 ).first()
 
                 if not attend_info:
-                    app.logger.info("found no attend_info")
+
                     lessons.sort(key=lambda x: x.lesson_no)
                     lesson_id = lessons[-1].lesson_id
                     attend_info = AICourseLessonAttend.query.filter(
@@ -139,7 +141,28 @@ def run_script_inner(
                         AICourseLessonAttend.lesson_id == lesson_id,
                     ).first()
 
-                    attends = update_attend_lesson_info(app, attend_info.attend_id)
+                    if not attend_info:
+                        app.logger.info("found no attend_info reinit")
+                        lessons = init_trial_lesson(app, user_id, course_id)
+                        attend_info = AICourseLessonAttend.query.filter(
+                            AICourseLessonAttend.user_id == user_id,
+                            AICourseLessonAttend.course_id == course_id,
+                            AICourseLessonAttend.lesson_id.in_(lesson_ids),
+                            AICourseLessonAttend.status.in_(
+                                [
+                                    ATTEND_STATUS_NOT_STARTED,
+                                    ATTEND_STATUS_IN_PROGRESS,
+                                    ATTEND_STATUS_BRANCH,
+                                ]
+                            ),
+                        ).first()
+                        if not attend_info:
+                            raise_error("COURSE.COURSE_NOT_PURCHASED")
+                        attend_id = attend_info.attend_id
+                    else:
+                        attend_id = attend_info.attend_id
+
+                    attends = update_attend_lesson_info(app, attend_id)
                     for attend_update in attends:
                         if len(attend_update.lesson_no) > 2:
                             yield make_script_dto(
@@ -409,8 +432,13 @@ def run_script(
                 "description": str(e),
                 "traceback": traceback.format_exc(),
             }
-            app.logger.error(error_info)
-            yield make_script_dto("text", "系统错误", None)
+
+            if isinstance(e, AppException):
+                app.logger.info(error_info)
+                yield make_script_dto("text", str(e), None)
+            else:
+                app.logger.error(error_info)
+                yield make_script_dto("text", _("COMMON.UNKNOWN_ERROR"), None)
             yield make_script_dto("text_end", "", None)
         finally:
 

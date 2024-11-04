@@ -94,7 +94,6 @@ def generate_discount_code_by_rule(app: Flask, discount_id):
         db.session.commit()
 
 
-# send_feishu
 def send_feishu_discount_code(
     app: Flask, user_id, discount_code, discount_name, discount_value
 ):
@@ -102,18 +101,18 @@ def send_feishu_discount_code(
         user_info = User.query.filter(User.user_id == user_id).first()
         title = "优惠码通知"
         msgs = []
-        msgs.append("用户手机号:{}".format(user_info.mobile))
-        msgs.append("用户姓名:{}".format(user_info.name))
-        msgs.append("优惠码:{}".format(discount_code))
-        msgs.append("优惠名称:{}".format(discount_name))
-        msgs.append("优惠值:{}".format(discount_value))
+        msgs.append("手机号：{}".format(user_info.mobile))
+        msgs.append("昵称：{}".format(user_info.name))
+        msgs.append("优惠码：{}".format(discount_code))
+        msgs.append("优惠名称：{}".format(discount_name))
+        msgs.append("优惠额度：{}".format(discount_value))
         user_convertion = UserConversion.query.filter(
             UserConversion.user_id == user_id
         ).first()
         channel = ""
         if user_convertion:
             channel = user_convertion.conversion_source
-        msgs.append("用户渠道:{}".format(channel))
+        msgs.append("渠道：{}".format(channel))
         send_notify(app, title, msgs)
 
 

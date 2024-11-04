@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware'
+import { subscribeWithSelector } from 'zustand/middleware';
 import { resetChapter as apiResetChapter } from 'Api/lesson.js';
 
 export const useCourseStore = create(

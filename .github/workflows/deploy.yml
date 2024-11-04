@@ -7,16 +7,17 @@ jobs:
     runs-on: self-hosted
     env:
       GH_TOKEN: ${{ github.token }}
-    steps:
-      - name: Checkout PR
-        run: |
-          gh pr checkout ${{ github.event.pull_request.number }}
-      - name: Build and Sync API
-        run: |
-          bash scripts/deploy-develop/deploy-shifu-api-test.sh
-      - name: Build and Sync Web
-        run: |
-          bash scripts/deploy-develop/deploy-shifu-web-test.sh
-      - name: Build and Sync Admin Web
-        run: |
-          bash scripts/deploy-develop/deploy-shifu-admin-web-test.sh
+    # steps:
+    #   - name: Checkout PR
+    #     run: |
+    #       git reset --hard FETCH_HEAD
+    #       gh pr checkout ${{ github.event.pull_request.number }}
+    #   - name: Build and Sync API
+    #     run: |
+    #       bash scripts/deploy-develop/deploy-shifu-api-test.sh
+    #   - name: Build and Sync Web
+    #     run: |
+    #       bash scripts/deploy-develop/deploy-shifu-web-test.sh
+    #   - name: Build and Sync Admin Web
+    #     run: |
+    #       bash scripts/deploy-develop/deploy-shifu-admin-web-test.sh

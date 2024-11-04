@@ -106,7 +106,7 @@ def invoke_glm(
 
     data = {**data, **args}
 
-    headers = {"Authorization": "Bearer " + get_config("BIGMODEL_API_KEY")}
+    headers = {"Authorization": "Bearer " + get_config("GLM_API_KEY")}
     response = requests.post(URLS[model], json=data, headers=headers, stream=True)
     app.logger.info("request data: {}".format(json.dumps(data)))
     for res in response.iter_lines():
