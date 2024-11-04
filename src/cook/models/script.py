@@ -38,6 +38,7 @@ class NextAction(Enum):
     ShowPayQR = "显示 付款码"
     InputPhoneNum = "输入 手机号"
     InputVerifyCode = "输入 验证码"
+    ShowLoginReg = "显示 登录注册框"
     NoAction = "无"
 
 

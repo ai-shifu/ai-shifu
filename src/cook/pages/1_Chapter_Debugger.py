@@ -511,7 +511,11 @@ else:
 
             # === Show Pay QR Code
             elif script.next_action == NextAction.ShowPayQR:
-                pass
+                chat_box.ai_say(
+                    "```Show pay QR code, simulate pay process```"
+                )
+                st.session_state.progress += 1
+                st.rerun()
 
             # === Input phone number
             elif script.next_action == NextAction.InputPhoneNum:
@@ -542,6 +546,14 @@ else:
                     time.sleep(1)
                     st.session_state.progress += 1
                     st.rerun()
+
+            # === Show login/register
+            elif script.next_action == NextAction.ShowLoginReg:
+                chat_box.ai_say(
+                    "```Show login/register dialog, simulate login/register process```"
+                )
+                st.session_state.progress += 1
+                st.rerun()
 
             else:
                 st.session_state.progress += 1
