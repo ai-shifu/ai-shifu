@@ -52,7 +52,7 @@ def gen_signature(params=None):
         return hashlib.md5(buff.encode("utf8")).hexdigest()
 
 
-def check_text(app: Flask, data_id: str, content: str):
+def check_text(app: Flask, data_id: str, content: str, user_id: str = None):
     if not EDUN_SECRET_ID or not EDUN_SECRET_KEY or not EDUN_BUSINESS_ID:
         app.logger.warning(
             "EDUN_SECRET_ID, EDUN_SECRET_KEY, EDUN_BUSINESS_ID not configured"
@@ -67,6 +67,8 @@ def check_text(app: Flask, data_id: str, content: str):
     params["version"] = VERSION
     params["timestamp"] = int(time.time() * 1000)
     params["nonce"] = int(random.random() * 100000000)
+    if user_id:
+        params["account"] = user_id
     # params["signatureMethod"] = "SM3"  # 签名方法，默认MD5，支持SM3
     params["signature"] = gen_signature(params)
 

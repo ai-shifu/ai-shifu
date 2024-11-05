@@ -34,7 +34,7 @@ def check_text_by_edun(
     script_info: AILessonScript,
     attend: AICourseLessonAttend,
 ):
-    res = check_text(app, log_script.log_id, input)
+    res = check_text(app, log_script.log_id, input, user_id)
     span.event(name="check_text", input=input, output=res)
     result = (
         res.get("result", {})
