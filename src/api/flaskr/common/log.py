@@ -49,6 +49,8 @@ def init_log(app: Flask) -> Flask:
 
         # request_id = getattr(thread_local, "X-Request-ID", uuid.uuid4().hex)
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
+        mode = request.headers.get("X-API-MODE", "api")
+        thread_local.mode = mode
         thread_local.request_id = request_id
         thread_local.url = request.path
         # try to get user ip from X-Forwarded-For header
@@ -65,7 +67,7 @@ def init_log(app: Flask) -> Flask:
     log_format = (
         "%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu "
         + host_name
-        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(message)s"
+        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
     )
     formatter = RequestFormatter(log_format)
 
@@ -73,7 +75,7 @@ def init_log(app: Flask) -> Flask:
     color_log_format = (
         "%(log_color)s%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu "
         + host_name
-        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(message)s"
+        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
     )
     color_formatter = colorlog.ColoredFormatter(
         color_log_format,
@@ -116,3 +118,7 @@ def init_log(app: Flask) -> Flask:
     app.logger.setLevel(logging.INFO)
     app.logger.error("Logging setup complete")
     return app
+
+
+def get_mode():
+    return getattr(thread_local, "mode", None)
