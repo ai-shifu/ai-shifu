@@ -7,6 +7,7 @@ import string
 import uuid
 from flaskr.common.config import get_config
 from flask import Flask
+
 import jwt
 
 from flaskr.service.order.consts import ATTEND_STATUS_RESET
@@ -27,13 +28,17 @@ from ..common.models import raise_error
 from .utils import generate_token, get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
 from .models import User as CommonUser, AdminUser as AdminUser
+from flaskr.common.log import get_mode
 
 
 FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
 
 
 def get_model(app: Flask):
-    if app.config.get("MODE", "api") == "admin":
+    mode = get_mode()
+    if mode is None:
+        mode = get_config("MODE", "api")
+    if mode == "admin":
         return AdminUser
     else:
         return CommonUser

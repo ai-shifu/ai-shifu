@@ -39,7 +39,9 @@ Flask-Cors==4.0.2
 Flask-Migrate==4.0.7
 Flask-SQLAlchemy==3.1.1
 frozenlist==1.4.1
+gevent==24.10.3
 gmssl==3.2.2
+greenlet==3.1.1
 gunicorn==22.0.0
 h11==0.14.0
 httpcore==1.0.5
@@ -109,3 +111,5 @@ Werkzeug==3.0.3
 wrapt==1.16.0
 XlsxWriter==3.2.0
 yarl==1.9.4
+zope.event==5.0
+zope.interface==7.1.1

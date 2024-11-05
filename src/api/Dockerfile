@@ -34,4 +34,4 @@ COPY migrations migrations
 # declare service running on port 5800
 EXPOSE 5800
 # start flask service
-CMD gunicorn -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
+CMD gunicorn  -k gevent -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
