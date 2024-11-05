@@ -171,10 +171,9 @@ def get_content_type(filename):
 
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
     with app.app_context():
-        if (
-            not current_app.config["ALIBABA_CLOUD_OSS_ACCESS_KEY_ID"]
-            or not current_app.config["ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET"]
-        ):
+        if not current_app.config.get(
+            "ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None
+        ) or not current_app.config.get("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET", None):
             raise_error_with_args(
                 "API.ALIBABA_CLOUD_NOT_CONFIGURED",
                 config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",

@@ -16,7 +16,6 @@ export const CourseCatalog = ({
   onLessonSelect = ({ id }) => {},
   onTrySelect = ({ chapterId, lessonId }) => {},
 }) => {
-  console.log('status', status, name);
   const _onTrySelect = useCallback(
     ({ id: lessonId }) => {
       onTrySelect?.({ chapterId: id, lessonId });

@@ -9,10 +9,9 @@ from flask import Flask
 def send_sms_code_ali(
     app: Flask, mobile: str, check_code: str
 ) -> dysmsapi_20170525_models.SendSmsResponse | None:
-    if (
-        not app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_ID"]
-        or not app.config["ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET"]
-    ):
+    if not app.config.get(
+        "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
+    ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
         app.logger.warning(
             "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID or ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET not configured"
         )
