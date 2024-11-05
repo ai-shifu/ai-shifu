@@ -60,7 +60,7 @@ const App = () => {
     const initialize = async () => {
       await initializeEnvData();
       setEnvDataInitialized(true);
-    };
+    }
     initialize();
   }, []);
 
@@ -74,7 +74,7 @@ const App = () => {
     if (!envDataInitialized) return;
     const userInfo = userInfoStore.get();
     if (userInfo) {
-      setLanguage(userInfo.language);
+      updateLanguage(userInfo.language);
     } else {
       updateLanguage(browserLanguage);
     }
@@ -140,7 +140,7 @@ const App = () => {
   }, [language, envDataInitialized]);
 
   return (
-    <ConfigProvider locale={locale}>
+    <ConfigProvider locale={language}>
       {!loading && <RouterView></RouterView>}
     </ConfigProvider>
   );
