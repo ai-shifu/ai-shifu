@@ -54,6 +54,7 @@ def get_profile_labels():
             "label": _("PROFILE.AVATAR"),
             "mapping": "user_avatar",
             "type": "image",
+            "default": "",
         },
         "industry": {"label": _("PROFILE.INDUSTRY")},
         "occupation": {
@@ -64,7 +65,7 @@ def get_profile_labels():
             "items": ["中文", "English"],
             "mapping": "user_language",
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
-            "default": "",
+            "default": "zh-CN",
         },
         "ai_tools": {
             "label": _("PROFILE.AI_TOOLS"),
