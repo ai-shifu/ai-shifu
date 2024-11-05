@@ -76,7 +76,7 @@ def handle_input_ask(
     system_message = system_prompt if system_prompt else ""
     # format the system message
     system_message = get_fmt_prompt(app, user_id, system_message)
-    system_message = system_message + "\n 之前的会话历史为:\n"
+    system_message = system_message if system_message else "" + "\n 之前的会话历史为:\n"
     for script in history_scripts:
         if script.script_role == ROLE_STUDENT:
             system_message = system_message + f"学员: {script.script_content}\n"
