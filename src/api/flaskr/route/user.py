@@ -379,7 +379,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not profiles:
             raise_param_error("profiles")
         with app.app_context():
-            ret = update_user_profile_with_lable(app, request.user.user_id, profiles)
+            ret = update_user_profile_with_lable(
+                app, request.user.user_id, profiles, update_all=True
+            )
             db.session.commit()
             return make_common_response(ret)
 
