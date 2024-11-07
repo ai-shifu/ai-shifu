@@ -75,9 +75,11 @@ class ConfigManager:
             self.SQLITE_DB_PATH = os.path.join(self.PROJ_DIR, _cfg_db["sqlite"]["path"])
 
             _cfg_api = config["api"]
-            self.API_URL = _cfg_api[f'{os.getenv("ENV")}_url']
+            self.API_URL = _cfg_api[f'{os.getenv("COOK_USE_API_ENV")}_url']
             self.API_URL_TEST = _cfg_api["test_url"]
             self.API_URL_PROD = _cfg_api["prod_url"]
+            self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
+            self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
 
             _cfg_log = config["log"]
             self.LOG_LEVEL = _cfg_log["level"]
