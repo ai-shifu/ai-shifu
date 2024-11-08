@@ -1,11 +1,13 @@
+import { useEnvStore } from 'stores/envStore.js';
+
 export const getBoolEnv = (key) => {
-  return process.env[key] === 'true'
-}
+  return useEnvStore.getState()[key] === 'true';
+};
 
 export const getIntEnv = (key) => {
-  return parseInt(process.env[key])
-}
+  return parseInt(useEnvStore.getState()[key]);
+};
 
 export const getStringEnv = (key) => {
-  return process.env[key];
-}
+  return useEnvStore.getState()[key];
+};

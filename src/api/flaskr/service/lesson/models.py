@@ -24,6 +24,12 @@ class AICourse(db.Model):
     course_default_model = Column(
         String(255), nullable=False, default="", comment="Course default model"
     )
+    course_default_temprature = Column(
+        DECIMAL(10, 2),
+        nullable=False,
+        default="0.3",
+        comment="Course default temprature",
+    )
     course_language = Column(
         String(255), nullable=False, default="", comment="Course language"
     )
@@ -81,6 +87,15 @@ class AILesson(db.Model):
     lesson_summary = Column(Text, nullable=False, default="", comment="Lesson summary")
     lesson_language = Column(
         String(255), nullable=False, default="", comment="Lesson language"
+    )
+    lesson_default_model = Column(
+        String(255), nullable=False, default="", comment="Lesson default model"
+    )
+    lesson_default_temprature = Column(
+        DECIMAL(10, 2),
+        nullable=False,
+        default="0.3",
+        comment="Lesson default temprature",
     )
     lesson_name_multi_language = Column(
         Text, nullable=False, default="", comment="Lesson multi language"

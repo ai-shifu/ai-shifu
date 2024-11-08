@@ -24,12 +24,10 @@ class Config(FlaskConfig):
         return self.parent.__getattr__(key)
 
     def __setitem__(self, key: Any, value: Any) -> None:
-        self.app.logger.info("set {}={}".format(key, value))
         self.parent.__setitem__(key, value)
         os.environ[key] = str(value)
 
     def get(self, key: Any, default: Any = None) -> Any:
-        self.app.logger.info("get {}".format(key))
         if key in os.environ:
             return os.environ[key]
         return self.parent.get(key, default)

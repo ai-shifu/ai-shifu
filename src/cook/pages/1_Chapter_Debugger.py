@@ -31,7 +31,7 @@ from init import cfg
 # ==================== Initialization ====================
 # Set page title and icon
 st.set_page_config(
-    page_title="Chapter Debugger",
+    page_title="Chapter Debugger | Cook for AI-Shifu",
     page_icon="🧙‍♂️",  # 👨‍🏫
 )
 # The main title and subtitle on the page
@@ -479,7 +479,9 @@ else:
                         # If found, load it; otherwise, report an error.
                         if lark_table_id:
                             sub_script_list = load_scripts_from_bitable(
-                                cfg.LARK_APP_TOKEN, lark_table_id, lark_view_id
+                                st.session_state.lark_app_token,
+                                lark_table_id,
+                                lark_view_id,
                             )
                             # Insert the sub-script into the original script.
                             st.session_state.script_list = (
@@ -511,7 +513,9 @@ else:
 
             # === Show Pay QR Code
             elif script.next_action == NextAction.ShowPayQR:
-                pass
+                chat_box.ai_say("```Show pay QR code, simulate pay process```")
+                st.session_state.progress += 1
+                st.rerun()
 
             # === Input phone number
             elif script.next_action == NextAction.InputPhoneNum:
@@ -542,6 +546,14 @@ else:
                     time.sleep(1)
                     st.session_state.progress += 1
                     st.rerun()
+
+            # === Show login/register
+            elif script.next_action == NextAction.ShowLoginReg:
+                chat_box.ai_say(
+                    "```Show login/register dialog, simulate login/register process```"
+                )
+                st.session_state.progress += 1
+                st.rerun()
 
             else:
                 st.session_state.progress += 1

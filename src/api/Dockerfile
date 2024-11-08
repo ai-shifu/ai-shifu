@@ -1,7 +1,6 @@
-### 使用一个官方Python运行时作为父镜像
-FROM python:3.11
+FROM python:3.11 as base
 
-# 确保 /etc/apt/sources.list 存在并更改APT源为国内的镜像源
+# ensure /etc/apt/sources.list exists and change APT source to aliyun mirror
 RUN if [ -f /etc/apt/sources.list ]; then \
     sed -i 's|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g' /etc/apt/sources.list; \
     sed -i 's|http://security.debian.org/debian-security|http://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list; \
@@ -13,25 +12,36 @@ RUN if [ -f /etc/apt/sources.list ]; then \
     echo "No sources.list found!"; \
     fi
 
-# 设置工作目录
+
+
+# set working directory
 WORKDIR /app
 
-# 设置pip镜像源
-ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
-ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
+# set pip mirror source
+# It is recommended to configure pip mirror sources within China.
+# ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+# ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 
-# 安装依赖
+# install dependencies
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-RUN pip install gunicorn
 
-# 复制当前目录内容到容器的/app内
+
+
+
+
+
+FROM python:3.11-slim
+COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+
+# 复制可执行文件
+COPY --from=base /usr/local/bin/flask /usr/local/bin/flask
+COPY --from=base /usr/local/bin/gunicorn /usr/local/bin/gunicorn
+
 COPY app.py app.py
 COPY flaskr flaskr
 COPY migrations migrations
-
-
-# 声明服务运行在5800端口
+# declare service running on port 5800
 EXPOSE 5800
-# 启动flask服务
-CMD gunicorn -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output
+# start flask service
+CMD gunicorn  -k gevent -w 4 -b 0.0.0.0:5800 "app:app" --timeout 300 --log-level info --access-logfile /var/log/app.log --capture-output

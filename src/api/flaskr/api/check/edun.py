@@ -1,6 +1,7 @@
 import time
 import hashlib
 import random
+from flask import Flask
 from urllib.parse import urlencode
 from gmssl import sm3, func
 import requests
@@ -9,9 +10,9 @@ from flaskr.common.config import get_config
 URL = "http://as.dun.163.com/v5/text/check"
 
 
-EDUN_SECRET_ID = get_config("EDUN_SECRET_ID")
-EDUN_SECRET_KEY = get_config("EDUN_SECRET_KEY")
-EDUN_BUSINESS_ID = get_config("EDUN_BUSINESS_ID")
+EDUN_SECRET_ID = get_config("NETEASE_YIDUN_SECRET_ID")
+EDUN_SECRET_KEY = get_config("NETEASE_YIDUN_SECRET_KEY")
+EDUN_BUSINESS_ID = get_config("NETEASE_YIDUN_BUSINESS_ID")
 VERSION = "v5.3"
 
 
@@ -51,7 +52,12 @@ def gen_signature(params=None):
         return hashlib.md5(buff.encode("utf8")).hexdigest()
 
 
-def check_text(data_id: str, content: str):
+def check_text(app: Flask, data_id: str, content: str, user_id: str = None):
+    if not EDUN_SECRET_ID or not EDUN_SECRET_KEY or not EDUN_BUSINESS_ID:
+        app.logger.warning(
+            "EDUN_SECRET_ID, EDUN_SECRET_KEY, EDUN_BUSINESS_ID not configured"
+        )
+        return {}
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     params = {}
     params["secretId"] = EDUN_SECRET_ID
@@ -61,6 +67,8 @@ def check_text(data_id: str, content: str):
     params["version"] = VERSION
     params["timestamp"] = int(time.time() * 1000)
     params["nonce"] = int(random.random() * 100000000)
+    if user_id:
+        params["account"] = user_id
     # params["signatureMethod"] = "SM3"  # 签名方法，默认MD5，支持SM3
     params["signature"] = gen_signature(params)
 

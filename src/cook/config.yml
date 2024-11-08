@@ -57,33 +57,4 @@ llm:
     default_temperature: 0.8  # [0, 2)
 
 lark:
-  app_token: IjfsbaLaQah0Wts1VaDcq0ePnGe  # 新主体 Python 教练 正式剧本
-  default_table_id: tbldUsmPMh6vcBxh  # 《剧本》：00-了解 AI 编程这回事
-
-#  app_token: MOpQbqTG3ai5I3sqymUcMK1rnti  # 《剧本v2(0718)》
-#  default_table_id: tblm5XfXmxv2VFhN  # 《剧本v2(0718)》：01- 如何向 AI 提项目需求？
-#  table_id: tblMGLpPFYWU0gIK  # 试学课 test01
-#  table_id: tbltsSzDfJQm6dne  # 在自己电脑上运行Python
-  default_view_id: vewlGkI2Jp
-
-fileupload:
-  img_local_dir: /tmp/codesifu/img
-  img_oss_aname: img.agiclass.cn
-  img_oss_endpoint: https://oss-cn-beijing.aliyuncs.com
-  img_oss_bucket: codesifu-img
-
-db:
-  sqlite:
-    path: /data/codesifu-demo.db
-
-api:
-  test_url: https://test-api-sifu.agiclass.cn/api
-  prod_url: https://api.ai-shifu.com/api
-
-log:
-  level: DEBUG
-  out_level: DEBUG
-  log_dir: /tmp/logs
-  out_path: /tmp/logs/cook.ai-shifu.out.log
-  err_level: ERROR
-  err_path: /tmp/logs/cook.ai-shifu.err.log
+  default_view_id: vewlGkI2Jp  # all lark bitable's default view id

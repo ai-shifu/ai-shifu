@@ -54,6 +54,7 @@ def get_profile_labels():
             "label": _("PROFILE.AVATAR"),
             "mapping": "user_avatar",
             "type": "image",
+            "default": "",
         },
         "industry": {"label": _("PROFILE.INDUSTRY")},
         "occupation": {
@@ -64,7 +65,7 @@ def get_profile_labels():
             "items": ["中文", "English"],
             "mapping": "user_language",
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
-            "default": "",
+            "default": "zh-CN",
         },
         "ai_tools": {
             "label": _("PROFILE.AI_TOOLS"),
@@ -248,7 +249,9 @@ def get_user_profile_labels(app: Flask, user_id: str):
     return result
 
 
-def update_user_profile_with_lable(app: Flask, user_id: str, profiles: list):
+def update_user_profile_with_lable(
+    app: Flask, user_id: str, profiles: list, update_all: bool = False
+):
     PROFILES_LABLES = get_profile_labels()
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
@@ -276,10 +279,13 @@ def update_user_profile_with_lable(app: Flask, user_id: str, profiles: list):
                         default_value, profile_value
                     )
                 )
-                if (
-                    profile_lable.get("mapping")
-                    and (profile_value != default_value)
-                    and getattr(user_info, profile_lable["mapping"]) != profile_value
+                if profile_lable.get("mapping") and (
+                    update_all
+                    or (
+                        (profile_value != default_value)
+                        and getattr(user_info, profile_lable["mapping"])
+                        != profile_value
+                    )
                 ):
                     app.logger.info(
                         "update user info: {} - {}".format(profile, profile_value)

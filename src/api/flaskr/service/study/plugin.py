@@ -30,9 +30,7 @@ def register_ui_handler(ui_type):
     def decorator(func):
         from flask import current_app
 
-        current_app.logger.info(
-            f"register_ui_geration_handler {ui_type} ==> {func.__name__}"
-        )
+        current_app.logger.info(f" {ui_type} ==> {func.__name__}")
         UI_HANDLE_MAP[ui_type] = func
         return func
 

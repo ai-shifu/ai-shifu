@@ -6,7 +6,7 @@ export const testPurchaseOrder = ({ orderId }) => {
     method: 'post',
     data: { order_id: orderId }
   });
-}
+};
 
 // 创建订单
 export const initOrder = (course_id) => {
@@ -15,7 +15,7 @@ export const initOrder = (course_id) => {
     method: 'post',
     data: { course_id }
   });
-}
+};
 
 // 获取支付链接
 export const getPayUrl = ({ channel, orderId }) => {
@@ -24,7 +24,7 @@ export const getPayUrl = ({ channel, orderId }) => {
     url: '/api/order/reqiure-to-pay',
     data: { channel, order_id: orderId }
   });
-}
+};
 
 // 查询订单
 export const queryOrder = ({ orderId }) => {
@@ -33,7 +33,7 @@ export const queryOrder = ({ orderId }) => {
     url: '/api/order/query-order',
     data: { order_id: orderId },
   });
-}
+};
 
 // 使用优惠码
 export const applyDiscountCode = ({ orderId, code }) => {
@@ -45,4 +45,4 @@ export const applyDiscountCode = ({ orderId, code }) => {
       order_id: orderId,
     }
   });
-}
+};

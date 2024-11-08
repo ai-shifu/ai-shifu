@@ -53,15 +53,13 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                         schema:
                              $ref: "#/components/schemas/ScriptDTO"
         """
-        course_id = request.get_json().get(
-            "course_id", "dfca19aab2654fe4882e002a58567240"
-        )
+        course_id = request.get_json().get("course_id", None)
         lesson_id = request.get_json().get("lesson_id", None)
         script_id = request.get_json().get("script_id", None)
         input = request.get_json().get("input", None)
         input_type = request.get_json().get("input_type", "start")
-        if course_id == "" or course_id is None:
-            course_id = "dfca19aab2654fe4882e002a58567240"
+        if course_id == "":
+            course_id = None
         user_id = request.user.user_id
 
         try:
@@ -117,7 +115,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         """
         course_id = request.args.get("course_id")
         if not course_id:
-            raise_param_error("doc_id is not found")
+            course_id = None
         user_id = request.user.user_id
         return make_common_response(get_lesson_tree_to_study(app, user_id, course_id))
 

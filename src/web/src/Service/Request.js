@@ -4,6 +4,7 @@ import { message } from "antd";
 import { tokenTool } from "./storeUtil.js";
 import { v4 } from "uuid";
 import { useTranslation } from "react-i18next";
+import { getStringEnv } from "Utils/envUtils.js";
 /**
  *
  * @param {*} token
@@ -13,7 +14,7 @@ import { useTranslation } from "react-i18next";
  * @returns
  */
 export const SendMsg = (token, chatId, text, onMessage) => {
-  var source = new SSE(process.env.REACT_APP_BASEURL+"/chat/chat-assistant?token="+token, {
+  var source = new SSE(getStringEnv('baseURL')+"/chat/chat-assistant?token="+token, {
     headers: { "Content-Type": "application/json" },
     payload: JSON.stringify({
       token: token,
@@ -25,7 +26,7 @@ export const SendMsg = (token, chatId, text, onMessage) => {
   source.onmessage = (event) => {
     try {
 
-      var response =JSON.parse (event.data)
+      var response =JSON.parse (event.data);
       if (onMessage) {
         onMessage(response);
       }
@@ -33,15 +34,13 @@ export const SendMsg = (token, chatId, text, onMessage) => {
     }
   };
   source.onerror = (event) => {
-    console.log(event);
-    // this.searchBoll = true;
   };
   source.onclose = (event) => {
     // this.searchBoll = true;
   };
   source.stream();
   return source;
-}
+};
 
 
 /**
@@ -49,17 +48,18 @@ export const SendMsg = (token, chatId, text, onMessage) => {
  * @type {*}
  * */
 const axiosrequest = axios.create({
-  baseURL:process.env.REACT_APP_BASEURL,
+  // baseURL: getStringEnv('baseURL'),
   withCredentials: false, // 跨域请求时发送 cookies
   headers: {"Content-Type":"application/json"}
 });
 
 // 创建请求拦截器
 axiosrequest.interceptors.request.use(async(config)=>{
+  config.baseURL = getStringEnv('baseURL');
   config.headers.token = tokenTool.get().token;
   config.headers["X-Request-ID"] = v4().replace(/-/g, '');
   return config;
-})
+});
 
 // 创建响应拦截器
 axiosrequest.interceptors.response.use(
@@ -79,6 +79,6 @@ axiosrequest.interceptors.response.use(
     document.dispatchEvent(apiError);
     message.error(t("common.networkError"));
     return Promise.reject(error);
-  })
+  });
 
 export default axiosrequest;

@@ -9,4 +9,4 @@ export const submitFeedback = (feedback) => {
     method: 'post',
     data: { feedback }
   });
-}
+};

@@ -34,10 +34,8 @@ import MarkdownBubble from './ChatMessage/MarkdownBubble.jsx';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking.js';
 import PayModalM from '../Pay/PayModalM.jsx';
 import { smoothScroll } from 'Utils/smoothScroll.js';
-import { useSystemStore } from 'stores/useSystemStore.js';
-
 import {useTranslation} from 'react-i18next';
-
+import { useEnvStore } from 'stores/envStore.js';
 const USER_ROLE = {
   TEACHER: '老师',
   STUDENT: '学生',
@@ -168,7 +166,8 @@ export const ChatComponents = forwardRef(
   ) => {
     const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
-    const chatId = useSystemStore().courseId;
+    const { courseId } = useEnvStore.getState();
+    const chatId = courseId;
     const [lessonId, setLessonId] = useState(null);
     const [inputDisabled, setInputDisabled] = useState(false);
     const [inputModal, setInputModal] = useState(null);

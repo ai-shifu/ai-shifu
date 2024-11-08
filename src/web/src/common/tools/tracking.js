@@ -12,14 +12,14 @@ export const EVENT_NAMES = {
   NAV_SECTION_SWITCH: 'nav_section_switch',
   RESET_CHAPTER: 'reset_chapter',
   RESET_CHAPTER_CONFIRM: 'reset_chapter_confirm',
-}
+};
 
 export const tracking = async (eventName, eventData) => {
   try {
     const umami = window.umami;
     // tracking 库不存在就不处理
     if (!umami) {
-      return
+      return;
     }
     umami.track(eventName, eventData);
   } catch (error) { }

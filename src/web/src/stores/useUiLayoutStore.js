@@ -11,6 +11,6 @@ export const useUiLayoutStore = create((set) => ({
     return {
       inMobile: isMobile,
       isWeixin: /MicroMessenger/i.test(window.navigator.userAgent),
-    }
+    };
   }),
 }));

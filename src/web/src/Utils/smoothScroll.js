@@ -11,10 +11,10 @@ export function smoothScroll({ el, to, duration = 300, scrollLeft = false }) {
   }
 
   function animate() {
-    // eslint-disable-next-line no-param-reassign
+
     el[attr] += step;
 
-    // eslint-disable-next-line no-plusplus
+
     if (++count < frames) {
       requestAnimationFrame(animate);
     }

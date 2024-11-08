@@ -8,12 +8,8 @@ _ = load_dotenv(find_dotenv())
 
 class ConfigManager:
     def __init__(self, config_filename="config.yml"):
-        # 获取当前文件的绝对路径
         current_file_path = os.path.abspath(__file__)
-        # 获取当前文件所在的目录
         self.PROJ_DIR = os.path.dirname(current_file_path)
-        print(f"PROJ_DIR: {self.PROJ_DIR}")
-        # 构建配置文件的完整路径
         self.config_path = os.path.join(self.PROJ_DIR, config_filename)
 
         with open(self.config_path, "rb") as f:
@@ -26,7 +22,6 @@ class ConfigManager:
             self.SIM_STM_MAX = _cfg_simulate_streaming_random_sleep["max"]
 
             _cfg_llm = config["llm"]
-            # DEFAULT_VENDOR = _cfg_openai['default_vendor']
             self.DEFAULT_MODEL = _cfg_llm["default_model"]
             self.DEFAULT_TMP = _cfg_llm["default_temperature"]
             self.ORIGINAL_DEFAULT_MODEL = _cfg_llm["default_model"]
@@ -56,72 +51,67 @@ class ConfigManager:
             )
 
             _cfg_lark = config["lark"]
-            self.LARK_APP_TOKEN = _cfg_lark["app_token"]
-            self.DEF_LARK_TABLE_ID = _cfg_lark["default_table_id"]
             self.DEF_LARK_VIEW_ID = _cfg_lark["default_view_id"]
 
-            _cfg_fileupload = config["fileupload"]
-            self.IMG_LOCAL_DIR = _cfg_fileupload["img_local_dir"]
-            (
-                os.makedirs(self.IMG_LOCAL_DIR)
-                if not os.path.exists(self.IMG_LOCAL_DIR)
-                else None
-            )
-            self.IMG_OSS_ANAME = _cfg_fileupload["img_oss_aname"]
-            self.IMG_OSS_ENDPOINT = _cfg_fileupload["img_oss_endpoint"]
-            self.IMG_OSS_BUCKET = _cfg_fileupload["img_oss_bucket"]
-
-            _cfg_db = config["db"]
-            self.SQLITE_DB_PATH = os.path.join(self.PROJ_DIR, _cfg_db["sqlite"]["path"])
-
-            _cfg_api = config["api"]
-            self.API_URL = _cfg_api[f'{os.getenv("COOK_USE_API_ENV")}_url']
-            self.API_URL_TEST = _cfg_api["test_url"]
-            self.API_URL_PROD = _cfg_api["prod_url"]
+            # img fileupload
+            self.IMG_LOCAL_DIR = os.getenv("COOK_IMG_LOCAL_DIR")
+            os.makedirs(self.IMG_LOCAL_DIR, exist_ok=True)
+            self.IMG_OSS_ANAME = os.getenv("COOK_IMG_OSS_ANAME")
+            self.IMG_OSS_ENDPOINT = os.getenv("COOK_IMG_OSS_ENDPOINT")
+            self.IMG_OSS_BUCKET = os.getenv("COOK_IMG_OSS_BUCKET")
             self.OSS_ACCESS_KEY_ID = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
-            self.OSS_ACCESS_KEY_SECRET = os.getenv("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
+            self.OSS_ACCESS_KEY_SECRET = os.getenv(
+                "ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET"
+            )
 
-            _cfg_log = config["log"]
-            self.LOG_LEVEL = _cfg_log["level"]
-            self.LOG_DIR = _cfg_log["log_dir"]
-            os.makedirs(self.LOG_DIR) if not os.path.exists(self.LOG_DIR) else None
-            self.LOG_OUT_LEVEL = _cfg_log["out_level"]
-            self.LOG_OUT_PATH = _cfg_log["out_path"]
-            self.LOG_ERR_LEVEL = _cfg_log["err_level"]
-            self.LOG_ERR_PATH = _cfg_log["err_path"]
+            # api
+            self.ENV = os.getenv("COOK_USE_API_ENV")
+            self.API_URL_TEST = os.getenv("API_URL_TEST")
+            self.API_URL_PROD = os.getenv("API_URL_PROD")
+            self.API_URL = (
+                self.API_URL_TEST if self.ENV == "test" else self.API_URL_PROD
+            )
+
+            # log
+            self.LOG_LEVEL = os.getenv("COOK_LOG_LEVEL", "DEBUG")
+            self.LOG_DIR = os.getenv("COOK_LOG_DIR")
+            os.makedirs(self.LOG_DIR, exist_ok=True)
+            self.LOG_OUT_LEVEL = os.getenv("COOK_LOG_OUT_LEVEL")
+            self.LOG_OUT_PATH = os.getenv("COOK_LOG_OUT_PATH")
+            self.LOG_ERR_LEVEL = os.getenv("COOK_LOG_ERR_LEVEL")
+            self.LOG_ERR_PATH = os.getenv("COOK_LOG_ERR_PATH")
 
             self.COOK_CONN_STR = (
                 f'mysql+pymysql://{os.getenv("COOK_DB_USERNAME")}:{os.getenv("COOK_DB_PASSWORD")}'
                 f'@{os.getenv("COOK_DB_HOST")}:3306/{os.getenv("COOK_DB_DATABASE")}'
             )
 
-        # 添加日志配置
+        # Add logging configuration
         self.setup_logging()
 
     def setup_logging(self):
-        # 创建一个日志格式器
         formatter = logging.Formatter(
             "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
         )
 
-        # 创建一个处理器，输出到指定的日志文件
+        # Create a handler to output to the specified log file
         out_handler = logging.FileHandler(self.LOG_OUT_PATH)
         out_handler.setLevel(self.LOG_OUT_LEVEL)
         out_handler.setFormatter(formatter)
 
-        # 创建一个处理器，输出错误日志到指定的文件
+        # Create a handler to output error logs to the specified file
         err_handler = logging.FileHandler(self.LOG_ERR_PATH)
         err_handler.setLevel(self.LOG_ERR_LEVEL)
         err_handler.setFormatter(formatter)
 
-        # 获取根日志记录器
+        # Get the root logger
         root_logger = logging.getLogger()
         root_logger.setLevel(self.LOG_LEVEL)
 
-        # 清除现有的处理器（如果有的话）
+        # Clear existing handlers (if any)
         root_logger.handlers = []
 
-        # 添加处理器到根日志记录器
+        # Add handlers to the root logger
         root_logger.addHandler(out_handler)
         root_logger.addHandler(err_handler)
 

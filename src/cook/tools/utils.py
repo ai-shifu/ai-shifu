@@ -337,8 +337,8 @@ def distribute_elements(btns, max_cols, min_cols):
 
 
 def load_scripts_and_system_role(
-    app_token=cfg.LARK_APP_TOKEN,
-    table_id=cfg.DEF_LARK_TABLE_ID,
+    app_token,
+    table_id,
     view_id=cfg.DEF_LARK_VIEW_ID,
 ):
     if "script_list" not in st.session_state:
@@ -370,8 +370,8 @@ def load_scripts_and_system_role(
 
 
 def load_scripts(
-    app_token=cfg.LARK_APP_TOKEN,
-    table_id=cfg.DEF_LARK_TABLE_ID,
+    app_token,
+    table_id,
     view_id=cfg.DEF_LARK_VIEW_ID,
 ):
     if "system_role" in st.session_state:

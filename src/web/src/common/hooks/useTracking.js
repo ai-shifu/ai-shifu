@@ -10,7 +10,7 @@ const USER_STATE_DICT = {
   '未注册': 'guest',
   '已注册': 'user',
   '已付费': 'member',
-}
+};
 export const useTracking = () => {
   const { frameLayout } = useUiLayoutStore((state) => state);
   const { userInfo } = useUserStore((state) => state);
@@ -20,8 +20,8 @@ export const useTracking = () => {
       user_type: userInfo?.state ? USER_STATE_DICT[userInfo.state] : 'guest',
       user_id: userInfo?.user_id || 0,
       device: frameLayout === FRAME_LAYOUT_MOBILE ? 'H5' : 'Web',
-    }
-  }, [frameLayout, userInfo?.state, userInfo?.user_id])
+    };
+  }, [frameLayout, userInfo?.state, userInfo?.user_id]);
 
   const trackEvent = useCallback(async (eventName, eventData) => {
     try {
@@ -29,10 +29,10 @@ export const useTracking = () => {
       const data = {
         ...eventData,
         ...basicData
-      }
+      };
       tracking(eventName, data);
     } catch { }
-  }, [getEventBasicData])
+  }, [getEventBasicData]);
 
 
   const trackTrailProgress = useCallback(async (scriptId) => {
@@ -49,7 +49,7 @@ export const useTracking = () => {
         progress_desc: scriptInfo.script_name,
       });
     } catch { }
-  }, [trackEvent])
+  }, [trackEvent]);
 
-  return { trackEvent, trackTrailProgress }
-}
+  return { trackEvent, trackTrailProgress };
+};

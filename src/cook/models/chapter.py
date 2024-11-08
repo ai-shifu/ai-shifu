@@ -36,9 +36,7 @@ class Chapter:
         return f"{self.name}  ({self.lark_table_id})"
 
 
-def load_chapters_from_api(
-    doc_id=cfg.LARK_APP_TOKEN, base_url=cfg.API_URL
-) -> tuple[list[Chapter], str]:
+def load_chapters_from_api(doc_id, base_url=cfg.API_URL) -> tuple[list[Chapter], str]:
     url = f"{base_url}/lesson/get_chatper_info"
     params = {"doc_id": doc_id}
 
@@ -119,43 +117,3 @@ def delete_chapter_from_api(table_id, course_id, lesson_no, base_url=cfg.API_URL
     else:
         print(f"Failed to delete data: {response.status_code}")
         streamlit.toast(f"删除失败，错误码: {response.status_code}", icon="🚨")
-
-
-if __name__ == "__main__":
-
-    # 从API获取章节信息
-    chapters = load_chapters_from_api(
-        doc_id="IjfsbaLaQah0Wts1VaDcq0ePnGe", base_url=cfg.API_URL_TEST
-    )
-    print(chapters)
-    print(len(chapters))
-    print(chapters[0], chapters[0].lesson_id)
-
-    # 从本地数据库获取
-    # chapters = load_chapters_from_sqlite()
-    #
-    # for chapter in chapters:
-    #     print(chapter.id, chapter.name, chapter.lark_table_id, chapter.lark_view_id, chapter.rank)
-    #
-    # chapters_df = DataFrame([chapter.__dict__ for chapter in chapters])
-    # print(chapters_df)
-
-    # # 测试新增章节
-    # update_chapter_from_api(
-    #     table_id='tblkkj1WaozcngwQ',
-    #     title='测试新增分支章节（index不连续）',
-    #     index='20',
-    #     lesson_type=405
-    # )
-
-    # # 测试新增正式章节
-    # update_chapter_from_api(
-    #     table_id='tbldoFfQAPZjFvzg',
-    #     title='测试新增正式章节（index不连续）',
-    #     index='23',
-    #     lesson_type=402
-    # )
-
-    # 测试删除章节
-    # delete_chapter_from_api('tblkkj1WaozcngwQ')
-    # delete_chapter_from_api('tblQhi1ZutfUhW2T')

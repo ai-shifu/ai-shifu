@@ -1,22 +1,33 @@
 services:
   ai-shifu-api:
     container_name: ai-shifu-api
+    # if you're in China, please use the following
+    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-api:latest
     image: aishifu/ai-shifu-api:latest
-    entrypoint: ["sh", "-c", "flask db upgrade && exec gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output"]
+    entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && exec gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output"]
     env_file:
       - ./.env
-    environment:
-      - MODE=api
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
   ai-shifu-web:
     container_name:  ai-shifu-web
+    # if you're in China, please use the following
+    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-web:latest
     image: aishifu/ai-shifu-web:latest
     env_file:
       - ./.env
     depends_on:
       - ai-shifu-api
+  ai-shifu-cook:
+    container_name: ai-shifu-cook
+    # if you're in China, please use the following
+    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-cook:latest
+    image: aishifu/ai-shifu-cook:latest
+    env_file:
+      - ./.env
+    volumes:
+      - ./cook_data:/data
   ai-shifu-nginx:
     container_name: ai-shifu-nginx
     image: nginx:latest
@@ -32,22 +43,18 @@ services:
   ai-shifu-mysql:
     container_name: ai-shifu-mysql
     environment:
-      - MYSQL_ROOT_PASSWORD=ai-shifu
-      - MYSQL_DATABASE=ai-shifu
+      MYSQL_ROOT_PASSWORD: ai-shifu
+      MYSQL_DATABASE: ai-shifu
     image: mysql:latest
     ports:
       - "3306:3306"
     volumes:
       - ./mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
   ai-shifu-redis:
     container_name: ai-shifu-redis
     image: redis:latest
     ports:
       - "6379:6379"
-    environment:
-      - REDIS_PASSWORD=ai-shifu
-      - REDIS_USER=root
     volumes:
       - ./redis_data:/data
-
-# en

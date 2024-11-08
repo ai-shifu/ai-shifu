@@ -4,7 +4,7 @@ import CourseSection from './CourseSection.jsx';
 import styles from './CourseCatalog.module.scss';
 import { memo, useContext, useCallback } from 'react';
 import ResetChapterButton from './ResetChapterButton.jsx';
-import { LESSON_STATUS } from 'constants/courseConstants.js';
+import { LESSON_STATUS_VALUE } from 'constants/courseConstants.js';
 
 export const CourseCatalog = ({
   id = 0,
@@ -45,7 +45,7 @@ export const CourseCatalog = ({
         <div className={styles.leftSection}>{name}</div>
         <div className={styles.rightSection}>
           {
-            (status === LESSON_STATUS.LEARNING || status === LESSON_STATUS.COMPLETED) &&
+            (status === LESSON_STATUS_VALUE.LEARNING || status === LESSON_STATUS_VALUE.COMPLETED) &&
             <ResetChapterButton
               onClick={onResetButtonClick}
               chapterId={id}
@@ -67,6 +67,7 @@ export const CourseCatalog = ({
               id={e.id}
               name={e.name}
               status={e.status}
+              status_value={e.status_value}
               selected={e.selected}
               canLearning={e.canLearning}
               onSelect={onLessonSelect}

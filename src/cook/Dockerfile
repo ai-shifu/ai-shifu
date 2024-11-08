@@ -1,7 +1,6 @@
-### 使用一个官方Python运行时作为父镜像
-FROM python:3.11
+FROM python:3.11 as base
 
-# 确保 /etc/apt/sources.list 存在并更改APT源为国内的镜像源
+# It is recommended to configure apt mirror sources within China.
 RUN if [ -f /etc/apt/sources.list ]; then \
     sed -i 's|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g' /etc/apt/sources.list; \
     sed -i 's|http://security.debian.org/debian-security|http://mirrors.aliyun.com/debian-security|g' /etc/apt/sources.list; \
@@ -13,24 +12,25 @@ RUN if [ -f /etc/apt/sources.list ]; then \
     echo "No sources.list found!"; \
     fi
 
-# 设置工作目录
+
 WORKDIR /app
 RUN pip install --upgrade pip
 
-# # 设置pip镜像源
+# It is recommended to configure pip mirror sources within China.
 # ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
 # ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
 
-# 安装依赖
+# Install dependencies
 COPY requirements.txt .
 RUN pip install -r requirements.txt
-
-
-# 复制当前目录内容到容器的/app内
 COPY . .
+COPY auth_config.example.yml auth_config.yml
 
-# 声明服务运行在5800端口
+FROM python:3.11-slim
+WORKDIR /app
+COPY --from=base /app /app
+COPY --from=base /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=base /usr/local/bin/streamlit /usr/local/bin/streamlit
+
 EXPOSE 8501
-
-# 启动streamlit服务
-CMD streamlit run Home.py
+CMD ["streamlit", "run", "Home.py","--server.port=8501","--server.address=0.0.0.0"]

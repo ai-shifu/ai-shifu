@@ -13,6 +13,12 @@ from models.course import (
 from tools.auth import login
 
 
+st.set_page_config(
+    page_title="My Account | Cook for AI-Shifu",
+    page_icon="🔐",
+)
+
+
 @st.dialog("✏️ Update Course")
 def edit_course(course: Series, user_name):
     with st.form("edit_row"):

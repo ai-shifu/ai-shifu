@@ -38,6 +38,7 @@ class NextAction(Enum):
     ShowPayQR = "显示 付款码"
     InputPhoneNum = "输入 手机号"
     InputVerifyCode = "输入 验证码"
+    ShowLoginReg = "显示 登录注册框"
     NoAction = "无"
 
 
@@ -203,12 +204,3 @@ def load_scripts_from_bitable(app_token, table_id, view_id) -> List[Script]:
             raise e
 
     return script_list
-
-
-if __name__ == "__main__":
-    from init import cfg
-
-    script_list = load_scripts_from_bitable(
-        cfg.LARK_APP_TOKEN, cfg.DEF_LARK_TABLE_ID, cfg.DEF_LARK_VIEW_ID
-    )
-    print(script_list)

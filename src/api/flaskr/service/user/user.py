@@ -4,10 +4,10 @@
 
 
 import uuid
-from flask import Flask
+from flask import Flask, current_app
 
 from ...common.config import get_config
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_error_with_args
 
 from .utils import generate_token
 from ...service.common.dtos import USER_STATE_UNTEGISTERED, UserInfo, UserToken
@@ -17,13 +17,19 @@ from ...api.wechat import get_wechat_access_token
 import oss2
 
 
-endpoint = "oss-cn-beijing.aliyuncs.com"
+endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
 
-ALI_API_ID = get_config("ALIBABA_CLOUD_ACCESS_KEY_ID")
-ALI_API_SECRET = get_config("ALIBABA_CLOUD_ACCESS_KEY_SECRET")
-base = "https://avtar.agiclass.cn"
-auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
-bucket = oss2.Bucket(auth, endpoint, "pillow-avtar")
+ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
+ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
+IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL")
+BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET")
+if not ALI_API_ID or not ALI_API_SECRET:
+    current_app.logger.warning(
+        "ALIBABA_CLOUD_ACCESS_KEY_ID or ALIBABA_CLOUD_ACCESS_KEY_SECRET not configured"
+    )
+else:
+    auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
+    bucket = oss2.Bucket(auth, endpoint, BUCKET_NAME)
 
 # generate temp user for anonymous user
 # author: yfge
@@ -165,28 +171,27 @@ def get_content_type(filename):
 
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
     with app.app_context():
+        if not current_app.config.get(
+            "ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None
+        ) or not current_app.config.get("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET", None):
+            raise_error_with_args(
+                "API.ALIBABA_CLOUD_NOT_CONFIGURED",
+                config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",
+            )
         user = User.query.filter(User.user_id == user_id).first()
         if user:
-            # 上传头像
             file_id = str(uuid.uuid4()).replace("-", "")
-            # 得到原有的头像文件名
             old_avatar = user.user_avatar
-            # 得到原有的头像文件名
             if old_avatar:
                 old_file_id = old_avatar.split("/")[-1]
-                bucket.delete_object(old_file_id)
-            app.logger.info(
-                "filename:"
-                + avatar.filename
-                + " file_size:"
-                + str(avatar.content_length)
-            )
+                if old_file_id and bucket.object_exists(old_file_id):
+                    bucket.delete_object(old_file_id)
             bucket.put_object(
                 file_id,
                 avatar,
                 headers={"Content-Type": get_content_type(avatar.filename)},
             )
-            url = base + "/" + file_id
+            url = IMAGE_BASE_URL + "/" + file_id
             user.user_avatar = url
             db.session.commit()
             return url

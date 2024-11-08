@@ -9,7 +9,11 @@ from flaskr.service.lesson.const import (
 )
 from flaskr.api.llm import invoke_llm
 from flaskr.service.common.models import AppException
-from flaskr.service.study.utils import generation_attend, get_fmt_prompt
+from flaskr.service.study.utils import (
+    generation_attend,
+    get_fmt_prompt,
+    get_model_setting,
+)
 
 from ...service.lesson.models import AILessonScript
 from ...service.order.models import AICourseLessonAttend
@@ -72,13 +76,14 @@ def generate_prompt_output(
         script_info.script_prompt,
         profile_array_str=script_info.script_profile,
     )
+    model_setting = get_model_setting(app, script_info)
     resp = invoke_llm(
         app,
         span,
-        model=script_info.script_model,
+        model=model_setting.model_name,
         stream=True,
         system=system_prompt,
-        temperature=script_info.script_temprature,
+        **model_setting.model_args,
         message=prompt,
     )
     response_text = ""

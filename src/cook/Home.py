@@ -2,13 +2,12 @@ import streamlit as st
 from streamlit_extras.add_vertical_space import add_vertical_space
 
 st.set_page_config(
-    page_title="Assistants Demo",
-    page_icon="🧬",
+    page_title="Cook for AI-Shifu",
+    page_icon="🧙‍♂️",
 )
 
 """
 # AI 师傅：课程制作中心
-> 请收藏该网址 https://cook.ai-shifu.com/
 """
 
 add_vertical_space(3)

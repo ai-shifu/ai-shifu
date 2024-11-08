@@ -7,6 +7,7 @@ import threading
 import socket
 from datetime import datetime
 import pytz
+import colorlog
 
 thread_local = threading.local()
 
@@ -48,6 +49,8 @@ def init_log(app: Flask) -> Flask:
 
         # request_id = getattr(thread_local, "X-Request-ID", uuid.uuid4().hex)
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
+        mode = request.headers.get("X-API-MODE", "api")
+        thread_local.mode = mode
         thread_local.request_id = request_id
         thread_local.url = request.path
         # try to get user ip from X-Forwarded-For header
@@ -61,47 +64,61 @@ def init_log(app: Flask) -> Flask:
 
     host_name = socket.gethostname()
 
-    # log_format = '%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu '+host_name+' %(client_ip)s %(url)s %(request_id)s %(message)s'
     log_format = (
         "%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu "
         + host_name
-        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(message)s"
+        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
     )
     formatter = RequestFormatter(log_format)
 
+    # color log format
+    color_log_format = (
+        "%(log_color)s%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu "
+        + host_name
+        + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
+    )
+    color_formatter = colorlog.ColoredFormatter(
+        color_log_format,
+        log_colors={
+            "DEBUG": "cyan",
+            "INFO": "green",
+            "WARNING": "yellow",
+            "ERROR": "red",
+            "CRITICAL": "bold_red",
+        },
+    )
     log_file = app.config.get("LOGGING_PATH", "logs/ai-sifu.log")
     log_dir = os.path.dirname(log_file)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    # split log by day
     file_handler = TimedRotatingFileHandler(
         app.config["LOGGING_PATH"], when="midnight", backupCount=7
     )
     file_handler.setFormatter(formatter)
-    # console log handler
     console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
+    console_handler.setFormatter(color_formatter)  # use color formatter
+
     if "gunicorn" in os.getenv("SERVER_SOFTWARE", ""):
         gunicorn_logger = logging.getLogger("gunicorn.info")
         if gunicorn_logger.handlers:
             for handler in gunicorn_logger.handlers:
                 handler.setFormatter(formatter)
-            app.logger.handlers = (
-                gunicorn_logger.handlers.copy()
-            )  # use gunicorn's handlers
+            app.logger.handlers = gunicorn_logger.handlers.copy()
         else:
             app.logger.handlers = []
-            app.logger.addHandler(
-                file_handler
-            )  # add file handler only if no gunicorn handlers
-        app.logger.addHandler(console_handler)  # always add console handler
+            app.logger.addHandler(file_handler)
+        app.logger.addHandler(console_handler)
         app.logger.setLevel(gunicorn_logger.level)
     else:
-        app.logger.handlers = []  # clear default handlers
-        app.logger.addHandler(file_handler)  # add file handler if not gunicorn
-        app.logger.addHandler(console_handler)  # always add console handler
+        app.logger.handlers = []
+        app.logger.addHandler(file_handler)
+        app.logger.addHandler(console_handler)
     app.logger.setLevel(logging.INFO)
-    app.logger.propagate = False  # stop propagation
+    app.logger.propagate = False
     app.logger.setLevel(logging.INFO)
     app.logger.error("Logging setup complete")
     return app
+
+
+def get_mode():
+    return getattr(thread_local, "mode", None)

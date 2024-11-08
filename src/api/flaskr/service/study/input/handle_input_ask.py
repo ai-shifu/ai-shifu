@@ -70,15 +70,19 @@ def handle_input_ask(
     #
     # the new logic
     messages = []
+    # replace the { } with the actual content
+    input = input.replace("{", "{{").replace("}", "}}")
     system_prompt = get_lesson_system(app, script_info.lesson_id)
     system_message = system_prompt if system_prompt else ""
-    system_message = system_message + "\n 之前的会话历史为:\n"
+    # format the system message
+    system_message = get_fmt_prompt(app, user_id, system_message)
+    system_message = system_message if system_message else "" + "\n 之前的会话历史为:\n"
     for script in history_scripts:
         if script.script_role == ROLE_STUDENT:
             system_message = system_message + f"学员: {script.script_content}\n"
         elif script.script_role == ROLE_TEACHER:
             system_message = system_message + f"老师: {script.script_content}\n"
-    system_message = get_fmt_prompt(app, user_id, system_message)
+
     messages.append({"role": "system", "content": system_message})
     messages.append(
         {
