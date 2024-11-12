@@ -46,6 +46,7 @@ docker compose up -d
 Then visit `http://localhost:8080`.
 
 ### Building from source code
+#### Building docker image
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -56,3 +57,8 @@ cp .env.example .env
 ```
 
 Then visit `http://localhost:8080`.
+
+
+#### Building and configuring from source code directly
+[Install Manual](INSTALL_MANUAL.md)
+
