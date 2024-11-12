@@ -7,7 +7,7 @@ $ ls
 api  cook web
 ```
 AI Shifu is composed by backend in api and frontend in web. and the cook is the editor for the course.
-So, we can 
+So, we can
 
 ### Tools
 - Python 3.11
@@ -30,7 +30,7 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 ### Step 3: Configure environment variables
 
 ```bash
-cp docker/.env.example .env 
+cp docker/.env.example .env
 ```
 
 ### Step 4: Configure .env
@@ -156,7 +156,7 @@ COOK_LOG_ERR_PATH="/var/log/ai-shifu-cook.err.log"
 
 #### Step 5.1: Run the api
 ```bash
-cd api 
+cd api
 pip install -r requirements.txt
 flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output
