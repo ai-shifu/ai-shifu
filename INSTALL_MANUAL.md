@@ -28,9 +28,9 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 
 
 ### Step 3: Configure environment variables
-
+[More Info](https://github.com/ai-shifu/ai-shifu-docs/blob/main/zh_CN/guides/environment-variables.md)
 ```bash
-cp docker/.env.example .env
+cp docker/.env.example .env  # guess this is under the root folder
 ```
 
 ### Step 4: Configure .env
@@ -153,10 +153,12 @@ COOK_LOG_ERR_PATH="/var/log/ai-shifu-cook.err.log"
 ```
 
 ### Step 5: Run the application
+* Make sure .env is under every folder
 
 #### Step 5.1: Run the api
 ```bash
 cd api
+cp ../.env .env
 pip install -r requirements.txt
 flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output
@@ -165,14 +167,36 @@ gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access
 #### Step 5.2: Run the web
 ```bash
 cd web
-npm install
-npm run start:dev
+cp ../.env .env
+
+npm install  # or use pnpm install
+npm run start:dev # or use pnpm run build 
 ```
 
 #### Step 5.3: Run the cook
+1. Copy .env
 ```bash
 cd cook
+cp ../.env .env
+```
+
+2. Install requirements
+```bash
 pip install -r requirements.txt
+```
+
+3. Edit auth_config.yml 
+```bash
+cp auth_config.example.yml auth_config.yml
+```
+4. Init database
+```bash 
+# pay attention to the database name should be the same as the one in .env
+mysql -u user -h xxxx -p database_name < ../../docker/init.sql  
+```
+
+5. Run the cook
+```bash 
 streamlit  run Home.py
 ```
 
