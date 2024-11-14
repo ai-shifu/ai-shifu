@@ -28,6 +28,7 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 
 
 ### Step 3: Configure environment variables
+
 [More Info](https://github.com/ai-shifu/ai-shifu-docs/blob/main/zh_CN/guides/environment-variables.md)
 ```bash
 cp docker/.env.example .env  # guess this is under the root folder
@@ -159,6 +160,7 @@ COOK_LOG_ERR_PATH="/var/log/ai-shifu-cook.err.log"
 ```bash
 cd api
 cp ../.env .env
+
 pip install -r requirements.txt
 flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output
