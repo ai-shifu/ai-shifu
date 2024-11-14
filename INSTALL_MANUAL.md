@@ -172,7 +172,7 @@ cd web
 cp ../.env .env
 
 npm install  # or use pnpm install
-npm run start:dev # or use pnpm run build 
+npm run start:dev # or use pnpm run build
 ```
 
 #### Step 5.3: Run the cook
@@ -187,18 +187,18 @@ cp ../.env .env
 pip install -r requirements.txt
 ```
 
-3. Edit auth_config.yml 
+3. Edit auth_config.yml
 ```bash
 cp auth_config.example.yml auth_config.yml
 ```
 4. Init database
-```bash 
+```bash
 # pay attention to the database name should be the same as the one in .env
-mysql -u user -h xxxx -p database_name < ../../docker/init.sql  
+mysql -u user -h xxxx -p database_name < ../../docker/init.sql
 ```
 
 5. Run the cook
-```bash 
+```bash
 streamlit  run Home.py
 ```
 
