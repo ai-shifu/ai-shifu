@@ -6,6 +6,44 @@ from ...dao import db
 from ..user.models import User
 from ...i18n import _
 import datetime
+from ..check_risk.funcs import add_risk_control_result
+from flaskr.api.check.edun import (
+    EDUN_RESULT_SUGGESTION_PASS,
+    EDUN_RESULT_SUGGESTION_REJECT,
+    check_text as check_text,
+)
+from flaskr.util.uuid import generate_id
+from flaskr.service.common import raise_error
+
+
+def check_text_by_edun(
+    app: Flask,
+    user_id: str,
+    input: str,
+):
+
+    check_id = generate_id(app)
+    res = check_text(app, check_id, input, user_id)
+    result = (
+        res.get("result", {})
+        .get("antispam", {})
+        .get("suggestion", EDUN_RESULT_SUGGESTION_PASS)
+    )
+
+    add_risk_control_result(
+        app,
+        check_id,
+        user_id,
+        input,
+        "yidun",
+        result,
+        str(res),
+        1 if result == EDUN_RESULT_SUGGESTION_PASS else 0,
+        "check_text",
+    )
+    if result == EDUN_RESULT_SUGGESTION_REJECT:
+        return False
+    return True
 
 
 class UserProfileDTO:
@@ -255,6 +293,14 @@ def update_user_profile_with_lable(
     PROFILES_LABLES = get_profile_labels()
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
+        text_to_check = ""
+        for profile in profiles:
+            if not profile.get("items", None):
+                text_to_check = (
+                    text_to_check + profile["key"] + ":" + str(profile["value"]) + "\n"
+                )
+        if not check_text_by_edun(app, user_id, text_to_check):
+            raise_error("COMMON.TEXT_NOT_ALLOWED")
         user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
         for profile in profiles:
             app.logger.info(

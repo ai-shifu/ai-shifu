@@ -69,6 +69,7 @@ ERROR_CODE = {
     "FILE.FILE_SIZE_EXCEED": 6003,
     # params error
     "COMMON.PARAMS_ERROR": 2001,
+    "COMMON.TEXT_NOT_ALLOWED": 2002,
     # Admin errors
     "ADMIN.VIEW_NOT_FOUND": 7001,
     # LLM errors
