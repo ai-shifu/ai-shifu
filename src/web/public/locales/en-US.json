@@ -4,10 +4,9 @@
     "expandCollapse": "Expand/Collapse",
     "waitingForCompletion": "Coming Soon",
     "companyName": "Beijing Chanchan Shanmu Technology Co., Ltd.",
-    "companyAddress": "Room 163,19th Floor,Wangjing Donghuang Building,Chaoyang District,Beijing",
+    "companyAddress": "Room 163, 19th Floor, Donghuang Building, Wangjing, Chaoyang District, Beijing",
     "ok": "OK",
-    "settings": "Settings",
-    "networkError": "Unable to connect to the server, please check the network settings"
+    "settings": "Settings"
   },
   "user": {
     "loginMainButton": "Login/Register",
@@ -18,12 +17,10 @@
     "logout": "Logout",
     "loginTitle": "Login",
     "loginFeedback": "Submit feedback",
-    "msgHaveRead": "I have read and agreed to ",
-    "msgAggrement": "The Service Agreement",
-    "msgAnd": " and ",
-    "msgPrivacyPolicy": "The Privacy Policy",
-    "msgToAgree": "Please check to agree to the terms",
-    "msgLoginProblem": "Encountering login problems",
+    "msgHaveRead": "I have read and agreed to  ",
+    "msgAggrement": "Service Agreement & Privacy Policy",
+    "msgToAgree": "Please check to agree to the terms ",
+    "msgLoginProblem": "Encountering login problems ",
     "msgLoginSuccess": "Login successful",
     "msgToInputPhone": "Enter phone number",
     "mstPhoneReg": "Invalid phone number format",
@@ -107,11 +104,11 @@
       "resetConfirmContent": "Resetting will clear your current learning data. Confirm reset?"
     },
     "lessonStatus": {
-      "notStart": "Not Start",
-      "prepareLearning": "Ready",
+      "notStart": "Not Started",
+      "prepareLearning": "Ready to Learn",
       "locked": "Locked",
-      "learning": "In Process",
-      "completed": "Done"
+      "learning": "In Progress",
+      "completed": "Completed"
     }
   }
 }

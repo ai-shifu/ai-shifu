@@ -156,10 +156,7 @@ export const LoginModal = ({
                 className={classNames(styles.mobile, styles.sfInput)}
                 placeholder={t('user.msgToInputPhone')}
                 maxLength={11}
-                onPressEnter={(e) => {
-                  e.stopPropagation();
-                  onMobileFormOkClick();
-                }}
+                onPressEnter={onMobileFormOkClick}
               />
             </Form.Item>
           </Form>
@@ -181,10 +178,7 @@ export const LoginModal = ({
                 className={classNames(styles.smsCode, styles.sfInput)}
                 maxLength={4}
                 placeholder={t('user.msgToInputCode')}
-                onPressEnter={(e) => {
-                  e.stopPropagation();
-                  onCodeFormkOkClick();
-                }}
+                onPressEnter={onCodeFormkOkClick}
               />
             </Form.Item>
             <Button
@@ -207,7 +201,6 @@ export const LoginModal = ({
                 {
                   required: true,
                   message: t('user.msgToInputCode4'),
-                  pattern: /^[a-zA-Z0-9]{0,4}$/,
                 },
               ]}
             >
@@ -216,10 +209,7 @@ export const LoginModal = ({
                 className={classNames(styles.verifyCode, styles.sfInput)}
                 maxLength={4}
                 placeholder={t('user.msgToInputCode4')}
-                onPressEnter={(e) => {
-                  e.stopPropagation();
-                  onVerifyCodeFormOkClick();
-                }}
+                onPressEnter={onVerifyCodeFormOkClick}
               />
             </Form.Item>
             <img
@@ -244,22 +234,14 @@ export const LoginModal = ({
             onChange={(e) => setAggrement(e.target.checked)}
           >
             {t('user.msgHaveRead')}
-            <span
+            <a
               className={styles.link}
+              href="x"
+              target="_blank"
+              rel="noreferrer"
             >
-              <a href="/useraggrement" target="_blank" rel="noreferrer">
-                {t('user.msgAggrement')}
-              </a>
-              {t('user.msgAnd')}
-              <a
-                className={styles.link}
-                href="/privacypolicy"
-                target="_blank"
-                rel="noreferrer"
-              >
-                {t('user.msgPrivacyPolicy')}
-              </a>
-            </span>
+              {t('user.msgAggrement')}
+            </a>
           </Checkbox>
         </div>
         <div className={styles.feedback}>
