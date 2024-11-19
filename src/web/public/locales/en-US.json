@@ -4,9 +4,10 @@
     "expandCollapse": "Expand/Collapse",
     "waitingForCompletion": "Coming Soon",
     "companyName": "Beijing Chanchan Shanmu Technology Co., Ltd.",
-    "companyAddress": "Room 163, 19th Floor, Donghuang Building, Wangjing, Chaoyang District, Beijing",
+    "companyAddress": "Room 163,19th Floor,Wangjing Donghuang Building,Chaoyang District,Beijing",
     "ok": "OK",
-    "settings": "Settings"
+    "settings": "Settings",
+    "networkError": "Unable to connect to the server, please check the network settings"
   },
   "user": {
     "loginMainButton": "Login/Register",
@@ -104,11 +105,11 @@
       "resetConfirmContent": "Resetting will clear your current learning data. Confirm reset?"
     },
     "lessonStatus": {
-      "notStart": "Not Started",
-      "prepareLearning": "Ready to Learn",
+      "notStart": "Not Start",
+      "prepareLearning": "Ready",
       "locked": "Locked",
-      "learning": "In Progress",
-      "completed": "Completed"
+      "learning": "In Process",
+      "completed": "Done"
     }
   }
 }
