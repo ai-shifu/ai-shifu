@@ -424,10 +424,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                             attend.course_id = buy_record.course_id
                             attend.lesson_id = lesson.lesson_id
                             attend.user_id = buy_record.user_id
-                            if lesson.lesson_no in ["01", "0101"]:
-                                attend.status = ATTEND_STATUS_NOT_STARTED
-                            else:
-                                attend.status = ATTEND_STATUS_LOCKED
+                            attend.status = ATTEND_STATUS_LOCKED
                             db.session.add(attend)
                         db.session.commit()
                         send_order_feishu(app, buy_record.record_id)
@@ -483,10 +480,7 @@ def success_buy_record(app: Flask, record_id: str):
                 attend.course_id = buy_record.course_id
                 attend.lesson_id = lesson.lesson_id
                 attend.user_id = buy_record.user_id
-                if lesson.lesson_no in ["01", "0101"]:
-                    attend.status = ATTEND_STATUS_NOT_STARTED
-                else:
-                    attend.status = ATTEND_STATUS_LOCKED
+                attend.status = ATTEND_STATUS_LOCKED
                 db.session.add(attend)
             db.session.commit()
             send_order_feishu(app, buy_record.record_id)
@@ -540,7 +534,6 @@ def init_trial_lesson(
             attend.status = ATTEND_STATUS_NOT_STARTED
         else:
             attend.status = ATTEND_STATUS_LOCKED
-
         db.session.add(attend)
         if lesson.is_final() and attend.status == ATTEND_STATUS_NOT_STARTED:
             response.append(
@@ -638,10 +631,7 @@ def fix_attend_info(app: Flask, user_id: str, course_id: str):
             attend.course_id = course_id
             attend.lesson_id = lesson.lesson_id
             attend.user_id = user_id
-            if lesson.lesson_no in ["01", "0101"]:
-                attend.status = ATTEND_STATUS_NOT_STARTED
-            else:
-                attend.status = ATTEND_STATUS_LOCKED
+            attend.status = ATTEND_STATUS_LOCKED
             fix_lessons.append(
                 AICourseLessonAttendDTO(
                     attend.attend_id,
