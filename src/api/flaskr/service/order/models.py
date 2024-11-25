@@ -53,6 +53,7 @@ class AICourseLessonAttend(db.Model):
     attend_id = Column(String(36), nullable=False, default="", comment="Attend UUID")
     lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
     course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
+    lesson_no = Column(String(36), nullable=False, default="", comment="Lesson no")
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     status = Column(
         Integer,

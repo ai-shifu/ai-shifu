@@ -64,6 +64,7 @@ def get_lesson_tree_to_study(
     app: Flask, user_id: str, course_id: str = None
 ) -> AICourseDTO:
     with app.app_context():
+        app.logger.info("user_id:" + user_id)
         attend_status_values = get_attend_status_values()
         if course_id:
             course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
@@ -81,13 +82,11 @@ def get_lesson_tree_to_study(
         ).first()
         if not buy_record:
             app.logger.info("no buy record found")
-            # no order found
-            # generate trial lesson
             init_trial_lesson(app, user_id, course_id)
         lessons = AILesson.query.filter(
             AILesson.course_id == course_id,
             AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-            AILesson.status == 1,
+            # AILesson.status == 1,
         ).all()
         lessons = sorted(lessons, key=lambda x: (len(x.lesson_no), x.lesson_no))
         attend_infos = AICourseLessonAttend.query.filter(
@@ -98,8 +97,22 @@ def get_lesson_tree_to_study(
         attend_infos_map = {i.lesson_id: i for i in attend_infos}
         lessonInfos = []
         lesson_dict = {}
-        for lesson in lessons:
+        for lesson in [lesson for lesson in lessons if lesson.status == 1]:
             attend_info = attend_infos_map.get(lesson.lesson_id, None)
+            if attend_info is None or attend_info.status == ATTEND_STATUS_LOCKED:
+                lesson_no = lesson.lesson_no
+                history_lessons = [
+                    i
+                    for i in lessons
+                    if i.lesson_no == lesson_no and i.lesson_id != lesson.lesson_id
+                ]
+                if len(history_lessons) > 0:
+                    sorted_history_lessons = sorted(
+                        history_lessons, key=lambda x: x.id, reverse=True
+                    )
+                    attend_info = attend_infos_map.get(
+                        sorted_history_lessons[0].lesson_id, None
+                    )
             status = attend_info.status if attend_info else ATTEND_STATUS_LOCKED
             if status == ATTEND_STATUS_BRANCH:
                 status = ATTEND_STATUS_IN_PROGRESS
@@ -145,10 +158,10 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         if len(lesson_info.lesson_no) <= 2:
             lesson_infos = AILesson.query.filter(
                 AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
-                AILesson.status == 1,
+                # AILesson.status == 1,
+                AILesson.course_id == lesson_info.course_id,
             ).all()
             lesson_ids = [lesson.lesson_id for lesson in lesson_infos]
-
         attend_infos = (
             AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.user_id == user_id,

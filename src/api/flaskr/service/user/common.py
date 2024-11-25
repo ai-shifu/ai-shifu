@@ -102,6 +102,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 user_id = jwt.decode(
                     token, app.config["SECRET_KEY"], algorithms=["HS256"]
                 )["user_id"]
+                app.logger.info("user_id:" + user_id)
 
             app.logger.info("user_id:" + user_id)
             redis_token = redis.get(app.config["REDIS_KEY_PRRFIX_USER"] + user_id)
