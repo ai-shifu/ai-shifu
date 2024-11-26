@@ -424,6 +424,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                             attend.course_id = buy_record.course_id
                             attend.lesson_id = lesson.lesson_id
                             attend.user_id = buy_record.user_id
+                            attend.lesson_no = lesson.lesson_no
                             attend.status = ATTEND_STATUS_LOCKED
                             db.session.add(attend)
                         db.session.commit()
@@ -480,6 +481,7 @@ def success_buy_record(app: Flask, record_id: str):
                 attend.course_id = buy_record.course_id
                 attend.lesson_id = lesson.lesson_id
                 attend.user_id = buy_record.user_id
+                attend.lesson_no = lesson.lesson_no
                 attend.status = ATTEND_STATUS_LOCKED
                 db.session.add(attend)
             db.session.commit()
@@ -632,6 +634,7 @@ def fix_attend_info(app: Flask, user_id: str, course_id: str):
             attend.lesson_id = lesson.lesson_id
             attend.user_id = user_id
             attend.status = ATTEND_STATUS_LOCKED
+            attend.lesson_no = lesson.lesson_no
             fix_lessons.append(
                 AICourseLessonAttendDTO(
                     attend.attend_id,

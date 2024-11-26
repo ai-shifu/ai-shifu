@@ -75,64 +75,118 @@ def get_lesson_tree_to_study(
             if not course_info:
                 raise_error("LESSON.HAS_NOT_LESSON")
             course_id = course_info.course_id
-
-        # check order of course
         buy_record = AICourseBuyRecord.query.filter_by(
             user_id=user_id, course_id=course_id
         ).first()
         if not buy_record:
-            app.logger.info("no buy record found")
             init_trial_lesson(app, user_id, course_id)
         lessons = AILesson.query.filter(
             AILesson.course_id == course_id,
             AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-            # AILesson.status == 1,
         ).all()
         lessons = sorted(lessons, key=lambda x: (len(x.lesson_no), x.lesson_no))
-        attend_infos = AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_id,
-            AICourseLessonAttend.course_id == course_id,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-        ).all()
-        attend_infos_map = {i.lesson_id: i for i in attend_infos}
+        attend_infos = (
+            AICourseLessonAttend.query.filter(
+                AICourseLessonAttend.user_id == user_id,
+                AICourseLessonAttend.course_id == course_id,
+                AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+            )
+            .order_by(AICourseLessonAttend.id.desc())
+            .all()
+        )
+        lesson_map = {i.lesson_id: i for i in lessons}
+        attend_map = {i.lesson_id: i for i in attend_infos}
         lessonInfos = []
         lesson_dict = {}
-        for lesson in [lesson for lesson in lessons if lesson.status == 1]:
-            attend_info = attend_infos_map.get(lesson.lesson_id, None)
-            if attend_info is None or attend_info.status == ATTEND_STATUS_LOCKED:
-                lesson_no = lesson.lesson_no
-                history_lessons = [
-                    i
-                    for i in lessons
-                    if i.lesson_no == lesson_no and i.lesson_id != lesson.lesson_id
-                ]
-                if len(history_lessons) > 0:
-                    sorted_history_lessons = sorted(
-                        history_lessons, key=lambda x: x.id, reverse=True
+
+        # get the newest lesson info
+        for lesson in sorted(
+            [lesson for lesson in lessons if lesson.status == 1],
+            key=lambda x: (len(x.lesson_no), x.lesson_no),
+        ):
+            if lesson_dict.get(lesson.lesson_no, None) is None:
+                attend_info = attend_map.get(lesson.lesson_id, None)
+                status = attend_info.status if attend_info else ATTEND_STATUS_LOCKED
+                lesson_dict[lesson.lesson_no] = AILessonAttendDTO(
+                    lesson.lesson_no,
+                    lesson.lesson_name,
+                    lesson.lesson_id,
+                    attend_status_values[status],
+                    status,
+                    [],
+                    unique_id=lesson.lesson_feishu_id,
+                )
+                lesson_dict[lesson.lesson_no].updated = False
+        # get the attend info
+
+        # chapter_infos_map = {x.unique_id: x for x in lessonInfos if len(x.lesson_no) == 2}
+        for key in lesson_dict:
+            if len(lesson_dict[key].lesson_no) == 2:
+                lessonInfos.append(lesson_dict[key])
+            else:
+                parent_no = key[:-2]
+                if parent_no in lesson_dict:
+                    lesson_dict[parent_no].children.append(lesson_dict[key])
+                    lesson_dict[parent_no].updated = (
+                        lesson_dict[parent_no].updated or lesson_dict[key].updated
                     )
-                    attend_info = attend_infos_map.get(
-                        sorted_history_lessons[0].lesson_id, None
-                    )
-            status = attend_info.status if attend_info else ATTEND_STATUS_LOCKED
+        for lesson in lessonInfos:
+            lesson.children = sorted(
+                lesson.children, key=lambda x: (len(x.lesson_no), x.lesson_no)
+            )
+        lessonInfos = sorted(lessonInfos, key=lambda x: (len(x.lesson_no), x.lesson_no))
+        for attend_info in attend_infos:
+            lesson = lesson_map.get(attend_info.lesson_id, None)
+            if lesson is None or lesson.status == 1:
+                continue
+            status = attend_info.status
             if status == ATTEND_STATUS_BRANCH:
                 status = ATTEND_STATUS_IN_PROGRESS
-            status_str = attend_status_values[status]
-            lessonInfo = AILessonAttendDTO(
-                lesson.lesson_no,
-                lesson.lesson_name,
-                lesson.lesson_id,
-                status_str,
-                status,
-                [],
-            )
-            lesson_dict[lessonInfo.lesson_no] = lessonInfo
-            if len(lessonInfo.lesson_no) == 2:
-                lessonInfos.append(lessonInfo)
-            else:
-                # get parent lesson no
-                parent_no = lessonInfo.lesson_no[:-2]
-                if parent_no in lesson_dict:
-                    lesson_dict[parent_no].children.append(lessonInfo)
+            if status != ATTEND_STATUS_LOCKED:
+                for lesson_index, lessonInfo in enumerate(lessonInfos):
+                    if lessonInfo.unique_id == lesson.lesson_feishu_id:
+                        if len(lesson.lesson_no) > 2:
+                            for i, child in enumerate(lessonInfo.children):
+                                if (
+                                    child.lesson_no[-2:] == lesson.lesson_no[-2:]
+                                    and child.lesson_id != attend_info.lesson_id
+                                ):
+                                    child.lesson_id = attend_info.lesson_id
+                                    child.status_value = status
+                                    child.status = attend_status_values[status]
+                                    child.updated = True
+                                    lessonInfo.children[i] = child
+                                    lessonInfo.updated = True
+                                    lessonInfos[lesson_index] = lessonInfo
+                                    break
+
+                        else:
+                            lessonInfo.lesson_id = attend_info.lesson_id
+                            lessonInfo.status_value = status
+                            lessonInfo.status = attend_status_values[status]
+                            lessonInfo.updated = True
+                            lessonInfos[lesson_index] = lessonInfo
+        for lesson_index, lessonInfo in enumerate(lessonInfos):
+            is_completed = True
+            for i, child in enumerate(lessonInfo.children):
+                if child.status_value == ATTEND_STATUS_BRANCH:
+                    child.status_value = ATTEND_STATUS_IN_PROGRESS
+                    child.status = attend_status_values[ATTEND_STATUS_IN_PROGRESS]
+                    lessonInfo.children[i] = child
+                    lessonInfo.updated = True
+                    lessonInfos[lesson_index] = lessonInfo
+                if child.status_value == ATTEND_STATUS_IN_PROGRESS:
+                    lessonInfo.status_value = ATTEND_STATUS_IN_PROGRESS
+                    lessonInfo.status = attend_status_values[ATTEND_STATUS_IN_PROGRESS]
+                    lessonInfos[lesson_index] = lessonInfo
+                is_completed = (
+                    is_completed and child.status_value == ATTEND_STATUS_COMPLETED
+                )
+            if is_completed:
+                lessonInfo.status_value = ATTEND_STATUS_COMPLETED
+                lessonInfo.status = attend_status_values[ATTEND_STATUS_COMPLETED]
+                lessonInfos[lesson_index] = lessonInfo
+
         ret = AICourseDTO(
             course_id=course_info.course_id,
             course_name=course_info.course_name,
@@ -140,9 +194,6 @@ def get_lesson_tree_to_study(
             lessons=lessonInfos,
         )
         return ret
-
-
-# 获取学习记录
 
 
 def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
@@ -421,17 +472,13 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         if len(lesson_no) > 2:
             raise_error("LESSON.LESSON_CANNOT_BE_RESET")
         # query the lesson tree
+        # get all the lessons
         lessons = AILesson.query.filter(
             AILesson.lesson_no.like(lesson_no + "%"),
-            AILesson.status == 1,
+            # AILesson.status == 1,
             AILesson.course_id == course_id,
         ).all()
-        # lessons = [lesson_info] + lessons
         lesson_ids = [lesson.lesson_id for lesson in lessons]
-        lesson_nos = [lesson.lesson_no for lesson in lessons]
-        # query the attend info
-        app.logger.info("lesson_ids to reset:{}".format(lesson_ids))
-        app.logger.info("lesson_nos to reset:{}".format(lesson_nos))
         attend_infos = AICourseLessonAttend.query.filter(
             AICourseLessonAttend.user_id == user_id,
             AICourseLessonAttend.lesson_id.in_(lesson_ids),
@@ -441,11 +488,8 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         # reset the attend info
         for attend_info in attend_infos:
             attend_info.status = ATTEND_STATUS_RESET
-        app.logger.info(
-            "attend_infos to reset:{}".format([i.attend_id for i in attend_infos])
-        )
-        # insert the new attend info
-        for lesson in lessons:
+        # insert the new attend info for the lessons that are available
+        for lesson in [lesson for lesson in lessons if lesson.status == 1]:
             attend_info = AICourseLessonAttend(
                 user_id=user_id,
                 lesson_id=lesson.lesson_id,
@@ -454,13 +498,10 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
                 script_index=0,
             )
             attend_info.attend_id = generate_id(app)
-            # first lesson is in available status
             if lesson.lesson_no == lesson_no:
                 attend_info.status = ATTEND_STATUS_NOT_STARTED
             if lesson.lesson_no == lesson_no + "01":
                 attend_info.status = ATTEND_STATUS_NOT_STARTED
             db.session.add(attend_info)
-        app.logger.info("lesson_info:{}".format(lesson_info))
-        app.logger.info("user_id:{}".format(user_id))
         db.session.commit()
         return True

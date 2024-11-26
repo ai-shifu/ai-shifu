@@ -76,6 +76,7 @@ def handle_input_continue(
                             next_attend.course_id = next_lesson.course_id
                             next_attend.lesson_id = next_lesson.lesson_id
                             next_attend.attend_id = generate_id(app)
+                            next_attend.lesson_no = next_lesson.lesson_no
                             db.session.add(next_attend)
                         if next_attend:
                             assoation = AICourseAttendAsssotion.query.filter(

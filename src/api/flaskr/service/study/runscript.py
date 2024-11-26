@@ -83,7 +83,6 @@ def run_script_inner(
             else:
                 lesson_info = AILesson.query.filter(
                     AILesson.lesson_id == lesson_id,
-                    AILesson.status == 1,
                 ).first()
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
@@ -101,15 +100,16 @@ def run_script_inner(
                 ).first()
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
+                # return the teacher avator
                 yield make_script_dto(
                     "teacher_avator", course_info.course_teacher_avator, ""
                 )
+
                 parent_no = lesson_info.lesson_no
                 if len(parent_no) >= 2:
                     parent_no = parent_no[:-2]
                 lessons = AILesson.query.filter(
                     AILesson.lesson_no.like(parent_no + "__"),
-                    AILesson.status == 1,
                     AILesson.course_id == course_id,
                 ).all()
                 app.logger.info(
@@ -118,6 +118,7 @@ def run_script_inner(
                     )
                 )
                 lesson_ids = [lesson.lesson_id for lesson in lessons]
+                # the attend info is the first lesson that is not reset
                 attend_info = AICourseLessonAttend.query.filter(
                     AICourseLessonAttend.user_id == user_id,
                     AICourseLessonAttend.course_id == course_id,
@@ -132,7 +133,7 @@ def run_script_inner(
                 ).first()
 
                 if not attend_info:
-
+                    app.logger.info("found no attend_info reinit")
                     lessons.sort(key=lambda x: x.lesson_no)
                     lesson_id = lessons[-1].lesson_id
                     attend_info = AICourseLessonAttend.query.filter(
@@ -161,7 +162,6 @@ def run_script_inner(
                         attend_id = attend_info.attend_id
                     else:
                         attend_id = attend_info.attend_id
-
                     attends = update_attend_lesson_info(app, attend_id)
                     for attend_update in attends:
                         if len(attend_update.lesson_no) > 2:
@@ -194,13 +194,13 @@ def run_script_inner(
             trace_args["user_id"] = user_id
             trace_args["session_id"] = attend.attend_id
             trace_args["input"] = input
-            trace_args["name"] = "ai-python"
+            trace_args["name"] = course_info.course_name
             trace = langfuse.trace(**trace_args)
 
             trace_args["output"] = ""
             next = 0
             is_first_add = False
-            # 如果有用户输入,就得到当前这一条,否则得到下一条
+            # get the script info and the attend updates
             script_info, attend_updates, is_first_add = get_script(
                 app, attend_id=attend.attend_id, next=next
             )

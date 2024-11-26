@@ -37,6 +37,7 @@ class AICourseLessonAttendScriptDTO:
     script_role: str
     script_content: str
     status: str
+    has_attend: bool
 
     def __init__(
         self,
@@ -91,6 +92,8 @@ class AILessonAttendDTO:
         status,
         status_value,
         children=None,
+        updated=False,
+        unique_id=None,
     ) -> None:
         self.lesson_no = lesson_no
         self.lesson_name = lesson_name
@@ -98,6 +101,8 @@ class AILessonAttendDTO:
         self.children = children
         self.status = status
         self.status_value = status_value
+        self.updated = updated
+        self.unique_id = unique_id
 
     def __json__(self):
         return {
@@ -107,6 +112,7 @@ class AILessonAttendDTO:
             "status": self.status,
             "status_value": self.status_value,
             "children": self.children,
+            "updated": self.updated,
         }
 
 
@@ -122,11 +128,13 @@ class AICourseDTO:
         course_name: str,
         teach_avator: str,
         lessons: List[AILessonAttendDTO],
+        updated: bool = False,
     ) -> None:
         self.course_id = course_id
         self.course_name = course_name
         self.teach_avator = teach_avator
         self.lessons = lessons
+        self.updated = updated
 
     def __json__(self):
         return {
@@ -134,6 +142,7 @@ class AICourseDTO:
             "course_name": self.course_name,
             "teach_avator": self.teach_avator,
             "lessons": self.lessons,
+            "updated": self.updated,
         }
 
 
