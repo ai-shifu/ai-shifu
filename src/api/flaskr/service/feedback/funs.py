@@ -16,7 +16,7 @@ def submit_feedback(app: Flask, user_id: str, feedback: str):
                 [
                     f"用户ID：{user_id}",
                     f"用户昵称：{user.name}",
-                    f"用户手机：{user.phone}",
+                    f"用户手机：{user.mobile}",
                     f"用户反馈：{feedback}",
                 ],
             )
