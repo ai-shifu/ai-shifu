@@ -12,7 +12,7 @@ def submit_feedback(app: Flask, user_id: str, feedback: str):
         if user:
             send_notify(
                 app,
-                "用户反馈",
+                "有用户提交反馈,注意跟进",
                 [
                     f"用户ID：{user_id}",
                     f"用户昵称：{user.name}",
