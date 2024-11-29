@@ -47,9 +47,11 @@
     "payChannelAlipay": "支付宝"
   },
   "groupon": {
-    "grouponTitle": "优惠码",
-    "grouponPlaceholder": "请输入优惠码",
-    "grouponInputMsg": "请输入优惠码"
+    "grouponTitle": "兑换码",
+    "grouponPlaceholder": "请输入兑换码",
+    "grouponInputMsg": "请输入兑换码",
+    "grouponUse": "使用兑换码 >",
+    "grouponModify": "修改兑换码 >"
   },
   "navigation": {
     "courseList": "课程列表",

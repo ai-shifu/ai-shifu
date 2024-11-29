@@ -263,7 +263,7 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
                   onClick={onCouponCodeClick}
                   className={styles.couponCodeButton}
                 >
-                  {!couponCode ? '使用兑换码 >' : '修改兑换码 >'}
+                  {!couponCode ? t('groupon.grouponUse') : t('groupon.grouponModify')}
                 </Button>
               </div>
               <PayModalFooter />

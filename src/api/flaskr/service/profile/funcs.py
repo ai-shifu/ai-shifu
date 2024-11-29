@@ -107,7 +107,7 @@ def get_profile_labels():
         },
         "ai_tools": {
             "label": _("PROFILE.AI_TOOLS"),
-            "items": ["GitHub Copilot", "通义灵码"],
+            "items": ["GitHub Copilot", "通义灵码", "Cursor"],
             "items_mapping": {
                 "GitHub_Copilot": "GitHub Copilot",
                 "通义灵码": "通义灵码",
@@ -293,14 +293,13 @@ def update_user_profile_with_lable(
     PROFILES_LABLES = get_profile_labels()
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
-        text_to_check = ""
-        for profile in profiles:
-            if not profile.get("items", None):
-                text_to_check = (
-                    text_to_check + profile["key"] + ":" + str(profile["value"]) + "\n"
-                )
-        if not check_text_by_edun(app, user_id, text_to_check):
-            raise_error("COMMON.TEXT_NOT_ALLOWED")
+        # check nickname
+        nickname = [p for p in profiles if p["key"] == "nickname"]
+        if nickname and not check_text_by_edun(app, user_id, nickname[0]["value"]):
+            raise_error("COMMON.NICKNAME_NOT_ALLOWED")
+        background = [p for p in profiles if p["key"] == "user_background"]
+        if background and not check_text_by_edun(app, user_id, background[0]["value"]):
+            raise_error("COMMON.BACKGROUND_NOT_ALLOWED")
         user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
         for profile in profiles:
             app.logger.info(

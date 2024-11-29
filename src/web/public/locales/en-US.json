@@ -47,9 +47,11 @@
     "payChannelAlipay": "Alipay"
   },
   "groupon": {
-    "grouponTitle": "Discount Code",
-    "grouponPlaceholder": "Please enter the discount code",
-    "grouponInputMsg": "Please enter the discount code"
+    "grouponTitle": "Voucher Code",
+    "grouponPlaceholder": "Enter the Voucher Code",
+    "grouponInputMsg": "Enter the Voucher Code",
+    "grouponUse": "Use Voucher Code >",
+    "grouponModify": "Modify Voucher Code >"
   },
   "navigation": {
     "courseList": "Course List",
