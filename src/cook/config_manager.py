@@ -66,8 +66,10 @@ class ConfigManager:
 
             # api
             self.ENV = os.getenv("COOK_USE_API_ENV")
-            self.API_URL_TEST = os.getenv("API_URL_TEST")
-            self.API_URL_PROD = os.getenv("API_URL_PROD")
+            self.WEB_URL_TEST = os.getenv("WEB_URL_TEST")
+            self.WEB_URL_PROD = os.getenv("WEB_URL_PROD")
+            self.API_URL_TEST = self.WEB_URL_TEST + "/api"
+            self.API_URL_PROD = self.WEB_URL_PROD + "/api"
             self.API_URL = (
                 self.API_URL_TEST if self.ENV == "test" else self.API_URL_PROD
             )

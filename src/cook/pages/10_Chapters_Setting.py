@@ -181,7 +181,7 @@ def stdf_manage(df, title, has_delete=True, base_url=cfg.API_URL):
 
 def display_chapter_management(base_url):
     courses = get_courses_by_user(st.session_state["username"])
-    # courses = get_courses_by_user_from_sqlite('kenrick')
+
     if not courses:
         st.warning(
             " No courses available, please go to `My Account` to create a new course.。  ⬇️ ⬇️ ⬇️",
@@ -201,6 +201,17 @@ def display_chapter_management(base_url):
         chapters, STSS.course_id[base_url] = load_chapters_from_api(
             doc_id=STSS.selected_course[base_url].lark_app_token, base_url=base_url
         )
+        if STSS.course_id[base_url]:
+            st.write(
+                f"Course URL: {base_url[:-4]}/newchat?courseId={STSS.course_id[base_url]}"
+            )
+        else:
+            st.warning(
+                "No course URL available, it will be generated automatically "
+                "after updating the chapter information.",
+                icon="⚠️",
+            )
+
         df_chapters_api = DataFrame([chapter.__dict__ for chapter in chapters])
 
         if st.button(
