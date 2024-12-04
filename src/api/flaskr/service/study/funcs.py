@@ -113,8 +113,9 @@ def get_lesson_tree_to_study(
                     status,
                     [],
                     unique_id=lesson.lesson_feishu_id,
+                    is_updated=True if attend_info.lesson_updated == 1 else False,
                 )
-                lesson_dict[lesson.lesson_no].updated = False
+
         for key in lesson_dict:
             if len(lesson_dict[key].lesson_no) == 2:
                 lessonInfos.append(lesson_dict[key])
@@ -149,6 +150,8 @@ def get_lesson_tree_to_study(
                                 ):
                                     updated_attend = True
                                     attend_info.lesson_id = child.lesson_id
+                                    attend_info.lesson_unique_id = child.unique_id
+                                    attend_info.lesson_updated = 1
                                     child.status_value = status
                                     child.status = attend_status_values[status]
                                     child.updated = True
@@ -160,6 +163,8 @@ def get_lesson_tree_to_study(
                         else:
                             updated_attend = True
                             attend_info.lesson_id = lessonInfo.lesson_id
+                            attend_info.lesson_unique_id = lessonInfo.unique_id
+                            attend_info.lesson_updated = 1
                             lessonInfo.status_value = status
                             lessonInfo.status = attend_status_values[status]
                             lessonInfo.updated = True
