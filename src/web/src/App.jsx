@@ -16,7 +16,7 @@ const initializeEnvData = async () => {
   const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL } = useEnvStore.getState();
   const fetchEnvData = async () => {
     try {
-      const res = await fetch('/config/env', { method: 'POST',referrer:"no-referrer" });
+      const res = await fetch('/config/env', { method: 'POST', referrer: "no-referrer" });
       if (res.ok) {
         const data = await res.json();
         await updateCourseId(data?.REACT_APP_COURSE_ID || "");
@@ -26,14 +26,14 @@ const initializeEnvData = async () => {
         await updateUmamiScriptSrc(data?.REACT_APP_UMAMI_SCRIPT_SRC || "");
         await updateEruda(data?.REACT_APP_ERUDA || "false");
         await updateBaseURL(data?.REACT_APP_BASEURL || "");
+
       }
     } catch (error) {
     } finally {
-      const { courseId, appId, alwaysShowLessonTree, umamiWebsiteId, umamiScriptSrc, eruda } = useEnvStore.getState();
+      const { umamiWebsiteId, umamiScriptSrc } = useEnvStore.getState();
       if (getBoolEnv('eruda')) {
         import('eruda').then(eruda => eruda.default.init());
       }
-      // load umami script
       const loadUmamiScript = () => {
         if (umamiScriptSrc && umamiWebsiteId) {
           const script = document.createElement("script");
@@ -66,9 +66,10 @@ const App = () => {
 
   const { updateChannel, channel, wechatCode, updateWechatCode, setShowVip, updateLanguage } =
     useSystemStore();
-  const { courseId, updateCourseId } = useEnvStore.getState();
   const browserLanguage = navigator.language || navigator.languages[0];
-  const [language, setLanguage] = useState(browserLanguage);
+  const [language] = useState(browserLanguage);
+  const courseId = useEnvStore((state) => state.courseId);
+  const updateCourseId = useEnvStore((state) => state.updateCourseId);
 
   useEffect(() => {
     if (!envDataInitialized) return;
@@ -110,21 +111,26 @@ const App = () => {
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
-      let id = courseId;
       if (params.courseId) {
         await updateCourseId(params.courseId);
-        id = params.courseId;
       }
-      const resp = await getCourseInfo(id);
-      if (resp.data.course_id !== courseId) {
-        await updateCourseId(resp.data.course_id);
-      }
-      setShowVip(resp.data.course_price > 0);
     };
     fetchCourseInfo();
-  }, [envDataInitialized]);
+  }, [envDataInitialized, updateCourseId, courseId,params.courseId]);
 
-  // mount debugger
+  useEffect(() => {
+    console.log('courseId', courseId);
+    const fetchCourseInfo = async () => {
+      console.log('courseId', courseId);
+      if (!envDataInitialized) return;
+      if (courseId) {
+        const resp = await getCourseInfo(courseId);
+        setShowVip(resp.data.course_price > 0);
+      }
+    };
+    fetchCourseInfo();
+  }, [courseId, envDataInitialized, setShowVip,updateCourseId]);
+
   useEffect(() => {
     if (!envDataInitialized) return;
     window.ztDebug = {};
@@ -137,7 +143,7 @@ const App = () => {
     if (!envDataInitialized) return;
     i18n.changeLanguage(language);
     updateLanguage(language);
-  }, [language, envDataInitialized]);
+  }, [language, envDataInitialized,updateLanguage]);
 
   return (
     <ConfigProvider locale={language}>

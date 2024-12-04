@@ -24,7 +24,7 @@ import { updateWxcode } from 'Api/user.js';
 
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal.jsx';
 import { useTranslation } from 'react-i18next';
-
+import { useEnvStore } from 'stores/envStore.js';
 // 课程学习主页面
 const NewChatPage = (props) => {
   const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
@@ -54,6 +54,7 @@ const NewChatPage = (props) => {
   const { i18n } = useTranslation();
 
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
+
 
   const {
     open: navOpen,
@@ -87,7 +88,17 @@ const NewChatPage = (props) => {
     }
     setInitialized(true);
   }, [checkLogin]);
-
+  const {courseId} = useParams();
+  const { updateCourseId } = useEnvStore.getState();
+  useEffect(() => {
+    const updateCourse = async () => {
+      if (courseId) {
+        console.log('updateCourseId', courseId);
+        await updateCourseId(courseId);
+      }
+    };
+    updateCourse();
+  }, [courseId, updateCourseId]);
   const checkUrl = useCallback(async () => {
     let nextTree = tree;
     if (!tree) {

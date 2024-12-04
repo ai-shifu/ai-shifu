@@ -25,7 +25,19 @@ const routes = [
     element: <NewChatPage />
   },
   {
-    path: '/newchat/:cid',
+    path: '/course',
+    element: <NewChatPage />
+  },
+  {
+    path: '/c/:courseId',
+    element: <NewChatPage />
+  },
+  {
+    path: '/c',
+    element: <NewChatPage />
+  },
+  {
+    path: '/newchat/:courseId',
     element: <NewChatPage />
   }
 ];
