@@ -113,7 +113,11 @@ def get_lesson_tree_to_study(
                     status,
                     [],
                     unique_id=lesson.lesson_feishu_id,
-                    is_updated=True if attend_info.lesson_updated == 1 else False,
+                    updated=(
+                        True
+                        if attend_info and attend_info.lesson_updated == 1
+                        else False
+                    ),
                 )
 
         for key in lesson_dict:
