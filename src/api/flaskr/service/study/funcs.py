@@ -98,8 +98,6 @@ def get_lesson_tree_to_study(
         attend_map = {i.lesson_id: i for i in attend_infos}
         lessonInfos = []
         lesson_dict = {}
-
-        # get the newest lesson info
         for lesson in sorted(
             [lesson for lesson in lessons if lesson.status == 1],
             key=lambda x: (len(x.lesson_no), x.lesson_no),
@@ -117,9 +115,6 @@ def get_lesson_tree_to_study(
                     unique_id=lesson.lesson_feishu_id,
                 )
                 lesson_dict[lesson.lesson_no].updated = False
-        # get the attend info
-
-        # chapter_infos_map = {x.unique_id: x for x in lessonInfos if len(x.lesson_no) == 2}
         for key in lesson_dict:
             if len(lesson_dict[key].lesson_no) == 2:
                 lessonInfos.append(lesson_dict[key])
@@ -134,6 +129,7 @@ def get_lesson_tree_to_study(
             lesson.children = sorted(
                 lesson.children, key=lambda x: (len(x.lesson_no), x.lesson_no)
             )
+        updated_attend = False
         lessonInfos = sorted(lessonInfos, key=lambda x: (len(x.lesson_no), x.lesson_no))
         for attend_info in attend_infos:
             lesson = lesson_map.get(attend_info.lesson_id, None)
@@ -151,7 +147,8 @@ def get_lesson_tree_to_study(
                                     child.lesson_no[-2:] == lesson.lesson_no[-2:]
                                     and child.lesson_id != attend_info.lesson_id
                                 ):
-                                    child.lesson_id = attend_info.lesson_id
+                                    updated_attend = True
+                                    attend_info.lesson_id = child.lesson_id
                                     child.status_value = status
                                     child.status = attend_status_values[status]
                                     child.updated = True
@@ -161,11 +158,15 @@ def get_lesson_tree_to_study(
                                     break
 
                         else:
-                            lessonInfo.lesson_id = attend_info.lesson_id
+                            updated_attend = True
+                            attend_info.lesson_id = lessonInfo.lesson_id
                             lessonInfo.status_value = status
                             lessonInfo.status = attend_status_values[status]
                             lessonInfo.updated = True
                             lessonInfos[lesson_index] = lessonInfo
+        if updated_attend:
+            app.logger.info("updated_attend info")
+            db.session.commit()
         for lesson_index, lessonInfo in enumerate(lessonInfos):
             is_completed = True
             for i, child in enumerate(lessonInfo.children):
