@@ -111,6 +111,7 @@ def run_script_inner(
                 lessons = AILesson.query.filter(
                     AILesson.lesson_no.like(parent_no + "__"),
                     AILesson.course_id == course_id,
+                    AILesson.status == 1,
                 ).all()
                 app.logger.info(
                     "study lesson no :{}".format(
@@ -132,7 +133,16 @@ def run_script_inner(
                     ),
                 ).first()
 
+                # if not attend_info:
+                #     attend_info = AICourseLessonAttend.query.filter(
+                #         AICourseLessonAttend.user_id == user_id,
+                #         AICourseLessonAttend.course_id == course_id,
+                #         AICourseLessonAttend.lesson_id == lesson_id,
+                #         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+                #     ).first()
+
                 if not attend_info:
+
                     app.logger.info("found no attend_info reinit")
                     lessons.sort(key=lambda x: x.lesson_no)
                     lesson_id = lessons[-1].lesson_id
