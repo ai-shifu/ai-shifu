@@ -143,7 +143,7 @@ def get_lesson_tree_to_study(
             status = attend_info.status
             if status == ATTEND_STATUS_BRANCH:
                 status = ATTEND_STATUS_IN_PROGRESS
-            if status != ATTEND_STATUS_LOCKED:
+            if status != ATTEND_STATUS_RESET:
                 for lesson_index, lessonInfo in enumerate(lessonInfos):
                     if lessonInfo.unique_id == lesson.lesson_feishu_id:
                         if len(lesson.lesson_no) > 2:
@@ -152,6 +152,11 @@ def get_lesson_tree_to_study(
                                     child.lesson_no[-2:] == lesson.lesson_no[-2:]
                                     and child.lesson_id != attend_info.lesson_id
                                 ):
+                                    app.logger.info(
+                                        "update attend info from lesson:{} to lesson:{}".format(
+                                            lesson.lesson_id, child.lesson_id
+                                        )
+                                    )
                                     updated_attend = True
                                     attend_info.lesson_id = child.lesson_id
                                     attend_info.lesson_unique_id = child.unique_id
