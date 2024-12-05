@@ -154,7 +154,7 @@ def get_lesson_tree_to_study(
                                 ):
                                     app.logger.info(
                                         "update attend info from lesson:{} to lesson:{}".format(
-                                            lesson.lesson_id, child.lesson_id
+                                            attend_info.lesson_id, child.lesson_id
                                         )
                                     )
                                     updated_attend = True
