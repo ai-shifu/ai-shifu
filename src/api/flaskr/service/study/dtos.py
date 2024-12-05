@@ -83,6 +83,8 @@ class AILessonAttendDTO:
     status: str
     children: List[AICourseLessonAttendDTO]
     status_value: int
+    updated: bool
+    unique_id: str
 
     def __init__(
         self,

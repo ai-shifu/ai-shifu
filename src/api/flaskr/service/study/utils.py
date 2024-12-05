@@ -106,6 +106,7 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id):
         AILesson.lesson_no.like(parent_no + "%"),
         AILesson.course_id == course_id,
         AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
+        AILesson.status == 1,
     ).all()
     if len(lessons) == 0:
 
@@ -121,7 +122,7 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id):
         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
     ).all()
 
-    if len(attend_infos) == 0:
+    if len(attend_infos) != len(lessons):
         lessons = [lesson for lesson in lessons if lesson.status == 1]
         lesson_type = lessons[0].lesson_type
         add_attend = False
@@ -134,16 +135,24 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id):
             else:
                 raise_error("COURSE.COURSE_NOT_PURCHASED")
         if add_attend:
+            app.logger.info("add attend to fix attend info")
             for lesson in lessons:
-                attend = AICourseLessonAttend()
-                attend.attend_id = generate_id(app)
-                attend.lesson_id = lesson.lesson_id
-                attend.course_id = course_id
-                attend.user_id = user_id
-                attend.status = ATTEND_STATUS_LOCKED
-                attend.lesson_no = lesson.lesson_no
-                db.session.add(attend)
-                attend_infos.append(attend)
+                attends = [
+                    attend
+                    for attend in attend_infos
+                    if attend.lesson_id == lesson.lesson_id
+                ]
+                if len(attends) == 0:
+                    app.logger.info("add attend to lesson:{}".format(lesson.lesson_id))
+                    attend = AICourseLessonAttend()
+                    attend.attend_id = generate_id(app)
+                    attend.lesson_id = lesson.lesson_id
+                    attend.course_id = course_id
+                    attend.user_id = user_id
+                    attend.status = ATTEND_STATUS_LOCKED
+                    attend.lesson_no = lesson.lesson_no
+                    db.session.add(attend)
+                    attend_infos.append(attend)
             db.session.flush()
 
     attend_lesson_infos = [
