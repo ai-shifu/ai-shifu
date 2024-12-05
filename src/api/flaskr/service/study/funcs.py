@@ -4,6 +4,7 @@ from flaskr.util.uuid import generate_id
 from flask import Flask
 
 from sqlalchemy import text
+from flaskr.dao import run_with_redis
 
 from flaskr.service.study.const import (
     INPUT_TYPE_BRANCH,
@@ -60,7 +61,7 @@ from ...service.common.models import raise_error
 from .models import AICourseLessonAttendScript, AICourseAttendAsssotion
 
 
-def get_lesson_tree_to_study(
+def get_lesson_tree_to_study_inner(
     app: Flask, user_id: str, course_id: str = None
 ) -> AICourseDTO:
     with app.app_context():
@@ -92,8 +93,8 @@ def get_lesson_tree_to_study(
         online_lessons = sorted(
             online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
         )
-        old_lesson = [i for i in lessons if i.status != 1]
-        old_lesson = sorted(old_lesson, key=lambda x: x.id, reverse=True)
+        old_lessons = [i for i in lessons if i.status != 1]
+        old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
 
         lesson_map = {i.lesson_id: i for i in online_lessons}
 
@@ -193,17 +194,14 @@ def get_lesson_tree_to_study(
                 if lesson_info and lesson_info.lesson_type == LESSON_TYPE_NORMAL:
                     if not paid:
                         continue
-                    # need to update the attend info
-
-                # find the old lesson
-                old_lessons = [
+                old_lesson_infos = [
                     i
-                    for i in old_lesson
+                    for i in old_lessons
                     if i.lesson_feishu_id == lesson.unique_id
                     and len(i.lesson_no) == len(lesson.lesson_no)
                 ]
-                if len(old_lessons) > 0:
-                    attend_info = attend_map.get(old_lessons[0].lesson_id, None)
+                if len(old_lesson_infos) > 0:
+                    attend_info = attend_map.get(old_lesson_infos[0].lesson_id, None)
                     if attend_info:
                         lesson.status_value = attend_info.status
                         lesson.status = attend_status_values[attend_info.status]
@@ -216,7 +214,7 @@ def get_lesson_tree_to_study(
                                 attend_info.lesson_id, lesson.lesson_id
                             )
                         )
-                        attend_map[old_lessons[0].lesson_id] = attend_info
+                        attend_map[old_lesson_infos[0].lesson_id] = attend_info
                         updated_attend = True
 
             for i, child in enumerate(lesson.children):
@@ -224,15 +222,20 @@ def get_lesson_tree_to_study(
                 if attend_info:
                     continue
                 is_updated_old_to_now = False
-                old_lessons = [
+                old_lesson_infos = [
                     i
-                    for i in old_lesson
+                    for i in old_lessons
                     if i.lesson_feishu_id == child.unique_id
                     and len(i.lesson_no) == len(child.lesson_no)
                 ]
-                if len(old_lessons) > 0:
-                    for old_lesson in old_lessons:
-                        if old_lesson.lesson_no[-2:] == child.lesson_no[-2:]:
+                app.logger.info(
+                    "old_lessons:{}".format([i.lesson_no for i in old_lesson_infos])
+                )
+                if len(old_lesson_infos) > 0:
+                    for old_lesson in old_lesson_infos:
+                        if old_lesson.lesson_no[-2:] == child.lesson_no[-2:] and len(
+                            old_lesson.lesson_no
+                        ) == len(child.lesson_no):
                             old_attend_info = attend_map.get(old_lesson.lesson_id, None)
                             if (
                                 old_attend_info
@@ -260,72 +263,21 @@ def get_lesson_tree_to_study(
                     attend_info = AICourseLessonAttend(
                         attend_id=generate_id(app),
                         user_id=user_id,
-                        lesson_id=lesson.lesson_id,
-                        course_id=lesson.course_id,
+                        lesson_id=child.lesson_id,
+                        course_id=course_id,
                         status=ATTEND_STATUS_LOCKED,
                     )
                     app.logger.info(
-                        "add attend info for lesson:{}".format(lesson.lesson_id)
+                        "add attend info for lesson:{},lesson_no:{}".format(
+                            child.lesson_id, child.lesson_no
+                        )
                     )
                     db.session.add(attend_info)
                     attend_map[lesson.lesson_id] = attend_info
                     updated_attend = True
-                    # attend_info = attend_map.get(old_lessons[0].lesson_id, None)
-                    # if attend_info:
-                    #     child.status_value = attend_info.status
-                    #     child.status = attend_status_values[attend_info.status]
-                    #     child.updated = True
-                    #     lesson.children[i] = child
-                    #     updated_attend = True
-
-                    # need to update the attend info
 
         if updated_attend:
             app.logger.info("commit the attend info")
-            db.session.commit()
-        for attend_info in attend_infos:
-            lesson = lesson_map.get(attend_info.lesson_id, None)
-            if lesson is None or lesson.status == 1:
-                continue
-            status = attend_info.status
-            if status == ATTEND_STATUS_BRANCH:
-                status = ATTEND_STATUS_IN_PROGRESS
-            for lesson_index, lessonInfo in enumerate(lessonInfos):
-                if lessonInfo.unique_id == lesson.lesson_feishu_id:
-                    if len(lesson.lesson_no) > 2:
-                        for i, child in enumerate(lessonInfo.children):
-                            if (
-                                child.lesson_no[-2:] == lesson.lesson_no[-2:]
-                                and child.lesson_id != attend_info.lesson_id
-                            ):
-                                app.logger.info(
-                                    "update attend info from lesson:{} to lesson:{}".format(
-                                        attend_info.lesson_id, child.lesson_id
-                                    )
-                                )
-                                updated_attend = True
-                                attend_info.lesson_id = child.lesson_id
-                                attend_info.lesson_unique_id = child.unique_id
-                                attend_info.lesson_updated = 1
-                                child.status_value = status
-                                child.status = attend_status_values[status]
-                                child.updated = True
-                                lessonInfo.children[i] = child
-                                lessonInfo.updated = True
-                                lessonInfos[lesson_index] = lessonInfo
-                                break
-
-                    else:
-                        updated_attend = True
-                        attend_info.lesson_id = lessonInfo.lesson_id
-                        attend_info.lesson_unique_id = lessonInfo.unique_id
-                        attend_info.lesson_updated = 1
-                        lessonInfo.status_value = status
-                        lessonInfo.status = attend_status_values[status]
-                        lessonInfo.updated = True
-                        lessonInfos[lesson_index] = lessonInfo
-        if updated_attend:
-            app.logger.info("updated_attend info")
             db.session.commit()
 
         for lesson_index, lessonInfo in enumerate(lessonInfos):
@@ -356,6 +308,18 @@ def get_lesson_tree_to_study(
             lessons=lessonInfos,
         )
         return ret
+
+
+def get_lesson_tree_to_study(
+    app: Flask, user_id: str, course_id: str = None
+) -> AICourseDTO:
+    return run_with_redis(
+        app,
+        "get_lesson_tree_to_study" + user_id,
+        5,
+        get_lesson_tree_to_study_inner,
+        [app, user_id, course_id],
+    )
 
 
 def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
