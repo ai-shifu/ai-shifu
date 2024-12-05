@@ -18,6 +18,7 @@ from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_NOT_STARTED,
+    ATTEND_STATUS_RESET,
     get_attend_status_values,
     BUY_STATUS_SUCCESS,
 )
@@ -133,13 +134,13 @@ def run_script_inner(
                     ),
                 ).first()
 
-                # if not attend_info:
-                #     attend_info = AICourseLessonAttend.query.filter(
-                #         AICourseLessonAttend.user_id == user_id,
-                #         AICourseLessonAttend.course_id == course_id,
-                #         AICourseLessonAttend.lesson_id == lesson_id,
-                #         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-                #     ).first()
+                if not attend_info:
+                    attend_info = AICourseLessonAttend.query.filter(
+                        AICourseLessonAttend.user_id == user_id,
+                        AICourseLessonAttend.course_id == course_id,
+                        AICourseLessonAttend.lesson_id == lesson_id,
+                        AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+                    ).first()
 
                 if not attend_info:
 
