@@ -270,7 +270,7 @@ export const ChatComponents = forwardRef(
         let lastMsg = null;
         let isEnd = false;
         let teach_avator = null;
-        runScript(chatId, lessonId, val, type, scriptId, (response) => {
+        runScript(chatId, lessonId, val, type, scriptId, async (response) => {
           setLessonEnd((v) => {
             isEnd = v;
             return v;
@@ -369,7 +369,7 @@ export const ChatComponents = forwardRef(
                 setInputDisabled(false);
               }
             } else if (response.type === RESP_EVENT_TYPE.USER_LOGIN) {
-              tokenTool.set({ token: response.content.token, faked: true });
+              await tokenTool.set({ token: response.content.token, faked: true });
               checkLogin();
             } else if (response.type === RESP_EVENT_TYPE.PROFILE_UPDATE) {
               const content = response.content;
