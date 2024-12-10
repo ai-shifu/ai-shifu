@@ -148,18 +148,19 @@ def run_script_inner(
                     attend_maps = {i.lesson_id: i for i in attend_infos}
                     lessons = sorted(lessons, key=lambda x: x.lesson_no)
                     for lesson in lessons:
-                        attend_info = attend_maps.get(lesson.lesson_id, None)
+                        lesson_attend_info = attend_maps.get(lesson.lesson_id, None)
                         if (
                             len(lesson.lesson_no) > 2
-                            and attend_info
-                            and attend_info.status
+                            and lesson_attend_info
+                            and lesson_attend_info.status
                             in [
                                 ATTEND_STATUS_NOT_STARTED,
                                 ATTEND_STATUS_IN_PROGRESS,
                                 ATTEND_STATUS_BRANCH,
                             ]
                         ):
-                            lesson_id = attend_info.lesson_id
+                            lesson_id = lesson_attend_info.lesson_id
+                            attend_info = lesson_attend_info
                             break
                 attend = AICourseLessonAttendDTO(
                     attend_info.attend_id,
