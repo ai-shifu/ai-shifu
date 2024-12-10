@@ -12,6 +12,7 @@ from ...service.lesson.const import (
     UI_TYPE_LOGIN,
     UI_TYPE_PHONE,
     UI_TYPE_TO_PAY,
+    LESSON_TYPE_TRIAL,
 )
 from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
@@ -27,6 +28,7 @@ from ...service.order.consts import (
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
     init_trial_lesson,
+    init_trial_lesson_inner,
     query_raw_buy_record,
 )
 from ...service.order.models import AICourseLessonAttend
@@ -114,6 +116,23 @@ def run_script_inner(
                     AICourseLessonAttend.lesson_id == lesson_id,
                     AICourseLessonAttend.status != ATTEND_STATUS_RESET,
                 ).first()
+                if not attend_info:
+                    if lesson_info.lesson_type == LESSON_TYPE_TRIAL:
+                        app.logger.info(
+                            "init trial lesson for user:{} course:{}".format(
+                                user_id, course_id
+                            )
+                        )
+                        new_attend_infos = init_trial_lesson_inner(
+                            app, user_id, course_id
+                        )
+                        new_attend_maps = {i.lesson_id: i for i in new_attend_infos}
+                        attend_info = new_attend_maps.get(lesson_id, None)
+                        if not attend_info:
+                            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                    else:
+                        raise_error("COURSE.COURSE_NOT_PURCHASED")
+
                 if (
                     attend_info.status == ATTEND_STATUS_COMPLETED
                     or attend_info.status == ATTEND_STATUS_LOCKED

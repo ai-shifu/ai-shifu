@@ -552,6 +552,44 @@ def init_trial_lesson(
     return response
 
 
+def init_trial_lesson_inner(
+    app: Flask, user_id: str, course_id: str
+) -> list[AICourseLessonAttendDTO]:
+    app.logger.info(
+        "init trial lesson for user:{} course:{}".format(user_id, course_id)
+    )
+    lessons = AILesson.query.filter(
+        AILesson.course_id == course_id,
+        AILesson.lesson_type == LESSON_TYPE_TRIAL,
+        AILesson.status == 1,
+    ).all()
+    response = []
+    app.logger.info("init trial lesson:{}".format(lessons))
+    for lesson in lessons:
+        app.logger.info(
+            "init trial lesson:{} ,is trail:{}".format(
+                lesson.lesson_id, lesson.is_final()
+            )
+        )
+        attend = AICourseLessonAttend.query.filter(
+            AICourseLessonAttend.user_id == user_id,
+            AICourseLessonAttend.lesson_id == lesson.lesson_id,
+        ).first()
+        if attend:
+            if lesson.is_final():
+                response.append(attend)
+            continue
+        attend = AICourseLessonAttend()
+        attend.attend_id = str(get_uuid(app))
+        attend.course_id = course_id
+        attend.lesson_id = lesson.lesson_id
+        attend.user_id = user_id
+        response.append(attend)
+        db.session.add(attend)
+    db.session.flush()
+    return response
+
+
 def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
     with app.app_context():
         buy_record = AICourseBuyRecord.query.filter(
