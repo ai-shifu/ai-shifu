@@ -90,4 +90,24 @@ def query_active(app, active_id) -> Active:
 
 
 def query_active_record(app, order_id) -> list[ActiveUserRecord]:
-    return ActiveUserRecord.query.filter(ActiveUserRecord.order_id == order_id).all()
+    active_user_records = ActiveUserRecord.query.filter(
+        ActiveUserRecord.order_id == order_id
+    ).all()
+    active_ids = [i.active_id for i in active_user_records]
+    bj_time = pytz.timezone("Asia/Shanghai")
+    now = datetime.now(bj_time)
+    actives = Active.query.filter(
+        Active.active_id.in_(active_ids),
+        Active.active_status == 1,
+        Active.active_start_time <= now,
+        Active.active_end_time >= now,
+    ).all()
+
+    active_maps = {i.active_id: i for i in actives}
+
+    ret = []
+    for active_user_record in active_user_records:
+        active = active_maps.get(active_user_record.active_id, None)
+        if active:
+            ret.append(active_user_record)
+    return ret
