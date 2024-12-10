@@ -583,6 +583,7 @@ def init_trial_lesson_inner(
         attend.attend_id = str(get_uuid(app))
         attend.course_id = course_id
         attend.lesson_id = lesson.lesson_id
+        attend.status = ATTEND_STATUS_LOCKED
         attend.user_id = user_id
         response.append(attend)
         db.session.add(attend)
