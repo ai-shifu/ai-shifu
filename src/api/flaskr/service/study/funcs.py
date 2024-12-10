@@ -601,7 +601,7 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         # get all the lessons
         lessons = AILesson.query.filter(
             AILesson.lesson_no.like(lesson_no + "%"),
-            # AILesson.status == 1,
+            AILesson.status == 1,
             AILesson.course_id == course_id,
         ).all()
         lesson_ids = [lesson.lesson_id for lesson in lessons]
