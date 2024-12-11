@@ -384,6 +384,9 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 pingxx_order = PingxxOrder.query.filter(
                     PingxxOrder.charge_id == charge_id
                 ).first()
+                if not pingxx_order:
+                    lock.release()
+                    return None
                 pingxx_order.update = datetime.datetime.now()
                 pingxx_order.status = 1
                 pingxx_order.charge_object = json.dumps(body)
