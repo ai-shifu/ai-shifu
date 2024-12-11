@@ -12,19 +12,23 @@ from ...service.lesson.const import (
     UI_TYPE_LOGIN,
     UI_TYPE_PHONE,
     UI_TYPE_TO_PAY,
+    LESSON_TYPE_TRIAL,
 )
 from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
+    ATTEND_STATUS_COMPLETED,
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_NOT_STARTED,
     ATTEND_STATUS_RESET,
+    ATTEND_STATUS_LOCKED,
     get_attend_status_values,
     BUY_STATUS_SUCCESS,
 )
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
     init_trial_lesson,
+    init_trial_lesson_inner,
     query_raw_buy_record,
 )
 from ...service.order.models import AICourseLessonAttend
@@ -106,91 +110,77 @@ def run_script_inner(
                     "teacher_avator", course_info.course_teacher_avator, ""
                 )
 
-                parent_no = lesson_info.lesson_no
-                if len(parent_no) >= 2:
-                    parent_no = parent_no[:-2]
-                lessons = AILesson.query.filter(
-                    AILesson.lesson_no.like(parent_no + "__"),
-                    AILesson.course_id == course_id,
-                    AILesson.status == 1,
-                ).all()
-                app.logger.info(
-                    "study lesson no :{}".format(
-                        ",".join([lesson.lesson_no for lesson in lessons])
-                    )
-                )
-                lesson_ids = [lesson.lesson_id for lesson in lessons]
-                # the attend info is the first lesson that is not reset
                 attend_info = AICourseLessonAttend.query.filter(
                     AICourseLessonAttend.user_id == user_id,
                     AICourseLessonAttend.course_id == course_id,
-                    AICourseLessonAttend.lesson_id.in_(lesson_ids),
-                    AICourseLessonAttend.status.in_(
-                        [
-                            ATTEND_STATUS_NOT_STARTED,
-                            ATTEND_STATUS_IN_PROGRESS,
-                            ATTEND_STATUS_BRANCH,
-                        ]
-                    ),
+                    AICourseLessonAttend.lesson_id == lesson_id,
+                    AICourseLessonAttend.status != ATTEND_STATUS_RESET,
                 ).first()
-
                 if not attend_info:
-                    attend_info = AICourseLessonAttend.query.filter(
-                        AICourseLessonAttend.user_id == user_id,
-                        AICourseLessonAttend.course_id == course_id,
-                        AICourseLessonAttend.lesson_id == lesson_id,
-                        AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-                    ).first()
-
-                if not attend_info:
-
-                    app.logger.info("found no attend_info reinit")
-                    lessons.sort(key=lambda x: x.lesson_no)
-                    lesson_id = lessons[-1].lesson_id
-                    attend_info = AICourseLessonAttend.query.filter(
-                        AICourseLessonAttend.user_id == user_id,
-                        AICourseLessonAttend.course_id == course_id,
-                        AICourseLessonAttend.lesson_id == lesson_id,
-                    ).first()
-
-                    if not attend_info:
-                        app.logger.info("found no attend_info reinit")
-                        lessons = init_trial_lesson(app, user_id, course_id)
-                        attend_info = AICourseLessonAttend.query.filter(
-                            AICourseLessonAttend.user_id == user_id,
-                            AICourseLessonAttend.course_id == course_id,
-                            AICourseLessonAttend.lesson_id.in_(lesson_ids),
-                            AICourseLessonAttend.status.in_(
-                                [
-                                    ATTEND_STATUS_NOT_STARTED,
-                                    ATTEND_STATUS_IN_PROGRESS,
-                                    ATTEND_STATUS_BRANCH,
-                                ]
-                            ),
-                        ).first()
+                    if lesson_info.lesson_type == LESSON_TYPE_TRIAL:
+                        app.logger.info(
+                            "init trial lesson for user:{} course:{}".format(
+                                user_id, course_id
+                            )
+                        )
+                        new_attend_infos = init_trial_lesson_inner(
+                            app, user_id, course_id
+                        )
+                        new_attend_maps = {i.lesson_id: i for i in new_attend_infos}
+                        attend_info = new_attend_maps.get(lesson_id, None)
                         if not attend_info:
-                            raise_error("COURSE.COURSE_NOT_PURCHASED")
-                        attend_id = attend_info.attend_id
+                            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
                     else:
-                        attend_id = attend_info.attend_id
-                    attends = update_attend_lesson_info(app, attend_id)
-                    for attend_update in attends:
-                        if len(attend_update.lesson_no) > 2:
-                            yield make_script_dto(
-                                "lesson_update", attend_update.__json__(), ""
-                            )
-                        else:
-                            yield make_script_dto(
-                                "chapter_update", attend_update.__json__(), ""
-                            )
-                            if (
-                                attend_update.status
-                                == attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                            ):
-                                yield make_script_dto(
-                                    "next_chapter", attend_update.__json__(), ""
-                                )
-                lesson_id = attend_info.lesson_id
+                        raise_error("COURSE.COURSE_NOT_PURCHASED")
+
+                if (
+                    attend_info.status == ATTEND_STATUS_COMPLETED
+                    or attend_info.status == ATTEND_STATUS_LOCKED
+                ):
+
+                    parent_no = lesson_info.lesson_no
+                    if len(parent_no) >= 2:
+                        parent_no = parent_no[:-2]
+                    lessons = AILesson.query.filter(
+                        AILesson.lesson_no.like(parent_no + "__"),
+                        AILesson.course_id == course_id,
+                        AILesson.status == 1,
+                    ).all()
+                    app.logger.info(
+                        "study lesson no :{}".format(
+                            ",".join([lesson.lesson_no for lesson in lessons])
+                        )
+                    )
+                    lesson_ids = [lesson.lesson_id for lesson in lessons]
+                    attend_infos = AICourseLessonAttend.query.filter(
+                        AICourseLessonAttend.user_id == user_id,
+                        AICourseLessonAttend.course_id == course_id,
+                        AICourseLessonAttend.lesson_id.in_(lesson_ids),
+                        AICourseLessonAttend.status.in_(
+                            [
+                                ATTEND_STATUS_NOT_STARTED,
+                                ATTEND_STATUS_IN_PROGRESS,
+                                ATTEND_STATUS_BRANCH,
+                            ]
+                        ),
+                    ).all()
+                    attend_maps = {i.lesson_id: i for i in attend_infos}
+                    lessons = sorted(lessons, key=lambda x: x.lesson_no)
+                    for lesson in lessons:
+                        lesson_attend_info = attend_maps.get(lesson.lesson_id, None)
+                        if (
+                            len(lesson.lesson_no) > 2
+                            and lesson_attend_info
+                            and lesson_attend_info.status
+                            in [
+                                ATTEND_STATUS_NOT_STARTED,
+                                ATTEND_STATUS_IN_PROGRESS,
+                                ATTEND_STATUS_BRANCH,
+                            ]
+                        ):
+                            lesson_id = lesson_attend_info.lesson_id
+                            attend_info = lesson_attend_info
+                            break
                 attend = AICourseLessonAttendDTO(
                     attend_info.attend_id,
                     attend_info.lesson_id,

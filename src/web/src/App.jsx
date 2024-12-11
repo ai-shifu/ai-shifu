@@ -3,7 +3,6 @@ import { parseUrlParams } from 'Utils/urlUtils.js';
 import routes from './Router/index';
 import { useRoutes } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
-import locale from 'antd/locale/zh_CN';
 import { useSystemStore } from 'stores/useSystemStore.js';
 import i18n from './i18n.js';
 import { inWechat, wechatLogin } from 'constants/uiConstants.js';
@@ -11,6 +10,7 @@ import { getBoolEnv } from 'Utils/envUtils.js';
 import { userInfoStore } from 'Service/storeUtil.js';
 import { getCourseInfo } from './Api/course.js';
 import { useEnvStore } from 'stores/envStore.js';
+import { useUserStore } from 'stores/useUserStore.js';
 
 const initializeEnvData = async () => {
   const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL } = useEnvStore.getState();
@@ -119,9 +119,7 @@ const App = () => {
   }, [envDataInitialized, updateCourseId, courseId,params.courseId]);
 
   useEffect(() => {
-    console.log('courseId', courseId);
     const fetchCourseInfo = async () => {
-      console.log('courseId', courseId);
       if (!envDataInitialized) return;
       if (courseId) {
         const resp = await getCourseInfo(courseId);
@@ -144,6 +142,14 @@ const App = () => {
     i18n.changeLanguage(language);
     updateLanguage(language);
   }, [language, envDataInitialized,updateLanguage]);
+
+  useEffect(() => {
+    if (!envDataInitialized) return;
+    const checkLogin = async () => {
+      await useUserStore.getState().checkLogin();
+    };
+    checkLogin();
+  }, [envDataInitialized]);
 
   return (
     <ConfigProvider locale={language}>

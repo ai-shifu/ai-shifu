@@ -315,7 +315,7 @@ def get_lesson_tree_to_study(
 ) -> AICourseDTO:
     return run_with_redis(
         app,
-        "get_lesson_tree_to_study" + user_id,
+        app.config.get("REDIS_KEY_PRRFIX") + ":run_script:" + user_id,
         5,
         get_lesson_tree_to_study_inner,
         [app, user_id, course_id],
@@ -601,7 +601,7 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         # get all the lessons
         lessons = AILesson.query.filter(
             AILesson.lesson_no.like(lesson_no + "%"),
-            # AILesson.status == 1,
+            AILesson.status == 1,
             AILesson.course_id == course_id,
         ).all()
         lesson_ids = [lesson.lesson_id for lesson in lessons]

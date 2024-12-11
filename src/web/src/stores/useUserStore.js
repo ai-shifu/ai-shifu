@@ -13,7 +13,7 @@ export const useUserStore = create(
     login: async ({ mobile, smsCode }) => {
       const res = await verifySmsCode({ mobile, sms_code: smsCode });
       const { userInfo, token } = res.data;
-      tokenTool.set({ token, faked: false });
+      await tokenTool.set({ token, faked: false });
 
       set(() => ({
         hasLogin: true,
@@ -28,7 +28,7 @@ export const useUserStore = create(
       if (!tokenTool.get().token) {
         const res = await registerTmp({ temp_id: genUuid() });
         const token = res.data.token;
-        tokenTool.set({ token, faked: true });
+        await tokenTool.set({ token, faked: true });
         set(() => ({
           hasLogin: false,
           userInfo: null,
@@ -53,7 +53,7 @@ export const useUserStore = create(
             userInfo,
           }));
         } else {
-          tokenTool.set({ token: tokenTool.get().token, faked: true });
+          await tokenTool.set({ token: tokenTool.get().token, faked: true });
           set(() => ({
             hasLogin: false,
             userInfo: userInfo,
@@ -77,8 +77,8 @@ export const useUserStore = create(
     logout: async () => {
       const res = await registerTmp({ temp_id: genUuid() });
       const token = res.data.token;
-      tokenTool.set({ token, faked: true });
-      userInfoStore.remove();
+      await tokenTool.set({ token, faked: true });
+      await userInfoStore.remove();
 
       set(() => {
         return {
