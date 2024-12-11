@@ -9,14 +9,21 @@ from ...util import generate_id
 
 def create_active(
     app,
-    course_id,
+    user_id,
+    active_course,
     active_name,
     active_desc,
     active_start_time,
     active_end_time,
     active_price,
+    active_status,
+    active_id=None,
+    **args
 ):
-    active = Active()
+    if active_id is not None and active_id != "":
+        active = Active.query.filter(Active.active_id == active_id).first()
+    else:
+        active = Active()
     active.active_id = generate_id(app)
     active.active_name = active_name
     active.active_desc = active_desc
@@ -24,9 +31,13 @@ def create_active(
     active.active_start_time = active_start_time
     active.active_end_time = active_end_time
     active.active_price = active_price
-    active.active_filter = str({"course_id": course_id})
-    active.active_course = course_id
-    db.session.add(active)
+    active.active_status = active_status
+    active.active_filter = str({"course_id": active_course})
+    active.active_course = active_course
+    if active_id:
+        db.session.merge(active)
+    else:
+        db.session.add(active)
     db.session.commit()
     return active.active_id
 
@@ -63,7 +74,9 @@ def query_and_join_active(app, course_id, user_id, order_id) -> list[ActiveUserR
         return []
     active_user_records = []
     for active_info in active_infos:
-        app.logger.info("active info:{}".format(active_info.active_name))
+        app.logger.info(
+            "active info:{} {}".format(active_info.active_name, active_info.active_id)
+        )
         active_user_record = ActiveUserRecord.query.filter(
             ActiveUserRecord.active_id == active_info.active_id,
             ActiveUserRecord.user_id == user_id,
@@ -102,7 +115,6 @@ def query_active_record(app, order_id) -> list[ActiveUserRecord]:
         Active.active_start_time <= now,
         Active.active_end_time >= now,
     ).all()
-
     active_maps = {i.active_id: i for i in actives}
 
     ret = []

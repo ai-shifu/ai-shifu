@@ -11,6 +11,8 @@ from flaskr.service.order.consts import (
     BUY_STATUS_SUCCESS,
     BUY_STATUS_TO_BE_PAID,
     BUY_STATUS_VALUES,
+    DISCOUNT_TYPE_FIXED,
+    DISCOUNT_TYPE_PERCENT,
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import User, UserConversion
@@ -29,6 +31,7 @@ from .models import AICourseLessonAttend
 from ...util.uuid import generate_id as get_uuid
 from ..lesson.const import LESSON_TYPE_TRIAL
 from .pingxx_order import create_pingxx_order
+from .models import Discount
 
 
 @register_schema_to_swagger
@@ -602,6 +605,31 @@ def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
         return None
 
 
+def calculate_discount_value(
+    app: Flask, price: str, active_records: list, discount_records: list
+):
+    discount_value = 0
+    if active_records is not None and len(active_records) > 0:
+        for active_record in active_records:
+            discount_value += active_record.price
+
+    if discount_records is not None and len(discount_records) > 0:
+        discount_ids = [i.discount_id for i in discount_records]
+        discounts = Discount.query.filter(Discount.discount_id.in_(discount_ids)).all()
+        discount_maps = {i.discount_id: i for i in discounts}
+        for discount_record in discount_records:
+            discount = discount_maps.get(discount_record.discount_id, None)
+            if discount:
+                if discount.discount_type == DISCOUNT_TYPE_FIXED:
+                    discount_value += discount.discount_value
+                elif discount.discount_type == DISCOUNT_TYPE_PERCENT:
+                    discount_value += discount.discount_value * price
+
+    if discount_value > price:
+        discount_value = price
+    return discount_value
+
+
 def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     with app.app_context():
         app.logger.info('query buy record:"{}"'.format(record_id))
@@ -624,7 +652,6 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                                 None,
                             )
                         )
-
                 discount_records = query_discount_record(app, record_id)
                 if discount_records:
                     for discount_record in discount_records:
@@ -637,6 +664,14 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                                 discount_record.discount_code,
                             )
                         )
+                discount_value = calculate_discount_value(
+                    app, buy_record.price, aitive_records, discount_records
+                )
+                if discount_value != buy_record.discount_value:
+                    buy_record.discount_value = discount_value
+                    buy_record.pay_value = buy_record.price - buy_record.discount_value
+                    db.session.commit()
+
             return AICourseBuyRecordDTO(
                 buy_record.record_id,
                 buy_record.user_id,
