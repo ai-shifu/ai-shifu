@@ -3,7 +3,6 @@ import { parseUrlParams } from 'Utils/urlUtils.js';
 import routes from './Router/index';
 import { useRoutes } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
-import locale from 'antd/locale/zh_CN';
 import { useSystemStore } from 'stores/useSystemStore.js';
 import i18n from './i18n.js';
 import { inWechat, wechatLogin } from 'constants/uiConstants.js';
@@ -14,7 +13,6 @@ import { useEnvStore } from 'stores/envStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
 
 const initializeEnvData = async () => {
-  const { checkLogin } = useUserStore();
   const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL } = useEnvStore.getState();
   const fetchEnvData = async () => {
     try {
