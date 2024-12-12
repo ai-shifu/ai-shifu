@@ -82,6 +82,8 @@ def generate_discount_code(
         discount.discount_channel = discount_channel
         discount.discount_filter = "{" + '"course_id":"' + discount_filter + '"' + "}"
         if discount_id is None or discount_id == "":
+            if discount_code <= 0:
+                raise_error("DISCOUNT.DISCOUNT_COUNT_NOT_ZERO")
             db.session.add(discount)
         else:
             db.session.merge(discount)
