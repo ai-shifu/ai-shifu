@@ -7,28 +7,39 @@ from .models import Active, ActiveUserRecord
 from ...util import generate_id
 
 
-def create_active(
+def save_active(
     app,
-    course_id,
+    user_id,
+    active_course,
     active_name,
     active_desc,
     active_start_time,
     active_end_time,
     active_price,
+    active_status,
+    active_id,
+    **kwargs
 ):
-    active = Active()
-    active.active_id = generate_id(app)
-    active.active_name = active_name
-    active.active_desc = active_desc
-    active.active_status = 1
-    active.active_start_time = active_start_time
-    active.active_end_time = active_end_time
-    active.active_price = active_price
-    active.active_filter = str({"course_id": course_id})
-    active.active_course = course_id
-    db.session.add(active)
-    db.session.commit()
-    return active.active_id
+    with app.app_context():
+        if active_id:
+            active = Active.query.filter(Active.active_id == active_id).first()
+        else:
+            active = Active()
+            active.active_id = generate_id(app)
+        active.active_name = active_name
+        active.active_desc = active_desc
+        active.active_status = active_status
+        active.active_start_time = active_start_time
+        active.active_end_time = active_end_time
+        active.active_price = active_price
+        active.active_filter = str({"course_id": active_course})
+        active.active_course = active_course
+        if active_id:
+            db.session.merge(active)
+        else:
+            db.session.add(active)
+        db.session.commit()
+        return active.active_id
 
 
 def create_active_user_record(
