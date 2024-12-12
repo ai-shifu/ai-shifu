@@ -5,9 +5,10 @@ import pytz
 from ...dao import db
 from .models import Active, ActiveUserRecord
 from ...util import generate_id
+from ..common import raise_error
 
 
-def create_active(
+def save_active(
     app,
     user_id,
     active_course,
@@ -20,6 +21,10 @@ def create_active(
     active_id=None,
     **args
 ):
+    active_start_time = datetime.strptime(active_start_time, "%Y-%m-%d %H:%M:%S")
+    active_end_time = datetime.strptime(active_end_time, "%Y-%m-%d %H:%M:%S")
+    if active_end_time < active_start_time:
+        raise_error("COMMON.START_TIME_NOT_ALLOWED")
     if active_id is not None and active_id != "":
         active = Active.query.filter(Active.active_id == active_id).first()
     else:
@@ -27,11 +32,10 @@ def create_active(
     active.active_id = generate_id(app)
     active.active_name = active_name
     active.active_desc = active_desc
-    active.active_status = 1
+    active.active_status = active_status
     active.active_start_time = active_start_time
     active.active_end_time = active_end_time
     active.active_price = active_price
-    active.active_status = active_status
     active.active_filter = str({"course_id": active_course})
     active.active_course = active_course
     if active_id:
@@ -58,9 +62,12 @@ def create_active_user_record(
 
 
 def query_and_join_active(app, course_id, user_id, order_id) -> list[ActiveUserRecord]:
-    app.logger.info("find active for course:{} and user:{}".format(course_id, user_id))
+
     bj_time = pytz.timezone("Asia/Shanghai")
     now = datetime.now(bj_time)
+    app.logger.info(
+        "find active for course:{} and user:{},time:{}".format(course_id, user_id, now)
+    )
     active_infos = Active.query.filter(
         Active.active_course == course_id,
         Active.active_status == 1,

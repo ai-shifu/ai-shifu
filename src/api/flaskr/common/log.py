@@ -62,6 +62,11 @@ class FeishuLogHandler(logging.Handler):
             print(f"Failed to send log to Feishu: {e}")
 
 
+class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):
+    def __init__(self, fmt, **kwargs):
+        super().__init__(fmt, **kwargs)
+
+
 def init_log(app: Flask) -> Flask:
     @app.before_request
     def setup_logging():
@@ -90,7 +95,7 @@ def init_log(app: Flask) -> Flask:
         + host_name
         + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
     )
-    color_formatter = colorlog.ColoredFormatter(
+    color_formatter = ColoredRequestFormatter(
         color_log_format,
         log_colors={
             "DEBUG": "cyan",
