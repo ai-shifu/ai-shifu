@@ -9,7 +9,7 @@ from datetime import datetime
 import random
 import string
 import pytz
-
+import json
 from ...api.doc.feishu import send_notify
 from ...service.order.funs import (
     query_buy_record,
@@ -19,6 +19,7 @@ from ...service.order.funs import (
 from .models import AICourseBuyRecord, Discount, DiscountRecord
 from ...dao import db
 from .consts import (
+    DISCOUNT_APPLY_TYPE_SPECIFIC,
     DISCOUNT_APPLY_TYPE_ALL,
     DISCOUNT_STATUS_ACTIVE,
     DISCOUNT_TYPE_FIXED,
@@ -41,32 +42,63 @@ def generate_discount_strcode(app: Flask):
 
 def generate_discount_code(
     app: Flask,
+    user_id,
     discount_value,
-    course_id,
-    discout_start,
+    discount_filter,
+    discount_start,
     discount_end,
     discount_channel,
     discount_type,
     discount_apply_type,
     discount_count=100,
     discount_code=None,
+    discount_id=None,
+    **args
 ):
+
+    app.logger.info("discount_id:" + str(discount_id))
+    app.logger.info("generate_discount_code:" + str(args))
     with app.app_context():
+        discount_start_time = datetime.strptime(discount_start, "%Y-%m-%d %H:%M:%S")
+        discount_end_time = datetime.strptime(discount_end, "%Y-%m-%d %H:%M:%S")
+        if discount_end_time < discount_start_time:
+            raise_error("COMMON.START_TIME_NOT_ALLOWED")
         if discount_code is None:
             discount_code = generate_discount_strcode(app)
-        discount = Discount()
-        discount.discount_id = generate_id(app)
-        discount.course_id = course_id
+        if discount_id is None or discount_id == "":
+            discount = Discount()
+            discount.discount_id = generate_id(app)
+        else:
+            discount = Discount.query.filter(
+                Discount.discount_id == discount_id
+            ).first()
         discount.discount_code = discount_code
         discount.discount_type = discount_type
         discount.discount_apply_type = discount_apply_type
         discount.discount_value = discount_value
         discount.discount_count = discount_count
-        discount.discount_start = discout_start
+        discount.discount_start = discount_start
         discount.discount_end = discount_end
         discount.discount_channel = discount_channel
-        discount.discount_filter = "{" + '"course_id":{}'.format(course_id) + "}"
-        db.session.add(discount)
+        discount.discount_filter = "{" + '"course_id":"' + discount_filter + '"' + "}"
+        if discount_id is None or discount_id == "":
+            if discount_code <= 0:
+                raise_error("DISCOUNT.DISCOUNT_COUNT_NOT_ZERO")
+            db.session.add(discount)
+        else:
+            db.session.merge(discount)
+        if (
+            discount_id is None or discount_id == ""
+        ) and discount_apply_type == DISCOUNT_APPLY_TYPE_SPECIFIC:
+            for i in range(discount_count):
+                record = DiscountRecord()
+                record.record_id = generate_id(app)
+                record.discount_id = discount.discount_id
+                record.discount_code = generate_discount_strcode(app)
+                record.discount_type = discount.discount_type
+                record.discount_value = discount.discount_value
+                record.status = DISCOUNT_STATUS_ACTIVE
+                db.session.add(record)
         db.session.commit()
         return discount.discount_id
 
@@ -146,12 +178,6 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             ).first()
             if not discount:
                 raise_error("DISCOUNT.DISCOUNT_NOT_FOUND")
-            discount_end = bj_time.localize(discount.discount_end)
-            if discount_end < now:
-                raise_error("DISCOUNT.DISCOUNT_ALREADY_EXPIRED")
-            if discount.discount_used + 1 > discount.discount_count:
-                raise_error("DISCOUNT.DISCOUNT_LIMIT_EXCEEDED")
-
             discountRecord = DiscountRecord()
             discountRecord.record_id = generate_id(app)
             discountRecord.discount_id = discount.discount_id
@@ -166,11 +192,28 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             discount = Discount.query.filter(
                 Discount.discount_id == discountRecord.discount_id
             ).first()
-
         if not discount:
             raise_error("DISCOUNT.DISCOUNT_NOT_FOUND")
         if discountRecord.status != DISCOUNT_STATUS_ACTIVE:
             raise_error("DISCOUNT.DISCOUNT_ALREADY_USED")
+        discount_start = bj_time.localize(discount.discount_start)
+        discount_end = bj_time.localize(discount.discount_end)
+        if discount_start > now:
+            raise_error("DISCOUNT.DISCOUNT_NOT_START")
+        if discount_end < now:
+            raise_error("DISCOUNT.DISCOUNT_ALREADY_EXPIRED")
+        if discount.discount_used + 1 > discount.discount_count:
+            raise_error("DISCOUNT.DISCOUNT_LIMIT_EXCEEDED")
+
+        if discount.discount_filter:
+            try:
+                discount_filter = json.loads(discount.discount_filter)
+            except json.JSONDecodeError:
+                discount_filter = {}
+            if "course_id" in discount_filter:
+                course_id = discount_filter["course_id"]
+                if course_id and course_id != "" and course_id != buy_record.course_id:
+                    raise_error("DISCOUNT.DISCOUNT_NOT_APPLY")
 
         discountRecord.status = DISCOUNT_STATUS_USED
         discountRecord.updated = now
@@ -182,7 +225,7 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             )
         elif discount.discount_type == DISCOUNT_TYPE_PERCENT:
             buy_record.discount_value = (
-                buy_record.discount_value
+                buy_record.discodunt_value
                 + buy_record.price * discountRecord.discount_value  # noqa W503
             )
         if buy_record.discount_value >= buy_record.price:
