@@ -104,8 +104,8 @@ export const registerTmp = ({ temp_id }) => {
  * 更新微信code
  * @returns
  */
-export const updateWxcode = () => {
-  const { wechatCode: wxcode } = useSystemStore.getState();
+export const updateWxcode = ({ wxcode }) => {
+  // const { wechatCode: wxcode } = useSystemStore.getState();
   return request(
     {
       url: '/api/user/update_openid',

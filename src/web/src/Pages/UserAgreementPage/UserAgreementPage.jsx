@@ -6,27 +6,27 @@ import { useSystemStore } from 'stores/useSystemStore.js';
 import { useEffect } from 'react';
 import { userInfoStore } from 'Service/storeUtil.js';
 const aggreements = {
-  "zh-CN": zhCNAggreement,
-  "en-US": enAggreement,
-}
+  'zh-CN': zhCNAggreement,
+  'en-US': enAggreement,
+  'en': enAggreement,
+};
 
 export const UserAgreementPage = () => {
-
-
-
   const { language, updateLanguage } = useSystemStore();
+  const markdown = aggreements[language];
+
   useEffect(() => {
     const userInfo = userInfoStore.get();
     if (userInfo) {
       updateLanguage(userInfo.language);
     }
   }, [updateLanguage]);
-  const markdown =  aggreements[language];
-  return <div className={styles.UserAgreementPage}>
-    <ReactMarkdown
-      children={markdown}
-    />
-  </div>
+
+  return (
+    <div className={styles.UserAgreementPage}>
+      <ReactMarkdown children={markdown} />
+    </div>
+  );
 };
 
 export default UserAgreementPage;

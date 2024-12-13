@@ -1,8 +1,9 @@
-import { memo, useState } from 'react';
+import { memo, useState, useCallback, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useTranslation } from 'react-i18next';
 import ModalM from 'Components/m/ModalM.jsx';
 import styles from './PayModalM.module.scss';
 import classNames from 'classnames';
-import PayTotalDiscount from './PayTotalDiscount.jsx';
 
 import weixinIcon from 'Assets/newchat/weixin.png';
 import zhifuboIcon from 'Assets/newchat/zhifubao.png';
@@ -16,19 +17,24 @@ import {
 } from './constans.js';
 import MainButtonM from 'Components/m/MainButtonM.jsx';
 import payInfoBg from 'Assets/newchat/pay-info-bg-m.png';
-import { useEffect } from 'react';
 
-import { getPayUrl, initOrder, applyDiscountCode } from 'Api/order.js';
+import {
+  getPayUrl,
+  initOrder,
+  initActiveOrder,
+  applyDiscountCode,
+} from 'Api/order.js';
 import { useWechat } from 'common/hooks/useWechat.js';
 import { message } from 'antd';
 import { inWechat } from 'constants/uiConstants.js';
 import { useDisclosture } from 'common/hooks/useDisclosture.js';
-import { useCallback } from 'react';
 import { SettingInputM } from 'Components/m/SettingInputM.jsx';
 import PayModalFooter from './PayModalFooter.jsx';
 import paySuccessBg from 'Assets/newchat/pay-success@2x.png';
 import { getStringEnv } from 'Utils/envUtils';
-import { useTranslation } from 'react-i18next';
+import { useUserStore } from 'stores/useUserStore.js';
+import { shifu } from 'Service/Shifu.js';
+
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
@@ -42,7 +48,14 @@ const CompletedSection = memo(() => {
   );
 });
 
-export const PayModalM = ({ open = false, onCancel, onOk }) => {
+export const PayModalM = ({
+  open = false,
+  onCancel,
+  onOk,
+  type = '',
+  payload = {},
+}) => {
+  const [initLoading, setInitLoading] = useState(true);
   const [price, setPrice] = useState('0.00');
   const [totalDiscount, setTotalDiscount] = useState('');
   const [payChannel, setPayChannel] = useState(
@@ -51,6 +64,10 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
   const [isCompleted, setIsCompleted] = useState(false);
   const [orderId, setOrderId] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
+  const [priceItems, setPriceItems] = useState([]);
+
+  const { t } = useTranslation();
   const { payByJsApi } = useWechat();
   const [messageApi, contextHolder] = message.useMessage();
   const {
@@ -59,20 +76,23 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
     onOpen: onCouponCodeModalOpen,
   } = useDisclosture();
   const courseId = getStringEnv('courseId');
-  useEffect(() => {
-    (async () => {
+  const { hasLogin } = useUserStore(
+    useShallow((state) => ({ hasLogin: state.hasLogin }))
+  );
 
-      const { data: resp } = await initOrder(courseId);
-      setPrice(resp.value_to_pay);
-      const orderId = resp.order_id;
-      setOrderId(orderId);
-      setTotalDiscount(resp.discount);
-
-      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-        setIsCompleted(true);
+  const initOrderUniform = useCallback(
+    async (courseId) => {
+      if (type === 'active') {
+        return initActiveOrder({
+          courseId,
+          ...payload,
+        });
+      } else {
+        return initOrder(courseId);
       }
-    })();
-  }, []);
+    },
+    [payload, type]
+  );
 
   const handlePay = useCallback(async () => {
     const { data: qrcodeResp } = await getPayUrl({
@@ -125,6 +145,28 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
     }
   }, [couponCode, messageApi, onCouponCodeModalClose, onOk, orderId]);
 
+  const onLoginButtonClick = useCallback(() => {
+    onCancel?.();
+    shifu.loginTools.openLogin();
+  }, [onCancel]);
+
+  useEffect(() => {
+    (async () => {
+      const { data: resp } = await initOrderUniform(courseId);
+      const orderId = resp.order_id;
+      setOrderId(orderId);
+      setTotalDiscount(resp.discount);
+      setOriginalPrice(resp.price);
+      setPrice(resp.value_to_pay);
+      setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
+      setInitLoading(false);
+
+      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+        setIsCompleted(true);
+      }
+    })();
+  }, [courseId, initOrderUniform]);
+
   return (
     <>
       <ModalM
@@ -138,89 +180,131 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
               <CompletedSection />
             ) : (
               <>
-                <div className={styles.payInfoTitle}>到手价格</div>
-                <div className={styles.priceWrapper}>
-                  <div
-                    className={classNames(styles.price)}
-                  >
-                    <span className={styles.priceSign}>￥</span>
-                    <span className={styles.priceNumber}>{price}</span>
-                  </div>
-                </div>
-                <div className={styles.totalDiscountWrapper}>
-                  <PayTotalDiscount discount={totalDiscount} />
-                </div>
-                <div className={styles.payChannelWrapper}>
-                  <Radio.Group value={payChannel} onChange={onPayChannelChange}>
-                    {inWechat() && (
-                      <div
-                        className={classNames(
-                          styles.payChannelRow,
-                          payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
-                            styles.selected
-                        )}
-                        onClick={onPayChannelWechatClick}
-                      >
-                        <div className={styles.payChannelBasic}>
-                          <img
-                            src={weixinIcon}
-                            alt="微信支付"
-                            className={styles.payChannelIcon}
-                          />
-                          <span className={styles.payChannelTitle}>
-                            微信支付
-                          </span>
+                {!initLoading ? (
+                  <>
+                    <div className={styles.payInfoTitle}>到手价格</div>
+                    <div className={styles.priceWrapper}>
+                      <div className={classNames(styles.price)}>
+                        <span className={styles.priceSign}>￥</span>
+                        <span className={styles.priceNumber}>{price}</span>
+                      </div>
+                    </div>
+
+                    {originalPrice && (
+                      <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
+                        <div className={styles.originalPrice}>
+                          {originalPrice}
                         </div>
-                        <RadioM
-                          className={styles.payChannelRadio}
-                          value={PAY_CHANNEL_WECHAT_JSAPI}
-                        />
                       </div>
                     )}
-                    {!inWechat() && (
-                      <div
-                        className={classNames(
-                          styles.payChannelRow,
-                          payChannel === PAY_CHANNEL_ZHIFUBAO && styles.selected
-                        )}
-                        onClick={onPayChannelZhifubaoClick}
-                      >
-                        <div className={styles.payChannelBasic}>
-                          <img
-                            src={zhifuboIcon}
-                            alt="支付宝支付"
-                            className={styles.payChannelIcon}
-                          />
-                          <span className={styles.payChannelTitle}>
-                            支付宝支付
-                          </span>
-                        </div>
-                        <RadioM
-                          className={styles.payChannelRadio}
-                          value={PAY_CHANNEL_ZHIFUBAO}
-                        />
+                    {priceItems && priceItems.length > 0 && (
+                      <div className={styles.priceItemsWrapper}>
+                        {priceItems.map((item, index) => {
+                          return (
+                            <div className={styles.priceItem} key={index}>
+                              <div className={styles.priceItemName}>
+                                {item.price_name}
+                              </div>
+                              <div className={styles.priceItemPrice}>
+                                {item.price}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-                  </Radio.Group>
-                </div>
-                <div className={styles.buttonWrapper}>
-                  <MainButtonM className={styles.payButton} onClick={handlePay}>
-                    支付
-                  </MainButtonM>
-                </div>
-                <div className={styles.couponCodeWrapper}>
-                  <MainButtonM
-                    className={styles.couponCodeButton}
-                    fill="none"
-                    onClick={onCouponCodeButtonClick}
-                  >
-                    {'使用兑换码 >'}
-                  </MainButtonM>
-                </div>
-                <PayModalFooter className={styles.protocal} />
+                    {hasLogin ? (
+                      <>
+                        <div className={styles.payChannelWrapper}>
+                          <Radio.Group
+                            value={payChannel}
+                            onChange={onPayChannelChange}
+                          >
+                            {inWechat() && (
+                              <div
+                                className={classNames(
+                                  styles.payChannelRow,
+                                  payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
+                                    styles.selected
+                                )}
+                                onClick={onPayChannelWechatClick}
+                              >
+                                <div className={styles.payChannelBasic}>
+                                  <img
+                                    src={weixinIcon}
+                                    alt="微信支付"
+                                    className={styles.payChannelIcon}
+                                  />
+                                  <span className={styles.payChannelTitle}>
+                                    微信支付
+                                  </span>
+                                </div>
+                                <RadioM
+                                  className={styles.payChannelRadio}
+                                  value={PAY_CHANNEL_WECHAT_JSAPI}
+                                />
+                              </div>
+                            )}
+                            {!inWechat() && (
+                              <div
+                                className={classNames(
+                                  styles.payChannelRow,
+                                  payChannel === PAY_CHANNEL_ZHIFUBAO &&
+                                    styles.selected
+                                )}
+                                onClick={onPayChannelZhifubaoClick}
+                              >
+                                <div className={styles.payChannelBasic}>
+                                  <img
+                                    src={zhifuboIcon}
+                                    alt="支付宝支付"
+                                    className={styles.payChannelIcon}
+                                  />
+                                  <span className={styles.payChannelTitle}>
+                                    支付宝支付
+                                  </span>
+                                </div>
+                                <RadioM
+                                  className={styles.payChannelRadio}
+                                  value={PAY_CHANNEL_ZHIFUBAO}
+                                />
+                              </div>
+                            )}
+                          </Radio.Group>
+                        </div>
+                        <div className={styles.buttonWrapper}>
+                          <MainButtonM
+                            className={styles.payButton}
+                            onClick={handlePay}
+                          >
+                            支付
+                          </MainButtonM>
+                        </div>
+                        <div className={styles.couponCodeWrapper}>
+                          <MainButtonM
+                            className={styles.couponCodeButton}
+                            fill="none"
+                            onClick={onCouponCodeButtonClick}
+                          >
+                            {!couponCode
+                              ? t('groupon.grouponUse')
+                              : t('groupon.grouponModify')}
+                          </MainButtonM>
+                        </div>
+                      </>
+                    ) : (
+                      <div className={styles.loginButtonWrapper}>
+                        <MainButtonM onClick={onLoginButtonClick}>
+                          登录立享优惠
+                        </MainButtonM>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <></>
+                )}
               </>
             )}
-
 
             <div className={styles.payInfoWrapper}>
               <img className={styles.payInfo} src={payInfoBg} alt="产品说明" />

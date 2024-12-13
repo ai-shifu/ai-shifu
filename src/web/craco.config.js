@@ -31,6 +31,32 @@ module.exports = {
           use: 'raw-loader',
         });
       }
+
+      // ios 16- don't support look behind
+      webpackConfig.module.rules.push({
+        test: /\.js$/,
+        use: [{
+          loader: 'string-replace-loader',
+          options: {
+            multiple: [
+              {
+                search: '?<=\\\\s|',
+                replace: '',
+              },
+              {
+                search: '?<=^',
+                replace: '^',
+              },
+              {
+                search: '?<="',
+                replace: '?="',
+              }
+            ]
+          }
+        }]
+      })
+
+
       if (process.env.NODE_ENV === 'production') {
         webpackConfig.devtool = false;
       }

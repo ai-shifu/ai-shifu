@@ -2,26 +2,25 @@
  * 左侧导航控件容器
  */
 import { AppContext } from 'Components/AppContext.js';
-import { useContext, useState, useRef } from 'react';
+import { useContext, useState, useRef, memo } from 'react';
 
 import NavHeader from './NavHeader.jsx';
 import NavBody from './NavBody.jsx';
 import NavFooter from './NavFooter.jsx';
-import FillingModal from './FilingModal.jsx';
-import ThemeWindow from './ThemeWindow.jsx';
-import SettingModal from './SettingModal.jsx';
 import CourseCatalogList from '../CourseCatalog/CourseCatalogList.jsx';
 import styles from './NavDrawer.module.scss';
 import FeedbackModal from '../FeedbackModal/FeedbackModal.jsx';
 import classNames from 'classnames';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking.js';
-import { getBoolEnv } from 'Utils/envUtils.js'
-
+import { getBoolEnv } from 'Utils/envUtils.js';
 import {
   FRAME_LAYOUT_PAD,
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
 } from 'constants/uiConstants';
+import { useDisclosture } from 'common/hooks/useDisclosture.js';
+import MainMenuModal from './MainMenuModal.jsx';
+import { useCallback } from 'react';
 
 /**
  * 导航栏展示形式
@@ -59,43 +58,61 @@ const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
 const NavDrawer = ({
   showType = NAV_SHOW_TYPE_NORMAL,
+  courseName = '',
   onLoginClick = () => {},
   lessonTree,
+  selectedLessonId = '',
   onChapterCollapse = () => {},
   onLessonSelect = () => {},
   onTryLessonSelect = ({ chapterId, lessonId }) => {},
-  onGoToSetting = () => {},
-  onClose = () => {},
+  onBasicInfoClick,
+  onPersonalInfoClick,
 }) => {
+  const [isCollapse, setIsCollapse] = useState(false);
+
+  const [bodyScrollTop, setBodyScrollTop] = useState(0);
   const { trackEvent } = useTracking();
   const { frameLayout, hasLogin, mobileStyle } = useContext(AppContext);
-  const [isCollapse, setIsCollapse] = useState(false);
-  const [popupModalState, setPopupModalState] = useState(
-    POPUP_WINDOW_STATE_CLOSE
-  );
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
-
   const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
   const footerRef = useRef(null);
+  const bodyRef = useRef(null);
 
-  const onHeaderCloseClick = () => {
+  const {
+    open: mainModalOpen,
+    onToggle: onMainModalToggle,
+    onClose: onMainModalClose,
+  } = useDisclosture();
+
+  const onBodyScroll = (e) => {
+    setBodyScrollTop(e.target.scrollTop);
   };
 
-  const onHeaderToggleClick = ({ isCollapse }) => {
+  const onHeaderToggleClick = useCallback(({ isCollapse }) => {
     setIsCollapse(isCollapse);
-  };
+  }, []);
 
-  const onPopupModalClose = (e) => {
-    if (footerRef.current && footerRef.current.containElement(e.target)) {
-      return;
-    }
-    setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
-  };
-
-  const popupWindowClassname = () => {
+  const popupWindowClassname = useCallback(() => {
     return isCollapse ? styles.popUpWindowCollapse : styles.popUpWindowExpand;
-  };
+  }, [isCollapse]);
+
+  const mainModalCloseHandler = useCallback(
+    (e) => {
+      if (footerRef.current && footerRef.current.containElement(e.target)) {
+        return;
+      }
+      onMainModalClose();
+    },
+    [onMainModalClose]
+  );
+
+  const onFooterClick = useCallback(() => {
+    onMainModalToggle();
+    trackEvent(EVENT_NAMES.USER_MENU, {
+      status: hasLogin ? 'logged_in' : 'logged_out',
+    });
+  }, [hasLogin, onMainModalToggle, trackEvent]);
 
   return (
     <div
@@ -108,74 +125,49 @@ const NavDrawer = ({
       <div className={styles.navDrawer}>
         <NavHeader
           className={styles.navHeader}
-          onClose={onHeaderCloseClick}
           onToggle={onHeaderToggleClick}
           isCollapse={isCollapse}
           mobileStyle={mobileStyle}
         />
+
         <div className={styles.bodyWrapper}>
-          {!isCollapse &&
-            (hasLogin || alwaysShowLessonTree ? (
-              <CourseCatalogList
-                catalogs={lessonTree?.catalogs || []}
-                catalogCount={lessonTree?.catalogCount || 0}
-                lessonCount={lessonTree?.lessonCount || 0}
-                onChapterCollapse={onChapterCollapse}
-                onLessonSelect={onLessonSelect}
-                onTryLessonSelect={onTryLessonSelect}
-              />
-            ) : (
-              <NavBody onLoginClick={onLoginClick} />
-            ))}
+          <div
+            className={styles.lessonTreeWrapper}
+            onScroll={onBodyScroll}
+            ref={bodyRef}
+          >
+            {!isCollapse &&
+              (hasLogin || alwaysShowLessonTree ? (
+                <CourseCatalogList
+                  courseName={courseName}
+                  selectedLessonId={selectedLessonId}
+                  catalogs={lessonTree?.catalogs || []}
+                  catalogCount={lessonTree?.catalogCount || 0}
+                  lessonCount={lessonTree?.lessonCount || 0}
+                  onChapterCollapse={onChapterCollapse}
+                  onLessonSelect={onLessonSelect}
+                  onTryLessonSelect={onTryLessonSelect}
+                  containerScrollTop={bodyScrollTop}
+                  containerHeight={bodyRef.current?.clientHeight || 0}
+                  bannerInfo={lessonTree?.bannerInfo}
+                />
+              ) : (
+                <NavBody onLoginClick={onLoginClick} />
+              ))}
+          </div>
         </div>
         <NavFooter
           ref={footerRef}
           isCollapse={isCollapse}
-          onFilingClick={() => {
-            trackEvent(EVENT_NAMES.NAV_BOTTOM_BEIAN, {});
-            if (popupModalState === POPUP_WINDOW_STATE_FILING) {
-              setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
-            } else {
-              setPopupModalState(POPUP_WINDOW_STATE_FILING);
-            }
-          }}
-          onThemeClick={() => {
-            trackEvent(EVENT_NAMES.NAV_BOTTOM_SKIN, {});
-            if (popupModalState === POPUP_WINDOW_STATE_THEME) {
-              setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
-            } else {
-              setPopupModalState(POPUP_WINDOW_STATE_THEME);
-            }
-          }}
-          onSettingsClick={() => {
-            trackEvent(EVENT_NAMES.NAV_BOTTOM_SETTING, {});
-            if (popupModalState === POPUP_WINDOW_STATE_SETTING) {
-              setPopupModalState(POPUP_WINDOW_STATE_CLOSE);
-            } else {
-              setPopupModalState(POPUP_WINDOW_STATE_SETTING);
-            }
-          }}
+          onClick={onFooterClick}
         />
-        <FillingModal
-          open={popupModalState === POPUP_WINDOW_STATE_FILING}
+        <MainMenuModal
+          open={mainModalOpen}
+          onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
-          onClose={onPopupModalClose}
-          onFeedbackClick={() => {
-            setFeedbackModalOpen(true);
-          }}
-        />
-        <ThemeWindow
-          open={popupModalState === POPUP_WINDOW_STATE_THEME}
-          className={popupWindowClassname()}
-          onClose={onPopupModalClose}
-        />
-        <SettingModal
-          open={popupModalState === POPUP_WINDOW_STATE_SETTING}
-          className={popupWindowClassname()}
-          onClose={onPopupModalClose}
-          onLoginClick={onLoginClick}
-          onGoToSetting={onGoToSetting}
-          onNavClose={onClose}
+          mobileStyle={mobileStyle}
+          onBasicInfoClick={onBasicInfoClick}
+          onPersonalInfoClick={onPersonalInfoClick}
         />
         <FeedbackModal
           open={feedbackModalOpen}
@@ -188,4 +180,4 @@ const NavDrawer = ({
   );
 };
 
-export default NavDrawer;
+export default memo(NavDrawer);

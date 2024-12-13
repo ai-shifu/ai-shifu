@@ -28,6 +28,44 @@
     }
   }
 
+  .originalPriceWrapper {
+    display: flex;
+    justify-content: center;
+
+    .originalPrice {
+      font-size: var(--font-size-5);
+      color: var(--color-disabled-1);
+      text-decoration: line-through;
+    }
+  }
+
+  .priceItemsWrapper {
+    width: 80%;
+    margin: 10px auto;
+    border-radius: 10px;
+    background-color: rgba(var(--color-1-rgb), 0.05);
+    padding: 10px;
+
+    .priceItem {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: var(--font-size-5);
+
+      &:first-child {
+        margin-top: 0;
+      }
+    }
+  }
+
+  .loginButtonWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2em 0;
+  }
+
   .totalDiscountWrapper {
     margin-top: 10px;
     display: flex;
@@ -35,7 +73,7 @@
   }
 
   .payChannelWrapper {
-    margin-top: 40px;
+    margin-top: 20px;
 
     .payChannelRow {
       padding: 18px;
@@ -91,6 +129,7 @@
 
     .couponCodeButton {
       --adm-font-size-9: var(--font-size-5);
+      color: var(--color-8);
     }
   }
 

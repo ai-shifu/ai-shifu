@@ -1,4 +1,4 @@
-export function smoothScroll({ el, to, duration = 300, scrollLeft = false }) {
+export function smoothScroll({ el, to, duration = 500, scrollLeft = false }) {
   let count = 0;
   const attr = scrollLeft ? 'scrollLeft' : 'scrollTop';
   const from = el[attr];

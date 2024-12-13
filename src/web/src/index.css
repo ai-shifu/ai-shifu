@@ -24,13 +24,16 @@ body {
   --font-size-5: 12px;
   --font-weight-5-1: 400;
   --font-weight-5-2: 500;
+  --font-size-6: 10px;
   --font-size-20: 42px;
+  --font-size-28: 28px;
 
   --font-size-main: 14px;
   --font-weight-main: 400;
 
   --font-weight-bold: 700;
   --font-color-title: #000000;
+  --font-color-2: #1f1f1f;
 
   /* 主要颜色 */
   --color-1: #0f63ee;
@@ -44,7 +47,7 @@ body {
   --color-8: #9ba9be;
   --color-9: #cdd4df;
   --color-20: #8C4B1D;
-
+  --color-disabled-1: #6C6C6C;
   --color-1-rgb: 15, 99, 238;
 
 
@@ -52,6 +55,12 @@ body {
   --success-color: #00a27a;
   --warning-color: #fb8b05;
   --fail-color: #eb4157;
+  --hover-color: rgba(0, 0, 0, 0.06);
+
+  /* pay button */
+  --pay-text-color: #854c2b;
+  --pay-bg-color: #f8e3c3;
+  --pay-border-color: #d8b582;
 }
 
 code {

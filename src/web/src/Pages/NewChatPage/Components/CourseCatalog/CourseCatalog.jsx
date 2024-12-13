@@ -12,10 +12,12 @@ export const CourseCatalog = ({
   status,
   lessons = [],
   collapse = false,
+  selectedLessonId = '',
   onCollapse = ({ id }) => {},
   onLessonSelect = ({ id }) => {},
   onTrySelect = ({ chapterId, lessonId }) => {},
 }) => {
+
   const _onTrySelect = useCallback(
     ({ id: lessonId }) => {
       onTrySelect?.({ chapterId: id, lessonId });
@@ -68,7 +70,7 @@ export const CourseCatalog = ({
               name={e.name}
               status={e.status}
               status_value={e.status_value}
-              selected={e.selected}
+              selected={e.id === selectedLessonId}
               canLearning={e.canLearning}
               onSelect={onLessonSelect}
               onTrySelect={_onTrySelect}

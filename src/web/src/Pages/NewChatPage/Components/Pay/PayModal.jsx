@@ -1,27 +1,29 @@
-import { Button, Modal } from 'antd';
-import { useCallback } from 'react';
-import { memo, useState } from 'react';
+import { Button, Modal, QRCode, message } from 'antd';
+import { useShallow } from 'zustand/react/shallow';
+import { memo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import styles from './PayModal.module.scss';
 import { useDisclosture } from 'common/hooks/useDisclosture.js';
 import CouponCodeModal from './CouponCodeModal.jsx';
-import { QRCode } from 'antd';
 import { ORDER_STATUS, PAY_CHANNEL_WECHAT } from './constans.js';
 import {
   getPayUrl,
   initOrder,
+  initActiveOrder,
   queryOrder,
   applyDiscountCode,
 } from 'Api/order.js';
-import { useEffect } from 'react';
 import classNames from 'classnames';
 import { useInterval } from 'react-use';
-import { message } from 'antd';
 import paySucessBg from 'Assets/newchat/pay-success@2x.png';
 import payInfoBg from 'Assets/newchat/pay-info-bg.png';
 import PayModalFooter from './PayModalFooter.jsx';
 import PayChannelSwitch from './PayChannelSwitch.jsx';
 import { getStringEnv } from 'Utils/envUtils';
+import MainButton from 'Components/MainButton.jsx';
+import { useUserStore } from 'stores/useUserStore.js';
+import { shifu } from 'Service/Shifu.js';
+import { getCourseInfo } from 'Api/course.js';
 
 const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
 const MAX_TIMEOUT = 1000 * 60 * 3;
@@ -39,9 +41,16 @@ const CompletedSection = memo(() => {
   );
 });
 
-export const PayModal = ({ open = false, onCancel, onOk }) => {
+export const PayModal = ({
+  open = false,
+  onCancel,
+  onOk,
+  type = '',
+  payload = {},
+}) => {
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
+  const [initLoading, setInitLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
@@ -53,33 +62,54 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
   const [countDwon, setCountDown] = useState(MAX_TIMEOUT);
   const [messageApi, contextHolder] = message.useMessage();
   const [couponCode, setCouponCode] = useState('');
-  const [discount, setDiscount] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
+  const [priceItems, setPriceItems] = useState([]);
 
-  useInterval(async () => {
-    if (countDwon <= 0) {
-      setIsTimeout(true);
-      setInterval(null);
-    }
-    setCountDown(countDwon - COUNTDOWN_INTERVAL);
+  const { hasLogin } = useUserStore(
+    useShallow((state) => ({ hasLogin: state.hasLogin }))
+  );
 
-    const { data: resp } = await queryOrder({ orderId });
+  const initOrderUniform = useCallback(
+    async (courseId) => {
+      if (type === 'active') {
+        return initActiveOrder({
+          courseId,
+          ...payload,
+        });
+      } else {
+        return initOrder(courseId);
+      }
+    },
+    [payload, type]
+  );
 
-    if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-      setIsCompleted(true);
-      setInterval(null);
-      onOk?.();
-      return;
-    }
+  useInterval(
+    async () => {
+      if (countDwon <= 0) {
+        setIsTimeout(true);
+        setInterval(null);
+      }
+      setCountDown(countDwon - COUNTDOWN_INTERVAL);
 
-    setDiscount(resp.discount);
-    setPrice(resp.value_to_pay);
-  }, interval);
+      const { data: resp } = await queryOrder({ orderId });
+
+      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+        setIsCompleted(true);
+        setInterval(null);
+        onOk?.();
+        return;
+      }
+
+      setOriginalPrice(resp.price);
+      setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
+      setPrice(resp.value_to_pay);
+    },
+    hasLogin ? interval : null
+  );
 
   const refreshOrderQrcode = useCallback(
     async (orderId) => {
-
-
-      if (orderId){
+      if (orderId) {
         const { data: qrcodeResp } = await getPayUrl({
           channel: payChannel,
           orderId,
@@ -94,8 +124,9 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
         }
       }
     },
-    [payChannel, couponCode]
+    [payChannel]
   );
+
   const courseId = getStringEnv('courseId');
   const loadPayInfo = useCallback(async () => {
     setIsLoading(true);
@@ -105,12 +136,13 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
     setOrderId('');
     setInterval(null);
     setCouponCode('');
-    setDiscount('');
-    const { data: resp } = await initOrder(courseId);
+    setOriginalPrice('');
+    const { data: resp } = await initOrderUniform(courseId);
     setPrice(resp.value_to_pay);
+    setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
     const orderId = resp.order_id;
     setOrderId(orderId);
-    setDiscount(resp.discount);
+    setOriginalPrice(resp.price);
 
     if (
       resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
@@ -124,7 +156,23 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
     }
 
     setIsLoading(false);
-  }, [refreshOrderQrcode]);
+  }, [courseId, initOrderUniform, refreshOrderQrcode]);
+
+  const loadCourseInfo = useCallback(async () => {
+    setIsLoading(true);
+    setIsTimeout(false);
+    setQrUrl(DEFAULT_QRCODE);
+    setPrice('0');
+    setOrderId('');
+    setInterval(null);
+    setCouponCode('');
+    setOriginalPrice('');
+
+    const resp = await getCourseInfo(courseId);
+    setPrice(resp.data.course_price);
+
+    setIsLoading(false);
+  }, [courseId]);
 
   const onQrcodeRefresh = useCallback(() => {
     loadPayInfo();
@@ -142,12 +190,10 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
     return 'active';
   }, [isLoading, isTimeout]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    loadPayInfo();
-  }, [loadPayInfo, open]);
+  const onLoginButtonClick = useCallback(() => {
+    onCancel?.();
+    shifu.loginTools.openLogin();
+  }, [onCancel]);
 
   const {
     open: couponCodeModalOpen,
@@ -177,7 +223,6 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
       }
       refreshOrderQrcode();
       onCouponCodeModalClose();
-
     },
     [messageApi, onCouponCodeModalClose, orderId, refreshOrderQrcode]
   );
@@ -185,6 +230,21 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
   const onPayChannelSelectChange = useCallback((e) => {
     setPayChannel(e.channel);
   }, []);
+
+  useEffect(() => {
+    if (!open || !hasLogin) {
+      return;
+    }
+    loadPayInfo();
+    setInitLoading(false);
+  }, [hasLogin, loadPayInfo, open]);
+
+  useEffect(() => {
+    if (!hasLogin) {
+      loadCourseInfo();
+      setInitLoading(false);
+    }
+  }, [hasLogin, loadCourseInfo]);
 
   return (
     <>
@@ -198,65 +258,90 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
         height="588px"
         maskClosable={false}
       >
-        <div className={styles.payModalContent}>
-          <div
-            className={styles.introSection}
-            style={{ backgroundImage: `url(${payInfoBg})` }}
-          ></div>
-          {isCompleted ? (
-            <CompletedSection />
-          ) : (
-            <div className={styles.paySection}>
-              <div className={styles.payInfoTitle}>到手价格</div>
-              <div className={styles.priceWrapper}>
-                <div
-                  className={classNames(
-                    styles.price,
-                    (isLoading || isTimeout) && styles.disabled
-                  )}
-                >
-                  <span className={styles.priceSign}>￥</span>
-                  <span className={styles.priceNumber}>{price}</span>
+        {!initLoading && (
+          <div className={styles.payModalContent}>
+            <div
+              className={styles.introSection}
+              style={{ backgroundImage: `url(${payInfoBg})` }}
+            ></div>
+            {isCompleted ? (
+              <CompletedSection />
+            ) : (
+              <div className={styles.paySection}>
+                <div className={styles.payInfoTitle}>到手价格</div>
+                <div className={styles.priceWrapper}>
+                  <div
+                    className={classNames(
+                      styles.price,
+                      (isLoading || isTimeout) && styles.disabled
+                    )}
+                  >
+                    <span className={styles.priceSign}>￥</span>
+                    <span className={styles.priceNumber}>{price}</span>
+                  </div>
                 </div>
+                {originalPrice && (
+                  <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
+                    <div className={styles.originalPrice}>{originalPrice}</div>
+                  </div>
+                )}
+                {priceItems && priceItems.length > 0 && (
+                  <div className={styles.priceItemsWrapper}>
+                    {priceItems.map((item, index) => {
+                      return (
+                        <div className={styles.priceItem} key={index}>
+                          <div className={styles.priceItemName}>
+                            {item.price_name}
+                          </div>
+                          <div className={styles.priceItemPrice}>
+                            {item.price}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {hasLogin ? (
+                  <>
+                    <div className={styles.qrcodeWrapper}>
+                      <QRCode
+                        size={175}
+                        value={qrUrl}
+                        status={getQrcodeStatus()}
+                        onRefresh={onQrcodeRefresh}
+                        bordered={false}
+                      />
+                    </div>
+                    <div className={styles.channelSwitchWrapper}>
+                      <PayChannelSwitch
+                        channel={payChannel}
+                        onChange={onPayChannelSelectChange}
+                      />
+                    </div>
+                    <div className={styles.couponCodeWrapper}>
+                      <Button
+                        type="link"
+                        onClick={onCouponCodeClick}
+                        className={styles.couponCodeButton}
+                      >
+                        {!couponCode
+                          ? t('groupon.grouponUse')
+                          : t('groupon.grouponModify')}
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className={styles.loginButtonWrapper}>
+                    <MainButton onClick={onLoginButtonClick}>
+                      登录立享优惠
+                    </MainButton>
+                  </div>
+                )}
+                <PayModalFooter />
               </div>
-              <div className={styles.discountTipWrapper}>
-                <div className={styles.discountTip}>
-                  已节省： {discount || '0.00'}
-                </div>
-              </div>
-              <div className={styles.qrcodeWrapper}>
-                <QRCode
-                  size={175}
-                  value={qrUrl}
-                  status={getQrcodeStatus()}
-                  onRefresh={onQrcodeRefresh}
-                  bordered={false}
-                />
-              </div>
-              <div className={styles.channelSwitchWrapper}>
-                <PayChannelSwitch
-                  channel={payChannel}
-                  onChange={onPayChannelSelectChange}
-                />
-                <div className={styles.channelDesc}>
-                  现已支持{' '}
-                  <span style={{ fontWeight: 'bold' }}>微信 & 支付宝</span>{' '}
-                  扫码支付
-                </div>
-              </div>
-              <div className={styles.couponCodeWrapper}>
-                <Button
-                  type="link"
-                  onClick={onCouponCodeClick}
-                  className={styles.couponCodeButton}
-                >
-                  {!couponCode ? t('groupon.grouponUse') : t('groupon.grouponModify')}
-                </Button>
-              </div>
-              <PayModalFooter />
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </Modal>
       {couponCodeModalOpen && (
         <CouponCodeModal

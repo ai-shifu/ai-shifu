@@ -43,3 +43,16 @@ export const copyText = async (text) => {
     return await copyTextNew(text);
   }
 };
+
+export const snakeToCamel = (str) => {
+    return str.replace(/(_\w)/g, function(match) {
+        return match[1].toUpperCase();
+    });
+}
+
+export const camelToSnake = (str) => {
+  return str.replace(/[A-Z]/g, function(match) {
+      return '_' + match.toLowerCase();
+  });
+}
+

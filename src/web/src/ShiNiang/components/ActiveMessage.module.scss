@@ -1,0 +1,15 @@
+.activeContainer {
+  padding: 0 12px;
+  font-size: 0.85em;
+  color: var(--color-disabled-1);
+
+  .activeWrapper {
+    border-top: 1px solid #bbb;
+    padding: 7px 0;
+    line-height: 2em;
+  }
+}
+
+.payButton {
+  margin-left: 0.1em;
+}

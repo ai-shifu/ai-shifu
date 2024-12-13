@@ -11,6 +11,16 @@
 
   .bodyWrapper {
     flex: 1 1 0;
+    position: relative;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .lessonTreeWrapper {
+    height: 100%;
     overflow-y: auto;
 
     &::-webkit-scrollbar {

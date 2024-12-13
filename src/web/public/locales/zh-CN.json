@@ -9,7 +9,27 @@
     "ok": "确定",
     "networkError": "无法连接到服务器请检查网络设置",
     "backToHome": "返回首页",
-    "redirectInSeconds": "将在 {{seconds}} 秒后返回首页"
+    "redirectInSeconds": "将在 {{seconds}} 秒后返回首页",
+    "shortcut": {
+      "title": {
+        "continue": "继续（无需用户输入或选择时）",
+        "ask": "追问",
+        "shortcut": "显示快捷方式"
+      },
+      "key": {
+        "a": "A",
+        "b": "B",
+        "c": "C",
+        "d": "D",
+        "e": "E",
+        "ctrl": "Ctrl",
+        "shift": "Shift",
+        "cmd": "⌘",
+        "/": "/",
+        "space": "空格",
+        "enter": "回车"
+      }
+    }
   },
   "user": {
     "loginMainButton": "登录/注册",
@@ -17,6 +37,7 @@
     "confirmLogoutContent": "确认退出登录么？",
     "defaultUserName": "默认名称",
     "notLogin": "未登录",
+    "login": "登录",
     "logout": "退出登录",
     "loginTitle": "登录",
     "loginFeedback": "提交反馈",
@@ -56,11 +77,11 @@
     "grouponTitle": "兑换码",
     "grouponPlaceholder": "请输入兑换码",
     "grouponInputMsg": "请输入兑换码",
-    "grouponUse": "使用兑换码 >",
+    "grouponUse": "其他支付方式",
     "grouponModify": "修改兑换码 >"
   },
   "navigation": {
-    "courseList": "课程列表",
+    "courseList": "课程名称",
     "theChapter": "章",
     "theLesson": "节",
     "filing": "备案",
@@ -71,18 +92,22 @@
     "gongan": "京公网安备11010502055644号",
     "feedbackTitle": "提交反馈",
     "userAggrement": "服务协议",
-    "privacyPolicy": "隐私政策"
+    "privacyPolicy": "隐私协议",
+    "contactUs": "联系我们",
+    "shortcut": "快捷键"
   },
   "settings": {
     "home": "主页",
     "settingTite": "个人信息",
     "basicInfo": "基础信息",
     "nickname": "昵称",
+    "nicknamePersonal": "昵称（同时作为个人基本信息）",
     "nicknamePlaceholder": "请输入昵称",
     "sex": "性别",
     "sexPlaceholder": "请选择性别",
     "birth": "生日",
     "birthPlaceholder": "请选择生日",
+    "personalInfo": "个性化设置",
     "dialogTitle": {
       "selectSex": "选择性别",
       "selectBirthday": "选择生日"
@@ -124,5 +149,12 @@
   },
   "error": {
     "pageNotFound": "找不到这个师傅了"
+  },
+  "menus": {
+    "navigationMenus": {
+      "basicInfo": "用户信息",
+      "personalInfo": "个性化设置",
+      "language": "语言"
+    }
   }
 }

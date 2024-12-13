@@ -2,6 +2,7 @@ export const EVENT_NAMES = {
   VISIT: 'visit',
   TRIAL_PROGRESS: 'trial_progress',
   POP_PAY: 'pop_pay',
+  POP_LOGIN: 'pop_login',
   PAY_SUCCEED: 'pay_succeed',
   NAV_BOTTOM_BEIAN: 'nav_bottom_beian',
   NAV_BOTTOM_SKIN: 'nav_bottom_skin',
@@ -12,12 +13,16 @@ export const EVENT_NAMES = {
   NAV_SECTION_SWITCH: 'nav_section_switch',
   RESET_CHAPTER: 'reset_chapter',
   RESET_CHAPTER_CONFIRM: 'reset_chapter_confirm',
+  USER_MENU: 'user_menu',
+  USER_MENU_BASIC_INFO: 'user_menu_basic_info',
+  USER_MENU_PERSONALIZED: 'user_menu_personalized',
 };
 
 export const tracking = async (eventName, eventData) => {
+  console.log('tracking.tracking', eventName, eventData);
   try {
     const umami = window.umami;
-    // tracking 库不存在就不处理
+    // dont track if umami is not loaded
     if (!umami) {
       return;
     }

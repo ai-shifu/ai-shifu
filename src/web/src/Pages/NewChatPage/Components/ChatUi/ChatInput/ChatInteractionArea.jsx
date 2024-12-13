@@ -4,9 +4,13 @@ import { Button, ConfigProvider } from 'antd';
 import classNames from 'classnames';
 import styles from './ChatInteractionArea.module.scss';
 import askIcon from '@Assets/newchat/light/svg-ask-16.svg';
-import { INTERACTION_TYPE, INTERACTION_DISPLAY_TYPE } from 'constants/courseConstants.js';
+import {
+  INTERACTION_TYPE,
+  INTERACTION_DISPLAY_TYPE,
+} from 'constants/courseConstants.js';
 import { getInteractionComponent } from './interactionRegistry';
 import ChatInputText from './InputComponents/ChatInputText';
+import AskButton from './InputComponents/AskButton';
 
 // import all interaction components
 const importAll = (r) => r.keys().forEach(r);
@@ -15,9 +19,9 @@ importAll(require.context('./InputComponents', true, /\.jsx$/));
 export const ChatInteractionArea = ({
   type = INTERACTION_DISPLAY_TYPE.TEXT,
   props = {},
-  onSend = (type, val) => {},
+  onSend = (type, val, scriptId) => {},
   disabled = false,
-  askMode = false,
+  askButtonState = { askMode: false, total: 1, used: 0 },
   onSizeChange = ({ width, height }) => {},
 }) => {
   const elemRef = useRef();
@@ -46,12 +50,15 @@ export const ChatInteractionArea = ({
     return <></>;
   };
 
-  const resizeChange = useCallback((e) => {
-    onSizeChange?.({
-      width: e.contentRect.width,
-      height: e.contentRect.height,
-    });
-  }, [onSizeChange]);
+  const resizeChange = useCallback(
+    (e) => {
+      onSizeChange?.({
+        width: e.contentRect.width,
+        height: e.contentRect.height,
+      });
+    },
+    [onSizeChange]
+  );
 
   const handleAskClick = () => {
     setInputVisible(!isInputVisible);
@@ -84,40 +91,31 @@ export const ChatInteractionArea = ({
     >
       <div className={styles.controlContainer}>
         <div className={styles.controlWrapper}>
-          {(!isInputVisible) && genRenderControl()} {/* Display input box based on state */}
-          {isInputVisible &&
-            <ChatInputText
-              id="askInput"
-              onClick={onSendAsk}
-              type="text"
-              props={{ content: t('chat.askContent') }}
-              visible={isInputVisible}
+          <div className={styles.controlWrapperInner}>
+            {!isInputVisible && genRenderControl()}{' '}
+            {/* Display input box based on state */}
+            {isInputVisible && (
+              <ChatInputText
+                id="askInput"
+                onClick={onSendAsk}
+                type="text"
+                props={{ content: t('chat.askContent') }}
+                visible={isInputVisible}
+              />
+            )}
+          </div>
+          {askButtonState.visible && (
+            <AskButton
+              className={styles.askButton}
+              disabled={!askButtonState.askMode}
+              total={askButtonState.total}
+              used={askButtonState.used}
+              onClick={handleAskClick}
             />
-          }
-          <ConfigProvider
-            theme={{
-              components: {
-                Button: {
-                  colorPrimary: '#042ED2',
-                  colorPrimaryHover: '#3658DB',
-                  colorPrimaryActive: '#0325A8',
-                  lineWidth: 0,
-                },
-              },
-            }}
-          >
-            <Button type="primary" onClick={handleAskClick} className={styles.askButton} disabled={!askMode}>
-              <div className={styles.askButtonContent}>
-                <img src={askIcon} alt="" className={styles.askButtonIcon} />
-                <span className={styles.askButtonText}>{t('chat.ask')}</span>
-              </div>
-            </Button>
-          </ConfigProvider>
+          )}
         </div>
       </div>
-      <div className={styles.tipText}>
-        {t('chat.chatTips')}
-      </div>
+      <div className={styles.tipText}>{t('chat.chatTips')}</div>
     </div>
   );
 };

@@ -13,3 +13,15 @@ export function getQueryParams(url) {
   }
   return params;
 }
+
+// remove some query params from url
+export const removeParamFromUrl = (url, paramsToRemove) => {
+  const urlObj = new URL(url);
+  const searchParams = urlObj.searchParams;
+
+  for (const paramToRemove of paramsToRemove) {
+    searchParams.delete(paramToRemove);
+  }
+
+  return urlObj.toString();
+}
