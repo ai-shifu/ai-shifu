@@ -29,5 +29,4 @@ def handle_input_continue_order(
     ).first()
     if not buy_record:
         raise_error("COURSE.COURSE_NOT_PURCHASED")
-
     return None
