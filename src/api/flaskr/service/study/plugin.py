@@ -7,9 +7,17 @@ from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.dao import db
 
 
+# handlers for input
 INPUT_HANDLE_MAP = {}
+# spceic handler for input continue
+CONTINUE_HANDLE_MAP = {}
+
+# handlers for ui
+UI_HANDLE_MAP = {}
 
 
+# register input for input
+# ex. text,continue,start ...
 def register_input_handler(input_type: str):
     def decorator(func):
         from flask import current_app
@@ -23,7 +31,19 @@ def register_input_handler(input_type: str):
     return decorator
 
 
-UI_HANDLE_MAP = {}
+# register continue for input
+# ex. continue,start ...
+def register_continue_handler(script_ui_type: int):
+    def decorator(func):
+        from flask import current_app
+
+        current_app.logger.info(
+            f"register_continue_handler {script_ui_type} ==> {func.__name__}"
+        )
+        CONTINUE_HANDLE_MAP[script_ui_type] = func
+        return func
+
+    return decorator
 
 
 def register_ui_handler(ui_type):

@@ -55,7 +55,6 @@ def load_plugins_from_dir(app: Flask, plugins_dir: str):
 
 
 def enable_plugins(app: Flask):
-
     @app.cli.group()
     def plugin():
         """Plugin management commands."""
