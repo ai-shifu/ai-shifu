@@ -15,6 +15,9 @@ CONTINUE_HANDLE_MAP = {}
 # handlers for ui
 UI_HANDLE_MAP = {}
 
+# handlers for ui record
+UI_RECORD_HANDLE_MAP = {}
+
 
 # register input for input
 # ex. text,continue,start ...
@@ -97,17 +100,21 @@ def handle_ui(
                 script_info.script_index,
             )
         )
-        yield from UI_HANDLE_MAP[script_info.script_ui_type](
-            app, user_id, attend, script_info, input, trace, trace_args
+        ret = []
+        ret.append(
+            UI_HANDLE_MAP[script_info.script_ui_type](
+                app, user_id, attend, script_info, input, trace, trace_args
+            )
         )
-        yield from handle_ask_mode(
-            app, user_id, attend, script_info, input, trace, trace_args
+        ret.append(
+            handle_ask_mode(app, user_id, attend, script_info, input, trace, trace_args)
         )
+        span = trace.span(name="ui_script")
+        span.end()
+        db.session.flush()
+        return ret
     else:
         raise AppException("script type not found")
-    span = trace.span(name="ui_script")
-    span.end()
-    db.session.flush()
 
 
 def generate_ui(

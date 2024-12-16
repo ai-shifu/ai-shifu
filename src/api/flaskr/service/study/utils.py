@@ -381,6 +381,12 @@ def make_script_dto(script_type, script_content, script_id) -> str:
     )
 
 
+def make_script_dto_to_stream(dto: ScriptDTO) -> str:
+    return (
+        "data: " + json.dumps(dto, default=fmt) + "\n\n".encode("utf-8").decode("utf-8")
+    )
+
+
 def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttendDTO]:
     attend_status_values = get_attend_status_values()
     res = []

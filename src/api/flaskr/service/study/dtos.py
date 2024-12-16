@@ -11,17 +11,20 @@ from flaskr.service.order.funs import AICourseLessonAttendDTO
 class ScriptDTO:
     script_type: str  # "'text' 'input' 'buttons' 'text_end'"
     script_content: str
+    lesson_id: str
     script_id: str
 
-    def __init__(self, script_type, script_content, script_id=None):
+    def __init__(self, script_type, script_content, lesson_id, script_id=None):
         self.script_type = script_type
         self.script_content = script_content
         self.script_id = script_id
+        self.lesson_id = lesson_id
 
     def __json__(self):
         return {
             "type": self.script_type,
             "content": self.script_content,
+            "lesson_id": self.lesson_id,
             "script_id": self.script_id,
         }
 
@@ -196,7 +199,7 @@ class StudyUIDTO:
 @register_schema_to_swagger
 class StudyRecordDTO:
     records: List[StudyRecordItemDTO]
-    ui: StudyUIDTO
+    ui: ScriptDTO
     ask_mode: bool
     teach_avator: str
 

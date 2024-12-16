@@ -4,8 +4,8 @@ from flaskr.service.lesson.const import UI_TYPE_BUTTON
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.plugin import register_ui_handler
-from flaskr.service.study.utils import make_script_dto
 from flaskr.service.study.const import INPUT_TYPE_CONTINUE
+from flaskr.service.study.dtos import ScriptDTO
 
 
 @register_ui_handler(UI_TYPE_BUTTON)
@@ -17,7 +17,7 @@ def handle_input_button(
     input: str,
     trace,
     trace_args,
-):
+) -> ScriptDTO:
     btn = [
         {
             "label": script_info.script_ui_content,
@@ -25,6 +25,9 @@ def handle_input_button(
             "type": INPUT_TYPE_CONTINUE,
         }
     ]
-    yield make_script_dto(
-        "buttons", {"title": "接下来", "buttons": btn}, script_info.script_id
+    return ScriptDTO(
+        "buttons",
+        {"title": "接下来", "buttons": btn},
+        script_info.lesson_id,
+        script_info.script_id,
     )

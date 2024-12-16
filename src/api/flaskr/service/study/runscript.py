@@ -44,6 +44,7 @@ from .utils import (
 from .input_funcs import BreakException
 from .output_funcs import handle_output
 from .plugin import handle_input, handle_ui
+from .utils import make_script_dto_to_stream
 
 
 def run_script_inner(
@@ -315,7 +316,7 @@ def run_script_inner(
                             next = 1
                             input_type = None
                         else:
-                            yield from handle_ui(
+                            script_dtos = handle_ui(
                                 app,
                                 user_id,
                                 attend,
@@ -324,6 +325,8 @@ def run_script_inner(
                                 trace,
                                 trace_args,
                             )
+                            for script_dto in script_dtos:
+                                yield make_script_dto_to_stream(script_dto)
                     else:
                         attends = update_attend_lesson_info(app, attend.attend_id)
                         for attend_update in attends:
@@ -345,7 +348,7 @@ def run_script_inner(
                 except BreakException:
                     if script_info:
                         yield make_script_dto("text_end", "", None)
-                        yield from handle_ui(
+                        script_dtos = handle_ui(
                             app,
                             user_id,
                             attend,
@@ -354,6 +357,8 @@ def run_script_inner(
                             trace,
                             trace_args,
                         )
+                        for script_dto in script_dtos:
+                            yield make_script_dto_to_stream(script_dto)
                     db.session.commit()
                     return
             else:

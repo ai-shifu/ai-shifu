@@ -17,8 +17,23 @@ def inject(func):
                 return func(*args, **kwargs)
         return func(*args, **kwargs)
 
-    wrapper.inject = True  # 设置标志属性
+    wrapper.inject = True  # set flag
     return wrapper
+
+
+# process return value
+def process_return(process_func):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            app = kwargs.get("app")
+            app.logger.info(f"process_return: {func.__name__}")
+            result = func(*args, **kwargs)
+            return process_func(result, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 def load_plugins_from_dir(app: Flask, plugins_dir: str):
