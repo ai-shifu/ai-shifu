@@ -58,12 +58,14 @@ export const LogoWithText = ({ direction, size = 64, color = 'blue' }) => {
         ...commonStyles,
       }}
     >
-      <img src={getLogoByColor(color)} alt="logo" style={{ ...commonStyles }} />
+      <a href="https://www.ai-shifu.com">
+        <img src={getLogoByColor(color)} alt="logo" style={{ ...commonStyles }} />
       {isRow ? (
         <img src={getTextRowByColor(color)} alt="logotext" style={{ ...textStyles }} />
       ) : (
-        <img src={logoTextColumn} alt="logotext" style={{ ...textStyles }} />
-      )}
+          <img src={logoTextColumn} alt="logotext" style={{ ...textStyles }} />
+        )}
+      </a>
     </div>
   );
 };
