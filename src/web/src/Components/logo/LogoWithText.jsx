@@ -58,7 +58,7 @@ export const LogoWithText = ({ direction, size = 64, color = 'blue' }) => {
         ...commonStyles,
       }}
     >
-      <a href="https://www.ai-shifu.com">
+      <a href="https://ai-shifu.com">
         <img src={getLogoByColor(color)} alt="logo" style={{ ...commonStyles }} />
       {isRow ? (
         <img src={getTextRowByColor(color)} alt="logotext" style={{ ...textStyles }} />
