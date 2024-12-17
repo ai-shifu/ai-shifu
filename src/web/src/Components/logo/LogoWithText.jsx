@@ -28,11 +28,11 @@ export const LogoWithText = ({ direction, size = 64, color = 'blue' }) => {
         ...commonStyles,
       }}
     >
-        {isRow ? (
-              <img src={logoTextRow} alt="logotext" style={{ ...commonStyles }} />
-            ) : (
-          <img src={logoTextColumn} alt="logotext" style={{ ...commonStyles }} />
-        )}
+      {isRow ? (
+        <img src={logoRow} alt="logo" style={{ ...commonStyles }} />
+      ) : (
+        <img src={logoColumn} alt="logo" style={{ ...commonStyles }} />
+      )}
     </div>
   );
 };
