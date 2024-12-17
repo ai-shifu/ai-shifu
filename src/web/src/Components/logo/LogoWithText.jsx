@@ -5,6 +5,7 @@ import logoWhite from 'Assets/logos/logo-white-120.png';
 import logoTextRow from 'Assets/logos/logo-text-horiz-160.png';
 import logoTextColumn from 'Assets/logos/logo-text-verti-160.png';
 import logoTextRowWhite from 'Assets/logos/logo-text-horiz-white-160.png';
+import { useSystemStore } from 'stores/useSystemStore';
 
 /**
  *
@@ -49,6 +50,15 @@ export const LogoWithText = ({ direction, size = 64, color = 'blue' }) => {
     }
   }
 
+  // const { bannerUrl, bannerCollapseUrl } = useSystemStore.getState();
+  const { bannerUrl } = useSystemStore(state => state);
+  const { bannerCollapseUrl } = useSystemStore(state => state);
+
+  let customBannerUrl = false
+  if (bannerCollapseUrl && bannerCollapseUrl!= null && bannerCollapseUrl!== ''
+    && bannerUrl && bannerUrl!= null && bannerUrl!== '') {
+    customBannerUrl = true;
+  }
   return (
     <div
       style={{
@@ -58,11 +68,21 @@ export const LogoWithText = ({ direction, size = 64, color = 'blue' }) => {
         ...commonStyles,
       }}
     >
-      <img src={getLogoByColor(color)} alt="logo" style={{ ...commonStyles }} />
-      {isRow ? (
-        <img src={getTextRowByColor(color)} alt="logotext" style={{ ...textStyles }} />
-      ) : (
-        <img src={logoTextColumn} alt="logotext" style={{ ...textStyles }} />
+      {customBannerUrl && isRow && (
+        <img src={bannerUrl} alt="banner" style={{ ...commonStyles }} />
+      )}
+      {customBannerUrl && !isRow && (
+        <img src={bannerCollapseUrl} alt="banner" style={{ ...commonStyles }} />
+      )}
+      {!customBannerUrl && (
+        <>
+          <img src={getLogoByColor(color)} alt="logo" style={{ ...commonStyles }} />
+          {isRow ? (
+            <img src={getTextRowByColor(color)} alt="logotext" style={{ ...textStyles }} />
+          ) : (
+            <img src={logoTextColumn} alt="logotext" style={{ ...textStyles }} />
+          )}
+        </>
       )}
     </div>
   );

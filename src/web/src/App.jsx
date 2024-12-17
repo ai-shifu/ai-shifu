@@ -13,7 +13,7 @@ import { useEnvStore } from 'stores/envStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
 
 const initializeEnvData = async () => {
-  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL } = useEnvStore.getState();
+  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL, setBannerUrl, setBannerCollapseUrl } = useEnvStore.getState();
   const fetchEnvData = async () => {
     try {
       const res = await fetch('/config/env', { method: 'POST', referrer: "no-referrer" });
@@ -26,6 +26,8 @@ const initializeEnvData = async () => {
         await updateUmamiScriptSrc(data?.REACT_APP_UMAMI_SCRIPT_SRC || "");
         await updateEruda(data?.REACT_APP_ERUDA || "false");
         await updateBaseURL(data?.REACT_APP_BASEURL || "");
+        await setBannerUrl(data?.REACT_APP_BANNER_URL || "");
+        await setBannerCollapseUrl(data?.REACT_APP_BANNER_COLLAPSE_URL || "");
 
       }
     } catch (error) {
@@ -64,7 +66,7 @@ const App = () => {
     initialize();
   }, []);
 
-  const { updateChannel, channel, wechatCode, updateWechatCode, setShowVip, updateLanguage } =
+  const { updateChannel, channel, wechatCode, updateWechatCode, setShowVip, updateLanguage, setBannerUrl, setBannerCollapseUrl } =
     useSystemStore();
   const browserLanguage = navigator.language || navigator.languages[0];
   const [language] = useState(browserLanguage);
@@ -112,6 +114,7 @@ const App = () => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (params.courseId) {
+        console.log('updateCourseId', params.courseId);
         await updateCourseId(params.courseId);
       }
     };
@@ -122,8 +125,11 @@ const App = () => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
+        console.log('fetchCourseInfo', courseId);
         const resp = await getCourseInfo(courseId);
         setShowVip(resp.data.course_price > 0);
+        setBannerUrl(resp.data.course_banner_url);
+        setBannerCollapseUrl(resp.data.course_banner_collapse_url);
       }
     };
     fetchCourseInfo();

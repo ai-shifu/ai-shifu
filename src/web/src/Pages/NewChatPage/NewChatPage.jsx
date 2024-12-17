@@ -93,7 +93,6 @@ const NewChatPage = (props) => {
   useEffect(() => {
     const updateCourse = async () => {
       if (courseId) {
-        console.log('updateCourseId', courseId);
         await updateCourseId(courseId);
       }
     };
