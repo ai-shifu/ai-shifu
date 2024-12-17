@@ -6,11 +6,11 @@ export const useSystemStore = create((set) => ({
   wechatCode: '',
   showVip: true,
   bannerUrl: '',
-  bannerCollapseUrl: '',
+  collapsedBannerUrl: '',
   updateChannel: (channel) => set({ channel }),
   updateWechatCode: (wechatCode) => set({ wechatCode }),
   updateLanguage: (language) => set({ language }),
   setShowVip: (showVip) => set({ showVip }),
   setBannerUrl: (bannerUrl) => set({ bannerUrl }),
-  setBannerCollapseUrl: (bannerCollapseUrl) => set({ bannerCollapseUrl }),
+  setCollapsedBannerUrl: (collapsedBannerUrl) => set({ collapsedBannerUrl }),
 }));

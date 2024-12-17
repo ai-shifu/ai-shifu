@@ -24,7 +24,7 @@ class AICourse(db.Model):
     course_banner_url = Column(
         String(255), nullable=False, default="", comment="Course banner url"
     )
-    course_banner_collapse_url = Column(
+    course_collapsed_banner_url = Column(
         String(255), nullable=False, default="", comment="Course banner collapse url"
     )
     course_default_model = Column(

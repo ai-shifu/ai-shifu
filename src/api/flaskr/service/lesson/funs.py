@@ -32,7 +32,7 @@ class AICourseInfoDTO:
         status,
         course_teacher_avatar,
         course_banner_url,
-        course_banner_collapse_url,
+        course_collapsed_banner_url,
     ):
         self.course_id = course_id
         self.course_name = course_name
@@ -42,7 +42,7 @@ class AICourseInfoDTO:
         self.status = status
         self.course_teacher_avatar = course_teacher_avatar
         self.course_banner_url = course_banner_url
-        self.course_banner_collapse_url = course_banner_collapse_url
+        self.course_collapsed_banner_url = course_collapsed_banner_url
 
     def __json__(self):
         return {
@@ -54,7 +54,7 @@ class AICourseInfoDTO:
             "status": self.status,
             "course_teacher_avatar": self.course_teacher_avatar,
             "course_banner_url": self.course_banner_url,
-            "course_banner_collapse_url": self.course_banner_collapse_url,
+            "course_collapsed_banner_url": self.course_collapsed_banner_url,
         }
 
 
@@ -672,7 +672,7 @@ def get_course_list(app: Flask) -> list[AICourseInfoDTO]:
                 course.course_status,
                 course.course_teacher_avator,
                 course.course_banner_url,
-                course.course_banner_collapse_url,
+                course.course_collapsed_banner_url,
             )
             for course in courses
         ]
@@ -723,5 +723,5 @@ def get_course_info(app: Flask, course_id: str) -> AICourseInfoDTO:
             course.course_status,
             course.course_teacher_avator,
             course.course_banner_url,
-            course.course_banner_collapse_url,
+            course.course_collapsed_banner_url,
         )

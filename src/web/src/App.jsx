@@ -66,7 +66,7 @@ const App = () => {
     initialize();
   }, []);
 
-  const { updateChannel, channel, wechatCode, updateWechatCode, setShowVip, updateLanguage, setBannerUrl, setBannerCollapseUrl } =
+  const { updateChannel, channel, wechatCode, updateWechatCode, setShowVip, updateLanguage, setBannerUrl, setCollapsedBannerUrl } =
     useSystemStore();
   const browserLanguage = navigator.language || navigator.languages[0];
   const [language] = useState(browserLanguage);
@@ -114,7 +114,6 @@ const App = () => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (params.courseId) {
-        console.log('updateCourseId', params.courseId);
         await updateCourseId(params.courseId);
       }
     };
@@ -129,7 +128,7 @@ const App = () => {
         const resp = await getCourseInfo(courseId);
         setShowVip(resp.data.course_price > 0);
         setBannerUrl(resp.data.course_banner_url);
-        setBannerCollapseUrl(resp.data.course_banner_collapse_url);
+        setCollapsedBannerUrl(resp.data.course_collapsed_banner_url);
       }
     };
     fetchCourseInfo();

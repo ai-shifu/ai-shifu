@@ -49,7 +49,6 @@ const NewChatPage = (props) => {
   const { lessonId, changeCurrLesson, chapterId, updateChapterId } =
     useCourseStore((state) => state);
   const [showUserSettings, setShowUserSettings] = useState(false);
-  const navigate = useNavigate();
   const { open: feedbackModalOpen, onOpen: onFeedbackModalOpen, onClose: onFeedbackModalClose } = useDisclosture();
   const { i18n } = useTranslation();
 
