@@ -14,10 +14,9 @@ export const LogoWithText = ({ direction, size = 64, color = 'blue' }) => {
   const flexFlow = isRow ? 'row nowrap' : 'column nowrap';
 
   const commonStyles = {
-      width: isRow ? 'auto' : size + 'px',
+    width: isRow ? 'auto' : size + 'px',
     height: isRow ? size + 'px' : 'auto',
   };
-
 
   return (
     <div
