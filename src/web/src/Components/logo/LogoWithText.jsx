@@ -1,6 +1,6 @@
 import { memo } from 'react';
-import logoTextRow from 'Assets/logos/ai-shifu-logo-horizontal.png';
-import logoTextColumn from 'Assets/logos/ai-shifu-logo-vertical.png';
+import logoRow from 'Assets/logos/ai-shifu-logo-horizontal.png';
+import logoColumn from 'Assets/logos/ai-shifu-logo-vertical.png';
 
 /**
  *
