@@ -21,7 +21,7 @@ import json
 
 
 @register_schema_to_swagger
-class AICourseDTO:
+class AICourseInfoDTO:
     def __init__(
         self,
         course_id,
@@ -31,6 +31,8 @@ class AICourseDTO:
         course_feishu_id,
         status,
         course_teacher_avatar,
+        course_banner_url,
+        course_banner_collapse_url,
     ):
         self.course_id = course_id
         self.course_name = course_name
@@ -39,6 +41,8 @@ class AICourseDTO:
         self.course_feishu_id = course_feishu_id
         self.status = status
         self.course_teacher_avatar = course_teacher_avatar
+        self.course_banner_url = course_banner_url
+        self.course_banner_collapse_url = course_banner_collapse_url
 
     def __json__(self):
         return {
@@ -49,6 +53,8 @@ class AICourseDTO:
             "course_feishu_id": self.course_feishu_id,
             "status": self.status,
             "course_teacher_avatar": self.course_teacher_avatar,
+            "course_banner_url": self.course_banner_url,
+            "course_banner_collapse_url": self.course_banner_collapse_url,
         }
 
 
@@ -653,11 +659,11 @@ def update_lesson_ask_info(
         return True
 
 
-def get_course_list(app: Flask) -> list[AICourseDTO]:
+def get_course_list(app: Flask) -> list[AICourseInfoDTO]:
     with app.app_context():
         courses = AICourse.query.filter(AICourse.status == 1).all()
         return [
-            AICourseDTO(
+            AICourseInfoDTO(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
@@ -665,6 +671,8 @@ def get_course_list(app: Flask) -> list[AICourseDTO]:
                 course.course_feishu_id,
                 course.course_status,
                 course.course_teacher_avator,
+                course.course_banner_url,
+                course.course_banner_collapse_url,
             )
             for course in courses
         ]
@@ -694,7 +702,7 @@ def update_course_info(
         return True
 
 
-def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
+def get_course_info(app: Flask, course_id: str) -> AICourseInfoDTO:
     with app.app_context():
 
         if course_id is None or course_id == "":
@@ -706,7 +714,7 @@ def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
             if course is None:
                 raise_error("LESSON.COURSE_NOT_FOUND")
 
-        return AICourseDTO(
+        return AICourseInfoDTO(
             course.course_id,
             course.course_name,
             course.course_desc,
@@ -714,4 +722,6 @@ def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
             course.course_feishu_id,
             course.course_status,
             course.course_teacher_avator,
+            course.course_banner_url,
+            course.course_banner_collapse_url,
         )

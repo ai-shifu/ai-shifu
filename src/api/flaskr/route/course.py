@@ -127,7 +127,7 @@ def register_course_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: array
                                     description: 课程列表
                                     items:
-                                        $ref: '#/components/schemas/AICourseDTO'
+                                        $ref: '#/components/schemas/AICourseInfoDTO'
         """
         return make_common_response(get_course_list(app))
 
@@ -162,7 +162,7 @@ def register_course_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: string
                                     description: 返回信息
                                 data:
-                                    $ref: '#/components/schemas/AICourseDTO'
+                                    $ref: '#/components/schemas/AICourseInfoDTO'
         """
         course_id = request.args.get("course_id", None)
         return make_common_response(get_course_info(app, course_id))

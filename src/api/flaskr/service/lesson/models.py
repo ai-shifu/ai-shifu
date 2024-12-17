@@ -21,6 +21,12 @@ class AICourse(db.Model):
     course_teacher_avator = Column(
         String(255), nullable=False, default="", comment="Course teacher avatar"
     )
+    course_banner_url = Column(
+        String(255), nullable=False, default="", comment="Course banner url"
+    )
+    course_banner_collapse_url = Column(
+        String(255), nullable=False, default="", comment="Course banner collapse url"
+    )
     course_default_model = Column(
         String(255), nullable=False, default="", comment="Course default model"
     )
