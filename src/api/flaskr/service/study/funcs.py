@@ -2,7 +2,7 @@ from flask import Flask
 
 from sqlalchemy import text
 from flaskr.dao import run_with_redis
-
+from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
     INPUT_TYPE_CONTINUE,
     ROLE_VALUES,
@@ -145,6 +145,7 @@ def get_lesson_tree_to_study_inner(
                     lesson.lesson_id,
                     attend_status_values[status],
                     status,
+                    lesson.lesson_type,
                     [],
                     unique_id=lesson.lesson_feishu_id,
                     updated=(
@@ -287,11 +288,13 @@ def get_lesson_tree_to_study_inner(
             course_id=course_info.course_id,
             course_name=course_info.course_name,
             teach_avator=course_info.course_teacher_avator,
+            course_price=course_info.course_price,
             lessons=lessonInfos,
         )
         return ret
 
 
+@extensible
 def get_lesson_tree_to_study(
     app: Flask, user_id: str, course_id: str = None
 ) -> AICourseDTO:

@@ -277,6 +277,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                 lesson.lesson_id,
                 attend_status_values[ATTEND_STATUS_IN_PROGRESS],
                 ATTEND_STATUS_IN_PROGRESS,
+                lesson.lesson_type,
             )
         )
         app.logger.info(lesson.lesson_no)
@@ -306,6 +307,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                         parent_lesson.lesson_id,
                         attend_status_values[ATTEND_STATUS_IN_PROGRESS],
                         ATTEND_STATUS_IN_PROGRESS,
+                        parent_lesson.lesson_type,
                     )
                 )
 
@@ -363,6 +365,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                     lesson.lesson_id,
                     attend_status_values[ATTEND_STATUS_COMPLETED],
                     ATTEND_STATUS_COMPLETED,
+                    lesson.lesson_type,
                 )
             )
     db.session.flush()
@@ -404,6 +407,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
             lesson.lesson_id,
             attend_status_values[ATTEND_STATUS_COMPLETED],
             ATTEND_STATUS_COMPLETED,
+            lesson.lesson_type,
         )
     )
     if len(parent_no) > 2:
@@ -425,6 +429,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                     attend_lesson_infos[0]["lesson"].lesson_id,
                     attend_status_values[ATTEND_STATUS_COMPLETED],
                     ATTEND_STATUS_COMPLETED,
+                    attend_lesson_infos[0]["lesson"].lesson_type,
                 )
             )
         # 找到下一章节进行解锁
@@ -461,6 +466,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                             next_lesson_attend["lesson"].lesson_id,
                             attend_status_values[ATTEND_STATUS_NOT_STARTED],
                             ATTEND_STATUS_NOT_STARTED,
+                            next_lesson_attend["lesson"].lesson_type,
                         )
                     )
                 if next_lesson_attend["lesson"].lesson_no == next_no + "01" and (
@@ -477,6 +483,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                             next_lesson_attend["lesson"].lesson_id,
                             attend_status_values[ATTEND_STATUS_NOT_STARTED],
                             ATTEND_STATUS_NOT_STARTED,
+                            next_lesson_attend["lesson"].lesson_type,
                         )
                     )
         else:
@@ -497,6 +504,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                     attend_lesson_infos[i]["lesson"].lesson_id,
                     attend_status_values[ATTEND_STATUS_NOT_STARTED],
                     ATTEND_STATUS_NOT_STARTED,
+                    attend_lesson_infos[i]["lesson"].lesson_type,
                 )
             )
     app.logger.info("res:{}".format(",".join([r.lesson_no for r in res])))

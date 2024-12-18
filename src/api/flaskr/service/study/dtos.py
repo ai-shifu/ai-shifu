@@ -5,6 +5,7 @@
 from typing import List
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.order.funs import AICourseLessonAttendDTO
+from decimal import Decimal
 
 
 @register_schema_to_swagger
@@ -88,6 +89,7 @@ class AILessonAttendDTO:
     status_value: int
     updated: bool
     unique_id: str
+    lesson_type: int
 
     def __init__(
         self,
@@ -96,6 +98,7 @@ class AILessonAttendDTO:
         lesson_id: str,
         status,
         status_value,
+        lesson_type: int,
         children=None,
         updated=False,
         unique_id=None,
@@ -108,6 +111,7 @@ class AILessonAttendDTO:
         self.status_value = status_value
         self.updated = updated
         self.unique_id = unique_id
+        self.lesson_type = lesson_type
 
     def __json__(self):
         return {
@@ -118,6 +122,7 @@ class AILessonAttendDTO:
             "status_value": self.status_value,
             "children": self.children,
             "updated": self.updated,
+            "lesson_type": self.lesson_type,
         }
 
 
@@ -125,6 +130,7 @@ class AICourseDTO:
     course_id: str
     course_name: str
     teach_avator: str
+    course_price: Decimal
     lessons: list[AILessonAttendDTO]
 
     def __init__(
@@ -132,6 +138,7 @@ class AICourseDTO:
         course_id: str,
         course_name: str,
         teach_avator: str,
+        course_price: Decimal,
         lessons: List[AILessonAttendDTO],
         updated: bool = False,
     ) -> None:
@@ -139,6 +146,7 @@ class AICourseDTO:
         self.course_name = course_name
         self.teach_avator = teach_avator
         self.lessons = lessons
+        self.course_price = course_price
         self.updated = updated
 
     def __json__(self):
@@ -148,6 +156,7 @@ class AICourseDTO:
             "teach_avator": self.teach_avator,
             "lessons": self.lessons,
             "updated": self.updated,
+            "course_price": self.course_price,
         }
 
 

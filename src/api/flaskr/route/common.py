@@ -5,6 +5,7 @@ from werkzeug.exceptions import HTTPException
 from ..service.common import AppException
 import json
 import traceback
+import decimal
 
 
 by_pass_login_func = [
@@ -60,6 +61,8 @@ def fmt(o):
         return o.isoformat()
     elif isinstance(o, datetime.date):
         return o.isoformat()
+    elif isinstance(o, decimal.Decimal):
+        return str(o)
     else:
         return o.__json__()
 
