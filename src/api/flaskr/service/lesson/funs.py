@@ -18,6 +18,7 @@ from flaskr.api.doc.feishu import list_records
 from flaskr.util.uuid import generate_id
 from sqlalchemy import func, text
 import json
+from flaskr.framework.plugin.plugin_manager import extensible
 
 
 @register_schema_to_swagger
@@ -694,9 +695,9 @@ def update_course_info(
         return True
 
 
+@extensible
 def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
     with app.app_context():
-
         if course_id is None or course_id == "":
             course = AICourse.query.filter(AICourse.status == 1).first()
             if course is None:

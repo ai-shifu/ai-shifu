@@ -7,11 +7,10 @@ from flaskr.service.user.models import User
 from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
-    UI_TYPE_CHECKCODE,
     UI_TYPE_CONTINUED,
     UI_TYPE_LOGIN,
     UI_TYPE_PHONE,
-    UI_TYPE_TO_PAY,
+    UI_TYPE_CHECKCODE,
     LESSON_TYPE_TRIAL,
 )
 from ...service.lesson.models import AICourse, AILesson
@@ -23,13 +22,11 @@ from ...service.order.consts import (
     ATTEND_STATUS_RESET,
     ATTEND_STATUS_LOCKED,
     get_attend_status_values,
-    BUY_STATUS_SUCCESS,
 )
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
     init_trial_lesson,
     init_trial_lesson_inner,
-    query_raw_buy_record,
 )
 from ...service.order.models import AICourseLessonAttend
 from ...service.study.const import (
@@ -47,6 +44,7 @@ from .utils import (
 from .input_funcs import BreakException
 from .output_funcs import handle_output
 from .plugin import handle_input, handle_ui
+from .utils import make_script_dto_to_stream
 
 
 def run_script_inner(
@@ -197,7 +195,6 @@ def run_script_inner(
             trace_args["input"] = input
             trace_args["name"] = course_info.course_name
             trace = langfuse.trace(**trace_args)
-
             trace_args["output"] = ""
             next = 0
             is_first_add = False
@@ -224,40 +221,25 @@ def run_script_inner(
                             )
             if script_info:
                 try:
-                    check_paid = True
-                    # to do  seperate
-                    if script_info.script_ui_type == UI_TYPE_TO_PAY:
-                        order = query_raw_buy_record(app, user_id, course_id)
-                        if order and order.status == BUY_STATUS_SUCCESS:
-                            # 如果已经购买
-                            check_paid = True
-                        else:
-                            check_paid = False
-
-                    else:
-                        # 处理用户输入
-                        response = handle_input(
-                            app,
-                            user_id,
-                            input_type,
-                            attend,
-                            script_info,
-                            input,
-                            trace,
-                            trace_args,
-                        )
-                        if response:
-                            yield from response
-
+                    # handle user input
+                    response = handle_input(
+                        app,
+                        user_id,
+                        input_type,
+                        attend,
+                        script_info,
+                        input,
+                        trace,
+                        trace_args,
+                    )
+                    if response:
+                        yield from response
                     # 如果是Start或是Continue，就不需要再次获取脚本
                     if input_type == INPUT_TYPE_START:
                         next = 0
                     else:
-                        next = check_paid and 1 or 0
+                        next = 1
                     while True and input_type != INPUT_TYPE_ASK:
-                        app.logger.info(
-                            "next:{} is_first:{}".format(next, is_first_add)
-                        )
                         if is_first_add:
                             is_first_add = False
                             next = 0
@@ -334,7 +316,7 @@ def run_script_inner(
                             next = 1
                             input_type = None
                         else:
-                            yield from handle_ui(
+                            script_dtos = handle_ui(
                                 app,
                                 user_id,
                                 attend,
@@ -343,6 +325,8 @@ def run_script_inner(
                                 trace,
                                 trace_args,
                             )
+                            for script_dto in script_dtos:
+                                yield make_script_dto_to_stream(script_dto)
                     else:
                         attends = update_attend_lesson_info(app, attend.attend_id)
                         for attend_update in attends:
@@ -361,11 +345,10 @@ def run_script_inner(
                                     yield make_script_dto(
                                         "next_chapter", attend_update.__json__(), ""
                                     )
-                        app.logger.info("script_info is None")
                 except BreakException:
                     if script_info:
                         yield make_script_dto("text_end", "", None)
-                        yield from handle_ui(
+                        script_dtos = handle_ui(
                             app,
                             user_id,
                             attend,
@@ -374,6 +357,8 @@ def run_script_inner(
                             trace,
                             trace_args,
                         )
+                        for script_dto in script_dtos:
+                            yield make_script_dto_to_stream(script_dto)
                     db.session.commit()
                     return
             else:

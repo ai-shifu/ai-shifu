@@ -5,23 +5,27 @@
 from typing import List
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.order.funs import AICourseLessonAttendDTO
+from decimal import Decimal
 
 
 @register_schema_to_swagger
 class ScriptDTO:
     script_type: str  # "'text' 'input' 'buttons' 'text_end'"
     script_content: str
+    lesson_id: str
     script_id: str
 
-    def __init__(self, script_type, script_content, script_id=None):
+    def __init__(self, script_type, script_content, lesson_id, script_id=None):
         self.script_type = script_type
         self.script_content = script_content
         self.script_id = script_id
+        self.lesson_id = lesson_id
 
     def __json__(self):
         return {
             "type": self.script_type,
             "content": self.script_content,
+            "lesson_id": self.lesson_id,
             "script_id": self.script_id,
         }
 
@@ -85,6 +89,7 @@ class AILessonAttendDTO:
     status_value: int
     updated: bool
     unique_id: str
+    lesson_type: int
 
     def __init__(
         self,
@@ -93,6 +98,7 @@ class AILessonAttendDTO:
         lesson_id: str,
         status,
         status_value,
+        lesson_type: int,
         children=None,
         updated=False,
         unique_id=None,
@@ -105,6 +111,7 @@ class AILessonAttendDTO:
         self.status_value = status_value
         self.updated = updated
         self.unique_id = unique_id
+        self.lesson_type = lesson_type
 
     def __json__(self):
         return {
@@ -115,13 +122,16 @@ class AILessonAttendDTO:
             "status_value": self.status_value,
             "children": self.children,
             "updated": self.updated,
+            "lesson_type": self.lesson_type,
         }
 
 
+# @register_schema_to_swagger
 class AICourseDTO:
     course_id: str
     course_name: str
     teach_avator: str
+    course_price: Decimal
     lessons: list[AILessonAttendDTO]
 
     def __init__(
@@ -129,6 +139,7 @@ class AICourseDTO:
         course_id: str,
         course_name: str,
         teach_avator: str,
+        course_price: Decimal,
         lessons: List[AILessonAttendDTO],
         updated: bool = False,
     ) -> None:
@@ -136,6 +147,7 @@ class AICourseDTO:
         self.course_name = course_name
         self.teach_avator = teach_avator
         self.lessons = lessons
+        self.course_price = course_price
         self.updated = updated
 
     def __json__(self):
@@ -145,6 +157,7 @@ class AICourseDTO:
             "teach_avator": self.teach_avator,
             "lessons": self.lessons,
             "updated": self.updated,
+            "course_price": self.course_price,
         }
 
 
@@ -196,7 +209,7 @@ class StudyUIDTO:
 @register_schema_to_swagger
 class StudyRecordDTO:
     records: List[StudyRecordItemDTO]
-    ui: StudyUIDTO
+    ui: ScriptDTO
     ask_mode: bool
     teach_avator: str
 
