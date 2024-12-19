@@ -126,6 +126,7 @@ class AILessonAttendDTO:
         }
 
 
+# @register_schema_to_swagger
 class AICourseDTO:
     course_id: str
     course_name: str
