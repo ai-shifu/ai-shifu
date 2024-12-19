@@ -3,7 +3,6 @@ import { getLessonTree } from 'Api/lesson.js';
 import { produce } from 'immer';
 import { LESSON_STATUS_VALUE} from "constants/courseConstants.js";
 import { useTracking, EVENT_NAMES } from "common/hooks/useTracking.js";
-import { useSystemStore } from 'stores/useSystemStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
 import { useEnvStore } from 'stores/envStore.js';
 export const checkChapterCanLearning = ({ status }) => {
@@ -61,6 +60,9 @@ export const useLessonTree = () => {
     }
 
     const treeData = resp.data;
+    if (!treeData) {
+      return null;
+    }
     if (treeData.course_id !== useEnvStore.getState().courseId) {
       await updateCourseId(treeData.course_id);
     }
