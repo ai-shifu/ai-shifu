@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useEffectOnce } from 'react-use';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import classNames from 'classnames';
 import styles from './NewChatPage.module.scss';
 import { Skeleton } from 'antd';
@@ -25,12 +25,12 @@ import { updateWxcode } from 'Api/user.js';
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal.jsx';
 import { useTranslation } from 'react-i18next';
 import { useEnvStore } from 'stores/envStore.js';
-// 课程学习主页面
+// the main page of course learning
 const NewChatPage = (props) => {
   const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const { hasLogin, userInfo, checkLogin ,refreshUserInfo} = useUserStore((state) => state);
+  const { hasLogin, userInfo, checkLogin } = useUserStore((state) => state);
   const [language, setLanguage] = useState(userInfo?.language || 'en-US');
   const {
     tree,
@@ -45,11 +45,10 @@ const NewChatPage = (props) => {
     getChapterByLesson,
     onTryLessonSelect,
   } = useLessonTree();
-  const [cid,setCid]=useState(null)
+  const [cid, setCid] = useState(null)
   const { lessonId, changeCurrLesson, chapterId, updateChapterId } =
     useCourseStore((state) => state);
   const [showUserSettings, setShowUserSettings] = useState(false);
-  const navigate = useNavigate();
   const { open: feedbackModalOpen, onOpen: onFeedbackModalOpen, onClose: onFeedbackModalClose } = useDisclosture();
   const { i18n } = useTranslation();
 
@@ -64,7 +63,7 @@ const NewChatPage = (props) => {
     initOpen: mobileStyle ? false : true,
   });
 
-  // 判断布局类型
+  // check the frame layout
   useEffect(() => {
     const onResize = () => {
       const frameLayout = calcFrameLayout('#root');
@@ -77,6 +76,36 @@ const NewChatPage = (props) => {
     };
   }, [updateFrameLayout]);
 
+  const { courseId } = useParams();
+  const { updateCourseId } = useEnvStore.getState();
+
+  useEffect(() => {
+    const updateCourse = async () => {
+      if (courseId) {
+        await updateCourseId(courseId);
+      }
+    };
+    updateCourse();
+  }, [courseId, updateCourseId]);
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (tree) {
+        const data = await getCurrElementStatic(tree);
+        if (data) {
+          changeCurrLesson(data.lesson.id);
+          if (data.catalog && (!cid || cid !== data.catalog.id)) {
+            setCid(data.catalog.id);
+          }
+        }
+      }
+    };
+
+    fetchData();
+  }, [tree, changeCurrLesson, cid, setCid, getCurrElementStatic]);
+
+
   const loadData = useCallback(async () => {
     await loadTree();
   }, [loadTree]);
@@ -88,92 +117,22 @@ const NewChatPage = (props) => {
     }
     setInitialized(true);
   }, [checkLogin]);
-  const {courseId} = useParams();
-  const { updateCourseId } = useEnvStore.getState();
-  useEffect(() => {
-    const updateCourse = async () => {
-      if (courseId) {
-        console.log('updateCourseId', courseId);
-        await updateCourseId(courseId);
-      }
-    };
-    updateCourse();
-  }, [courseId, updateCourseId]);
-  const checkUrl = useCallback(async () => {
-    let nextTree = tree;
-    if (!tree) {
-      nextTree = await loadTree(cid, lessonId);
-    } else {
-      nextTree = await reloadTree(cid, lessonId);
-    }
 
-    if (cid) {
-      if (!checkChapterAvaiableStatic(nextTree, cid)) {
-        setCid(null);
-      } else {
-        const data = await getCurrElementStatic(nextTree);
-        if (data) {
-          changeCurrLesson(data.lesson.id);
-        }
-      }
-    } else {
-      const data = await getCurrElementStatic(nextTree);
-      if (!data) {
-        return;
-      }
-      if (data) {
-        changeCurrLesson(data.lesson.id);
-      }
-      if (data.catalog) {
-        setCid(data.catalog.id);
-      }
-    }
-  }, [
-    changeCurrLesson,
-    checkChapterAvaiableStatic,
-    getCurrElementStatic,
-    lessonId,
-    loadTree,
-    reloadTree,
-    tree,
-  ]);
 
   useEffect(() => {
     if (cid === chapterId) {
       return;
-    }else if (cid ){
+    } else if (cid) {
       updateChapterId(cid);
     }
-  }, [cid, chapterId, checkUrl]);
+  }, [cid, chapterId, updateChapterId]);
 
   useEffectOnce(() => {
     (async () => {
       await initAndCheckLogin();
-      await checkUrl();
     })();
   });
 
-  useEffect(() => {
-    return useCourseStore.subscribe(
-      (state) => state.chapterId,
-      (curr, pre) => {
-        checkUrl();
-      }
-    );
-  }, [chapterId, checkUrl]);
-
-  useEffect(() => {
-    return useUserStore.subscribe(
-      (state) => state.hasLogin,
-      () => {
-        checkUrl();
-      }
-    );
-  }, [checkUrl]);
-
-  useEffect(() => {
-    updateSelectedLesson(lessonId);
-  }, [lessonId]);
 
   const onLoginModalClose = useCallback(async () => {
     setLoginModalOpen(false);
@@ -187,9 +146,13 @@ const NewChatPage = (props) => {
     [updateLesson]
   );
 
+  useEffect(() => {
+    updateSelectedLesson(lessonId);
+  }, [lessonId]);
+
   const onChapterUpdate = useCallback(
-    ({ id, status ,status_value}) => {
-      updateChapterStatus(id, { status,status_value });
+    ({ id, status, status_value }) => {
+      updateChapterStatus(id, { status, status_value });
     },
     [updateChapterStatus]
   );
@@ -241,9 +204,10 @@ const NewChatPage = (props) => {
   }, [onFeedbackModalOpen]);
 
   useEffect(() => {
+    if (initialized) {
       loadData();
-
-  }, [language]);
+    }
+  }, [initialized, language]);
 
 
   useEffect(() => {
