@@ -167,11 +167,19 @@ class StudyRecordItemDTO:
     script_role: str
     script_type: int
     script_content: str
+    script_id: str
     lesson_id: str
     id: str
 
     def __init__(
-        self, script_index, script_role, script_type, script_content, lesson_id, id
+        self,
+        script_index,
+        script_role,
+        script_type,
+        script_content,
+        script_id,
+        lesson_id,
+        id,
     ):
         self.script_index = script_index
         self.script_role = script_role
@@ -188,6 +196,7 @@ class StudyRecordItemDTO:
             "script_content": self.script_content,
             "lesson_id": self.lesson_id,
             "id": self.id,
+            "script_id": self.script_id,
         }
 
 

@@ -307,6 +307,7 @@ def get_lesson_tree_to_study(
     )
 
 
+@extensible
 def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
     with app.app_context():
         lesson_info = AILesson.query.filter_by(lesson_id=lesson_id).first()
@@ -357,6 +358,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 ROLE_VALUES[i.script_role],
                 0,
                 i.script_content,
+                i.script_id,
                 i.lesson_id if i.lesson_id in lesson_ids else lesson_id,
                 i.id,
             )
