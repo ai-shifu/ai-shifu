@@ -11,9 +11,11 @@ from flaskr.service.study.models import AICourseAttendAsssotion
 from flaskr.service.study.plugin import register_continue_handler
 from flaskr.util.uuid import generate_id
 from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 @register_continue_handler(script_ui_type=UI_TYPE_BRANCH)
+@extensible_generic
 def handle_input_continue_branch(
     app: Flask,
     user_id: str,

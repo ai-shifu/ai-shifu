@@ -7,8 +7,10 @@ from flaskr.service.lesson.const import (
 )
 from flaskr.service.study.utils import get_follow_up_info
 from flaskr.service.study.dtos import ScriptDTO
+from flaskr.framework.plugin.plugin_manager import extensible
 
 
+@extensible
 def handle_ask_mode(
     app: Flask,
     user_id: str,

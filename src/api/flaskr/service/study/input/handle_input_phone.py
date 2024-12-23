@@ -12,9 +12,11 @@ from flaskr.service.study.utils import (
     make_script_dto,
 )
 from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 @register_input_handler(input_type=INPUT_TYPE_PHONE)
+@extensible_generic
 def handle_input_phone(
     app: Flask,
     user_id: str,

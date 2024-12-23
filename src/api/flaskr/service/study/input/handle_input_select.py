@@ -8,9 +8,11 @@ from flaskr.service.study.const import INPUT_TYPE_SELECT, ROLE_STUDENT
 from flaskr.service.study.plugin import register_input_handler
 from flaskr.service.study.utils import generation_attend, get_profile_array
 from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 @register_input_handler(input_type=INPUT_TYPE_SELECT)
+@extensible_generic
 def handle_input_select(
     app: Flask,
     user_id: str,

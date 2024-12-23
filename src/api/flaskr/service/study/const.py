@@ -5,7 +5,6 @@ ROLE_UI = 3
 
 ROLE_VALUES = {ROLE_TEACHER: "老师", ROLE_STUDENT: "学生", ROLE_UI: "UI"}
 
-
 INPUT_TYPE_TEXT = "text"
 INPUT_TYPE_CONTINUE = "continue"
 INPUT_TYPE_START = "start"

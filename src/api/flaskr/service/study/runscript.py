@@ -188,7 +188,7 @@ def run_script_inner(
                     attend_info.script_index,
                 )
                 db.session.flush()
-            # Langfuse 集成
+            # Langfuse
             trace_args = {}
             trace_args["user_id"] = user_id
             trace_args["session_id"] = attend.attend_id

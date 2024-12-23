@@ -6,6 +6,7 @@ from flaskr.service.study.models import AICourseLessonAttendScript
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.plugin import register_input_handler
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.study.utils import (
     get_follow_up_info,
     get_lesson_system,
@@ -21,6 +22,7 @@ from flaskr.service.study.input_funcs import (
 
 
 @register_input_handler(input_type=INPUT_TYPE_ASK)
+@extensible_generic
 def handle_input_ask(
     app: Flask,
     user_id: str,
@@ -94,7 +96,7 @@ def handle_input_ask(
     )
     # get follow up model
     follow_up_model = follow_up_info.ask_model
-    # todo 换成通用的
+    # todo reflact
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
@@ -110,7 +112,6 @@ def handle_input_ask(
         raise BreakException
     except StopIteration:
         app.logger.info("check_text_by_edun is None ,invoke_llm")
-
     resp = chat_llm(
         app,
         span,

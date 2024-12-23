@@ -6,12 +6,13 @@ from flaskr.service.order.models import AICourseLessonAttend, AICourseBuyRecord
 from flaskr.service.lesson.const import UI_TYPE_TO_PAY
 from flaskr.service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.common import raise_error
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
-# no block order
 # geyunfei
 #
 @register_continue_handler(script_ui_type=UI_TYPE_TO_PAY)
+@extensible_generic
 def handle_input_continue_order(
     app: Flask,
     user_id: str,

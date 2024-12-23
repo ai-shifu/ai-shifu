@@ -8,9 +8,11 @@ from flaskr.service.study.const import INPUT_TYPE_LOGIN, ROLE_STUDENT
 from flaskr.service.study.plugin import register_input_handler
 from flaskr.service.study.utils import generation_attend, make_script_dto
 from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 @register_input_handler(input_type=INPUT_TYPE_LOGIN)
+@extensible_generic
 def handle_input_login(
     app: Flask,
     user_id: str,

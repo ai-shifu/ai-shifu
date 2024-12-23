@@ -39,8 +39,6 @@ def create_app() -> Flask:
     from flaskr import dao
 
     dao.init_db(app)
-    # init models and migrate
-    Migrate(app, dao.db)
 
     # init i18n
     from flaskr.i18n import load_translations
@@ -58,11 +56,13 @@ def create_app() -> Flask:
     api.init_langfuse(app)
     # load plugins
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
+    from flaskr.framework.plugin.plugin_manager import plugin_manager
 
     load_plugins_from_dir(app, "flaskr/service/study/input")
     load_plugins_from_dir(app, "flaskr/service/study/ui")
-    load_plugins_from_dir(app, "flaskr/plugins")
-
+    load_plugins_from_dir(app, "flaskr/plugins", plugin_manager)
+    # init models and migrate
+    Migrate(app, dao.db)
     # register route
     from flaskr.route import register_route
 
@@ -73,6 +73,11 @@ def create_app() -> Flask:
 
         app.logger.info("swagger init ...")
         Swagger(app, config=swagger_config, merge=True)
+
+    # enable hot reload
+    if app.config.get("ENV") == "development":
+        plugin_manager.enable_hot_reload()
+
     return app
 
 
