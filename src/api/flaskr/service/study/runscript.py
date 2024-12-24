@@ -38,7 +38,7 @@ from ...dao import db, redis_client
 from .utils import (
     make_script_dto,
     get_script,
-    update_attend_lesson_info,
+    update_lesson_status,
     get_current_lesson,
 )
 from .input_funcs import BreakException
@@ -328,23 +328,9 @@ def run_script_inner(
                             for script_dto in script_dtos:
                                 yield make_script_dto_to_stream(script_dto)
                     else:
-                        attends = update_attend_lesson_info(app, attend.attend_id)
-                        for attend_update in attends:
-                            if len(attend_update.lesson_no) > 2:
-                                yield make_script_dto(
-                                    "lesson_update", attend_update.__json__(), ""
-                                )
-                            else:
-                                yield make_script_dto(
-                                    "chapter_update", attend_update.__json__(), ""
-                                )
-                                if (
-                                    attend_update.status
-                                    == attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                                ):
-                                    yield make_script_dto(
-                                        "next_chapter", attend_update.__json__(), ""
-                                    )
+                        res = update_lesson_status(app, attend.attend_id)
+                        if res:
+                            yield from res
                 except BreakException:
                     if script_info:
                         yield make_script_dto("text_end", "", None)
@@ -363,23 +349,9 @@ def run_script_inner(
                     return
             else:
                 app.logger.info("script_info is None,to update attend")
-                attends = update_attend_lesson_info(app, attend.attend_id)
-                for attend_update in attends:
-                    if len(attend_update.lesson_no) > 2:
-                        yield make_script_dto(
-                            "lesson_update", attend_update.__json__(), ""
-                        )
-                    else:
-                        yield make_script_dto(
-                            "chapter_update", attend_update.__json__(), ""
-                        )
-                        if (
-                            attend_update.status
-                            == attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                        ):
-                            yield make_script_dto(
-                                "next_chapter", attend_update.__json__(), ""
-                            )
+                res = update_lesson_status(app, attend.attend_id)
+                if res:
+                    yield from res
             db.session.commit()
         except GeneratorExit:
             db.session.rollback()

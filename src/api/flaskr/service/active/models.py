@@ -13,6 +13,8 @@ from sqlalchemy.sql import func
 
 from ...dao import db
 
+from .consts import ACTIVE_JOIN_TYPE_AUTO
+
 
 # active model
 class Active(db.Model):
@@ -23,7 +25,10 @@ class Active(db.Model):
     active_desc = Column(Text, nullable=False, default="", comment="Active description")
     active_type = Column(Integer, nullable=False, default=0, comment="Active type")
     active_join_type = Column(
-        Integer, nullable=False, default=0, comment="Active join type"
+        Integer,
+        nullable=False,
+        default=ACTIVE_JOIN_TYPE_AUTO,
+        comment="Active join type",
     )
     active_status = Column(
         Integer, nullable=False, default=0, index=True, comment="Active status"

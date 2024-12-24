@@ -400,6 +400,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
 
         if len(uis) > 1:
             ret.ask_mode = uis[1].script_content.get("ask_mode", False)
+            ret.ask_ui = uis[1]
         return ret
 
 

@@ -222,12 +222,14 @@ class StudyRecordDTO:
     ui: ScriptDTO
     ask_mode: bool
     teach_avator: str
+    ask_ui: ScriptDTO
 
     def __init__(self, records, ui=None, ask_mode=True, teach_avator=None):
         self.records = records
         self.ui = ui
         self.ask_mode = ask_mode
         self.teach_avator = teach_avator
+        self.ask_ui = None
 
     def __json__(self):
         return {
@@ -235,6 +237,7 @@ class StudyRecordDTO:
             "ui": self.ui,
             "ask_mode": self.ask_mode,
             "teach_avator": self.teach_avator,
+            "ask_ui": self.ask_ui,
         }
 
 

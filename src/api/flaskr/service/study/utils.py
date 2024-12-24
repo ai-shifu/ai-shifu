@@ -32,7 +32,7 @@ from ...service.study.models import AICourseAttendAsssotion, AICourseLessonAtten
 from ...dao import db
 from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
-from flaskr.framework.plugin.plugin_manager import extensible
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 def get_current_lesson(
@@ -391,8 +391,8 @@ def make_script_dto_to_stream(dto: ScriptDTO) -> str:
     )
 
 
-@extensible
-def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttendDTO]:
+@extensible_generic
+def update_lesson_status(app: Flask, attend_id: str):
     attend_status_values = get_attend_status_values()
     res = []
     attend_info = AICourseLessonAttend.query.filter(
@@ -509,8 +509,13 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                     attend_lesson_infos[i]["lesson"].lesson_type,
                 )
             )
-    app.logger.info("res:{}".format(",".join([r.lesson_no for r in res])))
-    return res
+    for attend_update in res:
+        if len(attend_update.lesson_no) > 2:
+            yield make_script_dto("lesson_update", attend_update.__json__(), "")
+        else:
+            yield make_script_dto("chapter_update", attend_update.__json__(), "")
+            if attend_update.status == attend_status_values[ATTEND_STATUS_NOT_STARTED]:
+                yield make_script_dto("next_chapter", attend_update.__json__(), "")
 
 
 class FollowUpInfo:

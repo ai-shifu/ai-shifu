@@ -6,6 +6,7 @@ from ...dao import db
 from .models import Active, ActiveUserRecord
 from ...util import generate_id
 from ..common import raise_error
+from flaskr.service.active.consts import ACTIVE_JOIN_TYPE_AUTO
 
 
 def save_active(
@@ -61,6 +62,7 @@ def create_active_user_record(
     return active_user_record
 
 
+# query active and join active
 def query_and_join_active(app, course_id, user_id, order_id) -> list[ActiveUserRecord]:
 
     bj_time = pytz.timezone("Asia/Shanghai")
@@ -73,6 +75,7 @@ def query_and_join_active(app, course_id, user_id, order_id) -> list[ActiveUserR
         Active.active_status == 1,
         Active.active_start_time <= now,
         Active.active_end_time >= now,
+        Active.active_join_type == ACTIVE_JOIN_TYPE_AUTO,
     ).all()
     if not active_infos:
         app.logger.info(
