@@ -22,6 +22,9 @@ class Active(db.Model):
     active_name = Column(String(255), nullable=False, default="", comment="Active name")
     active_desc = Column(Text, nullable=False, default="", comment="Active description")
     active_type = Column(Integer, nullable=False, default=0, comment="Active type")
+    active_join_type = Column(
+        Integer, nullable=False, default=0, comment="Active join type"
+    )
     active_status = Column(
         Integer, nullable=False, default=0, index=True, comment="Active status"
     )

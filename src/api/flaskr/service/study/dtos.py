@@ -186,6 +186,7 @@ class StudyRecordItemDTO:
         self.script_type = script_type
         self.script_content = script_content
         self.lesson_id = lesson_id
+        self.script_id = script_id
         self.id = id
 
     def __json__(self):

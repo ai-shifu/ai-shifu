@@ -32,6 +32,7 @@ from ...service.study.models import AICourseAttendAsssotion, AICourseLessonAtten
 from ...dao import db
 from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.framework.plugin.plugin_manager import extensible
 
 
 def get_current_lesson(
@@ -390,6 +391,7 @@ def make_script_dto_to_stream(dto: ScriptDTO) -> str:
     )
 
 
+@extensible
 def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttendDTO]:
     attend_status_values = get_attend_status_values()
     res = []
