@@ -13,7 +13,7 @@ class PluginHotReloader:
         self.observer = Observer()
 
     def start(self):
-        """启动热加载监听"""
+        """1111111"""
         event_handler = PluginFileHandler(self)
         self.observer.schedule(event_handler, self.plugin_dir, recursive=True)
         self.observer.start()

@@ -39,6 +39,8 @@ def save_active(
     active.active_price = active_price
     active.active_filter = str({"course_id": active_course})
     active.active_course = active_course
+    if args.get("active_join_type"):
+        active.active_join_type = args.get("active_join_type")
     if active_id:
         db.session.merge(active)
     else:
