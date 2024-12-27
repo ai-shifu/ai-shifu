@@ -141,7 +141,6 @@ def enable_plugins(app: Flask):
     def migrate(plugin_name):
         """migrate the plugin database to the latest version"""
         plugins = get_plugin_migrations()
-
         for plugin in plugins:
             app.logger.info(f"plugin: {plugin.name}")
             if plugin.name == plugin_name:

@@ -360,7 +360,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 i.script_content,
                 i.script_id,
                 i.lesson_id if i.lesson_id in lesson_ids else lesson_id,
-                i.id,
+                i.log_id,
             )
             for i in attend_scripts
         ]

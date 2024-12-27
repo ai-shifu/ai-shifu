@@ -170,6 +170,7 @@ class StudyRecordItemDTO:
     script_id: str
     lesson_id: str
     id: str
+    data: dict
 
     def __init__(
         self,
@@ -180,6 +181,7 @@ class StudyRecordItemDTO:
         script_id,
         lesson_id,
         id,
+        data=None,
     ):
         self.script_index = script_index
         self.script_role = script_role
@@ -188,9 +190,10 @@ class StudyRecordItemDTO:
         self.lesson_id = lesson_id
         self.script_id = script_id
         self.id = id
+        self.data = data
 
     def __json__(self):
-        return {
+        ret = {
             "script_index": self.script_index,
             "script_role": self.script_role,
             "script_type": self.script_type,
@@ -199,6 +202,9 @@ class StudyRecordItemDTO:
             "id": self.id,
             "script_id": self.script_id,
         }
+        if self.data:
+            ret["data"] = self.data
+        return ret
 
 
 @register_schema_to_swagger
