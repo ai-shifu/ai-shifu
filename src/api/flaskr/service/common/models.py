@@ -82,6 +82,10 @@ ERROR_CODE = {
 }
 
 
+def register_error(error_name, error_code):
+    ERROR_CODE[error_name] = error_code
+
+
 def raise_param_error(param_message):
     raise AppException(
         _("COMMON.PARAMS_ERROR").format(param_message=param_message),
