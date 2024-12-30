@@ -3,7 +3,10 @@ from trace import Trace
 from flask import Flask
 from flaskr.api.llm import invoke_llm
 from flaskr.service.profile.funcs import save_user_profiles
-from flaskr.service.study.input_funcs import BreakException, check_text_by_edun
+from flaskr.service.study.input_funcs import (
+    BreakException,
+    check_text_with_llm_response,
+)
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import INPUT_TYPE_TEXT, ROLE_STUDENT, ROLE_TEACHER
@@ -41,7 +44,9 @@ def handle_input_text(
     log_script.script_role = ROLE_STUDENT
     db.session.add(log_script)
     span = trace.span(name="user_input", input=input)
-    res = check_text_by_edun(app, user_id, log_script, input, span, script_info, attend)
+    res = check_text_with_llm_response(
+        app, user_id, log_script, input, span, script_info, attend
+    )
     try:
         first_value = next(res)
         app.logger.info("check_text_by_edun is not None")

@@ -60,9 +60,13 @@ def create_app() -> Flask:
 
     load_plugins_from_dir(app, "flaskr/service/study/input")
     load_plugins_from_dir(app, "flaskr/service/study/ui")
-    load_plugins_from_dir(app, "flaskr/plugins", plugin_manager)
-    # init models and migrate
-    Migrate(app, dao.db)
+
+
+    try:
+        load_plugins_from_dir(app, "flaskr/plugins", plugin_manager)
+        Migrate(app, dao.db)
+    except Exception as e:
+        app.logger.warning(f"load plugins error: {e}")
     # register route
     from flaskr.route import register_route
 
