@@ -15,7 +15,7 @@ from flaskr.service.study.utils import (
 from flaskr.dao import db
 from flaskr.service.study.input_funcs import (
     BreakException,
-    check_text_by_edun,
+    check_text_with_llm_response,
     generation_attend,
 )
 
@@ -100,7 +100,9 @@ def handle_input_ask(
     log_script.script_role = ROLE_STUDENT
     db.session.add(log_script)
     span = trace.span(name="user_follow_up", input=input)
-    res = check_text_by_edun(app, user_id, log_script, input, span, script_info, attend)
+    res = check_text_with_llm_response(
+        app, user_id, log_script, input, span, script_info, attend
+    )
     try:
         first_value = next(res)
         app.logger.info("check_text_by_edun is not None")

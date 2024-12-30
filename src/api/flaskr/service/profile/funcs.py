@@ -7,16 +7,16 @@ from ..user.models import User
 from ...i18n import _
 import datetime
 from ..check_risk.funcs import add_risk_control_result
-from flaskr.api.check.edun import (
-    EDUN_RESULT_SUGGESTION_PASS,
-    EDUN_RESULT_SUGGESTION_REJECT,
-    check_text as check_text,
+from flaskr.api.check import (
+    check_text,
+    CHECK_RESULT_PASS,
+    CHECK_RESULT_REJECT,
 )
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
 
 
-def check_text_by_edun(
+def check_text_content(
     app: Flask,
     user_id: str,
     input: str,
@@ -24,24 +24,18 @@ def check_text_by_edun(
 
     check_id = generate_id(app)
     res = check_text(app, check_id, input, user_id)
-    result = (
-        res.get("result", {})
-        .get("antispam", {})
-        .get("suggestion", EDUN_RESULT_SUGGESTION_PASS)
-    )
-
     add_risk_control_result(
         app,
         check_id,
         user_id,
         input,
-        "yidun",
-        result,
+        res.provider,
+        res.check_result,
         str(res),
-        1 if result == EDUN_RESULT_SUGGESTION_PASS else 0,
+        1 if res.check_result == CHECK_RESULT_PASS else 0,
         "check_text",
     )
-    if result == EDUN_RESULT_SUGGESTION_REJECT:
+    if res.check_result == CHECK_RESULT_REJECT:
         return False
     return True
 
@@ -63,7 +57,6 @@ class UserProfileDTO:
 
 
 def get_profile_labels():
-
     return {
         "nickname": {"label": _("PROFILE.NICKNAME"), "mapping": "name", "default": ""},
         "user_background": {"label": _("PROFILE.USER_BACKGROUND")},
@@ -295,10 +288,10 @@ def update_user_profile_with_lable(
     if user_info:
         # check nickname
         nickname = [p for p in profiles if p["key"] == "nickname"]
-        if nickname and not check_text_by_edun(app, user_id, nickname[0]["value"]):
+        if nickname and not check_text_content(app, user_id, nickname[0]["value"]):
             raise_error("COMMON.NICKNAME_NOT_ALLOWED")
         background = [p for p in profiles if p["key"] == "user_background"]
-        if background and not check_text_by_edun(app, user_id, background[0]["value"]):
+        if background and not check_text_content(app, user_id, background[0]["value"]):
             raise_error("COMMON.BACKGROUND_NOT_ALLOWED")
         user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
         for profile in profiles:

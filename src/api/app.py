@@ -62,7 +62,10 @@ def create_app() -> Flask:
 
     load_plugins_from_dir(app, "flaskr/service/study/input")
     load_plugins_from_dir(app, "flaskr/service/study/ui")
-    load_plugins_from_dir(app, "flaskr/plugins")
+    try:
+        load_plugins_from_dir(app, "flaskr/plugins")
+    except Exception as e:
+        app.logger.error(f"load plugins error: {e}")
 
     # register route
     from flaskr.route import register_route
