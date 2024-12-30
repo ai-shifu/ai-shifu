@@ -31,7 +31,7 @@ def check_text_content(
         input,
         res.provider,
         res.check_result,
-        str(res),
+        str(res.raw_data),
         1 if res.check_result == CHECK_RESULT_PASS else 0,
         "check_text",
     )

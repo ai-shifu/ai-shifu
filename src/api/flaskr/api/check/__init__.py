@@ -4,7 +4,18 @@ from .yidun import yidun_check
 from .dto import (
     CheckResultDTO,
     CHECK_RESULT_UNKNOWN,
+    CHECK_RESULT_PASS,  # noqa
+    CHECK_RESULT_REJECT,  # noqa
+    CHECK_RESULT_REVIEW,  # noqa
+    CHECK_RESULT_UNCONF,  # noqa
 )  # noqa
+
+__all__ = [
+    "CHECK_RESULT_PASS",
+    "CHECK_RESULT_REJECT",
+    "CHECK_RESULT_REVIEW",
+    "CHECK_RESULT_UNCONF",
+]
 
 
 def check_text(app: Flask, data_id: str, text: str, user_id: str):
@@ -21,4 +32,5 @@ def check_text(app: Flask, data_id: str, text: str, user_id: str):
             risk_labels=[],
             risk_label_ids=[],
             provider=check_provider,
+            raw_data={},
         )

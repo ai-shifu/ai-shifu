@@ -26,5 +26,5 @@ def add_risk_control_result(
             check_strategy=check_strategy,
         )
         db.session.add(risk_control_result)
-        db.session.flush()
+        db.session.commit()
         return risk_control_result.id

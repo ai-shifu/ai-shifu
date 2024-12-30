@@ -97,6 +97,7 @@ def ilivedata_check(
                 for tag_infos in ret.get("textSpam", {}).get("tags", [])
             ],
             provider=PROVIDER,
+            raw_data=ret,
         )
     else:
         app.logger.error(f"ilivedata check error: {ret.get('errorCode')}")
@@ -105,6 +106,7 @@ def ilivedata_check(
             risk_labels=[],
             risk_label_ids=[],
             provider=PROVIDER,
+            raw_data=ret,
         )
 
 

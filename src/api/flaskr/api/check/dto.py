@@ -17,11 +17,13 @@ class CheckResultDTO:
         risk_labels: list[str],
         risk_label_ids: list[int],
         provider: str,
+        raw_data: dict,
     ):
         self.check_result = check_result
         self.risk_labels = risk_labels
         self.risk_label_ids = risk_label_ids
         self.provider = provider
+        self.raw_data = raw_data
 
     def __to_dict__(self):
         return {

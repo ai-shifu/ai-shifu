@@ -85,6 +85,7 @@ def yidun_check(app: Flask, data_id: str, content: str, user_id: str = None):
             risk_labels=[],
             risk_label_ids=[],
             provider=PROVIDER,
+            raw_data={},
         )
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     params = {}
@@ -132,6 +133,7 @@ def yidun_check(app: Flask, data_id: str, content: str, user_id: str = None):
                 risk_labels=[],
                 risk_label_ids=[],
                 provider=PROVIDER,
+                raw_data=response_json,
             )
     except Exception as ex:
         app.logger.error(f"yidun check error: {str(ex)}")
@@ -140,4 +142,5 @@ def yidun_check(app: Flask, data_id: str, content: str, user_id: str = None):
             risk_labels=[],
             risk_label_ids=[],
             provider=PROVIDER,
+            raw_data={},
         )
