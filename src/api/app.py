@@ -65,7 +65,7 @@ def create_app() -> Flask:
     try:
         load_plugins_from_dir(app, "flaskr/plugins")
     except Exception as e:
-        app.logger.error(f"load plugins error: {e}")
+        app.logger.warning(f"load plugins error: {e}")
 
     # register route
     from flaskr.route import register_route
