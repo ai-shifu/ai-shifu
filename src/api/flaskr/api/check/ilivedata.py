@@ -58,8 +58,8 @@ RISK_LABLES = {
 def ilivedata_check(
     app: Flask, data_id: str, text: str, user_id: str
 ) -> CheckResultDTO:
-    pid = app.config.get("LIVEDATA_PID")
-    secret_key = app.config.get("LIVEDATA_SECRET_KEY").encode("utf-8")
+    pid = app.config.get("ILIVEDATA_PID")
+    secret_key = app.config.get("ILIVEDATA_SECRET_KEY").encode("utf-8")
     if not pid or not secret_key:
         app.logger.warning("ilivedata pid or secret_key is not set")
         return CheckResultDTO(
