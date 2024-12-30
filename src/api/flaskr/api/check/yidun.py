@@ -59,11 +59,8 @@ CHECK_RESULT_MAP = {
 
 
 def gen_signature(params=None):
-    """生成签名信息
-    Args:
-        params (object) 请求参数
-    Returns:
-        参数签名md5值
+    """
+    generate signature for yidun check
     """
     buff = ""
     for k in sorted(params.keys()):
