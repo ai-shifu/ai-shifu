@@ -67,6 +67,7 @@ def ilivedata_check(
             risk_labels=[],
             risk_label_ids=[],
             provider=PROVIDER,
+            raw_data={},
         )
 
     now_date = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
