@@ -2,7 +2,7 @@ import time
 from trace import Trace
 from flask import Flask
 from flaskr.service.common.models import AppException
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import INPUT_TYPE_CHECKCODE, ROLE_TEACHER
 from flaskr.service.study.input_funcs import BreakException
@@ -17,6 +17,7 @@ from flaskr.dao import db
 def handle_input_checkcode(
     app: Flask,
     user_id: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,

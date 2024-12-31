@@ -7,7 +7,7 @@ from flaskr.service.study.input_funcs import (
     BreakException,
     check_text_with_llm_response,
 )
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import INPUT_TYPE_TEXT, ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.study.plugin import register_input_handler
@@ -25,6 +25,7 @@ from flaskr.dao import db
 def handle_input_text(
     app: Flask,
     user_id: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
