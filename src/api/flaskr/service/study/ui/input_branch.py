@@ -7,13 +7,12 @@ from flaskr.service.order.consts import ATTEND_STATUS_BRANCH, ATTEND_STATUS_IN_P
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.plugin import register_ui_handler
-from flaskr.service.study.utils import make_script_dto
-from flaskr.service.study.const import INPUT_TYPE_BRANCH
 from flaskr.service.study.models import AICourseAttendAsssotion
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.lesson.models import AILesson
 from flaskr.service.lesson.const import UI_TYPE_BRANCH
-
+from flaskr.service.study.dtos import ScriptDTO
+from flaskr.service.study.const import INPUT_TYPE_BRANCH
 from flaskr.dao import db
 
 
@@ -26,7 +25,7 @@ def handle_input_branch(
     input: str,
     trace,
     trace_args,
-):
+) -> ScriptDTO:
     app.logger.info("branch")
     branch_info = json.loads(script_info.script_other_conf)
     branch_key = branch_info.get("var_name", "")
@@ -70,6 +69,9 @@ def handle_input_branch(
             "type": INPUT_TYPE_BRANCH,
         }
     ]
-    yield make_script_dto(
-        "buttons", {"title": "接下来", "buttons": btn}, script_info.script_id
+    return ScriptDTO(
+        "buttons",
+        {"title": "", "buttons": btn},
+        script_info.lesson_id,
+        script_info.script_id,
     )

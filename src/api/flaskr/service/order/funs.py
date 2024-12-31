@@ -155,7 +155,7 @@ def send_order_feishu(app: Flask, record_id: str):
     send_notify(app, title, msgs)
 
 
-def init_buy_record(app: Flask, user_id: str, course_id: str):
+def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
         course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         if not course_info:
@@ -170,9 +170,10 @@ def init_buy_record(app: Flask, user_id: str, course_id: str):
         )
         if origin_record:
             return query_buy_record(app, origin_record.record_id)
-
         order_id = str(get_uuid(app))
-        active_records = query_and_join_active(app, course_id, user_id, order_id)
+        active_records = query_and_join_active(
+            app, course_id, user_id, order_id, active_id
+        )
         buy_record = AICourseBuyRecord()
         buy_record.user_id = user_id
         buy_record.course_id = course_id

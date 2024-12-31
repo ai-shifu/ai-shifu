@@ -115,6 +115,7 @@ tzdata==2024.2
 urllib3==2.2.2
 virtualenv==20.26.3
 waitress==3.0.1
+watchdog==6.0.0
 Werkzeug==3.1.2
 wrapt==1.16.0
 XlsxWriter==3.2.0

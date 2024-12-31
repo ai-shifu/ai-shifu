@@ -32,6 +32,7 @@ from ...service.study.models import AICourseAttendAsssotion, AICourseLessonAtten
 from ...dao import db
 from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 def get_current_lesson(
@@ -277,6 +278,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                 lesson.lesson_id,
                 attend_status_values[ATTEND_STATUS_IN_PROGRESS],
                 ATTEND_STATUS_IN_PROGRESS,
+                lesson.lesson_type,
             )
         )
         app.logger.info(lesson.lesson_no)
@@ -306,6 +308,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                         parent_lesson.lesson_id,
                         attend_status_values[ATTEND_STATUS_IN_PROGRESS],
                         ATTEND_STATUS_IN_PROGRESS,
+                        parent_lesson.lesson_type,
                     )
                 )
 
@@ -363,6 +366,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                     lesson.lesson_id,
                     attend_status_values[ATTEND_STATUS_COMPLETED],
                     ATTEND_STATUS_COMPLETED,
+                    lesson.lesson_type,
                 )
             )
     db.session.flush()
@@ -381,7 +385,14 @@ def make_script_dto(script_type, script_content, script_id) -> str:
     )
 
 
-def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttendDTO]:
+def make_script_dto_to_stream(dto: ScriptDTO) -> str:
+    return (
+        "data: " + json.dumps(dto, default=fmt) + "\n\n".encode("utf-8").decode("utf-8")
+    )
+
+
+@extensible_generic
+def update_lesson_status(app: Flask, attend_id: str):
     attend_status_values = get_attend_status_values()
     res = []
     attend_info = AICourseLessonAttend.query.filter(
@@ -398,6 +409,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
             lesson.lesson_id,
             attend_status_values[ATTEND_STATUS_COMPLETED],
             ATTEND_STATUS_COMPLETED,
+            lesson.lesson_type,
         )
     )
     if len(parent_no) > 2:
@@ -419,6 +431,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                     attend_lesson_infos[0]["lesson"].lesson_id,
                     attend_status_values[ATTEND_STATUS_COMPLETED],
                     ATTEND_STATUS_COMPLETED,
+                    attend_lesson_infos[0]["lesson"].lesson_type,
                 )
             )
         # 找到下一章节进行解锁
@@ -455,6 +468,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                             next_lesson_attend["lesson"].lesson_id,
                             attend_status_values[ATTEND_STATUS_NOT_STARTED],
                             ATTEND_STATUS_NOT_STARTED,
+                            next_lesson_attend["lesson"].lesson_type,
                         )
                     )
                 if next_lesson_attend["lesson"].lesson_no == next_no + "01" and (
@@ -471,6 +485,7 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                             next_lesson_attend["lesson"].lesson_id,
                             attend_status_values[ATTEND_STATUS_NOT_STARTED],
                             ATTEND_STATUS_NOT_STARTED,
+                            next_lesson_attend["lesson"].lesson_type,
                         )
                     )
         else:
@@ -491,10 +506,16 @@ def update_attend_lesson_info(app: Flask, attend_id: str) -> list[AILessonAttend
                     attend_lesson_infos[i]["lesson"].lesson_id,
                     attend_status_values[ATTEND_STATUS_NOT_STARTED],
                     ATTEND_STATUS_NOT_STARTED,
+                    attend_lesson_infos[i]["lesson"].lesson_type,
                 )
             )
-    app.logger.info("res:{}".format(",".join([r.lesson_no for r in res])))
-    return res
+    for attend_update in res:
+        if len(attend_update.lesson_no) > 2:
+            yield make_script_dto("lesson_update", attend_update.__json__(), "")
+        else:
+            yield make_script_dto("chapter_update", attend_update.__json__(), "")
+            if attend_update.status == attend_status_values[ATTEND_STATUS_NOT_STARTED]:
+                yield make_script_dto("next_chapter", attend_update.__json__(), "")
 
 
 class FollowUpInfo:
