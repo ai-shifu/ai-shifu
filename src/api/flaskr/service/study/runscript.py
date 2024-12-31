@@ -226,6 +226,7 @@ def run_script_inner(
                         app,
                         user_id,
                         input_type,
+                        lesson_info,
                         attend,
                         script_info,
                         input,
@@ -276,6 +277,7 @@ def run_script_inner(
                             response = handle_output(
                                 app,
                                 user_id,
+                                lesson_info,
                                 attend,
                                 script_info,
                                 input,

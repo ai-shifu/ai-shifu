@@ -142,6 +142,7 @@ def invoke_llm(
     message: str,
     system: str = None,
     json: bool = False,
+    generation_name: str = "invoke_llm",
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(
@@ -153,7 +154,9 @@ def invoke_llm(
     if system:
         generation_input.append({"role": "system", "content": system})
     generation_input.append({"role": "user", "content": message})
-    generation = span.generation(model=model, input=generation_input)
+    generation = span.generation(
+        model=model, input=generation_input, name=generation_name
+    )
     response_text = ""
     usage = None
     if (
@@ -298,6 +301,7 @@ def chat_llm(
     model: str,
     messages: list,
     json: bool = False,
+    generation_name: str = "user_follow_ask",
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")
@@ -305,7 +309,7 @@ def chat_llm(
     model = model.strip()
     generation_input = messages
     generation = span.generation(
-        model=model, input=generation_input, name="user_follow_ask"
+        model=model, input=generation_input, name=generation_name
     )
     response_text = ""
     usage = None

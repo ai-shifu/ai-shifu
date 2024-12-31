@@ -11,7 +11,7 @@ from flaskr.api.check import (
 )
 from flaskr.service.study.utils import generation_attend, get_model_setting
 from flaskr.service.check_risk import add_risk_control_result
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import (
     ROLE_TEACHER,
@@ -30,6 +30,7 @@ def check_text_with_llm_response(
     log_script: AICourseLessonAttendScript,
     input: str,
     span,
+    lesson: AILesson,
     script_info: AILessonScript,
     attend: AICourseLessonAttend,
 ):
@@ -59,6 +60,12 @@ def check_text_with_llm_response(
             model=model_setting.model_name,
             json=False,
             stream=True,
+            generation_name="check_text_reject_"
+            + lesson.lesson_no
+            + "_"
+            + str(script_info.script_index)
+            + "_"
+            + script_info.script_name,
             **model_setting.model_args,
         )
         response_text = ""
