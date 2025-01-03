@@ -21,15 +21,22 @@ class DifyChunkChatCompletionResponse:
 
 
 def dify_chat_message(
-    app: Flask, message: str
+    app: Flask, message: str, user_id: str
 ) -> Generator[DifyChunkChatCompletionResponse, None, None]:
-    url = app.config.get("DIFY_URL")
+    url = app.config.get("DIFY_URL") + "/chat-messages"
     api_key = app.config.get("DIFY_API_KEY")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
     }
-    data = {"query": message, "response_mode": "streaming", "auto_generate_name": False}
+    data = {
+        "query": message,
+        "user": user_id,
+        "response_mode": "streaming",
+        "auto_generate_name": False,
+        "inputs": {},
+        "files": [],
+    }
     response = requests.post(url, headers=headers, json=data, stream=True)
     for res in response.iter_lines():
         res = res.decode("utf-8")

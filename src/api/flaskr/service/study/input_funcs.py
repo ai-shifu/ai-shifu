@@ -55,6 +55,7 @@ def check_text_with_llm_response(
         )
         res = invoke_llm(
             app,
+            user_id,
             span,
             message=prompt,
             model=model_setting.model_name,

@@ -29,7 +29,10 @@ def load_plugins_from_dir(app: Flask, plugins_dir: str):
         for filename in os.listdir(directory):
             file_path = os.path.join(directory, filename)
             if os.path.isdir(file_path):
-                load_from_directory(file_path)
+                try:
+                    load_from_directory(file_path)
+                except Exception as e:
+                    app.logger.error(f"load plugins from {file_path} error: {e}")
             elif filename.endswith(".py") and filename != "__init__.py":
                 module_name = filename[:-3]
                 module_full_name = f"{directory}.{module_name}".replace(

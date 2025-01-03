@@ -145,6 +145,7 @@ class LLMStreamResponse:
 
 def invoke_llm(
     app: Flask,
+    user_id: str,
     span: StatefulSpanClient,
     model: str,
     message: str,
@@ -290,7 +291,7 @@ def invoke_llm(
                 None,
             )
     elif model in DIFY_MODELS:
-        response = dify_chat_message(app, message)
+        response = dify_chat_message(app, message, user_id)
         for res in response:
             if res.event == "message":
                 response_text += res.answer
@@ -318,6 +319,7 @@ def invoke_llm(
 
 def chat_llm(
     app: Flask,
+    user_id: str,
     span: StatefulSpanClient,
     model: str,
     messages: list,
@@ -442,7 +444,7 @@ def chat_llm(
                 None,
             )
     elif model in DIFY_MODELS:
-        response = dify_chat_message(app, messages[-1]["content"])
+        response = dify_chat_message(app, messages[-1]["content"], user_id)
         for res in response:
             if res.event == "message":
                 response_text += res.answer
