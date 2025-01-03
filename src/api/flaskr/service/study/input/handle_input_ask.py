@@ -87,6 +87,7 @@ def handle_input_ask(
 
     resp = chat_llm(
         app,
+        user_id,
         span,
         model=follow_up_model,
         json=True,
