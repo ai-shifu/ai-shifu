@@ -81,6 +81,7 @@ def generate_prompt_output(
     model_setting = get_model_setting(app, script_info)
     resp = invoke_llm(
         app,
+        user_id,
         span,
         model=model_setting.model_name,
         stream=True,
