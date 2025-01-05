@@ -83,6 +83,11 @@ def run_script_inner(
                 lessons = init_trial_lesson(app, user_id, course_id)
                 attend = get_current_lesson(app, lessons)
                 lesson_id = attend.lesson_id
+                lesson_info = AILesson.query.filter(
+                    AILesson.lesson_id == lesson_id,
+                ).first()
+                if not lesson_info:
+                    raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
             else:
                 lesson_info = AILesson.query.filter(
                     AILesson.lesson_id == lesson_id,
