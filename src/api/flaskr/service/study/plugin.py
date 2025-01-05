@@ -79,7 +79,7 @@ def handle_input(
         if respone:
             yield from respone
     else:
-        app.logger.info(UI_HANDLE_MAP.keys())
+        app.logger.info(INPUT_HANDLE_MAP.keys())
         return None
 
 
