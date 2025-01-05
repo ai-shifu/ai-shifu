@@ -19,6 +19,7 @@ from flaskr.framework.plugin.plugin_manager import extensible_generic
 def handle_input_continue_branch(
     app: Flask,
     user_id: str,
+    lesson_info: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
