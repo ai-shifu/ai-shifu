@@ -88,6 +88,7 @@ def handle_input_ask(
         app.logger.info("check_text_by_edun is None ,invoke_llm")
     resp = chat_llm(
         app,
+        user_id,
         span,
         model=follow_up_model,
         json=True,

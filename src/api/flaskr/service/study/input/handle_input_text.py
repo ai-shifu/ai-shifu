@@ -60,6 +60,7 @@ def handle_input_text(
 
     resp = invoke_llm(
         app,
+        user_id,
         span,
         model=model_setting.model_name,
         json=True,
