@@ -25,6 +25,7 @@ def upgrade():
                 "active_join_type",
                 sa.Integer(),
                 nullable=False,
+                default=2101,
                 comment="Active join type",
             )
         )
