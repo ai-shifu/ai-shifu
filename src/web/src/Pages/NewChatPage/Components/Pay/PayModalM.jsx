@@ -138,7 +138,7 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
               <CompletedSection />
             ) : (
               <>
-                <div className={styles.payInfoTitle}>首发特惠</div>
+                <div className={styles.payInfoTitle}>到手价格</div>
                 <div className={styles.priceWrapper}>
                   <div
                     className={classNames(styles.price)}
