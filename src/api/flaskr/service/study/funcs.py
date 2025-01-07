@@ -1,6 +1,5 @@
 from flask import Flask
 
-from sqlalchemy import text
 from flaskr.dao import run_with_redis
 from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
@@ -8,10 +7,7 @@ from flaskr.service.study.const import (
     ROLE_VALUES,
 )
 from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO, ScriptDTO
-
-# from ...service.user import (
-#     get_sms_code_info,
-# )
+import json
 from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_LOCKED,
@@ -361,6 +357,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 i.script_id,
                 i.lesson_id if i.lesson_id in lesson_ids else lesson_id,
                 i.log_id,
+                ui=json.loads(i.script_ui_conf) if i.script_ui_conf else None,
             )
             for i in attend_scripts
         ]
@@ -404,6 +401,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         return ret
 
 
+@extensible
 def get_lesson_study_progress(
     app: Flask, user_id: str, lesson_id: str
 ) -> StudyRecordProgressDTO:
@@ -459,6 +457,7 @@ def get_lesson_study_progress(
 
 
 # get script info
+@extensible
 def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
     with app.app_context():
         script_info = AILessonScript.query.filter_by(script_id=script_id).first()
@@ -475,30 +474,8 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
         )
 
 
-# reset user study info
-def reset_user_study_info(app: Flask, user_id: str):
-    with app.app_context():
-        db.session.execute(
-            text("delete from ai_course_buy_record where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.execute(
-            text("delete from ai_course_lesson_attend where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.execute(
-            text("delete from ai_course_lesson_attendscript where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.execute(
-            text("delete from user_profile where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.commit()
-        return True
-
-
 # reset user study info by lesson
+@extensible
 def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
     with app.app_context():
         lesson_info = AILesson.query.filter(AILesson.lesson_id == lesson_id).first()

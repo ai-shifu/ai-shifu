@@ -55,6 +55,7 @@ def run_script_inner(
     input: str = None,
     input_type: str = None,
     script_id: str = None,
+    log_id: str = None,
 ) -> Generator[str, None, None]:
     with app.app_context():
         script_info = None
@@ -96,8 +97,8 @@ def run_script_inner(
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
                 course_id = lesson_info.course_id
                 app.logger.info(
-                    "user_id:{},course_id:{},lesson_id:{}".format(
-                        user_id, course_id, lesson_id
+                    "user_id:{},course_id:{},lesson_id:{},lesson_no:{}".format(
+                        user_id, course_id, lesson_id, lesson_info.lesson_no
                     )
                 )
                 if not lesson_info:
@@ -359,6 +360,7 @@ def run_script_inner(
                 res = update_lesson_status(app, attend.attend_id)
                 if res:
                     yield from res
+            app.logger.info("commit")
             db.session.commit()
         except GeneratorExit:
             db.session.rollback()
@@ -373,6 +375,7 @@ def run_script(
     input: str = None,
     input_type: str = None,
     script_id: str = None,
+    log_id: str = None,
 ) -> Generator[ScriptDTO, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
@@ -384,7 +387,7 @@ def run_script(
         try:
             app.logger.info("run_script with lock")
             yield from run_script_inner(
-                app, user_id, course_id, lesson_id, input, input_type, script_id
+                app, user_id, course_id, lesson_id, input, input_type, script_id, log_id
             )
             app.logger.info("run_script end")
         except Exception as e:

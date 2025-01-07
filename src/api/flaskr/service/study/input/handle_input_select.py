@@ -9,6 +9,7 @@ from flaskr.service.study.plugin import register_input_handler
 from flaskr.service.study.utils import generation_attend, get_profile_array
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.service.study.ui.input_selection import handle_input_selection
 
 
 @register_input_handler(input_type=INPUT_TYPE_SELECT)
@@ -35,6 +36,11 @@ def handle_input_select(
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
+    log_script.script_ui_conf = json.dumps(
+        handle_input_selection(
+            app, user_id, attend, script_info, input, trace, trace_args
+        ).__json__()
+    )
     db.session.add(log_script)
     span = trace.span(name="user_select", input=input)
     span.end()

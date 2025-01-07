@@ -20,6 +20,8 @@ from flaskr.service.study.utils import (
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
+import json
+from flaskr.service.study.ui.input_text import handle_input_text as handle_input_text_ui
 
 
 @register_input_handler(input_type=INPUT_TYPE_TEXT)
@@ -43,6 +45,11 @@ def handle_input_text(
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
+    log_script.script_ui_conf = json.dumps(
+        handle_input_text_ui(
+            app, user_id, attend, script_info, input, trace, trace_args
+        ).__json__()
+    )
     db.session.add(log_script)
     span = trace.span(name="user_input", input=input)
     res = check_text_with_llm_response(

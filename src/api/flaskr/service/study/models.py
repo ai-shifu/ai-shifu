@@ -21,6 +21,9 @@ class AICourseLessonAttendScript(db.Model):
     script_id = Column(String(36), nullable=False, default="", comment="Script UUID")
     lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
     course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
+    script_ui_conf = Column(
+        Text, nullable=False, default="", comment="Script UI Config"
+    )
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     script_index = Column(Integer, nullable=False, default=0, comment="Script index")
     script_role = Column(Integer, nullable=False, default=0, comment="Script role")

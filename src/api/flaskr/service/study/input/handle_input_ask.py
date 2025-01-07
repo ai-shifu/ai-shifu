@@ -72,6 +72,7 @@ def handle_input_ask(
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
+    # log_script.script_ui_conf = script_info.script_ui_conf
     db.session.add(log_script)
     span = trace.span(name="user_follow_up", input=input)
     res = check_text_with_llm_response(

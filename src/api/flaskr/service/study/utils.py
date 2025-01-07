@@ -42,7 +42,10 @@ def get_current_lesson(
 
 
 def generation_attend(
-    app: Flask, attend: AICourseLessonAttendDTO, script_info: AILessonScript
+    app: Flask,
+    attend: AICourseLessonAttendDTO,
+    script_info: AILessonScript,
+    with_ui_conf: bool = False,
 ) -> AICourseLessonAttendScript:
     attendScript = AICourseLessonAttendScript()
     attendScript.attend_id = attend.attend_id
@@ -51,6 +54,8 @@ def generation_attend(
     attendScript.course_id = attend.course_id
     attendScript.script_id = script_info.script_id
     attendScript.log_id = generate_id(app)
+    if with_ui_conf:
+        attendScript.script_ui_conf = script_info.script_ui_conf
     return attendScript
 
 

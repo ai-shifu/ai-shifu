@@ -6,6 +6,7 @@ from typing import List
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.order.funs import AICourseLessonAttendDTO
 from decimal import Decimal
+import json
 
 
 @register_schema_to_swagger
@@ -28,6 +29,9 @@ class ScriptDTO:
             "lesson_id": self.lesson_id,
             "script_id": self.script_id,
         }
+
+    def __str__(self):
+        return json.dumps(self.__json__())
 
 
 @register_schema_to_swagger
@@ -171,6 +175,7 @@ class StudyRecordItemDTO:
     lesson_id: str
     id: str
     data: dict
+    ui: dict
 
     def __init__(
         self,
@@ -182,6 +187,7 @@ class StudyRecordItemDTO:
         lesson_id,
         id,
         data=None,
+        ui=None,
     ):
         self.script_index = script_index
         self.script_role = script_role
@@ -191,6 +197,7 @@ class StudyRecordItemDTO:
         self.script_id = script_id
         self.id = id
         self.data = data
+        self.ui = ui
 
     def __json__(self):
         ret = {
@@ -204,6 +211,8 @@ class StudyRecordItemDTO:
         }
         if self.data:
             ret["data"] = self.data
+        if self.ui:
+            ret["ui"] = self.ui
         return ret
 
 
