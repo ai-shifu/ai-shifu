@@ -44,7 +44,8 @@
     "payModalTitle": "购买",
     "payChannel": "支付方式",
     "payChannelWechat": "微信",
-    "payChannelAlipay": "支付宝"
+    "payChannelAlipay": "支付宝",
+    "paySuccess": "购买成功～～"
   },
   "groupon": {
     "grouponTitle": "兑换码",

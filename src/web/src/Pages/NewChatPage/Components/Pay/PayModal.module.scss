@@ -116,6 +116,7 @@
         border-radius: 50px;
       }
     }
+
   }
 }
 
@@ -155,5 +156,10 @@
     display: block;
     text-align: center;
     color: var(--color-8);
+  }
+  .paySuccessBg{
+    width: 100%;
+    height: auto;
+    margin-top: 20px;
   }
 }

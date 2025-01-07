@@ -42,6 +42,7 @@
   },
   "pay": {
     "payModalTitle": "Purchase",
+    "paySuccess": "Purchase Success",
     "payChannel": "Payment Method",
     "payChannelWechat": "WeChat",
     "payChannelAlipay": "Alipay"
