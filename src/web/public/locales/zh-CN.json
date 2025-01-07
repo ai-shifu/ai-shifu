@@ -45,7 +45,10 @@
     "payChannel": "支付方式",
     "payChannelWechat": "微信",
     "payChannelAlipay": "支付宝",
-    "paySuccess": "购买成功～～"
+    "paySuccess": "支付成功",
+    "protocalDesc": "购买即表示已阅读并同意以下协议",
+    "modelServiceAgreement": "《模型服务协议》",
+    "userPrivacyPolicy": "《用户隐私协议》"
   },
   "groupon": {
     "grouponTitle": "兑换码",

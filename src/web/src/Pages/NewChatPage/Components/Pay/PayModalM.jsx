@@ -35,8 +35,9 @@ const CompletedSection = memo(() => {
     <div className={styles.completedSection}>
       <div className={styles.title}>{t('pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
-        <img className={styles.paySuccessBg} src={paySuccessBg} alt="支付成功" />
+        <img className={styles.paySuccessBg} src={paySuccessBg} alt="" />
       </div>
+      <PayModalFooter />
     </div>
   );
 });

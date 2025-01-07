@@ -42,10 +42,13 @@
   },
   "pay": {
     "payModalTitle": "Purchase",
-    "paySuccess": "Purchase Success",
+    "paySuccess": "Paid successfully",
+    "protocalDesc": "Purchase means you have read and agreed to the following agreement",
     "payChannel": "Payment Method",
     "payChannelWechat": "WeChat",
-    "payChannelAlipay": "Alipay"
+    "payChannelAlipay": "Alipay",
+    "modelServiceAgreement": "《Model Service Agreement》",
+    "userPrivacyPolicy": "《User Privacy Policy》"
   },
   "groupon": {
     "grouponTitle": "Voucher Code",

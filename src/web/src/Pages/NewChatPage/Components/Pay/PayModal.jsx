@@ -34,6 +34,7 @@ const CompletedSection = memo(() => {
       <div className={styles.completeWrapper}>
         <img className={styles.paySuccessBg} src={paySucessBg} alt="" />
       </div>
+      <PayModalFooter />
     </div>
   );
 });
@@ -206,7 +207,7 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
             <CompletedSection />
           ) : (
             <div className={styles.paySection}>
-              <div className={styles.payInfoTitle}>首发特惠</div>
+              <div className={styles.payInfoTitle}>到手价格</div>
               <div className={styles.priceWrapper}>
                 <div
                   className={classNames(
