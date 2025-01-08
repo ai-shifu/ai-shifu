@@ -87,10 +87,11 @@ def generate_discount_code(
             db.session.add(discount)
         else:
             db.session.merge(discount)
-        if (
-            discount_id is None or discount_id == ""
-        ) and discount_apply_type == DISCOUNT_APPLY_TYPE_SPECIFIC:
+        if (discount_id is None or discount_id == "") and str(
+            discount_apply_type
+        ) == str(DISCOUNT_APPLY_TYPE_SPECIFIC):
             for i in range(discount_count):
+                app.logger.info("generate_discount_code_by_rule")
                 record = DiscountRecord()
                 record.record_id = generate_id(app)
                 record.discount_id = discount.discount_id

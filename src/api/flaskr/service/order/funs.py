@@ -665,7 +665,7 @@ def calculate_discount_value(
                 items.append(
                     PayItemDto(
                         "优惠",
-                        discount.discount_name,
+                        discount.discount_channel,
                         discount.discount_value * price,
                         True,
                         discount.discount_code,
