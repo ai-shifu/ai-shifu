@@ -269,7 +269,7 @@ def generate_charge(
             raise_error("COURSE.COURSE_NOT_FOUND")
         app.logger.info("buy record found:{}".format(buy_record))
         if buy_record.status == BUY_STATUS_SUCCESS:
-            app.logger.error("buy record:{} status is not init".format(record_id))
+            app.logger.warning("buy record:{} status is not init".format(record_id))
             return BuyRecordDTO(
                 buy_record.record_id,
                 buy_record.user_id,
