@@ -82,7 +82,7 @@ def generate_discount_code(
         discount.discount_channel = discount_channel
         discount.discount_filter = "{" + '"course_id":"' + discount_filter + '"' + "}"
         if discount_id is None or discount_id == "":
-            if discount_code <= 0:
+            if discount_count <= 0:
                 raise_error("DISCOUNT.DISCOUNT_COUNT_NOT_ZERO")
             db.session.add(discount)
         else:
@@ -94,7 +94,12 @@ def generate_discount_code(
                 record = DiscountRecord()
                 record.record_id = generate_id(app)
                 record.discount_id = discount.discount_id
-                record.discount_code = generate_discount_strcode(app)
+                discount_code = generate_discount_strcode(app)
+                while DiscountRecord.query.filter(
+                    DiscountRecord.discount_code == discount_code
+                ).first():
+                    discount_code = generate_discount_strcode(app)
+                record.discount_code = discount_code
                 record.discount_type = discount.discount_type
                 record.discount_value = discount.discount_value
                 record.status = DISCOUNT_STATUS_ACTIVE
