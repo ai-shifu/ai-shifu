@@ -55,7 +55,7 @@ def generation_attend(
     attendScript.script_id = script_info.script_id
     attendScript.log_id = generate_id(app)
     if with_ui_conf:
-        attendScript.script_ui_conf = script_info.script_ui_conf
+        attendScript.script_ui_conf = script_info.script_other_conf
     return attendScript
 
 
