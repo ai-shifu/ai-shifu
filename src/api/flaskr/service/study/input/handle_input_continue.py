@@ -19,6 +19,7 @@ from flaskr.dao import db
 def handle_input_continue(
     app: Flask,
     user_id: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,

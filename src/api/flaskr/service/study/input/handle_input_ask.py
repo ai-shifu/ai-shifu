@@ -3,7 +3,7 @@ from flask import Flask
 from flaskr.api.llm import chat_llm
 from flaskr.service.study.const import INPUT_TYPE_ASK, ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.study.models import AICourseLessonAttendScript
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.plugin import register_input_handler
 from flaskr.service.study.utils import (
@@ -15,7 +15,7 @@ from flaskr.service.study.utils import (
 from flaskr.dao import db
 from flaskr.service.study.input_funcs import (
     BreakException,
-    check_text_by_edun,
+    check_text_with_llm_response,
     generation_attend,
 )
 
@@ -24,6 +24,7 @@ from flaskr.service.study.input_funcs import (
 def handle_input_ask(
     app: Flask,
     user_id: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
@@ -41,36 +42,7 @@ def handle_input_ask(
         .all()
     )
 
-    # the old logic
-    #    messages = []
-    #    messages.append({"role": "user", "content": "你是老师，请扮演老师的角色回答学员的追问。"})
-    #    for script in history_scripts:
-    #        if script.script_content is None or script.script_content.strip() == "":
-    #            continue
-    #        if script.script_role == ROLE_STUDENT:
-    #            if messages[-1].get("role", "") != "user":
-    #                messages.append({"role": "user", "content": script.script_content})
-    #            else:
-    #                messages[-1]["content"] += "\n" + script.script_content
-    #        elif script.script_role == ROLE_TEACHER:
-    #            if messages[-1].get("role", "") != "assistant":
-    #                messages.append({"role": "assistant", "content": script.script_content})
-    #            else:
-    #                messages[-1]["content"] += "\n" + script.script_content
-    #    # get system prompt
-    #    system_prompt = get_lesson_system(app, script_info.lesson_id)
-    #    if system_prompt:
-    #        # add system prompt to messages first
-    #        messages.insert(0, {"role": "system", "content": system_prompt})
-    #    # get follow up ask prompt
-    #    follow_up_ask_prompt = follow_up_info.ask_prompt
-    #    messages.append(
-    #        {"role": "user", "content": follow_up_ask_prompt.format(input=input)}
-    #    )
-    #
-    # the new logic
     messages = []
-    # replace the { } with the actual content
     input = input.replace("{", "{{").replace("}", "}}")
     system_prompt = get_lesson_system(app, script_info.lesson_id)
     system_message = system_prompt if system_prompt else ""
@@ -100,7 +72,9 @@ def handle_input_ask(
     log_script.script_role = ROLE_STUDENT
     db.session.add(log_script)
     span = trace.span(name="user_follow_up", input=input)
-    res = check_text_by_edun(app, user_id, log_script, input, span, script_info, attend)
+    res = check_text_with_llm_response(
+        app, user_id, log_script, input, span, lesson, script_info, attend
+    )
     try:
         first_value = next(res)
         app.logger.info("check_text_by_edun is not None")
@@ -113,11 +87,18 @@ def handle_input_ask(
 
     resp = chat_llm(
         app,
+        user_id,
         span,
         model=follow_up_model,
         json=True,
         stream=True,
         temperature=script_info.script_temprature,
+        generation_name="user_follow_ask_"
+        + lesson.lesson_no
+        + "_"
+        + str(script_info.script_index)
+        + "_"
+        + script_info.script_name,
         messages=messages,
     )
     response_text = ""

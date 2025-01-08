@@ -4,15 +4,14 @@ from flask import Flask
 
 from flaskr.service.study.models import AICourseLessonAttendScript
 from flaskr.api.llm import invoke_llm
-from flaskr.api.check.edun import (
-    EDUN_RESULT_SUGGESTION_PASS,
-    EDUN_RESULT_SUGGESTION_REJECT,
-    RISK_LABLES,
+from flaskr.api.check import (
     check_text,
+    CHECK_RESULT_PASS,
+    CHECK_RESULT_REJECT,
 )
 from flaskr.service.study.utils import generation_attend, get_model_setting
 from flaskr.service.check_risk import add_risk_control_result
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import (
     ROLE_TEACHER,
@@ -25,48 +24,49 @@ class BreakException(Exception):
     pass
 
 
-def check_text_by_edun(
+def check_text_with_llm_response(
     app: Flask,
     user_id: str,
     log_script: AICourseLessonAttendScript,
     input: str,
     span,
+    lesson: AILesson,
     script_info: AILessonScript,
     attend: AICourseLessonAttend,
 ):
     res = check_text(app, log_script.log_id, input, user_id)
     span.event(name="check_text", input=input, output=res)
-    result = (
-        res.get("result", {})
-        .get("antispam", {})
-        .get("suggestion", EDUN_RESULT_SUGGESTION_PASS)
-    )
-
     add_risk_control_result(
         app,
         log_script.log_id,
         user_id,
         input,
-        "yidun",
-        result,
-        str(res),
-        1 if result == EDUN_RESULT_SUGGESTION_PASS else 0,
+        res.provider,
+        res.check_result,
+        str(res.raw_data),
+        1 if res.check_result == CHECK_RESULT_PASS else 0,
         "check_text",
     )
-    if result == EDUN_RESULT_SUGGESTION_REJECT:
-        label = res.get("result", {}).get("antispam", {}).get("label", 100)
-        text = RISK_LABLES.get(label, "")
+    if res.check_result == CHECK_RESULT_REJECT:
+        labels = res.risk_labels
         model_setting = get_model_setting(app, script_info)
         prompt = "你是一名在线老师,要回答学生的相应提问，目前学生的问题有一些不合规不合法的地方，请找一个合适的理由拒绝学生，当前的教学内容为:{},学生的问题为：{},拒绝的理由为：{}".format(
-            script_info.script_prompt, input, text
+            script_info.script_prompt, input, ", ".join(labels)
         )
         res = invoke_llm(
             app,
+            user_id,
             span,
             message=prompt,
             model=model_setting.model_name,
             json=False,
             stream=True,
+            generation_name="check_text_reject_"
+            + lesson.lesson_no
+            + "_"
+            + str(script_info.script_index)
+            + "_"
+            + script_info.script_name,
             **model_setting.model_args,
         )
         response_text = ""
@@ -81,5 +81,5 @@ def check_text_by_edun(
         db.session.flush()
         yield make_script_dto("text_end", "", script_info.script_id)
     else:
-        app.logger.info("check_text_by_edun is None")
+        app.logger.info(f"check_text_by_{res.provider} is None")
         return

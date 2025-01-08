@@ -9,7 +9,7 @@ from langfuse.model import ModelUsage
 from openai.types.chat import ChatCompletionStreamOptionsParam
 from openai.types.shared_params import ResponseFormatJSONObject
 from flask import current_app
-
+from .dify import dify_chat_message
 from flaskr.common.config import get_config
 from flaskr.service.common.models import raise_error_with_args
 
@@ -117,6 +117,14 @@ QWEN_MODELS = [
 ]
 
 
+DIFY_MODELS = []
+
+if get_config("DIFY_API_KEY") and get_config("DIFY_URL"):
+    DIFY_MODELS = ["dify"]
+else:
+    current_app.logger.warning("DIFY_API_KEY and DIFY_URL not configured")
+
+
 class LLMStreamaUsage:
     def __init__(self, prompt_tokens, completion_tokens, total_tokens):
         self.prompt_tokens = prompt_tokens
@@ -137,11 +145,13 @@ class LLMStreamResponse:
 
 def invoke_llm(
     app: Flask,
+    user_id: str,
     span: StatefulSpanClient,
     model: str,
     message: str,
     system: str = None,
     json: bool = False,
+    generation_name: str = "invoke_llm",
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(
@@ -153,7 +163,9 @@ def invoke_llm(
     if system:
         generation_input.append({"role": "system", "content": system})
     generation_input.append({"role": "user", "content": message})
-    generation = span.generation(model=model, input=generation_input)
+    generation = span.generation(
+        model=model, input=generation_input, name=generation_name
+    )
     response_text = ""
     usage = None
     if (
@@ -278,6 +290,19 @@ def invoke_llm(
                 res.choices[0].finish_reason,
                 None,
             )
+    elif model in DIFY_MODELS:
+        response = dify_chat_message(app, message, user_id)
+        for res in response:
+            if res.event == "message":
+                response_text += res.answer
+                yield LLMStreamResponse(
+                    res.task_id,
+                    True if res.event == "message" else False,
+                    False,
+                    res.answer,
+                    None,
+                    None,
+                )
     else:
         raise_error_with_args(
             "LLM.MODEL_NOT_SUPPORTED",
@@ -294,10 +319,12 @@ def invoke_llm(
 
 def chat_llm(
     app: Flask,
+    user_id: str,
     span: StatefulSpanClient,
     model: str,
     messages: list,
     json: bool = False,
+    generation_name: str = "user_follow_ask",
     **kwargs,
 ) -> Generator[LLMStreamResponse, None, None]:
     app.logger.info(f"chat_llm [{model}] {messages} ,json:{json} ,kwargs:{kwargs}")
@@ -305,7 +332,7 @@ def chat_llm(
     model = model.strip()
     generation_input = messages
     generation = span.generation(
-        model=model, input=generation_input, name="user_follow_ask"
+        model=model, input=generation_input, name=generation_name
     )
     response_text = ""
     usage = None
@@ -416,7 +443,19 @@ def chat_llm(
                 res.choices[0].finish_reason,
                 None,
             )
-
+    elif model in DIFY_MODELS:
+        response = dify_chat_message(app, messages[-1]["content"], user_id)
+        for res in response:
+            if res.event == "message":
+                response_text += res.answer
+                yield LLMStreamResponse(
+                    res.task_id,
+                    True if res.event == "message" else False,
+                    False,
+                    res.answer,
+                    None,
+                    None,
+                )
     else:
         raise_error_with_args(
             "LLM.MODEL_NOT_SUPPORTED",
@@ -431,4 +470,11 @@ def chat_llm(
 
 
 def get_current_models(app: Flask) -> list[str]:
-    return OPENAI_MODELS + ERNIE_MODELS + GLM_MODELS + QWEN_MODELS + DEEP_SEEK_MODELS
+    return (
+        OPENAI_MODELS
+        + ERNIE_MODELS
+        + GLM_MODELS
+        + QWEN_MODELS
+        + DEEP_SEEK_MODELS
+        + DIFY_MODELS
+    )

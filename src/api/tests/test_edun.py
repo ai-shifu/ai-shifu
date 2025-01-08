@@ -1,5 +1,5 @@
 def test_edun(app):
-    from api.flaskr.api.check.edun import check_text
+    from api.flaskr.api.check.yidun import check_text
     from flaskr.util.uuid import generate_id
 
     with app.app_context():

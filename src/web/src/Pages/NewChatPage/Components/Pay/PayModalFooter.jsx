@@ -1,11 +1,12 @@
 import { memo } from 'react';
 import styles from './PayModalFooter.module.scss';
 import classNames from 'classnames';
-
+import { useTranslation } from 'react-i18next';
 export const PayModalFooter = ({ className }) => {
+  const { t } = useTranslation();
   return (
     <div className={classNames(styles.protocalWrapper, className)}>
-      <div className={styles.protocalDesc}>购买前请详细阅读以下协议内容</div>
+      <div className={styles.protocalDesc}>{t('pay.protocalDesc')}</div>
       <div className={styles.protocalLinks}>
         <a
           className={styles.protocalLink}
@@ -13,7 +14,7 @@ export const PayModalFooter = ({ className }) => {
           target="_blank"
           referrerPolicy="no-referrer"
         >
-          《模型服务协议》
+          {t('pay.modelServiceAgreement')}
         </a>
         <a
           className={styles.protocalLink}
@@ -21,7 +22,7 @@ export const PayModalFooter = ({ className }) => {
           target="_blank"
           referrerPolicy="no-referrer"
         >
-          《用户隐私协议》
+          {t('pay.userPrivacyPolicy')}
         </a>
       </div>
     </div>

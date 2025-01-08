@@ -2,7 +2,7 @@ from trace import Trace
 from flask import Flask
 from flaskr.service.study.input_funcs import BreakException
 from flaskr.service.user.models import User
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import INPUT_TYPE_LOGIN, ROLE_STUDENT
 from flaskr.service.study.plugin import register_input_handler
@@ -14,6 +14,7 @@ from flaskr.dao import db
 def handle_input_login(
     app: Flask,
     user_id: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,

@@ -6,6 +6,7 @@ from ...dao import db
 from .models import Active, ActiveUserRecord
 from ...util import generate_id
 from ..common import raise_error
+from flaskr.service.active.consts import ACTIVE_JOIN_TYPE_AUTO
 
 
 def save_active(
@@ -19,7 +20,7 @@ def save_active(
     active_price,
     active_status,
     active_id=None,
-    **args
+    **args,
 ):
     active_start_time = datetime.strptime(active_start_time, "%Y-%m-%d %H:%M:%S")
     active_end_time = datetime.strptime(active_end_time, "%Y-%m-%d %H:%M:%S")
@@ -38,6 +39,8 @@ def save_active(
     active.active_price = active_price
     active.active_filter = str({"course_id": active_course})
     active.active_course = active_course
+    if args.get("active_join_type"):
+        active.active_join_type = args.get("active_join_type")
     if active_id:
         db.session.merge(active)
     else:
@@ -61,28 +64,40 @@ def create_active_user_record(
     return active_user_record
 
 
-def query_and_join_active(app, course_id, user_id, order_id) -> list[ActiveUserRecord]:
-
+# query active and join active
+def query_and_join_active(
+    app, course_id, user_id, order_id, active_id=None
+) -> list[ActiveUserRecord]:
     bj_time = pytz.timezone("Asia/Shanghai")
     now = datetime.now(bj_time)
-    app.logger.info(
-        "find active for course:{} and user:{},time:{}".format(course_id, user_id, now)
-    )
+    app.logger.info(f"find active for course:{course_id} and user:{user_id},time:{now}")
     active_infos = Active.query.filter(
         Active.active_course == course_id,
         Active.active_status == 1,
         Active.active_start_time <= now,
         Active.active_end_time >= now,
+        Active.active_join_type == ACTIVE_JOIN_TYPE_AUTO,
     ).all()
+    if active_id:
+        append_active_info = Active.query.filter(
+            Active.active_id == active_id,
+            Active.active_status == 1,
+            Active.active_start_time <= now,
+            Active.active_end_time >= now,
+            Active.active_course == course_id,
+        ).first()
+        if append_active_info:
+            app.logger.info(
+                f"append active info:{append_active_info.active_name} {append_active_info.active_id}"
+            )
+            active_infos.append(append_active_info)
     if not active_infos:
-        app.logger.info(
-            "no active for course:{} and user:{}".format(course_id, user_id)
-        )
+        app.logger.info(f"no active for course:{course_id} and user:{user_id}")
         return []
     active_user_records = []
     for active_info in active_infos:
         app.logger.info(
-            "active info:{} {}".format(active_info.active_name, active_info.active_id)
+            f"active info:{active_info.active_name} {active_info.active_id}"
         )
         active_user_record = ActiveUserRecord.query.filter(
             ActiveUserRecord.active_id == active_info.active_id,
@@ -103,6 +118,27 @@ def query_and_join_active(app, course_id, user_id, order_id) -> list[ActiveUserR
                 )
             )
     return active_user_records
+
+
+# join active
+def join_active(app, active_id, user_id, order_id):
+    active_user_record = ActiveUserRecord.query.filter(
+        ActiveUserRecord.active_id == active_id,
+        ActiveUserRecord.user_id == user_id,
+    ).first()
+    if active_user_record:
+        raise_error("ACTIVE.ALREADY_JOINED")
+    active_info = query_active(app, active_id)
+    active_user_record = create_active_user_record(
+        app,
+        active_id,
+        user_id,
+        active_info.active_price,
+        order_id,
+        0,
+        active_info.active_name,
+    )
+    return active_user_record
 
 
 def query_active(app, active_id) -> Active:

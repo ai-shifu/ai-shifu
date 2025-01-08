@@ -2,7 +2,7 @@ from flask import Flask
 from trace import Trace
 from flaskr.service.study.ui.input_ask import handle_ask_mode
 from flaskr.service.common.models import AppException
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.dao import db
 
@@ -41,6 +41,7 @@ def handle_input(
     app: Flask,
     user_id: str,
     input_type: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
@@ -50,7 +51,7 @@ def handle_input(
     app.logger.info(f"handle_input {input_type},user_id:{user_id},input:{input} ")
     if input_type in INPUT_HANDLE_MAP:
         respone = INPUT_HANDLE_MAP[input_type](
-            app, user_id, attend, script_info, input, trace, trace_args
+            app, user_id, lesson, attend, script_info, input, trace, trace_args
         )
         if respone:
             yield from respone

@@ -26,28 +26,18 @@ import { useDisclosture } from 'common/hooks/useDisclosture.js';
 import { useCallback } from 'react';
 import { SettingInputM } from 'Components/m/SettingInputM.jsx';
 import PayModalFooter from './PayModalFooter.jsx';
-import contactBzWechatImg from 'Assets/newchat/contact-bz-wechat.png';
+import paySuccessBg from 'Assets/newchat/pay-success@2x.png';
 import { getStringEnv } from 'Utils/envUtils';
+import { useTranslation } from 'react-i18next';
 const CompletedSection = memo(() => {
+  const { t } = useTranslation();
   return (
     <div className={styles.completedSection}>
-      <div className={styles.title}>添加真人助教</div>
+      <div className={styles.title}>{t('pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
-        <div className={styles.description}>
-          <div>感谢你的信任！期待接下来的学习～</div>
-          <div>
-            请务必添加你的真人助教，学习课程时，遇到任何问题记得来找我！
-          </div>
-        </div>
-        <div className={styles.qrcodeWrapper2}>
-          <img
-            className={styles.qrcode}
-            src={contactBzWechatImg}
-            alt="联系我"
-          />
-          <div>用微信扫码二维码</div>
-        </div>
+        <img className={styles.paySuccessBg} src={paySuccessBg} alt="" />
       </div>
+      <PayModalFooter />
     </div>
   );
 });
@@ -148,7 +138,7 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
               <CompletedSection />
             ) : (
               <>
-                <div className={styles.payInfoTitle}>首发特惠</div>
+                <div className={styles.payInfoTitle}>到手价格</div>
                 <div className={styles.priceWrapper}>
                   <div
                     className={classNames(styles.price)}
@@ -227,10 +217,11 @@ export const PayModalM = ({ open = false, onCancel, onOk }) => {
                     {'使用兑换码 >'}
                   </MainButtonM>
                 </div>
+                <PayModalFooter className={styles.protocal} />
               </>
             )}
 
-            <PayModalFooter className={styles.protocal} />
+
             <div className={styles.payInfoWrapper}>
               <img className={styles.payInfo} src={payInfoBg} alt="产品说明" />
             </div>

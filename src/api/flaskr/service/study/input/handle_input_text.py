@@ -3,8 +3,11 @@ from trace import Trace
 from flask import Flask
 from flaskr.api.llm import invoke_llm
 from flaskr.service.profile.funcs import save_user_profiles
-from flaskr.service.study.input_funcs import BreakException, check_text_by_edun
-from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.study.input_funcs import (
+    BreakException,
+    check_text_with_llm_response,
+)
+from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import INPUT_TYPE_TEXT, ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.study.plugin import register_input_handler
@@ -22,6 +25,7 @@ from flaskr.dao import db
 def handle_input_text(
     app: Flask,
     user_id: str,
+    lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
@@ -39,7 +43,9 @@ def handle_input_text(
     log_script.script_role = ROLE_STUDENT
     db.session.add(log_script)
     span = trace.span(name="user_input", input=input)
-    res = check_text_by_edun(app, user_id, log_script, input, span, script_info, attend)
+    res = check_text_with_llm_response(
+        app, user_id, log_script, input, span, lesson, script_info, attend
+    )
     try:
         first_value = next(res)
         app.logger.info("check_text_by_edun is not None")
@@ -52,11 +58,18 @@ def handle_input_text(
 
     resp = invoke_llm(
         app,
+        user_id,
         span,
         model=model_setting.model_name,
         json=True,
         stream=True,
         message=prompt,
+        generation_name="user_input_"
+        + lesson.lesson_no
+        + "_"
+        + str(script_info.script_index)
+        + "_"
+        + script_info.script_name,
         **model_setting.model_args,
     )
     response_text = ""
