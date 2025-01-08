@@ -688,32 +688,9 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
             recaul_discount = buy_record.status != BUY_STATUS_SUCCESS
             if buy_record.discount_value > 0:
                 aitive_records = query_active_record(app, record_id, recaul_discount)
-                if aitive_records:
-                    for active_record in aitive_records:
-                        item.append(
-                            PayItemDto(
-                                "活动",
-                                active_record.active_name,
-                                active_record.price,
-                                True,
-                                None,
-                            )
-                        )
                 discount_records = query_discount_record(
                     app, record_id, recaul_discount
                 )
-                if discount_records:
-                    for discount_record in discount_records:
-                        item.append(
-                            PayItemDto(
-                                "优惠",
-                                discount_record.discount_name,
-                                discount_record.discount_value,
-                                True,
-                                discount_record.discount_code,
-                            )
-                        )
-
                 discount_info = calculate_discount_value(
                     app, buy_record.price, aitive_records, discount_records
                 )
@@ -724,7 +701,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                     buy_record.discount_value = discount_info.discount_value
                     buy_record.pay_value = buy_record.price - buy_record.discount_value
                     db.session.commit()
-                    item = discount_info.items
+                item = discount_info.items
 
             return AICourseBuyRecordDTO(
                 buy_record.record_id,
