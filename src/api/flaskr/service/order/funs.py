@@ -384,6 +384,11 @@ def generate_charge(
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
     with app.app_context():
+        pingxx_order = PingxxOrder.query.filter(
+            PingxxOrder.charge_id == charge_id
+        ).first()
+        if not pingxx_order:
+            return
         lock = redis_client.lock(
             "success_buy_record_from_pingxx" + charge_id,
             timeout=10,
@@ -624,14 +629,28 @@ def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
         return None
 
 
+class DiscountInfo:
+    discount_value: str
+    items: list[PayItemDto]
+
+    def __init__(self, discount_value, items):
+        self.discount_value = discount_value
+        self.items = items
+
+
 def calculate_discount_value(
     app: Flask, price: str, active_records: list, discount_records: list
-):
+) -> DiscountInfo:
     discount_value = 0
+    items = []
     if active_records is not None and len(active_records) > 0:
         for active_record in active_records:
             discount_value += active_record.price
-
+            items.append(
+                PayItemDto(
+                    "活动", active_record.active_name, active_record.price, True, None
+                )
+            )
     if discount_records is not None and len(discount_records) > 0:
         discount_ids = [i.discount_id for i in discount_records]
         discounts = Discount.query.filter(Discount.discount_id.in_(discount_ids)).all()
@@ -643,10 +662,18 @@ def calculate_discount_value(
                     discount_value += discount.discount_value
                 elif discount.discount_type == DISCOUNT_TYPE_PERCENT:
                     discount_value += discount.discount_value * price
-
+                items.append(
+                    PayItemDto(
+                        "优惠",
+                        discount.discount_name,
+                        discount.discount_value * price,
+                        True,
+                        discount.discount_code,
+                    )
+                )
     if discount_value > price:
         discount_value = price
-    return discount_value
+    return DiscountInfo(discount_value, items)
 
 
 def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
@@ -687,13 +714,17 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                             )
                         )
 
-                discount_value = calculate_discount_value(
+                discount_info = calculate_discount_value(
                     app, buy_record.price, aitive_records, discount_records
                 )
-                if recaul_discount and discount_value != buy_record.discount_value:
-                    buy_record.discount_value = discount_value
+                if (
+                    recaul_discount
+                    and discount_info.discount_value != buy_record.discount_value
+                ):
+                    buy_record.discount_value = discount_info.discount_value
                     buy_record.pay_value = buy_record.price - buy_record.discount_value
                     db.session.commit()
+                    item = discount_info.items
 
             return AICourseBuyRecordDTO(
                 buy_record.record_id,
