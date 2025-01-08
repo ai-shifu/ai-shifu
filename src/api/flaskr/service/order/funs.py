@@ -686,7 +686,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
             item = []
             item.append(PayItemDto("商品", "基础价格", buy_record.price, False, None))
             recaul_discount = buy_record.status != BUY_STATUS_SUCCESS
-            if buy_record.discount_value > 0:
+            if buy_record.discount_value > 0 and recaul_discount:
                 aitive_records = query_active_record(app, record_id, recaul_discount)
                 discount_records = query_discount_record(
                     app, record_id, recaul_discount
