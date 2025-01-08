@@ -124,16 +124,25 @@ class AICourseBuyRecordDTO:
         }
 
 
+# to do : add to plugins
 def send_order_feishu(app: Flask, record_id: str):
     order_info = query_buy_record(app, record_id)
+    if order_info is None:
+        return
     urser_info = User.query.filter(User.user_id == order_info.user_id).first()
     if not urser_info:
         return
+    course_info = AICourse.query.filter(
+        AICourse.course_id == order_info.course_id
+    ).first()
+    if not course_info:
+        return
+
     title = "购买课程通知"
     msgs = []
     msgs.append("手机号：{}".format(urser_info.mobile))
     msgs.append("昵称：{}".format(urser_info.name))
-    msgs.append("课程名称：{}".format(order_info.course_id))
+    msgs.append("课程名称：{}".format(course_info.course_name))
     msgs.append("实付金额：{}".format(order_info.value_to_pay))
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id

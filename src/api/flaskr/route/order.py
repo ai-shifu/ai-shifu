@@ -3,7 +3,6 @@ from flaskr.service.common.models import raise_param_error
 from flaskr.service.order.discount import use_discount_code
 from flaskr.route.common import make_common_response
 from flaskr.service.order import (
-    success_buy_record,
     generate_charge,
     query_buy_record,
     init_buy_record,
@@ -11,11 +10,6 @@ from flaskr.service.order import (
 
 
 def register_order_handler(app: Flask, path_prefix: str):
-    @app.route(path_prefix + "/order-test", methods=["POST"])
-    def order_test():
-        order_id = request.get_json().get("order_id", "")
-
-        return make_common_response(success_buy_record(app, order_id))
 
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
