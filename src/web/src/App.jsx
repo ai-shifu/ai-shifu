@@ -13,7 +13,7 @@ import { useEnvStore } from 'stores/envStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
 
 const initializeEnvData = async () => {
-  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL } = useEnvStore.getState();
+  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL, updateLogoHorizontal, updateLogoVertical } = useEnvStore.getState();
   const fetchEnvData = async () => {
     try {
       const res = await fetch('/config/env', { method: 'POST', referrer: "no-referrer" });
@@ -26,6 +26,8 @@ const initializeEnvData = async () => {
         await updateUmamiScriptSrc(data?.REACT_APP_UMAMI_SCRIPT_SRC || "");
         await updateEruda(data?.REACT_APP_ERUDA || "false");
         await updateBaseURL(data?.REACT_APP_BASEURL || "");
+        await updateLogoHorizontal(data?.REACT_APP_LOGO_HORIZONTAL || "");
+        await updateLogoVertical(data?.REACT_APP_LOGO_VERTICAL || "");
 
       }
     } catch (error) {

@@ -39,7 +39,7 @@ export const NavHeader = ({
       )}
     >
       <div className={styles.logoArea} onClick={onLogoAreaClick}>
-        {!isCollapse && <LogoWithText direction="row" size={30} />}
+        <LogoWithText direction= {isCollapse ? "col" : "row"} size={30} />
       </div>
 
       {showCollapseBtn && (
@@ -54,7 +54,6 @@ export const NavHeader = ({
           />
         </div>
       )}
-      {isCollapse && <LogoWithText direction="col" size={30} />}
       {showCloseBtn && (
         <div className={styles.actionBtn} onClick={onClose}>
           X
