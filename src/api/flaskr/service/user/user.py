@@ -143,6 +143,7 @@ def generate_temp_user(
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
+    app.logger.info(f"update_user_open_id user_id: {user_id} wx_code: {wx_code}")
     with app.app_context():
         user = User.query.filter(User.user_id == user_id).first()
         if user:
@@ -152,6 +153,9 @@ def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
                 if wx_openid and user.user_open_id != wx_openid and wx_openid != "":
                     user.user_open_id = wx_openid
                     db.session.commit()
+                    app.logger.info(
+                        f"update_user_open_id user_id: {user_id} wx_openid: {wx_openid}"
+                    )
                 return wx_openid
         else:
             app.logger.error("user not found")

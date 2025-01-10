@@ -457,6 +457,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: openid
         """
         code = request.get_json().get("wxcode", None)
+        app.logger.info(f"update_wechat_openid code: {code}")
         if not code:
             raise_param_error("wxcode")
         return make_common_response(
