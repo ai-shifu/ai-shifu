@@ -17,8 +17,7 @@ import { useEffect } from 'react';
 import classNames from 'classnames';
 import { useInterval } from 'react-use';
 import { message } from 'antd';
-import contactBzWechatImg from 'Assets/newchat/contact-bz-wechat.png';
-
+import paySucessBg from 'Assets/newchat/pay-success@2x.png';
 import payInfoBg from 'Assets/newchat/pay-info-bg.png';
 import PayModalFooter from './PayModalFooter.jsx';
 import PayChannelSwitch from './PayChannelSwitch.jsx';
@@ -28,26 +27,14 @@ const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
 const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
 const CompletedSection = memo(() => {
+  const { t } = useTranslation();
   return (
     <div className={styles.completedSection}>
-      <div className={styles.title}>添加真人助教</div>
+      <div className={styles.title}>{t('pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
-        <div className={styles.description}>
-          <div>感谢你的信任！期待接下来的学习～</div>
-          <div>
-            请务必添加你的真人助教，学习课程时，遇到任何问题记得来找我！
-          </div>
-        </div>
-        <div className={styles.qrcodeWrapper2}>
-          <img
-            className={styles.qrcode}
-            src={contactBzWechatImg}
-            alt="联系我"
-          />
-          <div>用微信扫码二维码</div>
-        </div>
-        <PayModalFooter />
+        <img className={styles.paySuccessBg} src={paySucessBg} alt="" />
       </div>
+      <PayModalFooter />
     </div>
   );
 });
@@ -220,7 +207,7 @@ export const PayModal = ({ open = false, onCancel, onOk }) => {
             <CompletedSection />
           ) : (
             <div className={styles.paySection}>
-              <div className={styles.payInfoTitle}>首发特惠</div>
+              <div className={styles.payInfoTitle}>到手价格</div>
               <div className={styles.priceWrapper}>
                 <div
                   className={classNames(

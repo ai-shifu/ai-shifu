@@ -1,6 +1,6 @@
 from datetime import datetime
 import pytz
-
+from flask import Flask
 
 from ...dao import db
 from .models import Active, ActiveUserRecord
@@ -145,19 +145,26 @@ def query_active(app, active_id) -> Active:
     return Active.query.filter(Active.active_id == active_id).first()
 
 
-def query_active_record(app, order_id) -> list[ActiveUserRecord]:
+def query_active_record(
+    app: Flask, order_id: str, recaul_discount: bool
+) -> list[ActiveUserRecord]:
     active_user_records = ActiveUserRecord.query.filter(
         ActiveUserRecord.order_id == order_id
     ).all()
     active_ids = [i.active_id for i in active_user_records]
     bj_time = pytz.timezone("Asia/Shanghai")
-    now = datetime.now(bj_time)
-    actives = Active.query.filter(
-        Active.active_id.in_(active_ids),
-        Active.active_status == 1,
-        Active.active_start_time <= now,
-        Active.active_end_time >= now,
-    ).all()
+    if recaul_discount:
+        now = datetime.now(bj_time)
+        actives = Active.query.filter(
+            Active.active_id.in_(active_ids),
+            Active.active_status == 1,
+            Active.active_start_time <= now,
+            Active.active_end_time >= now,
+        ).all()
+    else:
+        actives = Active.query.filter(
+            Active.active_id.in_(active_ids),
+        ).all()
     active_maps = {i.active_id: i for i in actives}
 
     ret = []

@@ -15,4 +15,8 @@ export const useEnvStore = create((set) => ({
   updateEruda: (eruda) => set({ eruda }),
   baseURL: process.env.REACT_APP_BASEURL,
   updateBaseURL: (baseURL) => set({ baseURL }),
+  logoHorizontal: process.env.REACT_APP_LOGO_HORIZONTAL,
+  updateLogoHorizontal: (logoHorizontal) => set({ logoHorizontal }),
+  logoVertical: process.env.REACT_APP_LOGO_VERTICAL,
+  updateLogoVertical: (logoVertical) => set({ logoVertical }),
 }));

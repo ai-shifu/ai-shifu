@@ -1,6 +1,6 @@
 .navHeader {
   height: 60px;
-  padding: 0 20px;
+  padding:  0 15px;
   display: flex;
   flex-flow: row nowrap;
   align-items: center;
@@ -33,7 +33,7 @@
   }
 
   &.collapse {
-    padding: 22px 0;
+    padding: 15px 0;
     width: 60px;
     flex-flow: column nowrap;
 

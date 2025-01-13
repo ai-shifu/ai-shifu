@@ -116,6 +116,7 @@
         border-radius: 50px;
       }
     }
+
   }
 }
 
@@ -128,11 +129,9 @@
   box-sizing: border-box;
 
   .title {
-    font-size: var(--font-size-2);
-    text-align: center;
-    font-weight: 700;
-    flex: 0 0 auto;
-    margin-bottom: 2em;
+      font-size: var(--font-size-2);
+      text-align: center;
+      color: var(--color-20);
   }
 
   .completeWrapper {
@@ -155,5 +154,10 @@
     display: block;
     text-align: center;
     color: var(--color-8);
+  }
+  .paySuccessBg{
+    width: 100%;
+    height: auto;
+    margin-top: 20px;
   }
 }
