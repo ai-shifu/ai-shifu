@@ -172,6 +172,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             return query_buy_record(app, origin_record.record_id)
         if origin_record:
             buy_record = origin_record
+            order_id = origin_record.record_id
         else:
             buy_record = AICourseBuyRecord()
             order_id = str(get_uuid(app))
