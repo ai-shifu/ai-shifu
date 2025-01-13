@@ -124,12 +124,20 @@ const App = () => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
-        const resp = await getCourseInfo(courseId);
-        setShowVip(resp.data.course_price > 0);
+        try {
+          const resp = await getCourseInfo(courseId);
+          if (resp.data) {
+            setShowVip(resp.data.course_price > 0);
+          } else {
+            window.location.href = '/404';
+          }
+        } catch (error) {
+          window.location.href = '/404';
+        }
       }
     };
     fetchCourseInfo();
-  }, [courseId, envDataInitialized, setShowVip,updateCourseId]);
+  }, [courseId, envDataInitialized, setShowVip]);
 
   useEffect(() => {
     if (!envDataInitialized) return;
