@@ -7,7 +7,9 @@
     "companyAddress": "北京朝阳区望京东煌大厦19层163室",
     "settings": "设置",
     "ok": "确定",
-    "networkError": "无法连接到服务器请检查网络设置"
+    "networkError": "无法连接到服务器请检查网络设置",
+    "backToHome": "返回首页",
+    "redirectInSeconds": "将在 {{seconds}} 秒后返回首页"
   },
   "user": {
     "loginMainButton": "登录/注册",
@@ -119,5 +121,8 @@
       "learning": "正在学",
       "completed": "已完成"
     }
+  },
+  "error": {
+    "pageNotFound": "找不到这个师傅了"
   }
 }
