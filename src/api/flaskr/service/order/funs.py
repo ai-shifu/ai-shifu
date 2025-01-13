@@ -168,20 +168,24 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .order_by(AICourseBuyRecord.id.asc())
             .first()
         )
-        if origin_record:
+        if origin_record and active_id is None:
             return query_buy_record(app, origin_record.record_id)
-        order_id = str(get_uuid(app))
+        if origin_record:
+            buy_record = origin_record
+        else:
+            buy_record = AICourseBuyRecord()
+            order_id = str(get_uuid(app))
+            buy_record.user_id = user_id
+            buy_record.course_id = course_id
+            buy_record.price = course_info.course_price
+            buy_record.status = BUY_STATUS_INIT
+            buy_record.record_id = order_id
+            buy_record.discount_value = decimal.Decimal(0.00)
+            buy_record.pay_value = course_info.course_price
+
         active_records = query_and_join_active(
             app, course_id, user_id, order_id, active_id
         )
-        buy_record = AICourseBuyRecord()
-        buy_record.user_id = user_id
-        buy_record.course_id = course_id
-        buy_record.price = course_info.course_price
-        buy_record.status = BUY_STATUS_INIT
-        buy_record.record_id = order_id
-        buy_record.discount_value = decimal.Decimal(0.00)
-        buy_record.pay_value = course_info.course_price
         price_items = []
         price_items.append(
             PayItemDto("商品", "基础价格", buy_record.price, False, None)
@@ -203,7 +207,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         buy_record.pay_value = decimal.Decimal(buy_record.price) - decimal.Decimal(
             buy_record.discount_value
         )
-        db.session.add(buy_record)
+        db.session.merge(buy_record)
         db.session.commit()
         return AICourseBuyRecordDTO(
             buy_record.record_id,
