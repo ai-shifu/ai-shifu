@@ -193,6 +193,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         )
         if active_records:
             for active_record in active_records:
+                buy_record.discount_value = 0
                 buy_record.discount_value = decimal.Decimal(
                     buy_record.discount_value
                 ) + decimal.Decimal(active_record.price)
