@@ -24,7 +24,16 @@
 
 .inline {
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: flex-end;
   gap: 20px;
+  img {
+    height: 120px;
+    vertical-align: bottom;
+  }
+
+  h1 {
+    line-height: 1;
+  }
+
 }

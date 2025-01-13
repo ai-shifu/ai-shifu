@@ -123,6 +123,6 @@
     }
   },
   "error": {
-    "pageNotFound": "抱歉，课程还没有准备好哦"
+    "pageNotFound": "找不到这个师傅了"
   }
 }

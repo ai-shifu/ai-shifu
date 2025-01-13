@@ -123,6 +123,6 @@
     }
   },
   "error": {
-    "pageNotFound": "Sorry, the course is not available"
+    "pageNotFound": "Sorry, this Shifu is missing..."
   }
 }
