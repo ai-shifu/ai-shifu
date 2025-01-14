@@ -53,6 +53,7 @@ def generation_attend(
     attendScript.lesson_id = script_info.lesson_id
     attendScript.course_id = attend.course_id
     attendScript.script_id = script_info.script_id
+    attendScript.script_ui_type = script_info.script_ui_type
     attendScript.log_id = generate_id(app)
     if with_ui_conf:
         attendScript.script_ui_conf = script_info.script_other_conf
