@@ -335,7 +335,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         if len(lesson_info.lesson_no) <= 2:
             lesson_infos = AILesson.query.filter(
                 AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
-                # AILesson.status == 1,
+                AILesson.status == 1,
                 AILesson.course_id == lesson_info.course_id,
             ).all()
             lesson_ids = [lesson.lesson_id for lesson in lesson_infos]
