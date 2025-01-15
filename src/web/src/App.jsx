@@ -28,7 +28,7 @@ const initializeEnvData = async () => {
         await updateBaseURL(data?.REACT_APP_BASEURL || "");
         await updateLogoHorizontal(data?.REACT_APP_LOGO_HORIZONTAL || "");
         await updateLogoVertical(data?.REACT_APP_LOGO_VERTICAL || "");
-        await updateEnableWxcode(data?.REACT_APP_ENABLE_WXCODE || "false");
+        await updateEnableWxcode(data?.REACT_APP_ENABLE_WXCODE);
       }
     } catch (error) {
     } finally {
@@ -94,7 +94,7 @@ const App = () => {
 
   useEffect(() => {
     if (!envDataInitialized) return;
-    if (inWechat() && enableWxcode) {
+    if (enableWxcode && inWechat()) {
       const { appId } = useEnvStore.getState();
       setLoading(true);
       const currCode = params.code;
