@@ -14,6 +14,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const flexFlow = isRow ? 'row nowrap' : 'column nowrap';
   const logoHorizontal = useEnvStore((state) => state.logoHorizontal);
   const logoVertical = useEnvStore((state) => state.logoVertical);
+  const siteUrl = useEnvStore((state) => state.siteUrl);
   const commonStyles = {
     width: isRow ? 'auto' : size + 'px',
     height: isRow ? size + 'px' : 'auto',
@@ -30,7 +31,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         ...commonStyles,
       }}
     >
-      <a href="https://ai-shifu.com">
+      <a href={siteUrl}>
         {isRow ? (
           <img src={ logoHorizontal || logoRow} alt="logo" style={{ ...commonStyles }} />
         ) : (

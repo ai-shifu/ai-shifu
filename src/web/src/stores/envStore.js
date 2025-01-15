@@ -21,4 +21,6 @@ export const useEnvStore = create((set) => ({
   updateLogoVertical: (logoVertical) => set({ logoVertical }),
   enableWxcode: process.env.REACT_APP_ENABLE_WXCODE || false,
   updateEnableWxcode: (enableWxcode) => set({ enableWxcode }),
+  siteUrl: process.env.REACT_APP_SITE_URL || '/',
+  updateSiteUrl: (siteUrl) => set({ siteUrl }),
 }));

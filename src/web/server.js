@@ -18,6 +18,7 @@ app.post('/config/env', (req, res) => {
       'REACT_APP_LOGO_HORIZONTAL': process.env.REACT_APP_LOGO_HORIZONTAL || '',
       'REACT_APP_LOGO_VERTICAL': process.env.REACT_APP_LOGO_VERTICAL || '',
       'REACT_APP_ENABLE_WXCODE': process.env.REACT_APP_ENABLE_WXCODE !== undefined ? process.env.REACT_APP_ENABLE_WXCODE === 'true' : true,
+      'REACT_APP_SITE_URL': process.env.REACT_APP_SITE_URL || '/',
     });
 });
 // // Serve static files from the React app
