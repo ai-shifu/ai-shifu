@@ -17,6 +17,7 @@ app.post('/config/env', (req, res) => {
       'REACT_APP_ERUDA': process.env.REACT_APP_ERUDA || false,
       'REACT_APP_LOGO_HORIZONTAL': process.env.REACT_APP_LOGO_HORIZONTAL || '',
       'REACT_APP_LOGO_VERTICAL': process.env.REACT_APP_LOGO_VERTICAL || '',
+      'REACT_APP_ENABLE_WXCODE': process.env.REACT_APP_ENABLE_WXCODE !== undefined ? process.env.REACT_APP_ENABLE_WXCODE === 'true' : true,
     });
 });
 // // Serve static files from the React app

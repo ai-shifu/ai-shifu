@@ -27,6 +27,7 @@ import { useTranslation } from 'react-i18next';
 import { useEnvStore } from 'stores/envStore.js';
 // the main page of course learning
 const NewChatPage = (props) => {
+  const enableWxcode = useEnvStore((state) => state.enableWxcode);
   const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -112,7 +113,7 @@ const NewChatPage = (props) => {
 
   const initAndCheckLogin = useCallback(async () => {
     await checkLogin();
-    if (inWechat()) {
+    if (inWechat() && enableWxcode) {
       await updateWxcode();
     }
     setInitialized(true);

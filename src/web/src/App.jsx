@@ -13,7 +13,7 @@ import { useEnvStore } from 'stores/envStore.js';
 import { useUserStore } from 'stores/useUserStore.js';
 
 const initializeEnvData = async () => {
-  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL, updateLogoHorizontal, updateLogoVertical } = useEnvStore.getState();
+  const { updateAppId, updateCourseId, updateAlwaysShowLessonTree, updateUmamiWebsiteId, updateUmamiScriptSrc, updateEruda, updateBaseURL, updateLogoHorizontal, updateLogoVertical, updateEnableWxcode } = useEnvStore.getState();
   const fetchEnvData = async () => {
     try {
       const res = await fetch('/config/env', { method: 'POST', referrer: "no-referrer" });
@@ -28,7 +28,7 @@ const initializeEnvData = async () => {
         await updateBaseURL(data?.REACT_APP_BASEURL || "");
         await updateLogoHorizontal(data?.REACT_APP_LOGO_HORIZONTAL || "");
         await updateLogoVertical(data?.REACT_APP_LOGO_VERTICAL || "");
-
+        await updateEnableWxcode(data?.REACT_APP_ENABLE_WXCODE || "false");
       }
     } catch (error) {
     } finally {
@@ -72,6 +72,7 @@ const App = () => {
   const [language] = useState(browserLanguage);
   const courseId = useEnvStore((state) => state.courseId);
   const updateCourseId = useEnvStore((state) => state.updateCourseId);
+  const enableWxcode = useEnvStore((state) => state.enableWxcode);
 
   useEffect(() => {
     if (!envDataInitialized) return;
@@ -93,7 +94,7 @@ const App = () => {
 
   useEffect(() => {
     if (!envDataInitialized) return;
-    if (inWechat()) {
+    if (inWechat() && enableWxcode) {
       const { appId } = useEnvStore.getState();
       setLoading(true);
       const currCode = params.code;
@@ -108,7 +109,7 @@ const App = () => {
       }
     }
     setLoading(false);
-  }, [params.code, updateWechatCode, wechatCode, envDataInitialized]);
+  }, [params.code, updateWechatCode, wechatCode, envDataInitialized, enableWxcode]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {

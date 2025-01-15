@@ -19,4 +19,6 @@ export const useEnvStore = create((set) => ({
   updateLogoHorizontal: (logoHorizontal) => set({ logoHorizontal }),
   logoVertical: process.env.REACT_APP_LOGO_VERTICAL,
   updateLogoVertical: (logoVertical) => set({ logoVertical }),
+  enableWxcode: process.env.REACT_APP_ENABLE_WXCODE || false,
+  updateEnableWxcode: (enableWxcode) => set({ enableWxcode }),
 }));
