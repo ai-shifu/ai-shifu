@@ -111,15 +111,23 @@ class AICourseBuyRecordDTO:
         self.price_item = price_item
 
     def __json__(self):
+        def format_decimal(value):
+            # Convert to string with two decimal places
+            formatted_value = "{0:.2f}".format(value)
+            # If the decimal part is .00, remove it
+            if formatted_value.endswith(".00"):
+                return formatted_value[:-3]
+            return formatted_value
+
         return {
             "order_id": self.order_id,
             "user_id": self.user_id,
             "course_id": self.course_id,
-            "price": str(self.price),
+            "price": format_decimal(self.price),
             "status": self.status,
             "status_desc": BUY_STATUS_VALUES[self.status],
-            "discount": str(self.discount),
-            "value_to_pay": str(self.value_to_pay),
+            "discount": format_decimal(self.discount),
+            "value_to_pay": format_decimal(self.value_to_pay),
             "price_item": [item.__json__() for item in self.price_item],
         }
 
