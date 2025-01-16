@@ -19,13 +19,14 @@ from flaskr.service.study.input_funcs import (
     check_text_with_llm_response,
     generation_attend,
 )
+from flaskr.service.user.models import User
 
 
 @register_input_handler(input_type=INPUT_TYPE_ASK)
 @extensible_generic
 def handle_input_ask(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -49,7 +50,7 @@ def handle_input_ask(
     system_prompt = get_lesson_system(app, script_info.lesson_id)
     system_message = system_prompt if system_prompt else ""
     # format the system message
-    system_message = get_fmt_prompt(app, user_id, system_message)
+    system_message = get_fmt_prompt(app, user_info.user_id, system_message)
     system_message = system_message if system_message else "" + "\n 之前的会话历史为:\n"
     for script in history_scripts:
         if script.script_role == ROLE_STUDENT:
@@ -62,7 +63,10 @@ def handle_input_ask(
         {
             "role": "user",
             "content": get_fmt_prompt(
-                app, user_id, profile_tmplate=follow_up_info.ask_prompt, input=input
+                app,
+                user_info.user_id,
+                profile_tmplate=follow_up_info.ask_prompt,
+                input=input,
             ),
         }
     )
@@ -76,7 +80,7 @@ def handle_input_ask(
     db.session.add(log_script)
     span = trace.span(name="user_follow_up", input=input)
     res = check_text_with_llm_response(
-        app, user_id, log_script, input, span, lesson, script_info, attend
+        app, user_info.user_id, log_script, input, span, lesson, script_info, attend
     )
     try:
         first_value = next(res)
@@ -89,7 +93,7 @@ def handle_input_ask(
         app.logger.info("check_text_by_edun is None ,invoke_llm")
     resp = chat_llm(
         app,
-        user_id,
+        user_info.user_id,
         span,
         model=follow_up_model,
         json=True,

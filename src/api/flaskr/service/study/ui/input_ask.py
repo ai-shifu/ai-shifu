@@ -1,5 +1,5 @@
 from flask import Flask
-
+from flaskr.service.user.models import User
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
@@ -13,7 +13,7 @@ from flaskr.framework.plugin.plugin_manager import extensible
 @extensible
 def handle_ask_mode(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,

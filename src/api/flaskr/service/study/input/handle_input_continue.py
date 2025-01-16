@@ -10,13 +10,14 @@ from flaskr.service.study.plugin import (
 from flaskr.service.study.utils import generation_attend
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.service.user.models import User
 
 
 @register_input_handler(input_type=INPUT_TYPE_CONTINUE)
 @extensible_generic
 def handle_input_continue(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -35,6 +36,6 @@ def handle_input_continue(
     if continue_func:
         print("continue_func")
         continue_func(
-            app, user_id, lesson, attend, script_info, input, trace, trace_args
+            app, user_info, lesson, attend, script_info, input, trace, trace_args
         )
     db.session.flush()

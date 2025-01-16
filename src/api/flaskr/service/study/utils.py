@@ -32,7 +32,8 @@ from ...service.study.models import AICourseAttendAsssotion, AICourseLessonAtten
 from ...dao import db
 from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
-from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.service.user.models import User
+from flaskr.framework import extensible_generic
 
 
 def get_current_lesson(
@@ -60,7 +61,7 @@ def generation_attend(
     return attendScript
 
 
-def check_phone_number(app, user_id, input):
+def check_phone_number(app, user_info: User, input):
     if not re.match(r"^1[3-9]\d{9}$", input):
         return False
     return True

@@ -8,12 +8,13 @@ from flaskr.service.lesson.const import (
     UI_TYPE_LOGIN,
 )
 from flaskr.service.study.dtos import ScriptDTO
+from flaskr.service.user.models import User
 
 
 @register_ui_handler(UI_TYPE_LOGIN)
 def handle_require_login(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,

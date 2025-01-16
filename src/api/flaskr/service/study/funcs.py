@@ -37,6 +37,7 @@ from .models import AICourseLessonAttendScript, AICourseAttendAsssotion
 from .plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
+from flaskr.service.user.models import User
 
 
 def get_lesson_tree_to_study_inner(
@@ -361,6 +362,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
             )
             for i in attend_scripts
         ]
+        user_info = User.query.filter_by(user_id=user_id).first()
         ret = StudyRecordDTO(items, teach_avator=teach_avator)
         last_script_id = attend_scripts[-1].script_id
         last_script = AILessonScript.query.filter_by(script_id=last_script_id).first()
@@ -391,7 +393,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
             )
             return ret
 
-        uis = handle_ui(app, user_id, last_attend, last_script, "", MockClient(), {})
+        uis = handle_ui(app, user_info, last_attend, last_script, "", MockClient(), {})
         if len(uis) > 0:
             ret.ui = uis[0]
 

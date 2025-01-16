@@ -22,13 +22,14 @@ from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 import json
 from flaskr.service.study.ui.input_text import handle_input_text as handle_input_text_ui
+from flaskr.service.user.models import User
 
 
 @register_input_handler(input_type=INPUT_TYPE_TEXT)
 @extensible_generic
 def handle_input_text(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -39,7 +40,11 @@ def handle_input_text(
     model_setting = get_model_setting(app, script_info)
     app.logger.info(f"model_setting: {model_setting.__json__()}")
     prompt = get_fmt_prompt(
-        app, user_id, script_info.script_check_prompt, input, script_info.script_profile
+        app,
+        user_info.user_id,
+        script_info.script_check_prompt,
+        input,
+        script_info.script_profile,
     )
     # todo 换成通用的
     log_script = generation_attend(app, attend, script_info)
@@ -47,13 +52,13 @@ def handle_input_text(
     log_script.script_role = ROLE_STUDENT
     log_script.script_ui_conf = json.dumps(
         handle_input_text_ui(
-            app, user_id, attend, script_info, input, trace, trace_args
+            app, user_info, attend, script_info, input, trace, trace_args
         ).__json__()
     )
     db.session.add(log_script)
     span = trace.span(name="user_input", input=input)
     res = check_text_with_llm_response(
-        app, user_id, log_script, input, span, lesson, script_info, attend
+        app, user_info.user_id, log_script, input, span, lesson, script_info, attend
     )
     try:
         first_value = next(res)
@@ -67,7 +72,7 @@ def handle_input_text(
 
     resp = invoke_llm(
         app,
-        user_id,
+        user_info.user_id,
         span,
         model=model_setting.model_name,
         json=True,
@@ -92,7 +97,7 @@ def handle_input_text(
     if check_success:
         app.logger.info("check success")
         profile_tosave = jsonObj.get("parse_vars")
-        save_user_profiles(app, user_id, profile_tosave)
+        save_user_profiles(app, user_info.user_id, profile_tosave)
         for key in profile_tosave:
             yield make_script_dto(
                 "profile_update",

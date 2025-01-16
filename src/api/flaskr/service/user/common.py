@@ -11,6 +11,7 @@ from flask import Flask
 import jwt
 
 from flaskr.service.order.consts import ATTEND_STATUS_RESET
+from flaskr.service.user.models import User
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
@@ -273,15 +274,13 @@ def get_sms_code_info(app: Flask, user_id: str, resend: bool):
         return {"expire_in": ttl, "phone": phone}
 
 
-def send_sms_code_without_check(app: Flask, user_id: str, phone: str):
-    User = get_model(app)
-    user = User.query.filter(User.user_id == user_id).first()
-    user.mobile = phone
+def send_sms_code_without_check(app: Flask, user_info: User, phone: str):
+    user_info.mobile = phone
     characters = string.digits
     random_string = "".join(random.choices(characters, k=4))
     # 发送短信验证码
     redis.set(
-        app.config["REDIS_KEY_PRRFIX_PHONE"] + user_id,
+        app.config["REDIS_KEY_PRRFIX_PHONE"] + user_info.user_id,
         phone,
         ex=app.config.get("PHONE_EXPIRE_TIME", 60 * 30),
     )

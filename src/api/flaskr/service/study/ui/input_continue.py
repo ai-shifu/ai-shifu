@@ -1,16 +1,16 @@
 from flask import Flask
 
-from flaskr.service.lesson.const import UI_TYPE_PHONE
+from flaskr.service.lesson.const import UI_TYPE_CONTINUED
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.study.const import INPUT_TYPE_PHONE
 from flaskr.service.study.plugin import register_ui_handler
+from flaskr.service.study.const import INPUT_TYPE_CONTINUE
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
 
 
-@register_ui_handler(UI_TYPE_PHONE)
-def handle_input_phone(
+@register_ui_handler(UI_TYPE_CONTINUED)
+def handle_input_continue(
     app: Flask,
     user_info: User,
     attend: AICourseLessonAttend,
@@ -19,9 +19,16 @@ def handle_input_phone(
     trace,
     trace_args,
 ) -> ScriptDTO:
+    btn = [
+        {
+            "label": script_info.script_ui_content,
+            "value": script_info.script_ui_content,
+            "type": INPUT_TYPE_CONTINUE,
+        }
+    ]
     return ScriptDTO(
-        INPUT_TYPE_PHONE,
-        script_info.script_ui_content,
+        "buttons",
+        {"title": "接下来", "buttons": btn},
         script_info.lesson_id,
         script_info.script_id,
     )

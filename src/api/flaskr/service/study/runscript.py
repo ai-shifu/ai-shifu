@@ -43,7 +43,7 @@ from .utils import (
 )
 from .input_funcs import BreakException
 from .output_funcs import handle_output
-from .plugin import handle_input, handle_ui
+from .plugin import handle_input, handle_ui, check_continue
 from .utils import make_script_dto_to_stream
 
 
@@ -230,7 +230,7 @@ def run_script_inner(
                     # handle user input
                     response = handle_input(
                         app,
-                        user_id,
+                        user_info,
                         input_type,
                         lesson_info,
                         attend,
@@ -241,7 +241,7 @@ def run_script_inner(
                     )
                     if response:
                         yield from response
-                    # 如果是Start或是Continue，就不需要再次获取脚本
+                    # check if the script is start or continue
                     if input_type == INPUT_TYPE_START:
                         next = 0
                     else:
@@ -293,30 +293,18 @@ def run_script_inner(
                             if response:
                                 yield from response
 
-                            app.logger.info(
-                                "script ui type {}".format(script_info.script_ui_type)
-                            )
-                            if script_info.script_ui_type == UI_TYPE_CONTINUED:
-                                continue
-                            if (
-                                script_info.script_ui_type == UI_TYPE_PHONE
-                                and user_info.user_state != 0
+                            if check_continue(
+                                app,
+                                user_info,
+                                attend,
+                                script_info,
+                                input,
+                                trace,
+                                trace_args,
                             ):
                                 continue
-                            if (
-                                script_info.script_ui_type == UI_TYPE_CHECKCODE
-                                and user_info.user_state != 0
-                            ):
-                                continue
-                            if (
-                                script_info.script_ui_type == UI_TYPE_LOGIN
-                                and user_info.user_state != 0
-                            ):
-                                continue
-
-                            break
-                        else:
-                            break
+                            else:
+                                break
                     if script_info:
                         # 返回下一轮交互
                         # 返回  下一轮的交互方式
@@ -326,7 +314,7 @@ def run_script_inner(
                         else:
                             script_dtos = handle_ui(
                                 app,
-                                user_id,
+                                user_info,
                                 attend,
                                 script_info,
                                 input,

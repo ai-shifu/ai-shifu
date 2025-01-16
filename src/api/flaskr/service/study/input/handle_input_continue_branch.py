@@ -12,13 +12,14 @@ from flaskr.service.study.plugin import register_continue_handler
 from flaskr.util.uuid import generate_id
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.service.user.models import User
 
 
 @register_continue_handler(script_ui_type=UI_TYPE_BRANCH)
 @extensible_generic
 def handle_input_continue_branch(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson_info: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -33,7 +34,7 @@ def handle_input_continue_branch(
     )
     branch_info = json.loads(script_info.script_other_conf)
     branch_key = branch_info.get("var_name", "")
-    profile = get_user_profiles(app, user_id, [branch_key])
+    profile = get_user_profiles(app, user_info.user_id, [branch_key])
     branch_value = profile.get(branch_key, "")
     jump_rule = branch_info.get("jump_rule", [])
 
@@ -58,13 +59,13 @@ def handle_input_continue_branch(
                 ).first()
                 if next_lesson:
                     next_attend = AICourseLessonAttend.query.filter(
-                        AICourseLessonAttend.user_id == user_id,
+                        AICourseLessonAttend.user_id == user_info.user_id,
                         AICourseLessonAttend.course_id == next_lesson.course_id,
                         AICourseLessonAttend.lesson_id == next_lesson.lesson_id,
                     ).first()
                     if next_attend is None:
                         next_attend = AICourseLessonAttend()
-                        next_attend.user_id = user_id
+                        next_attend.user_id = user_info.user_id
                         next_attend.course_id = next_lesson.course_id
                         next_attend.lesson_id = next_lesson.lesson_id
                         next_attend.attend_id = generate_id(app)
@@ -81,7 +82,7 @@ def handle_input_continue_branch(
                             assoation = AICourseAttendAsssotion()
                             assoation.from_attend_id = attend_info.attend_id
                             assoation.to_attend_id = next_attend.attend_id
-                            assoation.user_id = user_id
+                            assoation.user_id = user_info.user_id
                             db.session.add(assoation)
                         next_attend.status = ATTEND_STATUS_IN_PROGRESS
                         next_attend.script_index = -1

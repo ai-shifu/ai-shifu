@@ -8,20 +8,21 @@ from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.utils import check_phone_number
 from flaskr.service.user.common import send_sms_code_without_check
 from flaskr.service.study.dtos import ScriptDTO
+from flaskr.service.user.models import User
 
 
 @register_ui_handler(UI_TYPE_CHECKCODE)
 def handle_input_checkcode(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
     trace,
     trace_args,
 ) -> ScriptDTO:
-    if check_phone_number(app, user_id, input):
-        expires = send_sms_code_without_check(app, user_id, input)
+    if check_phone_number(app, user_info, input):
+        expires = send_sms_code_without_check(app, user_info, input)
         expires["content"] = script_info.script_ui_content
         return ScriptDTO(
             INPUT_TYPE_CHECKCODE,

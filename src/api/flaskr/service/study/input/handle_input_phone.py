@@ -13,13 +13,14 @@ from flaskr.service.study.utils import (
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.service.user.models import User
 
 
 @register_input_handler(input_type=INPUT_TYPE_PHONE)
 @extensible_generic
 def handle_input_phone(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -33,7 +34,7 @@ def handle_input_phone(
     db.session.add(log_script)
     span = trace.span(name="user_input_phone", input=input)
     response_text = "请输入正确的手机号"
-    if not check_phone_number(app, user_id, input):
+    if not check_phone_number(app, user_info.user_id, input):
         for i in response_text:
             yield make_script_dto("text", i, script_info.script_id)
             time.sleep(0.01)
