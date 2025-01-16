@@ -91,7 +91,7 @@ class AICourseBuyRecordDTO:
     order_id: str
     user_id: str
     course_id: str
-    price: str
+    price: decimal.Decimal
     status: int
     discount: str
     active_discount: str
@@ -112,8 +112,10 @@ class AICourseBuyRecordDTO:
 
     def __json__(self):
         def format_decimal(value):
-            # Convert to string with two decimal places
-            formatted_value = "{0:.2f}".format(value)
+            if isinstance(value, str):
+                formatted_value = value  # Convert to string with two decimal places
+            else:
+                formatted_value = "{0:.2f}".format(value)
             # If the decimal part is .00, remove it
             if formatted_value.endswith(".00"):
                 return formatted_value[:-3]
