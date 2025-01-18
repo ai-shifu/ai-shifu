@@ -305,6 +305,8 @@ def run_script_inner(
                                 continue
                             else:
                                 break
+                        else:
+                            break
                     if script_info:
                         # 返回下一轮交互
                         # 返回  下一轮的交互方式
