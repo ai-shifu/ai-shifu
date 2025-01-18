@@ -360,6 +360,13 @@ def run_script_inner(
                                 yield make_script_dto(
                                     "lesson_update", attend_update.__json__(), ""
                                 )
+                                if (
+                                    next_chapter_no
+                                    and attend_update.lesson_no.startswith(
+                                        next_chapter_no
+                                    )
+                                ):
+                                    auto_next_lesson_id = attend_update.lesson_id
                             else:
                                 yield make_script_dto(
                                     "chapter_update", attend_update.__json__(), ""
@@ -371,6 +378,7 @@ def run_script_inner(
                                     yield make_script_dto(
                                         "next_chapter", attend_update.__json__(), ""
                                     )
+                                    next_chapter_no = attend_update.lesson_no
                         app.logger.info("script_info is None")
                 except BreakException:
                     if script_info:
