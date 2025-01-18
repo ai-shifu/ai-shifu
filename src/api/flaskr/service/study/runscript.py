@@ -205,12 +205,18 @@ def run_script_inner(
             script_info, attend_updates, is_first_add = get_script(
                 app, attend_id=attend.attend_id, next=next
             )
+            auto_next_lesson_id = None
+            next_chapter_no = None
             if len(attend_updates) > 0:
                 for attend_update in attend_updates:
                     if len(attend_update.lesson_no) > 2:
                         yield make_script_dto(
                             "lesson_update", attend_update.__json__(), ""
                         )
+                        if next_chapter_no and attend_update.lesson_no.startswith(
+                            next_chapter_no
+                        ):
+                            auto_next_lesson_id = attend_update.lesson_id
                     else:
                         yield make_script_dto(
                             "chapter_update", attend_update.__json__(), ""
@@ -222,6 +228,8 @@ def run_script_inner(
                             yield make_script_dto(
                                 "next_chapter", attend_update.__json__(), ""
                             )
+                            next_chapter_no = attend_update.lesson_no
+
             if script_info:
                 try:
                     check_paid = True
@@ -381,11 +389,16 @@ def run_script_inner(
             else:
                 app.logger.info("script_info is None,to update attend")
                 attends = update_attend_lesson_info(app, attend.attend_id)
+
                 for attend_update in attends:
                     if len(attend_update.lesson_no) > 2:
                         yield make_script_dto(
                             "lesson_update", attend_update.__json__(), ""
                         )
+                        if next_chapter_no and attend_update.lesson_no.startswith(
+                            next_chapter_no
+                        ):
+                            auto_next_lesson_id = attend_update.lesson_id
                     else:
                         yield make_script_dto(
                             "chapter_update", attend_update.__json__(), ""
@@ -397,7 +410,17 @@ def run_script_inner(
                             yield make_script_dto(
                                 "next_chapter", attend_update.__json__(), ""
                             )
+                            next_chapter_no = attend_update.lesson_no
             db.session.commit()
+            if auto_next_lesson_id:
+                app.logger.info("auto_next_lesson_id:{}".format(auto_next_lesson_id))
+                yield from run_script_inner(
+                    app,
+                    user_id,
+                    course_id,
+                    auto_next_lesson_id,
+                    input_type=INPUT_TYPE_START,
+                )
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")
