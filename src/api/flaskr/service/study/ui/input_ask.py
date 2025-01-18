@@ -22,9 +22,11 @@ def handle_ask_mode(
 ):
     follow_up_info = get_follow_up_info(app, script_info)
     ask_mode = follow_up_info.ask_mode
+    visible = True if ask_mode == ASK_MODE_ENABLE else False
+    enable = True if ask_mode == ASK_MODE_ENABLE else False
     return ScriptDTO(
         "ask_mode",
-        {"ask_mode": True if ask_mode == ASK_MODE_ENABLE else False},
+        {"ask_mode": enable, "visible": visible},
         script_info.lesson_id,
         script_info.script_id,
     )
