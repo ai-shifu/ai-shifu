@@ -4,7 +4,7 @@
 Firstly, look at the source code sturcture:
 ```
 $ ls
-api  cook web
+api cook web
 ```
 AI Shifu is composed by backend in api and frontend in web. and the cook is the editor for the course.
 So, we can
