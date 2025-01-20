@@ -5,7 +5,7 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 from flask_migrate import Migrate
 from flasgger import Swagger
-
+from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 
 # set timezone to UTC
 # fix windows platform
@@ -33,14 +33,12 @@ def create_app() -> Flask:
 
     # init log
     init_log(app)
-
+    app = enable_plugin_manager(app)
     app.logger.info("ai-shifu-api mode: %s", app.config.get("MODE", "api"))
     # init database
     from flaskr import dao
 
     dao.init_db(app)
-    # init models and migrate
-    Migrate(app, dao.db)
 
     # init i18n
     from flaskr.i18n import load_translations
@@ -49,7 +47,6 @@ def create_app() -> Flask:
 
     # init redis
     dao.init_redis(app)
-
     # Init LLM
     with app.app_context():
         from flaskr.api import llm  # noqa
@@ -58,15 +55,17 @@ def create_app() -> Flask:
 
     api.init_langfuse(app)
     # load plugins
-    from flaskr.util.plugin import load_plugins_from_dir
+    from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
+    from flaskr.framework.plugin.plugin_manager import plugin_manager
 
     load_plugins_from_dir(app, "flaskr/service/study/input")
     load_plugins_from_dir(app, "flaskr/service/study/ui")
+
     try:
-        load_plugins_from_dir(app, "flaskr/plugins")
+        load_plugins_from_dir(app, "flaskr/plugins", plugin_manager)
+        Migrate(app, dao.db)
     except Exception as e:
         app.logger.warning(f"load plugins error: {e}")
-
     # register route
     from flaskr.route import register_route
 
@@ -77,6 +76,11 @@ def create_app() -> Flask:
 
         app.logger.info("swagger init ...")
         Swagger(app, config=swagger_config, merge=True)
+
+    # enable hot reload
+    if app.config.get("ENV") == "development":
+        plugin_manager.enable_hot_reload()
+
     return app
 
 
@@ -85,6 +89,6 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5800, debug=True)
 else:
     app = create_app()
-    from flaskr.util.plugin import enable_plugins
+    from flaskr.framework.plugin.enable_plugin import enable_plugins
 
     enable_plugins(app)

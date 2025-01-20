@@ -1,25 +1,13 @@
-import json
-from flaskr.service.study.utils import get_follow_up_info
-from flaskr.util.uuid import generate_id
 from flask import Flask
 
-from sqlalchemy import text
 from flaskr.dao import run_with_redis
-
+from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
-    INPUT_TYPE_BRANCH,
-    INPUT_TYPE_CHECKCODE,
     INPUT_TYPE_CONTINUE,
-    INPUT_TYPE_REQUIRE_LOGIN,
-    INPUT_TYPE_PHONE,
-    INPUT_TYPE_SELECT,
-    ROLE_TEACHER,
     ROLE_VALUES,
 )
-from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO, ScriptInfoDTO
-from ...service.user import (
-    get_sms_code_info,
-)
+from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO, ScriptDTO
+import json
 from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_LOCKED,
@@ -31,34 +19,25 @@ from ...service.order.consts import (
     BUY_STATUS_SUCCESS,
 )
 
-from .dtos import AICourseDTO, StudyRecordItemDTO, StudyRecordProgressDTO, StudyUIDTO
+from .dtos import AICourseDTO, StudyRecordItemDTO, StudyRecordProgressDTO, ScriptInfoDTO
 from ...service.lesson.const import (
-    ASK_MODE_ENABLE,
     LESSON_TYPE_BRANCH_HIDDEN,
     LESSON_TYPE_NORMAL,
-    UI_TYPE_BRANCH,
-    UI_TYPE_BUTTON,
-    UI_TYPE_CHECKCODE,
-    UI_TYPE_CONTINUED,
-    UI_TYPE_INPUT,
-    UI_TYPE_LOGIN,
-    UI_TYPE_PHONE,
-    UI_TYPE_SELECTION,
-    UI_TYPE_TO_PAY,
     LESSON_TYPE_TRIAL,
 )
 from ...dao import db
 
 from ...service.lesson.models import AICourse, AILesson, AILessonScript
-from ...service.order.funs import (
-    init_buy_record,
-)
 from ...service.order.models import (
     AICourseBuyRecord,
     AICourseLessonAttend,
 )
 from ...service.common.models import raise_error
 from .models import AICourseLessonAttendScript, AICourseAttendAsssotion
+from .plugin import handle_ui
+from flaskr.api.langfuse import MockClient
+from flaskr.util.uuid import generate_id
+from flaskr.service.user.models import User
 
 
 def get_lesson_tree_to_study_inner(
@@ -163,6 +142,7 @@ def get_lesson_tree_to_study_inner(
                     lesson.lesson_id,
                     attend_status_values[status],
                     status,
+                    lesson.lesson_type,
                     [],
                     unique_id=lesson.lesson_feishu_id,
                     updated=(
@@ -305,11 +285,13 @@ def get_lesson_tree_to_study_inner(
             course_id=course_info.course_id,
             course_name=course_info.course_name,
             teach_avator=course_info.course_teacher_avator,
+            course_price=course_info.course_price,
             lessons=lessonInfos,
         )
         return ret
 
 
+@extensible
 def get_lesson_tree_to_study(
     app: Flask, user_id: str, course_id: str = None
 ) -> AICourseDTO:
@@ -322,6 +304,7 @@ def get_lesson_tree_to_study(
     )
 
 
+@extensible
 def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
     with app.app_context():
         lesson_info = AILesson.query.filter_by(lesson_id=lesson_id).first()
@@ -372,11 +355,14 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 ROLE_VALUES[i.script_role],
                 0,
                 i.script_content,
+                i.script_id,
                 i.lesson_id if i.lesson_id in lesson_ids else lesson_id,
-                i.id,
+                i.log_id,
+                ui=json.loads(i.script_ui_conf) if i.script_ui_conf else None,
             )
             for i in attend_scripts
         ]
+        user_info = User.query.filter_by(user_id=user_id).first()
         ret = StudyRecordDTO(items, teach_avator=teach_avator)
         last_script_id = attend_scripts[-1].script_id
         last_script = AILessonScript.query.filter_by(script_id=last_script_id).first()
@@ -391,7 +377,6 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 pass
         else:
             last_attend = last_attends[-1]
-        last_attend_script = attend_scripts[-1]
         if last_attend.status == ATTEND_STATUS_COMPLETED:
             btn = [
                 {
@@ -400,98 +385,25 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                     "type": INPUT_TYPE_CONTINUE,
                 }
             ]
-            ret.ui = StudyUIDTO(
-                "buttons", {"title": "接下来", "buttons": btn}, lesson_id
+            ret.ui = ScriptDTO(
+                "buttons",
+                {"title": "接下来", "buttons": btn},
+                lesson_id,
+                last_script_id,
             )
             return ret
-        if (
-            last_script.script_ui_type == UI_TYPE_INPUT
-            and last_attend_script.script_role == ROLE_TEACHER  # noqa W503
-        ):
-            ret.ui = StudyUIDTO(
-                "input", {"content": last_script.script_ui_content}, lesson_id
-            )
-        elif last_script.script_ui_type == UI_TYPE_BUTTON:
-            btn = [
-                {
-                    "label": last_script.script_ui_content,
-                    "value": last_script.script_ui_content,
-                    "type": INPUT_TYPE_CONTINUE,
-                }
-            ]
-            ret.ui = StudyUIDTO(
-                "buttons", {"title": "接下来", "buttons": btn}, lesson_id
-            )
-        elif last_script.script_ui_type == UI_TYPE_CONTINUED:
-            ret.ui = StudyUIDTO(
-                "buttons",
-                {
-                    "title": last_script.script_ui_content,
-                    "buttons": [
-                        {"label": "继续", "value": "继续", "type": INPUT_TYPE_CONTINUE}
-                    ],
-                },
-                lesson_id,
-            )
-        elif last_script.script_ui_type == UI_TYPE_BRANCH:
-            ret.ui = StudyUIDTO(
-                "buttons",
-                {
-                    "title": "继续",
-                    "buttons": [
-                        {"label": "继续", "value": "继续", "type": INPUT_TYPE_BRANCH}
-                    ],
-                },
-                lesson_id,
-            )
-        elif last_script.script_ui_type == UI_TYPE_SELECTION:
-            btns = json.loads(last_script.script_other_conf)["btns"]
-            # 每一个增加Type
-            for btn in btns:
-                btn["type"] = INPUT_TYPE_SELECT
-            ret.ui = StudyUIDTO(
-                "buttons",
-                {"title": last_script.script_ui_content, "buttons": btns},
-                lesson_id,
-            )
-        elif last_script.script_ui_type == UI_TYPE_PHONE:
-            ret.ui = StudyUIDTO(
-                INPUT_TYPE_PHONE, {"content": last_script.script_ui_content}, lesson_id
-            )
-        elif last_script.script_ui_type == UI_TYPE_CHECKCODE:
-            expires = get_sms_code_info(app, user_id, False)
-            expires["content"] = last_script.script_ui_content
-            ret.ui = StudyUIDTO(INPUT_TYPE_CHECKCODE, expires, lesson_id)
-        elif last_script.script_ui_type == UI_TYPE_LOGIN:
-            ret.ui = StudyUIDTO(
-                INPUT_TYPE_REQUIRE_LOGIN,
-                {
-                    "title": "继续",
-                    "buttons": [
-                        {
-                            "label": last_script.script_ui_content,
-                            "value": last_script.script_ui_content,
-                            "type": INPUT_TYPE_REQUIRE_LOGIN,
-                        }
-                    ],
-                },
-                lesson_id,
-            )
-        elif last_script.script_ui_type == UI_TYPE_TO_PAY:
-            order = init_buy_record(app, user_id, lesson_info.course_id)
-            if order.status != BUY_STATUS_SUCCESS:
-                btn = [
-                    {"label": last_script.script_ui_content, "value": order.order_id}
-                ]
-                ret.ui = StudyUIDTO(
-                    "order", {"title": "买课！", "buttons": btn}, lesson_id
-                )
-        follow_up_info = get_follow_up_info(app, last_script)
-        ret.ask_mode = True if follow_up_info.ask_mode == ASK_MODE_ENABLE else False
 
+        uis = handle_ui(app, user_info, last_attend, last_script, "", MockClient(), {})
+        if len(uis) > 0:
+            ret.ui = uis[0]
+
+        if len(uis) > 1:
+            ret.ask_mode = uis[1].script_content.get("ask_mode", False)
+            ret.ask_ui = uis[1]
         return ret
 
 
+@extensible
 def get_lesson_study_progress(
     app: Flask, user_id: str, lesson_id: str
 ) -> StudyRecordProgressDTO:
@@ -547,6 +459,7 @@ def get_lesson_study_progress(
 
 
 # get script info
+@extensible
 def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
     with app.app_context():
         script_info = AILessonScript.query.filter_by(script_id=script_id).first()
@@ -563,30 +476,8 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
         )
 
 
-# reset user study info
-def reset_user_study_info(app: Flask, user_id: str):
-    with app.app_context():
-        db.session.execute(
-            text("delete from ai_course_buy_record where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.execute(
-            text("delete from ai_course_lesson_attend where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.execute(
-            text("delete from ai_course_lesson_attendscript where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.execute(
-            text("delete from user_profile where user_id = :user_id"),
-            {"user_id": user_id},
-        )
-        db.session.commit()
-        return True
-
-
 # reset user study info by lesson
+@extensible
 def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
     with app.app_context():
         lesson_info = AILesson.query.filter(AILesson.lesson_id == lesson_id).first()

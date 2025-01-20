@@ -5,7 +5,6 @@ from flaskr.service.study import (
     get_lesson_tree_to_study,
     get_study_record,
     run_script,
-    reset_user_study_info,
     get_script_info,
     reset_user_study_info_by_lesson,
 )
@@ -56,6 +55,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         course_id = request.get_json().get("course_id", None)
         lesson_id = request.get_json().get("lesson_id", None)
         script_id = request.get_json().get("script_id", None)
+        log_id = request.get_json().get("log_id", None)
         input = request.get_json().get("input", None)
         input_type = request.get_json().get("input_type", "start")
         if course_id == "":
@@ -72,6 +72,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                     input=input,
                     input_type=input_type,
                     script_id=script_id,
+                    log_id=log_id,
                 ),
                 headers={"Cache-Control": "no-cache"},
                 mimetype="text/event-stream",
@@ -191,7 +192,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         if not lesson_id:
             raise_param_error("lesson_id is not found")
         user_id = request.user.user_id
-        return make_common_response(reset_user_study_info(app, user_id, lesson_id))
+        return make_common_response(get_lesson_study_progress(app, user_id, lesson_id))
 
     @app.route(path_prefix + "/query-script-into", methods=["GET"])
     def query_script_info():

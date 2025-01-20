@@ -1,16 +1,19 @@
 from flask import Flask
-
+from flaskr.service.user.models import User
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
     ASK_MODE_ENABLE,
 )
-from flaskr.service.study.utils import get_follow_up_info, make_script_dto
+from flaskr.service.study.utils import get_follow_up_info
+from flaskr.service.study.dtos import ScriptDTO
+from flaskr.framework.plugin.plugin_manager import extensible
 
 
+@extensible
 def handle_ask_mode(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
@@ -19,8 +22,11 @@ def handle_ask_mode(
 ):
     follow_up_info = get_follow_up_info(app, script_info)
     ask_mode = follow_up_info.ask_mode
-    yield make_script_dto(
+    visible = True if ask_mode == ASK_MODE_ENABLE else False
+    enable = True if ask_mode == ASK_MODE_ENABLE else False
+    return ScriptDTO(
         "ask_mode",
-        {"ask_mode": True if ask_mode == ASK_MODE_ENABLE else False},
+        {"ask_mode": enable, "visible": visible},
+        script_info.lesson_id,
         script_info.script_id,
     )

@@ -10,7 +10,6 @@ from flaskr.service.order import (
 
 
 def register_order_handler(app: Flask, path_prefix: str):
-
     @app.route(path_prefix + "/reqiure-to-pay", methods=["POST"])
     def reqiure_to_pay():
         """

@@ -8,12 +8,14 @@ from flaskr.service.study.const import INPUT_TYPE_LOGIN, ROLE_STUDENT
 from flaskr.service.study.plugin import register_input_handler
 from flaskr.service.study.utils import generation_attend, make_script_dto
 from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 @register_input_handler(input_type=INPUT_TYPE_LOGIN)
+@extensible_generic
 def handle_input_login(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -25,7 +27,6 @@ def handle_input_login(
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT  # type: ignore
     db.session.add(log_script)
-    user_info = User.query.filter(User.user_id == user_id).first()
     if user_info.user_state != 0:
         yield make_script_dto(
             "text",

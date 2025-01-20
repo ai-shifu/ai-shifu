@@ -11,9 +11,11 @@ from flaskr.service.study.utils import generation_attend, make_script_dto
 from flaskr.service.user.common import verify_sms_code_without_phone
 from flaskr.service.study.const import ROLE_STUDENT
 from flaskr.dao import db
+from flaskr.framework.plugin.plugin_manager import extensible_generic
 
 
 @register_input_handler(input_type=INPUT_TYPE_CHECKCODE)
+@extensible_generic
 def handle_input_checkcode(
     app: Flask,
     user_id: str,

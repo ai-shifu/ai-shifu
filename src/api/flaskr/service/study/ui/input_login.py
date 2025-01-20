@@ -7,19 +7,20 @@ from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
     UI_TYPE_LOGIN,
 )
-from flaskr.service.study.utils import make_script_dto
+from flaskr.service.study.dtos import ScriptDTO
+from flaskr.service.user.models import User
 
 
 @register_ui_handler(UI_TYPE_LOGIN)
 def handle_require_login(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
     input: str,
     trace,
     trace_args,
-):
+) -> ScriptDTO:
 
     btn = [
         {
@@ -28,8 +29,9 @@ def handle_require_login(
             "type": INPUT_TYPE_REQUIRE_LOGIN,
         }
     ]
-    yield make_script_dto(
+    return ScriptDTO(
         INPUT_TYPE_REQUIRE_LOGIN,
         {"title": "接下来", "buttons": btn},
+        script_info.lesson_id,
         script_info.script_id,
     )

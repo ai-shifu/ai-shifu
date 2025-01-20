@@ -91,7 +91,7 @@ class AICourseBuyRecordDTO:
     order_id: str
     user_id: str
     course_id: str
-    price: str
+    price: decimal.Decimal
     status: int
     discount: str
     active_discount: str
@@ -111,15 +111,25 @@ class AICourseBuyRecordDTO:
         self.price_item = price_item
 
     def __json__(self):
+        def format_decimal(value):
+            if isinstance(value, str):
+                formatted_value = value  # Convert to string with two decimal places
+            else:
+                formatted_value = "{0:.2f}".format(value)
+            # If the decimal part is .00, remove it
+            if formatted_value.endswith(".00"):
+                return formatted_value[:-3]
+            return formatted_value
+
         return {
             "order_id": self.order_id,
             "user_id": self.user_id,
             "course_id": self.course_id,
-            "price": str(self.price),
+            "price": format_decimal(self.price),
             "status": self.status,
             "status_desc": BUY_STATUS_VALUES[self.status],
-            "discount": str(self.discount),
-            "value_to_pay": str(self.value_to_pay),
+            "discount": format_decimal(self.discount),
+            "value_to_pay": format_decimal(self.value_to_pay),
             "price_item": [item.__json__() for item in self.price_item],
         }
 
@@ -164,7 +174,7 @@ def send_order_feishu(app: Flask, record_id: str):
     send_notify(app, title, msgs)
 
 
-def init_buy_record(app: Flask, user_id: str, course_id: str):
+def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
         course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         if not course_info:
@@ -177,25 +187,32 @@ def init_buy_record(app: Flask, user_id: str, course_id: str):
             .order_by(AICourseBuyRecord.id.asc())
             .first()
         )
-        if origin_record:
+        if origin_record and active_id is None:
             return query_buy_record(app, origin_record.record_id)
+        if origin_record:
+            buy_record = origin_record
+            order_id = origin_record.record_id
+        else:
+            buy_record = AICourseBuyRecord()
+            order_id = str(get_uuid(app))
+            buy_record.user_id = user_id
+            buy_record.course_id = course_id
+            buy_record.price = course_info.course_price
+            buy_record.status = BUY_STATUS_INIT
+            buy_record.record_id = order_id
+            buy_record.discount_value = decimal.Decimal(0.00)
+            buy_record.pay_value = course_info.course_price
 
-        order_id = str(get_uuid(app))
-        active_records = query_and_join_active(app, course_id, user_id, order_id)
-        buy_record = AICourseBuyRecord()
-        buy_record.user_id = user_id
-        buy_record.course_id = course_id
-        buy_record.price = course_info.course_price
-        buy_record.status = BUY_STATUS_INIT
-        buy_record.record_id = order_id
-        buy_record.discount_value = decimal.Decimal(0.00)
-        buy_record.pay_value = course_info.course_price
+        active_records = query_and_join_active(
+            app, course_id, user_id, order_id, active_id
+        )
         price_items = []
         price_items.append(
             PayItemDto("商品", "基础价格", buy_record.price, False, None)
         )
         if active_records:
             for active_record in active_records:
+                buy_record.discount_value = 0
                 buy_record.discount_value = decimal.Decimal(
                     buy_record.discount_value
                 ) + decimal.Decimal(active_record.price)
@@ -211,7 +228,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str):
         buy_record.pay_value = decimal.Decimal(buy_record.price) - decimal.Decimal(
             buy_record.discount_value
         )
-        db.session.add(buy_record)
+        db.session.merge(buy_record)
         db.session.commit()
         return AICourseBuyRecordDTO(
             buy_record.record_id,
