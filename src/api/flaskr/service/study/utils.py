@@ -516,13 +516,7 @@ def update_lesson_status(app: Flask, attend_id: str):
                     attend_lesson_infos[i]["lesson"].lesson_type,
                 )
             )
-    for attend_update in res:
-        if len(attend_update.lesson_no) > 2:
-            yield make_script_dto("lesson_update", attend_update.__json__(), "")
-        else:
-            yield make_script_dto("chapter_update", attend_update.__json__(), "")
-            if attend_update.status == attend_status_values[ATTEND_STATUS_NOT_STARTED]:
-                yield make_script_dto("next_chapter", attend_update.__json__(), "")
+    return res
 
 
 class FollowUpInfo:
