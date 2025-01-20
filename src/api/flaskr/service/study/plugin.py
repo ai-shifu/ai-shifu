@@ -171,7 +171,7 @@ def check_continue(
     trace: Trace,
     trace_args,
 ):
-    if script_info.script_ui_type in CONTINUE_HANDLE_MAP:
+    if script_info.script_ui_type in CONTINUE_CHECK_HANDLE_MAP:
         return CONTINUE_CHECK_HANDLE_MAP[script_info.script_ui_type](
             app, user_info, attend, script_info, input, trace, trace_args
         )

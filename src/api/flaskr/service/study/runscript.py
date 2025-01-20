@@ -7,10 +7,6 @@ from flaskr.service.user.models import User
 from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
-    UI_TYPE_CONTINUED,
-    UI_TYPE_LOGIN,
-    UI_TYPE_PHONE,
-    UI_TYPE_CHECKCODE,
     LESSON_TYPE_TRIAL,
 )
 from ...service.lesson.models import AICourse, AILesson
@@ -32,6 +28,7 @@ from ...service.order.models import AICourseLessonAttend
 from ...service.study.const import (
     INPUT_TYPE_ASK,
     INPUT_TYPE_START,
+    INPUT_TYPE_CONTINUE,
 )
 from ...service.study.dtos import ScriptDTO
 from ...dao import db, redis_client
@@ -274,12 +271,6 @@ def run_script_inner(
                                             "next_chapter", attend_update.__json__(), ""
                                         )
                         if script_info:
-                            if (
-                                script_info.script_ui_type
-                                in [UI_TYPE_PHONE, UI_TYPE_CHECKCODE, UI_TYPE_LOGIN]
-                            ) and user_info.user_state != 0:
-                                next = 1
-                                continue
                             response = handle_output(
                                 app,
                                 user_id,
@@ -302,6 +293,7 @@ def run_script_inner(
                                 trace,
                                 trace_args,
                             ):
+                                input_type = INPUT_TYPE_CONTINUE
                                 continue
                             else:
                                 break
@@ -310,21 +302,17 @@ def run_script_inner(
                     if script_info:
                         # 返回下一轮交互
                         # 返回  下一轮的交互方式
-                        if script_info.script_ui_type == UI_TYPE_CONTINUED:
-                            next = 1
-                            input_type = None
-                        else:
-                            script_dtos = handle_ui(
-                                app,
-                                user_info,
-                                attend,
-                                script_info,
-                                input,
-                                trace,
-                                trace_args,
-                            )
-                            for script_dto in script_dtos:
-                                yield make_script_dto_to_stream(script_dto)
+                        script_dtos = handle_ui(
+                            app,
+                            user_info,
+                            attend,
+                            script_info,
+                            input,
+                            trace,
+                            trace_args,
+                        )
+                        for script_dto in script_dtos:
+                            yield make_script_dto_to_stream(script_dto)
                     else:
                         res = update_lesson_status(app, attend.attend_id)
                         if res:
