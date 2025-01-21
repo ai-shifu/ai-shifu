@@ -42,6 +42,7 @@ from .input_funcs import BreakException
 from .output_funcs import handle_output
 from .plugin import handle_input, handle_ui, check_continue
 from .utils import make_script_dto_to_stream
+from flaskr.service.study.dtos import AILessonAttendDTO
 
 
 def run_script_inner(
@@ -208,6 +209,7 @@ def run_script_inner(
             auto_next_lesson_id = None
             next_chapter_no = None
             if len(attend_updates) > 0:
+                app.logger.info(f"attend_updates: {attend_updates}")
                 for attend_update in attend_updates:
                     if len(attend_update.lesson_no) > 2:
                         yield make_script_dto(
@@ -260,6 +262,7 @@ def run_script_inner(
                         )
                         next = 1
                         if len(attend_updates) > 0:
+                            app.logger.info(f"attend_updates: {attend_updates}")
                             for attend_update in attend_updates:
                                 if len(attend_update.lesson_no) > 2:
                                     yield make_script_dto(
@@ -301,6 +304,8 @@ def run_script_inner(
                                 trace,
                                 trace_args,
                             ):
+                                app.logger.info(f"check_continue: {script_info}")
+                                next = 1
                                 input_type = INPUT_TYPE_CONTINUE
                                 continue
                             else:
@@ -324,7 +329,46 @@ def run_script_inner(
                     else:
                         res = update_lesson_status(app, attend.attend_id)
                         if res:
-                            yield from res
+                            for attend_update in res:
+                                if isinstance(attend_update, AILessonAttendDTO):
+                                    if len(attend_update.lesson_no) > 2:
+                                        yield make_script_dto(
+                                            "lesson_update",
+                                            attend_update.__json__(),
+                                            "",
+                                        )
+                                        if (
+                                            next_chapter_no
+                                            and attend_update.lesson_no.startswith(
+                                                next_chapter_no
+                                            )
+                                        ):
+                                            auto_next_lesson_id = (
+                                                attend_update.lesson_id
+                                            )
+                                    else:
+                                        yield make_script_dto(
+                                            "chapter_update",
+                                            attend_update.__json__(),
+                                            "",
+                                        )
+                                        if (
+                                            attend_update.status
+                                            == attend_status_values[
+                                                ATTEND_STATUS_NOT_STARTED
+                                            ]
+                                        ):
+                                            yield make_script_dto(
+                                                "next_chapter",
+                                                attend_update.__json__(),
+                                                "",
+                                            )
+                                            next_chapter_no = attend_update.lesson_no
+                                elif isinstance(attend_update, ScriptDTO):
+                                    app.logger.info(
+                                        f"extend_update_lesson_status: {attend_update}"
+                                    )
+                                    yield make_script_dto_to_stream(attend_update)
                 except BreakException:
                     if script_info:
                         yield make_script_dto("text_end", "", None)
@@ -346,26 +390,35 @@ def run_script_inner(
                 res = update_lesson_status(app, attend.attend_id)
                 if res and len(res) > 0:
                     for attend_update in res:
-                        if len(attend_update.lesson_no) > 2:
-                            yield make_script_dto(
-                                "lesson_update", attend_update.__json__(), ""
-                            )
-                            if next_chapter_no and attend_update.lesson_no.startswith(
-                                next_chapter_no
-                            ):
-                                auto_next_lesson_id = attend_update.lesson_id
-                        else:
-                            yield make_script_dto(
-                                "chapter_update", attend_update.__json__(), ""
-                            )
-                            if (
-                                attend_update.status
-                                == attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                            ):
+                        if isinstance(attend_update, AILessonAttendDTO):
+                            if len(attend_update.lesson_no) > 2:
                                 yield make_script_dto(
-                                    "next_chapter", attend_update.__json__(), ""
+                                    "lesson_update", attend_update.__json__(), ""
                                 )
-                                next_chapter_no = attend_update.lesson_no
+                                if (
+                                    next_chapter_no
+                                    and attend_update.lesson_no.startswith(
+                                        next_chapter_no
+                                    )
+                                ):
+                                    auto_next_lesson_id = attend_update.lesson_id
+                            else:
+                                yield make_script_dto(
+                                    "chapter_update", attend_update.__json__(), ""
+                                )
+                                if (
+                                    attend_update.status
+                                    == attend_status_values[ATTEND_STATUS_NOT_STARTED]
+                                ):
+                                    yield make_script_dto(
+                                        "next_chapter", attend_update.__json__(), ""
+                                    )
+                                    next_chapter_no = attend_update.lesson_no
+                        elif isinstance(attend_update, ScriptDTO):
+                            app.logger.info(
+                                f"extend_update_lesson_status: {attend_update}"
+                            )
+                            yield make_script_dto_to_stream(attend_update)
             db.session.commit()
             if auto_next_lesson_id:
                 app.logger.info("auto_next_lesson_id:{}".format(auto_next_lesson_id))

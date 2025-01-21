@@ -33,7 +33,7 @@ from ...dao import db
 from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.user.models import User
-from flaskr.framework import extensible_generic
+from flaskr.framework import extensible
 
 
 def get_current_lesson(
@@ -398,7 +398,7 @@ def make_script_dto_to_stream(dto: ScriptDTO) -> str:
     )
 
 
-@extensible_generic
+@extensible
 def update_lesson_status(app: Flask, attend_id: str):
     attend_status_values = get_attend_status_values()
     res = []
