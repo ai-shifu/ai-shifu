@@ -388,7 +388,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         else:
             last_attend = last_attends[-1]
         last_attend_script = attend_scripts[-1]
-        if last_attend.status == ATTEND_STATUS_COMPLETED:
+        if last_attend is None or last_attend.status == ATTEND_STATUS_COMPLETED:
             btn = [
                 {
                     "label": last_script.script_ui_content,
