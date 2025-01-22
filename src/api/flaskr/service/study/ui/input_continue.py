@@ -7,6 +7,7 @@ from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.const import INPUT_TYPE_CONTINUE
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
+from flaskr.i18n import _
 
 
 @register_ui_handler(UI_TYPE_CONTINUED)
@@ -19,16 +20,19 @@ def handle_input_continue(
     trace,
     trace_args,
 ) -> ScriptDTO:
+    msg = script_info.script_ui_content
+    if msg == "":
+        msg = _("COMMON.CONTINUE")
     btn = [
         {
-            "label": script_info.script_ui_content,
-            "value": script_info.script_ui_content,
+            "label": msg,
+            "value": msg,
             "type": INPUT_TYPE_CONTINUE,
         }
     ]
     return ScriptDTO(
         "buttons",
-        {"title": "接下来", "buttons": btn},
+        {"title": msg, "buttons": btn},
         script_info.lesson_id,
         script_info.script_id,
     )
