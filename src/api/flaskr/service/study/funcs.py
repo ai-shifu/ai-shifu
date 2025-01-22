@@ -342,13 +342,8 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
             .order_by(AICourseLessonAttendScript.id.asc())
             .all()
         )
-        index = len(attend_scripts) - 1
         if len(attend_scripts) == 0:
             return StudyRecordDTO([])
-        lesson_id = attend_scripts[-1].lesson_id
-        while lesson_id not in lesson_ids:
-            lesson_id = attend_scripts[index].lesson_id
-            index -= 1
         items = [
             StudyRecordItemDTO(
                 i.script_index,
@@ -367,6 +362,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         last_script_id = attend_scripts[-1].script_id
         last_script = AILessonScript.query.filter_by(script_id=last_script_id).first()
         last_lesson_id = last_script.lesson_id
+        lesson_id = last_lesson_id
         last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
         if len(last_attends) == 0:
             last_attend = AICourseLessonAttend.query.filter(
@@ -377,7 +373,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 pass
         else:
             last_attend = last_attends[-1]
-        if last_attend.status == ATTEND_STATUS_COMPLETED:
+        if last_attend is None or last_attend.status == ATTEND_STATUS_COMPLETED:
             btn = [
                 {
                     "label": last_script.script_ui_content,
