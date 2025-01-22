@@ -74,7 +74,7 @@ def continue_check_handler(script_ui_type: int):
         from flask import current_app
 
         current_app.logger.info(
-            f"register_continue_handler {script_ui_type} ==> {func.__name__}"
+            f"continue_check_handler {script_ui_type} ==> {func.__name__}"
         )
         CONTINUE_CHECK_HANDLE_MAP[script_ui_type] = func
         return func
@@ -128,11 +128,22 @@ def handle_ui(
             )
         )
         ret = []
-        ret.append(
-            UI_HANDLE_MAP[script_info.script_ui_type](
-                app, user_info, attend, script_info, input, trace, trace_args
+        if check_continue(
+            app, user_info, attend, script_info, input, trace, trace_args
+        ):
+            app.logger.info("check_continue true ,make continue ui")
+            ret.append(
+                make_continue_ui(
+                    app, user_info, attend, script_info, input, trace, trace_args
+                )
             )
-        )
+        else:
+            app.logger.info("check_continue false ,make ui")
+            ret.append(
+                UI_HANDLE_MAP[script_info.script_ui_type](
+                    app, user_info, attend, script_info, input, trace, trace_args
+                )
+            )
         ret.append(
             handle_ask_mode(
                 app, user_info, attend, script_info, input, trace, trace_args
@@ -176,7 +187,9 @@ def check_continue(
     trace: Trace,
     trace_args,
 ):
+    app.logger.info(f"check_continue {script_info.script_ui_type}")
     if script_info.script_ui_type in CONTINUE_CHECK_HANDLE_MAP:
+        app.logger.info(f"check_continue {script_info.script_ui_type}")
         return CONTINUE_CHECK_HANDLE_MAP[script_info.script_ui_type](
             app, user_info, attend, script_info, input, trace, trace_args
         )
