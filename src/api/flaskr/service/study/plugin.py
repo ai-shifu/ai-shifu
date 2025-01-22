@@ -6,7 +6,7 @@ from flaskr.service.lesson.models import AILessonScript, AILesson
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.dao import db
 from flaskr.service.user.models import User
-from flaskr.service.study.ui.input_continue import handle_input_continue
+from flaskr.service.study.ui.ui_continue import make_continue_ui
 
 # handlers for input
 INPUT_HANDLE_MAP = {}
@@ -156,7 +156,7 @@ def generate_ui(
     trace_args,
 ):
     if check_continue(app, user_info, attend, script_info, input, trace, trace_args):
-        return handle_input_continue(
+        return make_continue_ui(
             app, user_info, attend, script_info, input, trace, trace_args
         )
     if script_info.script_ui_type in UI_HANDLE_MAP:
