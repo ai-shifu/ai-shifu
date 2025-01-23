@@ -20,6 +20,7 @@ from ...service.order.models import AICourseLessonAttend
 from ...service.study.const import ROLE_TEACHER
 from ...dao import db
 from .utils import make_script_dto, get_lesson_system
+from flaskr.framework import extensible_generic
 
 
 def generate_fix_output(
@@ -114,6 +115,7 @@ OUTPUT_HANDLERS = {
 }
 
 
+@extensible_generic
 def handle_output(
     app: Flask,
     user_id: str,
