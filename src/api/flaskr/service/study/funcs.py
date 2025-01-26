@@ -130,7 +130,6 @@ def get_lesson_tree_to_study_inner(
         app.logger.info(
             "online_lessons:{}".format([i.lesson_no for i in online_lessons])
         )
-
         # init the lesson info
         for lesson in online_lessons:
             if lesson_dict.get(lesson.lesson_no, None) is None:
@@ -297,7 +296,7 @@ def get_lesson_tree_to_study(
 ) -> AICourseDTO:
     return run_with_redis(
         app,
-        app.config.get("REDIS_KEY_PRRFIX") + ":run_script:" + user_id,
+        app.config.get("REDIS_KEY_PRRFIX") + "::get_lesson_tree_to_study:" + user_id,
         5,
         get_lesson_tree_to_study_inner,
         [app, user_id, course_id],
