@@ -21,7 +21,7 @@ const ShortcutModal = ({ open, onClose }) => {
     keys: (inMacOs ? v.macKeys : v.keys).map((v) => {
       return t(`common.shortcut.key.${v}`)
     }),
-  })) 
+  }))
 
   const getShortcutKey = (keyText, index) => {
     const isSingleText = keyText.length === 1;

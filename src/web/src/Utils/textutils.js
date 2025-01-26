@@ -55,4 +55,3 @@ export const camelToSnake = (str) => {
       return '_' + match.toLowerCase();
   });
 }
-

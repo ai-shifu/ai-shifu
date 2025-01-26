@@ -178,7 +178,7 @@ export const useLessonTree = () => {
               if (forceExpand) {
                 c.collapse = false;
               }
-            } 
+            }
           });
         });
       });

@@ -21,5 +21,3 @@ if (window.shifuPlugins) {
     shifu.installPlugin(plugin);
   }
 }
-
-
