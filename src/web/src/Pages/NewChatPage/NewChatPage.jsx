@@ -132,6 +132,7 @@ const NewChatPage = (props) => {
   }, [loadData]);
 
   const onLoginModalOk = useCallback(async () => {
+    reloadTree();
     shifu.loginTools.emitLoginModalOk();
     if (loginOkHandlerData) {
       if (loginOkHandlerData.type === 'pay') {
@@ -142,7 +143,7 @@ const NewChatPage = (props) => {
 
       setLoginOkHandlerData(null);
     }
-  }, [loginOkHandlerData]);
+  }, [loginOkHandlerData, reloadTree]);
 
   const onLessonUpdate = useCallback(
     (val) => {

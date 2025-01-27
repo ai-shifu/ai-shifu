@@ -144,7 +144,7 @@ export const useLessonTree = () => {
     });
     setTree(newTree);
     return newTree;
-  }, [getCurrElement, loadTreeInner, selectedLessonId, setSelectedState, tree]);
+  }, [getCurrElement, loadTreeInner, setSelectedState, tree]);
 
   const loadTree = useCallback(async (chapterId = '', lessonId = '') => {
     let newTree = null;
