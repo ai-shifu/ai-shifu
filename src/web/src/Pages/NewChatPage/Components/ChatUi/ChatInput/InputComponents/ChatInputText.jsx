@@ -42,7 +42,7 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
         elem.focus();
       }
     }
-  });
+  }, [disabled]);
 
   return (
     <div className={styles.inputTextWrapper}>

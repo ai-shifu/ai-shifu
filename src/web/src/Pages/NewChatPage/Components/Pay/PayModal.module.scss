@@ -38,7 +38,7 @@
         }
 
         .priceSign {
-          font-size: var(--font-size-1);
+          font-size: var(--font-size-28);
         }
 
         .priceNumber {
@@ -83,10 +83,48 @@
       }
     }
 
-    .qrcodeWrapper {
-      margin-top: 20px;
+    .originalPriceWrapper {
       display: flex;
       justify-content: center;
+
+      .originalPrice {
+        font-size: var(--font-size-5);
+        color: var(--color-disabled-1);
+        text-decoration: line-through;
+      }
+    }
+
+    .priceItemsWrapper {
+      width: 175px;
+      margin: 10px auto;
+      border-radius: 10px;
+      background-color: rgba(var(--color-1-rgb), 0.05);
+      padding: 10px;
+
+      .priceItem {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        font-size: var(--font-size-5);
+
+        &:first-child {
+          margin-top: 0;
+        }
+      }
+    }
+
+    .qrcodeWrapper {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .loginButtonWrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2em 0;
     }
 
     .channelSwitchWrapper {
@@ -106,14 +144,15 @@
     .couponCodeWrapper {
       display: flex;
       justify-content: center;
-      margin-top: 40px;
+      font-size: var(--font-size-5);
 
       .couponCodeButton {
         width: 200px;
         height: 40px;
-        color: var(--color-2);
+        color: var(--color-8);
         backdrop-filter: blur(10px);
         border-radius: 50px;
+        font-size: var(--font-size-5);
       }
     }
 

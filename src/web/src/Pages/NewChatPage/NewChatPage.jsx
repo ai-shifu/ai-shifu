@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useEffectOnce } from 'react-use';
 import { useParams } from 'react-router-dom';
 import classNames from 'classnames';
 import styles from './NewChatPage.module.scss';
@@ -23,38 +22,65 @@ import { useDisclosture } from 'common/hooks/useDisclosture.js';
 import { updateWxcode } from 'Api/user.js';
 
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal.jsx';
+import PayModalM from 'Pages/NewChatPage/Components/Pay/PayModalM.jsx';
+import PayModal from 'Pages/NewChatPage/Components/Pay/PayModal.jsx';
 import { useTranslation } from 'react-i18next';
 import { useEnvStore } from 'stores/envStore.js';
+import { shifu } from 'Service/Shifu.js';
+import { EVENT_NAMES, events } from './events.js';
+import { useSystemStore } from 'stores/useSystemStore.js';
+import { useShallow } from 'zustand/react/shallow';
+
 // the main page of course learning
 const NewChatPage = (props) => {
-  const enableWxcode = useEnvStore((state) => state.enableWxcode);
   const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payModalState, setPayModalState] = useState({
+    type: '',
+    payload: {},
+  });
   const [initialized, setInitialized] = useState(false);
-  const { hasLogin, userInfo, checkLogin } = useUserStore((state) => state);
+  const { hasLogin, userInfo, hasCheckLogin } = useUserStore((state) => state);
   const [language, setLanguage] = useState(userInfo?.language || 'en-US');
+  const [userSettingBasicInfo, setUserSettingBasicInfo] = useState(false);
+  const [loadedChapterId, setLoadedChapterId] = useState(null);
+  const [showUserSettings, setShowUserSettings] = useState(false);
+  const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
+
   const {
     tree,
+    selectedLessonId,
     loadTree,
     reloadTree,
     updateSelectedLesson,
     toggleCollapse,
-    checkChapterAvaiableStatic,
-    getCurrElementStatic,
+    getCurrElement,
     updateLesson,
     updateChapterStatus,
     getChapterByLesson,
     onTryLessonSelect,
   } = useLessonTree();
-  const [cid, setCid] = useState(null)
-  const { lessonId, changeCurrLesson, chapterId, updateChapterId } =
-    useCourseStore((state) => state);
-  const [showUserSettings, setShowUserSettings] = useState(false);
-  const { open: feedbackModalOpen, onOpen: onFeedbackModalOpen, onClose: onFeedbackModalClose } = useDisclosture();
+
+  const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } =
+    useCourseStore(
+      useShallow((state) => ({
+        courseName: state.courseName,
+        lessonId: state.lessonId,
+        updateLessonId: state.updateLessonId,
+        chapterId: state.chapterId,
+        updateChapterId: state.updateChapterId,
+      }))
+    );
+
+  const {
+    open: feedbackModalOpen,
+    onOpen: onFeedbackModalOpen,
+    onClose: onFeedbackModalClose,
+  } = useDisclosture();
   const { i18n } = useTranslation();
 
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
-
 
   const {
     open: navOpen,
@@ -63,6 +89,140 @@ const NewChatPage = (props) => {
   } = useDisclosture({
     initOpen: mobileStyle ? false : true,
   });
+
+  const { courseId } = useParams();
+  const { updateCourseId } = useEnvStore.getState();
+  const { wechatCode } = useSystemStore(
+    useShallow((state) => ({ wechatCode: state.wechatCode }))
+  );
+
+  const fetchData = useCallback(async () => {
+    if (tree) {
+      const data = await getCurrElement();
+      console.log('getCurrElement', data);
+      if (data && data.lesson) {
+        updateLessonId(data.lesson.id);
+        if (data.catalog) {
+          updateChapterId(data.catalog.id);
+        }
+      }
+    }
+  }, [updateLessonId, getCurrElement, tree, updateChapterId]);
+
+  const loadData = useCallback(async () => {
+    console.log(
+      `before loadTree, chapterId:${chapterId}, lessonId: ${lessonId}`
+    );
+    await loadTree(chapterId, lessonId);
+  }, [chapterId, lessonId, loadTree]);
+
+  const initAndCheckLogin = useCallback(async () => {
+    if (inWechat() && wechatCode) {
+      console.log(`updateWxcode: ${wechatCode}`);
+      await updateWxcode({ wxcode: wechatCode });
+    }
+    setInitialized(true);
+  }, [wechatCode]);
+
+  const onLoginModalClose = useCallback(async () => {
+    setLoginModalOpen(false);
+    setLoginOkHandlerData(null);
+    await loadData();
+    shifu.loginTools.emitLoginModalCancel();
+  }, [loadData]);
+
+  const onLoginModalOk = useCallback(async () => {
+    shifu.loginTools.emitLoginModalOk();
+    if (loginOkHandlerData) {
+      if (loginOkHandlerData.type === 'pay') {
+        shifu.payTools.openPay({
+          ...loginOkHandlerData.payload,
+        });
+      }
+
+      setLoginOkHandlerData(null);
+    }
+  }, [loginOkHandlerData]);
+
+  const onLessonUpdate = useCallback(
+    (val) => {
+      updateLesson(val.id, val);
+    },
+    [updateLesson]
+  );
+
+  const onChapterUpdate = useCallback(
+    ({ id, status, status_value }) => {
+      updateChapterStatus(id, { status, status_value });
+    },
+    [updateChapterStatus]
+  );
+
+  const onGoChapter = async (id) => {
+    await reloadTree();
+    updateChapterId(id);
+  };
+
+  const onPurchased = useCallback(() => {
+    reloadTree();
+  }, [reloadTree]);
+
+  const onGoToSettingBasic = useCallback(() => {
+    setUserSettingBasicInfo(true);
+    setShowUserSettings(true);
+    if (mobileStyle) {
+      onNavClose();
+    }
+  }, [mobileStyle, onNavClose]);
+
+  const onGoToSettingPersonal = useCallback(() => {
+    setUserSettingBasicInfo(false);
+    setShowUserSettings(true);
+    if (mobileStyle) {
+      onNavClose();
+    }
+  }, [mobileStyle, onNavClose]);
+
+  const onLessonSelect = ({ id }) => {
+    const chapter = getChapterByLesson(id);
+    if (!chapter) {
+      return;
+    }
+    updateLessonId(id);
+    if (chapter.id !== chapterId) {
+      updateChapterId(chapter.id);
+    }
+
+    if (lessonId === id) {
+      return;
+    }
+
+    events.dispatchEvent(
+      new CustomEvent(EVENT_NAMES.GO_TO_NAVIGATION_NODE, {
+        detail: {
+          chapterId: chapter.id,
+          lessonId: id,
+        },
+      })
+    );
+
+    if (mobileStyle) {
+      onNavClose();
+    }
+  };
+
+  const onFeedbackClick = useCallback(() => {
+    onFeedbackModalOpen();
+  }, [onFeedbackModalOpen]);
+
+  const _onPayModalCancel = useCallback(() => {
+    setPayModalOpen(false);
+    shifu.payTools.emitPayModalCancel();
+  }, []);
+  const _onPayModalOk = useCallback(() => {
+    setPayModalOpen(false);
+    shifu.payTools.emitPayModalOk();
+  }, []);
 
   // check the frame layout
   useEffect(() => {
@@ -77,9 +237,6 @@ const NewChatPage = (props) => {
     };
   }, [updateFrameLayout]);
 
-  const { courseId } = useParams();
-  const { updateCourseId } = useEnvStore.getState();
-
   useEffect(() => {
     const updateCourse = async () => {
       if (courseId) {
@@ -89,104 +246,56 @@ const NewChatPage = (props) => {
     updateCourse();
   }, [courseId, updateCourseId]);
 
+  useEffect(() => {
+    if (hasCheckLogin) {
+      fetchData();
+    }
+  }, [fetchData, hasCheckLogin]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      if (tree) {
-        const data = await getCurrElementStatic(tree);
-        if (data) {
-          changeCurrLesson(data.lesson.id);
-          if (data.catalog && (!cid || cid !== data.catalog.id)) {
-            setCid(data.catalog.id);
-          }
-        }
+    (async () => {
+      if (!hasCheckLogin) {
+        await initAndCheckLogin();
       }
+    })();
+  }, [hasCheckLogin, initAndCheckLogin]);
+
+  // listen global event
+  useEffect(() => {
+    const eventHandler = () => {
+      setLoginModalOpen(true);
     };
 
-    fetchData();
-  }, [tree, changeCurrLesson, cid, setCid, getCurrElementStatic]);
+    const payEventHandler = (e) => {
+      const { type = '', payload = {} } = e.detail;
+      console.log('payEventHandler', type, payload);
+      setPayModalState({ type, payload });
+      setPayModalOpen(true);
+      setLoginOkHandlerData({ type: 'pay', payload: {} });
+    };
 
+    shifu.events.addEventListener(
+      shifu.EventTypes.OPEN_LOGIN_MODAL,
+      eventHandler
+    );
 
-  const loadData = useCallback(async () => {
-    await loadTree();
-  }, [loadTree]);
+    shifu.events.addEventListener(
+      shifu.EventTypes.OPEN_PAY_MODAL,
+      payEventHandler
+    );
 
-  const initAndCheckLogin = useCallback(async () => {
-    await checkLogin();
-    if (inWechat() && enableWxcode) {
-      await updateWxcode();
-    }
-    setInitialized(true);
-  }, [checkLogin]);
+    return () => {
+      shifu.events.removeEventListener(
+        shifu.EventTypes.OPEN_LOGIN_MODAL,
+        eventHandler
+      );
 
-
-  useEffect(() => {
-    if (cid === chapterId) {
-      return;
-    } else if (cid) {
-      updateChapterId(cid);
-    }
-  }, [cid, chapterId, updateChapterId]);
-
-  useEffectOnce(() => {
-    (async () => {
-      await initAndCheckLogin();
-    })();
+      shifu.events.removeEventListener(
+        shifu.EventTypes.OPEN_PAY_MODAL,
+        payEventHandler
+      );
+    };
   });
-
-
-  const onLoginModalClose = useCallback(async () => {
-    setLoginModalOpen(false);
-    await loadData();
-  }, [loadData]);
-
-  const onLessonUpdate = useCallback(
-    (val) => {
-      updateLesson(val.id, val);
-    },
-    [updateLesson]
-  );
-
-  useEffect(() => {
-    updateSelectedLesson(lessonId);
-  }, [lessonId]);
-
-  const onChapterUpdate = useCallback(
-    ({ id, status, status_value }) => {
-      updateChapterStatus(id, { status, status_value });
-    },
-    [updateChapterStatus]
-  );
-
-  const onGoChapter = async (id) => {
-    await reloadTree();
-    setCid(id);
-  };
-
-  const onPurchased = useCallback(() => {
-    reloadTree();
-  }, [reloadTree]);
-
-  const onGoToSetting = useCallback(() => {
-    setShowUserSettings(true);
-  }, []);
-
-  const onLessonSelect = ({ id }) => {
-    const chapter = getChapterByLesson(id);
-    if (!chapter) {
-      return;
-    }
-    changeCurrLesson(id);
-    setTimeout(() => {
-      if (chapter.id !== chapterId) {
-        setCid(chapter.id);
-      }
-    }, 0);
-
-    if (mobileStyle) {
-      onNavClose();
-    }
-  };
 
   useEffect(() => {
     return useCourseStore.subscribe(
@@ -200,16 +309,13 @@ const NewChatPage = (props) => {
     );
   });
 
-  const onFeedbackClick = useCallback(() => {
-    onFeedbackModalOpen();
-  }, [onFeedbackModalOpen]);
-
   useEffect(() => {
-    if (initialized) {
+    console.log('loadData hasCheckLogin', hasCheckLogin);
+    if (hasCheckLogin && loadedChapterId !== chapterId) {
       loadData();
+      setLoadedChapterId(chapterId);
     }
-  }, [initialized, language]);
-
+  }, [chapterId, hasCheckLogin, loadData, loadedChapterId]);
 
   useEffect(() => {
     setLanguage(i18n.language);
@@ -228,17 +334,21 @@ const NewChatPage = (props) => {
         >
           {navOpen && (
             <NavDrawer
+              courseName={courseName}
               onLoginClick={() => setLoginModalOpen(true)}
               lessonTree={tree}
+              selectedLessonId={selectedLessonId}
               onChapterCollapse={toggleCollapse}
               onLessonSelect={onLessonSelect}
-              onGoToSetting={onGoToSetting}
               onTryLessonSelect={onTryLessonSelect}
               onClose={onNavClose}
+              onBasicInfoClick={onGoToSettingBasic}
+              onPersonalInfoClick={onGoToSettingPersonal}
             />
           )}
           {
             <ChatUi
+              lessonId={lessonId}
               chapterId={chapterId}
               lessonUpdate={onLessonUpdate}
               onGoChapter={onGoChapter}
@@ -246,23 +356,45 @@ const NewChatPage = (props) => {
               showUserSettings={showUserSettings}
               onUserSettingsClose={() => setShowUserSettings(false)}
               chapterUpdate={onChapterUpdate}
+              userSettingBasicInfo={userSettingBasicInfo}
+              updateSelectedLesson={updateSelectedLesson}
             />
           }
         </Skeleton>
         {loginModalOpen && (
           <LoginModal
+            onLogin={onLoginModalOk}
             open={loginModalOpen}
             onClose={onLoginModalClose}
             destroyOnClose={true}
             onFeedbackClick={onFeedbackClick}
           />
         )}
+        {payModalOpen &&
+          (mobileStyle ? (
+            <PayModalM
+              open={payModalOpen}
+              onCancel={_onPayModalCancel}
+              onOk={_onPayModalOk}
+              type={payModalState.type}
+              payload={payModalState.payload}
+            />
+          ) : (
+            <PayModal
+              open={payModalOpen}
+              onCancel={_onPayModalCancel}
+              onOk={_onPayModalOk}
+              type={payModalState.type}
+              payload={payModalState.payload}
+            />
+          ))}
         {initialized && <TrackingVisit />}
 
         {mobileStyle && (
           <ChatMobileHeader
             navOpen={navOpen}
             className={styles.chatMobileHeader}
+            iconPopoverPayload={tree?.bannerInfo}
             onSettingClick={onNavToggle}
           />
         )}

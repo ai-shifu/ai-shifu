@@ -68,6 +68,7 @@ export const ChangeAvatar = ({
             className={styles.avatarUpload}
             ref={uploadRef}
             onChange={onAvatarUploadChange}
+            accept='.png,.jpg,.jpeg,.bmp,.webp'
           />
           <img
             className={styles.editIcon}

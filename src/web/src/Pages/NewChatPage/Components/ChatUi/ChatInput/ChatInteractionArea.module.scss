@@ -22,6 +22,7 @@
     display: flex;
     justify-content: center;
     padding: 12px;
+    visibility: hidden;
   }
 }
 
@@ -30,23 +31,17 @@
 }
 
 .controlWrapper {
-  display: inline-block;
-  width: calc(100% - 60px); /* 减去按钮的宽度和间距 */
-}
+  display: flex;
+  width: 100%;
+  align-items: center;
 
-.controlWrapper {
+  .controlWrapperInner {
+    flex: 1 1 auto;
+  }
+
   .askButton {
-    width: 60px;
-    height: 60px;
-    border-radius: 50%;
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
+    flex: 0 0 76px;
+    margin-right: 10px;
   }
 
   .askButtonContent {

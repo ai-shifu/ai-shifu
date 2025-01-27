@@ -55,5 +55,4 @@ export const wechatLogin = ({ appId, redirectUrl = '', scope = 'snsapi_base', st
   const _redirectUrl = encodeURIComponent(redirectUrl || window.location.href);
   const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${_redirectUrl}&response_type=code&scope=${scope}&state=${state}#wechat_redirect`;
   window.location.assign(url);
-  window.location.href = url;
 };

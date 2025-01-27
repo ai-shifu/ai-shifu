@@ -46,3 +46,16 @@ export const applyDiscountCode = ({ orderId, code }) => {
     }
   });
 };
+
+// generate active order
+export const initActiveOrder = ({ recordId, action, courseId }) => {
+  return request({
+    method: 'POST',
+    url: '/api/click2cash/generate-active-order',
+    data: {
+      course_id: courseId,
+      action,
+      record_id: recordId,
+    }
+  });
+}

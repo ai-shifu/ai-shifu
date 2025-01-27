@@ -1,6 +1,6 @@
-import {  useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import classNames from 'classnames';
-import styles from './PopupModal.module.scss'
+import styles from './PopupModal.module.scss';
 import { useCallback } from 'react';
 
 export const PopupModal = ({
@@ -9,16 +9,19 @@ export const PopupModal = ({
   children,
   style,
   wrapStyle,
-  className
+  className,
 }) => {
   const popupRef = useRef(null);
 
   // 点击其他区域关闭弹出窗口
-  const handleClickOutside = useCallback( (event) => {
-    if (popupRef.current && !popupRef.current.contains(event.target)) {
-      onClose?.(event);
-    }
-  }, [onClose]);
+  const handleClickOutside = useCallback(
+    (event) => {
+      if (popupRef.current && !popupRef.current.contains(event.target)) {
+        onClose?.(event);
+      }
+    },
+    [onClose]
+  );
 
   // 监听点击事件
   useEffect(() => {
@@ -29,10 +32,17 @@ export const PopupModal = ({
   }, [handleClickOutside]);
 
   return (
-    <div className={classNames(styles.popupModalWrapper, className)} style={wrapStyle}>
-      {open && <div style={style} className={styles.popupModal} ref={popupRef}>{ children }</div>}
+    <div
+      className={classNames(styles.popupModalWrapper, className)}
+      style={wrapStyle}
+    >
+      {open && (
+        <div style={style} className={styles.popupModal} ref={popupRef}>
+          {children}
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default PopupModal;

@@ -9,7 +9,27 @@
     "settings": "Settings",
     "networkError": "Unable to connect to the server, please check the network settings",
     "backToHome": "Back to Home",
-    "redirectInSeconds": "Redirecting to home in {{seconds}} seconds"
+    "redirectInSeconds": "Redirecting to home in {{seconds}} seconds",
+    "shortcut": {
+      "title": {
+        "continue": "Continue (when no input or selection required)",
+        "ask": "Ask follow-up questions",
+        "shortcut": "Display Shortcuts"
+      },
+      "key": {
+        "a": "A",
+        "b": "B",
+        "c": "C",
+        "d": "D",
+        "e": "E",
+        "ctrl": "Ctrl",
+        "shift": "Shift",
+        "cmd": "⌘",
+        "/": "/",
+        "space": "Space",
+        "enter": "Enter"
+      }
+    }
   },
   "user": {
     "loginMainButton": "Login/Register",
@@ -17,6 +37,7 @@
     "confirmLogoutContent": "Are you sure you want to log out?",
     "defaultUserName": "Default Name",
     "notLogin": "Not logged in",
+    "login": "Login",
     "logout": "Logout",
     "loginTitle": "Login",
     "loginFeedback": "Submit feedback",
@@ -60,7 +81,7 @@
     "grouponModify": "Modify Voucher Code >"
   },
   "navigation": {
-    "courseList": "Course List",
+    "courseList": "Course Name",
     "theChapter": " Chapter",
     "theLesson": " Lesson",
     "filing": "Registration",
@@ -71,18 +92,22 @@
     "gongan": "Beijing Public Security No.11010502055644 ",
     "feedbackTitle": "Submit Feedback",
     "userAggrement": "Service Agreement",
-    "privacyPolicy": "Privacy Policy"
+    "privacyPolicy": "Privacy Policy",
+    "contactUs": "Contact Us",
+    "shortcut": "Shortcut"
   },
   "settings": {
     "home": "Home",
     "settingTite": "Profile",
     "basicInfo": "Basic Info",
     "nickname": "Nickname",
+    "nicknamePersonal": "Nickname",
     "nicknamePlaceholder": "Please enter your nickname",
     "sex": "Gender",
     "sexPlaceholder": "Please select your gender",
     "birth": "Birthday",
     "birthPlaceholder": "Please select your birthday",
+    "personalInfo": "Personalized Information",
     "dialogTitle": {
       "selectSex": "Select Gender",
       "selectBirthday": "Select Birthday"
@@ -124,5 +149,12 @@
   },
   "error": {
     "pageNotFound": "Sorry, this Shifu is missing..."
+  },
+  "menus": {
+    "navigationMenus": {
+      "basicInfo": "Basic Information",
+      "personalInfo": "Personalized Information",
+      "language": "Language"
+    }
   }
 }

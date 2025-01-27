@@ -4,8 +4,10 @@ import { resetChapter as apiResetChapter } from 'Api/lesson.js';
 
 export const useCourseStore = create(
   subscribeWithSelector((set) => ({
+    courseName: '',
+    updateCourseName: (courseName) => set(() => ({ courseName })),
     lessonId: null,
-    changeCurrLesson: (lessonId) => set(() => ({ lessonId })),
+    updateLessonId: (lessonId) => set(() => ({ lessonId })),
     chapterId: '',
     updateChapterId: (chapterId) => set(() => ({ chapterId })),
     purchased: false,

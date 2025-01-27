@@ -1,0 +1,7 @@
+:global(.ant-btn).mainButton {
+  position: static;
+
+  &:not(:disabled):not(.ant-btn-disabled):hover {
+    position: static;
+  }
+}

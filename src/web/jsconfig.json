@@ -15,6 +15,7 @@
       "@Api": ["./Api"],
       "@/*": ["src/*"],
       "components/*": ["src/components/*"],
+      "@ShiNiang": ["./ShiNiang"],
       "utils/*": ["src/utils/*"]
     }
   },

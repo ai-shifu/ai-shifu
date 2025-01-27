@@ -6,19 +6,23 @@ import UserSettings from '../Settings/UserSettings.jsx';
 import { FRAME_LAYOUT_MOBILE } from 'constants/uiConstants.js';
 import classNames from 'classnames';
 import { memo } from 'react';
+import GlobalInfoButton from './GlobalInfoButton.jsx';
 
 /**
  * 聊天区的整体画布
  */
 export const ChatUi = ({
   chapterId,
+  lessonId,
   lessonUpdate,
   onGoChapter,
   onPurchased,
   showUserSettings = true,
+  userSettingBasicInfo = false,
   onUserSettingsClose = () => {},
   onMobileSettingClick = () => {},
   chapterUpdate,
+  updateSelectedLesson,
 }) => {
   const { frameLayout } = useContext(AppContext);
 
@@ -32,12 +36,14 @@ export const ChatUi = ({
       {
         <ChatComponents
           chapterId={chapterId}
+          lessonId={lessonId}
           lessonUpdate={lessonUpdate}
           onGoChapter={onGoChapter}
           className={styles.chatComponents}
           onPurchased={onPurchased}
           onMobileSettingClick={onMobileSettingClick}
           chapterUpdate={chapterUpdate}
+          updateSelectedLesson={updateSelectedLesson}
         />
       }
       {showUserSettings && (
@@ -45,8 +51,11 @@ export const ChatUi = ({
           className={styles.UserSettings}
           onHomeClick={onUserSettingsClose}
           onClose={onUserSettingsClose}
+          isBasicInfo={userSettingBasicInfo}
         />
       )}
+
+      <GlobalInfoButton className={styles.globalInfoButton} />
     </div>
   );
 };

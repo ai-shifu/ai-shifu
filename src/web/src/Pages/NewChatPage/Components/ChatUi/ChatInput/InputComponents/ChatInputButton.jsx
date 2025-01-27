@@ -7,6 +7,10 @@ import MainButton from 'Components/MainButton.jsx';
 import { useEffect } from 'react';
 import { memo } from 'react';
 import { registerInteractionType } from '../interactionRegistry';
+import { useShallow } from 'zustand/react/shallow';
+import { useUiLayoutStore } from 'stores/useUiLayoutStore.js';
+import { useHotkeys } from 'react-hotkeys-hook';
+import { SHORTCUT_IDS, genHotKeyIdentifier } from 'Service/shortcut.js';
 
 export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   const onBtnClick = () => {
@@ -21,6 +25,10 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
       onClick?.(INTERACTION_OUTPUT_TYPE.ORDER, { orderId: props.value });
       return
     }
+    if (type === INTERACTION_TYPE.NONBLOCK_ORDER) {
+      onClick?.(INTERACTION_OUTPUT_TYPE.NONBLOCK_ORDER, { orderId: props.value });
+      return
+    }
     if (type === INTERACTION_TYPE.REQUIRE_LOGIN) {
       onClick?.(INTERACTION_OUTPUT_TYPE.REQUIRE_LOGIN, props.value);
       return;
@@ -28,23 +36,19 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
 
     onClick?.(INTERACTION_OUTPUT_TYPE.CONTINUE, props.value);
   }
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (disabled) {
-        return;
-      }
 
-      if (e.key === 'Enter') {
-        onBtnClick();
-      }
-    }
+  const { inMacOs } = useUiLayoutStore(
+    useShallow((state) => ({ inMacOs: state.inMacOs }))
+  );
 
-    document.addEventListener('keydown', handleKeyDown);
+  useHotkeys(
+    `${genHotKeyIdentifier(SHORTCUT_IDS.CONTINUE, inMacOs)}, enter`,
+    () => {
+      onBtnClick();
+    },
+    [onBtnClick]
+  );
 
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    }
-  })
   return (
     <div className={styles.continueWrapper}>
       <MainButton
@@ -63,5 +67,6 @@ const ChatInputButtonMemo = memo(ChatInputButton);
 registerInteractionType(INTERACTION_TYPE.CONTINUE, ChatInputButtonMemo);
 registerInteractionType(INTERACTION_TYPE.NEXT_CHAPTER, ChatInputButtonMemo);
 registerInteractionType(INTERACTION_TYPE.ORDER, ChatInputButtonMemo);
+registerInteractionType(INTERACTION_TYPE.NONBLOCK_ORDER, ChatInputButtonMemo);
 registerInteractionType(INTERACTION_TYPE.REQUIRE_LOGIN, ChatInputButtonMemo);
 export default ChatInputButtonMemo;

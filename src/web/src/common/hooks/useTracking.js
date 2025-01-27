@@ -51,5 +51,5 @@ export const useTracking = () => {
     } catch { }
   }, [trackEvent]);
 
-  return { trackEvent, trackTrailProgress };
+  return { trackEvent, trackTrailProgress, EVENT_NAMES };
 };
