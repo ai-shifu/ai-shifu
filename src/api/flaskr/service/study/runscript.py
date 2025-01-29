@@ -374,7 +374,7 @@ def run_script_inner(
                         yield make_script_dto("text_end", "", None)
                         script_dtos = handle_ui(
                             app,
-                            user_id,
+                            user_info,
                             attend,
                             script_info,
                             input,
