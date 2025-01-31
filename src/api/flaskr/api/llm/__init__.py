@@ -75,6 +75,23 @@ try:
 except Exception as e:
     current_app.logger.warning(f"get openai models error: {e}")
     OPENAI_MODELS = []
+
+silicon_enabled = False
+SILICON_MODELS = []
+SILICON_PREFIX = "silicon/"
+if get_config("SILICON_API_KEY"):
+    silicon_enabled = True
+    current_app.logger.info("SILICON CONFIGURED")
+    silicon_client = openai.Client(
+        api_key=get_config("SILICON_API_KEY"), base_url="https://api.siliconflow.cn/v1"
+    )
+
+    SILICON_MODELS = [SILICON_PREFIX + i.id for i in silicon_client.models.list().data]
+    current_app.logger.info(f"SILICON_MODELS: {SILICON_MODELS}")
+else:
+    current_app.logger.warning("SILICON_API_KEY not configured")
+    silicon_client = None
+
 ERNIE_MODELS = get_erine_models(Flask(__name__))
 GLM_MODELS = get_zhipu_models(Flask(__name__))
 DEEP_SEEK_MODELS = ["deepseek-chat"]
@@ -173,6 +190,7 @@ def invoke_llm(
         or model.startswith("gpt")
         or model in QWEN_MODELS
         or model in DEEP_SEEK_MODELS
+        or model in SILICON_MODELS
     ):
         if model in OPENAI_MODELS or model.startswith("gpt"):
             client = openai_client
@@ -197,6 +215,15 @@ def invoke_llm(
                     "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
                     model=model,
                     config_var="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
+                )
+        elif model in SILICON_MODELS:
+            client = silicon_client
+            model = model.replace(SILICON_PREFIX, "")
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="SILICON_API_KEY,SILICON_API_URL",
                 )
         messages = []
         if system:
@@ -368,6 +395,15 @@ def chat_llm(
                     model=model,
                     config_var="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
                 )
+        elif model in SILICON_MODELS:
+            client = silicon_client
+            model = model.replace(SILICON_PREFIX, "")
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="SILICON_API_KEY,SILICON_API_URL",
+                )
         response = client.chat.completions.create(
             model=model, messages=messages, **kwargs
         )
@@ -477,4 +513,5 @@ def get_current_models(app: Flask) -> list[str]:
         + QWEN_MODELS
         + DEEP_SEEK_MODELS
         + DIFY_MODELS
+        + SILICON_MODELS
     )
