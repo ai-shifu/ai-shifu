@@ -555,25 +555,6 @@ class FollowUpInfo:
         }
 
 
-def get_follow_up_model(
-    app: Flask, attend: AICourseLessonAttend, script_info: AILessonScript
-) -> str:
-    if script_info.ask_model and script_info.ask_model.strip():
-        return script_info.ask_model
-
-    ai_lesson = AILesson.query.filter(
-        AILesson.lesson_id == script_info.lesson_id
-    ).first()
-    if ai_lesson and ai_lesson.ask_model and ai_lesson.ask_model.strip():
-        return ai_lesson.ask_model
-
-    ai_course = AICourse.query.filter(AICourse.course_id == ai_lesson.course_id).first()
-    if ai_course and ai_course.ask_model and ai_course.ask_model.strip():
-        return ai_course.ask_model
-
-    return "ERNIE-4.0-8K"
-
-
 def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
     if script_info.ask_mode != ASK_MODE_DEFAULT:
         app.logger.info(f"script_info.ask_mode: {script_info.ask_mode}")
