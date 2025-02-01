@@ -576,6 +576,7 @@ def get_follow_up_model(
 
 def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
     if script_info.ask_mode != ASK_MODE_DEFAULT:
+        app.logger.info(f"script_info.ask_mode: {script_info.ask_mode}")
         return FollowUpInfo(
             script_info.ask_model,
             script_info.ask_prompt,
@@ -588,41 +589,42 @@ def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
     ai_lesson = AILesson.query.filter(
         AILesson.lesson_id == script_info.lesson_id
     ).first()
-    if ai_lesson.ask_mode == ASK_MODE_DEFAULT:
-        # to get parent lesson info
-        parent_lesson = AILesson.query.filter(
-            AILesson.course_id == ai_lesson.course_id,
-            AILesson.lesson_no == ai_lesson.lesson_no[:2],
-            AILesson.status == 1,
-        ).first()
-        if parent_lesson.ask_mode != ASK_MODE_DEFAULT:
-            ask_model = parent_lesson.ask_model
-            ask_prompt = parent_lesson.ask_prompt
-            ask_history_count = parent_lesson.ask_with_history
-            ask_limit_count = parent_lesson.ask_count_limit
-            model_args = {}
-            return FollowUpInfo(
-                ask_model,
-                ask_prompt,
-                ask_history_count,
-                ask_limit_count,
-                model_args,
-                parent_lesson.ask_mode,
-            )
-        else:
-            ask_model = ai_lesson.ask_model
-            ask_prompt = ai_lesson.ask_prompt
-            ask_history_count = ai_lesson.ask_with_history
-            ask_limit_count = ai_lesson.ask_count_limit
-            model_args = {}
-            return FollowUpInfo(
-                ask_model,
-                ask_prompt,
-                ask_history_count,
-                ask_limit_count,
-                model_args,
-                ai_lesson.ask_mode,
-            )
+
+    if ai_lesson.ask_mode != ASK_MODE_DEFAULT:
+        ask_model = ai_lesson.ask_model
+        ask_prompt = ai_lesson.ask_prompt
+        ask_history_count = ai_lesson.ask_with_history
+        ask_limit_count = ai_lesson.ask_count_limit
+        model_args = {}
+        return FollowUpInfo(
+            ask_model,
+            ask_prompt,
+            ask_history_count,
+            ask_limit_count,
+            model_args,
+            ai_lesson.ask_mode,
+        )
+    parent_lesson = AILesson.query.filter(
+        AILesson.course_id == ai_lesson.course_id,
+        AILesson.lesson_no == ai_lesson.lesson_no[:2],
+        AILesson.status == 1,
+    ).first()
+    if parent_lesson.ask_mode != ASK_MODE_DEFAULT:
+        app.logger.info(f"parent_lesson.ask_mode: {parent_lesson.ask_mode}")
+        ask_model = parent_lesson.ask_model
+        ask_prompt = parent_lesson.ask_prompt
+        ask_history_count = parent_lesson.ask_with_history
+        ask_limit_count = parent_lesson.ask_count_limit
+        model_args = {}
+        return FollowUpInfo(
+            ask_model,
+            ask_prompt,
+            ask_history_count,
+            ask_limit_count,
+            model_args,
+            parent_lesson.ask_mode,
+        )
+
     ai_course = AICourse.query.filter(AICourse.course_id == ai_lesson.course_id).first()
     ask_model = ai_course.ask_model
     ask_prompt = ai_course.ask_prompt

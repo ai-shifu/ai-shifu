@@ -363,6 +363,7 @@ def chat_llm(
     )
     response_text = ""
     usage = None
+
     if kwargs.get("temperature", None) is not None:
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
     if (
@@ -370,6 +371,7 @@ def chat_llm(
         or model.startswith("gpt")
         or model in QWEN_MODELS
         or model in DEEP_SEEK_MODELS
+        or model in SILICON_MODELS
     ):
         if model in OPENAI_MODELS or model.startswith("gpt"):
             client = openai_client
