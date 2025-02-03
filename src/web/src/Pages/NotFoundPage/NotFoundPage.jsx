@@ -12,7 +12,7 @@ const NotFoundPage = () => {
 
   useEffect(() => {
     if (countdown === 0) {
-      navigate('/c');
+      navigate('/');
     }
     const timer = setTimeout(() => {
       setCountdown(countdown - 1);
@@ -32,7 +32,7 @@ const NotFoundPage = () => {
         <p>{t('common.redirectInSeconds', { seconds: countdown })}</p>
         <Button
           type="primary"
-          onClick={() => navigate('/c')}
+          onClick={() => navigate('/')}
         >
           {t('common.backToHome')}
         </Button>
