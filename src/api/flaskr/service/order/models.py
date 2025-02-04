@@ -18,9 +18,15 @@ class AICourseBuyRecord(db.Model):
     __tablename__ = "ai_course_buy_record"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    record_id = Column(String(36), nullable=False, default="", comment="Record UUID")
-    course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
-    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    record_id = Column(
+        String(36), nullable=False, default="", comment="Record UUID", index=True
+    )
+    course_id = Column(
+        String(36), nullable=False, default="", comment="Course UUID", index=True
+    )
+    user_id = Column(
+        String(36), nullable=False, default="", comment="User UUID", index=True
+    )
     price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Price of the course"
     )
@@ -50,11 +56,19 @@ class AICourseLessonAttend(db.Model):
     __tablename__ = "ai_course_lesson_attend"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    attend_id = Column(String(36), nullable=False, default="", comment="Attend UUID")
-    lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
-    course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
+    attend_id = Column(
+        String(36), nullable=False, default="", comment="Attend UUID", index=True
+    )
+    lesson_id = Column(
+        String(36), nullable=False, default="", comment="Lesson UUID", index=True
+    )
+    course_id = Column(
+        String(36), nullable=False, default="", comment="Course UUID", index=True
+    )
     lesson_no = Column(String(36), nullable=False, default="", comment="Lesson no")
-    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    user_id = Column(
+        String(36), nullable=False, default="", comment="User UUID", index=True
+    )
     lesson_updated = Column(
         Integer, nullable=False, default=0, comment="Lesson is  updated"
     )
@@ -66,6 +80,7 @@ class AICourseLessonAttend(db.Model):
         nullable=False,
         default=0,
         comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
+        index=True,
     )
     script_index = Column(
         Integer,
@@ -74,7 +89,7 @@ class AICourseLessonAttend(db.Model):
         comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
     )
     script_unique_id = Column(
-        String(36), nullable=False, default="", comment="Script unique ID"
+        String(36), nullable=False, default="", comment="Script unique ID", index=True
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"

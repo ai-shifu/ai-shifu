@@ -8,7 +8,9 @@ from .const import ASK_MODE_DEFAULT
 class AICourse(db.Model):
     __tablename__ = "ai_course"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
+    course_id = Column(
+        String(36), nullable=False, default="", comment="Course UUID", index=True
+    )
     course_name = Column(String(255), nullable=False, default="", comment="Course name")
     course_desc = Column(Text, nullable=False, comment="Course description")
     course_price = Column(
@@ -73,8 +75,12 @@ class AICourse(db.Model):
 class AILesson(db.Model):
     __tablename__ = "ai_lesson"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
-    course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
+    lesson_id = Column(
+        String(36), nullable=False, default="", comment="Lesson UUID", index=True
+    )
+    course_id = Column(
+        String(36), nullable=False, default="", comment="Course UUID", index=True
+    )
     lesson_name = Column(String(255), nullable=False, default="", comment="Lesson name")
     lesson_desc = Column(Text, nullable=False, comment="Lesson description")
     lesson_no = Column(String(32), nullable=True, default="0", comment="Lesson number")
