@@ -13,6 +13,7 @@ class AICourse(db.Model):
     )
     course_name = Column(String(255), nullable=False, default="", comment="Course name")
     course_desc = Column(Text, nullable=False, comment="Course description")
+    course_keywords = Column(Text, nullable=False, comment="Course keywords")
     course_price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Course price"
     )

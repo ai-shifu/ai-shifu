@@ -187,6 +187,15 @@ const App = () => {
               newMetaDescription.setAttribute('content', resp.data.course_desc);
               document.head.appendChild(newMetaDescription);
             }
+            const metaKeywords = document.querySelector('meta[name="keywords"]');
+            if (metaKeywords) {
+              metaKeywords.setAttribute('content', resp.data.course_keywords);
+            } else {
+              const newMetaKeywords = document.createElement('meta');
+              newMetaKeywords.setAttribute('name', 'keywords');
+              newMetaKeywords.setAttribute('content', resp.data.course_keywords);
+              document.head.appendChild(newMetaKeywords);
+            }
           } else {
             window.location.href = '/404';
           }

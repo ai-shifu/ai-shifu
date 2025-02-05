@@ -32,6 +32,7 @@ class AICourseDTO:
         course_feishu_id,
         status,
         course_teacher_avatar,
+        course_keywords,
     ):
         self.course_id = course_id
         self.course_name = course_name
@@ -40,6 +41,7 @@ class AICourseDTO:
         self.course_feishu_id = course_feishu_id
         self.status = status
         self.course_teacher_avatar = course_teacher_avatar
+        self.course_keywords = course_keywords
 
     def __json__(self):
         return {
@@ -50,6 +52,7 @@ class AICourseDTO:
             "course_feishu_id": self.course_feishu_id,
             "status": self.status,
             "course_teacher_avatar": self.course_teacher_avatar,
+            "course_keywords": self.course_keywords,
         }
 
 
@@ -715,4 +718,5 @@ def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
             course.course_feishu_id,
             course.course_status,
             course.course_teacher_avator,
+            course.course_keywords,
         )
