@@ -41,15 +41,13 @@ def check_text_content(
 
 
 class UserProfileDTO:
-    def __init__(self, user_id, profile_key, profile_value, profile_type):
-        self.user_id = user_id
+    def __init__(self, profile_key, profile_value, profile_type):
         self.profile_key = profile_key
         self.profile_value = profile_value
         self.profile_type = profile_type
 
     def __json__(self):
         return {
-            "user_id": self.user_id,
             "profile_key": self.profile_key,
             "profile_value": self.profile_value,
             "profile_type": self.profile_type,
@@ -126,19 +124,19 @@ def get_profile_labels():
     }
 
 
-def get_user_profile_by_user_id(
-    app: Flask, user_id: str, profile_key: str
-) -> UserProfileDTO:
-    user_profile = UserProfile.query.filter_by(
-        user_id=user_id, profile_key=profile_key
-    ).first()
-    if user_profile:
-        return UserProfileDTO(
-            user_profile.user_id,
-            user_profile.profile_key,
-            user_profile.profile_value,
-            user_profile.profile_type,
-        )
+def get_user_profile_by_user_id(app: Flask, user_id: str) -> UserProfileDTO:
+    user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
+    if user_profiles:
+        result = []
+        for user_profile in user_profiles:
+            result.append(
+                UserProfileDTO(
+                    user_profile.profile_key,
+                    user_profile.profile_value,
+                    user_profile.profile_type,
+                )
+            )
+        return result
     return None
 
 

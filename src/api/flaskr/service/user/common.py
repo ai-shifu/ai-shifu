@@ -160,6 +160,7 @@ def update_user_info(
                 user_state=dbuser.user_state,
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
+                avatar=user.avatar,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -194,7 +195,7 @@ def change_user_passwd(app: Flask, user: UserInfo, oldpwd, newpwd) -> UserInfo:
 
 
 def get_user_info(app: Flask, user_id: str) -> UserInfo:
-    User = get_model(app)
+    User = CommonUser
     with app.app_context():
         user = User.query.filter_by(user_id=user_id).first()
         if user:
@@ -208,6 +209,7 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
                 user_state=user.user_state,
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
+                avatar=user.user_avatar,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")

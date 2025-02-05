@@ -1,5 +1,5 @@
 from flask import Flask
-
+from flaskr.service.study.progress import init_study_progress
 from flaskr.dao import run_with_redis
 from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
@@ -39,12 +39,13 @@ from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.models import User
 
+from .progress import reset_study_progress
+
 
 def get_lesson_tree_to_study_inner(
     app: Flask, user_id: str, course_id: str = None
 ) -> AICourseDTO:
     with app.app_context():
-
         app.logger.info("user_id:" + user_id)
         attend_status_values = get_attend_status_values()
         if course_id:
@@ -86,11 +87,10 @@ def get_lesson_tree_to_study_inner(
 
         app.logger.info("attend_infos:{}".format(len(attend_infos)))
         # init the attend info for the trial lessons
-
         is_first_chatpter = False
         is_first_lesson = False
-
         if len(attend_infos) == 0:
+            init_study_progress(app, user_id, course_id)
             app.logger.info(
                 "init the attend info for the trial lessons,user_id:{} course_id:{}".format(
                     user_id, course_id
@@ -515,5 +515,6 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
             if lesson.lesson_no == lesson_no + "01":
                 attend_info.status = ATTEND_STATUS_NOT_STARTED
             db.session.add(attend_info)
+        reset_study_progress(app, user_id, course_id, lessons)
         db.session.commit()
         return True
