@@ -1,4 +1,4 @@
-FROM node:20 as base
+FROM node:20.11.1 as base
 # use pnpm
 RUN corepack enable
 ENV PNPM_HOME="/pnpm"
@@ -23,7 +23,7 @@ RUN pnpm install
 # build project
 RUN pnpm run build
 
-FROM node:20-slim
+FROM node:20.11.1-slim
 
 WORKDIR /app
 COPY ecosystem.config.js ./
