@@ -118,7 +118,6 @@ const NewChatPage = (props) => {
 
   const initAndCheckLogin = useCallback(async () => {
     if (inWechat() && wechatCode) {
-      console.log(`updateWxcode: ${wechatCode}`);
       await updateWxcode({ wxcode: wechatCode });
     }
     setInitialized(true);

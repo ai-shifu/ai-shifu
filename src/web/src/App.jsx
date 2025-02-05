@@ -177,6 +177,16 @@ const App = () => {
           if (resp.data) {
             setShowVip(resp.data.course_price > 0);
             updateCourseName(resp.data.course_name);
+            document.title = resp.data.course_name + ' - AI 师傅'
+            const metaDescription = document.querySelector('meta[name="description"]');
+            if (metaDescription) {
+              metaDescription.setAttribute('content', resp.data.course_desc);
+            } else {
+              const newMetaDescription = document.createElement('meta');
+              newMetaDescription.setAttribute('name', 'description');
+              newMetaDescription.setAttribute('content', resp.data.course_desc);
+              document.head.appendChild(newMetaDescription);
+            }
           } else {
             window.location.href = '/404';
           }
