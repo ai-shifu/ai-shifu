@@ -57,7 +57,10 @@ class PluginManager:
         self.app.logger.info(f"execute_extensible_generic: {func_name}")
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
-                yield from runc(result, *args, **kwargs)
+                result = runc(result, *args, **kwargs)
+                if result:
+                    yield from result
+        return None
 
 
 def enable_plugin_manager(app: Flask):
@@ -96,9 +99,11 @@ def extensible_generic(func):
         if result:
             yield from result
         if func.__name__ in plugin_manager.extensible_generic_functions:
-            yield from plugin_manager.execute_extensible_generic(
+            result = plugin_manager.execute_extensible_generic(
                 func.__name__, *args, **kwargs
             )
+            if result:
+                yield from result
         return None
 
     return wrapper
