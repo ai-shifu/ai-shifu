@@ -2,7 +2,7 @@ from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, Numeric, DECIMA
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
-from .const import ASK_MODE_DEFAULT
+from .const import ASK_MODE_DEFAULT, LESSON_TYPE_TRIAL
 
 
 class AICourse(db.Model):
@@ -12,8 +12,10 @@ class AICourse(db.Model):
         String(36), nullable=False, default="", comment="Course UUID", index=True
     )
     course_name = Column(String(255), nullable=False, default="", comment="Course name")
-    course_desc = Column(Text, nullable=False, comment="Course description")
-    course_keywords = Column(Text, nullable=False, comment="Course keywords")
+    course_desc = Column(Text, nullable=False, comment="Course description", default="")
+    course_keywords = Column(
+        Text, nullable=False, comment="Course keywords", default=""
+    )
     course_price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Course price"
     )
@@ -83,14 +85,16 @@ class AILesson(db.Model):
         String(36), nullable=False, default="", comment="Course UUID", index=True
     )
     lesson_name = Column(String(255), nullable=False, default="", comment="Lesson name")
-    lesson_desc = Column(Text, nullable=False, comment="Lesson description")
+    lesson_desc = Column(Text, nullable=False, comment="Lesson description", default="")
     lesson_no = Column(String(32), nullable=True, default="0", comment="Lesson number")
     lesson_index = Column(Integer, nullable=False, default=0, comment="Lesson index")
     lesson_feishu_id = Column(
         String(255), nullable=False, default="", comment="Lesson feishu ID"
     )
     lesson_status = Column(Integer, nullable=False, default=0, comment="Lesson status")
-    lesson_type = Column(Integer, nullable=False, default=0, comment="Lesson type")
+    lesson_type = Column(
+        Integer, nullable=False, default=LESSON_TYPE_TRIAL, comment="Lesson type"
+    )
     lesson_summary = Column(Text, nullable=False, default="", comment="Lesson summary")
     lesson_language = Column(
         String(255), nullable=False, default="", comment="Lesson language"
