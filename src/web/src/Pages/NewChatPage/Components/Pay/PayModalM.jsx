@@ -295,7 +295,7 @@ export const PayModalM = ({
                     ) : (
                       <div className={styles.loginButtonWrapper}>
                         <MainButtonM onClick={onLoginButtonClick}>
-                          登录立享优惠
+                          登录
                         </MainButtonM>
                       </div>
                     )}

@@ -333,7 +333,7 @@ export const PayModal = ({
                 ) : (
                   <div className={styles.loginButtonWrapper}>
                     <MainButton onClick={onLoginButtonClick}>
-                      登录立享优惠
+                      登录
                     </MainButton>
                   </div>
                 )}
