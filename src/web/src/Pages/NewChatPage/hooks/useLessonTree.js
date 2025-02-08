@@ -45,6 +45,7 @@ export const useLessonTree = () => {
   }, []);
 
   const loadTreeInner = useCallback(async () => {
+    setSelectedLessonId(null);
     const resp = await getLessonTree(useEnvStore.getState().courseId);
 
     const treeData = resp.data;
@@ -119,21 +120,8 @@ export const useLessonTree = () => {
   // 用于重新加载课程树，但保持临时状态
   const reloadTree = useCallback(async (chapterId = 0, lessonId = 0) => {
     const newTree = await loadTreeInner();
-    const { lesson } = await getCurrElement();
     console.log('reload Tree', newTree)
-    const selected = setSelectedState(newTree, chapterId, lessonId);
-
-    if (!selected) {
-      // 设置当前选中的元素
-      newTree.catalogs.forEach(c => {
-        c.lessons.forEach(ls => {
-          if (ls.id === lesson.id) {
-            setSelectedLessonId(ls.id)
-          }
-        });
-      });
-    }
-
+    initialSelectedChapter(newTree);
     // 设置 collapse 状态
     await newTree.catalogs.forEach(c => {
       const oldCatalog = tree.catalogs.find(oc => oc.id === c.id);
@@ -144,7 +132,7 @@ export const useLessonTree = () => {
     });
     setTree(newTree);
     return newTree;
-  }, [getCurrElement, loadTreeInner, setSelectedState, tree]);
+  }, [loadTreeInner, tree]);
 
   const loadTree = useCallback(async (chapterId = '', lessonId = '') => {
     let newTree = null;
@@ -155,6 +143,7 @@ export const useLessonTree = () => {
     }
 
     const selected = setSelectedState(newTree, chapterId, lessonId);
+    console.log('loadTree', selected);
     if (!selected) {
       initialSelectedChapter(newTree);
     }
