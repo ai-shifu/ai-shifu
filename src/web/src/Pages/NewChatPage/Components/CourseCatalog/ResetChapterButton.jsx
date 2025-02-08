@@ -5,6 +5,7 @@ import { useCourseStore } from 'stores/useCourseStore.js';
 import { Modal } from 'antd';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking.js';
 import { useTranslation } from 'react-i18next';
+import { shifu } from 'Service/Shifu.js';
 
 export const ResetChapterButton = ({
   className,
@@ -26,6 +27,10 @@ export const ResetChapterButton = ({
         content: t('lesson.reset.resetConfirmContent'),
         onOk: () => {
           resetChapter(chapterId);
+          shifu.resetTools.resetChapter({
+            chapter_id: chapterId,
+            chapter_name: chapterName,
+          });
           trackEvent(EVENT_NAMES.RESET_CHAPTER_CONFIRM, {
             chapter_id: chapterId,
             chapter_name: chapterName,

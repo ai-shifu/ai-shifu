@@ -261,8 +261,14 @@ const NewChatPage = (props) => {
     })();
   }, [hasCheckLogin, initAndCheckLogin]);
 
+
+
   // listen global event
   useEffect(() => {
+    const resetChapterEventHandler = async (e) => {
+      console.log('resetChapterEventHandler', e);
+      await reloadTree();
+    };
     const eventHandler = () => {
       setLoginModalOpen(true);
     };
@@ -285,6 +291,11 @@ const NewChatPage = (props) => {
       payEventHandler
     );
 
+    shifu.events.addEventListener(
+      shifu.EventTypes.RESET_CHAPTER,
+      resetChapterEventHandler
+    );
+
     return () => {
       shifu.events.removeEventListener(
         shifu.EventTypes.OPEN_LOGIN_MODAL,
@@ -294,6 +305,11 @@ const NewChatPage = (props) => {
       shifu.events.removeEventListener(
         shifu.EventTypes.OPEN_PAY_MODAL,
         payEventHandler
+      );
+
+      shifu.events.removeEventListener(
+        shifu.EventTypes.RESET_CHAPTER,
+        resetChapterEventHandler
       );
     };
   });

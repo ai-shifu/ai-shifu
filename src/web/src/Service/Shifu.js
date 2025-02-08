@@ -18,6 +18,7 @@ const createShifu = () => {
     OPEN_PAY_MODAL: 'OPEN_PAY_MODAL',
     PAY_MODAL_OK: 'PAY_MODAL_OK',
     PAY_MODAL_CANCEL: 'PAY_MODAL_CANCEL',
+    RESET_CHAPTER: 'RESET_CHAPTER',
   }
 
   const ControlTypes = {
@@ -94,6 +95,12 @@ const createShifu = () => {
     }
   }
 
+  const resetTools = {
+    resetChapter: (e) => {
+      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.RESET_CHAPTER, { detail: e }));
+    }
+  }
+
   const stores = {
     useUserStore,
     useUiLayoutStore,
@@ -126,6 +133,7 @@ const createShifu = () => {
     ControlTypes,
     EventTypes,
     events: eventHandlers,
+    resetTools,
     registerChatInputActionControls,
     registerControl,
     installPlugin,
