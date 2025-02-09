@@ -483,8 +483,6 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         course_id = lesson_info.course_id
         if len(lesson_no) > 2:
             raise_error("LESSON.LESSON_CANNOT_BE_RESET")
-        # query the lesson tree
-        # get all the lessons
         lessons = AILesson.query.filter(
             AILesson.lesson_no.like(lesson_no + "%"),
             AILesson.status == 1,
@@ -511,9 +509,9 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
             )
             attend_info.attend_id = generate_id(app)
             if lesson.lesson_no == lesson_no:
-                attend_info.status = ATTEND_STATUS_NOT_STARTED
+                attend_info.status = ATTEND_STATUS_IN_PROGRESS
             if lesson.lesson_no == lesson_no + "01":
-                attend_info.status = ATTEND_STATUS_NOT_STARTED
+                attend_info.status = ATTEND_STATUS_IN_PROGRESS
             db.session.add(attend_info)
         db.session.commit()
         return True
