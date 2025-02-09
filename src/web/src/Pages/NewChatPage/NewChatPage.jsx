@@ -267,7 +267,9 @@ const NewChatPage = (props) => {
   useEffect(() => {
     const resetChapterEventHandler = async (e) => {
       console.log('resetChapterEventHandler', e);
+      setLoadedChapterId(null);
       await reloadTree();
+      setLoadedChapterId(e.detail.chapter_id);
     };
     const eventHandler = () => {
       setLoginModalOpen(true);
