@@ -5,14 +5,21 @@ import inspect
 swagger_config = {
     "openapi": "3.0.2",
     "info": {"title": "AI 师傅 - API 文档", "version": "1.0.0"},
-    "optional_fields": ["components"],
-    "tags": ["用户", "课程", "订单", "支付"],
+    # "optional_fields": ["components"],
     "components": {"schemas": {}},
     "specs": [
         {
             "endpoint": "apispec_1",
             "route": "/apispec_1.json",
         }
+    ],
+    "common_parameters": [
+        {
+            "name": "X-Request-ID",
+            "in": "header",
+            "required": False,
+            "schema": {"type": "string", "description": "请求唯一标识符"},
+        },
     ],
 }
 

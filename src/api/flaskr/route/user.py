@@ -34,40 +34,44 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         注册用户
         ---
         tags:
-          - 用户
-
-        definitions:
-            UserInfo:
-                type: object
-
-                properties:
-                    user_id:
-                        type: string
-                        description: 用户ID
-                    username:
-                        type: string
-                        description: 用户名
-                    email:
-                        type: string
-                        description: 邮箱
-                    name:
-                        type: string
-                        description: 姓名
-                    mobile:
-                        type: string
-                        description: 手机号
+          - user
         parameters:
-          - in: body
-            name: UserInfo
-            required: true
-            schema:
-              id: UserInfo
-              required:
-                - username
-                - password
-                - email
-                - name
-                - mobile
+            -   in:   body
+                required: true
+                schema:
+                    properties:
+                        username:
+                            type: string
+                            description: 用户名
+                        password:
+                            type: string
+                            description: 密码
+                        email:
+                            type: string
+                            description: 邮箱
+                        name:
+                            type: string
+                            description: 姓名
+                        mobile:
+                            type: string
+                            description: 手机号
+        responses:
+            200:
+                description: 注册成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: 参数错误
         """
         app.logger.info("register")
         username = request.get_json().get("username", "")
@@ -86,7 +90,42 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         用户登录
         ---
         tags:
-            -   用户
+            - user
+        parameters:
+            -   in: body
+                required: true
+                schema:
+                    properties:
+                        username:
+                            type: string
+                            description: 用户名
+                        password:
+                            type: string
+                            description: 密码
+            -   in: header
+                required: false
+                name: X-API-MODE
+                schema:
+                    type: string
+                    description: 模式 (api, admin)
+                    default: api
+        responses:
+            200:
+                description: 登录成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: 参数错误
         """
         app.logger.info("login")
         username = request.get_json().get("username", "")
@@ -110,11 +149,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             or request.endpoint in by_pass_login_func
             or request.endpoint is None
         ):
-            # 在登录和注册处理函数中绕过登录态验证
             return
-            # 检查装饰器标记，跳过Token校验
 
-        # 在这里执行登录态验证逻辑
         token = request.cookies.get("token", None)
         if not token:
             token = request.args.get("token", None)
@@ -131,6 +167,27 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/info", methods=["GET"])
     def info():
+        """
+        获取用户信息
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: 获取用户信息
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    $ref: "#/components/schemas/UserInfo"
+        """
         return make_common_response(request.user)
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
@@ -169,7 +226,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         临时登录用户
         ---
         tags:
-            - 用户
+            - user
         parameters:
             -   in: body
                 required: true
@@ -227,7 +284,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         生成图形验证码
         ---
         tags:
-            - 用户
+            - user
         """
         mobile = request.get_json().get("mobile", None)
         if not mobile:
@@ -241,7 +298,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         发送短信验证码
         ---
         tags:
-           - 用户
+           - user
 
         parameters:
           - in: body
@@ -316,7 +373,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         获取用户信息
         ---
         tags:
-            - 用户
+            - user
         responses:
             200:
                 description: 返回用户信息
@@ -343,7 +400,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         更新用户信息
         ---
         tags:
-            - 用户
+            - user
         parameters:
             - in: body
               name: body
@@ -391,7 +448,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         上传头像
         ---
         tags:
-            - 用户
+            - user
         parameters:
             - in: formData
               name: avatar
@@ -425,10 +482,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     def update_wechat_openid():
         """
-        更新微信openid
+        Update Wechat OpenID
         ---
+        summary: 更新微信openid
         tags:
-            - 用户
+            - user
         parameters:
             - in: body
               name: body
@@ -470,7 +528,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         提交反馈
         ---
         tags:
-            - 用户
+            - user
         parameters:
             - in: body
               name: body

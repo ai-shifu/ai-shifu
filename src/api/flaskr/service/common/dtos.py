@@ -22,9 +22,9 @@ class UserInfo:
     name: str
     email: str
     mobile: str
-    model: str
     user_state: str
     language: str
+    user_avatar: str
 
     def __init__(
         self,
@@ -33,20 +33,20 @@ class UserInfo:
         name,
         email,
         mobile,
-        model,
         user_state,
         wx_openid,
         language,
+        user_avatar,
     ):
         self.user_id = user_id
         self.username = username
         self.name = name
         self.email = email
         self.mobile = mobile
-        self.model = model
         self.user_state = USE_STATE_VALUES[user_state]
         self.wx_openid = wx_openid
         self.language = language
+        self.user_avatar = user_avatar
 
     def __json__(self):
         return {
@@ -58,6 +58,7 @@ class UserInfo:
             "state": self.user_state,
             "openid": self.wx_openid,
             "language": self.language,
+            "avatar": self.user_avatar,
         }
 
     def __html__(self):

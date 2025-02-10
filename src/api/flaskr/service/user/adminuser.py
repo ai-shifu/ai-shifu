@@ -29,7 +29,6 @@ def create_new_user(
             password_hash=password_hash,
             email=email,
             mobile=mobile,
-            default_model=app.config["OPENAI_DEFAULT_MODEL"],
         )
         db.session.add(new_user)
         db.session.commit()
