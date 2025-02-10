@@ -1,5 +1,5 @@
 from ...common.swagger import register_schema_to_swagger
-
+import math
 
 USER_STATE_UNTEGISTERED = 0
 USER_STATE_REGISTERED = 1
@@ -87,7 +87,7 @@ class PageNationDTO:
         self.page = page
         self.page_size = page_size
         self.total = total
-        self.page_count = total // page_size + 1
+        self.page_count = math.ceil(total / page_size)
         self.data = data
 
     def __json__(self):

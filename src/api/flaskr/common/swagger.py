@@ -4,22 +4,13 @@ import inspect
 
 swagger_config = {
     "openapi": "3.0.2",
-    "info": {"title": "AI 师傅 - API 文档", "version": "1.0.0"},
-    # "optional_fields": ["components"],
+    "info": {"title": "AI Shifu API", "version": "1.0.0"},
     "components": {"schemas": {}},
     "specs": [
         {
             "endpoint": "apispec_1",
             "route": "/apispec_1.json",
         }
-    ],
-    "common_parameters": [
-        {
-            "name": "X-Request-ID",
-            "in": "header",
-            "required": False,
-            "schema": {"type": "string", "description": "请求唯一标识符"},
-        },
     ],
 }
 
@@ -52,7 +43,6 @@ def get_field_schema(typ, description: str = ""):
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
-
     if typ in (str, int, float, bool):
         field_schema["type"] = typ.__name__
         if typ == str:
