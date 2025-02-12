@@ -161,3 +161,11 @@ def mark_or_unmark_favorite_scenario(
         return mark_favorite_scenario(app, user_id, scenario_id)
     else:
         return unmark_favorite_scenario(app, user_id, scenario_id)
+
+
+def check_scenario_exist(app, scenario_id: str):
+    with app.app_context():
+        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        if scenario:
+            return
+        raise_error("SCENARIO.SCENARIO_NOT_FOUND")

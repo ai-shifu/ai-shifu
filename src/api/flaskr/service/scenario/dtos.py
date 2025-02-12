@@ -28,3 +28,26 @@ class ScenarioDto:
             "scenario_state": self.scenario_state,
             "is_favorite": self.is_favorite,
         }
+
+
+@register_schema_to_swagger
+class ChapterDto:
+    def __init__(
+        self,
+        chapter_id: str,
+        chapter_name: str,
+        chapter_description: str,
+        chapter_type: int,
+    ):
+        self.chapter_id = chapter_id
+        self.chapter_name = chapter_name
+        self.chapter_description = chapter_description
+        self.chapter_type = chapter_type
+
+    def __json__(self):
+        return {
+            "chapter_id": self.chapter_id,
+            "chapter_name": self.chapter_name,
+            "chapter_description": self.chapter_description,
+            "chapter_type": self.chapter_type,
+        }

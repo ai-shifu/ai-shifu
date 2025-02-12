@@ -1,8 +1,15 @@
 from flask import Flask, request
 from .funcs import get_scenario_list, create_scenario, mark_or_unmark_favorite_scenario
+from .chapter_funcs import (
+    get_chapter_list,
+    create_chapter,
+    modify_chapter,
+    delete_chapter,
+)
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_error
+from ..lesson.models import LESSON_TYPE_TRIAL
 
 
 @inject
@@ -160,9 +167,206 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
         is_favorite = request.get_json().get("is_favorite")
-        is_favorite = True if is_favorite.lower() == "true" else False
+        if isinstance(is_favorite, str):
+            is_favorite = True if is_favorite.lower() == "true" else False
+        elif isinstance(is_favorite, bool):
+            is_favorite = is_favorite
+        else:
+            raise_error("COMMON.PARAMS_ERROR", "is_favorite is not a boolean")
         return make_common_response(
             mark_or_unmark_favorite_scenario(app, user_id, scenario_id, is_favorite)
         )
+
+    @app.route(path_prefix + "/chapters", methods=["GET"])
+    def get_chapter_list_api():
+        """
+        get chapter list
+        ---
+        tags:
+            - scenario
+        parameters:
+            - name: scenario_id
+              type: string
+              required: true
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        if not scenario_id:
+            raise_error("COMMON.PARAMS_ERROR", "scenario_id is required")
+        return make_common_response(get_chapter_list(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/create-chapter", methods=["POST"])
+    def create_chapter_api():
+        """
+        create chapter
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    chapter_name:
+                        type: string
+                        description: chapter name
+                    chapter_description:
+                        type: string
+                        description: chapter description
+                    chapter_index:
+                        type: integer
+                        description: chapter index
+        responses:
+            200:
+                description: create chapter success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ChapterDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        if not scenario_id:
+            raise_error("COMMON.PARAMS_ERROR", "scenario_id is required")
+        chapter_name = request.get_json().get("chapter_name")
+        if not chapter_name:
+            raise_error("COMMON.PARAMS_ERROR", "chapter_name is required")
+        chapter_description = request.get_json().get("chapter_description")
+        if not chapter_description:
+            raise_error("COMMON.PARAMS_ERROR", "chapter_description is required")
+        chapter_index = request.get_json().get("chapter_index", None)
+        chapter_type = request.get_json().get("chapter_type", LESSON_TYPE_TRIAL)
+        return make_common_response(
+            create_chapter(
+                app,
+                user_id,
+                scenario_id,
+                chapter_name,
+                chapter_description,
+                chapter_index,
+                chapter_type,
+            )
+        )
+
+    @app.route(path_prefix + "/modify-chapter", methods=["POST"])
+    def modify_chapter_api():
+        """
+        modify chapter
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    chapter_id:
+                        type: string
+                        description: chapter id
+                    chapter_name:
+                        type: string
+                        description: chapter name
+                    chapter_description:
+                        type: string
+                        description: chapter description
+                    chapter_index:
+                        type: integer
+                        description: chapter index
+        responses:
+            200:
+                description: modify chapter success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ChapterDto"
+        """
+        user_id = request.user.user_id
+        chapter_id = request.get_json().get("chapter_id")
+        if not chapter_id:
+            raise_error("COMMON.PARAMS_ERROR", "chapter_id is required")
+        chapter_name = request.get_json().get("chapter_name")
+        if not chapter_name:
+            raise_error("COMMON.PARAMS_ERROR", "chapter_name is required")
+        chapter_description = request.get_json().get("chapter_description")
+        if not chapter_description:
+            raise_error("COMMON.PARAMS_ERROR", "chapter_description is required")
+        chapter_index = request.get_json().get("chapter_index", None)
+        chapter_type = request.get_json().get("chapter_type", LESSON_TYPE_TRIAL)
+        return make_common_response(
+            modify_chapter(
+                app,
+                user_id,
+                chapter_id,
+                chapter_name,
+                chapter_description,
+                chapter_index,
+                chapter_type,
+            )
+        )
+
+    @app.route(path_prefix + "/delete-chapter", methods=["POST"])
+    def delete_chapter_api():
+        """
+        delete chapter
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    chapter_id:
+                        type: string
+                        description: chapter id
+        responses:
+            200:
+                description: delete chapter success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: boolean
+                                    description: is deleted
+        """
+        user_id = request.user.user_id
+        chapter_id = request.get_json().get("chapter_id")
+        if not chapter_id:
+            raise_error("COMMON.PARAMS_ERROR", "chapter_id is required")
+        return make_common_response(delete_chapter(app, user_id, chapter_id))
 
     return app
