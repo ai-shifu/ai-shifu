@@ -161,6 +161,9 @@ const convertEventInputModal = ({ type, content, script_id }) => {
   }
 };
 
+
+
+
 export const ChatComponents = forwardRef(
   (
     {
@@ -217,6 +220,12 @@ export const ChatComponents = forwardRef(
 
     const { messages, appendMsg, setTyping, updateMsg, resetList, deleteMsg } =
       useMessages([]);
+
+
+    const lastMsgRef = useRef(null);
+
+
+
 
     const { autoScroll, onMessageListScroll, scrollToLesson, scrollToBottom } =
       useChatComponentsScroll({
@@ -364,10 +373,10 @@ export const ChatComponents = forwardRef(
                 );
                 lastMsg.content = lastMsg.content + currText;
                 updateMsg(lastMsg.id, lastMsg);
-              } else {
-                const id = genUuid();
+                lastMsgRef.current = lastMsg;
+              }else{
                 lastMsg = createMessage({
-                  id: id,
+                  id: genUuid(),
                   type: response.type,
                   role: USER_ROLE.TEACHER,
                   content: response.content,
@@ -375,10 +384,12 @@ export const ChatComponents = forwardRef(
                   teach_avator: teach_avator,
                 });
                 appendMsg(lastMsg);
+                lastMsgRef.current = lastMsg;
               }
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
+              lastMsgRef.current = null;
               if (isEnd) {
                 return;
               }
@@ -838,7 +849,6 @@ export const ChatComponents = forwardRef(
       const onGoToNavigationNode = (e) => {
         console.log('onGoToNavigationNode', e.detail);
         const { chapterId, lessonId } = e.detail;
-
         if (chapterId !== loadedChapterId) {
           return;
         }
@@ -859,6 +869,21 @@ export const ChatComponents = forwardRef(
         );
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
+
+    useEffect(() => {
+      console.log('lastMsgRef.current', lastMsgRef.current);
+      console.log('messages', messages);
+      if (lastMsgRef.current) {
+        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        console.log('messageIndex', messageIndex);
+        if (messageIndex === -1) {
+          appendMsg(lastMsgRef.current);
+        } else if (messageIndex !== messages.length - 1) {
+          deleteMsg(lastMsgRef.current.id);
+          appendMsg(lastMsgRef.current);
+        }
+      }
+    }, [messages, appendMsg]);
 
     return (
       <div
