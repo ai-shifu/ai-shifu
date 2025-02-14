@@ -390,6 +390,7 @@ export const ChatComponents = forwardRef(
               setIsStreaming(false);
               setTyping(false);
               lastMsgRef.current = null;
+              lastMsg = null;
               if (isEnd) {
                 return;
               }
