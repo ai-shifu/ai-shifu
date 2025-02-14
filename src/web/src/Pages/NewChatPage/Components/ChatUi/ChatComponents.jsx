@@ -871,11 +871,8 @@ export const ChatComponents = forwardRef(
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
 
     useEffect(() => {
-      console.log('lastMsgRef.current', lastMsgRef.current);
-      console.log('messages', messages);
       if (lastMsgRef.current) {
         const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
-        console.log('messageIndex', messageIndex);
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
         } else if (messageIndex !== messages.length - 1) {
