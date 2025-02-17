@@ -226,7 +226,7 @@ export const ChatComponents = forwardRef(
         appendMsg,
         deleteMsg,
       });
-
+    const lastMsgRef = useRef(null);
     const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
       useShallow((state) => ({
         checkLogin: state.checkLogin,
@@ -364,6 +364,7 @@ export const ChatComponents = forwardRef(
                 );
                 lastMsg.content = lastMsg.content + currText;
                 updateMsg(lastMsg.id, lastMsg);
+                lastMsgRef.current = lastMsg;
               } else {
                 const id = genUuid();
                 lastMsg = createMessage({
@@ -375,10 +376,13 @@ export const ChatComponents = forwardRef(
                   teach_avator: teach_avator,
                 });
                 appendMsg(lastMsg);
+                lastMsgRef.current = lastMsg;
               }
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
+              lastMsgRef.current = null;
+              lastMsg = null;
               if (isEnd) {
                 return;
               }
@@ -859,6 +863,17 @@ export const ChatComponents = forwardRef(
         );
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
+    useEffect(() => {
+      if (lastMsgRef.current) {
+        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        if (messageIndex === -1) {
+          appendMsg(lastMsgRef.current);
+        } else if (messageIndex !== messages.length - 1) {
+          deleteMsg(lastMsgRef.current.id);
+          appendMsg(lastMsgRef.current);
+        }
+      }
+    }, [messages, appendMsg, deleteMsg]);
 
     return (
       <div
