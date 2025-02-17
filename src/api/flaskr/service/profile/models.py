@@ -83,6 +83,9 @@ class ProfileItem(db.Model):
     profile_value_type = Column(Integer, nullable=False, default=0, comment="")
     profile_show_type = Column(Integer, nullable=False, default=0, comment="")
     profile_remark = Column(Text, nullable=False, comment="Profile remark")
+    profile_color = Column(
+        String(255), nullable=False, default="", comment="Profile color"
+    )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
     )
