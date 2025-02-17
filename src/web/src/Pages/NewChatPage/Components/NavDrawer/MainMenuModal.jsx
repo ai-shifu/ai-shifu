@@ -48,7 +48,7 @@ const MainMenuModal = ({
       label: lang.label,
     })),
     onClick: async ({ key }) => {
-      i18n.changeLanguage(key);
+
       const languageData = LANGUAGE_DICT[key];
 
       if (languageData) {
@@ -59,6 +59,7 @@ const MainMenuModal = ({
           await updateUserProfile(data);
         }
       }
+      i18n.changeLanguage(key);
     },
   };
 
