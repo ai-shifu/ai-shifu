@@ -25,14 +25,15 @@ def handle_input_continue(
     trace: Trace,
     trace_args,
 ):
-    log_script = generation_attend(app, attend, script_info)
-    log_script.script_content = script_info.script_ui_content
-    log_script.script_role = ROLE_STUDENT
-    # log_script.script_ui_conf = json.dumps({})
-    db.session.add(log_script)
-    span = trace.span(name="user_continue", input=input)
-    span.end()
-    db.session.flush()
+    if script_info.script_ui_content != "继续":
+        log_script = generation_attend(app, attend, script_info)
+        log_script.script_content = script_info.script_ui_content
+        log_script.script_role = ROLE_STUDENT
+        # log_script.script_ui_conf = json.dumps({})
+        db.session.add(log_script)
+        span = trace.span(name="user_continue", input=input)
+        span.end()
+        db.session.flush()
     continue_func = CONTINUE_HANDLE_MAP.get(script_info.script_ui_type, None)
     if continue_func:
         continue_func(

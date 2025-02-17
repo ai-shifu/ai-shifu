@@ -338,6 +338,8 @@ const NewChatPage = (props) => {
 
   useEffect(() => {
     setLanguage(i18n.language);
+    console.log('language', i18n.language);
+    reloadTree();
   }, [i18n.language]);
 
   return (

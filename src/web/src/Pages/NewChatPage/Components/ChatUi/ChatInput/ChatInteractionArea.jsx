@@ -19,7 +19,7 @@ importAll(require.context('./InputComponents', true, /\.jsx$/));
 export const ChatInteractionArea = ({
   type = INTERACTION_DISPLAY_TYPE.TEXT,
   props = {},
-  onSend = (type, val, scriptId) => {},
+  onSend = (type, display, val, scriptId) => {},
   disabled = false,
   askButtonState = { askMode: false, total: 1, used: 0 },
   onSizeChange = ({ width, height }) => {},
@@ -28,11 +28,11 @@ export const ChatInteractionArea = ({
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
 
-  const onSendFunc = (type, val) => {
+  const onSendFunc = (type, display, val) => {
     if (disabled) {
       return;
     }
-    onSend?.(type, val, props.scriptId);
+    onSend?.(type, display, val, props.scriptId);
   };
 
   const genRenderControl = () => {
@@ -64,9 +64,9 @@ export const ChatInteractionArea = ({
     setInputVisible(!isInputVisible);
   };
 
-  const onSendAsk = (type, val) => {
+  const onSendAsk = (type, display, val) => {
     setInputVisible(false);
-    onSendFunc?.(INTERACTION_TYPE.ASK, val);
+    onSendFunc?.(INTERACTION_TYPE.ASK, true, val);
   };
 
   useEffect(() => {

@@ -38,7 +38,7 @@ export const UserSettings = ({
     }))
   );
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const [sexSettingModalOpen, setSexSettingModalOpen] = useState(false);
   const [birthModalOpen, setBirthModalOpen] = useState(false);
@@ -133,6 +133,11 @@ export const UserSettings = ({
     });
     setDynFormData(respData.filter((v) => (!fixed_keys.includes(v.key) && !hidden_keys.includes(v.key))));
   }, []);
+
+
+  useEffect(() => {
+    loadData();
+  },[i18n.language]);
 
   const onChangeAvatarChanged = useCallback(({ dataUrl }) => {
     setAvatar(dataUrl);
