@@ -87,10 +87,6 @@ def get_profile_labels():
             "type": "image",
             "default": "",
         },
-        "industry": {"label": _("PROFILE.INDUSTRY")},
-        "occupation": {
-            "label": _("PROFILE.OCCUPATION"),
-        },
         "language": {
             "label": _("PROFILE.LANGUAGE"),
             "items": ["中文", "English"],
@@ -98,30 +94,8 @@ def get_profile_labels():
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
             "default": "zh-CN",
         },
-        "ai_tools": {
-            "label": _("PROFILE.AI_TOOLS"),
-            "items": ["GitHub Copilot", "通义灵码", "Cursor"],
-            "items_mapping": {
-                "GitHub_Copilot": "GitHub Copilot",
-                "通义灵码": "通义灵码",
-                "Cursor": "Cursor",
-            },
-        },
         "style": {
             "label": _("PROFILE.STYLE"),
-            "items": ["幽默风趣", "严肃专业", "鼓励温暖"],
-        },
-        "programming": {
-            "label": _("PROFILE.PROGRAMMING"),
-            "items": ["完全没接触过", "学过但还无法编写程序", "会1门及以上语言"],
-        },
-        "user_os": {
-            "label": _("PROFILE.USER_OS"),
-            "items": [
-                "Windows",
-                "MacOS",
-            ],
-            "items_mapping": {"win": "Windows", "mac": "MacOS"},
         },
     }
 

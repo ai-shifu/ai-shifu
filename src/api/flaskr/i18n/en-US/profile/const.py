@@ -1,5 +1,5 @@
 NICKNAME = "Nickname"
-USER_BACKGROUND = "User Background"
+USER_BACKGROUND = "Background"
 SEX = "Sex"
 BIRTH = "Birth"
 AVATAR = "Avatar"

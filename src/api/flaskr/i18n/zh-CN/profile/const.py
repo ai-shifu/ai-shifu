@@ -1,5 +1,5 @@
 NICKNAME = "昵称"
-USER_BACKGROUND = "用户背景"
+USER_BACKGROUND = "背景"
 SEX = "性别"
 BIRTH = "生日"
 AVATAR = "头像"
