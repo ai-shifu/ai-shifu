@@ -19,11 +19,17 @@ def handle_input_button(
     trace,
     trace_args,
 ) -> ScriptDTO:
+    app.logger.info("handle_input_button:{}".format(script_info.script_ui_content))
+    if script_info.script_ui_content == "继续":
+        display = False
+    else:
+        display = True
     btn = [
         {
             "label": script_info.script_ui_content,
             "value": script_info.script_ui_content,
             "type": INPUT_TYPE_CONTINUE,
+            "display": display,
         }
     ]
     return ScriptDTO(

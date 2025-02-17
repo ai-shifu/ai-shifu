@@ -16,7 +16,7 @@ export const ChatInputSmsCode = ({ onClick, type, props }) => {
       return
     }
 
-    onClick?.(INTERACTION_OUTPUT_TYPE.CHECKCODE, inputData);
+    onClick?.(INTERACTION_OUTPUT_TYPE.CHECKCODE, true, inputData);
     setInput('');
   }
 
