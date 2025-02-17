@@ -12,12 +12,12 @@ from ...dao import db
 
 PROFILE_TYPE_SYSTEM = 2801
 PROFILE_TYPE_USER = 2802
-PROFILE_TYPE_PLATFORM = 2803
-PROFILE_TYPE_COURSE = 2804
-PROFILE_TYPE_COURSE_SECTION = 2805
-PROFILE_TYPE_TEMP = 2806
+PROFILE_TYPE_COURSE = 2803
+PROFILE_TYPE_COURSE_SECTION = 2804
+PROFILE_TYPE_TEMP = 2805
 
 
+PROFILE_TYPE_INPUT_UNCONF = 2900
 PROFILE_TYPE_INPUT_TEXT = 2901
 PROFILE_TYPE_INPUT_NUMBER = 2902
 PROFILE_TYPE_INPUT_SELECT = 2903
@@ -27,13 +27,14 @@ PROFILE_TYPE_INPUT_DATE = 2905
 
 PROFILE_SHOW_TYPE_ALL = 3001
 PROFILE_SHOW_TYPE_USER = 3002
-PROFILE_SHOW_TYPE_PLATFORM = 3003
-PROFILE_SHOW_TYPE_COURSE = 3004
+PROFILE_SHOW_TYPE_COURSE = 3003
+PROFILE_SHOW_TYPE_HIDDEN = 3004
 
 PROFILE_CONF_TYPE_PROFILE = 3101
 PROFILE_CONF_TYPE_ITEM = 3102
 
 
+# table to save user profile
 class UserProfile(db.Model):
     __tablename__ = "user_profile"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
@@ -68,6 +69,7 @@ class UserProfile(db.Model):
     )
 
 
+# table to save profile item / definations
 class ProfileItem(db.Model):
     __tablename__ = "profile_item"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
@@ -83,8 +85,13 @@ class ProfileItem(db.Model):
     profile_value_type = Column(Integer, nullable=False, default=0, comment="")
     profile_show_type = Column(Integer, nullable=False, default=0, comment="")
     profile_remark = Column(Text, nullable=False, comment="Profile remark")
-    profile_color = Column(
+    profile_color_setting = Column(
         String(255), nullable=False, default="", comment="Profile color"
+    )
+    profile_check_prompt = Column(Text, nullable=False, comment="Profile check prompt")
+    profile_check_model = Column(String(255), nullable=False, default="", comment="")
+    profile_check_model_args = Column(
+        Text, nullable=False, comment="Profile check model args"
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
@@ -101,6 +108,10 @@ class ProfileItem(db.Model):
     )
     created_by = Column(String(36), nullable=False, default="", comment="Created by")
     updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
+
+
+# table to save profile item value
+# only for option type
 
 
 class ProfileItemValue(db.Model):
@@ -126,6 +137,9 @@ class ProfileItemValue(db.Model):
     )
     created_by = Column(String(36), nullable=False, default="", comment="Created by")
     updated_by = Column(String(36), nullable=False, default="", comment="Updated by")
+
+
+# table to save profile item i18n
 
 
 class ProfileItemI18n(db.Model):
