@@ -17,17 +17,27 @@ class AICourseLessonAttendScript(db.Model):
     log_id = Column(
         String(36), nullable=False, index=True, default="", comment="Log UUID"
     )
-    attend_id = Column(String(36), nullable=False, default="", comment="Attend UUID")
-    script_id = Column(String(36), nullable=False, default="", comment="Script UUID")
-    lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
-    course_id = Column(String(36), nullable=False, default="", comment="Course UUID")
+    attend_id = Column(
+        String(36), nullable=False, default="", comment="Attend UUID", index=True
+    )
+    script_id = Column(
+        String(36), nullable=False, default="", comment="Script UUID", index=True
+    )
+    lesson_id = Column(
+        String(36), nullable=False, default="", comment="Lesson UUID", index=True
+    )
+    course_id = Column(
+        String(36), nullable=False, default="", comment="Course UUID", index=True
+    )
     script_ui_type = Column(
         Integer, nullable=False, default=0, comment="Script UI type"
     )
     script_ui_conf = Column(
         Text, nullable=False, default="", comment="Script UI Config"
     )
-    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    user_id = Column(
+        String(36), nullable=False, default="", comment="User UUID", index=True
+    )
     script_index = Column(Integer, nullable=False, default=0, comment="Script index")
     script_role = Column(Integer, nullable=False, default=0, comment="Script role")
     script_content = Column(Text, nullable=False, comment="Script content")
