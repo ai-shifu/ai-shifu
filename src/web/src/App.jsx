@@ -209,7 +209,6 @@ const App = () => {
 
   useEffect(() => {
     if (!envDataInitialized) return;
-    console.log('i18n.changeLanguage(language)', language);
     i18n.changeLanguage(language);
     updateLanguage(language);
   }, [language, envDataInitialized, updateLanguage]);
