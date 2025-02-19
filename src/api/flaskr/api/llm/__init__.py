@@ -107,6 +107,7 @@ else:
 
 # ernie
 ernie_enabled = False
+ERNIE_MODELS = []
 
 if get_config("ERNIE_API_ID") and get_config("ERNIE_API_SECRET"):
     ernie_enabled = True
