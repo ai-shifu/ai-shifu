@@ -314,6 +314,7 @@ def invoke_llm(
     response_text = ""
     usage = None
     client, invoke_model = get_openai_client_and_model(model)
+    start_completion_time = None
     if client:
         messages = []
         if system:
@@ -328,6 +329,8 @@ def invoke_llm(
         )
 
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
             if len(res.choices) and res.choices[0].delta.content:
                 response_text += res.choices[0].delta.content
                 yield LLMStreamResponse(
@@ -360,6 +363,8 @@ def invoke_llm(
             kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         response = get_ernie_response(app, model, message, **kwargs)
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
             response_text += res.result
             if res.usage:
                 usage = ModelUsage(
@@ -391,7 +396,9 @@ def invoke_llm(
         messages.append({"content": message, "role": "user"})
         response = invoke_glm(app, model.lower(), messages, **kwargs)
         for res in response:
-            response_text += res.choices[0].delta.content
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
+            response_text += res.result
             if res.usage:
                 usage = ModelUsage(
                     unit="TOKENS",
@@ -410,6 +417,8 @@ def invoke_llm(
     elif model in DIFY_MODELS:
         response = dify_chat_message(app, message, user_id)
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
             if res.event == "message":
                 response_text += res.answer
                 yield LLMStreamResponse(
@@ -429,7 +438,11 @@ def invoke_llm(
     app.logger.info(f"invoke_llm response: {response_text} ")
     app.logger.info(f"invoke_llm usage: {usage.__str__()}")
     generation.end(
-        input=generation_input, output=response_text, usage=usage, metadata=kwargs
+        input=generation_input,
+        output=response_text,
+        usage=usage,
+        metadata=kwargs,
+        completion_start_time=start_completion_time,
     )
     span.end(output=response_text)
 
@@ -453,7 +466,7 @@ def chat_llm(
     )
     response_text = ""
     usage = None
-
+    start_completion_time = None
     if kwargs.get("temperature", None) is not None:
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
     client, invoke_model = get_openai_client_and_model(model)
@@ -462,6 +475,8 @@ def chat_llm(
             model=invoke_model, messages=messages, **kwargs
         )
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
             if len(res.choices) and res.choices[0].delta.content:
                 response_text += res.choices[0].delta.content
                 yield LLMStreamResponse(
@@ -490,6 +505,8 @@ def chat_llm(
             kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         response = chat_ernie(app, model, messages, **kwargs)
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
             response_text += res.result
             if res.usage:
                 usage = ModelUsage(
@@ -517,6 +534,8 @@ def chat_llm(
             kwargs["temperature"] = str(kwargs["temperature"])
         response = invoke_glm(app, model.lower(), messages, **kwargs)
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = datetime.now()
             response_text += res.choices[0].delta.content
             if res.usage:
                 usage = ModelUsage(
@@ -536,6 +555,8 @@ def chat_llm(
     elif model in DIFY_MODELS:
         response = dify_chat_message(app, messages[-1]["content"], user_id)
         for res in response:
+            if start_completion_time is None:
+                start_completion_time = res.result.completion_start_time
             if res.event == "message":
                 response_text += res.answer
                 yield LLMStreamResponse(
@@ -555,7 +576,11 @@ def chat_llm(
     app.logger.info(f"invoke_llm response: {response_text} ")
     app.logger.info(f"invoke_llm usage: {usage.__str__()}")
     generation.end(
-        input=generation_input, output=response_text, usage=usage, metadata=kwargs
+        input=generation_input,
+        output=response_text,
+        usage=usage,
+        metadata=kwargs,
+        completion_start_time=start_completion_time,
     )
 
 
