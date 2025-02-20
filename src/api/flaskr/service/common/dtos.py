@@ -22,7 +22,6 @@ class UserInfo:
     name: str
     email: str
     mobile: str
-    model: str
     user_state: str
     language: str
 
@@ -33,7 +32,6 @@ class UserInfo:
         name,
         email,
         mobile,
-        model,
         user_state,
         wx_openid,
         language,
@@ -43,7 +41,6 @@ class UserInfo:
         self.name = name
         self.email = email
         self.mobile = mobile
-        self.model = model
         self.user_state = USE_STATE_VALUES[user_state]
         self.wx_openid = wx_openid
         self.language = language
