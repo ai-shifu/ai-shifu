@@ -76,7 +76,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         name = request.get_json().get("name", "")
         mobile = request.get_json().get("mobile", "")
         user_token = create_new_user(app, username, name, password, email, mobile)
-        resp = make_response(make_common_response(user_token.userInfo))
+        resp = make_response(make_common_response(user_token))
         return resp
 
     @app.route(path_prefix + "/login", methods=["POST"])
