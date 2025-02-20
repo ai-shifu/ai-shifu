@@ -2,15 +2,20 @@ from flask import Flask
 from .models import (
     ProfileItem,
     ProfileItemValue,
+    ProfileItemI18n,
     PROFILE_TYPE_INPUT_UNCONF,
     PROFILE_SHOW_TYPE_HIDDEN,
     PROFILE_TYPE_INPUT_TEXT,
     PROFILE_TYPE_INPUT_SELECT,
+    PROFILE_CONF_TYPE_PROFILE,
+    PROFILE_CONF_TYPE_ITEM,
 )
 from ...dao import db
 from flaskr.util.uuid import generate_id
 import json
 from flaskr.service.common import raise_error
+
+# from datetime import datetime
 
 
 class ProfileItemDefinationDTO:
@@ -237,3 +242,49 @@ def get_profile_item_defination(app: Flask, parent_id: str, profile_key: str):
                 get_color_setting(profile_item.profile_color_setting),
             )
         return None
+
+
+def add_profile_i18n(
+    app: Flask,
+    parent_id: str,
+    conf_type: int,
+    language: str,
+    profile_item_remark: str,
+    user_id: str,
+):
+    with app.app_context():
+        if conf_type == PROFILE_CONF_TYPE_PROFILE:
+            profile_item = ProfileItem.query.filter(
+                ProfileItem.profile_id == parent_id
+            ).first()
+        elif conf_type == PROFILE_CONF_TYPE_ITEM:
+            profile_item = ProfileItemValue.query.filter(
+                ProfileItemValue.profile_id == parent_id
+            ).first()
+        else:
+            raise_error("PROFILE.CONF_TYPE_INVALID")
+        if not profile_item:
+            raise_error("PROFILE.NOT_FOUND")
+        profile_i18n = ProfileItemI18n.query.filter(
+            ProfileItemI18n.parent_id == parent_id,
+            ProfileItemI18n.conf_type == conf_type,
+            ProfileItemI18n.language == language,
+            ProfileItemI18n.status == 1,
+        ).first()
+        if not profile_i18n:
+            profile_i18n = ProfileItemI18n(
+                i18n_id=generate_id(app),
+                parent_id=parent_id,
+                conf_type=conf_type,
+                language=language,
+                profile_item_remark=profile_item_remark,
+                created_by=user_id,
+                updated_by=user_id,
+                status=1,
+            )
+        else:
+            profile_i18n.profile_item_remark = profile_item_remark
+            profile_i18n.updated_by = user_id
+        db.session.merge(profile_i18n)
+        db.session.commit()
+        return profile_i18n

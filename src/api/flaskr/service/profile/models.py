@@ -85,6 +85,12 @@ class ProfileItem(db.Model):
     profile_value_type = Column(Integer, nullable=False, default=0, comment="")
     profile_show_type = Column(Integer, nullable=False, default=0, comment="")
     profile_remark = Column(Text, nullable=False, comment="Profile remark")
+    profile_prompt_type = Column(Integer, nullable=False, default=0, comment="")
+    profile_prompt = Column(Text, nullable=False, comment="Profile prompt")
+    profile_prompt_model = Column(Text, nullable=False, comment="Profile prompt model")
+    profile_prompt_model_args = Column(
+        Text, nullable=False, comment="Profile prompt model args"
+    )
     profile_color_setting = Column(
         String(255), nullable=False, default="", comment="Profile color"
     )
@@ -92,6 +98,9 @@ class ProfileItem(db.Model):
     profile_check_model = Column(String(255), nullable=False, default="", comment="")
     profile_check_model_args = Column(
         Text, nullable=False, comment="Profile check model args"
+    )
+    profile_script_id = Column(
+        String(36), nullable=False, default="", comment="Profile script id", index=True
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
