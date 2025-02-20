@@ -50,6 +50,7 @@ DEFAULT_COLOR_SETTINGS = [
 ]
 
 
+# get color setting
 def get_color_setting(color_setting: str):
     if color_setting:
         json_data = json.loads(color_setting)
@@ -67,9 +68,14 @@ class ProfileItemDefination:
     def __json__(self):
         return {"profile_key": self.profile_key, "color_setting": self.color_setting}
 
+    def __str__(self):
+        return str(self.__json__())
+
 
 def get_next_corlor_setting(parent_id: str):
-    profile_items_count = ProfileItem.query.filter_by(parent_id=parent_id).count()
+    profile_items_count = ProfileItem.query.filter(
+        ProfileItem.parent_id == parent_id, ProfileItem.status == 1
+    ).count()
     return DEFAULT_COLOR_SETTINGS[
         (profile_items_count + 1) % len(DEFAULT_COLOR_SETTINGS)
     ]
@@ -78,8 +84,10 @@ def get_next_corlor_setting(parent_id: str):
 def get_profile_item_defination_list(app: Flask, parent_id: str):
     with app.app_context():
         profile_item_list = (
-            ProfileItem.query.filter_by(parent_id=parent_id)
-            .order_by(ProfileItem.profile_id.desc())
+            ProfileItem.query.filter(
+                ProfileItem.parent_id == parent_id, ProfileItem.status == 1
+            )
+            .order_by(ProfileItem.profile_index.asc())
             .all()
         )
         if profile_item_list:
@@ -109,12 +117,13 @@ def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
             profile_type=PROFILE_TYPE_INPUT_UNCONF,
             profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
             profile_remark="",
-            profile_color_setting=get_next_corlor_setting(parent_id),
+            profile_color_setting=str(get_next_corlor_setting(parent_id)),
             profile_check_prompt="",
             profile_check_model="",
             profile_check_model_args="{}",
             created_by=user_id,
             updated_by=user_id,
+            status=1,
         )
         db.session.add(profile_item)
         db.session.commit()
@@ -288,3 +297,12 @@ def add_profile_i18n(
         db.session.merge(profile_i18n)
         db.session.commit()
         return profile_i18n
+
+
+def delete_profile_item(app: Flask, profile_id: str):
+    with app.app_context():
+        profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
+        if not profile_item:
+            raise_error("PROFILE.NOT_FOUND")
+        profile_item.status = 0
+        db.session.commit()
