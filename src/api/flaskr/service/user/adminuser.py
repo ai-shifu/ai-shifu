@@ -40,9 +40,9 @@ def create_new_user(
                 name=name,
                 email=email,
                 mobile=mobile,
-                model=new_user.default_model,
                 user_state=new_user.user_state,
                 wx_openid="",
+                language="zh_CN",
             ),
             token=token,
         )

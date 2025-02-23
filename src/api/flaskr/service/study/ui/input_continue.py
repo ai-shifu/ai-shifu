@@ -21,13 +21,16 @@ def handle_input_continue(
     trace_args,
 ) -> ScriptDTO:
     msg = script_info.script_ui_content
+    display = True
     if msg == "":
         msg = _("COMMON.CONTINUE")
+        display = False
     btn = [
         {
             "label": msg,
             "value": msg,
             "type": INPUT_TYPE_CONTINUE,
+            "display": display,
         }
     ]
     return ScriptDTO(

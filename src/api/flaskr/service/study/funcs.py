@@ -3,10 +3,9 @@ from flask import Flask
 from flaskr.dao import run_with_redis
 from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
-    INPUT_TYPE_CONTINUE,
     ROLE_VALUES,
 )
-from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO, ScriptDTO
+from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO
 import json
 from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
@@ -373,22 +372,19 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         else:
             last_attend = last_attends[-1]
         if last_attend is None or last_attend.status == ATTEND_STATUS_COMPLETED:
-            btn = [
-                {
-                    "label": last_script.script_ui_content,
-                    "value": last_script.script_ui_content,
-                    "type": INPUT_TYPE_CONTINUE,
-                }
-            ]
-            ret.ui = ScriptDTO(
-                "buttons",
-                {"title": "接下来", "buttons": btn},
-                lesson_id,
-                last_script_id,
+            app.logger.info(
+                "last_script.script_ui_content:{}".format(last_script.script_ui_content)
             )
+            uis = handle_ui(
+                app, user_info, last_attend, last_script, "", MockClient(), {}
+            )
+            app.logger.info("uis:{}".format(uis))
+            if len(uis) > 0:
+                ret.ui = uis[0]
             return ret
 
         uis = handle_ui(app, user_info, last_attend, last_script, "", MockClient(), {})
+        app.logger.info("uis:{}".format(uis))
         if len(uis) > 0:
             ret.ui = uis[0]
 

@@ -226,7 +226,7 @@ export const ChatComponents = forwardRef(
         appendMsg,
         deleteMsg,
       });
-
+    const lastMsgRef = useRef(null);
     const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
       useShallow((state) => ({
         checkLogin: state.checkLogin,
@@ -261,9 +261,9 @@ export const ChatComponents = forwardRef(
       setShowActionControl(false);
     }, []);
 
-    const onActionControlComplete = (type, val, scriptId) => {
+    const onActionControlComplete = (type, display, val, scriptId) => {
       closeActionControl();
-      handleSend(type, val, scriptId);
+      handleSend(type, display, val, scriptId);
     };
 
     const getActionControl = () => {
@@ -364,6 +364,7 @@ export const ChatComponents = forwardRef(
                 );
                 lastMsg.content = lastMsg.content + currText;
                 updateMsg(lastMsg.id, lastMsg);
+                lastMsgRef.current = lastMsg;
               } else {
                 const id = genUuid();
                 lastMsg = createMessage({
@@ -375,10 +376,13 @@ export const ChatComponents = forwardRef(
                   teach_avator: teach_avator,
                 });
                 appendMsg(lastMsg);
+                lastMsgRef.current = lastMsg;
               }
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
+              lastMsgRef.current = null;
+              lastMsg = null;
               if (isEnd) {
                 return;
               }
@@ -690,8 +694,8 @@ export const ChatComponents = forwardRef(
     }, [nextStep, onPayModalOpen]);
 
     const handleSend = useCallback(
-      async (type, val, scriptId) => {
-        console.log('handleSend', type, val, scriptId);
+      async (type,display,  val, scriptId) => {
+        console.log('handleSend', type, display, val, scriptId);
         if (
           type === INTERACTION_OUTPUT_TYPE.TEXT ||
           type === INTERACTION_OUTPUT_TYPE.SELECT ||
@@ -701,7 +705,7 @@ export const ChatComponents = forwardRef(
           type === INTERACTION_OUTPUT_TYPE.LOGIN ||
           type === INTERACTION_OUTPUT_TYPE.ASK
         ) {
-          if (val && typeof val === 'string' && val.trim()) {
+          if (val && typeof val === 'string' && val.trim() && display) {
             const message = createMessage({
               role: USER_ROLE.STUDENT,
               content: val,
@@ -764,7 +768,7 @@ export const ChatComponents = forwardRef(
     );
 
     const onChatInputSend = useCallback(
-      async (type, val, scriptId) => {
+      async (type,display, val, scriptId) => {
         if (type === INTERACTION_OUTPUT_TYPE.NEXT_CHAPTER) {
           onGoChapter?.(val.lessonId);
           return;
@@ -809,7 +813,7 @@ export const ChatComponents = forwardRef(
           return;
         }
 
-        handleSend(type, val, scriptId);
+        handleSend(type, display, val, scriptId);
       },
       [handleSend, onGoChapter, onLoginModalOpen, onPayModalOpen, trackEvent]
     );
@@ -831,7 +835,7 @@ export const ChatComponents = forwardRef(
 
     const onLogin = useCallback(async () => {
       await refreshUserInfo();
-      handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, t('chat.loginSuccess'));
+      handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, false, t('chat.loginSuccess'));
     }, [handleSend, refreshUserInfo, t]);
 
     useEffect(() => {
@@ -859,6 +863,17 @@ export const ChatComponents = forwardRef(
         );
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
+    useEffect(() => {
+      if (lastMsgRef.current) {
+        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        if (messageIndex === -1) {
+          appendMsg(lastMsgRef.current);
+        } else if (messageIndex !== messages.length - 1) {
+          deleteMsg(lastMsgRef.current.id);
+          appendMsg(lastMsgRef.current);
+        }
+      }
+    }, [messages, appendMsg, deleteMsg]);
 
     return (
       <div

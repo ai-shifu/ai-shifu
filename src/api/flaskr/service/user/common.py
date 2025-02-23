@@ -333,6 +333,7 @@ def migrate_user_study_record(app: Flask, from_user_id: str, to_user_id: str):
         AICourseLessonAttend.user_id == to_user_id,
         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
     ).all()
+    migrate_attends = []
     for from_attend in from_attends:
         to_attend = [
             to_attend
@@ -342,18 +343,21 @@ def migrate_user_study_record(app: Flask, from_user_id: str, to_user_id: str):
         if len(to_attend) > 0:
             continue
         else:
-            app.logger.info(
-                "migrate_user_study_record from_attend.lesson_id:"
-                + from_attend.lesson_id
+            migrate_attends.append(from_attend)
+    for attend in migrate_attends:
+        app.logger.info(
+            "migrate_user_study_record from_attend.lesson_id:" + attend.lesson_id
+        )
+        attend.user_id = to_user_id
+    for attend in migrate_attends:
+        db.session.execute(
+            text(
+                "update ai_course_lesson_attendscript set user_id = '%s' where attend_id = '%s'"
+                % (to_user_id, attend.attend_id)
             )
-            from_attend.user_id = to_user_id
-            db.session.execute(
-                text(
-                    "update ai_course_lesson_attendscript set user_id = '%s' where attend_id = '%s'"
-                    % (to_user_id, from_attend.attend_id)
-                )
-            )
-            db.session.flush()
+        )
+    if len(migrate_attends) > 0:
+        db.session.flush()
 
 
 # verify sms code

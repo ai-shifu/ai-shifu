@@ -30,7 +30,7 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
       return;
     }
 
-    onClick?.(outputType, input.trim());
+    onClick?.(outputType, true,input.trim());
     setInput('');
   };
 
