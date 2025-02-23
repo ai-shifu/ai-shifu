@@ -104,33 +104,40 @@ def get_profile_item_defination_list(app: Flask, parent_id: str):
 # quick add profile item
 def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
     with app.app_context():
-        exist_profile_item_list = get_profile_item_defination_list(app, parent_id)
-        if exist_profile_item_list:
-            for exist_profile_item in exist_profile_item_list:
-                if exist_profile_item.profile_key == key:
-                    return exist_profile_item
-        profile_id = generate_id(app)
-        profile_item = ProfileItem(
-            parent_id=parent_id,
-            profile_id=profile_id,
-            profile_key=key,
-            profile_type=PROFILE_TYPE_INPUT_UNCONF,
-            profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
-            profile_remark="",
-            profile_color_setting=str(get_next_corlor_setting(parent_id)),
-            profile_check_prompt="",
-            profile_check_model="",
-            profile_check_model_args="{}",
-            created_by=user_id,
-            updated_by=user_id,
-            status=1,
-        )
-        db.session.add(profile_item)
+        ret = add_profile_item_quick_internal(app, parent_id, key, user_id)
         db.session.commit()
-        return ProfileItemDefination(
-            profile_item.profile_key,
-            get_color_setting(profile_item.profile_color_setting),
-        )
+        return ret
+
+
+# quick add profile item
+def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
+    exist_profile_item_list = get_profile_item_defination_list(app, parent_id)
+    if exist_profile_item_list:
+        for exist_profile_item in exist_profile_item_list:
+            if exist_profile_item.profile_key == key:
+                return exist_profile_item
+    profile_id = generate_id(app)
+    profile_item = ProfileItem(
+        parent_id=parent_id,
+        profile_id=profile_id,
+        profile_key=key,
+        profile_type=PROFILE_TYPE_INPUT_UNCONF,
+        profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
+        profile_remark="",
+        profile_color_setting=str(get_next_corlor_setting(parent_id)),
+        profile_check_prompt="",
+        profile_check_model="",
+        profile_check_model_args="{}",
+        created_by=user_id,
+        updated_by=user_id,
+        status=1,
+    )
+    db.session.add(profile_item)
+    db.session.flush()
+    return ProfileItemDefination(
+        profile_item.profile_key,
+        get_color_setting(profile_item.profile_color_setting),
+    )
 
 
 # add profile defination

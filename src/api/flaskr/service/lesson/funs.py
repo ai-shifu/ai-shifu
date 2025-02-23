@@ -10,8 +10,8 @@ from .const import (
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPES,
     UI_TYPE_CONTINUED,
-    # UI_TYPE_INPUT,
-    # UI_TYPE_SELECTION,
+    UI_TYPE_INPUT,
+    UI_TYPE_SELECTION,
     UI_TYPES,
 )
 from flask import Flask
@@ -21,6 +21,7 @@ from flaskr.util.uuid import generate_id
 from sqlalchemy import func, text
 import json
 from flaskr.framework.plugin.plugin_manager import extensible
+from flaskr.service.profile.profile_manage import add_profile_item_quick_internal
 
 
 @register_schema_to_swagger
@@ -524,7 +525,12 @@ def update_lesson_info(
                     AILessonScript.script_feishu_id == record_id,
                     AILessonScript.lesson_id == lesson.lesson_id,
                 ).first()
-                # if scripDb["script_ui_type"] == UI_TYPE_INPUT:
+                if scripDb["script_ui_type"] == UI_TYPE_INPUT:
+                    add_profile_item_quick_internal(app, course_id, "input", "system")
+                if scripDb["script_ui_type"] == UI_TYPE_SELECTION:
+                    data = scripDb["script_ui_content"]
+                    app.logger.info("data:" + str(data))
+
                 if scrip is None:
                     scripDb["script_id"] = str(generate_id(app))
                     db.session.add(AILessonScript(**scripDb))
