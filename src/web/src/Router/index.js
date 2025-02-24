@@ -11,7 +11,7 @@ import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage.jsx";
 const routes = [
   {
     path: "/",
-    element: <Navigate to='/newchat'></Navigate>,
+    element: <Navigate to='/c/'></Navigate>,
   },
   {
     path: '/useraggrement',
@@ -22,10 +22,6 @@ const routes = [
     element: <PrivacyPolicyPage />
   },
   {
-    path: '/newchat',
-    element: <NewChatPage />
-  },
-  {
     path: '/course',
     element: <NewChatPage />
   },
@@ -34,12 +30,16 @@ const routes = [
     element: <NewChatPage />
   },
   {
-    path: '/c',
+    path: '/c/',
     element: <NewChatPage />
   },
   {
+    path: '/newchat',
+    element: <Navigate to='/c/'></Navigate>
+  },
+  {
     path: '/newchat/:tmpId',
-    element: <NewChatPage />
+    element: <Navigate to='/c/'></Navigate>
   },
   {
     path: '/404',
