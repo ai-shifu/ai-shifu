@@ -1,6 +1,7 @@
 import json
 import uuid
 import datetime
+import itertools
 from typing import Optional
 
 import oss2
@@ -186,10 +187,10 @@ def kb_file_upload(
         )
         number = 0
         processing_batch_size = 32
-        for text_list in [
-            all_text_list[i : (i + processing_batch_size)]
+        for text_list in (
+            list(itertools.islice(all_text_list, i, i + processing_batch_size))
             for i in range(0, len(all_text_list), processing_batch_size)
-        ]:
+        ):
             app.logger.info(f"text_list:\n{text_list}")
 
             # vector_list
