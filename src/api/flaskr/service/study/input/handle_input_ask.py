@@ -68,7 +68,6 @@ def handle_input_ask(
         kb_id=app.config["DEFAULT_KB_ID"], query=input, embedding_model=None
     )
     time_2 = time.time()
-    # dev!
     app.logger.info(f"retrieval_fun takes: {time_2 - time_1}s")
     app.logger.info(f"retrieval_result: {retrieval_result}")
 
