@@ -63,9 +63,8 @@ def handle_input_ask(
     messages.append({"role": "system", "content": system_message})
 
     time_1 = time.time()
-    retrieval_result = retrieval_fun(
-        kb_id="dev_0149", query=input, embedding_model=None
-    )
+    # dev!
+    retrieval_result = retrieval_fun(kb_id=app.config['DEFAULT_KB_ID'], query=input, embedding_model=None)
     time_2 = time.time()
     app.logger.info(f"retrieval_fun takes: {time_2 - time_1}s")
     app.logger.info(f"retrieval_result: {retrieval_result}")
