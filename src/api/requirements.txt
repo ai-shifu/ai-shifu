@@ -92,6 +92,7 @@ pydantic==2.8.2
 pydantic-settings==2.6.1
 pydantic_core==2.20.1
 PyJWT==2.8.0
+pymilvus==2.5.4
 PyMySQL==1.1.1
 pytest==8.3.2
 python-dateutil==2.9.0.post0

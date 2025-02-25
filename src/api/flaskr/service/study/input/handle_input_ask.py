@@ -1,3 +1,4 @@
+import time
 from trace import Trace
 from flask import Flask
 from flaskr.api.llm import chat_llm
@@ -20,6 +21,7 @@ from flaskr.service.study.input_funcs import (
     generation_attend,
 )
 from flaskr.service.user.models import User
+from flaskr.service.rag.funs import retrieval_fun
 
 
 @register_input_handler(input_type=INPUT_TYPE_ASK)
@@ -59,6 +61,13 @@ def handle_input_ask(
             system_message = system_message + f"老师: {script.script_content}\n"
 
     messages.append({"role": "system", "content": system_message})
+
+    time_1 = time.time()
+    retrieval_result = retrieval_fun(kb_id='dev_0149', query=input, embedding_model=None)
+    time_2 = time.time()
+    app.logger.info(f'retrieval_fun takes: {time_2 - time_1}s')
+    app.logger.info(f'retrieval_result: {retrieval_result}')
+
     messages.append(
         {
             "role": "user",
@@ -66,10 +75,14 @@ def handle_input_ask(
                 app,
                 user_info.user_id,
                 profile_tmplate=follow_up_info.ask_prompt,
-                input=input,
+                # dev!
+                input=f'已知:\n{retrieval_result}，请问"{input}"',
             ),
         }
     )
+
+    app.logger.info(f'messages: {messages}')
+
     # get follow up model
     follow_up_model = follow_up_info.ask_model
     # todo reflact
