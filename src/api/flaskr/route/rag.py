@@ -123,12 +123,12 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         kb_category_0 = request.get_json().get("kb_category_0", "")
         kb_category_1 = request.get_json().get("kb_category_1", "")
         kb_category_2 = request.get_json().get("kb_category_2", "")
-        app.logger.info(f'kb_id: {kb_id}')
-        app.logger.info(f'embedding_model: {embedding_model}')
-        app.logger.info(f'dim: {dim}')
-        app.logger.info(f'kb_category_0: {kb_category_0}')
-        app.logger.info(f'kb_category_1: {kb_category_1}')
-        app.logger.info(f'kb_category_2: {kb_category_2}')
+        app.logger.info(f"kb_id: {kb_id}")
+        app.logger.info(f"embedding_model: {embedding_model}")
+        app.logger.info(f"dim: {dim}")
+        app.logger.info(f"kb_category_0: {kb_category_0}")
+        app.logger.info(f"kb_category_1: {kb_category_1}")
+        app.logger.info(f"kb_category_2: {kb_category_2}")
         return make_common_response(
             kb_create(
                 app,
@@ -176,7 +176,7 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         kb_id_list = request.get_json().get("kb_id_list")
         if not kb_id_list:
             raise_param_error("kb_id_list is not found")
-        app.logger.info(f'kb_id_list: {kb_id_list}')
+        app.logger.info(f"kb_id_list: {kb_id_list}")
         return make_common_response(
             kb_drop(
                 app,
@@ -215,13 +215,11 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: string
                                     description: OSS文件KEY
         """
-        app.logger.info('enter file_upload!')
+        app.logger.info("enter file_upload!")
         upload_file = request.files.get("upload_file", None)
         if not upload_file:
             raise_param_error("upload_file")
-        return make_common_response(
-            oss_file_upload(app, upload_file)
-        )
+        return make_common_response(oss_file_upload(app, upload_file))
 
     @app.route(path_prefix + "/kb_file_upload", methods=["POST"])
     @bypass_token_validation
@@ -273,22 +271,28 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: list
                                     description: success
         """
-        kb_id = request.get_json().get('kb_id', None)
+        kb_id = request.get_json().get("kb_id", None)
         if not kb_id:
             raise_param_error("kb_id is not found")
-        file_key = request.get_json().get('file_key', None)
+        file_key = request.get_json().get("file_key", None)
         if not file_key:
             raise_param_error("file_key is not found")
-        split_separator = request.get_json().get('split_separator', '\n\n')
-        split_max_length = request.get_json().get('split_max_length', 500)
-        split_chunk_overlap = request.get_json().get('split_chunk_overlap', 50)
-        embedding_model = request.get_json().get('embedding_model', None)
-        app.logger.info(f'file_key: {file_key}')
-        app.logger.info(f'split_separator: {split_separator}')
-        app.logger.info(f'embedding_model: {embedding_model}')
+        split_separator = request.get_json().get("split_separator", "\n\n")
+        split_max_length = request.get_json().get("split_max_length", 500)
+        split_chunk_overlap = request.get_json().get("split_chunk_overlap", 50)
+        embedding_model = request.get_json().get("embedding_model", None)
+        app.logger.info(f"file_key: {file_key}")
+        app.logger.info(f"split_separator: {split_separator}")
+        app.logger.info(f"embedding_model: {embedding_model}")
         return make_common_response(
             kb_file_upload(
-                app, kb_id, file_key, split_separator, split_max_length, split_chunk_overlap, embedding_model
+                app,
+                kb_id,
+                file_key,
+                split_separator,
+                split_max_length,
+                split_chunk_overlap,
+                embedding_model,
             )
         )
 
@@ -343,8 +347,8 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         if not query:
             raise_param_error("query is not found")
         embedding_model = request.get_json().get("embedding_model", None)
-        app.logger.info(f'kb_id: {kb_id}')
-        app.logger.info(f'query: {query}')
+        app.logger.info(f"kb_id: {kb_id}")
+        app.logger.info(f"query: {query}")
         return make_common_response(
             retrieval(
                 app,

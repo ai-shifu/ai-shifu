@@ -79,6 +79,6 @@ def init_milvus(app: Flask):
     milvus_client = MilvusClient(
         uri=app.config.get("MILVUS_URI"),
         token=app.config.get("MILVUS_TOKEN"),
-        db_name=app.config.get("MILVUS_DB_NAME")
+        db_name=app.config.get("MILVUS_DB_NAME"),
     )
     app.logger.info("init milvus done")
