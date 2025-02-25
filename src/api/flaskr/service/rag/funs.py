@@ -50,13 +50,13 @@ def kb_exist(kb_id: str):
 
 
 def kb_create(
-        app: Flask,
-        kb_id: str,
-        embedding_model: str,
-        dim: int,
-        kb_category_0: str,
-        kb_category_1: str,
-        kb_category_2: str,
+    app: Flask,
+    kb_id: str,
+    embedding_model: str,
+    dim: int,
+    kb_category_0: str,
+    kb_category_1: str,
+    kb_category_2: str,
 ):
     with app.app_context():
         if kb_exist(kb_id) is False:
@@ -106,10 +106,10 @@ def oss_file_upload(app: Flask, upload_file):
     with app.app_context():
         # file_upload
         if (
-                not ALI_API_ID
-                or not ALI_API_SECRET
-                or ALI_API_ID == ""
-                or ALI_API_SECRET == ""
+            not ALI_API_ID
+            or not ALI_API_SECRET
+            or ALI_API_ID == ""
+            or ALI_API_SECRET == ""
         ):
             raise_error_with_args(
                 "API.ALIBABA_CLOUD_NOT_CONFIGURED",
@@ -135,7 +135,7 @@ def file_parser(file_content, extension: str):
 
 
 def text_spilt(
-        text: str, split_separator: str, split_max_length: int, split_chunk_overlap: int
+    text: str, split_separator: str, split_max_length: int, split_chunk_overlap: int
 ):
     if len(set(split_separator)) == 1 and "##" in split_separator:
         if not str(split_separator).startswith("\n"):
@@ -163,13 +163,13 @@ def get_embedding_model(kb_id: str, embedding_model: str):
 
 
 def kb_file_upload(
-        app: Flask,
-        kb_id: str,
-        file_key: str,
-        split_separator: str,
-        split_max_length: int,
-        split_chunk_overlap: int,
-        embedding_model: str,
+    app: Flask,
+    kb_id: str,
+    file_key: str,
+    split_separator: str,
+    split_max_length: int,
+    split_chunk_overlap: int,
+    embedding_model: str,
 ):
     with app.app_context():
         embedding_model = get_embedding_model(kb_id, embedding_model)
@@ -187,7 +187,7 @@ def kb_file_upload(
         number = 0
         processing_batch_size = 32
         for text_list in [
-            all_text_list[i: i + processing_batch_size]
+            all_text_list[i : i + processing_batch_size]
             for i in range(0, len(all_text_list), processing_batch_size)
         ]:
             app.logger.info(f"text_list:\n{text_list}")
@@ -238,23 +238,23 @@ def retrieval_fun(kb_id: str, query: str, embedding_model: Optional[str] = None)
         [
             x["entity"]["text"]
             for x in milvus_client.search(
-            collection_name=kb_id,
-            anns_field="vector",
-            data=[
-                get_vector_list(text_list=[query], embedding_model=embedding_model)[
-                    0
-                ]
-            ],
-            limit=3,
-            search_params={"metric_type": "COSINE"},
-            output_fields=["text"],
-        )[0]
+                collection_name=kb_id,
+                anns_field="vector",
+                data=[
+                    get_vector_list(text_list=[query], embedding_model=embedding_model)[
+                        0
+                    ]
+                ],
+                limit=3,
+                search_params={"metric_type": "COSINE"},
+                output_fields=["text"],
+            )[0]
         ]
     )
 
 
 def retrieval(
-        app: Flask, kb_id: str, query: str, embedding_model: Optional[str] = None
+    app: Flask, kb_id: str, query: str, embedding_model: Optional[str] = None
 ):
     with app.app_context():
         return retrieval_fun(kb_id, query, embedding_model)
