@@ -36,7 +36,7 @@ class UserInfo:
         user_state,
         wx_openid,
         language,
-        user_avatar,
+        user_avatar=None,
     ):
         self.user_id = user_id
         self.username = username
