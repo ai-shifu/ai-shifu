@@ -4,15 +4,19 @@ import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import styles from './NotFoundPage.module.scss';
 import logoColor from 'Assets/logos/logo-color-392.png'
-
+import { useEnvStore } from 'stores/envStore.js';
 const NotFoundPage = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState(5);
-
+  const siteUrl = useEnvStore((state) => state.siteUrl);
   useEffect(() => {
     if (countdown === 0) {
-      navigate('/');
+      if (siteUrl) {
+        window.location.href = siteUrl;
+      } else {
+        window.location.href = '/c/';
+      }
     }
     const timer = setTimeout(() => {
       setCountdown(countdown - 1);
@@ -32,7 +36,13 @@ const NotFoundPage = () => {
         <p>{t('common.redirectInSeconds', { seconds: countdown })}</p>
         <Button
           type="primary"
-          onClick={() => navigate('/')}
+          onClick={() => {
+            if (siteUrl) {
+              window.location.href = siteUrl;
+            } else {
+              window.location.href = '/c/';
+            }
+          }}
         >
           {t('common.backToHome')}
         </Button>
