@@ -95,3 +95,6 @@ else:
     from flaskr.framework.plugin.enable_plugin import enable_plugins
 
     enable_plugins(app)
+    from flaskr.command import enable_commands
+
+    enable_commands(app)
