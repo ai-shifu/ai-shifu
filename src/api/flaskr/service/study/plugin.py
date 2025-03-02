@@ -45,8 +45,10 @@ def register_input_handler(input_type: str):
         current_app.logger.info(
             f"register_input_handler {input_type} ==>  {func.__name__}"
         )
-        # current_app.logger
-        INPUT_HANDLE_MAP[input_type] = wrapper
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
+        INPUT_HANDLE_MAP[input_type] = func
         return wrapper
 
     return decorator
@@ -65,7 +67,13 @@ def register_continue_handler(script_ui_type: int):
         current_app.logger.info(
             f"register_continue_handler {script_ui_type} ==> {func.__name__}    "
         )
-        CONTINUE_HANDLE_MAP[script_ui_type] = wrapper
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
+        current_app.logger.info(
+            f"register_continue_handler {script_ui_type} ==> {func.__name__}"
+        )
+        CONTINUE_HANDLE_MAP[script_ui_type] = func
         return wrapper
 
     return decorator
@@ -82,7 +90,10 @@ def register_ui_handler(ui_type):
             return func(*args, **kwargs)
 
         current_app.logger.info(f"register_ui_handler {ui_type} ==>  {func.__name__}")
-        UI_HANDLE_MAP[ui_type] = wrapper
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
+        UI_HANDLE_MAP[ui_type] = func
         return wrapper
 
     return decorator
@@ -101,7 +112,10 @@ def continue_check_handler(script_ui_type: int):
         current_app.logger.info(
             f"continue_check_handler {script_ui_type} ==> {func.__name__}"
         )
-        CONTINUE_CHECK_HANDLE_MAP[script_ui_type] = wrapper
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
+        CONTINUE_CHECK_HANDLE_MAP[script_ui_type] = func
         return wrapper
 
     return decorator
