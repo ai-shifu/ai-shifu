@@ -35,7 +35,9 @@ def handle_input_continue(
         span.end()
         db.session.flush()
     continue_func = CONTINUE_HANDLE_MAP.get(script_info.script_ui_type, None)
+
     if continue_func:
+        app.logger.info(f"continue_func: {continue_func.__name__}")
         continue_func(
             app, user_info, lesson, attend, script_info, input, trace, trace_args
         )

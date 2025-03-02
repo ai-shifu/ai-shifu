@@ -7,6 +7,7 @@ from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.dao import db
 from flaskr.service.user.models import User
 from flaskr.service.study.ui.ui_continue import make_continue_ui
+from functools import wraps
 
 # handlers for input
 INPUT_HANDLE_MAP = {}
@@ -24,17 +25,31 @@ UI_RECORD_HANDLE_MAP = {}
 CONTINUE_CHECK_HANDLE_MAP = {}
 
 
+def unwrap_function(func):
+    while hasattr(func, "__wrapped__"):
+        func = func.__wrapped__
+    return func
+
+
 # register input for input
 # ex. text,continue,start ...
 def register_input_handler(input_type: str):
     def decorator(func):
         from flask import current_app
 
+        # original_func = unwrap_function(func)
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
         current_app.logger.info(
-            f"register_input_handler {input_type} ==> {func.__name__}"
+            f"register_input_handler {input_type} ==>  {func.__name__}"
         )
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         INPUT_HANDLE_MAP[input_type] = func
-        return func
+        return wrapper
 
     return decorator
 
@@ -45,11 +60,21 @@ def register_continue_handler(script_ui_type: int):
     def decorator(func):
         from flask import current_app
 
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        current_app.logger.info(
+            f"register_continue_handler {script_ui_type} ==> {func.__name__}    "
+        )
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         current_app.logger.info(
             f"register_continue_handler {script_ui_type} ==> {func.__name__}"
         )
         CONTINUE_HANDLE_MAP[script_ui_type] = func
-        return func
+        return wrapper
 
     return decorator
 
@@ -60,9 +85,16 @@ def register_ui_handler(ui_type):
     def decorator(func):
         from flask import current_app
 
-        current_app.logger.info(f" {ui_type} ==> {func.__name__}")
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        current_app.logger.info(f"register_ui_handler {ui_type} ==>  {func.__name__}")
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         UI_HANDLE_MAP[ui_type] = func
-        return func
+        return wrapper
 
     return decorator
 
@@ -73,11 +105,18 @@ def continue_check_handler(script_ui_type: int):
     def decorator(func):
         from flask import current_app
 
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
         current_app.logger.info(
             f"continue_check_handler {script_ui_type} ==> {func.__name__}"
         )
+        while hasattr(func, "__wrapped__"):
+            current_app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         CONTINUE_CHECK_HANDLE_MAP[script_ui_type] = func
-        return func
+        return wrapper
 
     return decorator
 
