@@ -2,18 +2,19 @@ import json
 import uuid
 import datetime
 import itertools
-from typing import Optional
 
 import oss2
-import openai
 import pytz
+import openai
+from sqlalchemy import or_
 from flask import Flask, current_app
 
 from .models import (
+    KnowledgeBase,
     kb_schema,
     kb_index_params,
 )
-from ...dao import milvus_client
+from ...dao import db, milvus_client
 from ...common.config import get_config
 from ..common.models import raise_error, raise_error_with_args
 
@@ -41,60 +42,168 @@ embedding_client = openai.Client(
 )
 
 
-def get_kb_list(app: Flask):
+def get_datetime_now_str():
+    return str(datetime.datetime.now(bj_time))
+
+
+def get_kb_list(
+    app: Flask,
+    tag_id_list,
+    course_id_list,
+):
     with app.app_context():
-        return milvus_client.list_collections()
+        query = db.session.query(
+            KnowledgeBase.kb_id,
+            KnowledgeBase.kb_name,
+            KnowledgeBase.tag_ids,
+            KnowledgeBase.course_ids,
+        )
+        if course_id_list:
+            query = query.filter(
+                or_(
+                    *[
+                        KnowledgeBase.course_ids.like(f"%{course_id}%")
+                        for course_id in course_id_list
+                    ]
+                )
+            )
+        kb_list = [
+            {
+                "kb_id": kb_id,
+                "kb_name": kb_name,
+                "tag_ids": tag_ids.split(",") if tag_ids is not None else [],
+                "course_id": course_ids.split(",") if course_ids is not None else [],
+            }
+            for kb_id, kb_name, tag_ids, course_ids in query.all()
+        ]
+        app.logger.info(f"kb_list: {kb_list}")
+        return kb_list
 
 
-def kb_exist(kb_id: str):
+def milvus_kb_exist(kb_id: str):
     return milvus_client.has_collection(collection_name=kb_id)
 
 
-def kb_create(
+def kb_add(
     app: Flask,
-    kb_id: str,
+    kb_name: str,
+    kb_description: str,
     embedding_model: str,
     dim: int,
-    kb_category_0: str,
-    kb_category_1: str,
-    kb_category_2: str,
+    tag_id_list: list,
+    course_id_list: list,
+    user_id: str,
 ):
     with app.app_context():
-        if kb_exist(kb_id) is False:
+        kb_id = f"uuid{str(uuid.uuid4()).replace('-', '')}"
+        app.logger.info(f"kb_id: {kb_id}")
+
+        tag_ids = ",".join(tag_id_list) if tag_id_list else None
+        course_ids = ",".join(course_id_list) if course_id_list else None
+
+        if KnowledgeBase.query.filter_by(kb_name=kb_name).first():
+            app.logger.error("kb_name already exists")
+            return False
+        else:
+            kb_item = KnowledgeBase(
+                kb_id=kb_id,
+                kb_name=kb_name,
+                kb_description=kb_description,
+                embedding_model=embedding_model,
+                dim=dim,
+                tag_ids=tag_ids,
+                course_ids=course_ids,
+                created_user_id=user_id,
+            )
+            db.session.add(kb_item)
+
             properties = {
-                "embedding_model": embedding_model,
                 "dim": dim,
-                "kb_category_0": kb_category_0,
-                "kb_category_1": kb_category_1,
-                "kb_category_2": kb_category_2,
+                "create_user": user_id,
+                "create_time": get_datetime_now_str(),
             }
             milvus_client.create_collection(
+                # collection name can only contain numbers, letters and underscores
                 collection_name=kb_id,
                 schema=kb_schema(dim),
                 index_params=kb_index_params(),
                 properties=properties,
             )
-            return "success"
+
+            db.session.commit()
+
+            return True
+
+
+def kb_update(
+    app: Flask,
+    kb_id: str,
+    kb_name: str,
+    description: str,
+    embedding_model: str,
+    tag_id_list: list,
+    course_id_list: list,
+    user_id: str,
+):
+    with app.app_context():
+        kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
+        if kb_item:
+            if kb_name is not None:
+                if KnowledgeBase.query.filter_by(kb_name=kb_name).first():
+                    app.logger.error("kb_name already exists")
+                    return False
+                kb_item.kb_name = kb_name
+            if description is not None:
+                kb_item.kb_description = description
+            if embedding_model is not None:
+                kb_item.embedding_model = embedding_model
+            if tag_id_list is not None:
+                kb_item.tag_ids = ",".join(tag_id_list)
+            if course_id_list is not None:
+                kb_item.course_ids = ",".join(course_id_list)
+            kb_item.updated_user_id = user_id
+            db.session.commit()
+            return True
+        else:
+            app.logger.error("kb_id is not found")
+            return False
 
 
 def kb_drop(app: Flask, kb_id_list: list):
     with app.app_context():
         for kb_id in kb_id_list:
-            if kb_exist(kb_id) is True:
-                milvus_client.drop_collection(collection_name=kb_id)
-                # break
-        return "success"
+            kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
+            if kb_item:
+                db.session.delete(kb_item)
+                if milvus_kb_exist(kb_id) is True:
+                    milvus_client.drop_collection(collection_name=kb_id)
+                db.session.commit()
+            # break
+        return True
 
 
-def kb_look_fun(kb_id: str):
-    if kb_exist(kb_id):
-        return milvus_client.describe_collection(collection_name=kb_id)
-    else:
-        return None
-
-
-def get_kb_properties(kb_id: str):
-    return kb_look_fun(kb_id)["properties"]
+def kb_look(app: Flask, kb_id: str):
+    with app.app_context():
+        if milvus_kb_exist(kb_id):
+            kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
+            if kb_item:
+                return {
+                    "kb_id": kb_item.kb_id,
+                    "kb_name": kb_item.kb_name,
+                    "kb_description": kb_item.kb_description,
+                    "embedding_model": kb_item.embedding_model,
+                    "dim": kb_item.dim,
+                    "tag_ids": (
+                        kb_item.tag_ids.split(",")
+                        if kb_item.tag_ids is not None
+                        else []
+                    ),
+                    "course_ids": (
+                        kb_item.course_ids.split(",")
+                        if kb_item.course_ids is not None
+                        else []
+                    ),
+                }
 
 
 def get_content_type(extension: str):
@@ -155,12 +264,14 @@ def get_vector_list(text_list: list, embedding_model: str):
     ]
 
 
-def get_embedding_model(kb_id: str, embedding_model: str):
-    if embedding_model is None:
-        embedding_model = get_kb_properties(kb_id).get("embedding_model", None)
-        if embedding_model is None:
-            embedding_model = get_config("DEFAULT_EMBEDDING_MODEL")
+def get_embedding_model(kb_id: str):
+    # dev!
+    embedding_model = get_config("DEFAULT_EMBEDDING_MODEL")
     return embedding_model
+
+
+def pad_string(index: int, length: int = 4):
+    return str(index).zfill(length)
 
 
 def kb_file_upload(
@@ -170,10 +281,12 @@ def kb_file_upload(
     split_separator: str,
     split_max_length: int,
     split_chunk_overlap: int,
-    embedding_model: str,
+    lesson_id: str,
 ):
     with app.app_context():
-        embedding_model = get_embedding_model(kb_id, embedding_model)
+        file_id = file_key.split(".")[0]
+
+        embedding_model = get_embedding_model(kb_id)
 
         # file_parser
         extension = file_key.split(".")[-1]
@@ -185,7 +298,7 @@ def kb_file_upload(
         all_text_list = text_spilt(
             all_text, split_separator, split_max_length, split_chunk_overlap
         )
-        number = 0
+        index = 0
         processing_batch_size = 32
         for text_list in (
             list(itertools.islice(all_text_list, i, i + processing_batch_size))
@@ -198,32 +311,34 @@ def kb_file_upload(
 
             # milvus insert
             data = []
-            doc_category_0 = ""
-            doc_category_1 = ""
-            doc_category_2 = ""
+            document_id = file_id
+            document_tag = ""
             create_user = ""
             update_user = ""
+            create_time = get_datetime_now_str()
+            update_time = ""
             meta_data = {}
             for text, vector in zip(text_list, vector_list):
-                number += 1
-
                 app.logger.info(f"text: {text}")
                 app.logger.info(f"vector[:10]: {vector[:10]}")
+                my_id = f'{document_id[:8]}-{str(index).zfill(8)}-{str(uuid.uuid4()).replace("-", "")}'
                 data.append(
                     {
-                        "id": number,
-                        "vector": vector,
+                        "id": my_id,
+                        "document_id": document_id,
+                        "index": index,
                         "text": text,
-                        "doc_category_0": doc_category_0,
-                        "doc_category_1": doc_category_1,
-                        "doc_category_2": doc_category_2,
-                        "create_time": str(datetime.datetime.now(bj_time)),
-                        "update_time": "",
+                        "vector": vector,
+                        "document_tag": document_tag,
+                        "lesson_id": lesson_id,
+                        "create_time": create_time,
+                        "update_time": update_time,
                         "create_user": create_user,
                         "update_user": update_user,
                         "meta_data": json.dumps(meta_data),
                     }
                 )
+                index += 1
                 # break
 
             milvus_client.insert(collection_name=kb_id, data=data)
@@ -233,8 +348,14 @@ def kb_file_upload(
         return "success"
 
 
-def retrieval_fun(kb_id: str, query: str, embedding_model: Optional[str] = None):
-    embedding_model = get_embedding_model(kb_id, embedding_model)
+def retrieval_fun(
+    kb_id: str,
+    query: str,
+    my_filter: str,
+    limit: int,
+    output_fields: list,
+):
+    embedding_model = get_embedding_model(kb_id)
     return "\n\n".join(
         [
             x["entity"]["text"]
@@ -246,16 +367,22 @@ def retrieval_fun(kb_id: str, query: str, embedding_model: Optional[str] = None)
                         0
                     ]
                 ],
-                limit=3,
+                filter=my_filter,
+                limit=limit,
                 search_params={"metric_type": "COSINE"},
-                output_fields=["text"],
+                output_fields=output_fields,
             )[0]
         ]
     )
 
 
 def retrieval(
-    app: Flask, kb_id: str, query: str, embedding_model: Optional[str] = None
+    app: Flask,
+    kb_id: str,
+    query: str,
+    my_filter: str,
+    limit: int,
+    output_fields: list,
 ):
     with app.app_context():
-        return retrieval_fun(kb_id, query, embedding_model)
+        return retrieval_fun(kb_id, query, my_filter, limit, output_fields)
