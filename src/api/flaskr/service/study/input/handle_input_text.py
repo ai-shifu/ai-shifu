@@ -103,6 +103,7 @@ def handle_input_text(
                 "profile_update",
                 {"key": key, "value": profile_tosave[key]},
                 script_info.script_id,
+                script_info.lesson_id,
             )
             time.sleep(0.01)
         span.end()
@@ -111,9 +112,13 @@ def handle_input_text(
     else:
         reason = jsonObj.get("reason", response_text)
         for text in reason:
-            yield make_script_dto("text", text, script_info.script_id)
+            yield make_script_dto(
+                "text", text, script_info.script_id, script_info.lesson_id
+            )
             time.sleep(0.01)
-        yield make_script_dto("text_end", "", script_info.script_id)
+        yield make_script_dto(
+            "text_end", "", script_info.script_id, script_info.lesson_id
+        )
         log_script = generation_attend(app, attend, script_info)
         log_script.script_content = reason
         log_script.script_role = ROLE_TEACHER
@@ -123,6 +128,9 @@ def handle_input_text(
         trace.update(**trace_args)
         db.session.flush()
         yield make_script_dto(
-            "input", script_info.script_ui_content, script_info.script_id
+            "input",
+            script_info.script_ui_content,
+            script_info.script_id,
+            script_info.lesson_id,
         )
         raise BreakException
