@@ -51,11 +51,18 @@ def handle_input_checkcode(
         span.end()
     except AppException as e:
         for i in e.message:
-            yield make_script_dto("text", i, script_info.script_id)
+            yield make_script_dto(
+                "text", i, script_info.script_id, script_info.lesson_id
+            )
             time.sleep(0.01)
-        yield make_script_dto("text_end", "", script_info.script_id)
         yield make_script_dto(
-            INPUT_TYPE_CHECKCODE, script_info.script_ui_content, script_info.script_id
+            "text_end", "", script_info.script_id, script_info.lesson_id
+        )
+        yield make_script_dto(
+            INPUT_TYPE_CHECKCODE,
+            script_info.script_ui_content,
+            script_info.script_id,
+            script_info.lesson_id,
         )
         log_script = generation_attend(app, attend, script_info)
         log_script.script_content = e.message

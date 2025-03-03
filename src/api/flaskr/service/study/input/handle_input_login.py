@@ -28,10 +28,6 @@ def handle_input_login(
     log_script.script_role = ROLE_STUDENT  # type: ignore
     db.session.add(log_script)
     if user_info.user_state != 0:
-        yield make_script_dto(
-            "text",
-            "",
-            script_info.script_id,
-        )
+        yield make_script_dto("text", "", script_info.script_id, script_info.lesson_id)
     else:
         raise BreakException
