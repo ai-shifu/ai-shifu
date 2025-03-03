@@ -4,6 +4,12 @@ from sqlalchemy.sql import func
 from ...dao import db
 
 
+class ResourceType:
+    CHAPTER = 9001
+    SECTION = 9002
+    BLOCK = 9003
+
+
 class FavoriteScenario(db.Model):
     __tablename__ = "scenario_favorite"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
@@ -21,4 +27,26 @@ class FavoriteScenario(db.Model):
         default=func.now(),
         onupdate=func.now(),
         comment="Update time",
+    )
+
+
+class ScenarioResource(db.Model):
+    __tablename__ = "scenario_resource"
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    resource_resource_id = Column(
+        String(36), nullable=False, default="", comment="Resource UUID", index=True
+    )
+    scenario_id = Column(
+        String(36), nullable=False, default="", comment="Scenario UUID", index=True
+    )
+    chapter_id = Column(
+        String(36), nullable=False, default="", comment="Chapter UUID", index=True
+    )
+    resource_type = Column(Integer, nullable=False, default=0, comment="Resource type")
+    resource_id = Column(
+        String(36), nullable=False, default="", comment="Resource UUID", index=True
+    )
+    is_deleted = Column(Integer, nullable=False, default=0, comment="Is deleted")
+    created_at = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
     )
