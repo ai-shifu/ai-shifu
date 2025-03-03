@@ -1,5 +1,6 @@
 from flask import Flask
 from .hot_reload import PluginHotReloader
+import functools
 
 plugin_manager = None
 
@@ -34,6 +35,9 @@ class PluginManager:
         self.app.logger.info(
             f"register_extension: {target_func_name} -> {func.__name__}"
         )
+        while hasattr(func, "__wrapped__"):
+            self.app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         if target_func_name not in self.extension_functions:
             self.extension_functions[target_func_name] = []
         self.extension_functions[target_func_name].append(func)
@@ -49,6 +53,9 @@ class PluginManager:
         self.app.logger.info(
             f"register_extensible_generic: {func_name} -> {func.__name__}"
         )
+        while hasattr(func, "__wrapped__"):
+            self.app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         if func_name not in self.extensible_generic_functions:
             self.extensible_generic_functions[func_name] = []
         self.extensible_generic_functions[func_name].append(func)
@@ -72,6 +79,7 @@ def enable_plugin_manager(app: Flask):
 
 # extensible decorator
 def extensible(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         global plugin_manager
         result = func(*args, **kwargs)
@@ -80,11 +88,12 @@ def extensible(func):
         )
         return result
 
-    return wrapper
+    return func
 
 
 # extensible decorator
 def extension(target_func_name):
+    @functools.wraps(target_func_name)
     def decorator(func):
         plugin_manager.register_extension(target_func_name, func)
         return func
@@ -94,6 +103,7 @@ def extension(target_func_name):
 
 # extensible_generic decorator
 def extensible_generic(func):
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
         if result:
@@ -110,6 +120,7 @@ def extensible_generic(func):
 
 
 def extensible_generic_register(func_name):
+    @functools.wraps(func_name)
     def decorator(func):
         plugin_manager.register_extensible_generic(func_name, func)
         return func
