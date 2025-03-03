@@ -71,7 +71,9 @@ def check_text_with_llm_response(
         )
         response_text = ""
         for i in res:
-            yield make_script_dto("text", i.result, script_info.script_id)
+            yield make_script_dto(
+                "text", i.result, script_info.script_id, script_info.lesson_id
+            )
             response_text += i.result
             time.sleep(0.01)
         log_script = generation_attend(app, attend, script_info)
@@ -79,7 +81,9 @@ def check_text_with_llm_response(
         log_script.script_role = ROLE_TEACHER
         db.session.add(log_script)
         db.session.flush()
-        yield make_script_dto("text_end", "", script_info.script_id)
+        yield make_script_dto(
+            "text_end", "", script_info.script_id, script_info.lesson_id
+        )
     else:
         app.logger.info(f"check_text_by_{res.provider} is None")
         return
