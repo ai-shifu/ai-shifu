@@ -381,9 +381,8 @@ export const ChatComponents = forwardRef(
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
+              lastMsgRef.current = null;
               if (isEnd) {
-                lastMsgRef.current = null;
-                lastMsg = null;
                 return;
               }
             } else if (response.type === RESP_EVENT_TYPE.ACTIVE) {
@@ -712,7 +711,8 @@ export const ChatComponents = forwardRef(
               type: CHAT_MESSAGE_TYPE.TEXT,
               userInfo,
             });
-            appendMsg(message);
+            console.log('appendMsg', message);
+            await appendMsg(message);
           }
         }
 
@@ -865,6 +865,7 @@ export const ChatComponents = forwardRef(
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
+        console.log('lastMsgRef.current', lastMsgRef.current);
         const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
