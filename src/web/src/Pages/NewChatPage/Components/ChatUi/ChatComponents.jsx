@@ -383,6 +383,7 @@ export const ChatComponents = forwardRef(
               setTyping(false);
               lastMsgRef.current = null;
               if (isEnd) {
+                lastMsg = null;
                 return;
               }
             } else if (response.type === RESP_EVENT_TYPE.ACTIVE) {
