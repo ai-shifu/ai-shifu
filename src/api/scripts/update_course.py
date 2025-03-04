@@ -35,8 +35,8 @@ HOST = "http://127.0.0.1:5800"
 # }
 
 
-COURSE["tblk9OFSKLeUPunv"] = ["开篇", "vewlGkI2Jp", 401]
-COURSE["tblQ95GHoVKWLsux"] = ["如何用 AI 写出程序？", "vewlGkI2Jp", 402]
+COURSE["tbldUsmPMh6vcBxh"] = ["开篇", "vewlGkI2Jp", 401]
+COURSE["tblglFEDj2MqkLc3"] = ["如何用 AI 写出程序？", "vewlGkI2Jp", 402]
 COURSE["tblJxFaqo31vAwYm"] = ["如何用 AI 来学习 python ？", "vewlGkI2Jp", 402]
 COURSE["tblPI00k8B14kD5m"] = ["AI 编程运行的初体验", "vewlGkI2Jp", 402]
 COURSE["tbl7G4WqBtv6hycy"] = ["如何借助 AI 读懂代码？", "vewlGkI2Jp", 402]
@@ -56,7 +56,7 @@ for k in COURSE.keys():
     print(k)
     print(COURSE.get(k))
     name = COURSE.get(k)
-    url = """{}/api/lesson/update_lesson?doc_id=LLwmbSyMcakFVJsM5yacT5Gqnse&table_id={}&view_id={}&title={}&index={}&lesson_type={}""".format(
+    url = """{}/api/lesson/update_lesson?doc_id=IjfsbaLaQah0Wts1VaDcq0ePnGe&table_id={}&view_id={}&title={}&index={}&lesson_type={}""".format(
         HOST, k, name[1], name[0], i, name[2]
     )
     i = i + 1
