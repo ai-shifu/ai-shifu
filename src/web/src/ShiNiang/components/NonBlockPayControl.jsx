@@ -18,7 +18,6 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
   };
 
   const onNonBlockPayModalClose = () => {
-    console.log('onNonBlockPayModalClose', payload);
     customEvents.dispatchEvent(
       new CustomEvent(EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED, { detail: {} })
     );
