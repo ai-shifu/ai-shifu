@@ -7,7 +7,6 @@ import ActiveMessage from "./components/ActiveMessage.jsx";
 
 export const shiNiangPlugin = {
   install: (shifu) => {
-    console.log('install shiniang plugin')
     initShifu(shifu);
     shifu.registerChatInputActionControls('nonblock_order', NonBlockPayControl);
     shifu.registerControl(shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA, NavigatorTitleRightArea);

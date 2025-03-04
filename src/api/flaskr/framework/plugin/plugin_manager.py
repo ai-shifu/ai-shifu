@@ -1,6 +1,5 @@
 from flask import Flask
 from .hot_reload import PluginHotReloader
-import functools
 
 plugin_manager = None
 
@@ -64,6 +63,9 @@ class PluginManager:
         self.app.logger.info(f"execute_extensible_generic: {func_name}")
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
+                while hasattr(runc, "__wrapped__"):
+                    self.app.logger.warning(f"func is wrapped {runc.__name__}")
+                    runc = runc.__wrapped__
                 result = runc(result, *args, **kwargs)
                 if result:
                     yield from result
@@ -79,7 +81,6 @@ def enable_plugin_manager(app: Flask):
 
 # extensible decorator
 def extensible(func):
-    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         global plugin_manager
         result = func(*args, **kwargs)
@@ -88,12 +89,11 @@ def extensible(func):
         )
         return result
 
-    return func
+    return wrapper
 
 
 # extensible decorator
 def extension(target_func_name):
-    @functools.wraps(target_func_name)
     def decorator(func):
         plugin_manager.register_extension(target_func_name, func)
         return func
@@ -103,7 +103,6 @@ def extension(target_func_name):
 
 # extensible_generic decorator
 def extensible_generic(func):
-    @functools.wraps(func)
     def wrapper(*args, **kwargs):
         result = func(*args, **kwargs)
         if result:
@@ -120,7 +119,6 @@ def extensible_generic(func):
 
 
 def extensible_generic_register(func_name):
-    @functools.wraps(func_name)
     def decorator(func):
         plugin_manager.register_extensible_generic(func_name, func)
         return func
