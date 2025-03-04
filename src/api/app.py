@@ -47,6 +47,10 @@ def create_app() -> Flask:
 
     # init redis
     dao.init_redis(app)
+
+    # init milvus
+    dao.init_milvus(app)
+
     # Init LLM
     with app.app_context():
         from flaskr.api import llm  # noqa
