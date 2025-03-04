@@ -132,14 +132,12 @@ const App = () => {
   }
 
   useEffect(() => {
-    console.log('envDataInitialized...', envDataInitialized);
     if (!envDataInitialized) return;
     if (enableWxcode && inWechat()) {
       const { appId } = useEnvStore.getState();
       setLoading(true);
       const currCode = params.code;
       if (!currCode) {
-        console.log('wechat login');
         wechatLogin({
           appId,
         });

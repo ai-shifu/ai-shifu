@@ -30,7 +30,6 @@ export const useLessonTree = () => {
   }, [selectedLessonId, tree])
 
   const initialSelectedChapter = useCallback((tree) => {
-    console.log('initialSelectedChapter');
     let catalog = tree.catalogs.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING);
     if (catalog) {
       const lesson = catalog.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING);
@@ -88,7 +87,6 @@ export const useLessonTree = () => {
       bannerInfo: treeData.banner_info,
     };
 
-    console.log('load tree inner', newTree);
     return newTree;
   }, [updateCourseId]);
 
@@ -120,7 +118,6 @@ export const useLessonTree = () => {
   // 用于重新加载课程树，但保持临时状态
   const reloadTree = useCallback(async (chapterId = 0, lessonId = 0) => {
     const newTree = await loadTreeInner();
-    console.log('reload Tree', newTree)
     initialSelectedChapter(newTree);
     // 设置 collapse 状态
     await newTree.catalogs.forEach(c => {
@@ -143,7 +140,6 @@ export const useLessonTree = () => {
     }
 
     const selected = setSelectedState(newTree, chapterId, lessonId);
-    console.log('loadTree', selected);
     if (!selected) {
       initialSelectedChapter(newTree);
     }
@@ -153,7 +149,6 @@ export const useLessonTree = () => {
   }, [initialSelectedChapter, loadTreeInner, setSelectedState, tree]);
 
   const updateSelectedLesson = async (lessonId, forceExpand = false) => {
-    console.log('lesson tree updateSelectedLesson', lessonId);
     setSelectedLessonId(lessonId);
     setTree(old => {
       if (!old) {

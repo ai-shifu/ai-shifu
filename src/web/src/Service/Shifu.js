@@ -45,7 +45,6 @@ const createShifu = () => {
   }
 
   const registerControl = (type, control) => {
-    console.log('shifu.registerControl', type, !!control)
     controls[type] = control;
   }
 
@@ -86,11 +85,9 @@ const createShifu = () => {
       eventHandlers.dispatchEvent(new CustomEvent(EventTypes.OPEN_PAY_MODAL, { detail: { type, payload } }));
     },
     emitPayModalCancel: (e) => {
-      console.log('shifu.emitPayModalCancel', e)
       eventHandlers.dispatchEvent(new CustomEvent(EventTypes.PAY_MODAL_CANCEL, { detail: e }));
     },
     emitPayModalOk: (e) => {
-      console.log('shifu.emitPayModalOk', e)
       eventHandlers.dispatchEvent(new CustomEvent(EventTypes.PAY_MODAL_OK, { detail: e }));
     }
   }
