@@ -381,9 +381,9 @@ export const ChatComponents = forwardRef(
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
-              lastMsgRef.current = null;
-              lastMsg = null;
               if (isEnd) {
+                lastMsgRef.current = null;
+                lastMsg = null;
                 return;
               }
             } else if (response.type === RESP_EVENT_TYPE.ACTIVE) {
