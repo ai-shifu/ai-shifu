@@ -1,7 +1,7 @@
 """update user model definations
 
 Revision ID: ebd6acaf9989
-Revises: 92cbdc762a0f
+Revises: b7ca8ba230d7
 Create Date: 2025-02-10 09:44:39.087071
 
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "ebd6acaf9989"
-down_revision = "92cbdc762a0f"
+down_revision = "b7ca8ba230d7"
 branch_labels = None
 depends_on = None
 
