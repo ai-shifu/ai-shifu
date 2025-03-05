@@ -7,6 +7,12 @@ from .chapter_funcs import (
     delete_chapter,
     update_chapter_order,
 )
+from .unit_funcs import (
+    get_unit_list,
+    create_unit,
+    modify_unit,
+    delete_unit,
+)
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error
@@ -372,6 +378,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
     def update_chapter_order_api():
         """
         update chapter order
+        reset the chapter order to the order of the chapter ids
         ---
         tags:
             - scenario
@@ -387,13 +394,193 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                         description: scenario id
                     chapter_ids:
                         type: array
+                        items:
+                            type: string
                         description: chapter ids
+        responses:
+            200:
+                description: update chapter order success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/ChapterDto"
         """
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
+        if not scenario_id:
+            raise_param_error("scenario_id is required")
         chapter_ids = request.get_json().get("chapter_ids")
+        if not chapter_ids:
+            raise_param_error("chapter_ids is required")
         return make_common_response(
             update_chapter_order(app, user_id, scenario_id, chapter_ids)
         )
+
+    @app.route(path_prefix + "/units", methods=["GET"])
+    def get_unit_list_api():
+        """
+        get unit list
+        ---
+        tags:
+            - scenario
+        parameters:
+            - name: scenario_id
+              type: string
+              required: true
+            - name: chapter_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get unit list success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/UnitDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        chapter_id = request.args.get("chapter_id")
+        return make_common_response(
+            get_unit_list(app, user_id, scenario_id, chapter_id)
+        )
+
+    @app.route(path_prefix + "/create-unit", methods=["POST"])
+    def create_unit_api():
+        """
+        create unit
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    chapter_id:
+                        type: string
+                        description: chapter id
+                    unit_name:
+                        type: string
+                        description: unit name
+                    unit_description:
+                        type: string
+                        description: unit description
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        chapter_id = request.get_json().get("chapter_id")
+        unit_name = request.get_json().get("unit_name")
+        unit_description = request.get_json().get("unit_description", "")
+        unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)
+        return make_common_response(
+            create_unit(
+                app,
+                user_id,
+                scenario_id,
+                chapter_id,
+                unit_name,
+                unit_description,
+                unit_type,
+            )
+        )
+
+    @app.route(path_prefix + "/modify-unit", methods=["POST"])
+    def modify_unit_api():
+        """
+        modify unit
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    unit_id:
+                        type: string
+                        description: unit id
+                    unit_name:
+                        type: string
+                        description: unit name
+                    unit_description:
+                        type: string
+                        description: unit description
+                    unit_index:
+                        type: integer
+                        description: unit index
+        """
+        user_id = request.user.user_id
+        unit_id = request.get_json().get("unit_id")
+        unit_name = request.get_json().get("unit_name")
+        unit_description = request.get_json().get("unit_description")
+        unit_index = request.get_json().get("unit_index")
+        return make_common_response(
+            modify_unit(app, user_id, unit_id, unit_name, unit_description, unit_index)
+        )
+
+    @app.route(path_prefix + "/delete-unit", methods=["POST"])
+    def delete_unit_api():
+        """
+        delete unit
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    unit_id:
+                        type: string
+                        description: unit id
+        responses:
+            200:
+                description: delete unit success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: boolean
+        """
+        user_id = request.user.user_id
+        unit_id = request.get_json().get("unit_id")
+        return make_common_response(delete_unit(app, user_id, unit_id))
 
     return app

@@ -146,17 +146,19 @@ def delete_chapter(app, user_id: str, chapter_id: str):
 
 
 # update chapter order
-def update_chapter_order(app, user_id: str, scenario_id: str, chapter_ids: list):
+def update_chapter_order(
+    app, user_id: str, scenario_id: str, chapter_ids: list
+) -> list[ChapterDto]:
     with app.app_context():
         chapter_list = (
             AILesson.query.filter(
                 AILesson.course_id == scenario_id,
-                AILesson.status == 1,
                 AILesson.lesson_id.in_(chapter_ids),
             )
             .order_by(AILesson.lesson_index.asc(), AILesson.lesson_no.asc())
             .all()
         )
+        chapter_dtos = []
         for index, chapter_id in enumerate(chapter_ids):
             chapter = next((c for c in chapter_list if c.lesson_id == chapter_id), None)
             if chapter:
@@ -164,5 +166,13 @@ def update_chapter_order(app, user_id: str, scenario_id: str, chapter_ids: list)
                 chapter.lesson_no = f"{index + 1:02d}"
                 chapter.updated_user_id = user_id
                 chapter.updated_at = datetime.now()
+                chapter_dtos.append(
+                    ChapterDto(
+                        chapter.lesson_id,
+                        chapter.lesson_name,
+                        chapter.lesson_desc,
+                        chapter.lesson_type,
+                    )
+                )
         db.session.commit()
-        return True
+        return chapter_dtos
