@@ -46,7 +46,6 @@ const AskButton = ({
   useHotkeys(
     genHotKeyIdentifier(SHORTCUT_IDS.ASK, inMacOs),
     () => {
-      console.log('hotkey ask');
       buttonClick();
     },
     [buttonClick]

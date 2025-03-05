@@ -82,7 +82,6 @@ export const useUserStore = create(
 
     // 通过接口检测登录状态
     checkLogin: () => set(async (state) => {
-      console.log('checkLogin', state.hasCheckLogin)
       if (state.hasCheckLogin) {
         return
       }

@@ -19,7 +19,6 @@ export const EVENT_NAMES = {
 };
 
 export const tracking = async (eventName, eventData) => {
-  console.log('tracking.tracking', eventName, eventData);
   try {
     const umami = window.umami;
     // dont track if umami is not loaded

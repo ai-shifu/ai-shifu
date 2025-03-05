@@ -34,6 +34,9 @@ class PluginManager:
         self.app.logger.info(
             f"register_extension: {target_func_name} -> {func.__name__}"
         )
+        while hasattr(func, "__wrapped__"):
+            self.app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         if target_func_name not in self.extension_functions:
             self.extension_functions[target_func_name] = []
         self.extension_functions[target_func_name].append(func)
@@ -49,6 +52,9 @@ class PluginManager:
         self.app.logger.info(
             f"register_extensible_generic: {func_name} -> {func.__name__}"
         )
+        while hasattr(func, "__wrapped__"):
+            self.app.logger.warning(f"func is wrapped {func.__name__}")
+            func = func.__wrapped__
         if func_name not in self.extensible_generic_functions:
             self.extensible_generic_functions[func_name] = []
         self.extensible_generic_functions[func_name].append(func)
@@ -57,6 +63,9 @@ class PluginManager:
         self.app.logger.info(f"execute_extensible_generic: {func_name}")
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
+                while hasattr(runc, "__wrapped__"):
+                    self.app.logger.warning(f"func is wrapped {runc.__name__}")
+                    runc = runc.__wrapped__
                 result = runc(result, *args, **kwargs)
                 if result:
                     yield from result

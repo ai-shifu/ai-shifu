@@ -18,11 +18,10 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
   };
 
   const onNonBlockPayModalClose = () => {
-    console.log('onNonBlockPayModalClose');
     customEvents.dispatchEvent(
       new CustomEvent(EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED, { detail: {} })
     );
-    onComplete?.(shifu.constants.INTERACTION_OUTPUT_TYPE.CONTINUE, payload.val, payload.scriptId);
+    onComplete?.(shifu.constants.INTERACTION_OUTPUT_TYPE.CONTINUE, payload.label, payload.scriptId);
     onClose?.();
   };
 

@@ -293,7 +293,6 @@ export const ChatComponents = forwardRef(
           status_value: content.status_value,
         });
 
-        console.log('content.status_value', content.status_value);
         if (
           content.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING &&
           !isEnd
@@ -307,7 +306,6 @@ export const ChatComponents = forwardRef(
         }
 
         if (content.status_value === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
-          console.log('update lesson learning: ', content.lesson_id);
           updateSelectedLesson(content.lesson_id);
         }
       },
@@ -382,8 +380,8 @@ export const ChatComponents = forwardRef(
               setIsStreaming(false);
               setTyping(false);
               lastMsgRef.current = null;
-              lastMsg = null;
               if (isEnd) {
+                lastMsg = null;
                 return;
               }
             } else if (response.type === RESP_EVENT_TYPE.ACTIVE) {
@@ -522,7 +520,6 @@ export const ChatComponents = forwardRef(
     }, [chatId, initRecords, lessonId, loadedData, nextStep, scrollToBottom]);
 
     const resetAndLoadData = useCallback(async () => {
-      console.log('resetAndLoadData', chapterId);
       if (!chapterId) {
         return;
       }
@@ -616,7 +613,6 @@ export const ChatComponents = forwardRef(
     ]);
 
     useEffect(() => {
-      console.log('chat component loaded', chapterId, loadedChapterId);
       if (loadedChapterId !== chapterId) {
         setLoadedChapterId(chapterId);
         resetAndLoadData();
@@ -695,7 +691,6 @@ export const ChatComponents = forwardRef(
 
     const handleSend = useCallback(
       async (type,display,  val, scriptId) => {
-        console.log('handleSend', type, display, val, scriptId);
         if (
           type === INTERACTION_OUTPUT_TYPE.TEXT ||
           type === INTERACTION_OUTPUT_TYPE.SELECT ||
@@ -712,7 +707,7 @@ export const ChatComponents = forwardRef(
               type: CHAT_MESSAGE_TYPE.TEXT,
               userInfo,
             });
-            appendMsg(message);
+            await appendMsg(message);
           }
         }
 
@@ -840,7 +835,6 @@ export const ChatComponents = forwardRef(
 
     useEffect(() => {
       const onGoToNavigationNode = (e) => {
-        console.log('onGoToNavigationNode', e.detail);
         const { chapterId, lessonId } = e.detail;
 
         if (chapterId !== loadedChapterId) {
