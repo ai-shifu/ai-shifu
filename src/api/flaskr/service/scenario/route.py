@@ -5,6 +5,7 @@ from .chapter_funcs import (
     create_chapter,
     modify_chapter,
     delete_chapter,
+    update_chapter_order,
 )
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
@@ -366,5 +367,33 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         if not chapter_id:
             raise_param_error("chapter_id is required")
         return make_common_response(delete_chapter(app, user_id, chapter_id))
+
+    @app.route(path_prefix + "/update-chapter-order", methods=["POST"])
+    def update_chapter_order_api():
+        """
+        update chapter order
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    chapter_ids:
+                        type: array
+                        description: chapter ids
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        chapter_ids = request.get_json().get("chapter_ids")
+        return make_common_response(
+            update_chapter_order(app, user_id, scenario_id, chapter_ids)
+        )
 
     return app

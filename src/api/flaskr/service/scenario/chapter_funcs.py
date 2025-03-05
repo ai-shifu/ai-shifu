@@ -5,6 +5,7 @@ from sqlalchemy import func
 from ...util.uuid import generate_id
 from ..common.models import raise_error
 from ..lesson.models import LESSON_TYPE_TRIAL
+from datetime import datetime
 
 
 def get_chapter_list(app, user_id: str, scenario_id: str):
@@ -142,3 +143,26 @@ def delete_chapter(app, user_id: str, chapter_id: str):
             db.session.commit()
             return True
         raise_error("SCENARIO.CHAPTER_NOT_FOUND")
+
+
+# update chapter order
+def update_chapter_order(app, user_id: str, scenario_id: str, chapter_ids: list):
+    with app.app_context():
+        chapter_list = (
+            AILesson.query.filter(
+                AILesson.course_id == scenario_id,
+                AILesson.status == 1,
+                AILesson.lesson_id.in_(chapter_ids),
+            )
+            .order_by(AILesson.lesson_index.asc(), AILesson.lesson_no.asc())
+            .all()
+        )
+        for index, chapter_id in enumerate(chapter_ids):
+            chapter = next((c for c in chapter_list if c.lesson_id == chapter_id), None)
+            if chapter:
+                chapter.lesson_index = index + 1
+                chapter.lesson_no = f"{index + 1:02d}"
+                chapter.updated_user_id = user_id
+                chapter.updated_at = datetime.now()
+        db.session.commit()
+        return True
