@@ -6,6 +6,7 @@ from .chapter_funcs import (
     modify_chapter,
     delete_chapter,
     update_chapter_order,
+    get_outline_tree,
 )
 from .unit_funcs import (
     get_unit_list,
@@ -582,5 +583,38 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         unit_id = request.get_json().get("unit_id")
         return make_common_response(delete_unit(app, user_id, unit_id))
+
+    @app.route(path_prefix + "/outline-tree", methods=["GET"])
+    def get_outline_tree_api():
+        """
+        get outline tree
+        ---
+        tags:
+            - scenario
+        parameters:
+            - name: scenario_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get outline tree success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/SimpleOutlineDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        return make_common_response(get_outline_tree(app, user_id, scenario_id))
 
     return app

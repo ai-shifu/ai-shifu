@@ -66,29 +66,69 @@ class ChapterDto:
 
 
 @register_schema_to_swagger
+class SimpleOutlineDto:
+    outline_id: str
+    outline_no: str
+    outline_name: str
+    outline_children: list["SimpleOutlineDto"]
+
+    def __init__(
+        self,
+        outline_id: str,
+        outline_no: str,
+        outline_name: str,
+        outline_children: list["SimpleOutlineDto"] = None,
+    ):
+        self.outline_id = outline_id
+        self.outline_no = outline_no
+        self.outline_name = outline_name
+        self.outline_children = outline_children if outline_children is not None else []
+
+    def __json__(self):
+        return {
+            "outline_id": self.outline_id,
+            "outline_no": self.outline_no,
+            "outline_name": self.outline_name,
+            "outline_children": self.outline_children,
+        }
+
+
+@register_schema_to_swagger
 class UnitDto:
     unit_id: str
     unit_no: str
     unit_name: str
-    unit_desc: str
-    unit_type: int
+
+
+@register_schema_to_swagger
+class OutlineDto:
+    outline_id: str
+    outline_no: str
+    outline_name: str
+    outline_desc: str
+    outline_type: int
 
     def __init__(
-        self, unit_id: str, unit_no: str, unit_name: str, unit_desc: str, unit_type: int
+        self,
+        outline_id: str,
+        outline_no: str,
+        outline_name: str,
+        outline_desc: str,
+        outline_type: int,
     ):
-        self.unit_id = unit_id
-        self.unit_no = unit_no
-        self.unit_name = unit_name
-        self.unit_desc = unit_desc
-        self.unit_type = unit_type
+        self.outline_id = outline_id
+        self.outline_no = outline_no
+        self.outline_name = outline_name
+        self.outline_desc = outline_desc
+        self.outline_type = outline_type
 
     def __json__(self):
         return {
-            "unit_id": self.unit_id,
-            "unit_no": self.unit_no,
-            "unit_name": self.unit_name,
-            "unit_desc": self.unit_desc,
-            "unit_type": self.unit_type,
+            "outline_id": self.outline_id,
+            "outline_no": self.outline_no,
+            "outline_name": self.outline_name,
+            "outline_desc": self.outline_desc,
+            "outline_type": self.outline_type,
         }
 
 
@@ -239,5 +279,5 @@ class ScenarioTreeNodeDto:
             "node_no": self.node_no,
             "node_name": self.node_name,
             "node_desc": self.node_desc,
-            "children": [child.__json__() for child in self.children],
+            "children": self.children,
         }

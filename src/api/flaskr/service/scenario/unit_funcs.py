@@ -112,7 +112,6 @@ def delete_unit(app, user_id: str, unit_id: str):
         if unit:
             unit.status = 0
             unit.updated_user_id = user_id
-
             db.session.commit()
             return True
         raise_error("SCENARIO.UNIT_NOT_FOUND")
