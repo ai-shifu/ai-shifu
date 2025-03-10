@@ -81,3 +81,73 @@ class AICourseAttendAsssotion(db.Model):
         onupdate=func.now(),
         comment="Update time",
     )
+
+
+class AICourseStudyProgress(db.Model):
+    __tablename__ = "ai_course_study_progress"
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    progress_id = Column(
+        String(36), nullable=False, default="", comment="Progress UUID", index=True
+    )
+    user_id = Column(
+        String(36), nullable=False, default="", comment="User UUID", index=True
+    )
+    course_id = Column(
+        String(36), nullable=False, default="", comment="Course UUID", index=True
+    )
+    chapter_count = Column(Integer, nullable=False, default=0, comment="Chapter Count")
+    chapter_completed_count = Column(
+        Integer, nullable=False, default=0, comment="Chapter Completed Count"
+    )
+    chapter_reset_count = Column(
+        Integer, nullable=False, default=0, comment="Chapter Reset Count"
+    )
+    is_paid = Column(Integer, nullable=False, default=0, comment="Is Paid", index=True)
+    is_completed = Column(
+        Integer, nullable=False, default=0, comment="Is Completed", index=True
+    )
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+
+
+class AILessonStudyProgress(db.Model):
+    __tablename__ = "ai_lesson_study_progress"
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    progress_id = Column(
+        String(36), nullable=False, default="", index=True, comment="Progress UUID"
+    )
+    lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
+    begin_time = Column(TIMESTAMP, nullable=True, comment="Begin Time")
+    end_time = Column(TIMESTAMP, nullable=True, comment="End Time")
+    sublesson_count = Column(
+        Integer, nullable=False, default=0, comment="Sublesson Count"
+    )
+    sublesson_completed_count = Column(
+        Integer, nullable=False, default=0, comment="Sublesson Completed Count"
+    )
+    script_index = Column(Integer, nullable=False, default=0, comment="Script Index")
+    script_count = Column(Integer, nullable=False, default=0, comment="Script Count")
+    reset_count = Column(Integer, nullable=False, default=0, comment="Reset Count")
+    lesson_is_updated = Column(
+        Integer, nullable=False, default=0, comment="Lesson Is Updated"
+    )
+    is_completed = Column(Integer, nullable=False, default=0, comment="Is Completed")
+    completed_time = Column(TIMESTAMP, nullable=True, comment="Completed Time")
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
