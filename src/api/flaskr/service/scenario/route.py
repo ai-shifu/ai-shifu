@@ -14,6 +14,9 @@ from .unit_funcs import (
     modify_unit,
     delete_unit,
 )
+from .block_funcs import (
+    get_block_list,
+)
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error
@@ -616,5 +619,38 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         scenario_id = request.args.get("scenario_id")
         return make_common_response(get_outline_tree(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/blocks", methods=["GET"])
+    def get_block_list_api():
+        """
+        get block list
+        ---
+        tags:
+            - scenario
+        parameters:
+            - name: outline_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get block list success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/BlockDto"
+        """
+        user_id = request.user.user_id
+        outline_id = request.args.get("outline_id")
+        return make_common_response(get_block_list(app, user_id, outline_id))
 
     return app
