@@ -15,6 +15,7 @@ from flaskr.service.scenario.dtos import (
     GotoSettings,
     GotoDtoItem,
     OutlineEditDto,
+    SystemPromptDto,
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.lesson.const import (
@@ -61,7 +62,7 @@ def generate_block_dto(block: AILessonScript):
             other_conf=block.script_other_conf,
         )
     elif block.script_type == SCRIPT_TYPE_SYSTEM:
-        ret.block_content = AIDto(
+        ret.block_content = SystemPromptDto(
             prompt=block.script_prompt,
             profiles=get_profiles(block.script_profile),
             model=block.script_model,

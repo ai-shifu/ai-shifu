@@ -168,6 +168,42 @@ class AIDto:
         }
 
 
+# prompt
+@register_schema_to_swagger
+class SystemPromptDto:
+    prompt: str
+    profiles: str
+    model: str
+    temprature: float
+    other_conf: dict
+
+    def __init__(
+        self,
+        prompt: str = None,
+        profiles: list[str] = None,
+        model: str = None,
+        temprature: float = None,
+        other_conf: dict = None,
+    ):
+        self.prompt = prompt
+        self.profiles = profiles
+        self.model = model
+        self.temprature = temprature
+        self.other_conf = other_conf
+
+    def __json__(self):
+        return {
+            "properties": {
+                "prompt": self.prompt,
+                "profiles": self.profiles,
+                "model": self.model,
+                "temprature": self.temprature,
+                "other_conf": self.other_conf,
+            },
+            "type": __class__.__name__.replace("Dto", "").lower(),
+        }
+
+
 @register_schema_to_swagger
 class SolidContentDto:
     content: str
@@ -414,6 +450,19 @@ class CodeDto(InputDto):
         self, text_input_name: str, text_input_key: str, text_input_placeholder: str
     ):
         super().__init__(text_input_name, text_input_key, text_input_placeholder)
+        self.input_name = text_input_name
+        self.input_key = text_input_key
+        self.input_placeholder = text_input_placeholder
+
+    def __json__(self):
+        return {
+            "properties": {
+                "input_name": self.input_name,
+                "input_key": self.input_key,
+                "input_placeholder": self.input_placeholder,
+            },
+            "type": __class__.__name__.replace("Dto", "").lower(),
+        }
 
 
 @register_schema_to_swagger
@@ -427,6 +476,19 @@ class PhoneDto(InputDto):
         self, text_input_name: str, text_input_key: str, text_input_placeholder: str
     ):
         super().__init__(text_input_name, text_input_key, text_input_placeholder)
+        self.input_name = text_input_name
+        self.input_key = text_input_key
+        self.input_placeholder = text_input_placeholder
+
+    def __json__(self):
+        return {
+            "properties": {
+                "input_name": self.input_name,
+                "input_key": self.input_key,
+                "input_placeholder": self.input_placeholder,
+            },
+            "type": __class__.__name__.replace("Dto", "").lower(),
+        }
 
 
 @register_schema_to_swagger
