@@ -17,6 +17,10 @@ from flaskr.service.scenario.dtos import (
     OutlineEditDto,
     SystemPromptDto,
 )
+from flaskr.service.scenario.adapter import (
+    convert_dict_to_block_dto,
+    update_block_model,
+)
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.lesson.const import (
     SCRIPT_TYPE_FIX,
@@ -33,7 +37,9 @@ from flaskr.service.lesson.const import (
     UI_TYPE_BRANCH,
 )
 from flaskr.service.common.models import raise_error
+from flaskr.util import generate_id
 from flaskr.dao import db
+from datetime import datetime
 
 
 def get_profiles(profiles: str):
@@ -236,22 +242,80 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 # save block list
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     with app.app_context():
-        lesson = AILesson.query.filter(
+        outline = AILesson.query.filter(
             AILesson.course_id == outline_id,
             AILesson.status == 1,
         ).first()
-        if not lesson:
-            raise_error("SCENARIO.LESSON_NOT_FOUND")
+        if not outline:
+            raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+
+        outline_id = outline.lesson_id
+
+        sub_outlines = (
+            AILesson.query.filter(
+                AILesson.status == 1,
+                AILesson.course_id == outline_id,
+                AILesson.lesson_no.like(outline.lesson_no + "%"),
+            )
+            .order_by(AILesson.lesson_no.asc())
+            .all()
+        )
+        sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
+
+        # get all blocks
+        blocks = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id.in_(sub_outline_ids),
+                AILessonScript.status == 1,
+            )
+            .order_by(AILessonScript.script_index.asc())
+            .all()
+        )
+        block_index = 1
+        current_outline_id = outline_id
         for block in block_list:
-            block_model = convert_block_dto_to_model(block)
-            db.session.add(block_model)
+            type = block.get("type")
+            if type == "block":
+                block_dto = convert_dict_to_block_dto(block)
+                block_model = None
+                if block_dto.block_id is not None and block_dto.block_id != "":
+                    check_block = [
+                        b for b in blocks if b.script_id == block_dto.block_id
+                    ]
+                    if len(check_block) > 0:
+                        block_model = check_block[0]
+                if block_model is None:
+                    block_model = AILessonScript(
+                        script_id=generate_id(app),
+                        script_index=block_index,
+                        script_name=block_dto.block_name,
+                        script_desc=block_dto.block_desc,
+                        script_type=block_dto.block_type,
+                        created=datetime.now(),
+                        created_user_id=user_id,
+                        updated=datetime.now(),
+                        updated_user_id=user_id,
+                        status=1,
+                    )
+                update_block_model(block_model, block_dto)
+                block_model.lesson_id = current_outline_id
+                block_model.script_index = block_index
+                block_model.updated = datetime.now()
+                block_model.updated_user_id = user_id
+                block_model.status = 1
+                db.session.merge(block_model)
+                block_index += 1
+            elif type == "outline":
+                # consider the outline level
+                # pass the top outline
+                pass
         db.session.commit()
         return [generate_block_dto(block_model) for block_model in block_list]
     pass
 
 
 # delete block list
-def delete_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]):
     with app.app_context():
         lesson = AILesson.query.filter(
             AILesson.course_id == outline_id,

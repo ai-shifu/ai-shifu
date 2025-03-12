@@ -16,6 +16,7 @@ from .unit_funcs import (
 )
 from .block_funcs import (
     get_block_list,
+    save_block_list,
 )
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
@@ -652,5 +653,49 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         outline_id = request.args.get("outline_id")
         return make_common_response(get_block_list(app, user_id, outline_id))
+
+    @app.route(path_prefix + "/save-blocks", methods=["POST"])
+    def save_blocks_api():
+        """
+        save blocks
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    outline_id:
+                        type: string
+                        description: outline id
+                    blocks:
+                        type: array
+                        items:
+                            $ref: "#/components/schemas/BlockDto"
+        responses:
+            200:
+                description: save blocks success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: array
+                                    items:
+                                        $ref: "#/components/schemas/BlockDto"
+        """
+        user_id = request.user.user_id
+        outline_id = request.get_json().get("outline_id")
+        blocks = request.get_json().get("blocks")
+        return make_common_response(save_block_list(app, user_id, outline_id, blocks))
 
     return app

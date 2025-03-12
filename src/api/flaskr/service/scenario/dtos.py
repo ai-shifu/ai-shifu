@@ -110,11 +110,11 @@ class OutlineDto:
 
     def __init__(
         self,
-        outline_id: str,
-        outline_no: str,
-        outline_name: str,
-        outline_desc: str,
-        outline_type: int,
+        outline_id: str = None,
+        outline_no: str = None,
+        outline_name: str = None,
+        outline_desc: str = None,
+        outline_type: int = None,
     ):
         self.outline_id = outline_id
         self.outline_no = outline_no
@@ -136,7 +136,7 @@ class OutlineDto:
 @register_schema_to_swagger
 class AIDto:
     prompt: str
-    profiles: str
+    profiles: list[str]
     model: str
     temprature: float
     other_conf: dict
@@ -208,7 +208,7 @@ class SystemPromptDto:
 class SolidContentDto:
     content: str
 
-    def __init__(self, content: str):
+    def __init__(self, content: str = None):
         self.content = content
 
     def __json__(self):
@@ -226,7 +226,7 @@ class ButtonDto:
     button_name: str
     button_key: str
 
-    def __init__(self, button_name: str, button_key: str):
+    def __init__(self, button_name: str = None, button_key: str = None):
         self.button_name = button_name
         self.button_key = button_key
 
@@ -246,7 +246,7 @@ class LoginDto(ButtonDto):
     button_name: str
     button_key: str
 
-    def __init__(self, button_name: str, button_key: str):
+    def __init__(self, button_name: str = None, button_key: str = None):
         super().__init__(button_name, button_key)
         self.button_name = button_name
         self.button_key = button_key
@@ -267,7 +267,7 @@ class GotoDtoItem:
     type: str
     goto_id: str
 
-    def __init__(self, value: str, type: str, goto_id: str):
+    def __init__(self, value: str = None, type: str = None, goto_id: str = None):
         self.value = value
         self.type = type
         self.goto_id = goto_id
@@ -285,8 +285,14 @@ class GotoSettings:
     items: list[GotoDtoItem]
     profile_key: str
 
-    def __init__(self, items: list[GotoDtoItem], profile_key: str):
-        self.items = items
+    def __init__(
+        self, items: list[GotoDtoItem] = None, profile_key: str = None, **kwargs
+    ):
+        if isinstance(items, list):
+            self.items = [
+                GotoDtoItem(**item) if isinstance(item, dict) else item
+                for item in items
+            ]
         self.profile_key = profile_key
 
     def __json__(self):
@@ -303,9 +309,19 @@ class GotoDto(ButtonDto):
     button_key: str
     goto_settings: GotoSettings
 
-    def __init__(self, button_name: str, button_key: str, goto_settings: GotoSettings):
+    def __init__(
+        self,
+        button_name: str = None,
+        button_key: str = None,
+        goto_settings: GotoSettings = None,
+        **kwargs
+    ):
         super().__init__(button_name, button_key)
-        self.goto_settings = goto_settings
+        if isinstance(goto_settings, dict):
+            self.goto_settings = GotoSettings(**goto_settings)
+        else:
+            self.goto_settings = goto_settings
+        button_key
 
     def __json__(self):
         return {
@@ -324,7 +340,7 @@ class PaymentDto(ButtonDto):
     button_name: str
     button_key: str
 
-    def __init__(self, button_name: str, button_key: str):
+    def __init__(self, button_name: str = None, button_key: str = None):
         super().__init__(button_name, button_key)
         self.button_name = button_name
         self.button_key = button_key
@@ -345,7 +361,7 @@ class ContinueDto(ButtonDto):
     button_name: str
     button_key: str
 
-    def __init__(self, button_name: str, button_key: str):
+    def __init__(self, button_name: str = None, button_key: str = None):
         super().__init__(button_name, button_key)
 
 
@@ -359,15 +375,19 @@ class OptionDto:
 
     def __init__(
         self,
-        option_name: str,
-        option_key: str,
-        profile_key: str,
-        buttons: list[ButtonDto],
+        option_name: str = None,
+        option_key: str = None,
+        profile_key: str = None,
+        buttons: list = None,
     ):
         self.option_name = option_name
         self.option_key = option_key
         self.profile_key = profile_key
-        self.buttons = buttons
+        if isinstance(buttons, list):
+            self.buttons = [
+                ButtonDto(**button) if isinstance(button, dict) else button
+                for button in buttons
+            ]
 
     def __json__(self):
         return {
@@ -389,7 +409,10 @@ class InputDto:
     input_placeholder: str
 
     def __init__(
-        self, text_input_name: str, text_input_key: str, text_input_placeholder: str
+        self,
+        text_input_name: str = None,
+        text_input_key: str = None,
+        text_input_placeholder: str = None,
     ):
         self.text_input_name = text_input_name
         self.text_input_key = text_input_key
@@ -426,6 +449,10 @@ class TextInputDto(InputDto):
         self.input_name = text_input_name
         self.input_key = text_input_key
         self.input_placeholder = text_input_placeholder
+        if isinstance(prompt, dict):
+            self.prompt = AIDto(**prompt)
+        elif isinstance(prompt, AIDto):
+            self.prompt = prompt
 
     def __json__(self):
         return {
@@ -447,7 +474,10 @@ class CodeDto(InputDto):
     input_placeholder: str
 
     def __init__(
-        self, text_input_name: str, text_input_key: str, text_input_placeholder: str
+        self,
+        text_input_name: str = None,
+        text_input_key: str = None,
+        text_input_placeholder: str = None,
     ):
         super().__init__(text_input_name, text_input_key, text_input_placeholder)
         self.input_name = text_input_name
@@ -473,7 +503,10 @@ class PhoneDto(InputDto):
     text_input_placeholder: str
 
     def __init__(
-        self, text_input_name: str, text_input_key: str, text_input_placeholder: str
+        self,
+        text_input_name: str = None,
+        text_input_key: str = None,
+        text_input_placeholder: str = None,
     ):
         super().__init__(text_input_name, text_input_key, text_input_placeholder)
         self.input_name = text_input_name
@@ -504,14 +537,15 @@ class BlockDto:
 
     def __init__(
         self,
-        block_id: str,
-        block_no: str,
-        block_name: str,
-        block_desc: str,
-        block_type: int,
-        block_index: int,
-        block_content: AIDto | SolidContentDto = None,
+        block_id: str = None,
+        block_no: str = None,
+        block_name: str = None,
+        block_desc: str = None,
+        block_type: int = None,
+        block_index: int = None,
+        block_content: AIDto | SolidContentDto | SystemPromptDto = None,
         block_ui: OptionDto | TextInputDto | ButtonDto = None,
+        **kwargs
     ):
         self.block_id = block_id
         self.block_no = block_no
@@ -549,19 +583,18 @@ class OutlineEditDto:
 
     def __init__(
         self,
-        outline_id: str,
-        outline_no: str,
-        outline_name: str,
-        outline_desc: str,
-        outline_type: int,
-        outline_level: int,
+        outline_id: str = None,
+        outline_no: str = None,
+        outline_name: str = None,
+        outline_desc: str = None,
+        outline_type: int = None,
     ):
         self.outline_id = outline_id
         self.outline_no = outline_no
         self.outline_name = outline_name
         self.outline_desc = outline_desc
         self.outline_type = outline_type
-        self.outline_level = outline_level
+        self.outline_level = len(outline_no) // 2
 
     def __json__(self):
         return {
