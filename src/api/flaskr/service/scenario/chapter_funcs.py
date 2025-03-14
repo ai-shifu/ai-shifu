@@ -233,6 +233,9 @@ def get_outline_tree(app, user_id: str, scenario_id: str):
                 # 找到父节点
                 parent_no = node.outline_no[:-2]  # 获取父节点的编号
                 if parent_no in node_dict and parent_no != node.outline_no:
+                    app.logger.info(
+                        f"parent_no: {parent_no}, node.outline_no: {node.outline_no}"
+                    )
                     node_dict[parent_no].outline_children.append(
                         node_dict[node.outline_no]
                     )

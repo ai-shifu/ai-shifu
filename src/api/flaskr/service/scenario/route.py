@@ -491,7 +491,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     scenario_id:
                         type: string
                         description: scenario id
-                    chapter_id:
+                    parent_id:
                         type: string
                         description: chapter id
                     unit_name:
@@ -503,7 +503,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         """
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
-        chapter_id = request.get_json().get("chapter_id")
+        chapter_id = request.get_json().get("parent_id")
         unit_name = request.get_json().get("unit_name")
         unit_description = request.get_json().get("unit_description", "")
         unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)

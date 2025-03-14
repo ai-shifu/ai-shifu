@@ -3,7 +3,7 @@ from flaskr.util.uuid import generate_id
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from datetime import datetime
-from flaskr.service.scenario.dtos import UnitDto
+from flaskr.service.scenario.dtos import UnitDto, OutlineDto
 from flaskr.service.lesson.models import LESSON_TYPE_TRIAL
 
 
@@ -48,12 +48,14 @@ def create_unit(
         if chapter:
             existing_unit_count = AILesson.query.filter(
                 AILesson.course_id == scenario_id,
-                AILesson.lesson_id == chapter_id,
                 AILesson.status == 1,
                 AILesson.parent_id == chapter_id,
             ).count()
             unit_id = generate_id(app)
             unit_no = chapter.lesson_no + f"{existing_unit_count + 1:02d}"
+            app.logger.info(
+                f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, chapter_id: {chapter_id}, unit_no: {unit_no}"
+            )
             unit = AILesson(
                 lesson_id=unit_id,
                 lesson_no=unit_no,
@@ -69,7 +71,7 @@ def create_unit(
             )
             db.session.add(unit)
             db.session.commit()
-            return UnitDto(
+            return OutlineDto(
                 unit.lesson_id,
                 unit.lesson_no,
                 unit.lesson_name,
