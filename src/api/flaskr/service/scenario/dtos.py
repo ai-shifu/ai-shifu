@@ -28,11 +28,11 @@ class ScenarioDto:
 
     def __json__(self):
         return {
-            "scenario_id": self.scenario_id,
-            "scenario_name": self.scenario_name,
-            "scenario_description": self.scenario_description,
-            "scenario_image": self.scenario_image,
-            "scenario_state": self.scenario_state,
+            "id": self.scenario_id,
+            "name": self.scenario_name,
+            "description": self.scenario_description,
+            "image": self.scenario_image,
+            "state": self.scenario_state,
             "is_favorite": self.is_favorite,
         }
 
@@ -86,10 +86,10 @@ class SimpleOutlineDto:
 
     def __json__(self):
         return {
-            "outline_id": self.outline_id,
-            "outline_no": self.outline_no,
-            "outline_name": self.outline_name,
-            "outline_children": self.outline_children,
+            "id": self.outline_id,
+            "no": self.outline_no,
+            "name": self.outline_name,
+            "children": self.outline_children,
         }
 
 
@@ -124,11 +124,11 @@ class OutlineDto:
 
     def __json__(self):
         return {
-            "outline_id": self.outline_id,
-            "outline_no": self.outline_no,
-            "outline_name": self.outline_name,
-            "outline_desc": self.outline_desc,
-            "outline_type": self.outline_type,
+            "id": self.outline_id,
+            "no": self.outline_no,
+            "name": self.outline_name,
+            "desc": self.outline_desc,
+            "type": self.outline_type,
         }
 
 

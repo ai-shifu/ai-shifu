@@ -248,6 +248,10 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     type: object
                                     $ref: "#/components/schemas/ChapterDto"
         """
+
+        app.logger.info(
+            f"create chapter, user_id: {request.user.user_id} {request.get_json()}"
+        )
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
         if not scenario_id:
