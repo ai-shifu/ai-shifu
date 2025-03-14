@@ -500,22 +500,30 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     unit_description:
                         type: string
                         description: unit description
+                    unit_type:
+                        type: string
+                        description: unit type
+                    unit_index:
+                        type: integer
+                        description: unit index
         """
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
-        chapter_id = request.get_json().get("parent_id")
+        parent_id = request.get_json().get("parent_id")
         unit_name = request.get_json().get("unit_name")
         unit_description = request.get_json().get("unit_description", "")
         unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)
+        unit_index = request.get_json().get("unit_index", None)
         return make_common_response(
             create_unit(
                 app,
                 user_id,
                 scenario_id,
-                chapter_id,
+                parent_id,
                 unit_name,
                 unit_description,
                 unit_type,
+                unit_index,
             )
         )
 
