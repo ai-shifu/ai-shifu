@@ -58,7 +58,9 @@ def generate_block_dto(block: AILessonScript):
         block_index=block.script_index,
     )
     if block.script_type == SCRIPT_TYPE_FIX:
-        ret.block_content = SolidContentDto(block.script_prompt)
+        ret.block_content = SolidContentDto(
+            block.script_prompt, get_profiles(block.script_profile)
+        )
     elif block.script_type == SCRIPT_TYPE_PORMPT:
         ret.block_content = AIDto(
             prompt=block.script_prompt,

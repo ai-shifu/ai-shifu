@@ -208,13 +208,15 @@ class SystemPromptDto:
 class SolidContentDto:
     content: str
 
-    def __init__(self, content: str = None):
+    def __init__(self, content: str = None, profiles: list[str] = None):
         self.content = content
+        self.profiles = profiles
 
     def __json__(self):
         return {
             "properties": {
                 "content": self.content,
+                "profiles": self.profiles,
             },
             "type": __class__.__name__.replace("Dto", "").lower(),
         }
