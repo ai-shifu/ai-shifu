@@ -184,7 +184,7 @@ def get_block_list(app, user_id: str, outline_id: str):
                     outline_name=sub_outline.lesson_name,
                     outline_desc=sub_outline.lesson_desc,
                     outline_type=sub_outline.lesson_type,
-                    outline_level=len(sub_outline.lesson_no) // 2,
+                    # outline_level=len(sub_outline.lesson_no) // 2,
                 )
             )
             lesson_blocks = sorted(
