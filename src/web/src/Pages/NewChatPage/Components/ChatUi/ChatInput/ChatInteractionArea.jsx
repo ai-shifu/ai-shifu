@@ -1,9 +1,7 @@
 import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, ConfigProvider } from 'antd';
 import classNames from 'classnames';
 import styles from './ChatInteractionArea.module.scss';
-import askIcon from '@Assets/newchat/light/svg-ask-16.svg';
 import {
   INTERACTION_TYPE,
   INTERACTION_DISPLAY_TYPE,
