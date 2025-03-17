@@ -93,7 +93,6 @@ export const useLessonTree = () => {
 
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
     const chapter = tree.catalogs.find(v => v.id === chapterId);
-
     if (!chapter) {
       return false;
     }
@@ -118,11 +117,14 @@ export const useLessonTree = () => {
   // 用于重新加载课程树，但保持临时状态
   const reloadTree = useCallback(async (chapterId = 0, lessonId = 0) => {
     const newTree = await loadTreeInner();
-    initialSelectedChapter(newTree);
+    if (chapterId) {
+      initialSelectedChapter(newTree);
+    } else {
+      onTryLessonSelect({ chapterId });
+    }
     // 设置 collapse 状态
     await newTree.catalogs.forEach(c => {
       const oldCatalog = tree.catalogs.find(oc => oc.id === c.id);
-
       if (oldCatalog) {
         c.collapse = oldCatalog.collapse;
       }
@@ -216,7 +218,6 @@ export const useLessonTree = () => {
           }
         });
       });
-
       return nextState;
     });
   };

@@ -96,9 +96,11 @@ const NewChatPage = (props) => {
   );
 
 
+
+
   useEffect(() => {
     if (tree) {
-      reloadTree();
+      reloadTree()
     }
   }, [i18n.language]);
 
@@ -267,9 +269,7 @@ const NewChatPage = (props) => {
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async (e) => {
-      setLoadedChapterId(null);
-      await reloadTree();
-      setLoadedChapterId(e.detail.chapter_id);
+      await reloadTree(e.detail.lessonId);
     };
     const eventHandler = () => {
       setLoginModalOpen(true);
