@@ -13,7 +13,7 @@ def send_sms_code_ali(
         "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID", None
     ) or not app.config.get("ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET", None):
         app.logger.warning(
-            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID or ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET not configured"
+            "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID or ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET not configured, check code is:"+check_code
         )
         return None
     config = open_api_models.Config(
