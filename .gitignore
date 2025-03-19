@@ -8,6 +8,7 @@ node_modules
 # testing
 /coverage
 .idea/
+dev.sh
 # production
 /build
  pnpm-lock.yaml
