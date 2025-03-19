@@ -269,7 +269,7 @@ const NewChatPage = (props) => {
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async (e) => {
-      await reloadTree(e.detail.lessonId);
+      await reloadTree(e.detail.chapter_id);
     };
     const eventHandler = () => {
       setLoginModalOpen(true);

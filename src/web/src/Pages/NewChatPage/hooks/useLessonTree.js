@@ -115,12 +115,12 @@ export const useLessonTree = () => {
   }, []);
 
   // 用于重新加载课程树，但保持临时状态
-  const reloadTree = useCallback(async (chapterId = 0, lessonId = 0) => {
+  const reloadTree = useCallback(async (chapterId = undefined, lessonId = undefined) => {
     const newTree = await loadTreeInner();
-    if (chapterId) {
+    if (chapterId === undefined) {
       initialSelectedChapter(newTree);
     } else {
-      onTryLessonSelect({ chapterId });
+      setSelectedState(newTree, chapterId, lessonId);
     }
     // 设置 collapse 状态
     await newTree.catalogs.forEach(c => {
