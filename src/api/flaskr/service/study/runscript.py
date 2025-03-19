@@ -37,6 +37,7 @@ from .utils import (
     get_script,
     update_lesson_status,
     get_current_lesson,
+    check_script_is_last_script,
 )
 from .input_funcs import BreakException
 from .output_funcs import handle_output
@@ -232,6 +233,7 @@ def run_script_inner(
                             )
                             next_chapter_no = attend_update.lesson_no
 
+            app.logger.info(f"lesson_info: {lesson_info}")
             if script_info:
                 try:
                     # handle user input
@@ -262,7 +264,6 @@ def run_script_inner(
                         )
                         next = 1
                         if len(attend_updates) > 0:
-                            app.logger.info(f"attend_updates: {attend_updates}")
                             for attend_update in attend_updates:
                                 if len(attend_update.lesson_no) > 2:
                                     yield make_script_dto(
@@ -312,9 +313,10 @@ def run_script_inner(
                                 break
                         else:
                             break
-                    if script_info:
-                        # 返回下一轮交互
-                        # 返回  下一轮的交互方式
+                    if script_info and not check_script_is_last_script(
+                        app, script_info, lesson_info
+                    ):
+                        # check if the script_info is last script,and ui is button or continue button
                         script_dtos = handle_ui(
                             app,
                             user_info,
@@ -365,9 +367,6 @@ def run_script_inner(
                                             )
                                             next_chapter_no = attend_update.lesson_no
                                 elif isinstance(attend_update, ScriptDTO):
-                                    app.logger.info(
-                                        f"extend_update_lesson_status: {attend_update}"
-                                    )
                                     yield make_script_dto_to_stream(attend_update)
                 except BreakException:
                     if script_info:
@@ -386,7 +385,6 @@ def run_script_inner(
                     db.session.commit()
                     return
             else:
-                app.logger.info("script_info is None,to update attend")
                 res = update_lesson_status(app, attend.attend_id)
                 if res and len(res) > 0:
                     for attend_update in res:
@@ -415,20 +413,17 @@ def run_script_inner(
                                     )
                                     next_chapter_no = attend_update.lesson_no
                         elif isinstance(attend_update, ScriptDTO):
-                            app.logger.info(
-                                f"extend_update_lesson_status: {attend_update}"
-                            )
                             yield make_script_dto_to_stream(attend_update)
             db.session.commit()
             if auto_next_lesson_id:
-                app.logger.info("auto_next_lesson_id:{}".format(auto_next_lesson_id))
-                yield from run_script_inner(
-                    app,
-                    user_id,
-                    course_id,
-                    auto_next_lesson_id,
-                    input_type=INPUT_TYPE_START,
-                )
+                pass
+                # yield from run_script_inner(
+                #     app,
+                #     user_id,
+                #     course_id,
+                #     auto_next_lesson_id,
+                #     input_type=INPUT_TYPE_START,
+                # )
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")
@@ -452,11 +447,9 @@ def run_script(
     )
     if lock.acquire(blocking=True):
         try:
-            app.logger.info("run_script with lock")
             yield from run_script_inner(
                 app, user_id, course_id, lesson_id, input, input_type, script_id, log_id
             )
-            app.logger.info("run_script end")
         except Exception as e:
             app.logger.error("run_script error")
             # 输出详细的错误信息
@@ -478,7 +471,6 @@ def run_script(
         finally:
 
             lock.release()
-            app.logger.info("run_script release lock")
         return
     else:
 
