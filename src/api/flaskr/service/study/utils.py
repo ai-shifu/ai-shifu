@@ -11,6 +11,8 @@ from ...service.lesson.const import (
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
     SCRIPT_TYPE_SYSTEM,
+    UI_TYPE_BUTTON,
+    UI_TYPE_CONTINUED,
 )
 from ...service.lesson.models import AICourse, AILesson, AILessonScript
 from ...service.order.consts import (
@@ -671,3 +673,36 @@ def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
         app.config.get("DEFAULT_LLM_MODEL"),
         {"temperature": float(app.config.get("DEFAULT_LLM_TEMPERATURE"))},
     )
+
+
+@extensible
+def check_script_is_last_script(
+    app: Flask, script_info: AILessonScript, lesson_info: AILesson
+) -> bool:
+    parent_lesson_no = lesson_info.lesson_no
+    if len(parent_lesson_no) > 2:
+        parent_lesson_no = parent_lesson_no[:2]
+    last_lesson = (
+        AILesson.query.filter(
+            AILesson.lesson_no.like(parent_lesson_no + "__"),
+            AILesson.course_id == lesson_info.course_id,
+            AILesson.status == 1,
+        )
+        .order_by(AILesson.lesson_no.desc())
+        .first()
+    )
+    if last_lesson.lesson_id == script_info.lesson_id:
+        last_script = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == last_lesson.lesson_id,
+                AILessonScript.status == 1,
+            )
+            .order_by(AILessonScript.script_index.desc())
+            .first()
+        )
+        if (
+            last_script.script_id == script_info.script_id
+            and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_CONTINUED]
+        ):
+            return True
+    return False
