@@ -84,6 +84,9 @@ class AILesson(db.Model):
     course_id = Column(
         String(36), nullable=False, default="", comment="Course UUID", index=True
     )
+    parent_id = Column(
+        String(36), nullable=False, default="", comment="Parent lesson UUID", index=True
+    )
     lesson_name = Column(String(255), nullable=False, default="", comment="Lesson name")
     lesson_desc = Column(Text, nullable=False, comment="Lesson description", default="")
     lesson_no = Column(String(32), nullable=True, default="0", comment="Lesson number")

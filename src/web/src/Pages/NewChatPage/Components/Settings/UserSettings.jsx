@@ -137,7 +137,7 @@ export const UserSettings = ({
 
   useEffect(() => {
     loadData();
-  },[i18n.language]);
+  },[i18n.language,loadData]);
 
   const onChangeAvatarChanged = useCallback(({ dataUrl }) => {
     setAvatar(dataUrl);
