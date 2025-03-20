@@ -176,6 +176,7 @@ class StudyRecordItemDTO:
     id: str
     data: dict
     ui: dict
+    interaction_type: int
 
     def __init__(
         self,
@@ -186,6 +187,7 @@ class StudyRecordItemDTO:
         script_id,
         lesson_id,
         id,
+        interaction_type,
         data=None,
         ui=None,
     ):
@@ -198,6 +200,7 @@ class StudyRecordItemDTO:
         self.id = id
         self.data = data
         self.ui = ui
+        self.interaction_type = interaction_type
 
     def __json__(self):
         ret = {
@@ -208,6 +211,7 @@ class StudyRecordItemDTO:
             "lesson_id": self.lesson_id,
             "id": self.id,
             "script_id": self.script_id,
+            "interaction_type": self.interaction_type,
         }
         if self.data:
             ret["data"] = self.data

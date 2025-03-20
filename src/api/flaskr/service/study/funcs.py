@@ -351,6 +351,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
                 i.script_id,
                 i.lesson_id if i.lesson_id in lesson_ids else lesson_id,
                 i.log_id,
+                i.interaction_type,
                 ui=json.loads(i.script_ui_conf) if i.script_ui_conf else None,
             )
             for i in attend_scripts
