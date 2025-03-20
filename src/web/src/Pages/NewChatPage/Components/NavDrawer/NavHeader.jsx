@@ -46,6 +46,7 @@ export const NavHeader = ({
         <div
           className={styles.actionBtn}
           onClick={onToggleButtonClick}
+          style={{ cursor: 'pointer', zIndex: 10 }}
         >
           <img
             src={require('@Assets/newchat/light/icon16-expand.png')}
