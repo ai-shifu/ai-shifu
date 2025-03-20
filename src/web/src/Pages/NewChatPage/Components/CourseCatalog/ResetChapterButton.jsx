@@ -6,6 +6,7 @@ import { Modal } from 'antd';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking.js';
 import { useTranslation } from 'react-i18next';
 import { shifu } from 'Service/Shifu.js';
+
 export const ResetChapterButton = ({
   className,
   chapterId,
@@ -39,7 +40,6 @@ export const ResetChapterButton = ({
             chapter_name: chapterName,
           });
           onConfirm?.();
-
         },
       });
       trackEvent(EVENT_NAMES.RESET_CHAPTER, {

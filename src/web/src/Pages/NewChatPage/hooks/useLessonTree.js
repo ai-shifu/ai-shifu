@@ -93,6 +93,7 @@ export const useLessonTree = () => {
 
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
     const chapter = tree.catalogs.find(v => v.id === chapterId);
+
     if (!chapter) {
       return false;
     }
@@ -105,6 +106,7 @@ export const useLessonTree = () => {
     if (!lesson) {
       lesson = chapter.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING);
     }
+
     if (!lesson) {
       return false;
     }
@@ -124,6 +126,7 @@ export const useLessonTree = () => {
     // 设置 collapse 状态
     await newTree.catalogs.forEach(c => {
       const oldCatalog = tree.catalogs.find(oc => oc.id === c.id);
+
       if (oldCatalog) {
         c.collapse = oldCatalog.collapse;
       }
@@ -145,6 +148,7 @@ export const useLessonTree = () => {
       initialSelectedChapter(newTree);
     }
     setTree(newTree);
+
     return newTree;
   }, [initialSelectedChapter, loadTreeInner, setSelectedState, tree]);
 
@@ -186,6 +190,7 @@ export const useLessonTree = () => {
   };
 
   const toggleCollapse = ({ id }) => {
+
     const nextState = produce(tree, draft => {
       draft.catalogs.forEach(c => {
         if (c.id === id) {
@@ -202,6 +207,7 @@ export const useLessonTree = () => {
       if (!old) {
         return;
       }
+
       const nextState = produce(old, draft => {
         draft.catalogs.forEach(c => {
           const idx = c.lessons.findIndex(ch => ch.id === id);
@@ -215,6 +221,7 @@ export const useLessonTree = () => {
           }
         });
       });
+
       return nextState;
     });
   };

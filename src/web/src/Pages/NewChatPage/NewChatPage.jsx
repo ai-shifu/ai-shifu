@@ -96,11 +96,9 @@ const NewChatPage = (props) => {
   );
 
 
-
-
   useEffect(() => {
     if (tree) {
-      reloadTree()
+      reloadTree();
     }
   }, [i18n.language]);
 
