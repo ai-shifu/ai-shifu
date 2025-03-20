@@ -29,7 +29,6 @@ def create_new_user(
             password_hash=password_hash,
             email=email,
             mobile=mobile,
-            default_model=app.config["OPENAI_DEFAULT_MODEL"],
         )
         db.session.add(new_user)
         db.session.commit()
@@ -41,9 +40,9 @@ def create_new_user(
                 name=name,
                 email=email,
                 mobile=mobile,
-                model=new_user.default_model,
                 user_state=new_user.user_state,
                 wx_openid="",
+                language="zh_CN",
             ),
             token=token,
         )

@@ -64,10 +64,10 @@ def verify_user(app: Flask, login: str, raw_password: str) -> UserToken:
                         name=user.name,
                         email=user.email,
                         mobile=user.mobile,
-                        model=user.default_model,
                         user_state=user.user_state,
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
+                        user_avatar=user.user_avatar,
                     ),
                     token=token,
                 )
@@ -94,10 +94,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         name=user.name,
                         email=user.email,
                         mobile=user.mobile,
-                        model=user.default_model,
                         user_state=user.user_state,
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
+                        user_avatar=user.user_avatar,
                     )
             else:
                 user_id = jwt.decode(
@@ -122,10 +122,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         name=user.name,
                         email=user.email,
                         mobile=user.mobile,
-                        model=user.default_model,
                         user_state=user.user_state,
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
+                        user_avatar=user.user_avatar,
                     )
                 else:
                     raise_error("USER.USER_TOKEN_EXPIRED")
@@ -156,10 +156,10 @@ def update_user_info(
                 name=user.name,
                 email=user.email,
                 mobile=user.mobile,
-                model=dbuser.default_model,
                 user_state=dbuser.user_state,
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
+                user_avatar=user.user_avatar,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -182,10 +182,10 @@ def change_user_passwd(app: Flask, user: UserInfo, oldpwd, newpwd) -> UserInfo:
                     name=user.name,
                     email=user.email,
                     mobile=user.mobile,
-                    model=user.default_model,
                     user_state=user.user_state,
                     wx_openid=get_user_openid(user),
                     language=get_user_language(user),
+                    user_avatar=user.user_avatar,
                 )
             else:
                 raise_error("USER.OLD_PASSWORD_ERROR")
@@ -204,10 +204,10 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
                 name=user.name,
                 email=user.email,
                 mobile=user.mobile,
-                model=user.default_model,
                 user_state=user.user_state,
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
+                user_avatar=user.user_avatar,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -421,10 +421,10 @@ def verify_sms_code(app: Flask, user_id, phone: str, chekcode: str) -> UserToken
                 name=user_info.name,
                 email=user_info.email,
                 mobile=user_info.mobile,
-                model=user_info.default_model,
                 user_state=user_info.user_state,
                 wx_openid=get_user_openid(user_info),
                 language=get_user_language(user_info),
+                user_avatar=user_info.user_avatar,
             ),
             token,
         )

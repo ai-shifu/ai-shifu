@@ -43,7 +43,6 @@ def get_field_schema(typ, description: str = ""):
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
-
     if typ in (str, int, float, bool):
         field_schema["type"] = typ.__name__
         if typ == str:
