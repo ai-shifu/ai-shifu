@@ -419,7 +419,6 @@ export const ChatComponents = forwardRef(
                   return;
                 }
                 if (newLessonId !== lastLessonId) {
-                  console.log("lessonUpdateResp", newLessonId);
                   const msg = createMessage({
                     id: `lesson-${newLessonId}`,
                     type: CHAT_MESSAGE_TYPE.LESSON_SEPARATOR,

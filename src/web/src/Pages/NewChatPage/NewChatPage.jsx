@@ -104,6 +104,12 @@ const NewChatPage = (props) => {
     }
   }, [i18n.language]);
 
+  useEffect(()=>{
+    if(selectedLessonId){
+      updateLessonId(selectedLessonId);
+    }
+  },[selectedLessonId,updateLessonId]);
+
   const fetchData = useCallback(async () => {
     if (tree) {
       const data = await getCurrElement();
@@ -163,7 +169,7 @@ const NewChatPage = (props) => {
   );
 
   const onGoChapter = async (id) => {
-    await reloadTree();
+
     updateChapterId(id);
   };
 
@@ -270,6 +276,8 @@ const NewChatPage = (props) => {
   useEffect(() => {
     const resetChapterEventHandler = async (e) => {
       await reloadTree(e.detail.chapter_id);
+      onGoChapter(e.detail.chapter_id);
+
     };
     const eventHandler = () => {
       setLoginModalOpen(true);
@@ -315,17 +323,6 @@ const NewChatPage = (props) => {
     };
   });
 
-  useEffect(() => {
-    return useCourseStore.subscribe(
-      (state) => state.resetedChapterId,
-      (curr) => {
-        if (!curr || curr === chapterId) {
-          return;
-        }
-        onGoChapter(curr);
-      }
-    );
-  });
 
   useEffect(() => {
     if (hasCheckLogin && loadedChapterId !== chapterId) {

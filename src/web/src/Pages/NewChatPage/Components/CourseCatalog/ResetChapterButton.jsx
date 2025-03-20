@@ -6,27 +6,30 @@ import { Modal } from 'antd';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking.js';
 import { useTranslation } from 'react-i18next';
 import { shifu } from 'Service/Shifu.js';
-
 export const ResetChapterButton = ({
   className,
   chapterId,
   chapterName,
+  lessonId,
   onClick,
   onConfirm,
 }) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
-  const { resetChapter } = useCourseStore((state) => ({
+  const { resetChapter, updateLessonId } = useCourseStore((state) => ({
     resetChapter: state.resetChapter,
+    updateLessonId: state.updateLessonId,
   }));
 
+
   const onButtonClick = useCallback(
-    (e) => {
+    async (e) => {
       Modal.confirm({
         title: t('lesson.reset.resetConfirmTitle'),
         content: t('lesson.reset.resetConfirmContent'),
-        onOk: () => {
-          resetChapter(chapterId);
+        onOk: async () => {
+          await resetChapter(chapterId);
+          updateLessonId(lessonId);
           shifu.resetTools.resetChapter({
             chapter_id: chapterId,
             chapter_name: chapterName,
@@ -36,15 +39,17 @@ export const ResetChapterButton = ({
             chapter_name: chapterName,
           });
           onConfirm?.();
+
         },
       });
       trackEvent(EVENT_NAMES.RESET_CHAPTER, {
         chapter_id: chapterId,
         chapter_name: chapterName,
       });
+      e.detail = { chapterId };
       onClick?.(e);
     },
-    [chapterId, chapterName, onClick, onConfirm, resetChapter, t, trackEvent]
+    [chapterId, chapterName, onClick, onConfirm, resetChapter, t, trackEvent, lessonId, updateLessonId]
   );
 
   return (

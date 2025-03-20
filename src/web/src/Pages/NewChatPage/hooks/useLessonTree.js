@@ -105,7 +105,6 @@ export const useLessonTree = () => {
     if (!lesson) {
       lesson = chapter.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING);
     }
-
     if (!lesson) {
       return false;
     }
@@ -146,7 +145,6 @@ export const useLessonTree = () => {
       initialSelectedChapter(newTree);
     }
     setTree(newTree);
-
     return newTree;
   }, [initialSelectedChapter, loadTreeInner, setSelectedState, tree]);
 
@@ -156,7 +154,6 @@ export const useLessonTree = () => {
       if (!old) {
         return;
       }
-
       const nextState = produce(old, draft => {
         draft.catalogs.forEach(c => {
           c.lessons.forEach(ls => {

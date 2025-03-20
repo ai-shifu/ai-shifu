@@ -25,7 +25,6 @@ export const ChatUi = ({
   updateSelectedLesson,
 }) => {
   const { frameLayout } = useContext(AppContext);
-
   return (
     <div
       className={classNames(
