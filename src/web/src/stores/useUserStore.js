@@ -6,15 +6,15 @@ import { verifySmsCode } from 'Api/user.js';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { removeParamFromUrl } from 'Utils/urlUtils.js';
 import i18n from '../i18n.js';
-
+import { useEnvStore } from 'stores/envStore.js';
 export const useUserStore = create(
   subscribeWithSelector((set) => ({
     hasCheckLogin: false,
     hasLogin: false,
     userInfo: null,
-
     login: async ({ mobile, smsCode }) => {
-      const res = await verifySmsCode({ mobile, sms_code: smsCode });
+      const courseId = useEnvStore.getState().courseId;
+      const res = await verifySmsCode({ mobile, sms_code: smsCode, course_id: courseId });
       const { userInfo, token } = res.data;
       await tokenTool.set({ token, faked: false });
 

@@ -47,8 +47,19 @@ def _(text: str):
     )
 
 
+def get_current_language():
+    language = "en-US"
+    if hasattr(_thread_local, "language"):
+        language = _thread_local.language
+    return language
+
+
 def set_language(language):
     _thread_local.language = language
 
 
-__all__ = ["_", "set_language"]
+def get_i18n_list(app: Flask):
+    return list(_translations.keys())
+
+
+__all__ = ["_", "set_language", "get_i18n_list"]

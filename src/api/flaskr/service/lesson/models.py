@@ -189,6 +189,13 @@ class AILessonScript(db.Model):
         Text, nullable=False, default="", comment="Script check flag"
     )
     script_ui_profile = Column(Text, nullable=False, comment="Script UI profile")
+    script_ui_profile_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Script UI profile id",
+        index=True,
+    )
     script_end_action = Column(Text, nullable=False, comment="Script end action")
     script_other_conf = Column(
         Text, nullable=False, comment="Other configurations of the script"
