@@ -512,3 +512,19 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
             db.session.add(attend_info)
         db.session.commit()
         return True
+
+
+@extensible
+def set_script_content_operation(app: Flask, user_id: str, log_id: str, interaction_type: int):
+    with app.app_context():
+        script_info = AICourseLessonAttendScript.query.filter(
+            AICourseLessonAttendScript.log_id==log_id
+            ,AICourseLessonAttendScript.user_id==user_id
+            ).first()
+        if not script_info:
+            return None
+        # update the script_info
+        script_info.interaction_type = interaction_type
+        db.session.merge(script_info)
+        db.session.commit()
+        return True
