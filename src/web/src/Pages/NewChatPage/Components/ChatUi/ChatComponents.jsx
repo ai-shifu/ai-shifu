@@ -760,14 +760,7 @@ export const ChatComponents = forwardRef(
             };
 
             // 在状态更新后执行操作
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {
-              console.log(
-                "currentInteractionType1",
-                updatedTypes[msg.id],
-                msg.logid
-              );
-            });
-
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {});
             return updatedTypes;
           });
         };
@@ -781,14 +774,7 @@ export const ChatComponents = forwardRef(
             };
 
             // 在状态更新后执行操作
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {
-              console.log(
-                "currentInteractionType2",
-                updatedTypes[msg.id],
-                msg.logid
-              );
-            });
-
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {});
             return updatedTypes;
           });
         };
