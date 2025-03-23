@@ -7,7 +7,7 @@ from flaskr.service.study import (
     run_script,
     get_script_info,
     reset_user_study_info_by_lesson,
-    set_script_content_operation
+    set_script_content_operation,
 )
 from flaskr.service.study.const import VALID_INTERACTION_TYPES
 
@@ -335,7 +335,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("log_id is not found")
         user_id = request.user.user_id
         return make_common_response(
-             set_script_content_operation(app, user_id, log_id,interaction_type)
+            set_script_content_operation(app, user_id, log_id, interaction_type)
         )
 
     return app
