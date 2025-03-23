@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, current_app
 from trace import Trace
 from flaskr.service.study.ui.input_ask import handle_ask_mode
 from flaskr.service.common.models import AppException
@@ -8,6 +8,7 @@ from flaskr.dao import db
 from flaskr.service.user.models import User
 from flaskr.service.study.ui.ui_continue import make_continue_ui
 from functools import wraps
+
 
 # handlers for input
 INPUT_HANDLE_MAP = {}
@@ -28,6 +29,7 @@ CONTINUE_CHECK_HANDLE_MAP = {}
 def unwrap_function(func):
     while hasattr(func, "__wrapped__"):
         func = func.__wrapped__
+    current_app.logger.info(f"unwrap_function {func.__name__}")
     return func
 
 
@@ -35,9 +37,6 @@ def unwrap_function(func):
 # ex. text,continue,start ...
 def register_input_handler(input_type: str):
     def decorator(func):
-        from flask import current_app
-
-        # original_func = unwrap_function(func)
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
@@ -45,10 +44,8 @@ def register_input_handler(input_type: str):
         current_app.logger.info(
             f"register_input_handler {input_type} ==>  {func.__name__}"
         )
-        while hasattr(func, "__wrapped__"):
-            current_app.logger.warning(f"func is wrapped {func.__name__}")
-            func = func.__wrapped__
-        INPUT_HANDLE_MAP[input_type] = func
+        original_func = unwrap_function(func)
+        INPUT_HANDLE_MAP[input_type] = original_func
         return wrapper
 
     return decorator
@@ -58,8 +55,6 @@ def register_input_handler(input_type: str):
 # ex. continue,start ...
 def register_continue_handler(script_ui_type: int):
     def decorator(func):
-        from flask import current_app
-
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
@@ -67,13 +62,8 @@ def register_continue_handler(script_ui_type: int):
         current_app.logger.info(
             f"register_continue_handler {script_ui_type} ==> {func.__name__}    "
         )
-        while hasattr(func, "__wrapped__"):
-            current_app.logger.warning(f"func is wrapped {func.__name__}")
-            func = func.__wrapped__
-        current_app.logger.info(
-            f"register_continue_handler {script_ui_type} ==> {func.__name__}"
-        )
-        CONTINUE_HANDLE_MAP[script_ui_type] = func
+        original_func = unwrap_function(func)
+        CONTINUE_HANDLE_MAP[script_ui_type] = original_func
         return wrapper
 
     return decorator
@@ -83,17 +73,14 @@ def register_continue_handler(script_ui_type: int):
 # to return the ui to frontend
 def register_ui_handler(ui_type):
     def decorator(func):
-        from flask import current_app
 
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
 
         current_app.logger.info(f"register_ui_handler {ui_type} ==>  {func.__name__}")
-        while hasattr(func, "__wrapped__"):
-            current_app.logger.warning(f"func is wrapped {func.__name__}")
-            func = func.__wrapped__
-        UI_HANDLE_MAP[ui_type] = func
+        original_func = unwrap_function(func)
+        UI_HANDLE_MAP[ui_type] = original_func
         return wrapper
 
     return decorator
@@ -103,7 +90,6 @@ def register_ui_handler(ui_type):
 # to check whether to get next script
 def continue_check_handler(script_ui_type: int):
     def decorator(func):
-        from flask import current_app
 
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -112,10 +98,8 @@ def continue_check_handler(script_ui_type: int):
         current_app.logger.info(
             f"continue_check_handler {script_ui_type} ==> {func.__name__}"
         )
-        while hasattr(func, "__wrapped__"):
-            current_app.logger.warning(f"func is wrapped {func.__name__}")
-            func = func.__wrapped__
-        CONTINUE_CHECK_HANDLE_MAP[script_ui_type] = func
+        original_func = unwrap_function(func)
+        CONTINUE_CHECK_HANDLE_MAP[script_ui_type] = original_func
         return wrapper
 
     return decorator
