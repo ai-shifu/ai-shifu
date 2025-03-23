@@ -515,12 +515,14 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
 
 
 @extensible
-def set_script_content_operation(app: Flask, user_id: str, log_id: str, interaction_type: int):
+def set_script_content_operation(
+    app: Flask, user_id: str, log_id: str, interaction_type: int
+):
     with app.app_context():
         script_info = AICourseLessonAttendScript.query.filter(
-            AICourseLessonAttendScript.log_id==log_id
-            ,AICourseLessonAttendScript.user_id==user_id
-            ).first()
+            AICourseLessonAttendScript.log_id == log_id,
+            AICourseLessonAttendScript.user_id == user_id,
+        ).first()
         if not script_info:
             return None
         # update the script_info
