@@ -1,5 +1,8 @@
 import '@chatui/core/dist/index.css';
 import Chat, { useMessages } from '@chatui/core';
+import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled } from '@ant-design/icons';
+
+
 import {
   useEffect,
   forwardRef,
@@ -8,7 +11,7 @@ import {
   useContext,
   useRef,
 } from 'react';
-import { runScript, getLessonStudyRecord } from 'Api/study';
+import { runScript, getLessonStudyRecord, scriptContentOperation } from 'Api/study';
 import { genUuid } from 'Utils/common.js';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea.jsx';
 import { AppContext } from 'Components/AppContext.js';
@@ -56,6 +59,8 @@ const createMessage = ({
   id = 0,
   role,
   content,
+  interaction_type,
+  logid,
   type = CHAT_MESSAGE_TYPE.TEXT,
   teach_avator,
 }) => {
@@ -80,6 +85,8 @@ const createMessage = ({
     id: mid,
     role,
     content,
+    interaction_type,
+    logid,
     type,
     position,
     user: { avatar },
@@ -92,6 +99,8 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
       id: serverMessage.id,
       role: serverMessage.script_role,
       content: fixMarkdown(serverMessage.script_content),
+      interaction_type: serverMessage.interaction_type,
+      logid: serverMessage.logid,
       type: serverMessage.script_type,
       userInfo,
       teach_avator,
@@ -102,6 +111,8 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
       role: serverMessage.script_role,
       content: { lessonId: serverMessage.lesson_id },
       type: serverMessage.script_type,
+      interaction_type: serverMessage.interaction_type,
+      logid: serverMessage.logid,
       userInfo,
       teach_avator,
     });
@@ -166,7 +177,7 @@ export const ChatComponents = forwardRef(
     {
       className,
       lessonUpdate,
-      onGoChapter = () => {},
+      onGoChapter = () => { },
       chapterId,
       lessonId,
       onPurchased,
@@ -477,7 +488,7 @@ export const ChatComponents = forwardRef(
                 visible: content.visible,
               });
             }
-          } catch (e) {}
+          } catch (e) { }
         });
       },
       [
@@ -549,6 +560,7 @@ export const ChatComponents = forwardRef(
                 ...v,
                 id: `lesson-${newLessonId}`,
                 script_type: CHAT_MESSAGE_TYPE.LESSON_SEPARATOR,
+                logid: v.id
               })
             );
           }
@@ -575,6 +587,7 @@ export const ChatComponents = forwardRef(
               ...v,
               id: i,
               script_type: CHAT_MESSAGE_TYPE.TEXT,
+              logid: v.id,
             },
             userInfo,
             teach_avator
@@ -690,7 +703,7 @@ export const ChatComponents = forwardRef(
     }, [nextStep, onPayModalOpen]);
 
     const handleSend = useCallback(
-      async (type,display,  val, scriptId) => {
+      async (type, display, val, scriptId) => {
         if (
           type === INTERACTION_OUTPUT_TYPE.TEXT ||
           type === INTERACTION_OUTPUT_TYPE.SELECT ||
@@ -733,6 +746,75 @@ export const ChatComponents = forwardRef(
       refreshUserInfo();
     }, [handleSend, onPurchased, refreshUserInfo]);
 
+    const [interactionTypes, setInteractionTypes] = useState({});
+
+
+    const renderMessageContentOperation = useCallback(
+      (msg) => {
+        const likeClick = async () => {
+          setInteractionTypes((prevTypes) => {
+            const currentType = prevTypes[msg.id] ?? msg.interaction_type;
+            const updatedTypes = {
+              ...prevTypes,
+              [msg.id]: currentType === 1 ? 0 : 1,
+            };
+
+            // 在状态更新后执行操作
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {
+              console.log(
+                "currentInteractionType1",
+                updatedTypes[msg.id],
+                msg.logid
+              );
+            });
+
+            return updatedTypes;
+          });
+        };
+
+        const disClick = async () => {
+          setInteractionTypes((prevTypes) => {
+            const currentType = prevTypes[msg.id] ?? msg.interaction_type;
+            const updatedTypes = {
+              ...prevTypes,
+              [msg.id]: currentType === 2 ? 0 : 2,
+            };
+
+            // 在状态更新后执行操作
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {
+              console.log(
+                "currentInteractionType2",
+                updatedTypes[msg.id],
+                msg.logid
+              );
+            });
+
+            return updatedTypes;
+          });
+        };
+
+        const currentInteractionType =
+          interactionTypes[msg.id] ?? msg.interaction_type;
+
+        return (
+          <div className={styles.messageContentOperation}>
+            {currentInteractionType === 1 ? (
+              <LikeFilled onClick={likeClick} />
+            ) : (
+              <LikeOutlined onClick={likeClick} />
+            )}
+            {currentInteractionType === 2 ? (
+              <DislikeFilled onClick={disClick} />
+            ) : (
+              <DislikeOutlined onClick={disClick} />
+            )}
+          </div>
+        );
+      },
+      [interactionTypes, setInteractionTypes]
+    );
+
+
     const renderMessageContent = useCallback(
       (msg) => {
         const { content, type, ext } = msg;
@@ -754,16 +836,17 @@ export const ChatComponents = forwardRef(
                 onImageLoaded={onImageLoaded}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
+              {renderMessageContentOperation(msg)}
             </div>
           );
         }
         return <></>;
       },
-      [isStreaming, mobileStyle, onImageLoaded]
+      [isStreaming, mobileStyle, onImageLoaded, renderMessageContentOperation]
     );
 
     const onChatInputSend = useCallback(
-      async (type,display, val, scriptId) => {
+      async (type, display, val, scriptId) => {
         if (type === INTERACTION_OUTPUT_TYPE.NEXT_CHAPTER) {
           onGoChapter?.(val.lessonId);
           return;
