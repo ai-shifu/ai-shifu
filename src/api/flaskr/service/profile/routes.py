@@ -4,8 +4,10 @@ from flaskr.service.profile.profile_manage import (
     get_profile_item_defination_list,
     add_profile_item_quick,
 )
+from flaskr.framework.plugin.inject import inject
 
 
+@inject
 def register_profile_routes(app: Flask, path_prefix: str = "profiles"):
     @app.route(f"{path_prefix}/get-profile-item-definations", methods=["GET"])
     def get_profile_item_defination_api():
