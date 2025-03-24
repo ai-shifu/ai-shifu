@@ -228,6 +228,9 @@ def get_outline_tree(app, user_id: str, scenario_id: str):
         for node in outline_tree_nodes:
             # 如果是顶层节点（lesson_no长度为2）
             if len(node.outline_no) == 2:
+                app.logger.info(
+                    f"outline_tree.append(node_dict[node.outline_no].outline_no: {node_dict[node.outline_no].outline_no}"
+                )
                 outline_tree.append(node_dict[node.outline_no])
             else:
                 # 找到父节点
