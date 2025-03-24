@@ -48,12 +48,12 @@ def register_profile_routes(app: Flask, path_prefix: str = "profiles"):
           - profiles
         parameters:
           - name: parent_id
-            in: query
+            in: body
             required: true
             type: string
 
-          - name: key
-            in: query
+          - name: profile_key
+            in: body
             required: true
             type: string
         responses:
@@ -69,10 +69,10 @@ def register_profile_routes(app: Flask, path_prefix: str = "profiles"):
                   $ref: '#/definitions/ProfileItemDefination'
         """
         parent_id = request.args.get("parent_id")
-        key = request.args.get("key")
+        profile_key = request.args.get("profile_key")
         user_id = request.user.user_id
         return make_common_response(
-            add_profile_item_quick(app, parent_id, key, user_id)
+            add_profile_item_quick(app, parent_id, profile_key, user_id)
         )
 
     return app

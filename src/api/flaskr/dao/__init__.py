@@ -29,19 +29,6 @@ def init_db(app: Flask):
         )
     else:
         app.logger.info("init dbconfig from config")
-    # app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    # "pool_size": 20,
-    # "max_overflow": 20,
-    # "pool_timeout": 60,
-    # "pool_recycle": 3600,
-    # "pool_pre_ping": True,
-    # "echo": True,                # 打印SQL语句，用于调试
-    # "echo_pool": True,          # 打印连接池事件
-    # "connect_args": {           # 特定数据库的连接参数
-    #     "connect_timeout": 10,
-    #     "charset": "utf8mb4"
-    # }
-    # }
     db = SQLAlchemy()
     db.init_app(app)
 
