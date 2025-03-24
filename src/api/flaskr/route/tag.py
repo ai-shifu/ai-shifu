@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error
-from .common import bypass_token_validation, make_common_response
+from .common import make_common_response
 from ..service.tag.funs import (
     get_tag_type_list,
     get_tag_list,
@@ -12,8 +12,6 @@ from ..service.tag.funs import (
 
 def register_tag_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/tag-type-list", methods=["GET"])
-    # only in dev
-    # @bypass_token_validation
     def run_tag_type_list():
         """
         获取标签类型列表
@@ -44,8 +42,6 @@ def register_tag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/tag-list", methods=["GET"])
-    # only in dev
-    # @bypass_token_validation
     def run_tag_list():
         """
         获取标签列表
@@ -76,8 +72,6 @@ def register_tag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/tag-add", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_tag_add():
         """
         创建标签
@@ -156,8 +150,6 @@ def register_tag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/tag-update", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_tag_update():
         """
         更新标签
@@ -214,8 +206,6 @@ def register_tag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/tag-drop", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_tag_drop():
         """
         删除标签

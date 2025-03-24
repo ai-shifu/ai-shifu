@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error
-from .common import bypass_token_validation, make_common_response
+from .common import make_common_response
 from ..service.rag.funs import (
     get_kb_list,
     kb_add,
@@ -18,8 +18,6 @@ from ..service.rag.funs import (
 
 def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/kb-list", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_kb_list():
         """
         获取知识库列表
@@ -295,8 +293,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/kb-drop", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_kb_drop():
         """
         删除知识库
@@ -339,8 +335,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/kb-tag-bind", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_kb_tag_bind():
         """
         知识库标签绑定
@@ -388,8 +382,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(kb_tag_bind(app, kb_id, tag_id))
 
     @app.route(path_prefix + "/kb-tag-unbind", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_kb_tag_unbind():
         """
         知识库标签解绑
@@ -437,8 +429,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(kb_tag_unbind(app, kb_id, tag_id))
 
     @app.route(path_prefix + "/oss-file-add", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_oss_file_add():
         """
         OSS文件上传
@@ -474,8 +464,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(oss_file_add(app, upload_file))
 
     @app.route(path_prefix + "/oss-file-drop", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_oss_file_drop():
         """
         OSS文件删除
@@ -513,8 +501,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(oss_file_drop(app, file_key_list))
 
     @app.route(path_prefix + "/kb-file-add", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_kb_file_add():
         """
         知识库文件上传
@@ -601,8 +587,6 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/retrieval", methods=["POST"])
-    # only in dev
-    # @bypass_token_validation
     def run_retrieval():
         """
         知识检索
