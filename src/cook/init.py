@@ -9,12 +9,12 @@ from langchain_community.chat_models import QianfanChatEndpoint, ChatZhipuAI
 from config_manager import ConfigManager
 
 _ = load_dotenv(find_dotenv())
-
 cfg = ConfigManager()
 
 
 def load_llm(model: str = None, temperature: float = None, json_mode=False):
     model = cfg.DEFAULT_MODEL if model is None else model
+    temperature = temperature if temperature else cfg.DEFAULT_TMP
     if model in cfg.QIANFAN_MODELS:
         temperature = temperature if temperature else cfg.QIANFAN_DEF_TMP
         if json_mode:
@@ -61,7 +61,7 @@ def load_llm(model: str = None, temperature: float = None, json_mode=False):
                 organization=cfg.OPENAI_ORG,
                 model_kwargs={"response_format": {"type": "json_object"}},
                 api_key=os.getenv("DEEPSEEK_API_KEY"),
-                base_url=os.getenv("DEEPSEEK_BASE_URL"),
+                base_url=os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com"),
             )
         else:
             return ChatOpenAI(
@@ -69,7 +69,7 @@ def load_llm(model: str = None, temperature: float = None, json_mode=False):
                 temperature=temperature,
                 organization=cfg.OPENAI_ORG,
                 api_key=os.getenv("DEEPSEEK_API_KEY"),
-                base_url=os.getenv("DEEPSEEK_BASE_URL"),
+                base_url=os.getenv("DEEPSEEK_API_URL", "https://api.deepseek.com"),
             )
     elif model in cfg.BAILIAN_MODELS:
         temperature = temperature if temperature else cfg.BAILIAN_DEF_TMP
