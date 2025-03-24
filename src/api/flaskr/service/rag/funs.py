@@ -387,7 +387,6 @@ def get_kb_file_list(
         ]
 
 
-
 def kb_file_add(
     app: Flask,
     kb_id: str,
@@ -496,9 +495,9 @@ def kb_file_add(
 
 
 def kb_file_query(
-        app: Flask,
-        kb_id: str,
-        file_id: str,
+    app: Flask,
+    kb_id: str,
+    file_id: str,
 ):
     with app.app_context():
         file_item = KnowledgeFile.query.filter_by(kb_id=kb_id, file_id=file_id).first()
