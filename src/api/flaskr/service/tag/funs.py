@@ -57,7 +57,12 @@ def tag_add(
         return True
 
 
-def tag_update(app: Flask, tag_id: str, tag_name: str, user_id: str):
+def tag_update(
+    app: Flask,
+    tag_id: str,
+    tag_name: str,
+    user_id: str
+):
     with app.app_context():
         tag_item = Tag.query.filter_by(tag_id=tag_id).first()
         if not tag_item:

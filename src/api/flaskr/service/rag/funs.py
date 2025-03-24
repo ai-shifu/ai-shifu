@@ -142,7 +142,7 @@ def kb_add(
 
             db.session.commit()
 
-            return True
+            return kb_id
 
 
 def kb_update(
@@ -371,6 +371,23 @@ def pad_string(index: int, length: int = 4):
     return str(index).zfill(length)
 
 
+def get_kb_file_list(
+    app: Flask,
+    kb_id: str,
+):
+    with app.app_context():
+        file_list = KnowledgeFile.query.filter_by(kb_id=kb_id).all()
+        return [
+            {
+                "file_id": x.file_id,
+                "file_key": x.file_key,
+                "file_name": x.file_name,
+            }
+            for x in file_list
+        ]
+
+
+
 def kb_file_add(
     app: Flask,
     kb_id: str,
@@ -444,7 +461,6 @@ def kb_file_add(
                     meta_data=chunk_meta_data,
                     extra_data=chunk_extra_data,
                     created_user_id=user_id,
-                    updated_user_id=user_id,
                 )
                 db.session.add(chunk_item)
 
@@ -477,6 +493,39 @@ def kb_file_add(
         db.session.commit()
 
         return "success"
+
+
+def kb_file_query(
+        app: Flask,
+        kb_id: str,
+        file_id: str,
+):
+    with app.app_context():
+        file_item = KnowledgeFile.query.filter_by(kb_id=kb_id, file_id=file_id).first()
+        if not file_item:
+            raise_error("FILE.FILE_NOT_FOUND")
+        file_key = file_item.file_key
+        file_name = file_item.file_name
+        file_text = file_item.file_text
+        meta_data = file_item.meta_data
+        extra_data = file_item.extra_data
+        chunk_list = [
+            {
+                "chunk_id": x.chunk_id,
+                "chunk_index": x.chunk_index,
+                "chunk_text": x.chunk_text,
+            }
+            for x in KnowledgeChunk.query.filter_by(kb_id=kb_id, file_id=file_id).all()
+        ]
+        return {
+            "file_id": file_id,
+            "file_key": file_key,
+            "file_name": file_name,
+            "file_text": file_text,
+            "meta_data": meta_data,
+            "extra_data": extra_data,
+            "chunk_list": chunk_list,
+        }
 
 
 def retrieval_fun(

@@ -66,7 +66,6 @@ def handle_input_ask(
     messages.append({"role": "system", "content": system_message})
 
     time_1 = time.time()
-    # dev!
     retrieval_result_list = []
     course_id = lesson.course_id
     my_filter = ""
@@ -95,7 +94,6 @@ def handle_input_ask(
                 app,
                 user_info.user_id,
                 profile_tmplate=follow_up_info.ask_prompt,
-                # dev!
                 input=f"已知'{all_retrieval_result}'，请问'{input}'",
             ),
         }
