@@ -422,9 +422,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                 value:
                                     type: string
                                     description: 属性值
-            course_id:
-                type: string
-                description: 课程ID
+                    course_id:
+                        type: string
+                        description: 课程ID
         responses:
             200:
                 description: 更新成功
