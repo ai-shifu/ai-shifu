@@ -52,6 +52,7 @@ export const CourseCatalog = ({
               onClick={onResetButtonClick}
               chapterId={id}
               className={styles.resetButton}
+              lessonId={lessons?.[0]?.id}
             />
           }
           <img
