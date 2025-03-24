@@ -14,6 +14,7 @@ from ...dao import db
 from flaskr.util.uuid import generate_id
 import json
 from flaskr.service.common import raise_error
+from flaskr.common.swagger import register_schema_to_swagger
 
 # from datetime import datetime
 
@@ -22,7 +23,11 @@ class ProfileItemDefinationDTO:
     pass
 
 
+@register_schema_to_swagger
 class ColorSetting:
+    color: str  # the background color of the profile item
+    text_color: str  # the text color of the profile item
+
     def __init__(self, color: str, text_color: str):
         self.color = color
         self.text_color = text_color
@@ -60,7 +65,11 @@ def get_color_setting(color_setting: str):
     return DEFAULT_COLOR_SETTINGS[0]
 
 
+@register_schema_to_swagger
 class ProfileItemDefination:
+    profile_key: str  # the key of the profile item and could be used in prompt
+    color_setting: ColorSetting  # the color setting of the profile item
+
     def __init__(self, profile_key: str, color_setting: ColorSetting):
         self.profile_key = profile_key
         self.color_setting = color_setting
