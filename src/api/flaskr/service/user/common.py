@@ -64,10 +64,10 @@ def verify_user(app: Flask, login: str, raw_password: str) -> UserToken:
                         name=user.name,
                         email=user.email,
                         mobile=user.mobile,
-                        model=user.default_model,
                         user_state=user.user_state,
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
+                        user_avatar=user.user_avatar,
                     ),
                     token=token,
                 )
@@ -94,10 +94,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         name=user.name,
                         email=user.email,
                         mobile=user.mobile,
-                        model=user.default_model,
                         user_state=user.user_state,
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
+                        user_avatar=user.user_avatar,
                     )
             else:
                 user_id = jwt.decode(
@@ -122,10 +122,10 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         name=user.name,
                         email=user.email,
                         mobile=user.mobile,
-                        model=user.default_model,
                         user_state=user.user_state,
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
+                        user_avatar=user.user_avatar,
                     )
                 else:
                     raise_error("USER.USER_TOKEN_EXPIRED")
@@ -156,10 +156,10 @@ def update_user_info(
                 name=user.name,
                 email=user.email,
                 mobile=user.mobile,
-                model=dbuser.default_model,
                 user_state=dbuser.user_state,
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
+                user_avatar=user.user_avatar,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -182,10 +182,10 @@ def change_user_passwd(app: Flask, user: UserInfo, oldpwd, newpwd) -> UserInfo:
                     name=user.name,
                     email=user.email,
                     mobile=user.mobile,
-                    model=user.default_model,
                     user_state=user.user_state,
                     wx_openid=get_user_openid(user),
                     language=get_user_language(user),
+                    user_avatar=user.user_avatar,
                 )
             else:
                 raise_error("USER.OLD_PASSWORD_ERROR")
@@ -204,10 +204,10 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
                 name=user.name,
                 email=user.email,
                 mobile=user.mobile,
-                model=user.default_model,
                 user_state=user.user_state,
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
+                user_avatar=user.user_avatar,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -294,7 +294,9 @@ def send_sms_code_without_check(app: Flask, user_info: User, phone: str):
     return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"], "phone": phone}
 
 
-def verify_sms_code_without_phone(app: Flask, user_id: str, checkcode) -> UserToken:
+def verify_sms_code_without_phone(
+    app: Flask, user_id: str, checkcode, course_id: str = None
+) -> UserToken:
     User = get_model(app)
     with app.app_context():
         phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"] + user_id)
@@ -313,12 +315,14 @@ def verify_sms_code_without_phone(app: Flask, user_id: str, checkcode) -> UserTo
             )
             if user:
                 user_id = user.user_id
-        ret = verify_sms_code(app, user_id, phone, checkcode)
+        ret = verify_sms_code(app, user_id, phone, checkcode, course_id)
         db.session.commit()
         return ret
 
 
-def migrate_user_study_record(app: Flask, from_user_id: str, to_user_id: str):
+def migrate_user_study_record(
+    app: Flask, from_user_id: str, to_user_id: str, course_id: str = None
+):
     app.logger.info(
         "migrate_user_study_record from_user_id:"
         + from_user_id
@@ -328,10 +332,12 @@ def migrate_user_study_record(app: Flask, from_user_id: str, to_user_id: str):
     from_attends = AICourseLessonAttend.query.filter(
         AICourseLessonAttend.user_id == from_user_id,
         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+        AICourseLessonAttend.course_id == course_id,
     ).all()
     to_attends = AICourseLessonAttend.query.filter(
         AICourseLessonAttend.user_id == to_user_id,
         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+        AICourseLessonAttend.course_id == course_id,
     ).all()
     migrate_attends = []
     for from_attend in from_attends:
@@ -361,7 +367,9 @@ def migrate_user_study_record(app: Flask, from_user_id: str, to_user_id: str):
 
 
 # verify sms code
-def verify_sms_code(app: Flask, user_id, phone: str, chekcode: str) -> UserToken:
+def verify_sms_code(
+    app: Flask, user_id, phone: str, chekcode: str, course_id: str = None
+) -> UserToken:
     User = get_model(app)
     check_save = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
     if check_save is None and chekcode != FIX_CHECK_CODE:
@@ -383,10 +391,14 @@ def verify_sms_code(app: Flask, user_id, phone: str, chekcode: str) -> UserToken
                 .first()
             )
         elif user_id != user_info.user_id:
-            new_profiles = get_user_profile_labels(app, user_id)
-            update_user_profile_with_lable(app, user_info.user_id, new_profiles)
+            new_profiles = get_user_profile_labels(app, user_id, course_id)
+            update_user_profile_with_lable(
+                app, user_info.user_id, new_profiles, course_id
+            )
             origin_user = User.query.filter(User.user_id == user_id).first()
-            migrate_user_study_record(app, origin_user.user_id, user_info.user_id)
+            migrate_user_study_record(
+                app, origin_user.user_id, user_info.user_id, course_id
+            )
             if (
                 origin_user
                 and origin_user.user_open_id != user_info.user_open_id  # noqa W503
@@ -421,10 +433,10 @@ def verify_sms_code(app: Flask, user_id, phone: str, chekcode: str) -> UserToken
                 name=user_info.name,
                 email=user_info.email,
                 mobile=user_info.mobile,
-                model=user_info.default_model,
                 user_state=user_info.user_state,
                 wx_openid=get_user_openid(user_info),
                 language=get_user_language(user_info),
+                user_avatar=user_info.user_avatar,
             ),
             token,
         )
