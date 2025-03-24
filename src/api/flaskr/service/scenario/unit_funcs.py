@@ -80,6 +80,7 @@ def create_unit(
                 AILesson.status == 1,
                 AILesson.parent_id == parent_id,
                 AILesson.lesson_index >= unit_index,
+
                 AILesson.lesson_id != unit_id,
             ).update(
                 {
@@ -146,6 +147,7 @@ def delete_unit(app, user_id: str, unit_id: str):
                     + func.lpad(cast(AILesson.lesson_index - 1, String), 2, "0"),
                 },
             )
+            
             db.session.commit()
             return True
         raise_error("SCENARIO.UNIT_NOT_FOUND")

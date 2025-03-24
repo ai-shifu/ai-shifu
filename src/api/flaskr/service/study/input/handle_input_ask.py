@@ -1,3 +1,4 @@
+import time
 from trace import Trace
 from flask import Flask
 from flaskr.api.llm import chat_llm
@@ -20,6 +21,10 @@ from flaskr.service.study.input_funcs import (
     generation_attend,
 )
 from flaskr.service.user.models import User
+from flaskr.service.rag.funs import (
+    get_kb_list,
+    retrieval_fun,
+)
 
 
 @register_input_handler(input_type=INPUT_TYPE_ASK)
@@ -59,6 +64,30 @@ def handle_input_ask(
             system_message = system_message + f"老师: {script.script_content}\n"
 
     messages.append({"role": "system", "content": system_message})
+
+    time_1 = time.time()
+    # dev!
+    retrieval_result_list = []
+    course_id = lesson.course_id
+    my_filter = ""
+    limit = 3
+    output_fields = ["text"]
+    kb_list = get_kb_list(app, [], [course_id])
+    for kb in kb_list:
+        retrieval_result = retrieval_fun(
+            kb_id=kb["kb_id"],
+            query=input,
+            my_filter=my_filter,
+            limit=limit,
+            output_fields=output_fields,
+        )
+        retrieval_result_list.append(retrieval_result)
+        # break
+    all_retrieval_result = "\n\n".join(retrieval_result_list)
+    time_2 = time.time()
+    app.logger.info(f"all retrieval_fun takes: {time_2 - time_1}s")
+    app.logger.info(f"all_retrieval_result: {all_retrieval_result}")
+
     messages.append(
         {
             "role": "user",
@@ -66,10 +95,14 @@ def handle_input_ask(
                 app,
                 user_info.user_id,
                 profile_tmplate=follow_up_info.ask_prompt,
-                input=input,
+                # dev!
+                input=f"已知'{all_retrieval_result}'，请问'{input}'",
             ),
         }
     )
+
+    app.logger.info(f"messages: {messages}")
+
     # get follow up model
     follow_up_model = follow_up_info.ask_model
     # todo reflact
