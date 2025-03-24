@@ -3,6 +3,8 @@ import uuid
 import datetime
 import itertools
 
+# from typing import Optional
+
 import oss2
 import pytz
 import openai
@@ -11,9 +13,12 @@ from flask import Flask, current_app
 
 from .models import (
     KnowledgeBase,
+    KnowledgeFile,
+    KnowledgeChunk,
     kb_schema,
     kb_index_params,
 )
+from ..tag.models import Tag
 from ...dao import db, milvus_client
 from ...common.config import get_config
 from ..common.models import raise_error, raise_error_with_args
@@ -67,6 +72,15 @@ def get_kb_list(
                     ]
                 )
             )
+        if tag_id_list:
+            query = query.filter(
+                or_(
+                    *[
+                        KnowledgeBase.tag_ids.like(f"%{tag_id}%")
+                        for tag_id in tag_id_list
+                    ]
+                )
+            )
         kb_list = [
             {
                 "kb_id": kb_id,
@@ -78,10 +92,6 @@ def get_kb_list(
         ]
         app.logger.info(f"kb_list: {kb_list}")
         return kb_list
-
-
-def milvus_kb_exist(kb_id: str):
-    return milvus_client.has_collection(collection_name=kb_id)
 
 
 def kb_add(
@@ -169,20 +179,11 @@ def kb_update(
             return False
 
 
-def kb_drop(app: Flask, kb_id_list: list):
-    with app.app_context():
-        for kb_id in kb_id_list:
-            kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
-            if kb_item:
-                db.session.delete(kb_item)
-                if milvus_kb_exist(kb_id) is True:
-                    milvus_client.drop_collection(collection_name=kb_id)
-                db.session.commit()
-            # break
-        return True
+def milvus_kb_exist(kb_id: str):
+    return milvus_client.has_collection(collection_name=kb_id)
 
 
-def kb_look(app: Flask, kb_id: str):
+def kb_query(app: Flask, kb_id: str):
     with app.app_context():
         if milvus_kb_exist(kb_id):
             kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
@@ -206,13 +207,92 @@ def kb_look(app: Flask, kb_id: str):
                 }
 
 
+def kb_drop(app: Flask, kb_id_list: list):
+    with app.app_context():
+        for kb_id in kb_id_list:
+            kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
+            if kb_item:
+                db.session.delete(kb_item)
+                if milvus_kb_exist(kb_id) is True:
+                    milvus_client.drop_collection(collection_name=kb_id)
+                db.session.commit()
+            # break
+        return True
+
+
+def kb_tag_bind(
+    app: Flask,
+    kb_id: str,
+    tag_id: str,
+):
+    with app.app_context():
+        kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
+        if not kb_item:
+            app.logger.error(f"KnowledgeBase with kb_id {kb_id} not found")
+            return False
+
+        if not Tag.query.filter_by(tag_id=tag_id).first():
+            app.logger.error(f"Invalid tag_id: {tag_id}")
+            return False
+
+        tag_id_list = kb_item.tag_ids.split(",") if kb_item.tag_ids else []
+
+        if tag_id in tag_id_list:
+            app.logger.error(
+                f"Tag {tag_id} is already bound to KnowledgeBase with kb_id {kb_id}"
+            )
+            return False
+
+        tag_id_list.append(tag_id)
+
+        kb_item.tag_ids = ",".join(tag_id_list)
+        db.session.commit()
+
+        return True
+
+
+def kb_tag_unbind(
+    app: Flask,
+    kb_id: str,
+    tag_id: str,
+):
+    with app.app_context():
+        kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
+        if not kb_item:
+            app.logger.error(f"KnowledgeBase with kb_id {kb_id} not found")
+            return False
+
+        if not Tag.query.filter_by(tag_id=tag_id).first():
+            app.logger.error(f"Invalid tag_id: {tag_id}")
+            return False
+
+        if not kb_item.tag_ids:
+            app.logger.error(f"KnowledgeBase with kb_id {kb_id} has no tags to unbind")
+            return False
+
+        tag_id_list = kb_item.tag_ids.split(",")
+
+        if tag_id not in tag_id_list:
+            app.logger.error(
+                f"Tag {tag_id} not bound to KnowledgeBase with kb_id {kb_id}"
+            )
+            return False
+
+        tag_id_list.remove(tag_id)
+
+        kb_item.tag_ids = ",".join(tag_id_list) if tag_id_list else None
+        db.session.commit()
+
+        return True
+
+
 def get_content_type(extension: str):
     if extension in ["txt", "md"]:
         return "text/plain"
     raise_error("FILE.FILE_TYPE_NOT_SUPPORT")
 
 
-def oss_file_upload(app: Flask, upload_file):
+def oss_file_add(app: Flask, upload_file):
     with app.app_context():
         # file_upload
         if (
@@ -236,6 +316,24 @@ def oss_file_upload(app: Flask, upload_file):
         url = f"{IMAGE_BASE_URL}/{file_id}.{extension}"
         app.logger.info(f"url: {url}")
         return file_key
+
+
+def oss_file_drop(app: Flask, file_key_list):
+    with app.app_context():
+        if (
+            not ALI_API_ID
+            or not ALI_API_SECRET
+            or ALI_API_ID == ""
+            or ALI_API_SECRET == ""
+        ):
+            raise_error_with_args(
+                "API.ALIBABA_CLOUD_NOT_CONFIGURED",
+                config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",
+            )
+        for file_key in file_key_list:
+            bucket.delete_object(file_key)
+            # break
+        return True
 
 
 def file_parser(file_content, extension: str):
@@ -265,7 +363,6 @@ def get_vector_list(text_list: list, embedding_model: str):
 
 
 def get_embedding_model(kb_id: str):
-    # dev!
     embedding_model = get_config("DEFAULT_EMBEDDING_MODEL")
     return embedding_model
 
@@ -274,17 +371,19 @@ def pad_string(index: int, length: int = 4):
     return str(index).zfill(length)
 
 
-def kb_file_upload(
+def kb_file_add(
     app: Flask,
     kb_id: str,
     file_key: str,
+    file_name: str,
+    file_tag_id: str,
     split_separator: str,
     split_max_length: int,
     split_chunk_overlap: int,
-    lesson_id: str,
+    user_id: str,
 ):
     with app.app_context():
-        file_id = file_key.split(".")[0]
+        file_id = str(uuid.uuid4()).replace("-", "")
 
         embedding_model = get_embedding_model(kb_id)
 
@@ -298,6 +397,21 @@ def kb_file_upload(
         all_text_list = text_spilt(
             all_text, split_separator, split_max_length, split_chunk_overlap
         )
+
+        file_meta_data = json.dumps({})
+        file_extra_data = json.dumps({})
+        file_item = KnowledgeFile(
+            kb_id=kb_id,
+            file_id=file_id,
+            file_key=file_key,
+            file_name=file_name,
+            file_text=all_text,
+            meta_data=file_meta_data,
+            extra_data=file_extra_data,
+            created_user_id=user_id,
+        )
+        db.session.add(file_item)
+
         index = 0
         processing_batch_size = 32
         for text_list in (
@@ -311,39 +425,56 @@ def kb_file_upload(
 
             # milvus insert
             data = []
-            document_id = file_id
-            document_tag = ""
-            create_user = ""
-            update_user = ""
             create_time = get_datetime_now_str()
-            update_time = ""
-            meta_data = {}
+            chunk_meta_data = json.dumps({})
+            chunk_extra_data = json.dumps({})
             for text, vector in zip(text_list, vector_list):
                 app.logger.info(f"text: {text}")
                 app.logger.info(f"vector[:10]: {vector[:10]}")
-                my_id = f'{document_id[:8]}-{str(index).zfill(8)}-{str(uuid.uuid4()).replace("-", "")}'
+
+                chunk_id = f'{file_id[:8]}-{str(index).zfill(8)}-{str(uuid.uuid4()).replace("-", "")}'
+
+                chunk_item = KnowledgeChunk(
+                    kb_id=kb_id,
+                    file_id=file_id,
+                    chunk_id=chunk_id,
+                    chunk_index=index,
+                    chunk_text=text,
+                    chunk_vector=json.dumps(vector),
+                    meta_data=chunk_meta_data,
+                    extra_data=chunk_extra_data,
+                    created_user_id=user_id,
+                    updated_user_id=user_id,
+                )
+                db.session.add(chunk_item)
+
                 data.append(
                     {
-                        "id": my_id,
-                        "document_id": document_id,
+                        "id": chunk_id,
+                        "knowledge_id": kb_id,
+                        "file_tag_id": file_tag_id,
+                        "file_id": file_id,
                         "index": index,
                         "text": text,
                         "vector": vector,
-                        "document_tag": document_tag,
-                        "lesson_id": lesson_id,
                         "create_time": create_time,
-                        "update_time": update_time,
-                        "create_user": create_user,
-                        "update_user": update_user,
-                        "meta_data": json.dumps(meta_data),
+                        "update_time": "",
+                        "create_user": user_id,
+                        "update_user": "",
+                        "meta_data": chunk_meta_data,
+                        "extra_data": chunk_extra_data,
                     }
                 )
+
                 index += 1
+
                 # break
 
             milvus_client.insert(collection_name=kb_id, data=data)
 
             # break
+
+        db.session.commit()
 
         return "success"
 
