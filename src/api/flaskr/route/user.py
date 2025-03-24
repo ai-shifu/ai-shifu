@@ -355,6 +355,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
             mobile = request.get_json().get("mobile", None)
             sms_code = request.get_json().get("sms_code", None)
+            course_id = request.get_json().get("course_id", None)
             user_id = (
                 None if getattr(request, "user", None) is None else request.user.user_id
             )
@@ -362,13 +363,14 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 raise_param_error("mobile")
             if not sms_code:
                 raise_param_error("sms_code")
-            ret = verify_sms_code(app, user_id, mobile, sms_code)
+            ret = verify_sms_code(app, user_id, mobile, sms_code, course_id)
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():
+        course_id = request.args.get("course_id", None)
         """
         获取用户信息
         ---
@@ -392,7 +394,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: 用户信息
 
         """
-        return make_common_response(get_user_profile_labels(app, request.user.user_id))
+        return make_common_response(
+            get_user_profile_labels(app, request.user.user_id, course_id)
+        )
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
     def update_profile():
@@ -418,6 +422,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                 value:
                                     type: string
                                     description: 属性值
+                    course_id:
+                        type: string
+                        description: 课程ID
         responses:
             200:
                 description: 更新成功
@@ -433,11 +440,16 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: 返回信息
         """
         profiles = request.get_json().get("profiles", None)
+        course_id = request.get_json().get("course_id", None)
         if not profiles:
             raise_param_error("profiles")
         with app.app_context():
             ret = update_user_profile_with_lable(
-                app, request.user.user_id, profiles, update_all=True
+                app,
+                request.user.user_id,
+                profiles,
+                update_all=True,
+                course_id=course_id,
             )
             db.session.commit()
             return make_common_response(ret)

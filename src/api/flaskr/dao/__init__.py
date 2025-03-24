@@ -29,19 +29,6 @@ def init_db(app: Flask):
         )
     else:
         app.logger.info("init dbconfig from config")
-    # app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    # "pool_size": 20,
-    # "max_overflow": 20,
-    # "pool_timeout": 60,
-    # "pool_recycle": 3600,
-    # "pool_pre_ping": True,
-    # "echo": True,                # 打印SQL语句，用于调试
-    # "echo_pool": True,          # 打印连接池事件
-    # "connect_args": {           # 特定数据库的连接参数
-    #     "connect_timeout": 10,
-    #     "charset": "utf8mb4"
-    # }
-    # }
     db = SQLAlchemy()
     db.init_app(app)
 
@@ -88,9 +75,17 @@ def run_with_redis(app, key, timeout: int, func, args):
 
 def init_milvus(app: Flask):
     global milvus_client
-    milvus_client = MilvusClient(
-        uri=app.config.get("MILVUS_URI"),
-        token=app.config.get("MILVUS_TOKEN"),
-        db_name=app.config.get("MILVUS_DB_NAME"),
-    )
-    app.logger.info("init milvus done")
+    if (
+        app.config.get("MILVUS_URI") is not None
+        and app.config.get("MILVUS_TOKEN") is not None
+        and app.config.get("MILVUS_DB_NAME") is not None
+    ):
+        milvus_client = MilvusClient(
+            uri=app.config.get("MILVUS_URI"),
+            token=app.config.get("MILVUS_TOKEN"),
+            db_name=app.config.get("MILVUS_DB_NAME"),
+        )
+        app.logger.info("init milvus done")
+    else:
+        milvus_client = None
+        app.logger.warning("init milvus failed")

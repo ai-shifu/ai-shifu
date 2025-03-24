@@ -15,6 +15,9 @@ from flaskr.api.check import (
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
 
+# from ...i18n import get_i18n_list
+# from ...i18n import get_current_language
+
 
 def check_text_content(
     app: Flask,
@@ -56,7 +59,9 @@ class UserProfileDTO:
         }
 
 
-def get_profile_labels():
+def get_profile_labels(course_id: str = None):
+    # language = get_current_language()
+
     return {
         "nickname": {"label": _("PROFILE.NICKNAME"), "mapping": "name", "default": ""},
         "user_background": {"label": _("PROFILE.USER_BACKGROUND")},
@@ -190,7 +195,8 @@ def get_user_profiles(app: Flask, user_id: str, keys: list = None) -> dict:
     return result
 
 
-def get_user_profile_labels(app: Flask, user_id: str):
+def get_user_profile_labels(app: Flask, user_id: str, course_id: str):
+    app.logger.info("get user profile labels:{}".format(course_id))
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
     user_info = User.query.filter(User.user_id == user_id).first()
     PROFILES_LABLES = get_profile_labels()
@@ -255,9 +261,14 @@ def get_user_profile_labels(app: Flask, user_id: str):
 
 
 def update_user_profile_with_lable(
-    app: Flask, user_id: str, profiles: list, update_all: bool = False
+    app: Flask,
+    user_id: str,
+    profiles: list,
+    update_all: bool = False,
+    course_id: str = None,
 ):
-    PROFILES_LABLES = get_profile_labels()
+    app.logger.info("update user profile with lable:{}".format(course_id))
+    PROFILES_LABLES = get_profile_labels(course_id)
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
         # check nickname

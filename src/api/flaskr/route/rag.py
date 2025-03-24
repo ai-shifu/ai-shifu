@@ -11,7 +11,9 @@ from ..service.rag.funs import (
     kb_tag_unbind,
     oss_file_add,
     oss_file_drop,
+    get_kb_file_list,
     kb_file_add,
+    kb_file_query,
     retrieval,
 )
 
@@ -25,6 +27,12 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
             - 知识库
         parameters:
+            - name: tag_id_list
+              in: query
+              description: 根据知识库标签ID列表进行筛选
+              required: false
+              schema:
+                type: list
             - name: course_id_list
               in: query
               description: 根据课程ID列表进行筛选
@@ -124,8 +132,8 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: string
                                     description: 返回信息
                                 data:
-                                    type: boolean
-                                    description: 返回结果
+                                    type: string
+                                    description: kb_id
         """
         kb_name = request.get_json().get("kb_name")
         if not kb_name:
@@ -500,6 +508,48 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         app.logger.info(f"file_key_list: {file_key_list}")
         return make_common_response(oss_file_drop(app, file_key_list))
 
+    @app.route(path_prefix + "/kb-file-list", methods=["GET"])
+    def run_kb_file_list():
+        """
+        获取知识库文件列表
+        ---
+        tags:
+            - 知识库
+        parameters:
+            - name: kb_id
+              in: query
+              description: 知识库ID
+              required: true
+              schema:
+                type: string
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: list
+                                    description: 知识库文件信息列表
+        """
+        kb_id = request.args.get("kb_id")
+        if not kb_id:
+            raise_param_error("kb_id is not found")
+        app.logger.info(f"kb_id: {kb_id}")
+        return make_common_response(
+            get_kb_file_list(
+                app,
+                kb_id,
+            )
+        )
+
     @app.route(path_prefix + "/kb-file-add", methods=["POST"])
     def run_kb_file_add():
         """
@@ -516,25 +566,19 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                 type: string
             - name: file_key
               in: query
-              description: OSS文件KEY
+              description: 文件OSS KEY
               required: true
-              schema:
-                type: string
-            - name: file_name
-              in: query
-              description: 文件名称
-              required: false
-              schema:
-                type: string
-            - name: file_tag_id
-              in: query
-              description: 文件标签ID
-              required: false
               schema:
                 type: string
             - name: split_separator
               in: query
               description: 分段标识符
+              required: false
+              schema:
+                type: string
+            - name: file_name
+              in: query
+              description: 文件名
               required: false
               schema:
                 type: string
@@ -567,7 +611,10 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         split_max_length = request.get_json().get("split_max_length", 500)
         split_chunk_overlap = request.get_json().get("split_chunk_overlap", 50)
         user_id = request.user.user_id
+        app.logger.info(f"kb_id: {kb_id}")
         app.logger.info(f"file_key: {file_key}")
+        app.logger.info(f"file_name: {file_name}")
+        app.logger.info(f"file_tag_id: {file_tag_id}")
         app.logger.info(f"split_separator: {split_separator}")
         app.logger.info(f"split_max_length: {split_max_length}")
         app.logger.info(f"split_chunk_overlap: {split_chunk_overlap}")
@@ -583,6 +630,59 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                 split_max_length,
                 split_chunk_overlap,
                 user_id,
+            )
+        )
+
+    @app.route(path_prefix + "/kb-file-query", methods=["GET"])
+    def run_kb_file_query():
+        """
+        查看知识库信息
+        ---
+        tags:
+        - 知识库
+        parameters:
+            - name: kb_id
+              in: query
+              description: 知识库ID
+              required: true
+              schema:
+                type: string
+            - name: file_id
+              in: query
+              description: 文件ID
+              required: true
+              schema:
+                type: string
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: dict
+                                    description: 返回文件相关信息
+        """
+        kb_id = request.args.get("kb_id")
+        if not kb_id:
+            raise_param_error("kb_id is not found")
+        file_id = request.args.get("file_id")
+        if not file_id:
+            raise_param_error("file_id is not found")
+        app.logger.info(f"kb_id: {kb_id}")
+        app.logger.info(f"file_id: {kb_id}")
+        return make_common_response(
+            kb_file_query(
+                app,
+                kb_id,
+                file_id,
             )
         )
 

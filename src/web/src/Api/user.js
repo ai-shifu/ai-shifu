@@ -145,20 +145,21 @@ export const sendSmsCode = ({ mobile, check_code }) => {
  * @param {sms_code} 短信验证码
  * @returns
  */
-export const verifySmsCode = ({ mobile, sms_code }) => {
+export const verifySmsCode = ({ mobile, sms_code, course_id }) => {
   return request({
     url: '/api/user/verify_sms_code',
     method: 'post',
-    data: { mobile, sms_code },
+    data: { mobile, sms_code, course_id },
   });
 };
 
 
 // 获取用户详细信息
-export const getUserProfile = () => {
+export const getUserProfile = (courseId) => {
   return request({
     url: '/api/user/get_profile',
     method: 'get',
+    params: { course_id: courseId }
   });
 };
 
@@ -175,12 +176,13 @@ export const uploadAvatar = ({ avatar }) => {
 };
 
 // 更新用户详细信息
-export const updateUserProfile = (data) => {
+export const updateUserProfile = (data, courseId) => {
   return request({
     url: '/api/user/update_profile',
     method: 'POST',
     data: {
-      "profiles": data
+      "profiles": data,
+      "course_id": courseId
     }
   });
 };
