@@ -193,8 +193,6 @@ export const ChatComponents = forwardRef(
 
     const [inputDisabled, setInputDisabled] = useState(false);
     const [inputModal, setInputModal] = useState(null);
-    const [_, setLessonEnd] = useState(false);
-    const [_lastSendMsg, setLastSendMsg] = useState(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
@@ -329,18 +327,12 @@ export const ChatComponents = forwardRef(
           ...v,
           askMode: false,
         }));
-        setLastSendMsg({ chatId, lessonId, val, type, scriptId });
         let lastMsg = null;
         let isEnd = false;
         let teach_avator = null;
         let lastLessonId = messageLessonId;
 
         runScript(chatId, lessonId, val, type, scriptId, async (response) => {
-          setLessonEnd((v) => {
-            isEnd = v;
-            return v;
-          });
-
           if (response.type === RESP_EVENT_TYPE.TEACHER_AVATOR) {
             teach_avator = response.content;
           }
@@ -457,7 +449,6 @@ export const ChatComponents = forwardRef(
               chapterUpdate?.({ id: chapterId, status, status_value });
               if (status_value === LESSON_STATUS_VALUE.COMPLETED) {
                 isEnd = true;
-                setLessonEnd(true);
                 setTyping(false);
               }
               if (status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING) {
@@ -537,7 +528,6 @@ export const ChatComponents = forwardRef(
       setIsStreaming(false);
       setTyping(false);
       setInputDisabled(true);
-      setLessonEnd(false);
       resetList();
       setInitRecords(null);
 
@@ -665,13 +655,7 @@ export const ChatComponents = forwardRef(
     useEffect(() => {
       if (window.ztDebug) {
         window.ztDebug.resend = () => {
-          setLastSendMsg((lastSendMsg) => {
-            if (lastSendMsg) {
-              nextStep({ ...lastSendMsg });
-            }
 
-            return lastSendMsg;
-          });
         };
 
         window.ztDebug.resendX = (

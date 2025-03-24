@@ -4,7 +4,6 @@ import {
 } from 'constants/courseConstants.js';
 import styles from './ChatInputButton.module.scss';
 import MainButton from 'Components/MainButton.jsx';
-import { useEffect } from 'react';
 import { memo } from 'react';
 import { registerInteractionType } from '../interactionRegistry';
 import { useShallow } from 'zustand/react/shallow';

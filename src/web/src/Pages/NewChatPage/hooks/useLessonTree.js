@@ -116,9 +116,13 @@ export const useLessonTree = () => {
   }, []);
 
   // 用于重新加载课程树，但保持临时状态
-  const reloadTree = useCallback(async (chapterId = 0, lessonId = 0) => {
+  const reloadTree = useCallback(async (chapterId = undefined, lessonId = undefined) => {
     const newTree = await loadTreeInner();
-    initialSelectedChapter(newTree);
+    if (chapterId === undefined) {
+      initialSelectedChapter(newTree);
+    } else {
+      setSelectedState(newTree, chapterId, lessonId);
+    }
     // 设置 collapse 状态
     await newTree.catalogs.forEach(c => {
       const oldCatalog = tree.catalogs.find(oc => oc.id === c.id);
@@ -154,7 +158,6 @@ export const useLessonTree = () => {
       if (!old) {
         return;
       }
-
       const nextState = produce(old, draft => {
         draft.catalogs.forEach(c => {
           c.lessons.forEach(ls => {
@@ -187,6 +190,7 @@ export const useLessonTree = () => {
   };
 
   const toggleCollapse = ({ id }) => {
+
     const nextState = produce(tree, draft => {
       draft.catalogs.forEach(c => {
         if (c.id === id) {
@@ -203,6 +207,7 @@ export const useLessonTree = () => {
       if (!old) {
         return;
       }
+
       const nextState = produce(old, draft => {
         draft.catalogs.forEach(c => {
           const idx = c.lessons.findIndex(ch => ch.id === id);

@@ -57,7 +57,6 @@ export const PayModalM = ({
 }) => {
   const [initLoading, setInitLoading] = useState(true);
   const [price, setPrice] = useState('0.00');
-  const [totalDiscount, setTotalDiscount] = useState('');
   const [payChannel, setPayChannel] = useState(
     inWechat() ? PAY_CHANNEL_WECHAT_JSAPI : PAY_CHANNEL_ZHIFUBAO
   );
@@ -155,7 +154,6 @@ export const PayModalM = ({
       const { data: resp } = await initOrderUniform(courseId);
       const orderId = resp.order_id;
       setOrderId(orderId);
-      setTotalDiscount(resp.discount);
       setOriginalPrice(resp.price);
       setPrice(resp.value_to_pay);
       setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
