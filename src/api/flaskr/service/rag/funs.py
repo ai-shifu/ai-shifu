@@ -114,35 +114,37 @@ def kb_add(
         if KnowledgeBase.query.filter_by(kb_name=kb_name).first():
             app.logger.error("kb_name already exists")
             return False
-        else:
-            kb_item = KnowledgeBase(
-                kb_id=kb_id,
-                kb_name=kb_name,
-                kb_description=kb_description,
-                embedding_model=embedding_model,
-                dim=dim,
-                tag_ids=tag_ids,
-                course_ids=course_ids,
-                created_user_id=user_id,
-            )
-            db.session.add(kb_item)
+        if milvus_client is not None:
+            raise_error("RAG.MILVUS_NOT_CONFIGURED")
 
-            properties = {
-                "dim": dim,
-                "create_user": user_id,
-                "create_time": get_datetime_now_str(),
-            }
-            milvus_client.create_collection(
-                # collection name can only contain numbers, letters and underscores
-                collection_name=kb_id,
-                schema=kb_schema(dim),
-                index_params=kb_index_params(),
-                properties=properties,
-            )
+        kb_item = KnowledgeBase(
+            kb_id=kb_id,
+            kb_name=kb_name,
+            kb_description=kb_description,
+            embedding_model=embedding_model,
+            dim=dim,
+            tag_ids=tag_ids,
+            course_ids=course_ids,
+            created_user_id=user_id,
+        )
+        db.session.add(kb_item)
 
-            db.session.commit()
+        properties = {
+            "dim": dim,
+            "create_user": user_id,
+            "create_time": get_datetime_now_str(),
+        }
+        milvus_client.create_collection(
+            # collection name can only contain numbers, letters and underscores
+            collection_name=kb_id,
+            schema=kb_schema(dim),
+            index_params=kb_index_params(),
+            properties=properties,
+        )
 
-            return kb_id
+        db.session.commit()
+
+        return kb_id
 
 
 def kb_update(
@@ -180,6 +182,8 @@ def kb_update(
 
 
 def milvus_kb_exist(kb_id: str):
+    if milvus_client is None:
+        raise_error("RAG.MILVUS_NOT_CONFIGURED")
     return milvus_client.has_collection(collection_name=kb_id)
 
 
@@ -209,6 +213,8 @@ def kb_query(app: Flask, kb_id: str):
 
 def kb_drop(app: Flask, kb_id_list: list):
     with app.app_context():
+        if milvus_client is None:
+            raise_error("RAG.MILVUS_NOT_CONFIGURED")
         for kb_id in kb_id_list:
             kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
             if kb_item:
@@ -226,6 +232,8 @@ def kb_tag_bind(
     tag_id: str,
 ):
     with app.app_context():
+        if milvus_client is None:
+            raise_error("RAG.MILVUS_NOT_CONFIGURED")
         kb_item = KnowledgeBase.query.filter_by(kb_id=kb_id).first()
         if not kb_item:
             app.logger.error(f"KnowledgeBase with kb_id {kb_id} not found")
@@ -399,6 +407,8 @@ def kb_file_add(
     user_id: str,
 ):
     with app.app_context():
+        if milvus_client is None:
+            raise_error("RAG.MILVUS_NOT_CONFIGURED")
         file_id = str(uuid.uuid4()).replace("-", "")
 
         embedding_model = get_embedding_model(kb_id)
@@ -534,6 +544,8 @@ def retrieval_fun(
     limit: int,
     output_fields: list,
 ):
+    if milvus_client is not None:
+        raise_error("RAG.MILVUS_NOT_CONFIGURED")
     embedding_model = get_embedding_model(kb_id)
     return "\n\n".join(
         [
