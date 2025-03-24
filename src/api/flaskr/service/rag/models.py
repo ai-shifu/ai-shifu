@@ -42,7 +42,7 @@ class KnowledgeBase(db.Model):
         Text,
         nullable=True,
         default=None,
-        comment="Knowledge Base tags, separated by ','",
+        comment="Knowledge Base Tag IDs, separated by ','",
     )
     course_ids = Column(
         Text,
@@ -70,27 +70,127 @@ class KnowledgeBase(db.Model):
     )
 
 
+class KnowledgeFile(db.Model):
+    __tablename__ = "knowledge_file"
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    kb_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Knowledge Base ID",
+        index=True,
+    )
+    file_tag_id = Column(
+        Text,
+        nullable=True,
+        default=None,
+        comment="File Tag ID",
+    )
+    file_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="File ID",
+        index=True,
+    )
+    file_key = Column(String(255), nullable=False, default="", comment="File oss key")
+    file_name = Column(String(255), nullable=True, default="", comment="File name")
+    file_text = Column(Text, nullable=True, comment="File text", default="")
+    meta_data = Column(Text, nullable=True, comment="Meta Data", default="{}")
+    extra_data = Column(Text, nullable=True, comment="Extra Data", default="{}")
+    created_user_id = Column(
+        String(36), nullable=True, default="", comment="created user ID"
+    )
+    updated_user_id = Column(
+        String(36), nullable=True, default="", comment="updated user ID"
+    )
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+
+
+class KnowledgeChunk(db.Model):
+    __tablename__ = "knowledge_chunk"
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    kb_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Knowledge Base ID",
+        index=True,
+    )
+    file_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="File ID",
+        index=True,
+    )
+    chunk_id = Column(
+        String(64),
+        nullable=False,
+        default="",
+        comment="Chunk ID",
+        index=True,
+    )
+    chunk_index = Column(
+        Integer,
+        nullable=True,
+        default=-1,
+        comment="Chunk index",
+    )
+    chunk_text = Column(Text, nullable=True, comment="Chunk text", default="")
+    chunk_vector = Column(Text, nullable=True, comment="Chunk vector", default="[]")
+    meta_data = Column(Text, nullable=True, comment="Meta Data", default="{}")
+    extra_data = Column(Text, nullable=True, comment="Extra Data", default="{}")
+    created_user_id = Column(
+        String(36), nullable=True, default="", comment="created user ID"
+    )
+    updated_user_id = Column(
+        String(36), nullable=True, default="", comment="updated user ID"
+    )
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
+
+
 def kb_schema(dim: int):
     schema = MilvusClient.create_schema(auto_id=False, enable_dynamic_field=True)
     schema.add_field(
         field_name="id", datatype=DataType.VARCHAR, max_length=128, is_primary=True
     )
-    schema.add_field(field_name="document_id", datatype=DataType.VARCHAR, max_length=64)
+    schema.add_field(
+        field_name="knowledge_id", datatype=DataType.VARCHAR, max_length=64
+    )
+    schema.add_field(field_name="file_tag_id", datatype=DataType.VARCHAR, max_length=64)
+    schema.add_field(field_name="file_id", datatype=DataType.VARCHAR, max_length=64)
     schema.add_field(field_name="index", datatype=DataType.INT32)
     schema.add_field(field_name="text", datatype=DataType.VARCHAR, max_length=65535)
     schema.add_field(field_name="vector", datatype=DataType.FLOAT_VECTOR, dim=dim)
-    schema.add_field(field_name="lesson_id", datatype=DataType.VARCHAR, max_length=64)
-    schema.add_field(
-        field_name="document_tag", datatype=DataType.VARCHAR, max_length=64
-    )
     schema.add_field(
         field_name="meta_data", datatype=DataType.VARCHAR, max_length=65535
+    )
+    schema.add_field(
+        field_name="extra_data", datatype=DataType.VARCHAR, max_length=65535
     )
     schema.add_field(
         field_name="create_user", datatype=DataType.VARCHAR, max_length=128
     )
     schema.add_field(field_name="create_time", datatype=DataType.VARCHAR, max_length=64)
-
     schema.add_field(
         field_name="update_user", datatype=DataType.VARCHAR, max_length=128
     )

@@ -1,21 +1,25 @@
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error
-from .common import bypass_token_validation, make_common_response
+from .common import make_common_response
 from ..service.rag.funs import (
     get_kb_list,
     kb_add,
     kb_update,
-    kb_look,
+    kb_query,
     kb_drop,
-    oss_file_upload,
-    kb_file_upload,
+    kb_tag_bind,
+    kb_tag_unbind,
+    oss_file_add,
+    oss_file_drop,
+    get_kb_file_list,
+    kb_file_add,
+    kb_file_query,
     retrieval,
 )
 
 
 def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/kb-list", methods=["POST"])
-    @bypass_token_validation
     def run_kb_list():
         """
         获取知识库列表
@@ -23,6 +27,12 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         tags:
             - 知识库
         parameters:
+            - name: tag_id_list
+              in: query
+              description: 根据知识库标签ID列表进行筛选
+              required: false
+              schema:
+                type: list
             - name: course_id_list
               in: query
               description: 根据课程ID列表进行筛选
@@ -44,7 +54,7 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: 返回信息
                                 data:
                                     type: list
-                                    description: 知识库ID列表
+                                    description: 知识库信息列表
         """
         tag_id_list = request.get_json().get("tag_id_list", [])
         course_id_list = request.get_json().get("course_id_list", [])
@@ -96,6 +106,12 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
               required: false
               schema:
                 type: int
+            - name: tag_id_list
+              in: query
+              description: 关联标签ID列表
+              required: false
+              schema:
+                type: list
             - name: course_id_list
               in: query
               description: 关联课程ID列表
@@ -116,8 +132,8 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: string
                                     description: 返回信息
                                 data:
-                                    type: boolean
-                                    description: 返回结果
+                                    type: string
+                                    description: kb_id
         """
         kb_name = request.get_json().get("kb_name")
         if not kb_name:
@@ -242,9 +258,8 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
             )
         )
 
-    @app.route(path_prefix + "/kb-look", methods=["GET"])
-    @bypass_token_validation
-    def run_kb_look():
+    @app.route(path_prefix + "/kb-query", methods=["GET"])
+    def run_kb_query():
         """
         查看知识库信息
         ---
@@ -256,7 +271,7 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
               description: 知识库ID
               required: true
               schema:
-                type: str
+                type: string
         responses:
             200:
                 description: 操作成功
@@ -279,14 +294,13 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("kb_id is not found")
         app.logger.info(f"kb_id: {kb_id}")
         return make_common_response(
-            kb_look(
+            kb_query(
                 app,
                 kb_id,
             )
         )
 
     @app.route(path_prefix + "/kb-drop", methods=["POST"])
-    @bypass_token_validation
     def run_kb_drop():
         """
         删除知识库
@@ -328,9 +342,102 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
             )
         )
 
-    @app.route(path_prefix + "/oss-file-upload", methods=["POST"])
-    @bypass_token_validation
-    def run_oss_file_upload():
+    @app.route(path_prefix + "/kb-tag-bind", methods=["POST"])
+    def run_kb_tag_bind():
+        """
+        知识库标签绑定
+        ---
+        tags:
+        - 知识库
+        parameters:
+            - name: kb_id
+              in: query
+              description: 知识库ID
+              required: true
+              schema:
+                type: string
+            - name: tag_id
+              in: query
+              description: 标签ID
+              required: true
+              schema:
+                type: string
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: boolean
+                                    description: 返回结果
+        """
+        kb_id = request.get_json().get("kb_id")
+        if not kb_id:
+            raise_param_error("kb_id is not found")
+        tag_id = request.get_json().get("tag_id")
+        if not tag_id:
+            raise_param_error("tag_id is not found")
+        app.logger.info(f"kb_id: {kb_id}")
+        app.logger.info(f"tag_id: {tag_id}")
+        return make_common_response(kb_tag_bind(app, kb_id, tag_id))
+
+    @app.route(path_prefix + "/kb-tag-unbind", methods=["POST"])
+    def run_kb_tag_unbind():
+        """
+        知识库标签解绑
+        ---
+        tags:
+        - 知识库
+        parameters:
+            - name: kb_id
+              in: query
+              description: 知识库ID
+              required: true
+              schema:
+                type: string
+            - name: tag_id
+              in: query
+              description: 标签ID
+              required: true
+              schema:
+                type: string
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: boolean
+                                    description: 返回结果
+        """
+        kb_id = request.get_json().get("kb_id")
+        if not kb_id:
+            raise_param_error("kb_id is not found")
+        tag_id = request.get_json().get("tag_id")
+        if not tag_id:
+            raise_param_error("tag_id is not found")
+        app.logger.info(f"kb_id: {kb_id}")
+        app.logger.info(f"tag_id: {tag_id}")
+        return make_common_response(kb_tag_unbind(app, kb_id, tag_id))
+
+    @app.route(path_prefix + "/oss-file-add", methods=["POST"])
+    def run_oss_file_add():
         """
         OSS文件上传
         ---
@@ -341,7 +448,7 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
               name: upload_file
               type: file
               required: true
-              description: 文件
+              description: 待上传文件
         responses:
             200:
                 description: 操作成功
@@ -359,15 +466,92 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: string
                                     description: OSS文件KEY
         """
-        app.logger.info("enter file_upload!")
         upload_file = request.files.get("upload_file", None)
         if not upload_file:
             raise_param_error("upload_file")
-        return make_common_response(oss_file_upload(app, upload_file))
+        return make_common_response(oss_file_add(app, upload_file))
 
-    @app.route(path_prefix + "/kb-file-upload", methods=["POST"])
-    @bypass_token_validation
-    def run_kb_file_upload():
+    @app.route(path_prefix + "/oss-file-drop", methods=["POST"])
+    def run_oss_file_drop():
+        """
+        OSS文件删除
+        ---
+        tags:
+            - 知识库
+        parameters:
+            - name: file_key_list
+              in: query
+              description: 文件key列表
+              required: true
+              schema:
+                type: list
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: boolean
+                                    description: 返回结果
+        """
+        file_key_list = request.get_json().get("file_key_list")
+        if not file_key_list:
+            raise_param_error("file_key_list is not found")
+        app.logger.info(f"file_key_list: {file_key_list}")
+        return make_common_response(oss_file_drop(app, file_key_list))
+
+    @app.route(path_prefix + "/kb-file-list", methods=["GET"])
+    def run_kb_file_list():
+        """
+        获取知识库文件列表
+        ---
+        tags:
+            - 知识库
+        parameters:
+            - name: kb_id
+              in: query
+              description: 知识库ID
+              required: true
+              schema:
+                type: string
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: list
+                                    description: 知识库文件信息列表
+        """
+        kb_id = request.args.get("kb_id")
+        if not kb_id:
+            raise_param_error("kb_id is not found")
+        app.logger.info(f"kb_id: {kb_id}")
+        return make_common_response(
+            get_kb_file_list(
+                app,
+                kb_id,
+            )
+        )
+
+    @app.route(path_prefix + "/kb-file-add", methods=["POST"])
+    def run_kb_file_add():
         """
         知识库文件上传
         ---
@@ -382,7 +566,7 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
                 type: string
             - name: file_key
               in: query
-              description: OSS文件KEY
+              description: 文件OSS KEY
               required: true
               schema:
                 type: string
@@ -392,9 +576,9 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
               required: false
               schema:
                 type: string
-            - name: lesson_id
+            - name: file_name
               in: query
-              description: 关联章节ID
+              description: 文件名
               required: false
               schema:
                 type: string
@@ -421,29 +605,88 @@ def register_rag_handler(app: Flask, path_prefix: str) -> Flask:
         file_key = request.get_json().get("file_key", None)
         if not file_key:
             raise_param_error("file_key is not found")
+        file_name = request.get_json().get("file_name", "")
+        file_tag_id = request.get_json().get("file_tag_id", "")
         split_separator = request.get_json().get("split_separator", "\n\n")
         split_max_length = request.get_json().get("split_max_length", 500)
         split_chunk_overlap = request.get_json().get("split_chunk_overlap", 50)
-        lesson_id = request.get_json().get("lesson_id", "")
+        user_id = request.user.user_id
+        app.logger.info(f"kb_id: {kb_id}")
         app.logger.info(f"file_key: {file_key}")
+        app.logger.info(f"file_name: {file_name}")
+        app.logger.info(f"file_tag_id: {file_tag_id}")
         app.logger.info(f"split_separator: {split_separator}")
         app.logger.info(f"split_max_length: {split_max_length}")
         app.logger.info(f"split_chunk_overlap: {split_chunk_overlap}")
-        app.logger.info(f"lesson_id: {lesson_id}")
+        app.logger.info(f"user_id: {user_id}")
         return make_common_response(
-            kb_file_upload(
+            kb_file_add(
                 app,
                 kb_id,
                 file_key,
+                file_name,
+                file_tag_id,
                 split_separator,
                 split_max_length,
                 split_chunk_overlap,
-                lesson_id,
+                user_id,
+            )
+        )
+
+    @app.route(path_prefix + "/kb-file-query", methods=["GET"])
+    def run_kb_file_query():
+        """
+        查看知识库信息
+        ---
+        tags:
+        - 知识库
+        parameters:
+            - name: kb_id
+              in: query
+              description: 知识库ID
+              required: true
+              schema:
+                type: string
+            - name: file_id
+              in: query
+              description: 文件ID
+              required: true
+              schema:
+                type: string
+        responses:
+            200:
+                description: 操作成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: dict
+                                    description: 返回文件相关信息
+        """
+        kb_id = request.args.get("kb_id")
+        if not kb_id:
+            raise_param_error("kb_id is not found")
+        file_id = request.args.get("file_id")
+        if not file_id:
+            raise_param_error("file_id is not found")
+        app.logger.info(f"kb_id: {kb_id}")
+        app.logger.info(f"file_id: {kb_id}")
+        return make_common_response(
+            kb_file_query(
+                app,
+                kb_id,
+                file_id,
             )
         )
 
     @app.route(path_prefix + "/retrieval", methods=["POST"])
-    @bypass_token_validation
     def run_retrieval():
         """
         知识检索
