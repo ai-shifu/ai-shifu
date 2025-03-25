@@ -460,11 +460,10 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
         lesson = AILesson.query.filter_by(lesson_id=script_info.lesson_id).first()
         if not lesson:
             return None
-
         return ScriptInfoDTO(
             script_info.script_index,
             script_info.script_name,
-            lesson.lesson_type == LESSON_TYPE_TRIAL,
+            lesson.lesson_type == LESSON_TYPE_TRIAL
         )
 
 

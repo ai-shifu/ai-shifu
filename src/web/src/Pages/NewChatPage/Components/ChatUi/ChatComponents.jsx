@@ -778,14 +778,14 @@ export const ChatComponents = forwardRef(
         return (
           <div className={styles.messageContentOperation}>
             {currentInteractionType === 1 ? (
-              <LikeFilled onClick={likeClick} />
+              <LikeFilled className={styles.messageContentOperationIcon} onClick={likeClick} />
             ) : (
-              <LikeOutlined onClick={likeClick} />
+                <LikeOutlined className={styles.messageContentOperationIcon} onClick={likeClick} />
             )}
             {currentInteractionType === 2 ? (
-              <DislikeFilled onClick={disClick} />
+              <DislikeFilled className={styles.messageContentOperationIcon} onClick={disClick} />
             ) : (
-              <DislikeOutlined onClick={disClick} />
+                <DislikeOutlined className={styles.messageContentOperationIcon} onClick={disClick} />
             )}
           </div>
         );
