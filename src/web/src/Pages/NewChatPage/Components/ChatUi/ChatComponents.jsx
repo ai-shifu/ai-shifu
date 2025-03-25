@@ -385,9 +385,8 @@ export const ChatComponents = forwardRef(
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
-              // 更新消息完成状态
               if (lastMsg) {
-                lastMsg.isComplete = true;  // 新增状态更新
+                lastMsg.isComplete = true;
                 lastMsg.logid = response.log_id;
                 updateMsg(lastMsg.id, lastMsg);
               }
