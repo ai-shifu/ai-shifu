@@ -133,6 +133,7 @@ def save_user_profile(
             profile_key=profile_key,
             profile_value=profile_value,
             profile_type=profile_type,
+            profile_id="",
         )
         db.session.add(user_profile)
     if profile_key in PROFILES_LABLES:
@@ -164,7 +165,11 @@ def save_user_profiles(app: Flask, user_id: str, profiles: dict):
             user_profile.profile_value = value
         else:
             user_profile = UserProfile(
-                user_id=user_id, profile_key=key, profile_value=value, profile_type=1
+                user_id=user_id,
+                profile_key=key,
+                profile_value=value,
+                profile_type=1,
+                profile_id="",
             )
             db.session.add(user_profile)
         if key in PROFILES_LABLES:
