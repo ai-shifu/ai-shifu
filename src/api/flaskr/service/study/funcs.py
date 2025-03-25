@@ -463,7 +463,6 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
 
 
 
-
         return ScriptInfoDTO(
             script_info.script_index,
             script_info.script_name,
