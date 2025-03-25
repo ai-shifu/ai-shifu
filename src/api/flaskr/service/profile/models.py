@@ -73,7 +73,7 @@ class UserProfile(db.Model):
 class ProfileItem(db.Model):
     __tablename__ = "profile_item"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    profile_id = Column(BIGINT, nullable=False, comment="Profile ID", unique=True)
+    profile_id = Column(String(36), nullable=False, comment="Profile ID", unique=True)
     parent_id = Column(
         String(36), nullable=False, default="", comment="parent_id", index=True
     )
@@ -121,9 +121,9 @@ class ProfileItem(db.Model):
 class ProfileItemValue(db.Model):
     __tablename__ = "profile_item_value"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    profile_id = Column(BIGINT, nullable=False, comment="Profile ID", index=True)
+    profile_id = Column(String(36), nullable=False, comment="Profile ID", index=True)
     profile_item_id = Column(
-        BIGINT, nullable=False, comment="Profile item ID", index=True
+        String(36), nullable=False, comment="Profile item ID", index=True
     )
     profile_value = Column(Text, nullable=False, comment="Profile value")
     created = Column(
