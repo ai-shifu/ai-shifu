@@ -84,8 +84,8 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                                   type: object
                                   $ref: '#/components/schemas/ProfileItemDefination'
         """
-        parent_id = request.get_json().get("parent_id")
-        profile_key = request.get_json().get("profile_key")
+        parent_id = request.get_json().get("parent_id", None)
+        profile_key = request.get_json().get("profile_key", None)
         user_id = request.user.user_id
         return make_common_response(
             add_profile_item_quick(app, parent_id, profile_key, user_id)

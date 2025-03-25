@@ -113,6 +113,10 @@ def get_profile_item_defination_list(app: Flask, parent_id: str):
 # quick add profile item
 def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
     with app.app_context():
+        if not parent_id:
+            raise_error("PROFILE.PRARENT_REQUIRED")
+        if not key:
+            raise_error("PROFILE.KEY_REQUIRE")
         ret = add_profile_item_quick_internal(app, parent_id, key, user_id)
         db.session.commit()
         return ret
