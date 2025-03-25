@@ -94,11 +94,6 @@ class ProfileItem(db.Model):
     profile_color_setting = Column(
         String(255), nullable=False, default="", comment="Profile color"
     )
-    profile_check_prompt = Column(Text, nullable=False, comment="Profile check prompt")
-    profile_check_model = Column(String(255), nullable=False, default="", comment="")
-    profile_check_model_args = Column(
-        Text, nullable=False, comment="Profile check model args"
-    )
     profile_script_id = Column(
         String(36), nullable=False, default="", comment="Profile script id", index=True
     )

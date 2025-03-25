@@ -36,7 +36,7 @@ class ColorSetting:
         return {"color": self.color, "text_color": self.text_color}
 
     def __str__(self):
-        return str(self.__json__())
+        return json.dumps(self.__json__(), ensure_ascii=True)
 
 
 DEFAULT_COLOR_SETTINGS = [
@@ -126,23 +126,24 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
             if exist_profile_item.profile_key == key:
                 return exist_profile_item
     profile_id = generate_id(app)
-    profile_item = ProfileItem(
-        parent_id=parent_id,
-        profile_id=profile_id,
-        profile_key=key,
-        profile_type=PROFILE_TYPE_INPUT_UNCONF,
-        profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
-        profile_remark="",
-        profile_color_setting=str(get_next_corlor_setting(parent_id)),
-        profile_check_prompt="",
-        profile_check_model="",
-        profile_check_model_args="{}",
-        created_by=user_id,
-        updated_by=user_id,
-        status=1,
-    )
+    profile_item = ProfileItem()
+    profile_item.parent_id = parent_id
+    profile_item.profile_id = profile_id
+    profile_item.profile_key = key
+    profile_item.profile_type = PROFILE_TYPE_INPUT_UNCONF
+    profile_item.profile_show_type = PROFILE_SHOW_TYPE_HIDDEN
+    profile_item.profile_remark = ""
+    profile_item.profile_color_setting = str(get_next_corlor_setting(parent_id))
+    profile_item.profile_prompt = ""
+    profile_item.profile_prompt_type = 0
+    profile_item.profile_prompt_model = ""
+    profile_item.profile_prompt_model_args = "{}"
+    profile_item.created_by = user_id
+    profile_item.updated_by = user_id
+    profile_item.status = 1
     db.session.add(profile_item)
     db.session.flush()
+    app.logger.info(profile_item.profile_color_setting)
     return ProfileItemDefination(
         profile_item.profile_key,
         get_color_setting(profile_item.profile_color_setting),
@@ -184,7 +185,7 @@ def add_profile_item(
             profile_type=type,
             profile_show_type=show_type,
             profile_remark=remark,
-            profile_color_setting=get_next_corlor_setting(parent_id),
+            profile_color_setting=str(get_next_corlor_setting(parent_id)),
             profile_check_prompt=profile_prompt,
             profile_check_model=profile_check_model,
             profile_check_model_args=profile_check_model_args,
