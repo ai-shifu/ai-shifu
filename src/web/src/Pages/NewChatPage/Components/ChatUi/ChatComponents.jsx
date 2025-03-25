@@ -388,6 +388,7 @@ export const ChatComponents = forwardRef(
               // 更新消息完成状态
               if (lastMsg) {
                 lastMsg.isComplete = true;  // 新增状态更新
+                lastMsg.logid = response.log_id;
                 updateMsg(lastMsg.id, lastMsg);
               }
               lastMsgRef.current = null;
