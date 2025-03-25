@@ -461,10 +461,17 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
         if not lesson:
             return None
 
+        course_lesson_attend_info = AICourseLessonAttendScript.query.filter(
+            AICourseLessonAttendScript.script_id == script_id,
+            AICourseLessonAttendScript.user_id == user_id,
+        ).first()
+
+
         return ScriptInfoDTO(
             script_info.script_index,
             script_info.script_name,
             lesson.lesson_type == LESSON_TYPE_TRIAL,
+            course_lesson_attend_info.log_id if course_lesson_attend_info else None,
         )
 
 

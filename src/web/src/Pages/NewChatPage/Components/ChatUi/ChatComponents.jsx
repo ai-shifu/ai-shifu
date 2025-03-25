@@ -86,6 +86,7 @@ const createMessage = ({
     role,
     content,
     interaction_type,
+    isComplete: false,
     logid,
     type,
     position,
@@ -104,6 +105,7 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
       type: serverMessage.script_type,
       userInfo,
       teach_avator,
+      isComplete: true,
     });
   } else if (serverMessage.script_type === CHAT_MESSAGE_TYPE.LESSON_SEPARATOR) {
     return createMessage({
@@ -115,6 +117,7 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
       logid: serverMessage.logid,
       userInfo,
       teach_avator,
+      isComplete: true,
     });
   }
 
@@ -382,6 +385,11 @@ export const ChatComponents = forwardRef(
             } else if (response.type === RESP_EVENT_TYPE.TEXT_END) {
               setIsStreaming(false);
               setTyping(false);
+              // 更新消息完成状态
+              if (lastMsg) {
+                lastMsg.isComplete = true;  // 新增状态更新
+                updateMsg(lastMsg.id, lastMsg);
+              }
               lastMsgRef.current = null;
               if (isEnd) {
                 lastMsg = null;
@@ -550,7 +558,7 @@ export const ChatComponents = forwardRef(
                 ...v,
                 id: `lesson-${newLessonId}`,
                 script_type: CHAT_MESSAGE_TYPE.LESSON_SEPARATOR,
-                logid: v.id
+                logid: v.id,
               })
             );
           }
@@ -744,7 +752,7 @@ export const ChatComponents = forwardRef(
             };
 
             // 在状态更新后执行操作
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {});
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
             return updatedTypes;
           });
         };
@@ -758,7 +766,7 @@ export const ChatComponents = forwardRef(
             };
 
             // 在状态更新后执行操作
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => {});
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
             return updatedTypes;
           });
         };
@@ -806,7 +814,7 @@ export const ChatComponents = forwardRef(
                 onImageLoaded={onImageLoaded}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
-              {renderMessageContentOperation(msg)}
+              {(msg.isComplete|| msg.logid) && renderMessageContentOperation(msg)}
             </div>
           );
         }
