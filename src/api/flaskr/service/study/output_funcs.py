@@ -61,6 +61,9 @@ def generate_fix_output(
     span.end(output=prompt)
     trace_args["output"] = trace_args["output"] + "\r\n" + prompt
     trace.update(**trace_args)
+    yield make_script_dto(
+        "text_end", "", script_info.script_id, script_info.lesson_id,log_script.log_id
+    )
 
 
 def generate_prompt_output(
@@ -113,6 +116,10 @@ def generate_prompt_output(
     log_script.script_content = response_text
     log_script.script_role = ROLE_TEACHER
     db.session.add(log_script)
+    db.session.flush()  # 强制生成自增ID
+    yield make_script_dto(
+        "text_end", "", script_info.script_id, script_info.lesson_id,log_script.log_id
+    )
 
 
 OUTPUT_HANDLERS = {
@@ -152,9 +159,7 @@ def handle_output(
         yield from OUTPUT_HANDLERS[script_info.script_type](
             app, user_id, lesson, attend, script_info, trace, trace_args
         )
-        yield make_script_dto(
-            "text_end", "", script_info.script_id, script_info.lesson_id
-        )
+
     else:
         raise AppException("script type not found")
     span = trace.span(name="output_script")

@@ -15,12 +15,14 @@ class ScriptDTO:
     script_content: str
     lesson_id: str
     script_id: str
+    log_id: str
 
-    def __init__(self, script_type, script_content, lesson_id, script_id=None):
+    def __init__(self, script_type, script_content, lesson_id, script_id=None,log_id=None):
         self.script_type = script_type
         self.script_content = script_content
         self.script_id = script_id
         self.lesson_id = lesson_id
+        self.log_id = log_id
 
     def __json__(self):
         return {
@@ -28,6 +30,7 @@ class ScriptDTO:
             "content": self.script_content,
             "lesson_id": self.lesson_id,
             "script_id": self.script_id,
+            "log_id": self.log_id,
         }
 
     def __str__(self):
