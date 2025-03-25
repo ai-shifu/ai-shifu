@@ -29,7 +29,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import Social from '@/components/social'
+
+import Social from '@/components/social';
+import UserProfile from '@/components/user-profile'
+
 
 const MainInterface = ({
   children,
@@ -44,7 +47,6 @@ const MainInterface = ({
     { icon: <LightBulbIcon className="w-4 h-4" />, label: "灵感", href: "/main/inspiration" },
     { icon: <CheckBadgeIcon className="w-4 h-4" />, label: "最佳实践", href: "/main/best-practice" },
   ];
-
   const userMenuItems: { icon: React.ReactNode, label: string, href: string, id?: string }[] = [
     {
       icon: <PencilSquareIcon className="w-4 h-4" />, label: "个人信息", href: "#"
@@ -164,7 +166,7 @@ const MainInterface = ({
       </div>
 
       <div className='p-2 relative'>
-        <UserProfileCard />
+        <UserProfile />
       </div>
     </div>
   );

@@ -21,10 +21,6 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
         onChange?.(data);
     }
 
-    const onAddNodeClick = (node: Outline) => {
-        props.onAddNodeClick?.(node);
-    }
-
     return (
         <SortableTree
             disableSorting={true}
@@ -35,7 +31,6 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
                 return (
                     <MinimalTreeItemComponent
                         {...props}
-                        onAddNodeClick={onAddNodeClick}
                     />
                 )
             }}
@@ -60,10 +55,10 @@ const MinimalTreeItemComponent = React.forwardRef<
     const { focusId, actions, cataData } = useScenario();
 
     const onNodeChange = async (value: string) => {
-
+        console.log('onNodeChange', value, props.item)
         if (props.item.depth == 0) {
             await actions.createChapter({
-                parent_id: cataData[props.item.id!]?.parent_id,
+                parent_id: props.item.parentId,
                 id: props.item.id,
                 name: value,
                 children: [],
@@ -71,27 +66,16 @@ const MinimalTreeItemComponent = React.forwardRef<
             })
         } else if (props.item.depth == 1) {
             await actions.createUnit({
-                parent_id: cataData[props.item.id!]?.parent_id,
-                id: props.item.id,
-                name: value,
-                children: [],
-                no: '',
-            })
-        } else {
-            await actions.createSiblingUnit({
-                parent_id: cataData[props.item.id!]?.parent_id,
+                parent_id: props.item.parentId,// cataData[props.item.id!]?.parent_id,
                 id: props.item.id,
                 name: value,
                 children: [],
                 no: '',
             })
         }
-
-
         actions.setFocusId("");
     }
     const onAddNodeClick = (node: Outline) => {
-        console.log(node)
         if (node.depth && node.depth >= 1) {
             actions.addSiblingOutline(node, "");
         } else {

@@ -270,23 +270,41 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         }, 3000); // 3 seconds delay
     }, [chapters, currentChapter]);
 
-    const createChapter = async (chapterData: Outline) => {
+    const createChapter = async (data: Outline) => {
         try {
-            updateOutlineStatus(chapterData.id, 'saving');
+            updateOutlineStatus(data.id, 'saving');
             setError(null);
-            const newChapter = await api.createChapter({
-                parent_id: chapterData.parent_id,
-                "chapter_description": chapterData.name,
-                "chapter_index": 0,
-                "chapter_name": chapterData.name,
-                "scenario_id": currentScenario?.id
-            });
-            replaceOutline('new_chapter', {
-                id: newChapter.chapter_id,
-                name: newChapter.chapter_name,
-                no: '',
-                children: []
-            })
+            const index = chapters.findIndex((child) => child.id === data.id);
+
+            if (data.id === 'new_chapter') {
+                const newChapter = await api.createChapter({
+                    parent_id: data.parent_id,
+                    "chapter_description": data.name,
+                    "chapter_index": index,
+                    "chapter_name": data.name,
+                    "scenario_id": currentScenario?.id
+                });
+                replaceOutline('new_chapter', {
+                    id: newChapter.chapter_id,
+                    name: newChapter.chapter_name,
+                    no: '',
+                    children: []
+                })
+            } else {
+                await api.modifyChapter({
+                    "chapter_id": data.id,
+                    "chapter_index": index,
+                    "chapter_description": data.name,
+                    "chapter_name": data.name
+                })
+                replaceOutline(data.id, {
+                    id: data.id,
+                    name: data.name,
+                    no: '',
+                    children: []
+                })
+            }
+
 
         } catch (error) {
             console.error(error);
@@ -298,23 +316,44 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const createUnit = async (data: Outline) => {
         try {
+            console.log('createUnit')
             updateOutlineStatus(data.id, 'saving');
             setError(null);
 
-            const newUnit = await api.createUnit({
-                parent_id: data.parent_id,
-                "chapter_id": data.parent_id,
-                "unit_description": data.name,
-                "unit_name": data.name,
-                "scenario_id": currentScenario?.id
-            });
+            const parent = findNode(data.parent_id || "");
+            // get node index in children
+            const index = parent.children.findIndex((child) => child.id === data.id);
 
-            replaceOutline('new_chapter', {
-                id: newUnit.id,
-                name: newUnit.name,
-                no: '',
-                children: []
-            })
+            if (data.id === 'new_chapter') {
+                const newUnit = await api.createUnit({
+                    parent_id: data.parent_id,
+                    "unit_index": index,
+                    "chapter_id": data.parent_id,
+                    "unit_description": data.name,
+                    "unit_name": data.name,
+                    "scenario_id": currentScenario?.id
+                });
+
+                replaceOutline('new_chapter', {
+                    id: newUnit.id,
+                    name: newUnit.name,
+                    no: '',
+                    children: []
+                })
+            } else {
+                await api.modifyUnit({
+                    "unit_id": data.id,
+                    "unit_index": index,
+                    "unit_description": data.name,
+                    "unit_name": data.name,
+                })
+                replaceOutline(data.id, {
+                    id: data.id,
+                    name: data.name,
+                    no: '',
+                    children: []
+                })
+            }
 
         } catch (error) {
             console.error(error);
@@ -326,15 +365,17 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const createSiblingUnit = async (data: Outline) => {
         try {
+            console.log('createSiblingUnit')
             updateOutlineStatus(data.id, 'saving');
             setError(null);
+
             const parent = findNode(data.parentId || "");
             // get node index in children
             const index = parent.children.findIndex((child) => child.id === data.id);
 
             const newUnit = await api.createUnit({
                 "parent_id": data.parent_id,
-                "unit_index": index,
+                "unit_index": index - 1,
                 "chapter_id": data.parent_id,
                 "unit_description": data.name,
                 "unit_name": data.name,

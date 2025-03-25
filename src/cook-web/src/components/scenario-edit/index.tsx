@@ -164,10 +164,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     {blocks.map((block) => (
                         <div key={block.properties.block_id} className="flex flex-col gap-2 ">
                             <div className='bg-[#F5F5F4] rounded-md p-2'>
-                                <div className='flex flex-row items-center py-1 justify-between'>
+                                {/* <div className='flex flex-row items-center py-1 justify-between'>
                                     <Select
                                         value={blockContentTypes[block.properties.block_id]}
-                                        onValueChange={onContentTypeChange.bind(null, block.properties.block_id)}
+                                        onValueChange={
+                                        .bind(null, block.properties.block_id)}
                                     >
                                         <SelectTrigger className="h-8 w-[120px]">
                                             <SelectValue placeholder="请选择" />
@@ -185,14 +186,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                         </SelectContent>
                                     </Select>
                                     <div className='flex flex-row'>
-                                        <div className='flex flex-row items-center w-6'>
-                                            <Trash className='h-5 w-5' />
+                                        <div className='flex flex-row items-center w-6 '>
+                                            <Trash className='h-5 w-5 cursor-pointer' />
                                         </div>
-                                        <Button variant='ghost' >
+                                        <Button variant='ghost' className=' cursor-pointer' >
                                             <Check />完成
                                         </Button>
                                     </div>
-                                </div>
+                                </div> */}
                                 <RenderBlockContent
                                     id={block.properties.block_id}
                                     type={blockContentTypes[block.properties.block_id]}
@@ -200,7 +201,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 />
                             </div>
                             <div className='bg-[#F5F5F4] rounded-md p-2 space-y-1'>
-                                <div className=' flex flex-row items-center space-x-1'>
+
+                                <div className=' flex flex-row items-center space-x-1 py-1'>
                                     <span>
                                         用户操作：
                                     </span>

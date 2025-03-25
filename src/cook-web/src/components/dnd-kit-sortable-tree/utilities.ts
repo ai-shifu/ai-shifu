@@ -151,7 +151,7 @@ function flatten<T extends Record<string, any>>(
   depth = 0,
   parent: FlattenedItem<T> | null = null
 ): FlattenedItem<T>[] {
-  return items.reduce<FlattenedItem<T>[]>((acc, item, index) => {
+  return items?.reduce<FlattenedItem<T>[]>((acc, item, index) => {
     const flattenedItem: FlattenedItem<T> = {
       ...item,
       parentId,

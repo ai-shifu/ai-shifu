@@ -294,7 +294,7 @@ export function SortableTree<
             />
           );
         })}
-        {typeof document !== 'undefined' && createPortal(
+        {/* {typeof document !== 'undefined' && createPortal(
           <DragOverlay
             dropAnimation={
               dropAnimation === undefined
@@ -307,7 +307,8 @@ export function SortableTree<
             ) : null}
           </DragOverlay>,
           document?.body
-        )}
+
+        )} */}
       </SortableContext>
     </DndContext>
   );
