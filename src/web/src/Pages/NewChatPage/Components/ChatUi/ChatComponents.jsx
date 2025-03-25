@@ -804,6 +804,7 @@ export const ChatComponents = forwardRef(
         if (content === undefined) {
           return <></>;
         }
+        console.log(msg);
 
         if (type === CHAT_MESSAGE_TYPE.TEXT) {
           return (
@@ -815,7 +816,7 @@ export const ChatComponents = forwardRef(
                 onImageLoaded={onImageLoaded}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
-              {(msg.isComplete|| msg.logid) && renderMessageContentOperation(msg)}
+              {((msg.isComplete || msg.logid) && msg.position=='left') && renderMessageContentOperation(msg)}
             </div>
           );
         }
