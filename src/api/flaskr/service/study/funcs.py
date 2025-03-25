@@ -466,7 +466,6 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
             AICourseLessonAttendScript.user_id == user_id,
         ).first()
 
-
         return ScriptInfoDTO(
             script_info.script_index,
             script_info.script_name,
