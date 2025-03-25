@@ -17,7 +17,9 @@ class ScriptDTO:
     script_id: str
     log_id: str
 
-    def __init__(self, script_type, script_content, lesson_id, script_id=None,log_id=None):
+    def __init__(
+        self, script_type, script_content, lesson_id, script_id=None, log_id=None
+    ):
         self.script_type = script_type
         self.script_content = script_content
         self.script_id = script_id
@@ -309,10 +311,12 @@ class ScriptInfoDTO:
     script_name: str
     is_trial_lesson: bool
     log_id: str
+
     def __init__(self, script_index, script_name, is_trial_lesson, log_id):
         self.script_index = script_index
         self.script_name = script_name
         self.is_trial_lesson = is_trial_lesson
+
     def __json__(self):
         return {
             "script_index": self.script_index,

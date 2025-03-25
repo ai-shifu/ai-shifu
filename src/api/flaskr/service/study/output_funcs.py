@@ -62,7 +62,7 @@ def generate_fix_output(
     trace_args["output"] = trace_args["output"] + "\r\n" + prompt
     trace.update(**trace_args)
     yield make_script_dto(
-        "text_end", "", script_info.script_id, script_info.lesson_id,log_script.log_id
+        "text_end", "", script_info.script_id, script_info.lesson_id, log_script.log_id
     )
 
 
@@ -118,7 +118,7 @@ def generate_prompt_output(
     db.session.add(log_script)
     db.session.flush()  # 强制生成自增ID
     yield make_script_dto(
-        "text_end", "", script_info.script_id, script_info.lesson_id,log_script.log_id
+        "text_end", "", script_info.script_id, script_info.lesson_id, log_script.log_id
     )
 
 
