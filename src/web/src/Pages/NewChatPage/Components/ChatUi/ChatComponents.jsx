@@ -752,7 +752,6 @@ export const ChatComponents = forwardRef(
               [msg.id]: currentType === 1 ? 0 : 1,
             };
 
-            // 在状态更新后执行操作
             scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
             return updatedTypes;
           });
@@ -766,7 +765,6 @@ export const ChatComponents = forwardRef(
               [msg.id]: currentType === 2 ? 0 : 2,
             };
 
-            // 在状态更新后执行操作
             scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
             return updatedTypes;
           });
