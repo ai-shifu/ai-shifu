@@ -801,8 +801,6 @@ export const ChatComponents = forwardRef(
         if (content === undefined) {
           return <></>;
         }
-        console.log(msg);
-
         if (type === CHAT_MESSAGE_TYPE.TEXT) {
           return (
             <div>

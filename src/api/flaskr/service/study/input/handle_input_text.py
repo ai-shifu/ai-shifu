@@ -132,5 +132,6 @@ def handle_input_text(
             script_info.script_ui_content,
             script_info.script_id,
             script_info.lesson_id,
+            log_script.log_id,
         )
         raise BreakException
