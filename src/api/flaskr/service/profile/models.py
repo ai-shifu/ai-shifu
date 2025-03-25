@@ -15,6 +15,9 @@ class UserProfile(db.Model):
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    profile_id = Column(
+        String(36), nullable=False, comment="Profile ID", index=True, default=""
+    )
     profile_key = Column(String(255), nullable=False, default="", comment="Profile key")
     profile_value = Column(Text, nullable=False, comment="Profile value")
     profile_type = Column(
