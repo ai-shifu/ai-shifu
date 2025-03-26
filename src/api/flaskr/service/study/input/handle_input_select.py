@@ -33,7 +33,9 @@ def handle_input_select(
         try:
             btns = json.loads(other_conf)
         except json.JSONDecodeError as e:
-            app.logger.error(f"Invalid JSON in script_other_conf: {other_conf}, error: {str(e)}")
+            app.logger.error(
+                f"Invalid JSON in script_other_conf: {other_conf}, error: {str(e)}"
+            )
             btns = {}
         conf_key = btns.get("var_name", "input")
         profile_tosave[conf_key] = input
