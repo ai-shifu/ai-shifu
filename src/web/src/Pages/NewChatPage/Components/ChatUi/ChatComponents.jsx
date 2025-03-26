@@ -387,7 +387,9 @@ export const ChatComponents = forwardRef(
               setTyping(false);
               if (lastMsg) {
                 lastMsg.isComplete = true;
-                lastMsg.logid = response.log_id;
+                if (response.log_id) {
+                  lastMsg.logid = response.log_id;
+                }
                 updateMsg(lastMsg.id, lastMsg);
               }
               lastMsgRef.current = null;

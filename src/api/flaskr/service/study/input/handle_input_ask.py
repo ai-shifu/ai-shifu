@@ -115,7 +115,6 @@ def handle_input_ask(
             yield make_script_dto(
                 "text", i.result, script_info.script_id, script_info.lesson_id
             )
-    yield make_script_dto("text_end", "", script_info.script_id, script_info.lesson_id)
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = response_text
     log_script.script_role = ROLE_TEACHER
@@ -124,3 +123,5 @@ def handle_input_ask(
     trace_args["output"] = trace_args["output"] + "\r\n" + response_text
     trace.update(**trace_args)
     db.session.flush()
+    yield make_script_dto("text_end", "", script_info.script_id, script_info.lesson_id,log_script.log_id)
+
