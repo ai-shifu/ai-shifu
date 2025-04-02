@@ -1,4 +1,4 @@
-FROM python:3.11 as base
+FROM python:3.11 AS base
 
 # ensure /etc/apt/sources.list exists and change APT source to aliyun mirror
 RUN if [ -f /etc/apt/sources.list ]; then \

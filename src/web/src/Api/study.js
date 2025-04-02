@@ -50,3 +50,15 @@ export const getLessonStudyRecord = async (lessonId) => {
     method: "get",
   });
 };
+
+
+export const scriptContentOperation = async (logID, interactionType ) => {
+  return request({
+    url: '/api/study/script-content-operation',
+    method: 'POST',
+    data: {
+      log_id: logID,
+      interaction_type: interactionType
+    }
+  });
+};

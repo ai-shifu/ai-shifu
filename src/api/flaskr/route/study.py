@@ -7,7 +7,9 @@ from flaskr.service.study import (
     run_script,
     get_script_info,
     reset_user_study_info_by_lesson,
+    set_script_content_operation,
 )
+from flaskr.service.study.const import VALID_INTERACTION_TYPES
 
 
 def register_study_handler(app: Flask, path_prefix: str) -> Flask:
@@ -273,6 +275,67 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         user_id = request.user.user_id
         return make_common_response(
             reset_user_study_info_by_lesson(app, user_id, lesson_id)
+        )
+
+    @app.route(path_prefix + "/script-content-operation", methods=["POST"])
+    def script_content_operation():
+        """
+        对脚本内容进行操作(点赞点踩)
+        ---
+        tags:
+        - 学习
+        parameters:
+            -   in: body
+                name: body
+                description: 对脚本内容进行操作(点赞点踩)
+                required: true
+                schema:
+                    type: object
+                    properties:
+                        script_id:
+                            type: string
+                            description: script_id
+        parameters:
+            -   in: body
+                name: body
+                description: 对脚本内容进行操作(点赞点踩)
+                required: true
+                schema:
+                    type: object
+                    properties:
+                        properties:
+                            log_id:
+                                type: string
+                                description: log_id
+                            interaction_type:
+                                type: integer
+                                description: 0-default, 1-like, 2-dislike
+        responses:
+            200:
+                description: 返回处理结果
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+            400:
+                description: 参数错误
+        """
+        log_id = request.get_json().get("log_id")
+        interaction_type = request.get_json().get("interaction_type", None)
+
+        if interaction_type not in VALID_INTERACTION_TYPES:
+            raise_param_error("interaction_type wrong value range")
+        if not log_id:
+            raise_param_error("log_id is not found")
+        user_id = request.user.user_id
+        return make_common_response(
+            set_script_content_operation(app, user_id, log_id, interaction_type)
         )
 
     return app

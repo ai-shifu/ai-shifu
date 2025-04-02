@@ -28,7 +28,15 @@ def handle_input_select(
     profile_keys = get_profile_array(script_info.script_ui_profile)
     profile_tosave = {}
     if len(profile_keys) == 0:
-        btns = json.loads(script_info.script_other_conf)
+        # btns = json.loads(script_info.script_other_conf)
+        other_conf = script_info.script_other_conf or "{}"
+        try:
+            btns = json.loads(other_conf)
+        except json.JSONDecodeError as e:
+            app.logger.error(
+                f"Invalid JSON in script_other_conf: {other_conf}, error: {str(e)}"
+            )
+            btns = {}
         conf_key = btns.get("var_name", "input")
         profile_tosave[conf_key] = input
     for k in profile_keys:

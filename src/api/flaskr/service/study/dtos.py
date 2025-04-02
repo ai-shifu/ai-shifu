@@ -15,12 +15,16 @@ class ScriptDTO:
     script_content: str
     lesson_id: str
     script_id: str
+    log_id: str
 
-    def __init__(self, script_type, script_content, lesson_id, script_id=None):
+    def __init__(
+        self, script_type, script_content, lesson_id, script_id=None, log_id=None
+    ):
         self.script_type = script_type
         self.script_content = script_content
         self.script_id = script_id
         self.lesson_id = lesson_id
+        self.log_id = log_id
 
     def __json__(self):
         return {
@@ -28,6 +32,7 @@ class ScriptDTO:
             "content": self.script_content,
             "lesson_id": self.lesson_id,
             "script_id": self.script_id,
+            "log_id": self.log_id,
         }
 
     def __str__(self):
@@ -176,6 +181,7 @@ class StudyRecordItemDTO:
     id: str
     data: dict
     ui: dict
+    interaction_type: int
 
     def __init__(
         self,
@@ -186,6 +192,7 @@ class StudyRecordItemDTO:
         script_id,
         lesson_id,
         id,
+        interaction_type,
         data=None,
         ui=None,
     ):
@@ -198,6 +205,7 @@ class StudyRecordItemDTO:
         self.id = id
         self.data = data
         self.ui = ui
+        self.interaction_type = interaction_type
 
     def __json__(self):
         ret = {
@@ -208,6 +216,7 @@ class StudyRecordItemDTO:
             "lesson_id": self.lesson_id,
             "id": self.id,
             "script_id": self.script_id,
+            "interaction_type": self.interaction_type,
         }
         if self.data:
             ret["data"] = self.data

@@ -38,6 +38,12 @@ class AICourseLessonAttendScript(db.Model):
     user_id = Column(
         String(36), nullable=False, default="", comment="User UUID", index=True
     )
+    interaction_type = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Interaction type: 0-no interaction, 1-like, 2-dislike",
+    )
     script_index = Column(Integer, nullable=False, default=0, comment="Script index")
     script_role = Column(Integer, nullable=False, default=0, comment="Script role")
     script_content = Column(Text, nullable=False, comment="Script content")

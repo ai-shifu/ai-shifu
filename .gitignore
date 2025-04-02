@@ -9,6 +9,7 @@ node_modules
 /coverage
 .idea/
 dev.sh
+dev.http
 # production
 /build
  pnpm-lock.yaml

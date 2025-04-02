@@ -386,11 +386,14 @@ def get_script_by_id(app: Flask, script_id: str) -> AILessonScript:
     return AILessonScript.query.filter_by(script_id=script_id).first()
 
 
-def make_script_dto(script_type, script_content, script_id, lesson_id=None) -> str:
+def make_script_dto(
+    script_type, script_content, script_id, lesson_id=None, log_id=None
+) -> str:
     return (
         "data: "
         + json.dumps(
-            ScriptDTO(script_type, script_content, lesson_id, script_id), default=fmt
+            ScriptDTO(script_type, script_content, lesson_id, script_id, log_id),
+            default=fmt,
         )
         + "\n\n".encode("utf-8").decode("utf-8")
     )

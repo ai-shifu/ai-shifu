@@ -4,7 +4,11 @@ from flask import Flask
 from sqlalchemy import func
 from flaskr.service.lesson.const import UI_TYPE_BRANCH
 from flaskr.service.lesson.models import AILesson, AILessonScript
-from flaskr.service.order.consts import ATTEND_STATUS_BRANCH, ATTEND_STATUS_IN_PROGRESS
+from flaskr.service.order.consts import (
+    ATTEND_STATUS_BRANCH,
+    ATTEND_STATUS_IN_PROGRESS,
+    ATTEND_STATUS_RESET,
+)
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.study.models import AICourseAttendAsssotion
@@ -42,7 +46,7 @@ def handle_input_continue_branch(
     if attend.status != ATTEND_STATUS_BRANCH:
         for rule in jump_rule:
             app.logger.info(
-                "rule value:{},branch_value:{}".format(
+                "rule value:'{}' branch_value:'{}'".format(
                     rule.get("value", ""), branch_value
                 )
             )
@@ -62,6 +66,7 @@ def handle_input_continue_branch(
                         AICourseLessonAttend.user_id == user_info.user_id,
                         AICourseLessonAttend.course_id == next_lesson.course_id,
                         AICourseLessonAttend.lesson_id == next_lesson.lesson_id,
+                        AICourseLessonAttend.status != ATTEND_STATUS_RESET,
                     ).first()
                     if next_attend is None:
                         next_attend = AICourseLessonAttend()
@@ -89,9 +94,19 @@ def handle_input_continue_branch(
                         attend_info.status = ATTEND_STATUS_BRANCH
                         attend_info = next_attend
                         app.logger.info("branch jump")
+                    break
                 else:
-                    app.logger.info(
+                    app.logger.warning(
                         "branch lesson not found: {}".format(
                             rule.get("lark_table_id", "")
                         )
                     )
+                break
+            else:
+                app.logger.warning(
+                    "branch value is not found,branch_value:{} rule:{}".format(
+                        branch_value, jump_rule
+                    )
+                )
+    else:
+        app.logger.warning("attend status is not branch")
