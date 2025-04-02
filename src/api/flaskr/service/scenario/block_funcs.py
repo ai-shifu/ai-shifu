@@ -208,6 +208,7 @@ def save_block(app, user_id: str, outline_id: str, block: BlockDto):
         if not lesson:
             raise_error("SCENARIO.LESSON_NOT_FOUND")
         block_model = convert_block_dto_to_model(block)
+
         db.session.add(block_model)
         db.session.commit()
         return generate_block_dto(block_model)
