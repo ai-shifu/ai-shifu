@@ -61,6 +61,7 @@ def generate_block_dto(block: AILessonScript):
         ret.block_content = SolidContentDto(
             block.script_prompt, get_profiles(block.script_profile)
         )
+        ret.block_type = "solid"
     elif block.script_type == SCRIPT_TYPE_PORMPT:
         ret.block_content = AIDto(
             prompt=block.script_prompt,
@@ -69,6 +70,7 @@ def generate_block_dto(block: AILessonScript):
             temprature=block.script_temprature,
             other_conf=block.script_other_conf,
         )
+        ret.block_type = "ai"
     elif block.script_type == SCRIPT_TYPE_SYSTEM:
         ret.block_content = SystemPromptDto(
             prompt=block.script_prompt,
@@ -77,6 +79,7 @@ def generate_block_dto(block: AILessonScript):
             temprature=block.script_temprature,
             other_conf=block.script_other_conf,
         )
+        ret.block_type = "system"
     if block.script_ui_type == UI_TYPE_BUTTON:
         ret.block_ui = ButtonDto(block.script_ui_content, block.script_ui_content)
     elif block.script_ui_type == UI_TYPE_INPUT:
@@ -325,7 +328,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
 def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
     with app.app_context():
         outline = AILesson.query.filter(
-            AILesson.course_id == outline_id,
+            AILesson.lesson_id == outline_id,
             AILesson.status == 1,
         ).first()
         if not outline:
