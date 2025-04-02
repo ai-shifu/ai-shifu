@@ -491,6 +491,17 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
             AICourseLessonAttend.status != ATTEND_STATUS_RESET,
             AICourseLessonAttend.course_id == course_id,
         ).all()
+        attend_ids = [attend_info.attend_id for attend_info in attend_infos]
+        attend_assositions = AICourseAttendAsssotion.query.filter(
+            AICourseAttendAsssotion.from_attend_id.in_(attend_ids)
+        ).all()
+        to_attend_ids = [
+            attend_assosition.to_attend_id for attend_assosition in attend_assositions
+        ]
+        if len(to_attend_ids) > 0:
+            AICourseLessonAttend.query.filter(
+                AICourseLessonAttend.attend_id.in_(to_attend_ids)
+            ).update({"status": ATTEND_STATUS_RESET})
         # reset the attend info
         for attend_info in attend_infos:
             attend_info.status = ATTEND_STATUS_RESET
