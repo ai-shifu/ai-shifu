@@ -317,6 +317,45 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
     pass
 
 
+def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
+    with app.app_context():
+        outline = AILesson.query.filter(
+            AILesson.course_id == outline_id,
+            AILesson.status == 1,
+        ).first()
+        if not outline:
+            raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+        block_dto = convert_dict_to_block_dto(block)
+        block_model = AILessonScript(
+            script_id=generate_id(app),
+            script_index=block_index,
+            script_name=block_dto.block_name,
+            script_desc=block_dto.block_desc,
+            script_type=block_dto.block_type,
+            created=datetime.now(),
+            created_user_id=user_id,
+            updated=datetime.now(),
+            updated_user_id=user_id,
+            status=1,
+        )
+        update_block_model(block_model, block_dto)
+        block_model.lesson_id = outline_id
+        block_model.script_index = block_index
+        block_model.updated = datetime.now()
+        block_model.updated_user_id = user_id
+        block_model.status = 1
+        AILessonScript.query.filter(
+            AILessonScript.lesson_id == outline_id,
+            AILessonScript.status == 1,
+            AILessonScript.script_index >= block_index,
+        ).update(
+            {AILessonScript.script_index: AILessonScript.script_index + 1},
+        )
+        db.session.add(block_model)
+        db.session.commit()
+        return generate_block_dto(block_model)
+
+
 # delete block list
 def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]):
     with app.app_context():
@@ -327,7 +366,12 @@ def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]
         if not lesson:
             raise_error("SCENARIO.LESSON_NOT_FOUND")
         for block in block_list:
-            block_model = convert_block_dto_to_model(block)
-            db.session.delete(block_model)
-        db.session.commit()
+            block_model = AILessonScript.query.filter(
+                AILessonScript.lesson_id == outline_id,
+                AILessonScript.status == 1,
+                AILessonScript.script_id == block.get("block_id"),
+            ).first()
+            if block_model:
+                block_model.status = 0
+            db.session.commit()
         return True

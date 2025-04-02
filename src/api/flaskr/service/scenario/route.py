@@ -17,6 +17,7 @@ from .unit_funcs import (
 from .block_funcs import (
     get_block_list,
     save_block_list,
+    add_block,
 )
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
@@ -709,5 +710,45 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         outline_id = request.get_json().get("outline_id")
         blocks = request.get_json().get("blocks")
         return make_common_response(save_block_list(app, user_id, outline_id, blocks))
+
+    @app.route(path_prefix + "/add-block", methods=["POST"])
+    def add_block_api():
+        """
+        add block
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    outline_id:
+                        type: string
+                        description: outline id
+                    block:
+                        type: object
+                        $ref: "#/components/schemas/BlockDto"
+                    block_index:
+                        type: integer
+                        description: block index
+        responses:
+            200:
+                description: add block success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+        """
+        user_id = request.user.user_id
+        outline_id = request.get_json().get("outline_id")
+        block = request.get_json().get("block")
+        block_index = request.get_json().get("block_index")
+
+        return make_common_response(
+            add_block(app, user_id, outline_id, block, block_index)
+        )
 
     return app
