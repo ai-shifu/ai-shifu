@@ -1,5 +1,4 @@
 const express = require('express');
-const { pathToRegexp } = require('path-to-regexp');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
