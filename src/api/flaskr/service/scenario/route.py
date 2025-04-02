@@ -36,6 +36,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: page_index
               type: integer
@@ -91,6 +92,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -145,6 +147,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -195,6 +198,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: scenario_id
               type: string
@@ -213,6 +217,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -284,6 +289,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -351,6 +357,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -392,6 +399,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -443,6 +451,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: scenario_id
               type: string
@@ -482,6 +491,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -535,6 +545,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -571,6 +582,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -608,6 +620,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: scenario_id
               type: string
@@ -641,6 +654,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: outline_id
               type: string
@@ -674,6 +688,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -718,6 +733,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
