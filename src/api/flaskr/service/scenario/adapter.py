@@ -30,6 +30,7 @@ from flaskr.service.lesson.const import (
     UI_TYPE_INPUT,
 )
 import json
+from flaskr.service.common import raise_error
 
 
 def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
@@ -37,8 +38,12 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     if type != "block":
         raise ValueError("Invalid block type")
     block_info = BlockDto(**block_dict.get("properties"))
+    block_info.block_ui = None
+    block_info.block_content = None
+    properties = block_dict.get("properties", {})
+    content = properties.get("block_content")
+    block_info.block_id = properties.get("block_id")
 
-    content = block_dict.get("block_content")
     if content:
         type = content.get("type")
         if type == "ai":
@@ -47,11 +52,15 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
             block_info.block_content = SolidContentDto(**content.get("properties"))
         elif type == "systemprompt":
             block_info.block_content = SystemPromptDto(**content.get("properties"))
-    ui = block_dict.get("ui")
+        else:
+            raise_error("SCENARIO.INVALID_BLOCK_CONTENT_TYPE")
+
+    ui = properties.get("block_ui")
     if ui:
         type = ui.get("type")
         if type == "button":
             block_info.block_ui = ButtonDto(**ui.get("properties"))
+
         elif type == "login":
             block_info.block_ui = LoginDto(**ui.get("properties"))
         elif type == "phone":
@@ -66,6 +75,9 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
             block_info.block_ui = OptionDto(**ui.get("properties"))
         elif type == "textinput":
             block_info.block_ui = TextInputDto(**ui.get("properties"))
+        else:
+            raise_error("SCENARIO.INVALID_BLOCK_UI_TYPE")
+
     return block_info
 
 
@@ -80,7 +92,12 @@ def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
 def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
     block_model.script_name = block_dto.block_name
     block_model.script_desc = block_dto.block_desc
-
+    block_model.script_media_url = ""
+    block_model.script_check_prompt = ""
+    block_model.script_ui_profile = "[]"
+    block_model.script_ui_profile_id = ""
+    block_model.script_end_action = ""
+    block_model.script_other_conf = "{}"
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
             block_model.script_type = SCRIPT_TYPE_PORMPT
@@ -101,6 +118,7 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
             block_model.script_prompt = block_dto.block_content.content
         elif isinstance(block_dto.block_content, SystemPromptDto):
             block_model.script_type = SCRIPT_TYPE_SYSTEM
+            block_model.script_prompt = block_dto.block_content.prompt
             if block_dto.block_content.profiles:
                 block_model.script_profile = (
                     "[" + "][".join(block_dto.block_content.profiles) + "]"
@@ -112,6 +130,12 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
                 and block_dto.block_content.temprature != 0
             ):
                 block_model.script_temprature = block_dto.block_content.temprature
+        else:
+            from flask import current_app
+
+            current_app.logger.error(
+                f"Invalid block content type: {block_dto.block_content} {block_dto.block_content.__class__.__name__}"
+            )
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, ButtonDto):
             block_model.script_ui_type = UI_TYPE_BUTTON
@@ -178,6 +202,6 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
                 "[" + "][".join(block_dto.block_ui.prompt.profiles) + "]"
             )
         else:
-            raise ValueError("Invalid block ui type")
+            raise_error("SCENARIO.INVALID_BLOCK_UI_TYPE")
     else:
         block_model.script_ui_type = UI_TYPE_CONTINUED

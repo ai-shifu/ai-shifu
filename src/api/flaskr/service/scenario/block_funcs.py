@@ -245,9 +245,10 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 # save block list
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     with app.app_context():
+        app.logger.info(f"save_block_list: {outline_id}")
+
         outline = AILesson.query.filter(
-            AILesson.course_id == outline_id,
-            AILesson.status == 1,
+            AILesson.lesson_id == outline_id,
         ).first()
         if not outline:
             raise_error("SCENARIO.OUTLINE_NOT_FOUND")
@@ -276,11 +277,14 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         )
         block_index = 1
         current_outline_id = outline_id
+        block_models = []
         for block in block_list:
             type = block.get("type")
+            app.logger.info(f"block type : {type} , {block}")
             if type == "block":
                 block_dto = convert_dict_to_block_dto(block)
                 block_model = None
+                app.logger.info(f"block_dto id : {block_dto.block_id}")
                 if block_dto.block_id is not None and block_dto.block_id != "":
                     check_block = [
                         b for b in blocks if b.script_id == block_dto.block_id
@@ -308,12 +312,13 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                 block_model.status = 1
                 db.session.merge(block_model)
                 block_index += 1
+                block_models.append(block_model)
             elif type == "outline":
                 # consider the outline level
                 # pass the top outline
                 pass
         db.session.commit()
-        return [generate_block_dto(block_model) for block_model in block_list]
+        return [generate_block_dto(block_model) for block_model in block_models]
     pass
 
 
