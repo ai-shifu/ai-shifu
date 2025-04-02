@@ -47,9 +47,9 @@ body {
   --color-8: #9ba9be;
   --color-9: #cdd4df;
   --color-20: #8C4B1D;
+  --color-21:#002FA7;
   --color-disabled-1: #6C6C6C;
   --color-1-rgb: 15, 99, 238;
-
 
   /* 状态颜色 */
   --success-color: #00a27a;
@@ -82,8 +82,6 @@ code {
   border-radius: 4px;
 }
 
-.brandcolor{
-  color:#002FA7;
-}
+
 
 /* 字体定义 */
