@@ -1,4 +1,5 @@
 const express = require('express');
+const { pathToRegexp } = require('path-to-regexp');
 require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
@@ -24,7 +25,7 @@ app.post('/config/env', (req, res) => {
 // // Serve static files from the React app
 app.use(express.static(path.join(__dirname, 'build')));
 
-app.get('*', (reg, res) => {
+app.get(/^\/.*$/, (reg, res) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 app.listen(port, () => {
