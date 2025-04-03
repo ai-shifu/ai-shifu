@@ -281,6 +281,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         block_index = 1
         current_outline_id = outline_id
         block_models = []
+        save_block_ids = []
         for block in block_list:
             type = block.get("type")
             app.logger.info(f"block type : {type} , {block}")
@@ -307,7 +308,9 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         updated_user_id=user_id,
                         status=1,
                     )
+
                 update_block_model(block_model, block_dto)
+                save_block_ids.append(block_model.script_id)
                 block_model.lesson_id = current_outline_id
                 block_model.script_index = block_index
                 block_model.updated = datetime.now()
@@ -320,6 +323,11 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                 # consider the outline level
                 # pass the top outline
                 pass
+        AILessonScript.query.filter(
+            AILessonScript.lesson_id == outline_id,
+            AILessonScript.status == 1,
+            AILessonScript.script_id.notin_(save_block_ids),
+        ).update({"status": 0})
         db.session.commit()
         return [generate_block_dto(block_model) for block_model in block_models]
     pass

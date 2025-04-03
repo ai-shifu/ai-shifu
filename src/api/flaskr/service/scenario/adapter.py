@@ -98,6 +98,8 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
     block_model.script_ui_profile_id = ""
     block_model.script_end_action = ""
     block_model.script_other_conf = "{}"
+    block_model.script_prompt = ""
+    block_model.script_profile = ""
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
             block_model.script_type = SCRIPT_TYPE_PORMPT
