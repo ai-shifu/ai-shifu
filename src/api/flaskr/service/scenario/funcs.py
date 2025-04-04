@@ -5,6 +5,8 @@ from ...util.uuid import generate_id
 from .models import FavoriteScenario
 from ..common.dtos import PageNationDTO
 from ..common.models import raise_error
+from datetime import datetime
+from .utils import check_scenario_can_publish
 
 
 def get_raw_scenario_list(
@@ -168,4 +170,17 @@ def check_scenario_exist(app, scenario_id: str):
         scenario = AICourse.query.filter_by(course_id=scenario_id).first()
         if scenario:
             return
+        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+
+
+def publish_scenario(app, user_id, scenario_id: str):
+    with app.app_context():
+        scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
+        if scenario:
+            check_scenario_can_publish(app, scenario_id)
+            scenario.status = 1
+            scenario.updated_user_id = user_id
+            scenario.updated_at = datetime.now()
+            db.session.commit()
+            return app.config["WEB_URL"] + "/c/" + scenario.course_id
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")

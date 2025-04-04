@@ -49,7 +49,6 @@ def get_next_corlor_setting(parent_id: str):
 
 def get_profile_item_defination_list(app: Flask, parent_id: str, type: str):
     with app.app_context():
-
         query = ProfileItem.query.filter(
             ProfileItem.parent_id == parent_id, ProfileItem.status == 1
         )
@@ -339,13 +338,14 @@ def save_profile_item_defination(
     app: Flask,
     user_id: str,
     scenario_id: str,
-    profile: TextProfileDto | SelectProfileDto,
+    profile: TextProfileDto | SelectProfileDto | None,
 ):
     app.logger.info(
         "save profile item defination:{} {}".format(profile.__class__.__name__, profile)
     )
     if profile is None:
         app.logger.info("profile is None")
+        return
     scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
     if scenario is None:
         raise_error("SCENARIO.NOT_FOUND")
@@ -469,6 +469,3 @@ def save_profile_item_defination(
             ProfileItemValue.status == 1,
         ).update({"status": 0})
         db.session.flush()
-
-    else:
-        raise_error("PROFILE.INVALID_PROFILE_TYPE")

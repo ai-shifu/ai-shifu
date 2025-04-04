@@ -1,5 +1,10 @@
 from flask import Flask, request
-from .funcs import get_scenario_list, create_scenario, mark_or_unmark_favorite_scenario
+from .funcs import (
+    get_scenario_list,
+    create_scenario,
+    mark_or_unmark_favorite_scenario,
+    publish_scenario,
+)
 from .chapter_funcs import (
     get_chapter_list,
     create_chapter,
@@ -190,6 +195,45 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(
             mark_or_unmark_favorite_scenario(app, user_id, scenario_id, is_favorite)
         )
+
+    @app.route(path_prefix + "/publish-scenario", methods=["POST"])
+    def publish_scenario_api():
+        """
+        publish scenario
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+        responses:
+            200:
+                description: publish scenario success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: publish url
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        return make_common_response(publish_scenario(app, user_id, scenario_id))
 
     @app.route(path_prefix + "/chapters", methods=["GET"])
     def get_chapter_list_api():

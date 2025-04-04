@@ -140,7 +140,7 @@ class AdminUser(db.Model):
     user_birth = Column(Date, nullable=True, default="2003-1-1", comment="user birth")
     user_avatar = Column(String(255), nullable=True, default="", comment="user avatar")
     user_language = Column(
-        String(30), nullable=True, default="zh", comment="user language"
+        String(30), nullable=True, default="zh-CN", comment="user language"
     )
 
     def __init__(
