@@ -341,122 +341,134 @@ def save_profile_item_defination(
     scenario_id: str,
     profile: TextProfileDto | SelectProfileDto,
 ):
-    with app.app_context():
-        app.logger.info(
-            "save profile item defination:{} {}".format(
-                profile.__class__.__name__, profile
+    app.logger.info(
+        "save profile item defination:{} {}".format(profile.__class__.__name__, profile)
+    )
+    if profile is None:
+        app.logger.info("profile is None")
+    scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
+    if scenario is None:
+        raise_error("SCENARIO.NOT_FOUND")
+    if isinstance(profile, TextProfileDto):
+        app.logger.info("save text profile item defination:{}".format(profile))
+        profile_item = ProfileItem.query.filter(
+            ProfileItem.parent_id == scenario_id,
+            ProfileItem.profile_key == profile.profile_key,
+            ProfileItem.status == 1,
+        ).first()
+        if profile_item is None:
+            profile_item = ProfileItem(
+                profile_id=generate_id(app),
+                parent_id=scenario_id,
+                profile_key=profile.profile_key,
+                profile_type=PROFILE_TYPE_INPUT_TEXT,
+                profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
+                profile_remark=profile.profile_intro,
+                profile_color_setting=str(get_next_corlor_setting(scenario_id)),
+                profile_prompt=profile.profile_prompt.prompt,
+                profile_prompt_model=profile.profile_prompt.model,
+                profile_prompt_model_args=str(profile.profile_prompt.temprature),
+                created_by=user_id,
+                updated_by=user_id,
+                updated=datetime.now(),
+                created=datetime.now(),
+                status=1,
             )
-        )
-        if profile is None:
-            app.logger.info("profile is None")
-        scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
-        if scenario is None:
-            raise_error("SCENARIO.NOT_FOUND")
-        if isinstance(profile, TextProfileDto):
-            app.logger.info("save text profile item defination:{}".format(profile))
-            profile_item = ProfileItem.query.filter(
-                ProfileItem.parent_id == scenario_id,
-                ProfileItem.profile_key == profile.profile_key,
-                ProfileItem.status == 1,
-            ).first()
-            if profile_item is None:
-                profile_item = ProfileItem(
-                    profile_id=generate_id(app),
-                    parent_id=scenario_id,
-                    profile_key=profile.profile_key,
-                    profile_type=PROFILE_TYPE_INPUT_TEXT,
-                    profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
-                    profile_remark=profile.profile_intro,
-                    profile_color_setting=str(get_next_corlor_setting(scenario_id)),
-                    profile_prompt=profile.profile_prompt.prompt,
-                    profile_prompt_model=profile.profile_prompt.model,
-                    profile_prompt_model_args=str(profile.profile_prompt.temprature),
-                    created_by=user_id,
-                    updated_by=user_id,
-                    updated=datetime.now(),
-                    created=datetime.now(),
-                    status=1,
-                )
-                app.logger.info(
-                    "save text profile item defination:{}".format(profile_item)
-                )
-                db.session.add(profile_item)
-            else:
-                profile_item.profile_prompt = profile.profile_prompt.prompt
-                profile_item.profile_prompt_model = profile.profile_prompt.model
-                profile_item.profile_prompt_model_args = str(
-                    profile.profile_prompt.temprature
-                )
-                profile_item.updated_by = user_id
-                profile_item.updated = datetime.now()
-            db.session.commit()
+            app.logger.info("save text profile item defination:{}".format(profile_item))
+            db.session.add(profile_item)
+        else:
+            profile_item.profile_prompt = profile.profile_prompt.prompt
+            profile_item.profile_prompt_model = profile.profile_prompt.model
+            profile_item.profile_prompt_model_args = str(
+                profile.profile_prompt.temprature
+            )
+            profile_item.updated_by = user_id
+            profile_item.profile_remark = profile.profile_intro
+            profile_item.updated = datetime.now()
+        db.session.flush()
 
-        elif isinstance(profile, SelectProfileDto):
-            app.logger.info("save select profile item defination:{}".format(profile))
-            profile_item = ProfileItem.query.filter(
-                ProfileItem.parent_id == scenario_id,
-                ProfileItem.profile_key == profile.profile_key,
-                ProfileItem.status == 1,
-            ).first()
-            if profile_item is None:
-                profile_item = ProfileItem(
-                    profile_id=generate_id(app),
-                    parent_id=scenario_id,
-                    profile_key=profile.profile_key,
-                    profile_type=PROFILE_TYPE_INPUT_SELECT,
-                    profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
-                    profile_remark=profile.profile_key,
-                    profile_color_setting=str(get_next_corlor_setting(scenario_id)),
-                    profile_prompt="",
-                    profile_prompt_model="",
-                    profile_prompt_model_args="{}",
-                    created_by=user_id,
-                    updated_by=user_id,
-                    updated=datetime.now(),
-                    created=datetime.now(),
-                    status=1,
-                )
-                app.logger.info(
-                    "save select profile item defination:{}".format(profile_item)
-                )
-                db.session.add(profile_item)
-            else:
-                profile_item.profile_prompt = ""
-                profile_item.profile_prompt_model = ""
-                profile_item.profile_prompt_model_args = "{}"
-                profile_item.updated_by = user_id
-                profile_item.updated = datetime.now()
-                app.logger.info(
-                    "update select profile item defination:{}".format(profile_item)
-                )
-
+    elif isinstance(profile, SelectProfileDto):
+        app.logger.info("save select profile item defination:{}".format(profile))
+        profile_item = ProfileItem.query.filter(
+            ProfileItem.parent_id == scenario_id,
+            ProfileItem.profile_key == profile.profile_key,
+            ProfileItem.status == 1,
+        ).first()
+        if profile_item is None:
+            profile_item = ProfileItem(
+                profile_id=generate_id(app),
+                parent_id=scenario_id,
+                profile_key=profile.profile_key,
+                profile_type=PROFILE_TYPE_INPUT_SELECT,
+                profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
+                profile_remark=profile.profile_key,
+                profile_color_setting=str(get_next_corlor_setting(scenario_id)),
+                profile_prompt="",
+                profile_prompt_model="",
+                profile_prompt_model_args="{}",
+                created_by=user_id,
+                updated_by=user_id,
+                updated=datetime.now(),
+                created=datetime.now(),
+                status=1,
+            )
             app.logger.info(
                 "save select profile item defination:{}".format(profile_item)
             )
-            for index, option in enumerate(profile.profile_options):
-                profile_item_value = ProfileItemValue.query.filter(
-                    ProfileItemValue.profile_id == profile_item.profile_id,
-                    ProfileItemValue.profile_value == option.value,
-                    ProfileItemValue.status == 1,
-                ).first()
-                if profile_item_value is None:
-                    profile_item_value = ProfileItemValue(
-                        profile_id=profile_item.profile_id,
-                        profile_item_id=generate_id(app),
-                        profile_value=option.value,
-                        profile_value_index=index,
-                        created_by=user_id,
-                        updated_by=user_id,
-                        updated=datetime.now(),
-                        created=datetime.now(),
-                        status=1,
-                    )
-                    db.session.add(profile_item_value)
-                else:
-                    profile_item_value.profile_value = option.value
-                    profile_item_value.updated_by = user_id
-                    profile_item_value.profile_value_index = index
-                    profile_item_value.updated = datetime.now()
-            db.session.commit()
+            db.session.add(profile_item)
         else:
-            raise_error("PROFILE.INVALID_PROFILE_TYPE")
+            profile_item.profile_prompt = ""
+            profile_item.profile_prompt_model = ""
+            profile_item.profile_prompt_model_args = "{}"
+            profile_item.profile_remark = profile.profile_key
+            profile_item.updated_by = user_id
+            profile_item.updated = datetime.now()
+            app.logger.info(
+                "update select profile item defination:{}".format(profile_item)
+            )
+
+        app.logger.info("save select profile item defination:{}".format(profile_item))
+        profile_item_id_list = []
+        profile_item_value_list = ProfileItemValue.query.filter(
+            ProfileItemValue.profile_id == profile_item.profile_id,
+            ProfileItemValue.status == 1,
+        ).all()
+        for index, option in enumerate(profile.profile_options):
+            if option.value is None or option.value == "":
+                raise_error("PROFILE.OPTION_VALUE_REQUIRED")
+            profile_item_value = next(
+                (
+                    item
+                    for item in profile_item_value_list
+                    if item.profile_value == option.value
+                ),
+                None,
+            )
+            if profile_item_value is None:
+                profile_item_value = ProfileItemValue(
+                    profile_id=profile_item.profile_id,
+                    profile_item_id=generate_id(app),
+                    profile_value=option.value,
+                    profile_value_index=index,
+                    created_by=user_id,
+                    updated_by=user_id,
+                    updated=datetime.now(),
+                    created=datetime.now(),
+                    status=1,
+                )
+                db.session.add(profile_item_value)
+            else:
+                profile_item_value.profile_value = option.value
+                profile_item_value.updated_by = user_id
+                profile_item_value.profile_value_index = index
+                profile_item_value.updated = datetime.now()
+            profile_item_id_list.append(profile_item_value.profile_item_id)
+        ProfileItemValue.query.filter(
+            ProfileItemValue.profile_id == profile_item.profile_id,
+            ProfileItemValue.profile_item_id.notin_(profile_item_id_list),
+            ProfileItemValue.status == 1,
+        ).update({"status": 0})
+        db.session.flush()
+
+    else:
+        raise_error("PROFILE.INVALID_PROFILE_TYPE")
