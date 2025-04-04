@@ -27,13 +27,21 @@ class ColorSetting:
 class ProfileItemDefination:
     profile_key: str  # the key of the profile item and could be used in prompt
     color_setting: ColorSetting  # the color setting of the profile item
+    profile_type: str
 
-    def __init__(self, profile_key: str, color_setting: ColorSetting):
+    def __init__(
+        self, profile_key: str, color_setting: ColorSetting, profile_type: str
+    ):
         self.profile_key = profile_key
         self.color_setting = color_setting
+        self.profile_type = profile_type
 
     def __json__(self):
-        return {"profile_key": self.profile_key, "color_setting": self.color_setting}
+        return {
+            "profile_key": self.profile_key,
+            "color_setting": self.color_setting,
+            "profile_type": self.profile_type,
+        }
 
     def __str__(self):
         return str(self.__json__())

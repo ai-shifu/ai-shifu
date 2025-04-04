@@ -3,6 +3,7 @@ from flaskr.route.common import make_common_response
 from flaskr.service.profile.profile_manage import (
     get_profile_item_defination_list,
     add_profile_item_quick,
+    get_profile_item_defination_option_list,
 )
 from flaskr.framework.plugin.inject import inject
 
@@ -23,6 +24,12 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
             type: string
             description: |
                 parent_id,current pass the scenario_id
+          - name: type
+            in: query
+            required: true
+            type: string
+            description: |
+                type,current pass the text or option or all
         description: |
             Get profile item defination
         responses:
@@ -43,8 +50,47 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                         $ref: '#/components/schemas/ProfileItemDefination'
         """
         parent_id = request.args.get("parent_id")
+        type = request.args.get("type")
         return make_common_response(
-            get_profile_item_defination_list(app, parent_id=parent_id)
+            get_profile_item_defination_list(app, parent_id=parent_id, type=type)
+        )
+
+    @app.route(
+        f"{path_prefix}/get-profile-item-defination-option-list", methods=["GET"]
+    )
+    def get_profile_item_defination_option_list_api():
+        """
+        Get profile item defination option list
+        ---
+        tags:
+          - profiles
+        parameters:
+          - name: parent_id
+            in: query
+            required: true
+            type: string
+        description: |
+            Get profile item defination option list
+        responses:
+          200:
+            description: A list of profile item defination option
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    code:
+                      type: integer
+                    message:
+                      type: string
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/ProfileValueDto'
+        """
+        parent_id = request.args.get("parent_id")
+        return make_common_response(
+            get_profile_item_defination_option_list(app, parent_id=parent_id)
         )
 
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])

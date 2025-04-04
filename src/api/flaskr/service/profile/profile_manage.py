@@ -21,6 +21,7 @@ from .dtos import (
     ProfileItemDefination,
     TextProfileDto,
     SelectProfileDto,
+    ProfileValueDto,
 )
 
 # from datetime import datetime
@@ -46,24 +47,53 @@ def get_next_corlor_setting(parent_id: str):
     ]
 
 
-def get_profile_item_defination_list(app: Flask, parent_id: str):
+def get_profile_item_defination_list(app: Flask, parent_id: str, type: str):
     with app.app_context():
-        profile_item_list = (
-            ProfileItem.query.filter(
-                ProfileItem.parent_id == parent_id, ProfileItem.status == 1
-            )
-            .order_by(ProfileItem.profile_index.asc())
-            .all()
+
+        query = ProfileItem.query.filter(
+            ProfileItem.parent_id == parent_id, ProfileItem.status == 1
         )
+        if type == "text":
+            query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_TEXT)
+        elif type == "option":
+            query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_SELECT)
+        elif type == "all":
+            pass
+        profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
         if profile_item_list:
             return [
                 ProfileItemDefination(
                     profile_item.profile_key,
                     get_color_setting(profile_item.profile_color_setting),
+                    (
+                        "option"
+                        if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
+                        else "text"
+                    ),
                 )
                 for profile_item in profile_item_list
             ]
         return []
+
+
+def get_profile_item_defination_option_list(
+    app: Flask, parent_id: str
+) -> list[ProfileValueDto]:
+    with app.app_context():
+        profile_option_list = (
+            ProfileItemValue.query.filter(
+                ProfileItemValue.parent_id == parent_id, ProfileItemValue.status == 1
+            )
+            .order_by(ProfileItemValue.profile_value_index.asc())
+            .all()
+        )
+        return [
+            ProfileValueDto(
+                profile_option.profile_value,
+                profile_option.profile_value,
+            )
+            for profile_option in profile_option_list
+        ]
 
 
 # quick add profile item
@@ -107,6 +137,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
     return ProfileItemDefination(
         profile_item.profile_key,
         get_color_setting(profile_item.profile_color_setting),
+        "option" if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT else "text",
     )
 
 
@@ -172,6 +203,11 @@ def add_profile_item(
         return ProfileItemDefination(
             profile_item.profile_key,
             get_color_setting(profile_item.profile_color_setting),
+            (
+                "option"
+                if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
+                else "text"
+            ),
         )
 
 
@@ -218,6 +254,11 @@ def update_profile_item(
         return ProfileItemDefination(
             profile_item.profile_key,
             get_color_setting(profile_item.profile_color_setting),
+            (
+                "option"
+                if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
+                else "text"
+            ),
         )
 
 
@@ -230,6 +271,11 @@ def get_profile_item_defination(app: Flask, parent_id: str, profile_key: str):
             return ProfileItemDefination(
                 profile_item.profile_key,
                 get_color_setting(profile_item.profile_color_setting),
+                (
+                    "option"
+                    if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
+                    else "text"
+                ),
             )
         return None
 
