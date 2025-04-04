@@ -187,7 +187,7 @@ def publish_scenario(app, user_id, scenario_id: str):
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
 
 
-def preview_scenario(app, user_id, scenario_id: str, variables: dict):
+def preview_scenario(app, user_id, scenario_id: str, variables: dict, skip: bool):
     with app.app_context():
         scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
         if scenario:
