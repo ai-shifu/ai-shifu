@@ -182,5 +182,7 @@ def publish_scenario(app, user_id, scenario_id: str):
             scenario.updated_user_id = user_id
             scenario.updated_at = datetime.now()
             db.session.commit()
-            return app.config["WEB_URL"] + "/c/" + scenario.course_id
+            return (
+                app.config.get("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
+            )
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
