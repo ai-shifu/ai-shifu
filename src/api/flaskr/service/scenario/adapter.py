@@ -247,10 +247,14 @@ def update_block_model(
                 raise_error("SCENARIO.INPUT_PLACEHOLDER_REQUIRED")
 
             block_model.script_ui_type = UI_TYPE_INPUT
-            block_model.script_ui_content = block_dto.block_ui.input_key
-            block_model.script_ui_content = block_dto.block_ui.input_name
-            block_model.script_ui_content = block_dto.block_ui.input_placeholder
-            block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
+            if block_dto.block_ui.input_key:
+                block_model.script_ui_content = block_dto.block_ui.input_key
+            if block_dto.block_ui.input_name:
+                block_model.script_ui_content = block_dto.block_ui.input_name
+            if block_dto.block_ui.input_placeholder:
+                block_model.script_ui_content = block_dto.block_ui.input_placeholder
+            if block_dto.block_ui.prompt:
+                block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
             block_model.script_ui_profile = (
                 "[" + "][".join(block_dto.block_ui.prompt.profiles) + "]"
             )
@@ -316,9 +320,9 @@ def generate_block_dto(block: AILessonScript):
             other_conf=block.script_other_conf,
         )
         ret.block_ui = TextInputDto(
-            text_input_name=block.script_ui_content,
-            text_input_key=block.script_ui_content,
-            text_input_placeholder=block.script_ui_content,
+            input_name=block.script_ui_content,
+            input_key=block.script_ui_content,
+            input_placeholder=block.script_ui_content,
             prompt=prompt,
         )
     elif block.script_ui_type == UI_TYPE_CHECKCODE:
@@ -364,8 +368,13 @@ def generate_block_dto(block: AILessonScript):
         items = []
         for item in json_data.get("btns"):
             items.append(
-                ButtonDto(button_name=item.get("label"), button_key=item.get("value"))
+                ButtonDto(button_name=item.get("lable"), button_key=item.get("key"))
             )
+        from flask import current_app as app
+
+        app.logger.info(f"profile_key: {profile_key}")
+        app.logger.info(f"items: {items}")
+        app.logger.info(f"block.script_ui_content: {block.script_ui_content}")
         ret.block_ui = OptionDto(
             block.script_ui_content, block.script_ui_content, profile_key, items
         )
