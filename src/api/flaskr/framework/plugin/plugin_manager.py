@@ -115,13 +115,11 @@ def extensible(func):
 def extensible_generic(func):
     from flask import current_app
 
-    current_app.logger.info(f"extensible_generic {func.__name__}")
+    current_app.logger.info(f"extensible_generic: {func.__name__}")
 
     @wraps(func)
     def wrapper(*args, **kwargs):
-        from flask import current_app
 
-        current_app.logger.info(f">>> extensible_generic wrapper {func.__name__}")
         result = func(*args, **kwargs)
         if result:
             yield from result

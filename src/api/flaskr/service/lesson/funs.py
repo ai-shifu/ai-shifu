@@ -543,7 +543,6 @@ def update_lesson_info(
                 else:
                     for key in scripDb:
                         setattr(scrip, key, scripDb[key])
-                print("script_temprature:" + str(scripDb["script_temprature"]))
 
             if resp["data"]["has_more"]:
                 page_token = resp["data"]["page_token"]

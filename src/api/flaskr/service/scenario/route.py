@@ -1,5 +1,11 @@
 from flask import Flask, request
-from .funcs import get_scenario_list, create_scenario, mark_or_unmark_favorite_scenario
+from .funcs import (
+    get_scenario_list,
+    create_scenario,
+    mark_or_unmark_favorite_scenario,
+    publish_scenario,
+    preview_scenario,
+)
 from .chapter_funcs import (
     get_chapter_list,
     create_chapter,
@@ -17,6 +23,7 @@ from .unit_funcs import (
 from .block_funcs import (
     get_block_list,
     save_block_list,
+    add_block,
 )
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
@@ -35,6 +42,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: page_index
               type: integer
@@ -90,6 +98,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -144,6 +153,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -187,6 +197,95 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
             mark_or_unmark_favorite_scenario(app, user_id, scenario_id, is_favorite)
         )
 
+    @app.route(path_prefix + "/publish-scenario", methods=["POST"])
+    def publish_scenario_api():
+        """
+        publish scenario
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+
+        responses:
+            200:
+                description: publish scenario success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: publish url
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        return make_common_response(publish_scenario(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/preview-scenario", methods=["POST"])
+    def preview_scenario_api():
+        """
+        preview scenario
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    variables:
+                        type: object
+                        description: variables
+                    skip:
+                        type: boolean
+                        description: skip
+        responses:
+            200:
+                description: preview scenario success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: preview url
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        variables = request.get_json().get("variables")
+        skip = request.get_json().get("skip", False)
+        return make_common_response(
+            preview_scenario(app, user_id, scenario_id, variables, skip)
+        )
+
     @app.route(path_prefix + "/chapters", methods=["GET"])
     def get_chapter_list_api():
         """
@@ -194,6 +293,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: scenario_id
               type: string
@@ -212,6 +312,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -283,6 +384,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -350,6 +452,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -391,6 +494,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -442,6 +546,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: scenario_id
               type: string
@@ -481,6 +586,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -534,6 +640,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -570,6 +677,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -607,6 +715,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: scenario_id
               type: string
@@ -640,6 +749,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - name: outline_id
               type: string
@@ -673,6 +783,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         ---
         tags:
             - scenario
+            - cook
         parameters:
             - in: body
               name: body
@@ -709,5 +820,46 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         outline_id = request.get_json().get("outline_id")
         blocks = request.get_json().get("blocks")
         return make_common_response(save_block_list(app, user_id, outline_id, blocks))
+
+    @app.route(path_prefix + "/add-block", methods=["POST"])
+    def add_block_api():
+        """
+        add block
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    outline_id:
+                        type: string
+                        description: outline id
+                    block:
+                        type: object
+                        $ref: "#/components/schemas/BlockDto"
+                    block_index:
+                        type: integer
+                        description: block index
+        responses:
+            200:
+                description: add block success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+        """
+        user_id = request.user.user_id
+        outline_id = request.get_json().get("outline_id")
+        block = request.get_json().get("block")
+        block_index = request.get_json().get("block_index")
+
+        return make_common_response(
+            add_block(app, user_id, outline_id, block, block_index)
+        )
 
     return app

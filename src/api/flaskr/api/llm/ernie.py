@@ -63,11 +63,6 @@ def get_access_token():
     return response.json()["access_token"]
 
 
-def test_get_access_token():
-    print(get_access_token())
-    assert get_access_token() != ""
-
-
 def get_token():
     return get_access_token()
 

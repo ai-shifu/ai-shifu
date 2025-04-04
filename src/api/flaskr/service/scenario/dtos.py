@@ -1,4 +1,5 @@
 from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.service.common.aidtos import AIDto, SystemPromptDto
 
 
 @register_schema_to_swagger
@@ -18,6 +19,7 @@ class ScenarioDto:
         scenario_image: str,
         scenario_state: int,
         is_favorite: bool,
+        **kwargs
     ):
         self.scenario_id = scenario_id
         self.scenario_name = scenario_name
@@ -129,78 +131,6 @@ class OutlineDto:
             "name": self.outline_name,
             "desc": self.outline_desc,
             "type": self.outline_type,
-        }
-
-
-# prompt
-@register_schema_to_swagger
-class AIDto:
-    prompt: str
-    profiles: list[str]
-    model: str
-    temprature: float
-    other_conf: dict
-
-    def __init__(
-        self,
-        prompt: str = None,
-        profiles: list[str] = None,
-        model: str = None,
-        temprature: float = None,
-        other_conf: dict = None,
-    ):
-        self.prompt = prompt
-        self.profiles = profiles
-        self.model = model
-        self.temprature = temprature
-        self.other_conf = other_conf
-
-    def __json__(self):
-        return {
-            "properties": {
-                "prompt": self.prompt,
-                "profiles": self.profiles,
-                "model": self.model,
-                "temprature": self.temprature,
-                "other_conf": self.other_conf,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-# prompt
-@register_schema_to_swagger
-class SystemPromptDto:
-    prompt: str
-    profiles: str
-    model: str
-    temprature: float
-    other_conf: dict
-
-    def __init__(
-        self,
-        prompt: str = None,
-        profiles: list[str] = None,
-        model: str = None,
-        temprature: float = None,
-        other_conf: dict = None,
-    ):
-        self.prompt = prompt
-        self.profiles = profiles
-        self.model = model
-        self.temprature = temprature
-        self.other_conf = other_conf
-
-    def __json__(self):
-        return {
-            "properties": {
-                "prompt": self.prompt,
-                "profiles": self.profiles,
-                "model": self.model,
-                "temprature": self.temprature,
-                "other_conf": self.other_conf,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
         }
 
 
@@ -381,13 +311,18 @@ class OptionDto:
         option_key: str = None,
         profile_key: str = None,
         buttons: list = None,
+        **kwargs
     ):
         self.option_name = option_name
         self.option_key = option_key
         self.profile_key = profile_key
         if isinstance(buttons, list):
             self.buttons = [
-                ButtonDto(**button) if isinstance(button, dict) else button
+                (
+                    ButtonDto(**button.get("properties"))
+                    if isinstance(button, dict)
+                    else button
+                )
                 for button in buttons
             ]
 
@@ -441,18 +376,19 @@ class TextInputDto(InputDto):
 
     def __init__(
         self,
-        text_input_name: str = None,
-        text_input_key: str = None,
-        text_input_placeholder: str = None,
+        input_name: str = None,
+        input_key: str = None,
+        input_placeholder: str = None,
         prompt: AIDto = None,
+        **kwargs
     ):
-        super().__init__(text_input_name, text_input_key, text_input_placeholder)
+        super().__init__(input_name, input_key, input_placeholder)
         self.prompt = prompt
-        self.input_name = text_input_name
-        self.input_key = text_input_key
-        self.input_placeholder = text_input_placeholder
+        self.input_name = input_name
+        self.input_key = input_key
+        self.input_placeholder = input_placeholder
         if isinstance(prompt, dict):
-            self.prompt = AIDto(**prompt)
+            self.prompt = AIDto(**prompt.get("properties"))
         elif isinstance(prompt, AIDto):
             self.prompt = prompt
 

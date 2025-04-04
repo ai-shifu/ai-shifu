@@ -73,7 +73,7 @@ class UserProfile(db.Model):
 class ProfileItem(db.Model):
     __tablename__ = "profile_item"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    profile_id = Column(BIGINT, nullable=False, comment="Profile ID", unique=True)
+    profile_id = Column(String(36), nullable=False, comment="Profile ID", unique=True)
     parent_id = Column(
         String(36), nullable=False, default="", comment="parent_id", index=True
     )
@@ -93,11 +93,6 @@ class ProfileItem(db.Model):
     )
     profile_color_setting = Column(
         String(255), nullable=False, default="", comment="Profile color"
-    )
-    profile_check_prompt = Column(Text, nullable=False, comment="Profile check prompt")
-    profile_check_model = Column(String(255), nullable=False, default="", comment="")
-    profile_check_model_args = Column(
-        Text, nullable=False, comment="Profile check model args"
     )
     profile_script_id = Column(
         String(36), nullable=False, default="", comment="Profile script id", index=True
@@ -126,11 +121,14 @@ class ProfileItem(db.Model):
 class ProfileItemValue(db.Model):
     __tablename__ = "profile_item_value"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    profile_id = Column(BIGINT, nullable=False, comment="Profile ID", index=True)
+    profile_id = Column(String(36), nullable=False, comment="Profile ID", index=True)
     profile_item_id = Column(
-        BIGINT, nullable=False, comment="Profile item ID", index=True
+        String(36), nullable=False, comment="Profile item ID", index=True
     )
     profile_value = Column(Text, nullable=False, comment="Profile value")
+    profile_value_index = Column(
+        Integer, nullable=False, default=0, comment="Profile value index"
+    )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
     )

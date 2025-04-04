@@ -54,8 +54,6 @@ def parse_comments(cls):
 
 
 def get_field_schema(typ, description: str = ""):
-    if description != "":
-        print(f"description: {description}")
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
@@ -91,7 +89,6 @@ def register_schema_to_swagger(cls):
     properties = {}
     required = []
     comments = parse_comments(cls)
-    print(f"comments: {comments}")
     for name, typ in cls.__annotations__.items():
         field_schema = get_field_schema(typ, description=comments.get(name, ""))
         properties[name] = field_schema

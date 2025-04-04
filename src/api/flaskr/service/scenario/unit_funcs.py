@@ -117,7 +117,7 @@ def modify_unit(
             unit.updated_user_id = user_id
             unit.updated_at = datetime.now()
             db.session.commit()
-            return UnitDto(
+            return OutlineDto(
                 unit.lesson_id,
                 unit.lesson_no,
                 unit.lesson_name,
