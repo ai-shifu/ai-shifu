@@ -357,6 +357,7 @@ def save_profile_item_defination(
             ProfileItem.status == 1,
         ).first()
         if profile_item is None:
+
             profile_item = ProfileItem(
                 profile_id=generate_id(app),
                 parent_id=scenario_id,

@@ -47,7 +47,7 @@ import re
 def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     type = block_dict.get("type")
     if type != "block":
-        raise ValueError("Invalid block type")
+        raise_error("SCENARIO.INVALID_BLOCK_TYPE")
     block_info = BlockDto(**block_dict.get("properties"))
     block_info.block_ui = None
     block_info.block_content = None
@@ -95,9 +95,16 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
 def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     type = outline_dict.get("type")
     if type != "outline":
-        raise ValueError("Invalid outline type")
+        raise_error("SCENARIO.INVALID_OUTLINE_TYPE")
     outline_info = OutlineEditDto(**outline_dict.get("properties"))
     return outline_info
+
+
+def check_button_dto(button_dto: ButtonDto):
+    if not button_dto.button_name:
+        raise_error("SCENARIO.BUTTON_NAME_REQUIRED")
+    if not button_dto.button_key:
+        raise_error("SCENARIO.BUTTON_KEY_REQUIRED")
 
 
 # update block model
@@ -151,22 +158,27 @@ def update_block_model(
             raise_error("SCENARIO.INVALID_BLOCK_CONTENT_TYPE")
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, ButtonDto):
+            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_BUTTON
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, LoginDto):
+            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_LOGIN
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, PhoneDto):
+            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_PHONE
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
         elif isinstance(block_dto.block_ui, CodeDto):
+            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_CHECKCODE
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
         elif isinstance(block_dto.block_ui, PaymentDto):
+            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_TO_PAY
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
@@ -189,6 +201,17 @@ def update_block_model(
                 }
             )
         elif isinstance(block_dto.block_ui, OptionDto):
+            if not block_dto.block_ui.option_key:
+                raise_error("SCENARIO.OPTION_KEY_REQUIRED")
+            if not block_dto.block_ui.option_name:
+                raise_error("SCENARIO.OPTION_NAME_REQUIRED")
+            if not block_dto.block_ui.profile_key:
+                raise_error("SCENARIO.PROFILE_KEY_REQUIRED")
+            for btn in block_dto.block_ui.buttons:
+                if not btn.button_name:
+                    raise_error("SCENARIO.BUTTON_NAME_REQUIRED")
+                if not btn.button_key:
+                    raise_error("SCENARIO.BUTTON_KEY_REQUIRED")
             block_model.script_ui_type = UI_TYPE_SELECTION
             block_model.script_ui_content = block_dto.block_ui.option_key
             block_model.script_ui_content = block_dto.block_ui.option_name
@@ -214,6 +237,15 @@ def update_block_model(
                 ],
             )
         elif isinstance(block_dto.block_ui, TextInputDto):
+            if not block_dto.block_ui.prompt:
+                raise_error("SCENARIO.PROMPT_REQUIRED")
+            if not block_dto.block_ui.input_key:
+                raise_error("SCENARIO.INPUT_KEY_REQUIRED")
+            if not block_dto.block_ui.input_name:
+                raise_error("SCENARIO.INPUT_NAME_REQUIRED")
+            if not block_dto.block_ui.input_placeholder:
+                raise_error("SCENARIO.INPUT_PLACEHOLDER_REQUIRED")
+
             block_model.script_ui_type = UI_TYPE_INPUT
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name

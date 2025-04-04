@@ -19,7 +19,7 @@ def get_block_list(app, user_id: str, outline_id: str):
             AILesson.status == 1,
         ).first()
         if not lesson:
-            raise_error("SCENARIO.LESSON_NOT_FOUND")
+            raise_error("SCENARIO.OUTLINE_NOT_FOUND")
         # get sub outline list
         sub_outlines = (
             AILesson.query.filter(
