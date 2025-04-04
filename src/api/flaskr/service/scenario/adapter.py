@@ -221,8 +221,8 @@ def update_block_model(
                     "var_name": block_dto.block_ui.option_key,
                     "btns": [
                         {
-                            "lable": btn.button_name,
-                            "key": btn.button_key,
+                            "label": btn.button_name,
+                            "value": btn.button_key,
                         }
                         for btn in block_dto.block_ui.buttons
                     ],
@@ -368,7 +368,7 @@ def generate_block_dto(block: AILessonScript):
         items = []
         for item in json_data.get("btns"):
             items.append(
-                ButtonDto(button_name=item.get("lable"), button_key=item.get("key"))
+                ButtonDto(button_name=item.get("label"), button_key=item.get("value"))
             )
         from flask import current_app as app
 
