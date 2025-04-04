@@ -15,9 +15,6 @@ from flaskr.api.check import (
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
 
-# from ...i18n import get_i18n_list
-# from ...i18n import get_current_language
-
 
 def check_text_content(
     app: Flask,

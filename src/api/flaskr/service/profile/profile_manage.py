@@ -1,4 +1,5 @@
 from flask import Flask
+from datetime import datetime
 from .models import (
     ProfileItem,
     ProfileItemValue,
@@ -14,45 +15,16 @@ from ...dao import db
 from flaskr.util.uuid import generate_id
 import json
 from flaskr.service.common import raise_error
-from flaskr.common.swagger import register_schema_to_swagger
+from .dtos import (
+    ColorSetting,
+    DEFAULT_COLOR_SETTINGS,
+    ProfileItemDefination,
+    TextProfileDto,
+    SelectProfileDto,
+)
 
 # from datetime import datetime
-
-
-class ProfileItemDefinationDTO:
-    pass
-
-
-@register_schema_to_swagger
-class ColorSetting:
-    color: str  # the background color of the profile item
-    text_color: str  # the text color of the profile item
-
-    def __init__(self, color: str, text_color: str):
-        self.color = color
-        self.text_color = text_color
-
-    def __json__(self):
-        return {"color": self.color, "text_color": self.text_color}
-
-    def __str__(self):
-        return json.dumps(self.__json__(), ensure_ascii=True)
-
-
-DEFAULT_COLOR_SETTINGS = [
-    ColorSetting(color="#FECACA", text_color="#DC2626"),  # red
-    ColorSetting(color="#EA580C", text_color="#EA580C"),  # orange
-    ColorSetting(color="#FEF08A", text_color="#CA8A04"),  # yellow
-    ColorSetting(color="#BBF7D0", text_color="#22C55E"),  # green
-    ColorSetting(color="#A5F3FC", text_color="#A5F3FC"),  # cyan
-    ColorSetting(color="#BFDBFE", text_color="#2563EB"),  # blue
-    ColorSetting(color="#DB2777", text_color="#DB2777"),  # pink
-    ColorSetting(color="#FDE68A", text_color="#D97706"),  # amber
-    ColorSetting(color="#D9F99D", text_color="#65A30D"),  # lime
-    ColorSetting(color="#0D9488", text_color="#0D9488"),  # teal
-    ColorSetting(color="#0284C7", text_color="#BAE6FD"),  # sky
-    ColorSetting(color="#4F46E5", text_color="#C7D2FE"),  # indigo
-]
+from flaskr.service.lesson.models import AICourse
 
 
 # get color setting
@@ -63,22 +35,6 @@ def get_color_setting(color_setting: str):
             color=json_data["color"], text_color=json_data["text_color"]
         )
     return DEFAULT_COLOR_SETTINGS[0]
-
-
-@register_schema_to_swagger
-class ProfileItemDefination:
-    profile_key: str  # the key of the profile item and could be used in prompt
-    color_setting: ColorSetting  # the color setting of the profile item
-
-    def __init__(self, profile_key: str, color_setting: ColorSetting):
-        self.profile_key = profile_key
-        self.color_setting = color_setting
-
-    def __json__(self):
-        return {"profile_key": self.profile_key, "color_setting": self.color_setting}
-
-    def __str__(self):
-        return str(self.__json__())
 
 
 def get_next_corlor_setting(parent_id: str):
@@ -152,6 +108,10 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
         profile_item.profile_key,
         get_color_setting(profile_item.profile_color_setting),
     )
+
+
+def save_profile_item(app: Flask, profile_item: ProfileItem):
+    pass
 
 
 # add profile defination
@@ -327,3 +287,130 @@ def delete_profile_item(app: Flask, profile_id: str):
             raise_error("PROFILE.NOT_FOUND")
         profile_item.status = 0
         db.session.commit()
+
+
+def save_profile_item_defination(
+    app: Flask,
+    user_id: str,
+    scenario_id: str,
+    profile: TextProfileDto | SelectProfileDto,
+):
+    with app.app_context():
+        app.logger.info(
+            "save profile item defination:{} {}".format(
+                profile.__class__.__name__, profile
+            )
+        )
+        if profile is None:
+            app.logger.info("profile is None")
+        scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
+        if scenario is None:
+            raise_error("SCENARIO.NOT_FOUND")
+        if isinstance(profile, TextProfileDto):
+            app.logger.info("save text profile item defination:{}".format(profile))
+            profile_item = ProfileItem.query.filter(
+                ProfileItem.parent_id == scenario_id,
+                ProfileItem.profile_key == profile.profile_key,
+                ProfileItem.status == 1,
+            ).first()
+            if profile_item is None:
+                profile_item = ProfileItem(
+                    profile_id=generate_id(app),
+                    parent_id=scenario_id,
+                    profile_key=profile.profile_key,
+                    profile_type=PROFILE_TYPE_INPUT_TEXT,
+                    profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
+                    profile_remark=profile.profile_intro,
+                    profile_color_setting=str(get_next_corlor_setting(scenario_id)),
+                    profile_prompt=profile.profile_prompt.prompt,
+                    profile_prompt_model=profile.profile_prompt.model,
+                    profile_prompt_model_args=str(profile.profile_prompt.temprature),
+                    created_by=user_id,
+                    updated_by=user_id,
+                    updated=datetime.now(),
+                    created=datetime.now(),
+                    status=1,
+                )
+                app.logger.info(
+                    "save text profile item defination:{}".format(profile_item)
+                )
+                db.session.add(profile_item)
+            else:
+                profile_item.profile_prompt = profile.profile_prompt.prompt
+                profile_item.profile_prompt_model = profile.profile_prompt.model
+                profile_item.profile_prompt_model_args = str(
+                    profile.profile_prompt.temprature
+                )
+                profile_item.updated_by = user_id
+                profile_item.updated = datetime.now()
+            db.session.commit()
+
+        elif isinstance(profile, SelectProfileDto):
+            app.logger.info("save select profile item defination:{}".format(profile))
+            profile_item = ProfileItem.query.filter(
+                ProfileItem.parent_id == scenario_id,
+                ProfileItem.profile_key == profile.profile_key,
+                ProfileItem.status == 1,
+            ).first()
+            if profile_item is None:
+                profile_item = ProfileItem(
+                    profile_id=generate_id(app),
+                    parent_id=scenario_id,
+                    profile_key=profile.profile_key,
+                    profile_type=PROFILE_TYPE_INPUT_SELECT,
+                    profile_show_type=PROFILE_SHOW_TYPE_HIDDEN,
+                    profile_remark=profile.profile_key,
+                    profile_color_setting=str(get_next_corlor_setting(scenario_id)),
+                    profile_prompt="",
+                    profile_prompt_model="",
+                    profile_prompt_model_args="{}",
+                    created_by=user_id,
+                    updated_by=user_id,
+                    updated=datetime.now(),
+                    created=datetime.now(),
+                    status=1,
+                )
+                app.logger.info(
+                    "save select profile item defination:{}".format(profile_item)
+                )
+                db.session.add(profile_item)
+            else:
+                profile_item.profile_prompt = ""
+                profile_item.profile_prompt_model = ""
+                profile_item.profile_prompt_model_args = "{}"
+                profile_item.updated_by = user_id
+                profile_item.updated = datetime.now()
+                app.logger.info(
+                    "update select profile item defination:{}".format(profile_item)
+                )
+
+            app.logger.info(
+                "save select profile item defination:{}".format(profile_item)
+            )
+            for index, option in enumerate(profile.profile_options):
+                profile_item_value = ProfileItemValue.query.filter(
+                    ProfileItemValue.profile_id == profile_item.profile_id,
+                    ProfileItemValue.profile_value == option.value,
+                    ProfileItemValue.status == 1,
+                ).first()
+                if profile_item_value is None:
+                    profile_item_value = ProfileItemValue(
+                        profile_id=profile_item.profile_id,
+                        profile_item_id=generate_id(app),
+                        profile_value=option.value,
+                        profile_value_index=index,
+                        created_by=user_id,
+                        updated_by=user_id,
+                        updated=datetime.now(),
+                        created=datetime.now(),
+                        status=1,
+                    )
+                    db.session.add(profile_item_value)
+                else:
+                    profile_item_value.profile_value = option.value
+                    profile_item_value.updated_by = user_id
+                    profile_item_value.profile_value_index = index
+                    profile_item_value.updated = datetime.now()
+            db.session.commit()
+        else:
+            raise_error("PROFILE.INVALID_PROFILE_TYPE")

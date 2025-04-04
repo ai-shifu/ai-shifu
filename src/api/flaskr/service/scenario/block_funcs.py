@@ -5,6 +5,7 @@ from flaskr.service.scenario.adapter import (
     generate_block_dto,
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
+from flaskr.service.profile.profile_manage import save_profile_item_defination
 from flaskr.service.common.models import raise_error
 from flaskr.util import generate_id
 from flaskr.dao import db
@@ -157,8 +158,11 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         status=1,
                     )
 
-                update_block_model(block_model, block_dto)
-
+                profile = update_block_model(block_model, block_dto)
+                if profile:
+                    save_profile_item_defination(
+                        app, user_id, outline.course_id, profile
+                    )
                 save_block_ids.append(block_model.script_id)
                 block_model.lesson_id = current_outline_id
                 block_model.script_index = block_index

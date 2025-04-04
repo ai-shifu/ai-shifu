@@ -1,4 +1,5 @@
 from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.service.common.aidtos import AIDto, SystemPromptDto
 
 
 @register_schema_to_swagger
@@ -130,78 +131,6 @@ class OutlineDto:
             "name": self.outline_name,
             "desc": self.outline_desc,
             "type": self.outline_type,
-        }
-
-
-# prompt
-@register_schema_to_swagger
-class AIDto:
-    prompt: str
-    profiles: list[str]
-    model: str
-    temprature: float
-    other_conf: dict
-
-    def __init__(
-        self,
-        prompt: str = None,
-        profiles: list[str] = None,
-        model: str = None,
-        temprature: float = None,
-        other_conf: dict = None,
-    ):
-        self.prompt = prompt
-        self.profiles = profiles
-        self.model = model
-        self.temprature = temprature
-        self.other_conf = other_conf
-
-    def __json__(self):
-        return {
-            "properties": {
-                "prompt": self.prompt,
-                "profiles": self.profiles,
-                "model": self.model,
-                "temprature": self.temprature,
-                "other_conf": self.other_conf,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-# prompt
-@register_schema_to_swagger
-class SystemPromptDto:
-    prompt: str
-    profiles: str
-    model: str
-    temprature: float
-    other_conf: dict
-
-    def __init__(
-        self,
-        prompt: str = None,
-        profiles: list[str] = None,
-        model: str = None,
-        temprature: float = None,
-        other_conf: dict = None,
-    ):
-        self.prompt = prompt
-        self.profiles = profiles
-        self.model = model
-        self.temprature = temprature
-        self.other_conf = other_conf
-
-    def __json__(self):
-        return {
-            "properties": {
-                "prompt": self.prompt,
-                "profiles": self.profiles,
-                "model": self.model,
-                "temprature": self.temprature,
-                "other_conf": self.other_conf,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
         }
 
 
@@ -382,6 +311,7 @@ class OptionDto:
         option_key: str = None,
         profile_key: str = None,
         buttons: list = None,
+        **kwargs
     ):
         self.option_name = option_name
         self.option_key = option_key

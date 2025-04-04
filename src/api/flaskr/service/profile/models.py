@@ -126,6 +126,9 @@ class ProfileItemValue(db.Model):
         String(36), nullable=False, comment="Profile item ID", index=True
     )
     profile_value = Column(Text, nullable=False, comment="Profile value")
+    profile_value_index = Column(
+        Integer, nullable=False, default=0, comment="Profile value index"
+    )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
     )
