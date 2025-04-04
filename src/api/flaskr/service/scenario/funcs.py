@@ -186,3 +186,13 @@ def publish_scenario(app, user_id, scenario_id: str):
                 app.config.get("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
             )
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+
+
+def preview_scenario(app, user_id, scenario_id: str, variables: dict):
+    with app.app_context():
+        scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
+        if scenario:
+            check_scenario_can_publish(app, scenario_id)
+            return (
+                app.config.get("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
+            )

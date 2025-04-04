@@ -26,6 +26,7 @@ def debug_script(
     script_model,
     script_temprature,
     script_variables,
+    script_other_conf,
 ):
 
     with app.app_context():
@@ -36,7 +37,6 @@ def debug_script(
         trace_args["name"] = "ai-python"
         trace = langfuse_client.trace(**trace_args)
         app.logger.info(f"debug_script {script_id} ")
-
         try:
             if not script_model or not script_model.strip():
                 script_info = get_script_by_id(app, script_id)

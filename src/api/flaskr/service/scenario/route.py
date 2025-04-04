@@ -4,6 +4,7 @@ from .funcs import (
     create_scenario,
     mark_or_unmark_favorite_scenario,
     publish_scenario,
+    preview_scenario,
 )
 from .chapter_funcs import (
     get_chapter_list,
@@ -214,6 +215,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     scenario_id:
                         type: string
                         description: scenario id
+
         responses:
             200:
                 description: publish scenario success
@@ -234,6 +236,55 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
         return make_common_response(publish_scenario(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/preview-scenario", methods=["POST"])
+    def preview_scenario_api():
+        """
+        preview scenario
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    variables:
+                        type: object
+                        description: variables
+                    skip:
+                        type: boolean
+                        description: skip
+        responses:
+            200:
+                description: preview scenario success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: preview url
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        variables = request.get_json().get("variables")
+        skip = request.get_json().get("skip", False)
+        return make_common_response(
+            preview_scenario(app, user_id, scenario_id, variables, skip)
+        )
 
     @app.route(path_prefix + "/chapters", methods=["GET"])
     def get_chapter_list_api():
