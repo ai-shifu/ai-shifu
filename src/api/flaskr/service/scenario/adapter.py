@@ -12,6 +12,8 @@ from flaskr.service.scenario.dtos import (
     CodeDto,
     PaymentDto,
     OutlineEditDto,
+    GotoDtoItem,
+    GotoSettings,
 )
 
 from flaskr.service.lesson.models import AILessonScript
@@ -31,6 +33,9 @@ from flaskr.service.lesson.const import (
 )
 import json
 from flaskr.service.common import raise_error
+import re
+
+# convert block dict to block dto
 
 
 def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
@@ -81,6 +86,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     return block_info
 
 
+# convert outline dict to outline edit dto
 def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     type = outline_dict.get("type")
     if type != "outline":
@@ -89,6 +95,7 @@ def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     return outline_info
 
 
+# update block model
 def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
     block_model.script_name = block_dto.block_name
     block_model.script_desc = block_dto.block_desc
@@ -100,6 +107,7 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
     block_model.script_other_conf = "{}"
     block_model.script_prompt = ""
     block_model.script_profile = ""
+    block_model.script_ui_content = ""
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
             block_model.script_type = SCRIPT_TYPE_PORMPT
@@ -195,6 +203,11 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
                 }
             )
         elif isinstance(block_dto.block_ui, TextInputDto):
+            from flask import current_app
+
+            current_app.logger.info(
+                f"block_dto.block_ui: {block_dto.block_ui.__json__()}"
+            )
             block_model.script_ui_type = UI_TYPE_INPUT
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
@@ -207,3 +220,108 @@ def update_block_model(block_model: AILessonScript, block_dto: BlockDto):
             raise_error("SCENARIO.INVALID_BLOCK_UI_TYPE")
     else:
         block_model.script_ui_type = UI_TYPE_CONTINUED
+
+
+def get_profiles(profiles: str):
+
+    profiles = re.findall(r"\[(.*?)\]", profiles)
+    return profiles
+
+
+def generate_block_dto(block: AILessonScript):
+    ret = BlockDto(
+        block_id=block.script_id,
+        block_no=block.script_index,
+        block_name=block.script_name,
+        block_desc=block.script_desc,
+        block_type=block.script_type,
+        block_index=block.script_index,
+    )
+    if block.script_type == SCRIPT_TYPE_FIX:
+        ret.block_content = SolidContentDto(
+            block.script_prompt, get_profiles(block.script_profile)
+        )
+        ret.block_type = "solid"
+    elif block.script_type == SCRIPT_TYPE_PORMPT:
+        ret.block_content = AIDto(
+            prompt=block.script_prompt,
+            profiles=get_profiles(block.script_profile),
+            model=block.script_model,
+            temprature=block.script_temprature,
+            other_conf=block.script_other_conf,
+        )
+        ret.block_type = "ai"
+    elif block.script_type == SCRIPT_TYPE_SYSTEM:
+        ret.block_content = SystemPromptDto(
+            prompt=block.script_prompt,
+            profiles=get_profiles(block.script_profile),
+            model=block.script_model,
+            temprature=block.script_temprature,
+            other_conf=block.script_other_conf,
+        )
+        ret.block_type = "system"
+    if block.script_ui_type == UI_TYPE_BUTTON:
+        ret.block_ui = ButtonDto(block.script_ui_content, block.script_ui_content)
+    elif block.script_ui_type == UI_TYPE_INPUT:
+        prompt = AIDto(
+            prompt=block.script_check_prompt,
+            profiles=get_profiles(block.script_ui_profile),
+            model=block.script_model,
+            temprature=block.script_temprature,
+            other_conf=block.script_other_conf,
+        )
+        ret.block_ui = TextInputDto(
+            text_input_name=block.script_ui_content,
+            text_input_key=block.script_ui_content,
+            text_input_placeholder=block.script_ui_content,
+            prompt=prompt,
+        )
+    elif block.script_ui_type == UI_TYPE_CHECKCODE:
+        ret.block_ui = CodeDto(
+            text_input_name=block.script_ui_content,
+            text_input_key=block.script_ui_content,
+            text_input_placeholder=block.script_ui_content,
+        )
+    elif block.script_ui_type == UI_TYPE_PHONE:
+        ret.block_ui = PhoneDto(
+            text_input_name=block.script_ui_content,
+            text_input_key=block.script_ui_content,
+            text_input_placeholder=block.script_ui_content,
+        )
+    elif block.script_ui_type == UI_TYPE_LOGIN:
+        ret.block_ui = LoginDto(
+            button_name=block.script_ui_content, button_key=block.script_ui_content
+        )
+    elif block.script_ui_type == UI_TYPE_BRANCH:
+        json_data = json.loads(block.script_other_conf)
+        profile_key = json_data.get("var_name")
+        items = []
+        for item in json_data.get("jump_rule"):
+            items.append(
+                GotoDtoItem(
+                    value=item.get("value"),
+                    type="outline",
+                    goto_id=item.get("lark_table_id"),
+                )
+            )
+        ret.block_ui = GotoDto(
+            button_name=block.script_ui_content,
+            button_key=block.script_ui_content,
+            goto_settings=GotoSettings(items=items, profile_key=profile_key),
+        )
+    elif block.script_ui_type == UI_TYPE_CONTINUED:
+        ret.block_ui = None
+    elif block.script_ui_type == UI_TYPE_TO_PAY:
+        ret.block_ui = PaymentDto(block.script_ui_content, block.script_ui_content)
+    elif block.script_ui_type == UI_TYPE_SELECTION:
+        json_data = json.loads(block.script_other_conf)
+        profile_key = json_data.get("var_name")
+        items = []
+        for item in json_data.get("btns"):
+            items.append(
+                ButtonDto(button_name=item.get("label"), button_key=item.get("value"))
+            )
+        ret.block_ui = OptionDto(
+            block.script_ui_content, block.script_ui_content, profile_key, items
+        )
+    return ret

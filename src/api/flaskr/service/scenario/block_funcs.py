@@ -1,155 +1,14 @@
-import re
-import json
-from flaskr.service.scenario.dtos import (
-    BlockDto,
-    SolidContentDto,
-    AIDto,
-    ButtonDto,
-    TextInputDto,
-    CodeDto,
-    PhoneDto,
-    LoginDto,
-    GotoDto,
-    PaymentDto,
-    OptionDto,
-    GotoSettings,
-    GotoDtoItem,
-    OutlineEditDto,
-    SystemPromptDto,
-)
+from flaskr.service.scenario.dtos import BlockDto, OutlineEditDto
 from flaskr.service.scenario.adapter import (
     convert_dict_to_block_dto,
     update_block_model,
+    generate_block_dto,
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
-from flaskr.service.lesson.const import (
-    SCRIPT_TYPE_FIX,
-    SCRIPT_TYPE_PORMPT,
-    SCRIPT_TYPE_SYSTEM,
-    UI_TYPE_BUTTON,
-    UI_TYPE_INPUT,
-    UI_TYPE_CONTINUED,
-    UI_TYPE_TO_PAY,
-    UI_TYPE_SELECTION,
-    UI_TYPE_PHONE,
-    UI_TYPE_CHECKCODE,
-    UI_TYPE_LOGIN,
-    UI_TYPE_BRANCH,
-)
 from flaskr.service.common.models import raise_error
 from flaskr.util import generate_id
 from flaskr.dao import db
 from datetime import datetime
-
-
-def get_profiles(profiles: str):
-
-    profiles = re.findall(r"\[(.*?)\]", profiles)
-    return profiles
-
-
-def generate_block_dto(block: AILessonScript):
-    ret = BlockDto(
-        block_id=block.script_id,
-        block_no=block.script_index,
-        block_name=block.script_name,
-        block_desc=block.script_desc,
-        block_type=block.script_type,
-        block_index=block.script_index,
-    )
-    if block.script_type == SCRIPT_TYPE_FIX:
-        ret.block_content = SolidContentDto(
-            block.script_prompt, get_profiles(block.script_profile)
-        )
-        ret.block_type = "solid"
-    elif block.script_type == SCRIPT_TYPE_PORMPT:
-        ret.block_content = AIDto(
-            prompt=block.script_prompt,
-            profiles=get_profiles(block.script_profile),
-            model=block.script_model,
-            temprature=block.script_temprature,
-            other_conf=block.script_other_conf,
-        )
-        ret.block_type = "ai"
-    elif block.script_type == SCRIPT_TYPE_SYSTEM:
-        ret.block_content = SystemPromptDto(
-            prompt=block.script_prompt,
-            profiles=get_profiles(block.script_profile),
-            model=block.script_model,
-            temprature=block.script_temprature,
-            other_conf=block.script_other_conf,
-        )
-        ret.block_type = "system"
-    if block.script_ui_type == UI_TYPE_BUTTON:
-        ret.block_ui = ButtonDto(block.script_ui_content, block.script_ui_content)
-    elif block.script_ui_type == UI_TYPE_INPUT:
-        prompt = AIDto(
-            prompt=block.script_check_prompt,
-            profiles=get_profiles(block.script_ui_profile),
-            model=block.script_model,
-            temprature=block.script_temprature,
-            other_conf=block.script_other_conf,
-        )
-        ret.block_ui = TextInputDto(
-            text_input_name=block.script_ui_content,
-            text_input_key=block.script_ui_content,
-            text_input_placeholder=block.script_ui_content,
-            prompt=prompt,
-        )
-    elif block.script_ui_type == UI_TYPE_CHECKCODE:
-        ret.block_ui = CodeDto(
-            text_input_name=block.script_ui_content,
-            text_input_key=block.script_ui_content,
-            text_input_placeholder=block.script_ui_content,
-        )
-    elif block.script_ui_type == UI_TYPE_PHONE:
-        ret.block_ui = PhoneDto(
-            text_input_name=block.script_ui_content,
-            text_input_key=block.script_ui_content,
-            text_input_placeholder=block.script_ui_content,
-        )
-    elif block.script_ui_type == UI_TYPE_LOGIN:
-        ret.block_ui = LoginDto(
-            button_name=block.script_ui_content, button_key=block.script_ui_content
-        )
-    elif block.script_ui_type == UI_TYPE_BRANCH:
-        json_data = json.loads(block.script_other_conf)
-        profile_key = json_data.get("var_name")
-        items = []
-        for item in json_data.get("jump_rule"):
-            items.append(
-                GotoDtoItem(
-                    value=item.get("value"),
-                    type="outline",
-                    goto_id=item.get("lark_table_id"),
-                )
-            )
-
-        ret.block_ui = GotoDto(
-            button_name=block.script_ui_content,
-            button_key=block.script_ui_content,
-            goto_settings=GotoSettings(items=items, profile_key=profile_key),
-        )
-    elif block.script_ui_type == UI_TYPE_CONTINUED:
-        ret.block_ui = None
-    elif block.script_ui_type == UI_TYPE_TO_PAY:
-        ret.block_ui = PaymentDto(block.script_ui_content, block.script_ui_content)
-    elif block.script_ui_type == UI_TYPE_SELECTION:
-        json_data = json.loads(block.script_other_conf)
-        profile_key = json_data.get("var_name")
-        items = []
-        for item in json_data.get("btns"):
-            items.append(
-                ButtonDto(button_name=item.get("label"), button_key=item.get("value"))
-            )
-        ret.block_ui = OptionDto(
-            block.script_ui_content, block.script_ui_content, profile_key, items
-        )
-    return ret
-
-
-def convert_block_dto_to_model(block: BlockDto):
-    pass
 
 
 def get_block_list(app, user_id: str, outline_id: str):
@@ -171,6 +30,7 @@ def get_block_list(app, user_id: str, outline_id: str):
             .all()
         )
         sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
+        app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
         blocks = (
             AILessonScript.query.filter(
                 AILessonScript.lesson_id.in_(sub_outline_ids),
@@ -181,6 +41,7 @@ def get_block_list(app, user_id: str, outline_id: str):
         )
 
         ret = []
+        app.logger.info(f"blocks : {len(blocks)}")
         for sub_outline in sub_outlines:
             ret.append(
                 OutlineEditDto(
@@ -199,22 +60,6 @@ def get_block_list(app, user_id: str, outline_id: str):
             for block in lesson_blocks:
                 ret.append(generate_block_dto(block))
         return ret
-    pass
-
-
-def save_block(app, user_id: str, outline_id: str, block: BlockDto):
-    with app.app_context():
-        lesson = AILesson.query.filter(
-            AILesson.course_id == outline_id,
-            AILesson.status == 1,
-        ).first()
-        if not lesson:
-            raise_error("SCENARIO.LESSON_NOT_FOUND")
-        block_model = convert_block_dto_to_model(block)
-
-        db.session.add(block_model)
-        db.session.commit()
-        return generate_block_dto(block_model)
     pass
 
 
@@ -249,7 +94,6 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     with app.app_context():
         app.logger.info(f"save_block_list: {outline_id}")
-
         outline = AILesson.query.filter(
             AILesson.lesson_id == outline_id,
         ).first()
@@ -261,14 +105,14 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         sub_outlines = (
             AILesson.query.filter(
                 AILesson.status == 1,
-                AILesson.course_id == outline_id,
+                AILesson.course_id == outline.course_id,
                 AILesson.lesson_no.like(outline.lesson_no + "%"),
             )
             .order_by(AILesson.lesson_no.asc())
             .all()
         )
         sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
-
+        app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
         # get all blocks
         blocks = (
             AILessonScript.query.filter(
@@ -295,6 +139,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     ]
                     if len(check_block) > 0:
                         block_model = check_block[0]
+                    else:
+                        app.logger.warning(
+                            f"block_dto id not found : {block_dto.block_id}"
+                        )
                 if block_model is None:
                     block_model = AILessonScript(
                         script_id=generate_id(app),
@@ -310,6 +158,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     )
 
                 update_block_model(block_model, block_dto)
+
                 save_block_ids.append(block_model.script_id)
                 block_model.lesson_id = current_outline_id
                 block_model.script_index = block_index
@@ -320,11 +169,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                 block_index += 1
                 block_models.append(block_model)
             elif type == "outline":
-                # consider the outline level
                 # pass the top outline
                 pass
         AILessonScript.query.filter(
-            AILessonScript.lesson_id == outline_id,
+            AILessonScript.lesson_id.in_(sub_outline_ids),
             AILessonScript.status == 1,
             AILessonScript.script_id.notin_(save_block_ids),
         ).update({"status": 0})
@@ -376,7 +224,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
 def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]):
     with app.app_context():
         lesson = AILesson.query.filter(
-            AILesson.course_id == outline_id,
+            AILesson.lesson_id == outline_id,
             AILesson.status == 1,
         ).first()
         if not lesson:
