@@ -1,28 +1,59 @@
 /* eslint-disable @next/next/no-img-element */
 "use client"
-import React from 'react';
-import { ChevronLeft, MoreHorizontal, AlignJustify, Book, Settings, Terminal } from 'lucide-react';
+import React, { useState } from 'react';
+import { ArrowTrendingUpIcon, ChevronLeftIcon, AdjustmentsVerticalIcon } from "@heroicons/react/24/outline"
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger
-} from '@/components/ui/dropdown-menu';
 import { useRouter } from 'next/navigation';
 import { useScenario } from '@/store';
 import Loading from '../loading';
-
+import { useAlert } from '@/components/ui/use-alert';
+import api from '@/api'
+import { CircleAlert, CircleCheck } from 'lucide-react';
+import Preivew from '@/components/preview';
 
 const Header = () => {
+    const alert = useAlert();
     const router = useRouter();
-    const { isSaving, lastSaveTime } = useScenario();
+    const [publishing, setPublishing] = useState(false)
+    const { isSaving, lastSaveTime, currentScenario, error } = useScenario();
+    const publish = async () => {
+        // TODO: publish
+        // actions.publishScenario();
+        alert.showAlert({
+            confirmText: '确认',
+            cancelText: '取消',
+            title: '是否确认发布',
+            description: '发布将会把当前内容更新上线，请确认后再发布！',
+            async onConfirm() {
+                setPublishing(true)
+                const reuslt = await api.publishScenario({
+                    scenario_id: currentScenario?.id || ''
+                });
+                setPublishing(false)
+                alert.showAlert({
+                    title: '发布成功',
+                    confirmText: '去查看',
+                    cancelText: '关闭',
+                    description: (
+                        <div className="flex flex-col space-y-2">
+                            <span>发布成功，请前往查看</span>
+                            <a href={reuslt} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
+                                {reuslt}
+                            </a>
+                        </div >
+                    ),
+                    onConfirm() {
+                        window.open(reuslt, '_blank');
+                    }
+                })
+            },
+        })
+    }
     return (
         <div className="flex items-center w-full h-12 px-2 bg-white border-b border-gray-200">
             <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
-                    <ChevronLeft className="h-5 w-5" />
+                    <ChevronLeftIcon className="h-5 w-5" />
                 </Button>
 
                 {/* <div className="flex items-center">
@@ -52,9 +83,16 @@ const Header = () => {
                     )
                 }
                 {
-                    (!isSaving && lastSaveTime) && (
-                        <span>
-                            已自动保存 {lastSaveTime?.toLocaleString()}
+                    !error && (!isSaving && lastSaveTime) && (
+                        <span className='flex flex-row items-center'>
+                            <CircleCheck height={18} width={18} className='mr-1  text-primary' />  已自动保存 {lastSaveTime?.toLocaleString()}
+                        </span>
+                    )
+                }
+                {
+                    error && (
+                        <span className='flex flex-row items-center text-red-500'>
+                            <CircleAlert height={18} width={18} className='mr-1' />  {error}
                         </span>
                     )
                 }
@@ -113,13 +151,28 @@ const Header = () => {
 
 
             </div> */}
-            <div >
-                <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-normal">
-                    [x] 克隆
+            <div className='flex flex-row items-center'>
+                <Button variant="ghost" size="sm">
+                    <AdjustmentsVerticalIcon /> 设置
                 </Button>
 
-                <Button size="sm" className="h-8 ml-1 bg-purple-600 hover:bg-purple-700 text-xs font-normal">
-                    运行
+
+                <Preivew />
+
+                <Button size="sm" className="h-8 ml-1 bg-purple-600 hover:bg-purple-700 text-xs font-normal"
+                    onClick={publish}
+                >
+                    {
+                        publishing && (
+                            <Loading className='h-4 w-4 mr-1' />
+                        )
+                    }
+                    {
+                        !publishing && (
+                            <ArrowTrendingUpIcon />
+                        )
+                    }
+                    发布
                 </Button>
             </div>
         </div>

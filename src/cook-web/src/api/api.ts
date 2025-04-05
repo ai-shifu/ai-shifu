@@ -19,6 +19,7 @@ const api = {
     getScenarioChapters: "GET /scenario/chapters",
     createChapter: "POST /scenario/create-chapter",
     createUnit: "POST /scenario/create-unit",
+    modifyUnit: "POST /scenario/modify-unit",
     deleteChapter: "POST /scenario/delete-chapter",
     deleteUnit: "POST /scenario/delete-unit",
     markFavoriteScenario: "POST /scenario/mark-favorite-scenario",
@@ -26,6 +27,14 @@ const api = {
     getScenarioOutlineTree: "GET /scenario/outline-tree",
     getBlocks: "GET /scenario/blocks",
     saveBlocks: "POST /scenario/save-blocks",
+    getProfile: "GET /user/get_profile",
+    getProfileItemDefinations: "GET /profiles/get-profile-item-definations",
+    addProfileItem: "POST /profiles/add-profile-item-quick",
+    getUserInfo: "GET /user/info",
+    updateChapterOrder: "POST /scenario/update-chapter-order",
+    addBlock: "POST /scenario/add-block",
+    publishScenario: "POST /scenario/publish-scenario",
+    previewScenario: "POST /scenario/preview-scenario"
 };
 
 export default api;

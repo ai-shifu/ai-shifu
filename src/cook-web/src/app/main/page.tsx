@@ -171,7 +171,7 @@ const ScriptManagementPage = () => {
 
     return (
         <div className="h-full bg-gray-50 p-0">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-7xl mx-auto h-full overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-5">
                     <h1 className="text-2xl font-semibold text-gray-900">剧本</h1>
                 </div>
@@ -230,7 +230,7 @@ const ScriptManagementPage = () => {
                         导入
                     </Button>
                 </div>
-                <Tabs defaultValue="all" className="mb-6" onValueChange={setActiveTab}>
+                <Tabs defaultValue="all" className="mb-0" onValueChange={setActiveTab}>
                     <TabsList className='bg-stone-50 px-0'>
                         <TabsTrigger value="all">
                             {
@@ -259,8 +259,8 @@ const ScriptManagementPage = () => {
                             收藏
                         </TabsTrigger>
                     </TabsList>
-                    <TabsContent value="all">
-                        <div className="flex flex-wrap gap-4">
+                    <TabsContent value="all" className=' flex-1 overflow-auto'>
+                        {/* <div className="flex flex-wrap gap-4">
                             {scenarios.map((scenario) => (
                                 <ScriptCard
                                     id={scenario.id + ""}
@@ -271,10 +271,11 @@ const ScriptManagementPage = () => {
                                     isFavorite={scenario.is_favorite}
                                 />
                             ))}
-                        </div>
+                        </div> */}
+
                     </TabsContent>
                     <TabsContent value="favorites">
-                        <div className="flex flex-wrap gap-4">
+                        {/* <div className="flex flex-wrap gap-4">
                             {scenarios.map((scenario) => (
                                 <ScriptCard
                                     id={scenario.id + ""}
@@ -285,8 +286,23 @@ const ScriptManagementPage = () => {
                                     isFavorite={scenario.is_favorite}
                                 />
                             ))}
-                        </div>
+                        </div> */}
                     </TabsContent>
+
+                </Tabs>
+                <div className='flex-1 overflow-auto'>
+                    <div className="flex flex-wrap gap-4">
+                        {scenarios.map((scenario) => (
+                            <ScriptCard
+                                id={scenario.id + ""}
+                                key={scenario.id}
+                                icon={TrophyIcon}
+                                title={scenario.name || ""}
+                                description={scenario.description || ""}
+                                isFavorite={scenario.is_favorite || false}
+                            />
+                        ))}
+                    </div>
                     <div
                         ref={containerRef}
                         className="w-full h-10 flex items-center justify-center"
@@ -303,7 +319,7 @@ const ScriptManagementPage = () => {
                             )
                         }
                     </div>
-                </Tabs>
+                </div>
             </div>
         </div>
     );

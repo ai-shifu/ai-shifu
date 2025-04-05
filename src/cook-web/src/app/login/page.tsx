@@ -109,13 +109,6 @@ const LoginPage = () => {
         setToken(token);
 
         router.push('/main');
-        // await api.register({
-        //     "email": "hongyin@gmail.com",
-        //     "mobile": "15622814590",
-        //     "name": "hongyin163",
-        //     "password": "hongyin123@",
-        //     "username": "hongyin163"
-        // })
 
     }
 

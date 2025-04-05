@@ -112,9 +112,10 @@ export class Request {
       const res = await response.json();
       // 判断是否有code属性，使用Object API
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
+        console.log(res);
         if (res.code == 0) {
           return res.data;
-        } if (res.code == 1001) {
+        } if (res.code == 1001 || res.code == 1005) {
           window.location.href = '/login';
         } else {
           throw new ErrorWithCode(res.message, res.code);
@@ -151,7 +152,7 @@ export class Request {
         done = true;
         controller.abort();
       };
-      const lines = [];
+      const lines: any = [];
 
       for await (const line of makeTextSteamLineIterator(reader)) {
         lines.push(line);
