@@ -186,14 +186,14 @@ def get_content_type(filename):
 
 
 def upload_file(app, user_id: str, file) -> str:
-    endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
-    ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None)
-    ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET", None)
-    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_SCENARIO_URL", None)
-    BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET", None)
+    endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
+    ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID", None)
+    ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET", None)
+    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_COURSES_URL", None)
+    BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_COURSES_BUCKET", None)
     if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
         app.logger.warning(
-            "ALIBABA_CLOUD_ACCESS_KEY_ID or ALIBABA_CLOUD_ACCESS_KEY_SECRET not configured"
+            "ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID or ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET not configured"
         )
     else:
         auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
@@ -207,7 +207,7 @@ def upload_file(app, user_id: str, file) -> str:
         ):
             raise_error_with_args(
                 "API.ALIBABA_CLOUD_NOT_CONFIGURED",
-                config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",
+                config_var="ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET",
             )
         file_id = str(uuid.uuid4()).replace("-", "")
         bucket.put_object(
