@@ -189,7 +189,7 @@ def upload_file(app, user_id: str, file) -> str:
     endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
     ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None)
     ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET", None)
-    IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL", None)
+    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_SCENARIO_URL", None)
     BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET", None)
     if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
         app.logger.warning(
@@ -215,5 +215,5 @@ def upload_file(app, user_id: str, file) -> str:
             file,
             headers={"Content-Type": get_content_type(file.filename)},
         )
-        url = IMAGE_BASE_URL + "/" + file_id
+        url = FILE_BASE_URL + "/" + file_id
         return url
