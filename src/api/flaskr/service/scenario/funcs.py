@@ -186,7 +186,7 @@ def get_content_type(filename):
     raise_error("FILE.FILE_TYPE_NOT_SUPPORT")
 
 
-def upload_file(app, user_id: str,resource_id:str, file) -> str:
+def upload_file(app, user_id: str, resource_id: str, file) -> str:
     endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
     ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID", None)
     ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET", None)
@@ -211,10 +211,10 @@ def upload_file(app, user_id: str,resource_id:str, file) -> str:
                 config_var="ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET",
             )
         isUpdate = False
-        if(resource_id==""):
+        if resource_id == "":
             file_id = str(uuid.uuid4()).replace("-", "")
         else:
-            isUpdate=True
+            isUpdate = True
             file_id = resource_id
         bucket.put_object(
             file_id,

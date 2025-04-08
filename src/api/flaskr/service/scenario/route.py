@@ -748,10 +748,10 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         file = request.files.get("file", None)
         resource_id = request.values.get("resource_id", None)
         if resource_id is None:
-            resource_id=""
+            resource_id = ""
         user_id = request.user.user_id
         if not file:
             raise_param_error("file")
-        return make_common_response(upload_file(app, user_id,resource_id, file))
+        return make_common_response(upload_file(app, user_id, resource_id, file))
 
     return app
