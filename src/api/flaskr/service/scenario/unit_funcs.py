@@ -43,6 +43,8 @@ def create_unit(
     unit_index: int = None,
 ):
     with app.app_context():
+        if len(unit_name) > 20:
+            raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
         chapter = AILesson.query.filter(
             AILesson.course_id == scenario_id,
             AILesson.lesson_id == parent_id,
@@ -109,6 +111,8 @@ def modify_unit(
     unit_index: int = None,
 ):
     with app.app_context():
+        if len(unit_name) > 20:
+            raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
         unit = AILesson.query.filter_by(lesson_id=unit_id).first()
         if unit:
             unit.lesson_name = unit_name

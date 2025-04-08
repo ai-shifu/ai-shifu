@@ -5,6 +5,7 @@ from .funcs import (
     mark_or_unmark_favorite_scenario,
     publish_scenario,
     preview_scenario,
+    get_scenario_info,
 )
 from .chapter_funcs import (
     get_chapter_list,
@@ -145,6 +146,39 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                 app, user_id, scenario_name, scenario_description, scenario_image
             )
         )
+
+    @app.route(path_prefix + "/scenario-info", methods=["GET"])
+    def get_scenario_info_api():
+        """
+        get scenario info
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - name: scenario_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get scenario info success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ScenarioDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        return make_common_response(get_scenario_info(app, user_id, scenario_id))
 
     @app.route(path_prefix + "/mark-favorite-scenario", methods=["POST"])
     def mark_favorite_scenario_api():
