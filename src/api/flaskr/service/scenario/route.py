@@ -741,11 +741,10 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: 课程文件地址
         """
         file = request.files.get("file", None)
-        # user_id = request.user.user_id
-        # print("user_id",user_id)
+        user_id = request.user.user_id
         if not file:
             raise_param_error("file")
         return make_common_response(
-            upload_file(app, '11', file)
+            upload_file(app, user_id, file)
         )
     return app
