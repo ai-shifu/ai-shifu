@@ -244,5 +244,4 @@ def upload_file(app, user_id: str,resource_id:str, file) -> str:
         db.session.add(resource)
         db.session.commit()
 
-
         return url
