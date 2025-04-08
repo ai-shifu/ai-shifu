@@ -1,5 +1,5 @@
 from flask import Flask, request
-from .funcs import get_scenario_list, create_scenario, mark_or_unmark_favorite_scenario
+from .funcs import get_scenario_list, create_scenario, mark_or_unmark_favorite_scenario, upload_file
 from .chapter_funcs import (
     get_chapter_list,
     create_chapter,
@@ -710,4 +710,42 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         blocks = request.get_json().get("blocks")
         return make_common_response(save_block_list(app, user_id, outline_id, blocks))
 
+    @app.route(path_prefix + "/upfile", methods=["POST"])
+    def upfile_api():
+        """
+        upfile to oss
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: formData
+              name: file
+              type: file
+              required: true
+              description: 课程文件
+        responses:
+            200:
+                description: 上传成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: 返回码
+                                message:
+                                    type: string
+                                    description: 返回信息
+                                data:
+                                    type: string
+                                    description: 课程文件地址
+        """
+        file = request.files.get("file", None)
+        # user_id = request.user.user_id
+        # print("user_id",user_id)
+        if not file:
+            raise_param_error("file")
+        return make_common_response(
+            upload_file(app, '11', file)
+        )
     return app
