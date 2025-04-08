@@ -10,8 +10,6 @@ import oss2
 import uuid
 
 
-
-
 def get_raw_scenario_list(
     app, user_id: str, page_index: int, page_size: int
 ) -> PageNationDTO:
@@ -186,6 +184,7 @@ def get_content_type(filename):
         return "image/gif"
     raise_error("FILE.FILE_TYPE_NOT_SUPPORT")
 
+
 def upload_file(app, user_id: str, file) -> str:
     endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
     ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None)
@@ -212,11 +211,9 @@ def upload_file(app, user_id: str, file) -> str:
             )
         file_id = str(uuid.uuid4()).replace("-", "")
         bucket.put_object(
-                file_id,
-                file,
-                headers={"Content-Type": get_content_type(file.filename)},
-            )
+            file_id,
+            file,
+            headers={"Content-Type": get_content_type(file.filename)},
+        )
         url = IMAGE_BASE_URL + "/" + file_id
         return url
-
-

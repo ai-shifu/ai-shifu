@@ -1,5 +1,10 @@
 from flask import Flask, request
-from .funcs import get_scenario_list, create_scenario, mark_or_unmark_favorite_scenario, upload_file
+from .funcs import (
+    get_scenario_list,
+    create_scenario,
+    mark_or_unmark_favorite_scenario,
+    upload_file,
+)
 from .chapter_funcs import (
     get_chapter_list,
     create_chapter,
@@ -745,7 +750,6 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         # print("user_id",user_id)
         if not file:
             raise_param_error("file")
-        return make_common_response(
-            upload_file(app, '11', file)
-        )
+        return make_common_response(upload_file(app, "11", file))
+
     return app
