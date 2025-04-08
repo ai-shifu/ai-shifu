@@ -6,6 +6,7 @@ from .models import FavoriteScenario
 from ..common.dtos import PageNationDTO
 from ..common.models import raise_error, raise_error_with_args
 from ...common.config import get_config
+from ...service.resource.models import Resource
 import oss2
 import uuid
 
@@ -215,5 +216,22 @@ def upload_file(app, user_id: str, file) -> str:
             file,
             headers={"Content-Type": get_content_type(file.filename)},
         )
+
         url = FILE_BASE_URL + "/" + file_id
+        resource = Resource(
+            resource_id=file_id,
+            name=file.filename,
+            type=0,
+            oss_bucket=BUCKET_NAME,
+            oss_name=BUCKET_NAME,
+            url=url,
+            status=0,
+            is_deleted=0,
+            created_by=user_id,
+            updated_by=user_id,
+        )
+        db.session.add(resource)
+        db.session.commit()
+
+
         return url
