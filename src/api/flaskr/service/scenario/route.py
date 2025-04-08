@@ -20,6 +20,7 @@ from .unit_funcs import (
     create_unit,
     modify_unit,
     delete_unit,
+    get_unit_by_id,
 )
 from .block_funcs import (
     get_block_list,
@@ -642,7 +643,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                         description: unit description
                     unit_type:
                         type: string
-                        description: unit type
+                        description: unit type (normal,trial)
+                    unit_system_prompt:
+                        type: string
+                        description: unit system prompt
+                    unit_is_hidden:
+                        type: boolean
+                        description: unit is hidden
                     unit_index:
                         type: integer
                         description: unit index
@@ -654,6 +661,8 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         unit_description = request.get_json().get("unit_description", "")
         unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)
         unit_index = request.get_json().get("unit_index", None)
+        unit_system_prompt = request.get_json().get("unit_system_prompt", None)
+        unit_is_hidden = request.get_json().get("unit_is_hidden", False)
         return make_common_response(
             create_unit(
                 app,
@@ -664,6 +673,8 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                 unit_description,
                 unit_type,
                 unit_index,
+                unit_system_prompt,
+                unit_is_hidden,
             )
         )
 
@@ -694,15 +705,70 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     unit_index:
                         type: integer
                         description: unit index
+                    unit_system_prompt:
+                        type: string
+                        description: unit system prompt
+                    unit_is_hidden:
+                        type: boolean
+                        description: unit is hidden
+                    unit_type:
+                        type: string
+                        description: unit type (normal,trial)
         """
         user_id = request.user.user_id
         unit_id = request.get_json().get("unit_id")
         unit_name = request.get_json().get("unit_name")
         unit_description = request.get_json().get("unit_description")
         unit_index = request.get_json().get("unit_index")
+        unit_system_prompt = request.get_json().get("unit_system_prompt", None)
+        unit_is_hidden = request.get_json().get("unit_is_hidden", False)
+        unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)
         return make_common_response(
-            modify_unit(app, user_id, unit_id, unit_name, unit_description, unit_index)
+            modify_unit(
+                app,
+                user_id,
+                unit_id,
+                unit_name,
+                unit_description,
+                unit_index,
+                unit_system_prompt,
+                unit_is_hidden,
+                unit_type,
+            )
         )
+
+    @app.route(path_prefix + "/unit-info", methods=["GET"])
+    def get_unit_info_api():
+        """
+        get unit info
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - name: unit_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get unit info success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/UnitDto"
+        """
+        user_id = request.user.user_id
+        unit_id = request.args.get("unit_id")
+        return make_common_response(get_unit_by_id(app, user_id, unit_id))
 
     @app.route(path_prefix + "/delete-unit", methods=["POST"])
     def delete_unit_api():

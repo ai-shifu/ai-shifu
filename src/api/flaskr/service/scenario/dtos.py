@@ -104,11 +104,14 @@ class UnitDto:
 
 @register_schema_to_swagger
 class OutlineDto:
-    outline_id: str
-    outline_no: str
-    outline_name: str
-    outline_desc: str
-    outline_type: int
+    outline_id: str  # outline id
+    outline_no: str  # outline no
+    outline_name: str  # outline name
+    outline_desc: str  # outline desc
+    outline_type: str  # outline type (trial,normal)
+    outline_index: int  # outline index
+    outline_system_prompt: str  # outline system prompt
+    outline_is_hidden: bool  # outline is hidden
 
     def __init__(
         self,
@@ -116,13 +119,19 @@ class OutlineDto:
         outline_no: str = None,
         outline_name: str = None,
         outline_desc: str = None,
-        outline_type: int = None,
+        outline_type: str = None,
+        outline_index: int = None,
+        outline_system_prompt: str = None,
+        outline_is_hidden: bool = None,
     ):
         self.outline_id = outline_id
         self.outline_no = outline_no
         self.outline_name = outline_name
         self.outline_desc = outline_desc
         self.outline_type = outline_type
+        self.outline_index = outline_index
+        self.outline_system_prompt = outline_system_prompt
+        self.outline_is_hidden = outline_is_hidden
 
     def __json__(self):
         return {
@@ -131,6 +140,9 @@ class OutlineDto:
             "name": self.outline_name,
             "desc": self.outline_desc,
             "type": self.outline_type,
+            "index": self.outline_index,
+            "system_prompt": self.outline_system_prompt,
+            "is_hidden": self.outline_is_hidden,
         }
 
 
