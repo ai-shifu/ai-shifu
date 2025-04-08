@@ -1,0 +1,700 @@
+{
+    "code": 0,
+    "message": "success",
+    "data": [
+        {
+            "properties": {
+                "outline_id": "3dde044c4f43401fa579034400ebb11f",
+                "outline_no": "00",
+                "outline_name": "00- 初次沟通体验",
+                "outline_desc": "",
+                "outline_type": 401,
+                "outline_level": 1
+            },
+            "type": "outline"
+        },
+        {
+            "properties": {
+                "block_id": "d811cc5bf11147ffa0399a4757ed890d",
+                "block_no": 1,
+                "block_name": "system_role",
+                "block_desc": "",
+                "block_type": 103,
+                "block_index": 1,
+                "block_content": {
+                    "properties": {
+                        "prompt": "# 角色\n`你` 叫 `AI师傅` ，是`AI-Shifu`平台的向导。\n`你` 作为一个私人向导，`你` 只为他/她(`学员`)一个人提供个性化教学服务。 \n\n`我` 是课程设计者，`我` 跟 `你` 说的话都是指导 `你` 该如何向 `学员` 输出内容进行教学。\n`你` 需要直接用 讲师/私教 的口吻输出。你输出的内容都是给 `学员` 看的，不是给 `我` 看的， 输出的内容不能让 `学员` 感受到有 `我` 的存在。\n\n# 背景\n你和学员是第一次见面，学员并不清楚你是做什么的。学员会对你好奇，你要结合不同学员的情况，介绍清楚AI师傅，与学员建立起信任关系。\nAI 师傅是一个由大语言模型驱动的向导，由AI主导的对话流。\n\n# 教学目标\n让学员了解AI师傅这种对话流的方式，知道接下来如何使用AI 师傅。\n\n# 输出格式要求\n- 按照 Markdown 格式输出。\n- 单个段落的字数务必不要超过200字。\n- 输出不要有任何级别的标题（如#, ##, ### 或 H1, H2 之类的标题），但可以有 bullet（有序号、无序号都可以），也可以有重点加粗。\n- 称呼用户时可以用 `同学`、`你` 或者学员的昵称，但一定不要用 `大家`、`同学们` 等称呼多人的方式。\n- **Don't talk nonsense and make up facts.**",
+                        "profiles": [],
+                        "model": "gpt-4-turbo-2024-04-09",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "systemprompt"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "outline_id": "290aa7f0609b4ca29e45886f46799d0f",
+                "outline_no": "0001",
+                "outline_name": "0.1 你好",
+                "outline_desc": "",
+                "outline_type": 401,
+                "outline_level": 2
+            },
+            "type": "outline"
+        },
+        {
+            "properties": {
+                "block_id": "b6d0d41f64cd463381d3263c55c98ff6",
+                "block_no": 1,
+                "block_name": "问好",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 1,
+                "block_content": {
+                    "properties": {
+                        "content": "你好呀， 初次见面！欢迎来到「AI 师傅」一对一学习社区。🎉\n\n我是AI 师傅，AI 主导的对话流，也就是说，接下来我们全程会以这样的对话形式进行。\n\n不过，咱们的对话内容是精心设计的，对话环境是封闭的，不用担心数据泄漏，AI 师傅会守护好你的个人信息！\n\n另外，提醒一句的是，我的每句话都是实时的，所以我会边想边说，你的每次输入也都会影响我说的话，还请你边看边想，等我慢慢讲完。\n\n万一，我没理解你的意思，反复询问你，或者胡言乱语，你发动你的沟通技能多跟我讲一些，或者向我追问都是可以的！！"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "6c7410ed690640ab9e85f285c76901dc",
+                "block_no": 2,
+                "block_name": "测试系统追问",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 2,
+                "block_content": {
+                    "properties": {
+                        "content": "你好啊"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "跳过追问",
+                        "button_key": "跳过追问"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "e78acf9b3d7a428a86ff4cdb6c36f9ac",
+                "block_no": 3,
+                "block_name": "非阻塞付款",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 3,
+                "block_content": {
+                    "properties": {
+                        "content": "下面测试一下非阻塞付款码哦"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "38ef2809400f43eb8eb504a45627ec11",
+                "block_no": 9,
+                "block_name": "夸夸用户的昵称",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 9,
+                "block_content": {
+                    "properties": {
+                        "prompt": "##输出步骤\n- 认真理解学员的昵称 `{nickname}`的含义，赞美一下`{nickname}`这个称呼。\n- 赞扬学员来到AI师傅学习社区，是个具有前瞻性的行为。\n- 以`如果想换个名字，可以到「设置」里修改称呼哦～`为结尾。\n\n##输出要求\n- 语气要轻松自然\n- 字数不要超过100字",
+                        "profiles": [
+                            "nickname"
+                        ],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "outline_id": "72cf1c74ac49442aba6e240df86a1587",
+                "outline_no": "0002",
+                "outline_name": "0.2  互相了解",
+                "outline_desc": "",
+                "outline_type": 401,
+                "outline_level": 2
+            },
+            "type": "outline"
+        },
+        {
+            "properties": {
+                "block_id": "6ee0d86cc06a4705a63f18478025c91c",
+                "block_no": 1,
+                "block_name": "来的原因",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 1,
+                "block_content": {
+                    "properties": {
+                        "prompt": "##输出步骤\n- 简单聊一聊AI 师傅目前还处于早期阶段，平台可学习的课程还很少、开源的技术也还比较稚嫩、合作的模式也不并成熟。不过，我们相信有更多可能性在等着我们。\n- 以`你是因为什么而来，为什么会对AI 师傅感兴趣呢？`为结尾。",
+                        "profiles": [],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": "{\n    \"var_name\": \"purpose\",\n    \"btns\": [\n{\"label\": \"学习课程内容\", \"value\": \"学习课程内容\"},\n{\"label\": \"了解产品形式\", \"value\": \"了解产品形式\"},\n{\"label\": \"好奇体验一下\", \"value\": \"好奇体验一下\"},\n{\"label\": \"其他\", \"value\": \"其他\"}\n    ]\n}"
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "option_name": "告诉你为什么而来呀～",
+                        "option_key": "告诉你为什么而来呀～",
+                        "profile_key": "purpose",
+                        "buttons": [
+                            {
+                                "properties": {
+                                    "button_name": "学习课程内容",
+                                    "button_key": "学习课程内容"
+                                },
+                                "type": "button"
+                            },
+                            {
+                                "properties": {
+                                    "button_name": "了解产品形式",
+                                    "button_key": "了解产品形式"
+                                },
+                                "type": "button"
+                            },
+                            {
+                                "properties": {
+                                    "button_name": "好奇体验一下",
+                                    "button_key": "好奇体验一下"
+                                },
+                                "type": "button"
+                            },
+                            {
+                                "properties": {
+                                    "button_name": "其他",
+                                    "button_key": "其他"
+                                },
+                                "type": "button"
+                            }
+                        ]
+                    },
+                    "type": "option"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "262fa71ae1554d52bdb7afe1967569d2",
+                "block_no": 2,
+                "block_name": "回应原因",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 2,
+                "block_content": {
+                    "properties": {
+                        "prompt": "学员选择的答案是`{purpose}` ，要根据学员选择的答案`{purpose}`给到对应的`回应`。\n\n## 供选择的`回应`\n1. 如果学员选择的答案`{purpose}`是`学习课程内容` ，给到的`回应`是：`那你可是来对地方了，别看AI 师傅现在课程少，每一门都是不断迭代的精品课程，而且这里的课程学习起来很不一样，尽快进入课程，体验一对一的个性化吧。`\n\n2. 如果学员选择的答案`{purpose}`是`了解产品形式`，给到的`回应`是：`如果你是想用AI 师傅来做自己的课程产品，可以选择 1.服务号找到我们进行课程的内容合作，服务号：AI师傅-一对一学习社区；2.直接去 GitHub 开源地址里自行配置，对，我们的项目已经开源了！服务号里有开源地址哦～`\n\n3. 如果学员选择的答案`{purpose}`是`好奇体验一下`，给到的`回应`是：`好奇是打开新世界的钥匙，感谢你的好奇带你来到我身边，AI师傅有很多惊喜等着你，可以从我们沟通中慢慢对我加深了解。`\n\n4. 如果学员选择的答案`{purpose}`是`其他`，给到的`回应`是：`看来是我想不到的理由了，如果有需要你可以关注我们的服务号：AI师傅-一对一学习社区，加上我们跟我们详细聊～`\n\n## 输入要求\n- 以`我们看看是什么原因，把你带到我身边！`为开头往下讲。\n- 以`总之，很开心遇到你，与你有这次的对话。`为结尾。",
+                        "profiles": [
+                            "purpose"
+                        ],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "cae92f8e171e4a23a3d6e26a8851bc48",
+                "block_no": 3,
+                "block_name": "介绍个性化",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 3,
+                "block_content": {
+                    "properties": {
+                        "prompt": "##输出步骤\n- 介绍AI 师傅会根据学员的输出，做出不同的反馈。\n- 回答的逻辑是真人控制的，但是回答的话会跟随选择的不同而不同。这就实现了小小的个性化。\n- 告诉学员{nickname}：我也会记下你的输入，以及你的选择，后续有需要的时候，我会根据你的情况做针对性讲解。",
+                        "profiles": [
+                            "nickname"
+                        ],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "有点意思～",
+                        "button_key": "有点意思～"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "6b4ceec7dabb4e268e57d96be030cfcf",
+                "block_no": 4,
+                "block_name": "询问用户行业职业",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 4,
+                "block_content": {
+                    "properties": {
+                        "content": "为了帮助我进一步了解你。\n\n{nickname} ，你可以试着告诉我，当前你正处于什么行业，从事什么职业的工作， 我会结合你的具体工作，给到 AI 可以为你工作赋能的一些想法！\n\n请参考下面的格式，告诉我你的工作：\n* 电商行业的运营\n* 医疗行业的猎头\n* 知识付费领域的个体创业者\n* 哲学系的大学生\n* 独立摄影师\n* 大学教授，主要教应用物理\n\n*🏷️ 提醒：建议填写你正在从事的工作，与你的关联性更紧密，会更有利于我们接下来的沟通哦～*"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": {
+                    "properties": {
+                        "prompt": {
+                            "properties": {
+                                "prompt": "从用户输入的内容中提取 `用户职业背景(user_background)` 信息，返回 JSON 格式的结果。\n如果解析成功，请直接返回 JSON `{{\"result\": \"ok\", \"parse_vars\": {{\"user_background\": \"解析出的用户职业背景\"}}}}`\n如果解析失败，则通过 JSON 返回失败的原因 `{{\"result\": \"failed\", \"reason\":\"具体的失败原因，并提示用户说的再次尝试输入职业背景信息\"}}`\n无论是否成功，都只返回 JSON，不要输出思考过程。\n\n\n用户输入是：`{input}`\n\n\n仅提取用户的职业背景信息，去除 主谓短语 等描述说话者身份的内容。例如：\n* 用户输入 `电商产品经理`， 希望解析出：`电商产品经理`\n* 用户输入 `我主要做管理工作`， 希望解析出：`管理工作`\n* 用户输入 `独立摄影师，主要拍些妹子`， 希望解析出：`独立摄影师，主要拍些妹子`\n* 用户输入 `我是一个大学教授，主要教应用物理，同时也做一些相关学术和科研工作`， 希望解析出：`大学教授，主要教应用物理，同时也做一些相关学术和科研工作`\n* 用户输入 `家庭主妇，带俩孩子，一男一女`， 希望解析出：`家庭主妇，带俩孩子，一男一女`\n* 用户输入 `啥也不干，在家混吃等死`， 希望解析出：`啥也不干，在家混吃等死`\n\n\n如果用户输入的内容与并没有描述职业背景，如行业、职业、做什么事儿之类的，则：\n应解析失败，需要通过 JSON 返回失败的原因 ： `{{\"result\": \"failed\", \"reason\":\"具体的失败原因（如输入的不是职业背景），并提示用户说的再次尝试输入职业背景信息\"}}`\n这种情况下（即 如果用户输入的内容与并没有描述职业背景）有以下特殊情况：\n* 用户输入的内容属于职业背景，但其背景涉及 色情、暴力等违法违规的内容，也解析失败，需要通过 JSON 返回失败的原因 `{{\"result\": \"failed\", \"reason\":\"具体的失败原因（如输入的是非法内容），并提示用户说的再次尝试输入合法合规的职业背景信息\"}}`\n* 用户询问如何购买课程，则解析失败，通过 JSON 返回失败的原因 `{{\"result\": \"failed\", \"reason\":\"具体失败的原因\"}}` 原因中生成以老师的身份告诉用户当前是体验课环节，体验完成后会有购买方式。最后再次强调当前需要得到用户的职业背景信息，先跟着教学路径好好学，后续有的是机会展开讨论各种话题。\n* 用户表达已经学过这部分了想要继续之前的进度，则解析失败，通过 JSON 返回失败的原因 `{{\"result\": \"failed\", \"reason\":\"具体失败的原因\"}}` 原因中生成以老师的身份告知用户可以点击菜单中的设置进行登录，登录后可以看到已有的学习记录。最后再次强调当前需要得到用户的职业背景信息，先跟着教学路径好好学，后续有的是机会展开讨论各种话题。\n\n\n从用户输入的内容中提取 `用户职业背景(user_background)` 信息，返回 JSON 格式的结果。\n如果解析成功，请直接返回 JSON `{{\"result\": \"ok\", \"parse_vars\": {{\"user_background\": \"解析出的用户职业背景\"}}}}`\n如果解析失败，则通过 JSON 返回失败的原因 `{{\"result\": \"failed\", \"reason\":\"具体的失败原因，并提示用户说的再次尝试输入职业背景信息\"}}`\n无论是否成功，都只返回 JSON，不要输出思考过程。",
+                                "profiles": [
+                                    "user_background"
+                                ],
+                                "model": "",
+                                "temprature": "0.40",
+                                "other_conf": ""
+                            },
+                            "type": "ai"
+                        },
+                        "input_name": "请输入你当前的工作背景",
+                        "input_key": "请输入你当前的工作背景",
+                        "input_placeholder": "请输入你当前的工作背景"
+                    },
+                    "type": "textinput"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "ac1d4e84ea9d4c1cb3e558b2519fca9a",
+                "block_no": 5,
+                "block_name": "结合用户行业职业举例",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 5,
+                "block_content": {
+                    "properties": {
+                        "prompt": "学员的背景是：{user_background}，还不知道用AI 可以为自己的日常工作提供什么帮助。\n\n##任务\n- 需要认真理解学员的背景{user_background}，从工作生活学习场景中，找到AI可以提供支持的常见需求。 场景需求必须是日常的，建议找一些会耗费最多时间和精力的。\n- 结合场景需求精心撰写相关的提示词，每个提示词都经过深入思考，需要吻合学员的背景，以便学员可以立刻开展尝试。\n\n##输出\n输出一个表格，表格有3列，5行。\n列分别是“场景需求”、“应用程序”和“给 AI 的提示词参考”。\n“场景需求” 以问题的形式呈现，需要是详细且具体的痛点。\n“应用程序”能解决问题的应用程序思路。\n“给 AI 的指令参考”将以我的角度，结合“应用场景” 直接用口语化的方式向 AI 提出详细的提示词。",
+                        "profiles": [
+                            "user_background"
+                        ],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "outline_id": "1e825b46ef474e8786b28ec424dd7309",
+                "outline_no": "0003",
+                "outline_name": "0.3 AI 师傅可以为我做什么",
+                "outline_desc": "",
+                "outline_type": 401,
+                "outline_level": 2
+            },
+            "type": "outline"
+        },
+        {
+            "properties": {
+                "block_id": "f132b54930fa4b0f80414cd2e42f0b35",
+                "block_no": 1,
+                "block_name": "选择授课风格",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 1,
+                "block_content": {
+                    "properties": {
+                        "prompt": "##输出步骤\n- 不要打招呼，直接讲解\n- 1对1向学员讲解：除了根据你的信息做个性化学习之外，你还可以向我提出要求。\n- 比如邀请学员选择授课风格：你可以告诉我，你喜欢什么样的授课风格？",
+                        "profiles": [],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": "{\n \"var_name\": \"style\",\n \"btns\": [\n{\"label\": \"幽默风趣\", \"value\": \"幽默风趣\"},\n{\"label\": \"专业犀利\", \"value\": \"专业犀利\"},\n{\"label\": \"鼓励温暖\", \"value\": \"鼓励温暖\"}\n ]\n}"
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "option_name": "继续",
+                        "option_key": "继续",
+                        "profile_key": "style",
+                        "buttons": [
+                            {
+                                "properties": {
+                                    "button_name": "幽默风趣",
+                                    "button_key": "幽默风趣"
+                                },
+                                "type": "button"
+                            },
+                            {
+                                "properties": {
+                                    "button_name": "专业犀利",
+                                    "button_key": "专业犀利"
+                                },
+                                "type": "button"
+                            },
+                            {
+                                "properties": {
+                                    "button_name": "鼓励温暖",
+                                    "button_key": "鼓励温暖"
+                                },
+                                "type": "button"
+                            }
+                        ]
+                    },
+                    "type": "option"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "9491d6045c8545869dceb04b806be7bb",
+                "block_no": 2,
+                "block_name": "结合风格讲述",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 2,
+                "block_content": {
+                    "properties": {
+                        "prompt": "根据学员选择的授课风格 `{style}` ，给到 {nickname}  一句回应。\n采用授课风格 `{style}` ，讲解下面的 `内容` ：\n`内容`是：\n- 我可以根据你的要求跟你沟通，是因为我是你的一对一私教，你的喜爱对我很重要。\n-虽然还会很多不完善，但是我在不断进化，慢慢地会越来越懂你，减少你学习中的阻力。\n\n# 限制\n1. 字数控制在300字以内。\n2. 凸显风格可以尽量用比喻类比。",
+                        "profiles": [
+                            "style",
+                            "nickname"
+                        ],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "5587f76a13d74e59972fd3653f28f95e",
+                "block_no": 3,
+                "block_name": "介绍AI师傅",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 3,
+                "block_content": {
+                    "properties": {
+                        "prompt": "##输出步骤\n- 1对1向学员讲解：AI 师傅在教育培训、小说故事、产品指南、调查问卷和游戏 NPC 等场景，都能提供更具互动性和沉浸感的体验。\n- AI 师傅的`逻辑`是:\n1. 真人设计整体逻辑\nAI 师傅通过真人编辑的提示词剧本来主导对话的流程，来确保对话过程不冷场，解决了用户不知道该问 AI 什么，或者越聊越跑题的情况。\n2. AI 为主导做交付\n通过提示词控制 AI，由 AI 来做内容的交付，一方面避免了 AI 的幻觉，确保信息传递的准确性；另一方面让互动更灵活，可以根据用户的身份背景等做个性化输出，让用户有被一对一服务的感受。\n3. 用户跟随，并且能随时打断提问\n用户按照对话流做跟随，确保获取到所有信息，在遇到想要深入了解的信息时，还可以即时采取向AI追问，向 AI 进行提问，影响对话内容，但最终还是会回到 AI 主导的故事线。\n\n以`了解了AI 师傅的个性化学习，AI 师傅到底有什么实际的作用呢？`为开头。",
+                        "profiles": [],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "2e20688364e34d3baffcbad01fd2bacc",
+                "block_no": 4,
+                "block_name": "介绍AI师傅",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 4,
+                "block_content": {
+                    "properties": {
+                        "content": "讲起来还是有点难理解的，{nickname} ，邀请你进入AI 师傅的官网 ：<a href=\" \" target=\"_blank\">AI-shifu.com </a > ，目前我们有一门自营课程《跟AI学编程》，在学习的过程更深入了解我们。\n\n第一节是体验课，可以免费学习，具体感受下AI 师傅在教育场景的应用。\n\n<img src=\"https://img.agiclass.cn/image.png\" style=\"width : 80%\" > "
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "outline_id": "46ad3a30eacf496ea56b6e413ef1c748",
+                "outline_no": "0004",
+                "outline_name": "0.4 我可以怎么用AI 师傅",
+                "outline_desc": "",
+                "outline_type": 401,
+                "outline_level": 2
+            },
+            "type": "outline"
+        },
+        {
+            "properties": {
+                "block_id": "65a04b3957a2484d8f5987cacdff26a7",
+                "block_no": 1,
+                "block_name": "用户互动",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 1,
+                "block_content": {
+                    "properties": {
+                        "content": "这里需要特别提醒的是，在AI 主导的对话流中，你是可以随时就课程的内容做追问的。\n\n**AI 降低了讲师高高在上的姿态，而是以学习者为中心。不懂就问，是主动学习的开始！**\n\n下面是一个提问的提示词，你可以复制到输入框，体验向 AI 提问的感觉。（也可以自由发挥）\n\n📖 提示词参考\n\n```markdown\nAI 师傅是哪个团队开发的？\n```\n\n*🏷️ 提醒：AI 师傅非常鼓励提问，但是会做提问内容的限制，需要你的问题与当前课程内容有关，问完也希望你尽快回到主线上继续学习。*"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": {
+                    "properties": {
+                        "prompt": {
+                            "properties": {
+                                "prompt": "判断用户的输入是否是合适的指令，返回 JSON 格式的结果。\n如果用户的输入是合适的指令，请直接返回 JSON `{{\"result\": \"ok\", \"parse_vars\":{{\"content\": \"解析出的指令（即用户的输入内容）\"}}}}`\n如果用户的输入不合适，则通过 JSON 返回不合适的原因 `{{\"result\": \"illegal\", \"reason\":\"具体不合适的原因\"}}`\n\n\n合适的指令需要满足以下条件：\n1、与本章节教学目标相关的问题，任何与 AI师傅（AIshifu）产品相关的问题都可以\n2、工作需求需要合法、合规，不涉及暴力、色情、政治、攻击性的内容。\n3、参考举例的内容。\n\n比如，这就是几个合适的指令：\n```\n- 我可以用 AI 师傅的学习平台做自己的课程吗？\n-  AI 师傅的团队有哪些人\n-  我可以怎么使用\n- 怎么学习\n```\n\n用户输入指令信息是：\n```\n{input}\n```\n\n如果用户的输入是合适的指令，请直接返回 JSON `{{\"result\": \"ok\", \"parse_vars\":{{\"content\": \"解析出的指令（即用户的输入内容）\"}}}}`\n如果用户的输入不合适，则通过 JSON 返回不合适的原因 `{{\"result\": \"illegal\", \"reason\":\"具体不合适的原因\"}}`\n\n如果用户的内容不完整，或者无法理解，需要提示用户再次输入，强调做指令的优化。比如：哎呀，我好像没有理解你的指令，可以根据指令的提示再说一遍吗？\n如果特别不合适，需要回复不合适的原因，注意语气可以俏皮一些。检查可以适当放宽要求。",
+                                "profiles": [
+                                    "content"
+                                ],
+                                "model": "",
+                                "temprature": "0.40",
+                                "other_conf": ""
+                            },
+                            "type": "ai"
+                        },
+                        "input_name": "输入体验任务的指令",
+                        "input_key": "输入体验任务的指令",
+                        "input_placeholder": "输入体验任务的指令"
+                    },
+                    "type": "textinput"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "95f24750ab50460c80929d8621727faf",
+                "block_no": 2,
+                "block_name": "互动回应",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 2,
+                "block_content": {
+                    "properties": {
+                        "prompt": "学员输入的提示词是 {content}，请按照提示词输出相关的`反馈`。`反馈`的内容来自于下面的`资料`。\n\n##`资料`:\nAI 师傅由 AI-Shifu 团队和哈工大智能软件工程研究中心合作开发。\n2024 年 10 月 24 日，AI 师傅（AI-Shifu）宣布正式向全球开源。\n你可以在 AI-Shifu.com 网站上学习由专家开发、AI 主导的课程，目前有一门自研的精品课《跟AI学编程》。\n如果你想要合作课程，可以在服务号「AI师傅-一对一学习社区」中找到团队成员进行深入沟通。\nAI 师傅是一个由大语言模型驱动的向导。与其他由人类主导的聊天机器人不同，AI 师傅是 AI 主导对话流，人类只需要跟随。虽然在过程中，人类随时可以提问，影响对话内容，但最终还是会回到 AI 主导的故事线。并且，AI 可以根据用户的身份背景、兴趣偏好等做个性化输出，让用户有被一对一服务的感受。在教育培训、小说故事、产品指南、调查问卷和游戏 NPC 等场景，AI 师傅都能提供更具互动性和沉浸感的体验。\n\n##要求\n- 仅输出跟提示词相关的`反馈`",
+                        "profiles": [
+                            "content"
+                        ],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "626697f318a74c17b6e0fd277c6d0cae",
+                "block_no": 3,
+                "block_name": "未来展望",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 3,
+                "block_content": {
+                    "properties": {
+                        "prompt": "采用授课风格 `{style}` ，讲解下面的 `内容` ：\n##输出步骤\n `内容` ：\n-1对1对学员讲解： AI 师傅才刚刚起步，随着AI 技术的发展，以及大家的共创，我们也不知道未来会发生什么。\n- 无论如何，先出发吧，欢迎加入我们，跟AI 师傅一起探索。\n\n以`可以通过服务号「AI师傅-一对一学习社区」找到我们！`为结尾。\n\n##输入要求\n1. 不要超过200字\n2. 要有号召力和感染力",
+                        "profiles": [],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "45e5090ebb894db0ad2472143d9b4672",
+                "block_no": 4,
+                "block_name": "服务号引导关注",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 4,
+                "block_content": {
+                    "properties": {
+                        "content": ""
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "c0572cbcd25742dab1120ff6eee8d667",
+                "block_no": 5,
+                "block_name": "输入验证码",
+                "block_desc": "",
+                "block_type": 102,
+                "block_index": 5,
+                "block_content": {
+                    "properties": {
+                        "prompt": " {nickname} ，你已经告诉了我一些关于你的个人信息， 作为你专属的 AI 师傅，我会记录下来，在后续平台上的任何课程学习里，我都会贴合你的背景做个性化地教学。\n\n现在，请告诉我你的手机号，我会为你创建个人帐号存储信息和进度，并继续下面的内容。",
+                        "profiles": [],
+                        "model": "",
+                        "temprature": "0.40",
+                        "other_conf": ""
+                    },
+                    "type": "ai"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "请登陆/注册",
+                        "button_key": "请登陆/注册"
+                    },
+                    "type": "login"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "52eb57f99c8c4650ae0bdef24ebcec66",
+                "block_no": 6,
+                "block_name": "服务号引导关注",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 6,
+                "block_content": {
+                    "properties": {
+                        "content": "为了能联系到我们，你可以关注服务号「哎师傅-AI学习社区」，联系到我们。\n\n当然，你可能还能找到我们团队的微信号。请在加我们微信时，记得告之你的添加的原因，比如「推荐课程」、「课程合作」等。"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": null
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "block_id": "782441326729424fa0b85c9dbdb30fce",
+                "block_no": 7,
+                "block_name": "服务号引导关注",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 7,
+                "block_content": {
+                    "properties": {
+                        "content": "g接下来测试购课"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "继续",
+                        "button_key": "继续"
+                    },
+                    "type": "payment"
+                }
+            },
+            "type": "block"
+        },
+        {
+            "properties": {
+                "outline_id": "03bc1d9cf7ba43599b118b16b0174223",
+                "outline_no": "0005",
+                "outline_name": "0.5 期待新故事",
+                "outline_desc": "",
+                "outline_type": 401,
+                "outline_level": 2
+            },
+            "type": "outline"
+        },
+        {
+            "properties": {
+                "block_id": "163fac145b7f4139886fdd8ec0d42b05",
+                "block_no": 1,
+                "block_name": "章节结束",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": 1,
+                "block_content": {
+                    "properties": {
+                        "content": "感谢 {nickname} 的信任 ，你已经完成注册了，接下来就可以开始具体的下一步动作了！\n\n期待我们的新故事发生～"
+                    },
+                    "type": "solidcontent"
+                },
+                "block_ui": {
+                    "properties": {
+                        "button_name": "进入下一章",
+                        "button_key": "进入下一章"
+                    },
+                    "type": "button"
+                }
+            },
+            "type": "block"
+        }
+    ]
+}

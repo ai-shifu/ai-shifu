@@ -605,7 +605,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                 data:
                                     type: array
                                     items:
-                                        $ref: "#/components/schemas/UnitDto"
+                                        $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
         scenario_id = request.args.get("scenario_id")
@@ -653,6 +653,22 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     unit_index:
                         type: integer
                         description: unit index
+        responses:
+            200:
+                description: create unit success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
         scenario_id = request.get_json().get("scenario_id")
@@ -714,6 +730,22 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     unit_type:
                         type: string
                         description: unit type (normal,trial)
+        responses:
+            200:
+                description: modify unit success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
         unit_id = request.get_json().get("unit_id")
@@ -764,7 +796,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/UnitDto"
+                                    $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
         unit_id = request.args.get("unit_id")
@@ -803,6 +835,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: message
                                 data:
                                     type: boolean
+                                    description: delete unit success
         """
         user_id = request.user.user_id
         unit_id = request.get_json().get("unit_id")
@@ -952,6 +985,15 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     application/json:
                         schema:
                             properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/BlockDto"
         """
         user_id = request.user.user_id
         outline_id = request.get_json().get("outline_id")

@@ -49,7 +49,7 @@ def create_unit(
     unit_index: int = 0,
     unit_system_prompt: str = None,
     unit_is_hidden: bool = False,
-):
+) -> OutlineDto:
     with app.app_context():
         if len(unit_name) > 20:
             raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
@@ -149,7 +149,7 @@ def create_unit(
         raise_error("SCENARIO.CHAPTER_NOT_FOUND")
 
 
-def get_unit_by_id(app, unit_id: str):
+def get_unit_by_id(app, unit_id: str) -> OutlineDto:
     with app.app_context():
         unit = AILesson.query.filter_by(lesson_id=unit_id).first()
         if unit:
