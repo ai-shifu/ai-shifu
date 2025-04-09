@@ -295,15 +295,15 @@ def send_sms_code_without_check(app: Flask, user_info: User, phone: str):
 
 
 def verify_sms_code_without_phone(
-    app: Flask, user_id: str, checkcode, course_id: str = None
+    app: Flask, user_info: User, checkcode, course_id: str = None
 ) -> UserToken:
     User = get_model(app)
     with app.app_context():
-        phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"] + user_id)
+        phone = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE"] + user_info.user_id)
         if phone is None:
-            app.logger.info("cache user_id:" + user_id + " phone is None")
+            app.logger.info("cache user_id:" + user_info.user_id + " phone is None")
             user = (
-                User.query.filter(User.user_id == user_id)
+                User.query.filter(User.user_id == user_info.user_id)
                 .order_by(User.id.asc())
                 .first()
             )

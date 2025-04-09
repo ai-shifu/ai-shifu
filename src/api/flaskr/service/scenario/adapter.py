@@ -169,12 +169,10 @@ def update_block_model(
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, PhoneDto):
-            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_PHONE
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
         elif isinstance(block_dto.block_ui, CodeDto):
-            check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_CHECKCODE
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
@@ -342,15 +340,15 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         )
     elif block.script_ui_type == UI_TYPE_CHECKCODE:
         ret.block_ui = CodeDto(
-            text_input_name=block.script_ui_content,
-            text_input_key=block.script_ui_content,
-            text_input_placeholder=block.script_ui_content,
+            input_name=block.script_ui_content,
+            input_key=block.script_ui_content,
+            input_placeholder=block.script_ui_content,
         )
     elif block.script_ui_type == UI_TYPE_PHONE:
         ret.block_ui = PhoneDto(
-            text_input_name=block.script_ui_content,
-            text_input_key=block.script_ui_content,
-            text_input_placeholder=block.script_ui_content,
+            input_name=block.script_ui_content,
+            input_key=block.script_ui_content,
+            input_placeholder=block.script_ui_content,
         )
     elif block.script_ui_type == UI_TYPE_LOGIN:
         ret.block_ui = LoginDto(

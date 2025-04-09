@@ -425,14 +425,14 @@ class CodeDto(InputDto):
 
     def __init__(
         self,
-        text_input_name: str = None,
-        text_input_key: str = None,
-        text_input_placeholder: str = None,
+        input_name: str = None,
+        input_key: str = None,
+        input_placeholder: str = None,
     ):
-        super().__init__(text_input_name, text_input_key, text_input_placeholder)
-        self.input_name = text_input_name
-        self.input_key = text_input_key
-        self.input_placeholder = text_input_placeholder
+        super().__init__(input_name, input_key, input_placeholder)
+        self.input_name = input_name
+        self.input_key = input_key
+        self.input_placeholder = input_placeholder
 
     def __json__(self):
         return {
@@ -449,19 +449,19 @@ class CodeDto(InputDto):
 class PhoneDto(InputDto):
     # type phone
     input_name: str
-    text_input_key: str
-    text_input_placeholder: str
+    input_key: str
+    input_placeholder: str
 
     def __init__(
         self,
-        text_input_name: str = None,
-        text_input_key: str = None,
-        text_input_placeholder: str = None,
+        input_name: str = None,
+        input_key: str = None,
+        input_placeholder: str = None,
     ):
-        super().__init__(text_input_name, text_input_key, text_input_placeholder)
-        self.input_name = text_input_name
-        self.input_key = text_input_key
-        self.input_placeholder = text_input_placeholder
+        super().__init__(input_name, input_key, input_placeholder)
+        self.input_name = input_name
+        self.input_key = input_key
+        self.input_placeholder = input_placeholder
 
     def __json__(self):
         return {
