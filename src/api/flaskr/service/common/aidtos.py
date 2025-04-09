@@ -41,7 +41,7 @@ class AIDto:
 @register_schema_to_swagger
 class SystemPromptDto:
     prompt: str
-    profiles: str
+    profiles: list[str]
     model: str
     temprature: float
     other_conf: dict
