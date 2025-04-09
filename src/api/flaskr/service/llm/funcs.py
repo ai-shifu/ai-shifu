@@ -24,7 +24,7 @@ def debug_script(
     script_id,
     script_prompt,
     script_model,
-    script_temprature,
+    script_temperature,
     script_variables,
     script_other_conf,
 ):
