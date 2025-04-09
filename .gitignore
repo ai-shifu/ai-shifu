@@ -176,6 +176,11 @@ src/cook/test*
 src/cook/codesifu-demo.db
 src/cook/auth_config.yml
 
+# Docker data directories
+docker/cook_data/
+docker/mysql_data/
+docker/redis_data/
+
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
 ###############################################################################
