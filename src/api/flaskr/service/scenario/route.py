@@ -727,23 +727,23 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               name: file
               type: file
               required: true
-              description: 课程文件
+              description: documents
         responses:
             200:
-                description: 上传成功
+                description: upload success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return msg
                                 data:
                                     type: string
-                                    description: 课程文件地址
+                                    description: scenario file url
         """
         file = request.files.get("file", None)
         resource_id = request.values.get("resource_id", None)
