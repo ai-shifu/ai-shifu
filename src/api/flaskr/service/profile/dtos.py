@@ -24,7 +24,7 @@ class ColorSetting:
 
 
 @register_schema_to_swagger
-class ProfileItemDefination:
+class ProfileItemDefinition:
     profile_key: str  # the key of the profile item and could be used in prompt
     color_setting: ColorSetting  # the color setting of the profile item
     profile_type: str
