@@ -22,6 +22,7 @@ RUN pip install --upgrade pip
 
 # Install dependencies
 COPY requirements.txt .
+RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r requirements.txt
 COPY . .
 COPY auth_config.example.yml auth_config.yml
