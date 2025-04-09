@@ -6,7 +6,7 @@ from .funcs import (
     publish_scenario,
     preview_scenario,
     get_scenario_info,
-    upload_file
+    upload_file,
 )
 from .chapter_funcs import (
     get_chapter_list,
@@ -954,7 +954,6 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         outline_id = request.get_json().get("outline_id")
         blocks = request.get_json().get("blocks")
         return make_common_response(save_block_list(app, user_id, outline_id, blocks))
-
 
     @app.route(path_prefix + "/add-block", methods=["POST"])
     def add_block_api():

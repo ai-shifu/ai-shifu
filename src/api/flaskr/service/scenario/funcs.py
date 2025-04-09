@@ -13,7 +13,6 @@ import oss2
 import uuid
 
 
-
 def get_raw_scenario_list(
     app, user_id: str, page_index: int, page_size: int
 ) -> PageNationDTO:
@@ -201,7 +200,6 @@ def check_scenario_exist(app, scenario_id: str):
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
 
 
-
 def publish_scenario(app, user_id, scenario_id: str):
     with app.app_context():
         scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
@@ -221,6 +219,7 @@ def preview_scenario(app, user_id, scenario_id: str, variables: dict, skip: bool
         if scenario:
             check_scenario_can_publish(app, scenario_id)
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
+
 
 def get_content_type(filename):
     extension = filename.rsplit(".", 1)[1].lower()
