@@ -59,3 +59,12 @@ export const initActiveOrder = ({ recordId, action, courseId }) => {
     }
   });
 }
+
+// 获取订单详情
+export const getOrderDetail = ({ orderId }) => {
+  return request({
+    method: 'POST',
+    url: '/api/order/get-order-detail',
+    data: { order_id: orderId },
+  });
+};

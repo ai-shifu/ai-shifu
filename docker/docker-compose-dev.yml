@@ -24,7 +24,7 @@ services:
     container_name: ai-shifu-cook-dev
     image: ai-shifu-cook-dev:latest
     volumes:
-      - ./cook_data:/datas
+      - ./cook_data:/data
     env_file:
       - ./.env
     depends_on:
