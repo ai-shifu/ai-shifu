@@ -2,7 +2,7 @@ services:
   ai-shifu-api-dev:
     container_name: ai-shifu-api-dev
     image: ai-shifu-api-dev:latest
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && exec flask run --debugger --host=0.0.0.0 --port=5800"]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
     env_file:
       - ./.env
     volumes:
@@ -13,15 +13,18 @@ services:
   ai-shifu-web-dev:
     container_name:  ai-shifu-web-dev
     image: ai-shifu-web-dev:latest
+    command: ["sh", "-c", "npm run start:dev"]
     depends_on:
       - ai-shifu-api-dev
     env_file:
       - ./.env
+    volumes:
+      - ../src/web/:/app/
   ai-shifu-cook-dev:
     container_name: ai-shifu-cook-dev
     image: ai-shifu-cook-dev:latest
     volumes:
-      - ./cook_data:/data
+      - ./cook_data:/datas
     env_file:
       - ./.env
     depends_on:
