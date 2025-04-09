@@ -6,10 +6,12 @@ from flaskr.service.scenario.adapter import (
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import save_profile_item_defination
+from flaskr.service.profile.models import ProfileItem
 from flaskr.service.common.models import raise_error
 from flaskr.util import generate_id
 from flaskr.dao import db
 from datetime import datetime
+from flaskr.service.lesson.const import SCRIPT_TYPE_SYSTEM
 
 
 def get_block_list(app, user_id: str, outline_id: str):
@@ -36,6 +38,7 @@ def get_block_list(app, user_id: str, outline_id: str):
             AILessonScript.query.filter(
                 AILessonScript.lesson_id.in_(sub_outline_ids),
                 AILessonScript.status == 1,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
             )
             .order_by(AILessonScript.script_index.asc())
             .all()
@@ -43,6 +46,12 @@ def get_block_list(app, user_id: str, outline_id: str):
 
         ret = []
         app.logger.info(f"blocks : {len(blocks)}")
+
+        profile_ids = [b.script_ui_profile_id for b in blocks]
+        profile_items = ProfileItem.query.filter(
+            ProfileItem.profile_id.in_(profile_ids),
+            ProfileItem.status == 1,
+        ).all()
         for sub_outline in sub_outlines:
             ret.append(
                 OutlineEditDto(
@@ -59,7 +68,7 @@ def get_block_list(app, user_id: str, outline_id: str):
                 key=lambda x: x.script_index,
             )
             for block in lesson_blocks:
-                ret.append(generate_block_dto(block))
+                ret.append(generate_block_dto(block, profile_items))
         return ret
     pass
 
@@ -127,6 +136,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         current_outline_id = outline_id
         block_models = []
         save_block_ids = []
+        profile_items = []
         for block in block_list:
             type = block.get("type")
             app.logger.info(f"block type : {type} , {block}")
@@ -160,15 +170,19 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
 
                 profile = update_block_model(block_model, block_dto)
                 if profile:
-                    save_profile_item_defination(
+                    profile_item = save_profile_item_defination(
                         app, user_id, outline.course_id, profile
                     )
+                    block_model.script_ui_profile_id = profile_item.profile_id
+                    block_model.script_check_prompt = profile_item.profile_prompt
+                    profile_items.append(profile_item)
                 save_block_ids.append(block_model.script_id)
                 block_model.lesson_id = current_outline_id
                 block_model.script_index = block_index
                 block_model.updated = datetime.now()
                 block_model.updated_user_id = user_id
                 block_model.status = 1
+
                 db.session.merge(block_model)
                 block_index += 1
                 block_models.append(block_model)
@@ -181,7 +195,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             AILessonScript.script_id.notin_(save_block_ids),
         ).update({"status": 0})
         db.session.commit()
-        return [generate_block_dto(block_model) for block_model in block_models]
+        return [
+            generate_block_dto(block_model, profile_items)
+            for block_model in block_models
+        ]
     pass
 
 
@@ -221,7 +238,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
         )
         db.session.add(block_model)
         db.session.commit()
-        return generate_block_dto(block_model)
+        return generate_block_dto(block_model, [])
 
 
 # delete block list

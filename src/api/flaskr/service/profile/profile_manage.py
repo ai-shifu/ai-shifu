@@ -339,7 +339,7 @@ def save_profile_item_defination(
     user_id: str,
     scenario_id: str,
     profile: TextProfileDto | SelectProfileDto | None,
-):
+) -> ProfileItem:
     app.logger.info(
         "save profile item defination:{} {}".format(profile.__class__.__name__, profile)
     )
@@ -383,9 +383,32 @@ def save_profile_item_defination(
             profile_item.profile_prompt_model_args = str(
                 profile.profile_prompt.temprature
             )
+
+            profile_item.profile_raw_prompt = profile.profile_prompt.prompt
+            profile_item.profile_prompt = f"""
+            从用户输入的内容中提取{profile.profile_key}
+            这个{profile.profile_key}的详细定义是：
+
+            {profile.profile_prompt.prompt}
+
+            如果输入中含有{profile.profile_key},
+
+            请根据用户输入的内容，提取出{profile.profile_key},
+            请直接返回JSON `{{{{"result": "ok", "parse_vars": "{profile.profile_key}": "解析出的{profile.profile_key}"}}}}`,
+            如果输入中不含有{profile.profile_key}，请直接返回JSON `{{{{"result": "illegal", "reason":"具体不合法的原因,并提示用户再次输入"}}}}`
+            无论是否合法，都只返回 JSON,不要输出思考过程。
+
+            用户输入是：`{{input}}`"""
+
+            app.logger.info(
+                "save text profile item defination:{}".format(
+                    profile_item.profile_prompt
+                )
+            )
             profile_item.updated_by = user_id
             profile_item.profile_remark = profile.profile_intro
             profile_item.updated = datetime.now()
+
         db.session.flush()
 
     elif isinstance(profile, SelectProfileDto):
@@ -470,3 +493,4 @@ def save_profile_item_defination(
             ProfileItemValue.status == 1,
         ).update({"status": 0})
         db.session.flush()
+    return profile_item

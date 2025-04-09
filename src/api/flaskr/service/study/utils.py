@@ -230,12 +230,9 @@ def get_fmt_prompt(
     app.logger.info("raw prompt:" + profile_tmplate)
     propmpt_keys = []
     profiles = {}
-    if profile_array_str:
-        propmpt_keys = get_profile_array(profile_array_str)
-        profiles = get_user_profiles(app, user_id, propmpt_keys)
-    else:
-        profiles = get_user_profiles(app, user_id)
-        propmpt_keys = list(profiles.keys())
+
+    profiles = get_user_profiles(app, user_id)
+    propmpt_keys = list(profiles.keys())
     if input:
         profiles["input"] = input
         propmpt_keys.append("input")
@@ -248,7 +245,7 @@ def get_fmt_prompt(
         if key in profiles:
             fmt_keys[key] = profiles[key]
         else:
-            fmt_keys[key] = "目前未知"
+            fmt_keys[key] = key
             app.logger.info("key not found:" + key + " ,user_id:" + user_id)
     app.logger.info(fmt_keys)
     if len(fmt_keys) == 0:

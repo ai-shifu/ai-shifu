@@ -86,10 +86,15 @@ class ProfileItem(db.Model):
     profile_show_type = Column(Integer, nullable=False, default=0, comment="")
     profile_remark = Column(Text, nullable=False, comment="Profile remark")
     profile_prompt_type = Column(Integer, nullable=False, default=0, comment="")
-    profile_prompt = Column(Text, nullable=False, comment="Profile prompt")
-    profile_prompt_model = Column(Text, nullable=False, comment="Profile prompt model")
+    profile_raw_prompt = Column(
+        Text, nullable=False, default="", comment="Profile raw prompt"
+    )
+    profile_prompt = Column(Text, nullable=False, default="", comment="Profile prompt")
+    profile_prompt_model = Column(
+        Text, nullable=False, default="", comment="Profile prompt model"
+    )
     profile_prompt_model_args = Column(
-        Text, nullable=False, comment="Profile prompt model args"
+        Text, nullable=False, default="", comment="Profile prompt model args"
     )
     profile_color_setting = Column(
         String(255), nullable=False, default="", comment="Profile color"

@@ -37,6 +37,7 @@ from flaskr.service.profile.dtos import (
     SelectProfileDto,
     ProfileValueDto,
 )
+from flaskr.service.profile.models import ProfileItem
 import json
 from flaskr.service.common import raise_error
 import re
@@ -245,6 +246,9 @@ def update_block_model(
                 raise_error("SCENARIO.INPUT_NAME_REQUIRED")
             if not block_dto.block_ui.input_placeholder:
                 raise_error("SCENARIO.INPUT_PLACEHOLDER_REQUIRED")
+            from flask import current_app as app
+
+            app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
 
             block_model.script_ui_type = UI_TYPE_INPUT
             if block_dto.block_ui.input_key:
@@ -277,7 +281,7 @@ def get_profiles(profiles: str):
     return profiles
 
 
-def generate_block_dto(block: AILessonScript):
+def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
     ret = BlockDto(
         block_id=block.script_id,
         block_no=block.script_index,
@@ -312,6 +316,7 @@ def generate_block_dto(block: AILessonScript):
     if block.script_ui_type == UI_TYPE_BUTTON:
         ret.block_ui = ButtonDto(block.script_ui_content, block.script_ui_content)
     elif block.script_ui_type == UI_TYPE_INPUT:
+
         prompt = AIDto(
             prompt=block.script_check_prompt,
             profiles=get_profiles(block.script_ui_profile),
@@ -319,9 +324,19 @@ def generate_block_dto(block: AILessonScript):
             temprature=block.script_temprature,
             other_conf=block.script_other_conf,
         )
+
+        profile_items = [
+            p for p in profile_items if p.profile_id == block.script_ui_profile_id
+        ]
+        input_key = block.script_ui_profile.split("[")[1].split("]")[0]
+        if len(profile_items) > 0:
+            profile_item = profile_items[0]
+            prompt.prompt = profile_item.profile_raw_prompt
+            input_key = profile_item.profile_key
+
         ret.block_ui = TextInputDto(
             input_name=block.script_ui_content,
-            input_key=block.script_ui_content,
+            input_key=input_key,
             input_placeholder=block.script_ui_content,
             prompt=prompt,
         )
