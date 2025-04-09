@@ -61,4 +61,3 @@ def debug_script(
             raise e
         finally:
             trace.end()
-    pass
