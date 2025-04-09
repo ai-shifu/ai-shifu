@@ -44,4 +44,5 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
               required: true
         """
         raise NotImplementedError("This endpoint is not yet implemented.")
+
     return app
