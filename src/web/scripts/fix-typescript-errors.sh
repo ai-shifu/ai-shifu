@@ -1,6 +1,6 @@
 
 
-find ./src -type f -name "*.tsx" -o -name "*.ts" | xargs sed -i 's/from '\''.*\.jsx'\''/from '\''\1'\''/' 
+find ./src -type f -name "*.tsx" -o -name "*.ts" | xargs sed -i 's/from '\''.*\.jsx'\''/from '\''\1'\''/'
 
 mkdir -p ./src/types
 cat > ./src/types/declarations.d.ts << 'EOF'

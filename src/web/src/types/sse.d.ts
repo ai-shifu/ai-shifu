@@ -6,7 +6,7 @@ declare module 'sse.js' {
       method?: string;
       withCredentials?: boolean;
     });
-    
+
     addEventListener(event: string, listener: (event: MessageEvent | Event) => void): void;
     removeEventListener(event: string, listener: (event: MessageEvent | Event) => void): void;
     stream(): void;

@@ -15,9 +15,9 @@ import { ApiResponse } from "../types";
  * @returns
  */
 export const SendMsg = (
-  token: string, 
-  chatId: string, 
-  text: string, 
+  token: string,
+  chatId: string,
+  text: string,
   onMessage?: (response: any) => void
 ): SSE => {
   var source = new SSE(getStringEnv('baseURL')+"/chat/chat-assistant?token="+token, {
@@ -39,7 +39,7 @@ export const SendMsg = (
       console.error(e);
     }
   });
-  
+
   source.addEventListener('error', (event: Event) => {
     console.error(event);
   });
