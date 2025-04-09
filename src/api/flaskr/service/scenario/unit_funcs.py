@@ -149,12 +149,11 @@ def create_unit(
         raise_error("SCENARIO.CHAPTER_NOT_FOUND")
 
 
-def get_unit_by_id(app, unit_id: str) -> OutlineDto:
+def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
     with app.app_context():
         unit = AILesson.query.filter_by(lesson_id=unit_id).first()
-        if unit:
-            return unit
-        raise_error("SCENARIO.UNIT_NOT_FOUND")
+        if not unit:
+            raise_error("SCENARIO.UNIT_NOT_FOUND")
 
         unit_type = UNIT_TYPE_NORMAL
         hidden = False
@@ -174,6 +173,8 @@ def get_unit_by_id(app, unit_id: str) -> OutlineDto:
         ).first()
         if system_script:
             system_prompt = system_script.script_prompt
+        else:
+            system_prompt = ""
         return OutlineDto(
             unit.lesson_id,
             unit.lesson_no,
@@ -189,21 +190,24 @@ def modify_unit(
     app,
     user_id: str,
     unit_id: str,
-    unit_name: str,
-    unit_description: str,
+    unit_name: str = None,
+    unit_description: str = None,
     unit_index: int = 0,
     unit_system_prompt: str = None,
     unit_is_hidden: bool = False,
     unit_type: str = UNIT_TYPE_NORMAL,
 ):
     with app.app_context():
-        if len(unit_name) > 20:
+        if unit_name and len(unit_name) > 20:
             raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
         unit = AILesson.query.filter_by(lesson_id=unit_id).first()
         if unit:
-            unit.lesson_name = unit_name
-            unit.lesson_desc = unit_description
-            unit.lesson_index = unit_index
+            if unit_name:
+                unit.lesson_name = unit_name
+            if unit_description:
+                unit.lesson_desc = unit_description
+            if unit_index:
+                unit.lesson_index = unit_index
             unit.updated_user_id = user_id
             unit.updated_at = datetime.now()
             type = LESSON_TYPE_TRIAL
@@ -229,7 +233,7 @@ def modify_unit(
                         lesson_id=unit_id,
                         script_type=SCRIPT_TYPE_SYSTEM,
                         script_prompt=unit_system_prompt,
-                        script_name=unit_name + " system prompt",
+                        script_name=unit.lesson_name + " system prompt",
                         status=1,
                         created_user_id=user_id,
                         updated_user_id=user_id,
