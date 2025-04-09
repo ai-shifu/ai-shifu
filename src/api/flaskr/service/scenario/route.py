@@ -6,6 +6,7 @@ from .funcs import (
     publish_scenario,
     preview_scenario,
     get_scenario_info,
+    upload_file
 )
 from .chapter_funcs import (
     get_chapter_list,
@@ -954,6 +955,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         blocks = request.get_json().get("blocks")
         return make_common_response(save_block_list(app, user_id, outline_id, blocks))
 
+
     @app.route(path_prefix + "/add-block", methods=["POST"])
     def add_block_api():
         """
@@ -1003,5 +1005,44 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(
             add_block(app, user_id, outline_id, block, block_index)
         )
+
+    @app.route(path_prefix + "/upfile", methods=["POST"])
+    def upfile_api():
+        """
+        upfile to oss
+        ---
+        tags:
+            - scenario
+        parameters:
+            - in: formData
+              name: file
+              type: file
+              required: true
+              description: documents
+        responses:
+            200:
+                description: upload success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: return msg
+                                data:
+                                    type: string
+                                    description: scenario file url
+        """
+        file = request.files.get("file", None)
+        resource_id = request.values.get("resource_id", None)
+        if resource_id is None:
+            resource_id = ""
+        user_id = request.user.user_id
+        if not file:
+            raise_param_error("file")
+        return make_common_response(upload_file(app, user_id, resource_id, file))
 
     return app

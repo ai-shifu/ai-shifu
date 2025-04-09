@@ -4,10 +4,14 @@ from ..lesson.models import AICourse
 from ...util.uuid import generate_id
 from .models import FavoriteScenario
 from ..common.dtos import PageNationDTO
-from ..common.models import raise_error
-from datetime import datetime
-from .utils import check_scenario_can_publish
-from flaskr.common.config import get_config
+
+
+from ..common.models import raise_error, raise_error_with_args
+from ...common.config import get_config
+from ...service.resource.models import Resource
+import oss2
+import uuid
+
 
 
 def get_raw_scenario_list(
@@ -197,6 +201,7 @@ def check_scenario_exist(app, scenario_id: str):
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
 
 
+
 def publish_scenario(app, user_id, scenario_id: str):
     with app.app_context():
         scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
@@ -216,3 +221,74 @@ def preview_scenario(app, user_id, scenario_id: str, variables: dict, skip: bool
         if scenario:
             check_scenario_can_publish(app, scenario_id)
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
+
+def get_content_type(filename):
+    extension = filename.rsplit(".", 1)[1].lower()
+    if extension in ["jpg", "jpeg"]:
+        return "image/jpeg"
+    elif extension == "png":
+        return "image/png"
+    elif extension == "gif":
+        return "image/gif"
+    raise_error("FILE.FILE_TYPE_NOT_SUPPORT")
+
+
+def upload_file(app, user_id: str, resource_id: str, file) -> str:
+    endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
+    ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID", None)
+    ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET", None)
+    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_COURSES_URL", None)
+    BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_COURSES_BUCKET", None)
+    if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
+        app.logger.warning(
+            "ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID or ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET not configured"
+        )
+    else:
+        auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
+        bucket = oss2.Bucket(auth, endpoint, BUCKET_NAME)
+    with app.app_context():
+        if (
+            not ALI_API_ID
+            or not ALI_API_SECRET
+            or ALI_API_ID == ""
+            or ALI_API_SECRET == ""
+        ):
+            raise_error_with_args(
+                "API.ALIBABA_CLOUD_NOT_CONFIGURED",
+                config_var="ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET",
+            )
+        isUpdate = False
+        if resource_id == "":
+            file_id = str(uuid.uuid4()).replace("-", "")
+        else:
+            isUpdate = True
+            file_id = resource_id
+        bucket.put_object(
+            file_id,
+            file,
+            headers={"Content-Type": get_content_type(file.filename)},
+        )
+
+        url = FILE_BASE_URL + "/" + file_id
+        if isUpdate:
+            resource = Resource.query.filter_by(resource_id=file_id).first()
+            resource.name = file.filename
+            resource.updated_by = user_id
+            db.session.commit()
+            return url
+        resource = Resource(
+            resource_id=file_id,
+            name=file.filename,
+            type=0,
+            oss_bucket=BUCKET_NAME,
+            oss_name=BUCKET_NAME,
+            url=url,
+            status=0,
+            is_deleted=0,
+            created_by=user_id,
+            updated_by=user_id,
+        )
+        db.session.add(resource)
+        db.session.commit()
+
+        return url
