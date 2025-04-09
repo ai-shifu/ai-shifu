@@ -176,13 +176,14 @@ def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
         else:
             system_prompt = ""
         return OutlineDto(
-            unit.lesson_id,
-            unit.lesson_no,
-            unit.lesson_name,
-            unit.lesson_desc,
-            unit_type,
-            system_prompt,
-            hidden,
+            outline_id=unit.lesson_id,
+            outline_no=unit.lesson_no,
+            outline_name=unit.lesson_name,
+            outline_desc=unit.lesson_desc,
+            outline_index=unit.lesson_index,
+            outline_type=unit_type,
+            outline_system_prompt=system_prompt,
+            outline_is_hidden=hidden,
         )
 
 
