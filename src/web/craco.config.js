@@ -32,30 +32,31 @@ module.exports = {
           test: /\.md$/,
           use: 'raw-loader',
         });
+        
+        const tsRule = webpackConfig.module.rules[oneOfRuleIndex].oneOf.find(
+          rule => rule.test && rule.test.toString().includes('tsx')
+        );
+        
+        if (tsRule) {
+          webpackConfig.module.rules[oneOfRuleIndex].oneOf = 
+            webpackConfig.module.rules[oneOfRuleIndex].oneOf.filter(
+              rule => !(rule.test && rule.test.toString().includes('tsx'))
+            );
+        }
+        
+        webpackConfig.module.rules[oneOfRuleIndex].oneOf.unshift({
+          test: /\.(ts|tsx)$/,
+          exclude: /node_modules/,
+          use: {
+            loader: 'esbuild-loader',
+            options: {
+              loader: 'tsx',
+              target: 'es2015',
+              tsconfigRaw: require('./tsconfig.json')
+            }
+          }
+        });
       }
-
-      // webpackConfig.module.rules.push({
-      //   test: /\.(js|ts|tsx)$/,
-      //   use: [{
-      //     loader: 'string-replace-loader',
-      //     options: {
-      //       multiple: [
-      //         {
-      //           search: '\\?<=\\\\s|',
-      //           replace: '',
-      //         },
-      //         {
-      //           search: '\\?<=^',
-      //           replace: '^',
-      //         },
-      //         {
-      //           search: '\\?<="',
-      //           replace: '\\?="',
-      //         }
-      //       ]
-      //     }
-      //   }]
-      // })
 
 
       if (process.env.NODE_ENV === 'production') {
