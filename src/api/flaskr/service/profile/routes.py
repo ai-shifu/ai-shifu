@@ -47,7 +47,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                     data:
                       type: array
                       items:
-                        $ref: '#/components/schemas/ProfileItemDefination'
+                        $ref: '#/components/schemas/ProfileItemDefinition'
         """
         parent_id = request.args.get("parent_id")
         type = request.args.get("type")
@@ -128,7 +128,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
                                   type: string
                                 data:
                                   type: object
-                                  $ref: '#/components/schemas/ProfileItemDefination'
+                                  $ref: '#/components/schemas/ProfileItemDefinition'
         """
         parent_id = request.get_json().get("parent_id", None)
         profile_key = request.get_json().get("profile_key", None)

@@ -18,7 +18,7 @@ from flaskr.service.common import raise_error
 from .dtos import (
     ColorSetting,
     DEFAULT_COLOR_SETTINGS,
-    ProfileItemDefination,
+    ProfileItemDefinition,
     TextProfileDto,
     SelectProfileDto,
     ProfileValueDto,
@@ -61,7 +61,7 @@ def get_profile_item_defination_list(app: Flask, parent_id: str, type: str = "al
         profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
         if profile_item_list:
             return [
-                ProfileItemDefination(
+                ProfileItemDefinition(
                     profile_item.profile_key,
                     get_color_setting(profile_item.profile_color_setting),
                     (
@@ -133,7 +133,7 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
     db.session.add(profile_item)
     db.session.flush()
     app.logger.info(profile_item.profile_color_setting)
-    return ProfileItemDefination(
+    return ProfileItemDefinition(
         profile_item.profile_key,
         get_color_setting(profile_item.profile_color_setting),
         "option" if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT else "text",
@@ -199,7 +199,7 @@ def add_profile_item(
             )
             db.session.add(profile_item_value)
         db.session.commit()
-        return ProfileItemDefination(
+        return ProfileItemDefinition(
             profile_item.profile_key,
             get_color_setting(profile_item.profile_color_setting),
             (
@@ -250,7 +250,7 @@ def update_profile_item(
                 profile_item_value.updated_by = user_id
                 profile_item_value.status = 1
         db.session.commit()
-        return ProfileItemDefination(
+        return ProfileItemDefinition(
             profile_item.profile_key,
             get_color_setting(profile_item.profile_color_setting),
             (
@@ -267,7 +267,7 @@ def get_profile_item_defination(app: Flask, parent_id: str, profile_key: str):
             parent_id=parent_id, profile_key=profile_key
         ).first()
         if profile_item:
-            return ProfileItemDefination(
+            return ProfileItemDefinition(
                 profile_item.profile_key,
                 get_color_setting(profile_item.profile_color_setting),
                 (
