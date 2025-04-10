@@ -20,9 +20,6 @@ COPY . .
 
 RUN pnpm install
 
-RUN pnpm install -g express
-RUN pnpm install -g dotenv
-RUN pnpm install dotenv-cli --save-dev
 # expose port
 EXPOSE 5000
 
