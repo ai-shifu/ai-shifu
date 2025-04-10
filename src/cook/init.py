@@ -79,16 +79,16 @@ def load_llm(model: str = None, temperature: float = None, json_mode=False):
                 temperature=temperature,
                 organization=cfg.OPENAI_ORG,
                 model_kwargs={"response_format": {"type": "json_object"}},
-                api_key=os.getenv("DASHSCOPE_API_KEY"),
-                base_url=os.getenv("DASHSCOPE_BASE_URL"),
+                api_key=os.getenv("QWEN_API_KEY"),
+                base_url=os.getenv("QWEN_API_URL"),
             )
         else:
             return ChatOpenAI(
                 model=model,
                 temperature=temperature,
                 organization=cfg.OPENAI_ORG,
-                api_key=os.getenv("DASHSCOPE_API_KEY"),
-                base_url=os.getenv("DASHSCOPE_BASE_URL"),
+                api_key=os.getenv("QWEN_API_KEY"),
+                base_url=os.getenv("QWEN_API_URL"),
             )
 
     else:
