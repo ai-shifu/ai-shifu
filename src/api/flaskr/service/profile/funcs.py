@@ -3,8 +3,12 @@ from flask import Flask
 
 from .models import UserProfile
 from ...dao import db
+
+
 def user_function():
     from ..user.models import User
+
+
 from ...i18n import _
 import datetime
 from ..check_risk.funcs import add_risk_control_result
