@@ -66,7 +66,7 @@ class ScenarioDetailDto:
         self.scenario_id = scenario_id
         self.scenario_name = scenario_name
         self.scenario_description = scenario_description
-        self.scenario_teacher_avator = scenario_teacher_avatar
+        self.scenario_teacher_avatar = scenario_teacher_avatar
         self.scenario_keywords = scenario_keywords
         self.scenario_model = scenario_model
         self.scenario_price = scenario_price
@@ -78,7 +78,7 @@ class ScenarioDetailDto:
             "scenario_id": self.scenario_id,
             "scenario_name": self.scenario_name,
             "scenario_description": self.scenario_description,
-            "scenario_teacher_avatar": self.scenario_teacher_avator,
+            "scenario_teacher_avatar": self.scenario_teacher_avatar,
             "scenario_keywords": self.scenario_keywords,
             "scenario_model": self.scenario_model,
             "scenario_price": self.scenario_price,
