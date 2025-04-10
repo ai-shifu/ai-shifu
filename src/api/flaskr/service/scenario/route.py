@@ -225,10 +225,36 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
             - scenario
             - cook
         parameters:
-            - in: query
-              name: scenario_id
-              type: string
+            - name: body
+              in: body
+              type: object
               required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    scenario_name:
+                        type: string
+                        description: scenario name
+                    scenario_description:
+                        type: string
+                        description: scenario description
+                    scenario_teacher_avator:
+                        type: string
+                        description: scenario teacher avator
+                    scenario_keywords:
+                        type: array
+                        items:
+                            type: string
+                        description: scenario keywords
+                    scenario_model:
+                        type: string
+                        description: scenario model
+                    scenario_price:
+                        type: number
+                        description: scenario price
         responses:
             200:
                 description: save scenario detail success
