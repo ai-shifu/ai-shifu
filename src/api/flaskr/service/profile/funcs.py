@@ -3,12 +3,7 @@ from flask import Flask
 
 from .models import UserProfile
 from ...dao import db
-
-
-def user_function():
-    from ..user.models import User
-
-
+from ..user.models import User
 from ...i18n import _
 import datetime
 from ..check_risk.funcs import add_risk_control_result
@@ -130,7 +125,6 @@ def save_user_profile(
     user_profile = UserProfile.query.filter_by(
         user_id=user_id, profile_key=profile_key
     ).first()
-    user_function()
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_profile:
         user_profile.profile_value = profile_value
@@ -164,7 +158,6 @@ def save_user_profile(
 def save_user_profiles(app: Flask, user_id: str, profiles: dict):
     PROFILES_LABLES = get_profile_labels()
     app.logger.info("save user profiles:{}".format(profiles))
-    user_function()
     user_info = User.query.filter(User.user_id == user_id).first()
     for key, value in profiles.items():
         user_profile = UserProfile.query.filter_by(
@@ -207,7 +200,6 @@ def get_user_profiles(app: Flask, user_id: str, keys: list = None) -> dict:
 def get_user_profile_labels(app: Flask, user_id: str, course_id: str):
     app.logger.info("get user profile labels:{}".format(course_id))
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
-    user_function()
     user_info = User.query.filter(User.user_id == user_id).first()
     PROFILES_LABLES = get_profile_labels()
     result = []
@@ -279,7 +271,6 @@ def update_user_profile_with_lable(
 ):
     app.logger.info("update user profile with lable:{}".format(course_id))
     PROFILES_LABLES = get_profile_labels(course_id)
-    user_function()
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
         # check nickname
