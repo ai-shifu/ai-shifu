@@ -241,9 +241,9 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                     scenario_description:
                         type: string
                         description: scenario description
-                    scenario_teacher_avator:
+                    scenario_teacher_avatar:
                         type: string
-                        description: scenario teacher avator
+                        description: scenario teacher avatar
                     scenario_keywords:
                         type: array
                         items:
@@ -276,7 +276,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         scenario_id = request.get_json().get("scenario_id")
         scenario_name = request.get_json().get("scenario_name")
         scenario_description = request.get_json().get("scenario_description")
-        scenario_teacher_avator = request.get_json().get("scenario_teacher_avator")
+        scenario_teacher_avatar = request.get_json().get("scenario_teacher_avatar")
         scenario_keywords = request.get_json().get("scenario_keywords")
         scenario_model = request.get_json().get("scenario_model")
         scenario_price = request.get_json().get("scenario_price")
@@ -287,7 +287,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                 scenario_id,
                 scenario_name,
                 scenario_description,
-                scenario_teacher_avator,
+                scenario_teacher_avatar,
                 scenario_keywords,
                 scenario_model,
                 scenario_price,

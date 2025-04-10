@@ -302,7 +302,7 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         return url
 
 
-def get_scenario_detail(app, scenario_id: str):
+def get_scenario_detail(app, user_id: str, scenario_id: str):
     with app.app_context():
         scenario = AICourse.query.filter_by(course_id=scenario_id).first()
         if scenario:
@@ -329,7 +329,7 @@ def save_scenario_detail(
     scenario_id: str,
     scenario_name: str,
     scenario_description: str,
-    scenario_teacher_avator: str,
+    scenario_teacher_avatar: str,
     scenario_keywords: list[str],
     scenario_model: str,
     scenario_price: float,
@@ -339,7 +339,7 @@ def save_scenario_detail(
         if scenario:
             scenario.course_name = scenario_name
             scenario.course_desc = scenario_description
-            scenario.course_teacher_avator = scenario_teacher_avator
+            scenario.course_teacher_avator = scenario_teacher_avatar
             scenario.course_keywords = ",".join(scenario_keywords)
             scenario.course_default_model = scenario_model
             scenario.course_price = scenario_price
