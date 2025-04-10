@@ -273,7 +273,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     $ref: "#/components/schemas/ScenarioDetailDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.args.get("scenario_id")
+        scenario_id = request.get_json().get("scenario_id")
         scenario_name = request.get_json().get("scenario_name")
         scenario_description = request.get_json().get("scenario_description")
         scenario_teacher_avator = request.get_json().get("scenario_teacher_avator")
