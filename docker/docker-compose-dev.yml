@@ -19,7 +19,7 @@ services:
     env_file:
       - ./.env
     volumes:
-      - ../src/web/:/usr/src/app
+      - ../src/web/:/app
   ai-shifu-cook-dev:
     container_name: ai-shifu-cook-dev
     image: ai-shifu-cook-dev:latest

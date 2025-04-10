@@ -6,7 +6,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 
 
 # set work directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # install project dependencies
 # copy package.json and package-lock.json files
@@ -19,6 +19,9 @@ COPY ecosystem.config.js ./
 COPY . .
 
 RUN pnpm install
+
+RUN pnpm install -g express
+RUN pnpm install -g dotenv
 
 # expose port
 EXPOSE 5000
