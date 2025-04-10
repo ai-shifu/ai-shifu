@@ -19,7 +19,7 @@ services:
     env_file:
       - ./.env
     volumes:
-      - ../src/web/:/app/
+      - ../src/web/:/usr/src/app
   ai-shifu-cook-dev:
     container_name: ai-shifu-cook-dev
     image: ai-shifu-cook-dev:latest
@@ -48,8 +48,6 @@ services:
       MYSQL_ROOT_PASSWORD: ai-shifu
       MYSQL_DATABASE: ai-shifu
     image: mysql:latest
-    ports:
-      - "3306:3306"
     restart: always
     volumes:
       - ./mysql_data:/var/lib/mysql
@@ -57,7 +55,5 @@ services:
   ai-shifu-redis:
     container_name: ai-shifu-redis
     image: redis:latest
-    ports:
-      - "6379:6379"
     volumes:
       - ./redis_data:/data
