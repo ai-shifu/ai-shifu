@@ -51,7 +51,7 @@ def debug_script(
                 span,
                 script_model,
                 script_prompt,
-                **{"temperature": script_temprature},
+                **{"temperature": script_temperature},
                 generation_name="debug-" + script_id,
             )
             for chunk in response:

@@ -1,4 +1,5 @@
 from ...dao import db
+from datetime import datetime
 from .dtos import ScenarioDto
 from ..lesson.models import AICourse
 from ...util.uuid import generate_id
@@ -193,6 +194,14 @@ def mark_or_unmark_favorite_scenario(
 
 
 def check_scenario_exist(app, scenario_id: str):
+    with app.app_context():
+        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        if scenario:
+            return
+        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+
+
+def check_scenario_can_publish(app, scenario_id: str):
     with app.app_context():
         scenario = AICourse.query.filter_by(course_id=scenario_id).first()
         if scenario:
