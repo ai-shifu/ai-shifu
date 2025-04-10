@@ -1,4 +1,4 @@
-import { SSE } from 'sse';
+import { SSE } from 'sse.js';
 import request from "../Service/Request";
 import { tokenStore } from 'Service/storeUtil';
 import { v4 } from "uuid";

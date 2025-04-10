@@ -1,4 +1,4 @@
-import { SSE } from 'sse';
+import { SSE } from 'sse.js';
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
 import { message } from "antd";
 import { tokenTool } from "./storeUtil";

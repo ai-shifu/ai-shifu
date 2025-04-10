@@ -1,4 +1,4 @@
-import { SSE } from 'sse';
+import { SSE } from 'sse.js';
 import request from "../Service/Request";
 import uuid from "uuid";
 import { getStringEnv } from 'Utils/envUtils';
