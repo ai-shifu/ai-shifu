@@ -270,25 +270,19 @@ def get_outline_tree(app, user_id: str, scenario_id: str):
         if need_to_update_parent:
             db.session.commit()
 
-        # 创建节点字典，用于快速查找
         node_dict = {}
 
-        # 构建树结构
         outline_tree = []
 
-        # 先将所有节点以字典形式存储
         for node in outline_tree_dto:
             app.logger.info(f"node: {node.__json__()}")
             node_dict[node.outline_no] = node
 
-        # 构建树形结构
         for node in outline_tree_dto:
-            # 如果是顶层节点（lesson_no长度为2）
             if len(node.outline_no) == 2:
                 outline_tree.append(node_dict[node.outline_no])
             else:
-                # 找到父节点
-                parent_no = node.outline_no[:-2]  # 获取父节点的编号
+                parent_no = node.outline_no[:-2]
                 if parent_no in node_dict and parent_no != node.outline_no:
                     app.logger.info(
                         f"parent_no: {parent_no}, node.outline_no: {node.outline_no}"
