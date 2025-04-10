@@ -32,18 +32,18 @@ module.exports = {
           test: /\.md$/,
           use: 'raw-loader',
         });
-        
+
         const tsRule = webpackConfig.module.rules[oneOfRuleIndex].oneOf.find(
           rule => rule.test && rule.test.toString().includes('tsx')
         );
-        
+
         if (tsRule) {
-          webpackConfig.module.rules[oneOfRuleIndex].oneOf = 
+          webpackConfig.module.rules[oneOfRuleIndex].oneOf =
             webpackConfig.module.rules[oneOfRuleIndex].oneOf.filter(
               rule => !(rule.test && rule.test.toString().includes('tsx'))
             );
         }
-        
+
         webpackConfig.module.rules[oneOfRuleIndex].oneOf.unshift({
           test: /\.(ts|tsx)$/,
           exclude: /node_modules/,
