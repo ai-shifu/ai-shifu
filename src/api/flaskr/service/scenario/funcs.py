@@ -1,6 +1,6 @@
 from ...dao import db
 from datetime import datetime
-from .dtos import ScenarioDto
+from .dtos import ScenarioDto, ScenarioDetailDto
 from ..lesson.models import AICourse
 from ...util.uuid import generate_id
 from .models import FavoriteScenario
@@ -138,7 +138,7 @@ def create_scenario(
         )
 
 
-def get_scenario_info(app, scenario_id: str):
+def get_scenario_info(app, user_id: str, scenario_id: str):
     with app.app_context():
         scenario = AICourse.query.filter_by(course_id=scenario_id).first()
         if scenario:
@@ -300,3 +300,61 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         db.session.commit()
 
         return url
+
+
+def get_scenario_detail(app, scenario_id: str):
+    with app.app_context():
+        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        if scenario:
+            keywords = (
+                scenario.course_keywords.split(",") if scenario.course_keywords else []
+            )
+            return ScenarioDetailDto(
+                scenario.course_id,
+                scenario.course_name,
+                scenario.course_desc,
+                scenario.course_teacher_avator,
+                keywords,
+                scenario.course_default_model,
+                str(scenario.course_price),
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
+            )
+        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+
+
+def save_scenario_detail(
+    app,
+    user_id: str,
+    scenario_id: str,
+    scenario_name: str,
+    scenario_description: str,
+    scenario_teacher_avator: str,
+    scenario_keywords: list[str],
+    scenario_model: str,
+    scenario_price: float,
+):
+    with app.app_context():
+        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        if scenario:
+            scenario.course_name = scenario_name
+            scenario.course_desc = scenario_description
+            scenario.course_teacher_avator = scenario_teacher_avator
+            scenario.course_keywords = ",".join(scenario_keywords)
+            scenario.course_default_model = scenario_model
+            scenario.course_price = scenario_price
+            scenario.updated_user_id = user_id
+            scenario.updated_at = datetime.now()
+            db.session.commit()
+            return ScenarioDetailDto(
+                scenario.course_id,
+                scenario.course_name,
+                scenario.course_desc,
+                scenario.course_teacher_avator,
+                scenario.course_keywords,
+                scenario.course_default_model,
+                str(scenario.course_price),
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
+            )
+        raise_error("SCENARIO.SCENARIO_NOT_FOUND")

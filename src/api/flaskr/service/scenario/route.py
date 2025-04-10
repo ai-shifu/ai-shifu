@@ -6,7 +6,8 @@ from .funcs import (
     publish_scenario,
     preview_scenario,
     get_scenario_info,
-    upload_file,
+    save_scenario_detail,
+    get_scenario_detail,
 )
 from .chapter_funcs import (
     get_chapter_list,
@@ -181,6 +182,91 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         scenario_id = request.args.get("scenario_id")
         return make_common_response(get_scenario_info(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/scenario-detail", methods=["GET"])
+    def get_scenario_detail_api():
+        """
+        get scenario detail
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - name: scenario_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get scenario detail success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ScenarioDetailDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        return make_common_response(get_scenario_detail(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/save-scenario-detail", methods=["POST"])
+    def save_scenario_detail_api():
+        """
+        save scenario detail
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - in: query
+              name: scenario_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: save scenario detail success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ScenarioDetailDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        scenario_name = request.get_json().get("scenario_name")
+        scenario_description = request.get_json().get("scenario_description")
+        scenario_teacher_avator = request.get_json().get("scenario_teacher_avator")
+        scenario_keywords = request.get_json().get("scenario_keywords")
+        scenario_model = request.get_json().get("scenario_model")
+        scenario_price = request.get_json().get("scenario_price")
+        return make_common_response(
+            save_scenario_detail(
+                app,
+                user_id,
+                scenario_id,
+                scenario_name,
+                scenario_description,
+                scenario_teacher_avator,
+                scenario_keywords,
+                scenario_model,
+                scenario_price,
+            )
+        )
 
     @app.route(path_prefix + "/mark-favorite-scenario", methods=["POST"])
     def mark_favorite_scenario_api():
@@ -1004,44 +1090,5 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(
             add_block(app, user_id, outline_id, block, block_index)
         )
-
-    @app.route(path_prefix + "/upfile", methods=["POST"])
-    def upfile_api():
-        """
-        upfile to oss
-        ---
-        tags:
-            - scenario
-        parameters:
-            - in: formData
-              name: file
-              type: file
-              required: true
-              description: documents
-        responses:
-            200:
-                description: upload success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: return msg
-                                data:
-                                    type: string
-                                    description: scenario file url
-        """
-        file = request.files.get("file", None)
-        resource_id = request.values.get("resource_id", None)
-        if resource_id is None:
-            resource_id = ""
-        user_id = request.user.user_id
-        if not file:
-            raise_param_error("file")
-        return make_common_response(upload_file(app, user_id, resource_id, file))
 
     return app
