@@ -24,6 +24,7 @@
     "suppressImplicitAnyIndexErrors": true,
     "skipDefaultLibCheck": true,
     "transpileOnly": true,
+    "types": ["node"],
     "baseUrl": "./src",
     "paths": {
       "@Assets": [

@@ -32,7 +32,7 @@ import LoginModal from '../Login/LoginModal';
 import { useDisclosture } from 'common/hooks/useDisclosture';
 import { memo } from 'react';
 import { useCallback } from 'react';
-import { tokenTool } from '@Service/storeUtil';
+import { tokenTool } from 'Service/storeUtil';
 import MarkdownBubble from './ChatMessage/MarkdownBubble';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking';
 import PayModalM from '../Pay/PayModalM';
@@ -56,7 +56,7 @@ const USER_ROLE = {
 const robotAvatar = 'https://avtar.agiclass.cn/sunner.jpg';
 
 const createMessage = ({
-  id = 0,
+  id = '',
   role,
   content,
   interaction_type,

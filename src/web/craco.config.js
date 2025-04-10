@@ -58,6 +58,30 @@ module.exports = {
         });
       }
 
+      // ios 16- don't support look behind
+      webpackConfig.module.rules.push({
+        test: /\.js$/,
+        use: [{
+          loader: 'string-replace-loader',
+          options: {
+            multiple: [
+              {
+                search: '?<=\\\\s|',
+                replace: '',
+              },
+              {
+                search: '?<=^',
+                replace: '^',
+              },
+              {
+                search: '?<="',
+                replace: '?="',
+              }
+            ]
+          }
+        }]
+      })
+
 
       if (process.env.NODE_ENV === 'production') {
         webpackConfig.devtool = false;
@@ -82,9 +106,6 @@ module.exports = {
         new NodePolyfillPlugin(),
         new webpack.ProvidePlugin({
           Buffer: ['buffer', 'Buffer'],
-        }),
-        new webpack.DefinePlugin({
-          'process.env': JSON.stringify(process.env),
         }),
       ];
 

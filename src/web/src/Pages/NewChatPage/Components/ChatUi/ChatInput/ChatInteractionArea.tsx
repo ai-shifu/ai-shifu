@@ -12,7 +12,7 @@ import AskButton from './InputComponents/AskButton';
 
 // import all interaction components
 const importAll = (r) => r.keys().forEach(r);
-importAll(require.context('./InputComponents', true, /\.jsx$/));
+importAll(require.context('./InputComponents', true, /\.tsx$/));
 
 export const ChatInteractionArea = ({
   type = INTERACTION_DISPLAY_TYPE.TEXT,
