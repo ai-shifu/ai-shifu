@@ -70,6 +70,7 @@
     "payChannelAlipay": "支付宝",
     "paySuccess": "支付成功",
     "protocalDesc": "购买即表示已阅读并同意以下协议",
+    "virtualGoodsNotice": "您购买的商品为虚拟内容商品，购买后不支持退订、转让。",
     "modelServiceAgreement": "《模型服务协议》",
     "userPrivacyPolicy": "《用户隐私协议》"
   },

@@ -67,6 +67,7 @@
     "payModalTitle": "Purchase",
     "paySuccess": "Paid successfully",
     "protocalDesc": "Purchase means you have read and agreed to the following agreement",
+    "virtualGoodsNotice": "The product you are purchasing is virtual content and does not support cancellation or transfer after purchase.",
     "payChannel": "Payment Method",
     "payChannelWechat": "WeChat",
     "payChannelAlipay": "Alipay",

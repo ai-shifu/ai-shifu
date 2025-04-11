@@ -9,8 +9,38 @@
     color: var(--color-8);
   }
 
+  .numberedList {
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: center;
+    width: 80%;
+    max-width: 350px;
+
+    .listTitle {
+      width: 100%;
+      color: var(--color-8);
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+
+    .listItem {
+      display: flex;
+      color: var(--color-8);
+      margin-bottom: 2px;
+      width: 100%;
+
+      .listNumber {
+        margin-right: 5px;
+        flex-shrink: 0;
+      }
+    }
+  }
+
   .protocalLinks {
-    margin-top: 3px;
+    margin-top: 0;
+    margin-bottom: 8px;
+    margin-left: 20px;
+    align-self: flex-start;
 
     .protocalLink {
       text-decoration: none;

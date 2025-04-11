@@ -72,6 +72,58 @@
     justify-content: center;
   }
 
+  .protocalDesc {
+    margin-top: 20px;
+    color: var(--color-8);
+    font-size: var(--font-size-5);
+    text-align: center;
+    padding: 0 20px;
+  }
+
+  .numberedList {
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: center;
+    margin-top: 20px;
+    width: 80%;
+    max-width: 350px;
+    margin-left: auto;
+    margin-right: auto;
+
+    .listTitle {
+      width: 100%;
+      color: var(--color-8);
+      margin-bottom: 5px;
+      font-weight: 500;
+      font-size: var(--font-size-5);
+    }
+
+    .listItem {
+      display: flex;
+      color: var(--color-8);
+      margin-bottom: 2px;
+      width: 100%;
+      font-size: var(--font-size-5);
+
+      .listNumber {
+        margin-right: 5px;
+        flex-shrink: 0;
+      }
+    }
+  }
+
+  .protocalLinks {
+    margin-top: 0;
+    margin-bottom: 8px;
+    margin-left: 20px;
+    align-self: flex-start;
+
+    .protocalLink {
+      text-decoration: none;
+      margin: 0 3px;
+    }
+  }
+
   .payChannelWrapper {
     margin-top: 20px;
 
