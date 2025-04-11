@@ -22,7 +22,6 @@ export default function Button(props: ILogButton) {
   const onBtnClick: React.MouseEventHandler<HTMLButtonElement> = async (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
     try {
       setWaiting(true);
-      //   logEvent(action);
       await onClick?.(e);
     } finally {
       setWaiting(false);

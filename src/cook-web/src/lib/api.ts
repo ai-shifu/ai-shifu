@@ -1,13 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import http, { RequestConfig, StreamCallback, StreamRequestConfig } from './request';
 const apiPrefix = '/api';
 
 const objectToQueryString = (obj: any) => {
     const params = new URLSearchParams();
     for (const key in obj) {
-        // if (obj.hasOwnProperty(key)) {
         params.append(key, obj[key]);
-        // }
     }
     return params.toString();
 };

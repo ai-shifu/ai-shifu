@@ -99,7 +99,6 @@ const LoginPage = () => {
         }
     };
     const onLogin = async () => {
-        // 登录逻辑
         const result: Response = await api.login({
             username: formData.username,
             password: formData.password
@@ -109,13 +108,6 @@ const LoginPage = () => {
         setToken(token);
 
         router.push('/main');
-        // await api.register({
-        //     "email": "hongyin@gmail.com",
-        //     "mobile": "15622814590",
-        //     "name": "hongyin163",
-        //     "password": "hongyin123@",
-        //     "username": "hongyin163"
-        // })
 
     }
 
@@ -144,6 +136,7 @@ const LoginPage = () => {
                                 <Label htmlFor="username">账号</Label>
                                 <div className="space-y-1">
                                     <Input
+                                        autoComplete='off'
                                         id="username"
                                         name="username"
                                         placeholder="请输入邮箱/手机号"

@@ -1,0 +1,409 @@
+.markdown {
+  color: #333333;
+  line-height: 1.5;
+  width: 100%;
+  font-size: 14px;
+  overflow: auto;
+}
+
+.markdown #write {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 20px 30px 40px 30px;
+  padding-top: 20px;
+  padding-bottom: 100px;
+}
+
+.markdown #write > ul:first-child,
+.markdown #write > ol:first-child {
+  margin-top: 30px;
+}
+
+.markdown > *:first-child {
+  margin-top: 0 !important;
+}
+
+.markdown > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.markdown a {
+  color: #268bd2;
+}
+
+.markdown a:hover {
+  color: #cb4b16;
+}
+
+.markdown .md-toc-inner {
+  color: #93a1a1 !important;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4,
+.markdown h5,
+.markdown h6 {
+  position: relative;
+  margin-top: 14px;
+  margin-bottom: 14px;
+  font-weight: normal;
+  line-height: 1.4;
+  cursor: text;
+}
+
+.markdown h1:hover a.anchor,
+.markdown h2:hover a.anchor,
+.markdown h3:hover a.anchor,
+.markdown h4:hover a.anchor,
+.markdown h5:hover a.anchor,
+.markdown h6:hover a.anchor {
+  text-decoration: none;
+}
+
+.markdown h1 tt,
+.markdown h1 code,
+.markdown h2 tt,
+.markdown h2 code,
+.markdown h3 tt,
+.markdown h3 code,
+.markdown h4 tt,
+.markdown h4 code,
+.markdown h5 tt,
+.markdown h5 code,
+.markdown h6 tt,
+.markdown h6 code {
+  font-size: inherit;
+}
+
+.markdown h1 {
+  padding-bottom: 4px;
+  font-size: 24px;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.markdown h2 {
+  padding-bottom: 4px;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.markdown h3 {
+  font-size: 17.5px;
+  line-height: 1.3;
+}
+
+.markdown h4 {
+  font-size: 15px;
+  line-height: 1.35;
+}
+
+.markdown h5 {
+  font-size: 14px;
+}
+
+.markdown h6 {
+  font-size: 14px;
+  color: #777;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown dl,
+.markdown table {
+  margin: 11.2px 0;
+}
+
+.markdown p {
+  white-space: pre-wrap;
+}
+
+.markdown ol {
+  list-style: decimal;
+}
+
+.markdown blockquote {
+  margin: 10px;
+  border-left: 4px solid #93a1a1;
+  padding: 0 15px;
+  color: #93a1a1;
+}
+
+.markdown blockquote blockquote {
+  padding-right: 0;
+}
+
+.markdown li > ol,
+.markdown li > ul {
+  margin: 0 0;
+}
+
+.markdown hr {
+  height: 1px;
+  width: 80%;
+  padding: 0;
+  margin: 24px auto;
+  background-color: #c8c8c8;
+  border: 0 none;
+  overflow: hidden;
+  box-sizing: content-box;
+}
+
+.markdown pre {
+  overflow: auto;
+}
+
+.markdown > h2:first-child,
+.markdown > h1:first-child {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.markdown > h1:first-child + h2 {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.markdown > h3:first-child,
+.markdown > h4:first-child,
+.markdown > h5:first-child,
+.markdown > h6:first-child {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.markdown a:first-child h1,
+.markdown a:first-child h2,
+.markdown a:first-child h3,
+.markdown a:first-child h4,
+.markdown a:first-child h5,
+.markdown a:first-child h6 {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.markdown h1 p,
+.markdown h2 p,
+.markdown h3 p,
+.markdown h4 p,
+.markdown h5 p,
+.markdown h6 p {
+  margin-top: 0;
+}
+
+.markdown li p.first {
+  display: inline-block;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 20px;
+  list-style: decimal;
+}
+
+.markdown ul:first-child,
+.markdown ol:first-child {
+  margin-top: 0;
+}
+
+.markdown ul:last-child,
+.markdown ol:last-child {
+  margin-bottom: 0;
+}
+
+.markdown table {
+  padding: 0;
+  word-break: initial;
+}
+
+.markdown table tr {
+  border-top: 1px solid #cccccc;
+  margin: 0;
+  padding: 0;
+}
+
+.markdown table tr:nth-child(2n) td {
+  background-color: #f8f8f8;
+}
+
+.markdown table tr th {
+  font-weight: bold;
+  border: 1px solid #cccccc;
+  text-align: left;
+  margin: 0;
+  padding: 6px 13px;
+  white-space: nowrap;
+  background-color: #bdbdbd;
+  color: #000000;
+}
+
+.markdown table tr td {
+  border: 1px solid #cccccc;
+  text-align: left;
+  margin: 0;
+  padding: 6px 13px;
+  white-space: nowrap;
+}
+
+.markdown table tr th:first-child,
+.markdown table tr td:first-child {
+  margin-top: 0;
+}
+
+.markdown table tr th:last-child,
+.markdown table tr td:last-child {
+  margin-bottom: 0;
+}
+
+.markdown .CodeMirror-gutters {
+  border-right: 1px solid #ddd;
+}
+
+.markdown pre code {
+  display: block;
+}
+
+.markdown code {
+  background: #ededed;
+}
+
+.markdown .md-fences,
+.markdown code,
+.markdown tt {
+  border-radius: 3px;
+  padding: 0;
+  padding: 2px 4px 2px 4px;
+  font-size: 12.6px;
+}
+
+.markdown .md-fences {
+  margin-bottom: 15px;
+  margin-top: 15px;
+  padding: 2.8px 14px;
+  padding-top: 8px;
+  padding-bottom: 6px;
+  background-color: #eee8d5;
+}
+
+.markdown .task-list {
+  padding-left: 0;
+}
+
+.markdown .task-list-item {
+  padding-left: 32px;
+}
+
+.markdown .task-list-item input {
+  top: 3px;
+  left: 8px;
+}
+
+@media screen and (min-width: 914px) {
+  /*body {
+    width: 854px;
+    margin: 0 auto;
+  }*/
+}
+
+@media print {
+  html {
+    font-size: 13px;
+  }
+
+  table,
+  pre {
+    page-break-inside: avoid;
+  }
+
+  pre {
+    word-wrap: break-word;
+  }
+}
+
+.markdown #write pre.md-meta-block {
+  padding: 14px;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f7f7f7;
+  border: 0;
+  border-radius: 3px;
+  color: #777777;
+  margin-top: 0 !important;
+}
+
+.markdown .mathjax-block > .code-tooltip {
+  bottom: 5.3px;
+}
+
+.markdown #write > h3.md-focus:before {
+  left: -21.9px;
+  top: 5.3px;
+}
+
+.markdown #write > h4.md-focus:before,
+.markdown #write > h5.md-focus:before,
+.markdown #write > h6.md-focus:before {
+  left: -21.9px;
+  top: 4px;
+}
+
+.markdown .md-image > .md-meta {
+  border-radius: 3px;
+  font-family: Consolas, Mononoki, "Roboto Mono", "Liberation Mono", Courier,
+    monospace;
+  padding: 8px 16px;
+  font-size: 12.6px;
+  color: inherit;
+}
+
+.markdown .md-tag {
+  color: inherit;
+}
+
+.markdown .md-toc {
+  margin-top: 10px;
+  padding-bottom: 10px;
+}
+
+.markdown .sidebar-tabs {
+  border-bottom: none;
+}
+
+.markdown #typora-quick-open {
+  background-color: #eee8d5;
+}
+
+.markdown #typora-quick-open-item {
+  background-color: #fafafa;
+  border-color: #fefefe #e5e5e5 #e5e5e5 #eee;
+  border-style: solid;
+  border-width: 1px;
+}
+
+.markdown #md-notification:before {
+  top: 10px;
+}
+
+/** focus mode */
+.markdown .on-focus-mode blockquote {
+  border-left-color: rgba(85, 85, 85, 0.12);
+}
+
+.markdown header,
+.markdown .context-menu,
+.markdown .megamenu-content,
+.markdown footer {
+  font-family: Consolas, Mononoki, "Roboto Mono", "Liberation Mono", monospace;
+}
+
+.markdown .file-node-content:hover .file-node-icon,
+.markdown .file-node-content:hover .file-node-open-state {
+  visibility: visible;
+}
+
+.markdown .mac-seamless-mode #typora-sidebar {
+  background-color: var(--side-bar-bg-color);
+}

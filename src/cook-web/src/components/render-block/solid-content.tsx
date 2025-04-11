@@ -1,46 +1,46 @@
-// import { MDXEditor } from '@mdxeditor/editor';
-import MDXEditor from '@/components/md-editor/ForwardRefEditor';
 
-import { useState } from 'react';
-import { ALL_PLUGINS } from '@/components/md-editor';
-// import { Textarea } from '../ui/textarea';
-// import MarkdownEditor from '@/components/markdown-editor'
+import TextEditor from '@/components/text-editor';
+
 
 interface SolideContnetProps {
     content: string;
     profiles: string[];
+    prompt?: string;
+    model?: string;
+    temprature?: number;
+    other_conf?: any;
 }
 
 interface SolideContnet {
+
+    isEdit: boolean;
     properties: SolideContnetProps;
     onChange: (properties: SolideContnetProps) => void;
+    onEditChange?: (isEdit: boolean) => void;
 }
 
 export default function SolidContent(props: SolideContnet) {
-    const [isEdit, setIsEdit] = useState(true)
-    if (isEdit) {
-        return (
-            <div className="bg-[#F5F5F4] rounded-md">
-                <MDXEditor
-                    className="h-60 overflow-auto"
-                    markdown={props.properties.content}
-                    onChange={(value) => {
-                        props.onChange({ ...props.properties, content: value })
-                    }}
-                    plugins={ALL_PLUGINS}
-                />
-
-                {/* <Textarea value={props.properties.content} >
-
-                    </Textarea> */}
-            </div>
-
-        )
+    if (props.properties.prompt) {
+        props.properties.content = props.properties.prompt;
+        delete props.properties.prompt;
+        delete props.properties.model;
+        delete props.properties.temprature;
+        delete props.properties.other_conf;
     }
+
     return (
-        <div onDoubleClick={() => setIsEdit(true)}>
-            {props.properties.content}
-        </div>
+        <TextEditor
+            content={props.properties.content}
+            profiles={props.properties.profiles}
+            isEdit={props.isEdit}
+            onChange={(value, isEdit) => {
+                props.onChange({ ...props.properties, content: value })
+                if (props.onEditChange) {
+                    props.onEditChange(isEdit)
+                }
+            }}
+        />
 
     )
+
 }

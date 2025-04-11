@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 import React, {
   useCallback,
@@ -6,7 +7,6 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { createPortal } from 'react-dom';
 import {
   Announcements,
   closestCenter,
@@ -15,11 +15,8 @@ import {
   DragEndEvent,
   DragMoveEvent,
   DragOverEvent,
-  DragOverlay,
   DragStartEvent,
   DropAnimation,
-  // MeasuringStrategy,
-  // KeyboardSensor,
   Modifier,
   PointerSensor,
   PointerSensorOptions,
@@ -50,7 +47,6 @@ import type {
   TreeItemComponentType,
   TreeItems,
 } from './types';
-// import { sortableTreeKeyboardCoordinates } from './keyboardCoordinates';
 import { SortableTreeItem } from './SortableTreeItem';
 import { customListSortingStrategy } from './SortingStrategy';
 
@@ -156,17 +152,11 @@ export function SortableTree<
     items: flattenedItems,
     offset: offsetLeft,
   });
-  // const [coordinateGetter] = useState(() =>
-  //   sortableTreeKeyboardCoordinates(sensorContext, indentationWidth)
-  // );
   const sensors = useSensors(
     useSensor(
       PointerSensor,
       pointerSensorOptions ?? defaultPointerSensorOptions
     )
-    // useSensor(KeyboardSensor, {
-    //   coordinateGetter,
-    // })
   );
 
   const sortedIds = useMemo(
@@ -243,7 +233,6 @@ export function SortableTree<
       sensors={disableSorting ? undefined : sensors}
       modifiers={indicator ? modifiersArray : undefined}
       collisionDetection={closestCenter}
-      // measuring={measuring}
       onDragStart={disableSorting ? undefined : handleDragStart}
       onDragMove={disableSorting ? undefined : handleDragMove}
       onDragOver={disableSorting ? undefined : handleDragOver}
@@ -294,20 +283,6 @@ export function SortableTree<
             />
           );
         })}
-        {typeof document !== 'undefined' && createPortal(
-          <DragOverlay
-            dropAnimation={
-              dropAnimation === undefined
-                ? dropAnimationDefaultConfig
-                : dropAnimation
-            }
-          >
-            {activeId && activeItem ? (
-              <div className='h-8 w-40'></div>
-            ) : null}
-          </DragOverlay>,
-          document?.body
-        )}
       </SortableContext>
     </DndContext>
   );
