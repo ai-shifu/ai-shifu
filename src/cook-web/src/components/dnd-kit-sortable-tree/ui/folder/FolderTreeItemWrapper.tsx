@@ -1,3 +1,4 @@
+/* eslint-disable react/display-name */
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import clsx from 'clsx';

@@ -1,11 +1,5 @@
-import { useState } from "react";
-import { ALL_PLUGINS } from '@/components/md-editor'
-// import { MDXEditor } from '@mdxeditor/editor';
-import MDXEditor from '@/components/md-editor/ForwardRefEditor';
 
-// import { Textarea } from "../ui/textarea";
-// import { Textarea } from "../ui/textarea";
-// import MarkdownEditor from '@/components/markdown-editor'
+import TextEditor from '@/components/text-editor';
 
 
 interface AIBlockProps {
@@ -14,41 +8,30 @@ interface AIBlockProps {
     model: string;
     temprature: string;
     other_conf: string;
+    content?: string; // Added optional content property
 }
 
 interface AIBlock {
+    isEdit: boolean;
     properties: AIBlockProps;
     onChange: (properties: AIBlockProps) => void;
+    onEditChange?: (isEdit: boolean) => void;
 }
 
 export default function AI(props: AIBlock) {
-    const [isEdit, setIsEdit] = useState(true)
-    if (isEdit) {
-        return (
-            <div className="bg-[#F5F5F4] rounded-md">
-                <MDXEditor
-                    className="h-60 overflow-auto"
-                    markdown={props.properties.prompt}
-                    onChange={(value) => {
-                        props.onChange({ ...props.properties, prompt: value })
-                    }}
-                    plugins={ALL_PLUGINS}
-                />
-                {/* <MarkdownEditor initValue={props.properties.prompt} onChange={(value) => {
-                        props.onChange({ ...props.properties, prompt: value })
-                    }}>
 
-                    </MarkdownEditor> */}
-                {/* <Textarea value={props.properties.prompt} >
-
-                    </Textarea> */}
-            </div >
-        )
-    }
     return (
-        <div onDoubleClick={() => setIsEdit(true)}>
-            {props.properties.prompt}
-        </div>
-
+        <TextEditor
+            content={props.properties.prompt}
+            profiles={props.properties.profiles}
+            isEdit={props.isEdit}
+            onChange={(value, isEdit) => {
+                console.log(value)
+                props.onChange({ ...props.properties, prompt: value });
+                if (props.onEditChange) {
+                    props.onEditChange(isEdit);
+                }
+            }}
+        />
     )
 }

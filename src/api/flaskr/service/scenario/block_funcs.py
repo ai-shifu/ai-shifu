@@ -110,6 +110,9 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         if not outline:
             raise_error("SCENARIO.OUTLINE_NOT_FOUND")
 
+        # pass the top outline
+        if len(outline.lesson_no) == 2:
+            return []
         outline_id = outline.lesson_id
 
         sub_outlines = (

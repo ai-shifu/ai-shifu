@@ -1,16 +1,17 @@
 
 /**
- * 接口url
- * login ---- 业务调用的具体的请求方法名
- * GET ---- 传递给axios的method
- * /auth/login  ----- 接口url
- * method和url中间强制空格一个，在http中会统一解析
+ * Interface URL
+ * login ---- The specific request method name used in business
+ * GET ---- The method passed to axios
+ * /auth/login  ----- The interface URL
+ * There must be a mandatory space between method and URL in http, which will be uniformly parsed
  *
- * 支持在url中定义动态参数，然后在业务中根据实际场景给请求方法传递参数，赋值给动态参数
+ * Support defining dynamic parameters in the URL and then passing parameters to the request method according to the actual scenario in the business, assigning them to dynamic parameters
  * eg  /auth/:userId/login
- *     userId为动态参数
- *     参数赋值： login({userId: 1})
+ *     userId is a dynamic parameter
+ *     Parameter assignment: login({userId: 1})
  */
+
 const api = {
     login: 'POST /user/login', //token
     register: 'POST /user/register',
@@ -26,6 +27,20 @@ const api = {
     getScenarioOutlineTree: "GET /scenario/outline-tree",
     getBlocks: "GET /scenario/blocks",
     saveBlocks: "POST /scenario/save-blocks",
+    getProfile: "GET /user/get_profile",
+    getProfileItemDefinations: "GET /profiles/get-profile-item-definations",
+    addProfileItem: "POST /profiles/add-profile-item-quick",
+    getUserInfo: "GET /user/info",
+    updateChapterOrder: "POST /scenario/update-chapter-order",
+    addBlock: "POST /scenario/add-block",
+    publishScenario: "POST /scenario/publish-scenario",
+    previewScenario: "POST /scenario/preview-scenario",
+    modifyUnit: "POST /scenario/modify-unit",
+    getUnitInfo: "GET /scenario/unit-info",
+    getScenarioInfo: "GET /scenario/scenario-info",
+    getScenarioDetail: "GET /scenario/scenario-detail",
+    saveScenarioDetail: "POST /scenario/save-scenario-detail",
+    getModelList:"GET /llm/model-list"
 };
 
 export default api;

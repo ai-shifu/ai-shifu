@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const USER_TOKEN = 'user_token';
 
@@ -26,7 +24,7 @@ export const getLocalStore = (key: string) => {
     const value = localStore?.getItem(key);
     try {
         return value ? JSON.parse(value) : undefined;
-    } catch (e) {
+    } catch {
         return undefined;
     }
 };

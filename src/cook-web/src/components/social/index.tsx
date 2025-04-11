@@ -4,27 +4,16 @@ import Image from "next/image";
 const SocialLinks = () => {
     return (
         <div className="w-64 bg-white rounded-lg shadow-md p-4">
-            {/* Header */}
             <h2 className="text-gray-600 text-sm mb-3">参与社区</h2>
-
-            {/* Social Links */}
             <div className="space-y-3">
-                <a href="#" className="flex items-center space-x-2 text-gray-700 hover:bg-gray-50 p-2 rounded-md transition-colors">
+                <a href="https://github.com/ai-shifu/ai-shifu" className="flex items-center space-x-2 text-gray-700 hover:bg-gray-50 p-2 rounded-md transition-colors">
                     <Image src="/icons/github.svg" alt='github' width="20" height="20" />
                     <span>Github</span>
                 </a>
-
-                <a href="#" className="flex items-center space-x-2 text-gray-700 hover:bg-gray-50 p-2 rounded-md transition-colors">
-                    <Image src="/icons/discord.svg" alt='github' width="20" height="20" />
-                    <span>Discord</span>
-                </a>
-
             </div>
             <div className="border-t border-gray-200 my-3"></div>
 
             <h2 className="text-gray-600 text-sm mb-3">关于我们</h2>
-
-            {/* Social Links */}
             <div className="space-y-3">
                 <a href="#" className="flex items-center space-x-2 text-gray-700 hover:bg-gray-50 p-2 rounded-md transition-colors">
                     <Image src="/icons/sina.svg" alt='github' width="20" height="20" />
@@ -37,10 +26,8 @@ const SocialLinks = () => {
                 </a>
             </div>
 
-            {/* Divider */}
             <div className="border-t border-gray-200 my-3"></div>
 
-            {/* QR Code Section */}
             <div className="text-sm text-gray-600 mb-2">关注官方微信公众号</div>
             <div className="w-full h-32 bg-gray-100 rounded-md flex items-center justify-center">
                 <svg className="w-8 h-8 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">

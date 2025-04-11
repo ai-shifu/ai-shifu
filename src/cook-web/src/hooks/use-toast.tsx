@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-// Inspired by react-hot-toast library
 import * as React from "react";
 
 import type {
@@ -19,12 +17,13 @@ type ToasterToast = ToastProps & {
   duration?: number;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
   UPDATE_TOAST: "UPDATE_TOAST",
   DISMISS_TOAST: "DISMISS_TOAST",
   REMOVE_TOAST: "REMOVE_TOAST",
-} as const;
+}
 
 let count = 0;
 
@@ -52,6 +51,7 @@ type Action =
     type: ActionType["REMOVE_TOAST"]
     toastId?: ToasterToast["id"]
   }
+  | any;
 
 interface State {
   toasts: ToasterToast[]
@@ -127,6 +127,8 @@ export const reducer = (state: State, action: Action): State => {
         ...state,
         toasts: state.toasts.filter((t) => t.id !== action.toastId),
       };
+    default:
+      return state;
   }
 };
 

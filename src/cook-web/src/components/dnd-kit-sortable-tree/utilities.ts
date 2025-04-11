@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { arrayMove } from '@dnd-kit/sortable';
 
 import type { FlattenedItem, TreeItem, TreeItems } from './types';
@@ -55,25 +56,13 @@ export function getProjection<T>(
   const newItems = arrayMove(items, activeItemIndex, overItemIndex);
   const previousItem = newItems[overItemIndex - 1];
   const nextItem = newItems[overItemIndex + 1];
-  const dragDepth = getDragDepth(dragOffset, indentationWidth);
-  const projectedDepth = activeItem.depth + dragDepth;
+  // Keep the same depth as the original item for same-level-only dragging
+  const depth = activeItem.depth;
 
-  let depth = projectedDepth;
-  const directParent = findParentWithDepth(depth - 1, previousItem);
-  const parent = findParentWhichCanHaveChildren(
-    directParent,
-    activeItem,
-    canRootHaveChildren
-  );
-  if (parent === undefined) return null;
-  const maxDepth = (parent?.depth ?? -1) + 1;
-  const minDepth = nextItem?.depth ?? 0;
-  if (minDepth > maxDepth) return null;
-  if (depth >= maxDepth) {
-    depth = maxDepth;
-  } else if (depth < minDepth) {
-    depth = minDepth;
-  }
+  // Find the parent based on the original item's depth
+  const parent = previousItem && previousItem.depth === depth
+    ? previousItem.parent
+    : activeItem.parent;
   const isLast = (nextItem?.depth ?? -1) < depth;
 
   if (parent && parent.isLast) {
@@ -124,24 +113,8 @@ export function getProjection<T>(
   }
 
   function getParentId() {
-    if (depth === 0 || !previousItem) {
-      return null;
-    }
-
-    if (depth === previousItem.depth) {
-      return previousItem.parentId;
-    }
-
-    if (depth > previousItem.depth) {
-      return previousItem.id;
-    }
-
-    const newParent = newItems
-      .slice(0, overItemIndex)
-      .reverse()
-      .find((item) => item.depth === depth)?.parentId;
-
-    return newParent ?? null;
+    // Keep the same parent ID for same-level dragging
+    return activeItem.parentId;
   }
 }
 
@@ -151,7 +124,7 @@ function flatten<T extends Record<string, any>>(
   depth = 0,
   parent: FlattenedItem<T> | null = null
 ): FlattenedItem<T>[] {
-  return items.reduce<FlattenedItem<T>[]>((acc, item, index) => {
+  return items?.reduce<FlattenedItem<T>[]>((acc, item, index) => {
     const flattenedItem: FlattenedItem<T> = {
       ...item,
       parentId,
@@ -235,7 +208,7 @@ export function removeItem<T extends Record<string, any>>(
       item.children = removeItem(item.children, id);
     }
 
-    newItems.push(item);
+    newItems.push(item as never);
   }
 
   return newItems;

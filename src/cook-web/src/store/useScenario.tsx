@@ -1,19 +1,43 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback, useRef } from "react";
-import { Scenario, ScenarioContextType, Outline, Block } from "../types/scenario";
+import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import { Scenario, ScenarioContextType, Outline, Block, ProfileItem } from "../types/scenario";
 import api from "@/api";
-import { v4 as uuidv4 } from 'uuid';
-
+import { ContentTypes } from "@/components/render-block";
+import { UITypes } from "@/components/render-ui";
+import { debounce } from "lodash";
 const ScenarioContext = createContext<ScenarioContextType | undefined>(undefined);
+
+const buildBlockListWithAllInfo = (blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => {
+    const list = blocks.map((block: Block, index) => {
+        return {
+            "properties": {
+                block_id: block.properties.block_id,
+                "block_no": "",
+                "block_name": "",
+                "block_desc": "",
+                "block_type": 101,
+                "block_index": index,
+                "block_content": {
+                    type: blockContentTypes[block.properties.block_id],
+                    properties: blockContentProperties[block.properties.block_id]
+                },
+                "block_ui": {
+                    type: blockUITypes[block.properties.block_id],
+                    properties: blockUIProperties[block.properties.block_id]
+                }
+            },
+            "type": "block"
+        }
+    })
+    return list;
+}
 
 export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
     const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
     const [chapters, setChapters] = useState<Outline[]>([]);
-    const [currentChapter, setCurrentChapter] = useState<Outline | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
-    const saveTimeoutRef = useRef<NodeJS.Timeout>(null);
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [focusId, setFocusId] = useState('');
     const [focusValue, setFocusValue] = useState('');
     const [cataData, setCataData] = useState<{ [x: string]: Outline }>({})
@@ -22,21 +46,25 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [blockContentTypes, setBlockContentTypes] = useState<{ [x: string]: string }>({});
     const [blockUIProperties, setBlockUIProperties] = useState<{ [x: string]: any }>({});
     const [blockUITypes, setBlockUITypes] = useState<{ [x: string]: string }>({});
-
+    const [blockContentState, setBlockContentState] = useState<{ [x: string]: 'edit' | 'preview' }>({});
+    const [currentOutline, setCurrentOutline] = useState('');
+    const [currentNode, setCurrentNode] = useState<Outline | null>(null);
+    const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItem[]>([]);
+    const [models,setModels]=useState<string[]>([]);
     const loadScenario = async (scenarioId: string) => {
-        // try {
-        //     setIsLoading(true);
-        //     setError(null);
-        //     const scenario = await api.getScenario({ scenarioId });
-        //     console.log(scenario)
-        //     setCurrentScenario(scenario);
-        // } catch (error) {
-        //     console.error(error);
-        //     setError("Failed to load scenario");
-        // } finally {
-        //     setIsLoading(false);
-        // }
-        // TODO
+        try {
+            setIsLoading(true);
+            setError(null);
+            const scenario = await api.getScenarioInfo({
+                scenario_id: scenarioId
+             });
+            setCurrentScenario(scenario);
+        } catch (error) {
+            console.error(error);
+            setError("Failed to load scenario");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const recursiveCataData = (cataTree: Outline[]): any => {
@@ -46,28 +74,28 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                 ...cataData[item.id],
                 parend_id: parentId,
                 name: item.name,
-                depth: depth, // 添加 depth 属性
+                depth: depth,
                 status: 'edit',
             };
 
             if (item.children) {
                 item.children.forEach((child: any) => {
-                    processItem(child, item.id, depth + 1); // 增加深度
+                    processItem(child, item.id, depth + 1);
                 });
             }
         };
 
         cataTree.forEach((child: any) => {
-            processItem(child, "", 0); // 初始深度为 0
+            processItem(child, "", 0);
         });
         return result;
     }
     const buildOutlineTree = (items: Outline[]) => {
         const treeData = recursiveCataData(items);
-        setCataData(treeData)
+        setCataData(treeData);
+        return treeData;
     }
     const findNode = (id: string) => {
-        //递归遍历 chapters 查找id未某个值的节点
         const find = (nodes: Outline[]): any => {
             for (let i = 0; i < nodes.length; i++) {
                 if (nodes[i].id === id) {
@@ -91,22 +119,39 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             if (parent) {
                 parent.children = parent.children?.filter((child: any) => child.id !== outline.id);
             }
-            if (cataData[outline.id].status == 'edit') {
-                if (outline.depth == 0) {
-                    await api.deleteChapter({
-                        chapter_id: outline.id
-                    })
-                } else if (outline.depth == 1) {
-                    await api.deleteUnit({
-                        unit_id: outline.id
-                    })
 
-                }
-            }
             setChapters([...chapters])
+
+            delete cataData[outline.id];
+            setCataData({
+                ...cataData,
+            })
+            if (outline.id == 'new_chapter') {
+                return;
+            }
+            if (outline.depth == 0) {
+                await api.deleteChapter({
+                    chapter_id: outline.id
+                })
+            } else if (outline.depth == 1) {
+                await api.deleteUnit({
+                    unit_id: outline.id
+                })
+
+            }
+
         } else {
             const list = chapters.filter((child: any) => child.id !== outline.id);
             setChapters([...list])
+
+            delete cataData[outline.id];
+            setCataData({
+                ...cataData,
+            })
+
+            if (outline.id == 'new_chapter') {
+                return;
+            }
             await api.deleteChapter({
                 chapter_id: outline.id
             })
@@ -118,9 +163,8 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
             setIsLoading(true);
             setError(null);
-            setCurrentScenario({
-                id: scenarioId
-            });
+            const scenarioInfo = await api.getScenarioInfo({ scenario_id: scenarioId });
+            setCurrentScenario(scenarioInfo);
             const chaptersData = await api.getScenarioOutlineTree({ scenario_id: scenarioId });
 
             const list = chaptersData.map((chapter: any) => {
@@ -130,8 +174,15 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                     children: chapter.children,
                 }
             })
-            buildOutlineTree(list);
+            if (list.length > 0) {
+                if (list[0].children && list[0].children.length > 0) {
+                    setCurrentOutline(list[0].children[0].id);
+                    loadBlocks(list[0].children[0].id);
+                }
+            }
             setChapters(list);
+            buildOutlineTree(list);
+            loadProfileItemDefinations(scenarioId);
         } catch (error) {
             console.error(error);
             setError("Failed to load chapters");
@@ -173,11 +224,38 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         }, {});
         setBlockUIProperties(properties);
     }
+
+    const buildBlockList = (blocks: Block[]) => {
+        const list = blocks.map((block: Block, index) => {
+            return {
+                "properties": {
+                    block_id: block.properties.block_id,
+                    "block_no": "",
+                    "block_name": "",
+                    "block_desc": "",
+                    "block_type": 101,
+                    "block_index": index,
+                    "block_content": {
+                        type: blockContentTypes[block.properties.block_id],
+                        properties: blockContentProperties[block.properties.block_id]
+                    },
+                    "block_ui": {
+                        type: blockUITypes[block.properties.block_id],
+                        properties: blockUIProperties[block.properties.block_id]
+                    }
+                },
+                "type": "block"
+            }
+        })
+        return list;
+    }
+
     const loadBlocks = async (outlineId: string) => {
         try {
-            // setIsLoading(true);
+            setIsLoading(true);
             setError(null);
-            const blocksData = await api.getBlocks({ outline_id: '5071e9aa8d1246b5870c7970b679b7d4' });
+            setCurrentOutline(outlineId);
+            const blocksData = await api.getBlocks({ outline_id: outlineId });
             const list = blocksData.filter(p => p.type == 'block') as Block[];
             setBlocks(list);
             initBlockContentTypes(list);
@@ -185,13 +263,84 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             const blockUIList = list.filter(p => p.properties.block_ui);
             initBlockUITypes(blockUIList);
             initBlockUIProperties(blockUIList);
+            setIsLoading(false);
 
         } catch (error) {
             console.error(error);
             setError("Failed to load blocks");
+            setIsLoading(false);
         }
     }
+    const saveBlocks = async () => {
+        const list = buildBlockList(blocks);
+        try {
+            setError(null);
+            await api.saveBlocks({ outline_id: currentOutline, blocks: list });
+        } catch (error) {
+            console.error(error);
+            setError("Failed to save blocks");
+        }
+    }
+    const addBlock = async (index: number, blockType: string = 'ai') => {
+        const item = ContentTypes.find(p => p.type == blockType);
+        const buttonUI = UITypes[0];
+
+        const block = await api.addBlock({
+            "block": {
+                "block_content": {
+                    type: blockType,
+                    properties: item?.properties
+                },
+                "block_desc": "",
+                // "block_id": "",
+                "block_index": index,
+                "block_name": "",
+                "block_no": "",
+                "block_type": 0,
+                "block_ui": buttonUI
+            },
+            "block_index": index,
+            "outline_id": currentOutline
+        })
+
+        blocks.splice(index, 0, block);
+        console.log(blocks)
+        const list = [...blocks];
+        console.log(list)
+        setBlockContentTypes({
+            ...blockContentTypes,
+            [block.properties.block_id]: blockType
+        })
+        setBlockContentProperties({
+            ...blockContentProperties,
+            [block.properties.block_id]: item?.properties
+        })
+
+        setBlockUITypes({
+            ...blockUITypes,
+            [block.properties.block_id]: buttonUI.type
+        })
+        setBlockUIProperties({
+            ...blockUIProperties,
+            [block.properties.block_id]: buttonUI.properties
+        })
+        setBlockContentStateById(block.properties.block_id, 'edit');
+        setBlocks(list);
+
+        setTimeout(() => {
+            document.getElementById(block.properties.block_id)?.scrollIntoView({
+                behavior: 'smooth',
+            });
+        }, 500);
+
+    }
     const addSubOutline = async (parent: Outline, name = '') => {
+        if (cataData['new_chapter']) {
+            return;
+        }
+        if (parent.children?.find((child: any) => child.id === 'new_chapter')) {
+            return;
+        }
         const id = 'new_chapter'
         parent.children?.push({
             id,
@@ -215,6 +364,28 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         setFocusId(id);
     }
+
+    const autoSaveBlocks = useCallback(debounce(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => {
+
+        setIsSaving(true);
+        setError(null);
+        setIsSaving(true);
+        try {
+            setError(null);
+            const blockList = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties);
+            await api.saveBlocks({ outline_id: outline, blocks: blockList });
+            setIsSaving(false);
+            setLastSaveTime(new Date());
+        } catch (error: any) {
+            console.error(error);
+            setError(error.message);
+        } finally {
+            setIsSaving(false);
+            setLastSaveTime(new Date());
+        }
+    }, 3000), []) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => Promise<void>
+
+
     const addSiblingOutline = async (item: Outline, name = '') => {
         const id = 'new_chapter'
         const parent = findNode(item.parentId || "");
@@ -242,99 +413,137 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
 
         setFocusId(id);
     }
-    const saveChapter = useCallback(async (chapter: Outline) => {
-        // Clear any existing timeout
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
 
-        // Set a new timeout
-        saveTimeoutRef.current = setTimeout(async () => {
+    const createChapter = async (data: Outline) => {
+
+        updateOutlineStatus(data.id, 'saving');
+        setError(null);
+        const index = chapters.findIndex((child) => child.id === data.id);
+
+        if (data.id === 'new_chapter') {
             try {
-                setIsSaving(true);
-                setError(null);
-                await api.modifyChapter(chapter);
-                setChapters(chapters.map(ch =>
-                    ch.id === chapter.id ? chapter : ch
-                ));
-                if (currentChapter?.id === chapter.id) {
-                    setCurrentChapter(chapter);
-                }
-                setLastSaveTime(new Date());
+                const newChapter = await api.createChapter({
+                    parent_id: data.parent_id,
+                    "chapter_description": data.name,
+                    "chapter_index": index,
+                    "chapter_name": data.name,
+                    "scenario_id": currentScenario?.id
+                });
+                replaceOutline('new_chapter', {
+                    id: newChapter.chapter_id,
+                    name: newChapter.chapter_name,
+                    no: '',
+                    children: []
+                })
+                setFocusId("")
             } catch (error) {
                 console.error(error);
-                setError("Failed to save chapter");
-            } finally {
-                setIsSaving(false);
+                setError("Failed to create chapter");
+                updateOutlineStatus('new_chapter', 'new');
+                setFocusId('new_chapter');
             }
-        }, 3000); // 3 seconds delay
-    }, [chapters, currentChapter]);
 
-    const createChapter = async (chapterData: Outline) => {
-        try {
-            updateOutlineStatus(chapterData.id, 'saving');
-            setError(null);
-            const newChapter = await api.createChapter({
-                parent_id: chapterData.parent_id,
-                "chapter_description": chapterData.name,
-                "chapter_index": 0,
-                "chapter_name": chapterData.name,
-                "scenario_id": currentScenario?.id
-            });
-            replaceOutline('new_chapter', {
-                id: newChapter.chapter_id,
-                name: newChapter.chapter_name,
-                no: '',
-                children: []
-            })
+        } else {
+            try {
+                await api.modifyChapter({
+                    "chapter_id": data.id,
+                    "chapter_index": index,
+                    "chapter_description": data.name,
+                    "chapter_name": data.name
+                })
+                replaceOutline(data.id, {
+                    id: data.id,
+                    name: data.name,
+                    no: '',
+                    children: []
+                })
+                setFocusId("")
+            } catch (error) {
+                console.error(error);
+                setError("Failed to create chapter");
+                updateOutlineStatus(data.id, 'edit');
+                setFocusId(data.id);
+            }
 
-        } catch (error) {
-            console.error(error);
-            setError("Failed to create chapter");
-        } finally {
-            setIsLoading(false);
         }
+        setIsLoading(false);
     };
 
     const createUnit = async (data: Outline) => {
-        try {
-            updateOutlineStatus(data.id, 'saving');
-            setError(null);
 
-            const newUnit = await api.createUnit({
-                parent_id: data.parent_id,
-                "chapter_id": data.parent_id,
-                "unit_description": data.name,
-                "unit_name": data.name,
-                "scenario_id": currentScenario?.id
-            });
+        console.log('createUnit')
+        updateOutlineStatus(data.id, 'saving');
+        setError(null);
 
-            replaceOutline('new_chapter', {
-                id: newUnit.id,
-                name: newUnit.name,
-                no: '',
-                children: []
-            })
+        const parent = findNode(data.parent_id || "");
+        // get node index in children
+        const index = parent.children.findIndex((child) => child.id === data.id);
 
-        } catch (error) {
-            console.error(error);
-            setError("Failed to create chapter");
-        } finally {
-            setIsLoading(false);
+        if (data.id === 'new_chapter') {
+            try {
+                const newUnit = await api.createUnit({
+                    parent_id: data.parent_id,
+                    "unit_index": index,
+                    "chapter_id": data.parent_id,
+                    "unit_description": data.name,
+                    "unit_name": data.name,
+                    "scenario_id": currentScenario?.id
+                });
+
+                replaceOutline('new_chapter', {
+                    id: newUnit.id,
+                    name: newUnit.name,
+                    no: '',
+                    children: []
+                })
+                setFocusId("")
+            } catch (error) {
+                console.error(error);
+                setError("Failed to create chapter");
+                updateOutlineStatus('new_chapter', 'new');
+                setFocusId('new_chapter');
+            }
+
+        } else {
+            try {
+                await api.modifyUnit({
+                    "unit_id": data.id,
+                    "unit_index": index,
+                    "unit_description": data.name,
+                    "unit_name": data.name,
+                })
+                replaceOutline(data.id, {
+                    id: data.id,
+                    name: data.name,
+                    no: '',
+                    children: []
+                })
+                setFocusId("")
+            } catch (error) {
+                console.error(error);
+                setError("Failed to create chapter");
+                updateOutlineStatus(data.id, 'edit');
+                setFocusId(data.id);
+            }
+
         }
+
+        setIsLoading(false);
     };
 
     const createSiblingUnit = async (data: Outline) => {
         try {
+            console.log('createSiblingUnit')
             updateOutlineStatus(data.id, 'saving');
             setError(null);
+
             const parent = findNode(data.parentId || "");
             // get node index in children
             const index = parent.children.findIndex((child) => child.id === data.id);
 
             const newUnit = await api.createUnit({
                 "parent_id": data.parent_id,
-                "unit_index": index,
+                "unit_index": index - 1,
                 "chapter_id": data.parent_id,
                 "unit_description": data.name,
                 "unit_name": data.name,
@@ -376,7 +585,12 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     const addChapter = async (chapter: Outline) => {
-        console.log(chapter)
+        if (cataData['new_chapter']) {
+            return;
+        }
+        if (chapters?.find((child: any) => child.id === 'new_chapter')) {
+            return;
+        }
         setChapters([...chapters, chapter]);
         updateOuline(chapter.id, {
             ...chapter,
@@ -392,7 +606,6 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         node.parent_id = outline.parent_id;
         node.children = outline.children;
         setChapters([...chapters])
-        // console.log(chapters)
         delete cataData[id]
         setCataData({
             ...cataData,
@@ -402,7 +615,22 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             }
         })
     }
-    const setBlockContentPropertiesById = (id: string, properties: any) => {
+
+    const loadProfileItemDefinations = async (scenarioId: string) => {
+        const list = await api.getProfileItemDefinations({
+            parent_id: scenarioId,
+            type: "all"
+        })
+        setProfileItemDefinations(list);
+    }
+    const setBlockContentPropertiesById = (id: string, properties: any, reset: boolean = false) => {
+        if (reset) {
+            setBlockContentProperties({
+                ...blockContentProperties,
+                [id]: properties
+            });
+            return;
+        }
         setBlockContentProperties({
             ...blockContentProperties,
             [id]: {
@@ -417,7 +645,14 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             [id]: type
         })
     }
-    const setBlockUIPropertiesById = (id: string, properties: any) => {
+    const setBlockUIPropertiesById = (id: string, properties: any, reset: boolean = false) => {
+        if (reset) {
+            setBlockUIProperties({
+                ...blockUIProperties,
+                [id]: properties
+            });
+            return;
+        }
         setBlockUIProperties({
             ...blockUIProperties,
             [id]: {
@@ -432,12 +667,31 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             [id]: type
         })
     }
-    console.log(blockContentProperties)
-    // console.log(blockUIProperties)
+    const setBlockContentStateById = (id: string, state: 'edit' | 'preview') => {
+        setBlockContentState({
+            ...blockContentState,
+            [id]: state
+        })
+    }
+    const updateChapterOrder = async (chapter_ids: string[]) => {
+        await api.updateChapterOrder({
+            "chapter_ids": chapter_ids,
+            "scenario_id": currentScenario?.id
+        })
+    }
+    const removeBlock = async (id: string) => {
+        const list = blocks.filter((block) => block.properties.block_id !== id);
+        setBlocks(list);
+        autoSaveBlocks(currentOutline, list, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties);
+    }
+    const loadModels = async () => {
+        const list = await api.getModelList({});
+        setModels(list);
+    }
+
     const value: ScenarioContextType = {
         currentScenario,
         chapters,
-        currentChapter,
         isLoading,
         isSaving,
         error,
@@ -450,14 +704,17 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         blockContentTypes,
         blockUIProperties,
         blockUITypes,
+        blockContentState,
+        currentOutline,
+        currentNode,
+        profileItemDefinations,
+        models,
         actions: {
             setFocusId,
             addChapter,
             setChapters,
             loadScenario,
             loadChapters,
-            setCurrentChapter,
-            saveChapter,
             createChapter,
             setFocusValue,
             updateOuline,
@@ -468,19 +725,21 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             createSiblingUnit,
             createUnit,
             loadBlocks,
+            addBlock,
             setBlockContentPropertiesById,
             setBlockContentTypesById,
             setBlockUIPropertiesById,
             setBlockUITypesById,
+            updateChapterOrder,
+            setBlockContentStateById,
+            setBlocks,
+            saveBlocks,
+            autoSaveBlocks,
+            removeBlock,
+            setCurrentNode,
+            loadModels
         },
     };
-    // const init = async () => {
-    //     // await loadScenario(id);
-    //     await loadChapters(id);
-    // }
-    // useEffect(() => {
-    //     init();
-    // }, [])
 
     return <ScenarioContext.Provider value={value}>{children}</ScenarioContext.Provider>;
 };

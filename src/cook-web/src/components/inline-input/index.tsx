@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
-import { Input } from './ui/input';
+import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
 
 interface InlineInputProps {
@@ -27,18 +27,23 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
   }, [isEdit]);
 
   const handleDoubleClick = () => {
-    console.log('======')
     setIsEditing(true);
     onFocus?.()
   };
 
   const handleBlur = () => {
+    if (inputValue === "") {
+      return;
+    }
     setIsEditing(false);
     debouncedOnChange(inputValue);
   };
 
   const debouncedOnChange = useCallback(
     debounce((value: string) => {
+      if (value === "") {
+        return;
+      }
       onChange(value || "未命名");
     }, 300),
     [onChange]
@@ -71,6 +76,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
     <div className={cn('inline-block w-full', className)}>
       {isEditing ? (
         <Input
+          maxLength={20}
           ref={inputRef}
           value={inputValue}
           onChange={handleChange}
