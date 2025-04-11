@@ -6,6 +6,8 @@ from .funcs import (
     publish_scenario,
     preview_scenario,
     get_scenario_info,
+    save_scenario_detail,
+    get_scenario_detail,
     upload_file,
 )
 from .chapter_funcs import (
@@ -181,6 +183,117 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         user_id = request.user.user_id
         scenario_id = request.args.get("scenario_id")
         return make_common_response(get_scenario_info(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/scenario-detail", methods=["GET"])
+    def get_scenario_detail_api():
+        """
+        get scenario detail
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - name: scenario_id
+              type: string
+              required: true
+        responses:
+            200:
+                description: get scenario detail success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ScenarioDetailDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.args.get("scenario_id")
+        return make_common_response(get_scenario_detail(app, user_id, scenario_id))
+
+    @app.route(path_prefix + "/save-scenario-detail", methods=["POST"])
+    def save_scenario_detail_api():
+        """
+        save scenario detail
+        ---
+        tags:
+            - scenario
+            - cook
+        parameters:
+            - name: body
+              in: body
+              type: object
+              required: true
+              schema:
+                type: object
+                properties:
+                    scenario_id:
+                        type: string
+                        description: scenario id
+                    scenario_name:
+                        type: string
+                        description: scenario name
+                    scenario_description:
+                        type: string
+                        description: scenario description
+                    scenario_teacher_avatar:
+                        type: string
+                        description: scenario teacher avatar
+                    scenario_keywords:
+                        type: array
+                        items:
+                            type: string
+                        description: scenario keywords
+                    scenario_model:
+                        type: string
+                        description: scenario model
+                    scenario_price:
+                        type: number
+                        description: scenario price
+        responses:
+            200:
+                description: save scenario detail success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/ScenarioDetailDto"
+        """
+        user_id = request.user.user_id
+        scenario_id = request.get_json().get("scenario_id")
+        scenario_name = request.get_json().get("scenario_name")
+        scenario_description = request.get_json().get("scenario_description")
+        scenario_teacher_avatar = request.get_json().get("scenario_teacher_avatar")
+        scenario_keywords = request.get_json().get("scenario_keywords")
+        scenario_model = request.get_json().get("scenario_model")
+        scenario_price = request.get_json().get("scenario_price")
+        return make_common_response(
+            save_scenario_detail(
+                app,
+                user_id,
+                scenario_id,
+                scenario_name,
+                scenario_description,
+                scenario_teacher_avatar,
+                scenario_keywords,
+                scenario_model,
+                scenario_price,
+            )
+        )
 
     @app.route(path_prefix + "/mark-favorite-scenario", methods=["POST"])
     def mark_favorite_scenario_api():

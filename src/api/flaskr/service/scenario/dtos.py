@@ -40,6 +40,54 @@ class ScenarioDto:
 
 
 @register_schema_to_swagger
+class ScenarioDetailDto:
+    scenario_id: str
+    scenario_name: str
+    scenario_description: str
+    scenario_teacher_avatar: str
+    scenario_keywords: list[str]
+    scenario_model: str
+    scenario_price: float
+    scenario_preview_url: str
+    scenario_url: str
+
+    def __init__(
+        self,
+        scenario_id: str,
+        scenario_name: str,
+        scenario_description: str,
+        scenario_teacher_avatar: str,
+        scenario_keywords: list[str],
+        scenario_model: str,
+        scenario_price: float,
+        scenario_preview_url: str,
+        scenario_url: str,
+    ):
+        self.scenario_id = scenario_id
+        self.scenario_name = scenario_name
+        self.scenario_description = scenario_description
+        self.scenario_teacher_avatar = scenario_teacher_avatar
+        self.scenario_keywords = scenario_keywords
+        self.scenario_model = scenario_model
+        self.scenario_price = scenario_price
+        self.scenario_preview_url = scenario_preview_url
+        self.scenario_url = scenario_url
+
+    def __json__(self):
+        return {
+            "scenario_id": self.scenario_id,
+            "scenario_name": self.scenario_name,
+            "scenario_description": self.scenario_description,
+            "scenario_teacher_avatar": self.scenario_teacher_avatar,
+            "scenario_keywords": self.scenario_keywords,
+            "scenario_model": self.scenario_model,
+            "scenario_price": self.scenario_price,
+            "scenario_preview_url": self.scenario_preview_url,
+            "scenario_url": self.scenario_url,
+        }
+
+
+@register_schema_to_swagger
 class ChapterDto:
     chapter_id: str
     chapter_name: str

@@ -366,7 +366,11 @@ def migrate_user_study_record(
 def verify_sms_code(
     app: Flask, user_id, phone: str, chekcode: str, course_id: str = None
 ) -> UserToken:
-    from flaskr.service.profile.funcs import get_user_profile_labels, update_user_profile_with_lable
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
     User = get_model(app)
     check_save = redis.get(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
     if check_save is None and chekcode != FIX_CHECK_CODE:
