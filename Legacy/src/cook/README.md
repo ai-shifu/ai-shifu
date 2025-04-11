@@ -6,10 +6,6 @@
 # Editor (Cook) #
 #################
 
-# Lark (Feishu) for script editing
-LARK_APP_ID=""
-LARK_APP_SECRET=""
-
 # Database settings. If you don't know what they are, don't modify them.
 COOK_DB_USERNAME="root"
 COOK_DB_PASSWORD="ai-shifu"
