@@ -73,7 +73,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedImageUrl, setUploadedImageUrl] = useState("");
-    const {models } = useScenario();
+    const { models } = useScenario();
     const [copying, setCopying] = useState({
         previewUrl: false,
         url: false
@@ -243,9 +243,9 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                         <FormLabel className="text-right text-sm">预览地址</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
-                                                <span className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                                <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap ">
                                                     {field.value}
-                                                </span>
+                                                </a>
                                             </FormControl>
                                             <Button
                                                 type="button"
@@ -272,9 +272,9 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                         <FormLabel className="text-right text-sm">学习地址</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
-                                                <span className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                                <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
                                                     {field.value}
-                                                </span>
+                                                </a>
                                             </FormControl>
                                             <Button
                                                 type="button"
@@ -466,7 +466,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                                 </FormControl>
                                                 <SelectContent>
                                                     {
-                                                        models.map((item,i) => {
+                                                        models.map((item, i) => {
                                                             return <SelectItem key={i} value={item}>{item}</SelectItem>
                                                         })
                                                     }
