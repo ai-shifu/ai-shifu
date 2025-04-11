@@ -90,7 +90,6 @@ def request(method, date, query, header, ak, sk, action, body):
 
     hashed_canonical_request = hash_sha256(canonical_request_str)
 
-    print(hashed_canonical_request)
     credential_scope = "/".join(
         [short_x_date, credential["region"], credential["service"], "request"]
     )

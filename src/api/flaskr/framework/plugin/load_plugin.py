@@ -23,7 +23,6 @@ def load_plugins_from_dir(
         plugin_obj = None
         if SRC_DIR in files:
             for filename in os.listdir(os.path.join(directory, SRC_DIR)):
-                print(filename)
                 if filename.endswith(".py"):
                     plugin_obj = importlib.import_module(
                         f"{directory}.{SRC_DIR}.{filename[:-3]}".replace(os.sep, ".")

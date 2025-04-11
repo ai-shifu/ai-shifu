@@ -13,6 +13,7 @@ import { getUserProfile, updateUserProfile } from 'Api/user';
 import { LANGUAGE_DICT } from 'constants/userConstants';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking';
 
+
 const MainMenuModal = ({
   open,
   onClose = () => {},
@@ -29,6 +30,7 @@ const MainMenuModal = ({
       hasLogin: state.hasLogin,
     }))
   );
+
 
 
   const { i18n, t } = useTranslation();

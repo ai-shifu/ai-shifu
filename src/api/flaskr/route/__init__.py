@@ -7,6 +7,8 @@ from .dicts import register_dict_handler
 from .order import register_order_handler
 from .callback import register_callback_handler
 from .test import register_test_routes
+from .rag import register_rag_handler
+from .tag import register_tag_handler
 
 
 def register_route(app):
@@ -20,4 +22,6 @@ def register_route(app):
     app = register_order_handler(app, prefix + "/order")
     app = register_callback_handler(app, prefix + "/callback")
     app = register_test_routes(app, prefix + "/test")
+    app = register_rag_handler(app, prefix + "/rag")
+    app = register_tag_handler(app, prefix + "/tag")
     return app

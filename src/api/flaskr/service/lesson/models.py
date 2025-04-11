@@ -84,6 +84,9 @@ class AILesson(db.Model):
     course_id = Column(
         String(36), nullable=False, default="", comment="Course UUID", index=True
     )
+    parent_id = Column(
+        String(36), nullable=False, default="", comment="Parent lesson UUID", index=True
+    )
     lesson_name = Column(String(255), nullable=False, default="", comment="Lesson name")
     lesson_desc = Column(Text, nullable=False, comment="Lesson description", default="")
     lesson_no = Column(String(32), nullable=True, default="0", comment="Lesson number")
@@ -158,7 +161,7 @@ class AILessonScript(db.Model):
     script_id = Column(String(36), nullable=False, default="", comment="Script UUID")
     lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
     script_name = Column(String(255), nullable=False, default="", comment="Script name")
-    script_desc = Column(Text, nullable=False, comment="Script description")
+    script_desc = Column(Text, nullable=False, default="", comment="Script description")
     script_index = Column(Integer, nullable=False, default=0, comment="Script index")
     script_feishu_id = Column(
         String(255), nullable=False, default="", comment="Script feishu ID"
@@ -171,27 +174,44 @@ class AILessonScript(db.Model):
     script_content_type = Column(
         Integer, nullable=False, default=0, comment="Script content type"
     )
-    script_prompt = Column(Text, nullable=False, comment="Script prompt")
+    script_prompt = Column(Text, nullable=False, default="", comment="Script prompt")
     script_model = Column(
         String(36), nullable=False, default="", comment="Script model"
     )
     script_temprature = Column(
         DECIMAL(10, 2), nullable=False, default="0.8", comment="Script Temprature"
     )
-    script_profile = Column(Text, nullable=False, comment="Script profile")
-    script_media_url = Column(Text, nullable=False, comment="Script media URL")
+    script_profile = Column(Text, nullable=False, default="", comment="Script profile")
+    script_media_url = Column(
+        Text, nullable=False, default="", comment="Script media URL"
+    )
     script_ui_type = Column(
         Integer, nullable=False, default=0, comment="Script UI type"
     )
-    script_ui_content = Column(Text, nullable=False, comment="Script UI content")
-    script_check_prompt = Column(Text, nullable=False, comment="Script check prompt")
+    script_ui_content = Column(
+        Text, nullable=False, default="", comment="Script UI content"
+    )
+    script_check_prompt = Column(
+        Text, nullable=False, default="", comment="Script check prompt"
+    )
     script_check_flag = Column(
         Text, nullable=False, default="", comment="Script check flag"
     )
-    script_ui_profile = Column(Text, nullable=False, comment="Script UI profile")
-    script_end_action = Column(Text, nullable=False, comment="Script end action")
+    script_ui_profile = Column(
+        Text, nullable=False, default="", comment="Script UI profile"
+    )
+    script_ui_profile_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Script UI profile id",
+        index=True,
+    )
+    script_end_action = Column(
+        Text, nullable=False, default="", comment="Script end action"
+    )
     script_other_conf = Column(
-        Text, nullable=False, comment="Other configurations of the script"
+        Text, nullable=False, default="{}", comment="Other configurations of the script"
     )
     ask_count_limit = Column(
         Integer, nullable=False, default=5, comment="Ask count limit"

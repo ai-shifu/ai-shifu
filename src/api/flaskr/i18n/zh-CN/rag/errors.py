@@ -1,0 +1,1 @@
+MILVUS_NOT_CONFIGURED = "Milvus未配置"

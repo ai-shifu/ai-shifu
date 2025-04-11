@@ -4,19 +4,20 @@ import { userInfoStore, tokenTool } from 'Service/storeUtil';
 import { genUuid } from 'Utils/common';
 import { verifySmsCode } from 'Api/user';
 import { subscribeWithSelector } from 'zustand/middleware';
+
 import { removeParamFromUrl } from 'Utils/urlUtils';
 import i18n from '../i18n';
-
 import { UserStoreState } from '../types/store';
+import { useEnvStore } from './envStore';
 
 export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
   subscribeWithSelector((set) => ({
     hasCheckLogin: false,
     hasLogin: false,
     userInfo: null,
-
     login: async ({ mobile, smsCode }) => {
-      const res = await verifySmsCode({ mobile, sms_code: smsCode });
+      const courseId = useEnvStore.getState().courseId;
+      const res = await verifySmsCode({ mobile, sms_code: smsCode, course_id: courseId });
       const { userInfo, token } = res.data;
       await tokenTool.set({ token, faked: false });
 

@@ -10,6 +10,7 @@ from .const import (
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPES,
     UI_TYPE_CONTINUED,
+    UI_TYPE_SELECTION,
     UI_TYPES,
 )
 from flask import Flask
@@ -528,13 +529,16 @@ def update_lesson_info(
                     AILessonScript.script_feishu_id == record_id,
                     AILessonScript.lesson_id == lesson.lesson_id,
                 ).first()
+                if scripDb["script_ui_type"] == UI_TYPE_SELECTION:
+                    data = scripDb["script_ui_content"]
+                    app.logger.info("data:" + str(data))
+
                 if scrip is None:
                     scripDb["script_id"] = str(generate_id(app))
                     db.session.add(AILessonScript(**scripDb))
                 else:
                     for key in scripDb:
                         setattr(scrip, key, scripDb[key])
-                print("script_temprature:" + str(scripDb["script_temprature"]))
 
             if resp["data"]["has_more"]:
                 page_token = resp["data"]["page_token"]
