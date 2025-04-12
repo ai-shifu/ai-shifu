@@ -27,7 +27,7 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
                             items:
                                 type: string
         """
-        return make_common_response(get_current_models())
+        return make_common_response(get_current_models(app))
 
     @app.route(path_prefix + "/test-prompt", methods=["POST"])
     def test_prompt_api():
