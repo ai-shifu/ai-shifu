@@ -187,10 +187,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
             <Header />
             <div className="flex-1 container mx-auto flex flex-row  overflow-hidden px-10">
                 <div className='p-2 flex flex-col overflow-hidden h-full'>
-                    {/* <div className="flex items-center py-2">
-                        <h3 className="font-semibold">剧本标题</h3>
-                    </div> */}
-                    {/* <Separator className="mb-4" /> */}
                     <div className='flex-1 overflow-auto pr-4 w-[240px]'>
                         <ol className=' text-sm'>
                             <OutlineTree

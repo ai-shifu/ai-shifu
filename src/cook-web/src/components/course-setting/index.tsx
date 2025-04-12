@@ -465,7 +465,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    {
                                                         models.map((item, i) => {
                                                             return <SelectItem key={i} value={item}>{item}</SelectItem>
                                                         })
