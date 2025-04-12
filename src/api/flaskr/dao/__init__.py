@@ -61,13 +61,30 @@ def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
         global redis_client
         app.logger.info("run_with_redis start {}".format(key))
-        lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
-        if lock.acquire(blocking=False):
-            app.logger.info("run_with_redis get lock {}".format(key))
-            try:
+        
+        redis_timeout = min(timeout, 30)
+        blocking_timeout = 3
+        
+        lock = redis_client.lock(key, timeout=redis_timeout, blocking_timeout=blocking_timeout)
+        
+        try:
+            if lock.acquire(blocking=True):
+                app.logger.info("run_with_redis get lock {}".format(key))
+                try:
+                    return func(*args)
+                except Exception as e:
+                    app.logger.error(f"Error in run_with_redis function execution: {str(e)}")
+                    raise
+                finally:
+                    if hasattr(lock, 'owned') and lock.owned():
+                        lock.release()
+                        app.logger.info("run_with_redis release lock {}".format(key))
+            else:
+                app.logger.warning("run_with_redis get lock failed {}".format(key))
                 return func(*args)
-            finally:
+        except Exception as e:
+            app.logger.error(f"Error in run_with_redis lock operation: {str(e)}")
+            if lock and hasattr(lock, 'owned') and lock.owned():
                 lock.release()
-        else:
-            app.logger.info("run_with_redis get lock failed {}".format(key))
-            return None
+                app.logger.info("run_with_redis release lock in exception {}".format(key))
+            return func(*args)
