@@ -1,7 +1,7 @@
 """fix: rename course_teacher_avator to course_teacher_avatar
 
 Revision ID: f74a445
-Revises: 75ce6807f5e5
+Revises: a7806e012c77
 Create Date: 2025-04-12 13:42:00.000000
 
 """
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 revision = "f74a445"
-down_revision = "75ce6807f5e5"
+down_revision = "a7806e012c77"
 branch_labels = None
 depends_on = None
 
