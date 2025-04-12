@@ -8,7 +8,6 @@ Create Date: 2025-04-12 13:42:00.000000
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
 
 revision = "f74a445"
 down_revision = "75ce6807f5e5"
