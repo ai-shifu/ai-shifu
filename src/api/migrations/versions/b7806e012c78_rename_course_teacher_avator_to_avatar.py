@@ -5,13 +5,14 @@ Revises: a7806e012c77
 Create Date: 2025-04-12 14:30:00.000000
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
 
 
-revision = 'b7806e012c78'
-down_revision = 'a7806e012c77'
+revision = "b7806e012c78"
+down_revision = "a7806e012c77"
 branch_labels = None
 depends_on = None
 
