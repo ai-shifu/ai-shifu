@@ -50,14 +50,14 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [currentOutline, setCurrentOutline] = useState('');
     const [currentNode, setCurrentNode] = useState<Outline | null>(null);
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItem[]>([]);
-    const [models,setModels]=useState<string[]>([]);
+    const [models, setModels] = useState<string[]>([]);
     const loadScenario = async (scenarioId: string) => {
         try {
             setIsLoading(true);
             setError(null);
             const scenario = await api.getScenarioInfo({
                 scenario_id: scenarioId
-             });
+            });
             setCurrentScenario(scenario);
         } catch (error) {
             console.error(error);
@@ -177,6 +177,11 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             if (list.length > 0) {
                 if (list[0].children && list[0].children.length > 0) {
                     setCurrentOutline(list[0].children[0].id);
+                    console.log(list[0].children[0])
+                    setCurrentNode({
+                        ...list[0].children[0],
+                        depth: 1,
+                    });
                     loadBlocks(list[0].children[0].id);
                 }
             }
