@@ -177,7 +177,6 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             if (list.length > 0) {
                 if (list[0].children && list[0].children.length > 0) {
                     setCurrentOutline(list[0].children[0].id);
-                    console.log(list[0].children[0])
                     setCurrentNode({
                         ...list[0].children[0],
                         depth: 1,

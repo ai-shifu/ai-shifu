@@ -195,6 +195,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 }}
                             />
                         </ol>
+                        <div className='h-20'></div>
                         <Button variant="outline" className='my-2 h-8 sticky bottom-0 left-4 ' size="sm" onClick={onAddChapter}>
                             <Plus />
                             新篇章
