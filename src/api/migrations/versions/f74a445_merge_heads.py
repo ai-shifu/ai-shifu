@@ -6,10 +6,6 @@ Create Date: 2025-04-12 14:15:00.000000
 
 """
 
-from alembic import op
-import sqlalchemy as sa
-
-
 revision = "f74a445_merge"
 down_revision = None
 branch_labels = None
