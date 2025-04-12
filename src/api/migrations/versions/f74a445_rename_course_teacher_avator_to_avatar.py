@@ -8,6 +8,7 @@ Create Date: 2025-04-12 13:42:00.000000
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.sql import text
 
 revision = "f74a445"
 down_revision = "a7806e012c77"
