@@ -66,7 +66,7 @@
   "pay": {
     "payModalTitle": "Purchase",
     "paySuccess": "Paid successfully",
-    "protocalDesc": "Purchase means you have read and agreed to the following agreement",
+    "protocolDesc": "Purchase means you have read and agreed to the following agreement",
     "payChannel": "Payment Method",
     "payChannelWechat": "WeChat",
     "payChannelAlipay": "Alipay",

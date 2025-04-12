@@ -5,11 +5,11 @@ import { useTranslation } from 'react-i18next';
 export const PayModalFooter = ({ className }) => {
   const { t } = useTranslation();
   return (
-    <div className={classNames(styles.protocalWrapper, className)}>
-      <div className={styles.protocalDesc}>{t('pay.protocalDesc')}</div>
-      <div className={styles.protocalLinks}>
+    <div className={classNames(styles.protocolWrapper, className)}>
+      <div className={styles.protocolDesc}>{t('pay.protocolDesc')}</div>
+      <div className={styles.protocolLinks}>
         <a
-          className={styles.protocalLink}
+          className={styles.protocolLink}
           href="/useragreement"
           target="_blank"
           referrerPolicy="no-referrer"
@@ -17,7 +17,7 @@ export const PayModalFooter = ({ className }) => {
           {t('pay.modelServiceAgreement')}
         </a>
         <a
-          className={styles.protocalLink}
+          className={styles.protocolLink}
           href="/privacypolicy"
           target="_blank"
           referrerPolicy="no-referrer"
