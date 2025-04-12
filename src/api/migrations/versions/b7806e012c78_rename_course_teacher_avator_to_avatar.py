@@ -7,6 +7,7 @@ Create Date: 2025-04-12 14:30:00.000000
 """
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 
 
 revision = 'b7806e012c78'
@@ -22,7 +23,7 @@ def upgrade():
             new_column_name="course_teacher_avatar",
             existing_type=sa.String(length=255),
             existing_nullable=False,
-            existing_server_default=sa.text("''"),
+            existing_server_default=text("''"),
         )
 
 
@@ -33,5 +34,5 @@ def downgrade():
             new_column_name="course_teacher_avator",
             existing_type=sa.String(length=255),
             existing_nullable=False,
-            existing_server_default=sa.text("''"),
+            existing_server_default=text("''"),
         )
