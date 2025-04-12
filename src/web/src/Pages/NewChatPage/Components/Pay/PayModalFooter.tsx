@@ -10,7 +10,7 @@ export const PayModalFooter = ({ className }) => {
       <div className={styles.protocalLinks}>
         <a
           className={styles.protocalLink}
-          href="/useraggrement"
+          href="/useragreement"
           target="_blank"
           referrerPolicy="no-referrer"
         >

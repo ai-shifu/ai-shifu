@@ -54,10 +54,10 @@ export const FillingModal = ({
             type="link"
             className={styles.actionBtn}
             onClick={(e) => {
-              window.open('/useraggrement');
+              window.open('/useragreement');
             }}
           >
-            {t('navigation.userAggrement')}
+            {t('navigation.userAgreement')}
           </Button>
           <div>|</div>
           <Button

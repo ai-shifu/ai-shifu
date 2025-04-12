@@ -14,7 +14,7 @@ const routes = [
     element: <Navigate to='/c/'></Navigate>,
   },
   {
-    path: '/useraggrement',
+    path: '/useragreement',
     element: <UserAgreementPage />
   },
   {

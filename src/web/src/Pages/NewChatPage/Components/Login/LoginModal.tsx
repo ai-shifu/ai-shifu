@@ -32,7 +32,7 @@ export const LoginModal = ({
   const [verifyCodeForm] = Form.useForm();
   const [modalStep, setModalStep] = useState(MODAL_STEP.MOBILE);
   const [countDown, sendCode] = useSendCode({});
-  const [aggrement, setAggrement] = useState(false);
+  const [agreement, setAgreement] = useState(false);
   const [verifyCodeImage, setVerifyCodeImage] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
   const login = useUserStore((state) => state.login);
@@ -83,7 +83,7 @@ export const LoginModal = ({
     try {
       const { smsCode } = await codeForm.validateFields();
 
-      if (!aggrement) {
+      if (!agreement) {
         messageApi.error(t('user.msgToAgree'));
         return;
       }
@@ -237,18 +237,18 @@ export const LoginModal = ({
           style={{ display: 'none' }}
         ></div>
       </div>
-      <div className={styles.aggrementWrapper}>
-        <div className={styles.aggrement}>
+      <div className={styles.agreementWrapper}>
+        <div className={styles.agreement}>
           <Checkbox
             className={styles.checkbox}
-            onChange={(e) => setAggrement(e.target.checked)}
+            onChange={(e) => setAgreement(e.target.checked)}
           >
             {t('user.msgHaveRead')}
             <span
               className={styles.link}
             >
-              <a href="/useraggrement" target="_blank" rel="noreferrer">
-                {t('user.msgAggrement')}
+              <a href="/useragreement" target="_blank" rel="noreferrer">
+                {t('user.msgAgreement')}
               </a>
               {t('user.msgAnd')}
               <a
