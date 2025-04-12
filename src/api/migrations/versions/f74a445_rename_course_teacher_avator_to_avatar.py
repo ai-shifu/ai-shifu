@@ -8,7 +8,6 @@ Create Date: 2025-04-12 13:42:00.000000
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import text
 
 revision = "f74a445"
 down_revision = "a7806e012c77"
@@ -24,7 +23,7 @@ def upgrade():
             existing_type=sa.String(length=255),
             existing_nullable=False,
             existing_comment="Course teacher avatar",
-            existing_server_default=sa.text("''"),
+            existing_server_default="''",
         )
 
 
@@ -36,5 +35,5 @@ def downgrade():
             existing_type=sa.String(length=255),
             existing_nullable=False,
             existing_comment="Course teacher avatar",
-            existing_server_default=sa.text("''"),
+            existing_server_default="''",
         )
