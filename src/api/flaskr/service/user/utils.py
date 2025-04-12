@@ -38,7 +38,7 @@ def generate_token(app: Flask, user_id: str) -> str:
             algorithm="HS256",
         )
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_USER"] + user_id,
+            app.config["REDIS_KEY_PREFIX_USER"] + user_id,
             token,
             ex=app.config["TOKEN_EXPIRE_TIME"],
         )
@@ -63,7 +63,7 @@ def generation_img_chk(app: Flask, mobile: str):
             buffered.getvalue()
         ).decode("utf-8")
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + mobile,
+            app.config["REDIS_KEY_PREFIX_CAPTCHA"] + mobile,
             random_string,
             ex=app.config["CAPTCHA_CODE_EXPIRE_TIME"],
         )
@@ -71,14 +71,14 @@ def generation_img_chk(app: Flask, mobile: str):
 
 
 # send sms code
-def send_sms_code(app: Flask, phone: str, chekcode: str):
+def send_sms_code(app: Flask, phone: str, checkcode: str):
     with app.app_context():
-        check_save = redis.get(app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + phone)
+        check_save = redis.get(app.config["REDIS_KEY_PREFIX_CAPTCHA"] + phone)
         if check_save is None:
             raise_error("USER.CHECK_CODE_EXPIRED")
         check_save_str = str(check_save, encoding="utf-8")
-        app.logger.info("check_save_str:" + check_save_str + " chekcode:" + chekcode)
-        if chekcode.lower() != check_save_str.lower():
+        app.logger.info("check_save_str:" + check_save_str + " checkcode:" + checkcode)
+        if checkcode.lower() != check_save_str.lower():
             raise_error("USER.CHECK_CODE_ERROR")
         else:
             characters = string.digits
@@ -86,7 +86,7 @@ def send_sms_code(app: Flask, phone: str, chekcode: str):
             random_string = "".join(random.choices(characters, k=4))
             # 发送短信验证码
             redis.set(
-                app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone,
+                app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone,
                 random_string,
                 ex=app.config["PHONE_CODE_EXPIRE_TIME"],
             )

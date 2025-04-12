@@ -23,7 +23,7 @@ class AICourse(db.Model):
     course_feishu_id = Column(
         String(255), nullable=False, default="", comment="Course feishu ID"
     )
-    course_teacher_avator = Column(
+    course_teacher_avatar = Column(
         String(255), nullable=False, default="", comment="Course teacher avatar"
     )
     course_default_model = Column(

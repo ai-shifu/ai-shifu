@@ -77,7 +77,7 @@ def run_script_inner(
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
                 yield make_script_dto(
-                    "teacher_avator", course_info.course_teacher_avator, ""
+                    "teacher_avatar", course_info.course_teacher_avatar, ""
                 )
                 course_id = course_info.course_id
                 lessons = init_trial_lesson(app, user_id, course_id)
@@ -108,9 +108,9 @@ def run_script_inner(
                 ).first()
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
-                # return the teacher avator
+                # return the teacher avatar
                 yield make_script_dto(
-                    "teacher_avator", course_info.course_teacher_avator, ""
+                    "teacher_avatar", course_info.course_teacher_avatar, ""
                 )
 
                 attend_info = AICourseLessonAttend.query.filter(
@@ -441,7 +441,7 @@ def run_script(
 ) -> Generator[ScriptDTO, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    lock_key = app.config.get("REDIS_KEY_PRRFIX") + ":run_script:" + user_id
+    lock_key = app.config.get("REDIS_KEY_PREFIX") + ":run_script:" + user_id
     lock = redis_client.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )

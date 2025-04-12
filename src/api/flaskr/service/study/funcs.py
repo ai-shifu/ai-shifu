@@ -282,7 +282,7 @@ def get_lesson_tree_to_study_inner(
         ret = AICourseDTO(
             course_id=course_info.course_id,
             course_name=course_info.course_name,
-            teach_avator=course_info.course_teacher_avator,
+            teach_avatar=course_info.course_teacher_avatar,
             course_price=course_info.course_price,
             lessons=lessonInfos,
         )
@@ -295,7 +295,7 @@ def get_lesson_tree_to_study(
 ) -> AICourseDTO:
     return run_with_redis(
         app,
-        app.config.get("REDIS_KEY_PRRFIX") + "::get_lesson_tree_to_study:" + user_id,
+        app.config.get("REDIS_KEY_PREFIX") + "::get_lesson_tree_to_study:" + user_id,
         5,
         get_lesson_tree_to_study_inner,
         [app, user_id, course_id],
@@ -309,7 +309,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         course_info = AICourse.query.filter_by(course_id=lesson_info.course_id).first()
         if not course_info:
             return None
-        teach_avator = course_info.course_teacher_avator
+        teach_avatar = course_info.course_teacher_avatar
         lesson_ids = [lesson_id]
         if not lesson_info:
             return None
@@ -357,7 +357,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
             for i in attend_scripts
         ]
         user_info = User.query.filter_by(user_id=user_id).first()
-        ret = StudyRecordDTO(items, teach_avator=teach_avator)
+        ret = StudyRecordDTO(items, teach_avatar=teach_avatar)
         last_script_id = attend_scripts[-1].script_id
         last_script = AILessonScript.query.filter_by(script_id=last_script_id).first()
         last_lesson_id = last_script.lesson_id
