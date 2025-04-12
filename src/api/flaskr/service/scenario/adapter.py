@@ -71,8 +71,10 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
         type = ui.get("type")
         if type == "button":
             block_info.block_ui = ButtonDto(**ui.get("properties"))
-
         elif type == "login":
+            from flask import current_app as app
+
+            app.logger.info(f"ui.get('properties'): {ui.get('properties')}")
             block_info.block_ui = LoginDto(**ui.get("properties"))
         elif type == "phone":
             block_info.block_ui = PhoneDto(**ui.get("properties"))
@@ -158,12 +160,7 @@ def update_block_model(
         else:
             raise_error("SCENARIO.INVALID_BLOCK_CONTENT_TYPE")
     if block_dto.block_ui:
-        if isinstance(block_dto.block_ui, ButtonDto):
-            check_button_dto(block_dto.block_ui)
-            block_model.script_ui_type = UI_TYPE_BUTTON
-            block_model.script_ui_content = block_dto.block_ui.button_key
-            block_model.script_ui_content = block_dto.block_ui.button_name
-        elif isinstance(block_dto.block_ui, LoginDto):
+        if isinstance(block_dto.block_ui, LoginDto):
             check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_LOGIN
             block_model.script_ui_content = block_dto.block_ui.button_key
@@ -179,8 +176,13 @@ def update_block_model(
         elif isinstance(block_dto.block_ui, PaymentDto):
             check_button_dto(block_dto.block_ui)
             block_model.script_ui_type = UI_TYPE_TO_PAY
-            block_model.script_ui_content = block_dto.block_ui.input_key
-            block_model.script_ui_content = block_dto.block_ui.input_name
+            block_model.script_ui_content = block_dto.block_ui.button_key
+            block_model.script_ui_content = block_dto.block_ui.button_name
+        elif isinstance(block_dto.block_ui, ButtonDto):
+            check_button_dto(block_dto.block_ui)
+            block_model.script_ui_type = UI_TYPE_BUTTON
+            block_model.script_ui_content = block_dto.block_ui.button_key
+            block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, GotoDto):
             block_model.script_ui_type = UI_TYPE_BRANCH
             block_model.script_ui_content = block_dto.block_ui.input_name
@@ -288,6 +290,10 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         block_type=block.script_type,
         block_index=block.script_index,
     )
+
+    from flask import current_app as app
+
+    app.logger.info(f"block.script_type: {block.script_ui_type}")
     if block.script_type == SCRIPT_TYPE_FIX:
         ret.block_content = SolidContentDto(
             block.script_prompt, get_profiles(block.script_profile)
