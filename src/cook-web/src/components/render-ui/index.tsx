@@ -239,7 +239,7 @@ export const UITypes = [
             if (!properties?.prompt?.properties?.prompt) {
                 return "提示不能为空"
             }
-            if (!properties?.prompt?.properties?.temprature) {
+            if (typeof properties?.prompt?.properties?.temprature == 'undefined') {
                 return "温度不能为空"
             }
             if (!properties?.prompt?.properties?.model) {

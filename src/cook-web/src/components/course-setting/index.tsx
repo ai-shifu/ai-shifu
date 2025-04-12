@@ -73,7 +73,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedImageUrl, setUploadedImageUrl] = useState("");
-    const {models } = useScenario();
+    const { models } = useScenario();
     const [copying, setCopying] = useState({
         previewUrl: false,
         url: false
@@ -234,7 +234,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
                         <div className="h-[500px] py-2 px-4 overflow-auto space-y-2">
-                            {/* Preview URL */}
                             <FormField
                                 control={form.control}
                                 name="previewUrl"
@@ -243,9 +242,9 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                         <FormLabel className="text-right text-sm">预览地址</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
-                                                <span className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                                <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap ">
                                                     {field.value}
-                                                </span>
+                                                </a>
                                             </FormControl>
                                             <Button
                                                 type="button"
@@ -262,8 +261,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Learning URL */}
                             <FormField
                                 control={form.control}
                                 name="url"
@@ -272,9 +269,9 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                         <FormLabel className="text-right text-sm">学习地址</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
-                                                <span className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                                <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
                                                     {field.value}
-                                                </span>
+                                                </a>
                                             </FormControl>
                                             <Button
                                                 type="button"
@@ -292,7 +289,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 )}
                             />
 
-                            {/* Course Name */}
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -311,8 +307,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Course Description */}
                             <FormField
                                 control={form.control}
                                 name="description"
@@ -336,8 +330,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Keywords */}
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <label className="text-right text-sm pt-2 font-semibold">关键词</label>
                                 <div className="col-span-3">
@@ -377,8 +369,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     </div>
                                 </div>
                             </div>
-
-                            {/* Course Image */}
                             <div className="grid grid-cols-4 items-start gap-4">
                                 <label className="text-right text-sm pt-2 font-semibold">课程头像</label>
                                 <div className="col-span-3">
@@ -446,8 +436,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     )}
                                 </div>
                             </div>
-
-                            {/* Model Selection */}
                             <FormField
                                 control={form.control}
                                 name="model"
@@ -466,7 +454,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                                 </FormControl>
                                                 <SelectContent>
                                                     {
-                                                        models.map((item,i) => {
+                                                        models.map((item, i) => {
                                                             return <SelectItem key={i} value={item}>{item}</SelectItem>
                                                         })
                                                     }
@@ -477,8 +465,6 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Price */}
                             <FormField
                                 control={form.control}
                                 name="price"
