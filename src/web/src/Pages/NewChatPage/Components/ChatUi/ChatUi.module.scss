@@ -5,6 +5,7 @@
   flex: 1 1 auto;
   justify-content: center;
   position: relative;
+  overflow-y: auto; /* 添加垂直滚动 */
 
   &.mobile {
     width: 100%;
@@ -12,7 +13,7 @@
 
   .chatComponents {
     width: 100%;
-    max-width: 1000px;
+    /* 移除 max-width: 1000px; 限制 */
   }
 
   .UserSettings {
