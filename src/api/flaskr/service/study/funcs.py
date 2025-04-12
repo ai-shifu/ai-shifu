@@ -474,25 +474,25 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         lesson_info = None
         lesson_no = None
         course_id = None
-        
+
         with db.session.begin_nested():
             lesson_info = AILesson.query.filter(AILesson.lesson_id == lesson_id).first()
             if not lesson_info:
                 app.logger.info("lesson_info not found")
                 db.session.commit()
                 return False
-                
+
             lesson_no = lesson_info.lesson_no
             course_id = lesson_info.course_id
-            
+
             if len(lesson_no) > 2:
                 db.session.commit()
                 raise_error("LESSON.LESSON_CANNOT_BE_RESET")
             db.session.commit()
-        
+
         lessons = []
         lesson_ids = []
-        
+
         with db.session.begin_nested():
             lessons = AILesson.query.filter(
                 AILesson.lesson_no.like(lesson_no + "%"),
@@ -501,10 +501,10 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
             ).all()
             lesson_ids = [lesson.lesson_id for lesson in lessons]
             db.session.commit()
-        
+
         attend_infos = []
         attend_ids = []
-        
+
         with db.session.begin_nested():
             attend_infos = AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.user_id == user_id,
@@ -514,30 +514,31 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
             ).all()
             attend_ids = [attend_info.attend_id for attend_info in attend_infos]
             db.session.commit()
-        
+
         to_attend_ids = []
-        
+
         with db.session.begin_nested():
             attend_assositions = AICourseAttendAsssotion.query.filter(
                 AICourseAttendAsssotion.from_attend_id.in_(attend_ids)
             ).all()
             to_attend_ids = [
-                attend_assosition.to_attend_id for attend_assosition in attend_assositions
+                attend_assosition.to_attend_id
+                for attend_assosition in attend_assositions
             ]
             db.session.commit()
-        
+
         if len(to_attend_ids) > 0:
             with db.session.begin_nested():
                 AICourseLessonAttend.query.filter(
                     AICourseLessonAttend.attend_id.in_(to_attend_ids)
                 ).update({"status": ATTEND_STATUS_RESET})
                 db.session.commit()
-        
+
         with db.session.begin_nested():
             for attend_info in attend_infos:
                 attend_info.status = ATTEND_STATUS_RESET
             db.session.commit()
-        
+
         with db.session.begin_nested():
             for lesson in [lesson for lesson in lessons if lesson.status == 1]:
                 attend_info = AICourseLessonAttend(
@@ -554,7 +555,7 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
                     attend_info.status = ATTEND_STATUS_IN_PROGRESS
                 db.session.add(attend_info)
             db.session.commit()
-        
+
         db.session.commit()
         return True
 

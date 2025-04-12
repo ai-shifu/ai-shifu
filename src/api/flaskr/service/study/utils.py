@@ -268,37 +268,46 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
         attend_info = None
         attend_infos = []
         attend_status_values = None
-        
+
         with db.session.begin_nested():
             attend_info = AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.attend_id == attend_id
             ).first()
-            
+
             if not attend_info:
-                app.logger.warning(f"Attendance info not found for attend_id: {attend_id}")
+                app.logger.warning(
+                    f"Attendance info not found for attend_id: {attend_id}"
+                )
                 db.session.commit()
                 return None, [], False
-                
+
             attend_status_values = get_attend_status_values()
             app.logger.info(
-                "get next script,current:{},next:{}".format(attend_info.script_index, next)
+                "get next script,current:{},next:{}".format(
+                    attend_info.script_index, next
+                )
             )
             db.session.commit()
-        
-        if attend_info.status == ATTEND_STATUS_NOT_STARTED or attend_info.script_index <= 0:
+
+        if (
+            attend_info.status == ATTEND_STATUS_NOT_STARTED
+            or attend_info.script_index <= 0
+        ):
             with db.session.begin_nested():
                 attend_info.status = ATTEND_STATUS_IN_PROGRESS
                 attend_info.script_index = 1
-                
+
                 lesson = AILesson.query.filter(
                     AILesson.lesson_id == attend_info.lesson_id
                 ).first()
-                
+
                 if not lesson:
-                    app.logger.warning(f"Lesson not found for lesson_id: {attend_info.lesson_id}")
+                    app.logger.warning(
+                        f"Lesson not found for lesson_id: {attend_info.lesson_id}"
+                    )
                     db.session.commit()
                     return None, [], False
-                
+
                 attend_infos.append(
                     AILessonAttendDTO(
                         lesson.lesson_no,
@@ -310,7 +319,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                     )
                 )
                 db.session.commit()
-            
+
             if len(lesson.lesson_no) >= 2 and lesson.lesson_no[-2:] == "01":
                 app.logger.info("first lesson")
                 with db.session.begin_nested():
@@ -318,9 +327,11 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                         AILesson.lesson_no == lesson.lesson_no[:-2],
                         AILesson.course_id == lesson.course_id,
                     ).first()
-                    
+
                     if not parent_lesson:
-                        app.logger.warning(f"Parent lesson not found for lesson_no: {lesson.lesson_no[:-2]}")
+                        app.logger.warning(
+                            f"Parent lesson not found for lesson_no: {lesson.lesson_no[:-2]}"
+                        )
                         db.session.commit()
                     else:
                         parent_attend = AICourseLessonAttend.query.filter(
@@ -328,7 +339,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                             AICourseLessonAttend.user_id == attend_info.user_id,
                             AICourseLessonAttend.status != ATTEND_STATUS_RESET,
                         ).first()
-                        
+
                         is_first = True
                         if (
                             parent_attend is not None
@@ -346,39 +357,41 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                                 )
                             )
                         db.session.commit()
-        
+
         elif attend_info.status == ATTEND_STATUS_BRANCH:
             app.logger.info("branch")
             current = attend_info
-            
+
             with db.session.begin_nested():
                 assoation = AICourseAttendAsssotion.query.filter(
                     AICourseAttendAsssotion.from_attend_id == current.attend_id
                 ).first()
-                
+
                 if assoation:
                     app.logger.info("found assoation")
                     current = AICourseLessonAttend.query.filter(
                         AICourseLessonAttend.attend_id == assoation.to_attend_id
                     ).first()
                 db.session.commit()
-            
+
             while current.status == ATTEND_STATUS_BRANCH:
                 with db.session.begin_nested():
                     assoation = AICourseAttendAsssotion.query.filter(
                         AICourseAttendAsssotion.from_attend_id == current.attend_id
                     ).first()
-                    
+
                     if assoation:
                         current = AICourseLessonAttend.query.filter(
                             AICourseLessonAttend.attend_id == assoation.to_attend_id
                         ).first()
                     db.session.commit()
-            
+
             app.logger.info("to get branch script")
-            
-            script_info, branch_attend_infos, is_first = get_script(app, current.attend_id, next)
-            
+
+            script_info, branch_attend_infos, is_first = get_script(
+                app, current.attend_id, next
+            )
+
             if script_info:
                 return script_info, [], is_first
             else:
@@ -386,14 +399,14 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                     current.status = ATTEND_STATUS_COMPLETED
                     attend_info.status = ATTEND_STATUS_IN_PROGRESS
                     db.session.commit()
-                
+
                 return get_script(app, attend_id, next)
-        
+
         elif next > 0:
             with db.session.begin_nested():
                 attend_info.script_index = attend_info.script_index + next
                 db.session.commit()
-        
+
         script_info = None
         with db.session.begin_nested():
             script_info = AILessonScript.query.filter(
@@ -403,19 +416,19 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                 AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
             ).first()
             db.session.commit()
-        
+
         if not script_info:
             app.logger.info("no script found")
             app.logger.info(attend_info.lesson_id)
-            
+
             if attend_info.status == ATTEND_STATUS_IN_PROGRESS:
                 with db.session.begin_nested():
                     attend_info.status = ATTEND_STATUS_COMPLETED
-                    
+
                     lesson = AILesson.query.filter(
                         AILesson.lesson_id == attend_info.lesson_id
                     ).first()
-                    
+
                     if lesson:
                         attend_infos.append(
                             AILessonAttendDTO(
@@ -428,7 +441,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                             )
                         )
                     db.session.commit()
-        
+
         db.session.commit()
         return script_info, attend_infos, is_first
 
