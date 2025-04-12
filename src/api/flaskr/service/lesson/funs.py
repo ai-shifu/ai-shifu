@@ -674,7 +674,7 @@ def get_course_list(app: Flask) -> list[AICourseDTO]:
                 course.course_price,
                 course.course_feishu_id,
                 course.course_status,
-                course.course_teacher_avator,
+                course.course_teacher_avatar,
             )
             for course in courses
         ]
@@ -723,6 +723,6 @@ def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
             course.course_price,
             course.course_feishu_id,
             course.course_status,
-            course.course_teacher_avator,
+            course.course_teacher_avatar,
             course.course_keywords,
         )
