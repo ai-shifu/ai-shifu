@@ -72,9 +72,6 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
         if type == "button":
             block_info.block_ui = ButtonDto(**ui.get("properties"))
         elif type == "login":
-            from flask import current_app as app
-
-            app.logger.info(f"ui.get('properties'): {ui.get('properties')}")
             block_info.block_ui = LoginDto(**ui.get("properties"))
         elif type == "phone":
             block_info.block_ui = PhoneDto(**ui.get("properties"))
@@ -291,9 +288,6 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         block_index=block.script_index,
     )
 
-    from flask import current_app as app
-
-    app.logger.info(f"block.script_type: {block.script_ui_type}")
     if block.script_type == SCRIPT_TYPE_FIX:
         ret.block_content = SolidContentDto(
             block.script_prompt, get_profiles(block.script_profile)
