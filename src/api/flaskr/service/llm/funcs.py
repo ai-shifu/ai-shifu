@@ -8,6 +8,8 @@ from flaskr.service.scenario.block_funcs import (
 )
 from langchain.prompts import PromptTemplate
 from flaskr.service.common import raise_error
+from flaskr.service.study.dtos import ScriptDTO
+from flaskr.service.study.utils import make_script_dto_to_stream
 
 
 def format_script_prompt(script_prompt: str, script_variables: dict) -> str:
@@ -47,17 +49,17 @@ def debug_script(
 
     with app.app_context():
 
-        trace_args = {}
-        trace_args["user_id"] = user_id
-        trace_args["session_id"] = "debug-" + block_id
-        trace_args["input"] = block_prompt
-        trace_args["name"] = "ai-python"
-        trace = langfuse_client.trace(**trace_args)
-        app.logger.info(f"debug_script {block_id} ")
         try:
             block_info = get_block_by_id(app, block_id)
             if not block_info:
                 raise_error("SCENARIO.BLOCK_NOT_FOUND")
+            trace_args = {}
+            trace_args["user_id"] = user_id
+            trace_args["session_id"] = "debug-" + block_id
+            trace_args["input"] = block_prompt
+            trace_args["name"] = " debug"
+            trace = langfuse_client.trace(**trace_args)
+            app.logger.info(f"debug_script {block_id} ")
             model_setting = get_model_setting(app, block_info)
             app.logger.info(f"model_setting: {model_setting}")
             app.logger.info(f"block_model: {block_model}")
@@ -89,9 +91,15 @@ def debug_script(
             )
             for chunk in response:
                 response_text += chunk.result
-                yield f"""data: {{"text":"{chunk.result}"}}\n\n"""
-            yield "data: {{'end':true}}\n\n"
+                yield make_script_dto_to_stream(
+                    ScriptDTO(
+                        "text", chunk.result, block_info.lesson_id, block_id, trace.id
+                    )
+                )
+            yield make_script_dto_to_stream(
+                ScriptDTO("text_end", "", block_info.lesson_id, block_id, trace.id)
+            )
+            span.update(output=response_text)
+            trace.end()
         except Exception as e:
             app.logger.error(f"debug_script {block_id} error: {e}")
-        finally:
-            span.update(output=response_text)
