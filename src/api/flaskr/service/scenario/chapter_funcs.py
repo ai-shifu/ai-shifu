@@ -4,7 +4,14 @@ from .dtos import ChapterDto
 from sqlalchemy import func
 from ...util.uuid import generate_id
 from ..common.models import raise_error
-from ..lesson.models import LESSON_TYPE_TRIAL
+from ..lesson.const import (
+    LESSON_TYPE_TRIAL,
+    STATUS_PUBLISH,
+    STATUS_DRAFT,
+    STATUS_DELETE,
+    STATUS_HISTORY,
+    STATUS_TO_DELETE,
+)
 from datetime import datetime
 from .dtos import SimpleOutlineDto
 
@@ -15,7 +22,7 @@ def get_chapter_list(app, user_id: str, scenario_id: str):
         chapters = (
             AILesson.query.filter(
                 AILesson.course_id == scenario_id,
-                AILesson.status == 1,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                 func.length(AILesson.lesson_no) == 2,
             )
             .order_by(AILesson.lesson_index.asc(), AILesson.lesson_no.asc())
@@ -45,14 +52,14 @@ def create_chapter(
     with app.app_context():
         existing_chapter = AILesson.query.filter(
             AILesson.course_id == scenario_id,
-            AILesson.status == 1,
+            AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             AILesson.lesson_name == chapter_name,
         ).first()
         if existing_chapter:
             raise_error("SCENARIO.CHAPTER_ALREADY_EXISTS")
         existing_chapter_count = AILesson.query.filter(
             AILesson.course_id == scenario_id,
-            AILesson.status == 1,
+            AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             func.length(AILesson.lesson_no) == 2,
         ).count()
 
@@ -62,7 +69,7 @@ def create_chapter(
         else:
             db.session.query(AILesson).filter(
                 AILesson.course_id == scenario_id,
-                AILesson.status == 1,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                 AILesson.lesson_index >= chapter_index,
             ).update(
                 {AILesson.lesson_index: AILesson.lesson_index + 1},
@@ -77,7 +84,7 @@ def create_chapter(
             course_id=scenario_id,
             created_user_id=user_id,
             updated_user_id=user_id,
-            status=1,
+            status=STATUS_DRAFT,
             lesson_index=chapter_index,
             lesson_type=chapter_type,
         )
@@ -104,13 +111,19 @@ def modify_chapter(
     with app.app_context():
         chapter = AILesson.query.filter_by(lesson_id=chapter_id).first()
         if chapter:
+            history_chapter = chapter.clone()
+            history_chapter.status = STATUS_HISTORY
+            history_chapter.updated_user_id = user_id
+            history_chapter.updated_at = datetime.now()
+            db.session.add(history_chapter)
             chapter.lesson_name = chapter_name
             chapter.lesson_desc = chapter_description
             chapter.updated_user_id = user_id
             chapter.lesson_type = chapter_type
+            chapter.status = STATUS_DRAFT
             existing_chapter_count = AILesson.query.filter(
                 AILesson.course_id == chapter.course_id,
-                AILesson.status == 1,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                 func.length(AILesson.lesson_no) == 2,
                 AILesson.lesson_id != chapter_id,
                 AILesson.lesson_name == chapter_name,
@@ -121,7 +134,7 @@ def modify_chapter(
                 chapter.lesson_index = chapter_index
                 db.session.query(AILesson).filter(
                     AILesson.course_id == chapter.course_id,
-                    AILesson.status == 1,
+                    AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                     AILesson.lesson_index >= chapter_index,
                     AILesson.lesson_id != chapter_id,
                 ).update(
@@ -142,7 +155,7 @@ def delete_chapter(app, user_id: str, chapter_id: str):
     with app.app_context():
         chapter = AILesson.query.filter_by(lesson_id=chapter_id).first()
         if chapter:
-            chapter.status = 0
+            chapter.status = STATUS_DELETE
             chapter.updated_user_id = user_id
             db.session.commit()
             return True
@@ -209,7 +222,7 @@ def update_chapter_order(
         if len(update_chatpers) > 0:
             sub_chapters = AILesson.query.filter(
                 AILesson.course_id == scenario_id,
-                AILesson.status == 1,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                 AILesson.parent_id.in_([c.lesson_id for c in update_chatpers]),
             ).all()
             for sub_chapter in sub_chapters:
@@ -241,11 +254,28 @@ def get_outline_tree(app, user_id: str, scenario_id: str):
         outline_tree_nodes = (
             AILesson.query.filter(
                 AILesson.course_id == scenario_id,
-                AILesson.status == 1,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             )
             .order_by(AILesson.lesson_no.asc())
             .all()
         )
+
+        prepare_to_delete_nodes = AILesson.query.filter(
+            AILesson.course_id == scenario_id,
+            AILesson.status.in_([STATUS_TO_DELETE]),
+        ).all()
+
+        app.logger.info(
+            f"prepare_to_delete_nodes: {[p.lesson_id for p in prepare_to_delete_nodes]}"
+        )
+        outline_tree_nodes = [
+            n
+            for n in outline_tree_nodes
+            if next(
+                (p for p in prepare_to_delete_nodes if p.lesson_id == n.lesson_id), None
+            )
+            is None
+        ]
         outline_tree_dto = [
             SimpleOutlineDto(node.lesson_id, node.lesson_no, node.lesson_name)
             for node in outline_tree_nodes

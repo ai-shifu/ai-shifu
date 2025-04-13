@@ -1,11 +1,17 @@
 from ...dao import db
 from datetime import datetime
 from .dtos import ScenarioDto, ScenarioDetailDto
-from ..lesson.models import AICourse
+from ..lesson.models import AICourse, AILesson, AILessonScript
 from ...util.uuid import generate_id
 from .models import FavoriteScenario
 from ..common.dtos import PageNationDTO
-
+from ...service.lesson.const import (
+    STATUS_PUBLISH,
+    STATUS_DRAFT,
+    STATUS_DELETE,
+    STATUS_HISTORY,
+    STATUS_TO_DELETE,
+)
 
 from ..common.models import raise_error, raise_error_with_args
 from ...common.config import get_config
@@ -23,7 +29,10 @@ def get_raw_scenario_list(
         page_offset = (page_index - 1) * page_size
         total = AICourse.query.filter(AICourse.created_user_id == user_id).count()
         courses = (
-            AICourse.query.filter(AICourse.created_user_id == user_id)
+            AICourse.query.filter(
+                AICourse.created_user_id == user_id,
+                AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
             .order_by(AICourse.id.desc())
             .offset(page_offset)
             .limit(page_size)
@@ -66,7 +75,10 @@ def get_favorite_scenario_list(
         course_ids = [
             favorite_scenario.scenario_id for favorite_scenario in favorite_scenarios
         ]
-        courses = AICourse.query.filter(AICourse.course_id.in_(course_ids)).all()
+        courses = AICourse.query.filter(
+            AICourse.course_id.in_(course_ids),
+            AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+        ).all()
         scenario_dtos = [
             ScenarioDto(
                 course.course_id,
@@ -123,7 +135,7 @@ def create_scenario(
             course_teacher_avator=scenario_image,
             created_user_id=user_id,
             updated_user_id=user_id,
-            status=0,
+            status=STATUS_DRAFT,
             course_keywords=scenario_keywords,
         )
         db.session.add(course)
@@ -133,14 +145,17 @@ def create_scenario(
             scenario_name=scenario_name,
             scenario_description=scenario_description,
             scenario_image=scenario_image,
-            scenario_state=0,
+            scenario_state=STATUS_DRAFT,
             is_favorite=False,
         )
 
 
 def get_scenario_info(app, user_id: str, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        scenario = AICourse.query.filter(
+            AICourse.course_id == scenario_id,
+            AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+        ).first()
         if scenario:
             return ScenarioDto(
                 scenario_id=scenario.course_id,
@@ -195,7 +210,10 @@ def mark_or_unmark_favorite_scenario(
 
 def check_scenario_exist(app, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        scenario = AICourse.query.filter(
+            AICourse.course_id == scenario_id,
+            AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+        ).first()
         if scenario:
             return
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
@@ -203,7 +221,10 @@ def check_scenario_exist(app, scenario_id: str):
 
 def check_scenario_can_publish(app, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        scenario = AICourse.query.filter(
+            AICourse.course_id == scenario_id,
+            AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+        ).first()
         if scenario:
             return
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
@@ -211,12 +232,83 @@ def check_scenario_can_publish(app, scenario_id: str):
 
 def publish_scenario(app, user_id, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
+        scenario = AICourse.query.filter(
+            AICourse.course_id == scenario_id, AICourse.status.in_([STATUS_DRAFT])
+        ).first()
+        if not scenario:
+            scenario = AICourse.query.filter(
+                AICourse.course_id == scenario_id, AICourse.status.in_([STATUS_PUBLISH])
+            ).first()
         if scenario:
             check_scenario_can_publish(app, scenario_id)
-            scenario.status = 1
+            scenario.status = STATUS_PUBLISH
             scenario.updated_user_id = user_id
             scenario.updated_at = datetime.now()
+            # deal with draft lessons
+            lessons = AILesson.query.filter(
+                AILesson.course_id == scenario_id,
+                AILesson.status.in_([STATUS_DRAFT, STATUS_PUBLISH, STATUS_TO_DELETE]),
+            ).all()
+            published_lessons = [pub for pub in lessons if pub.status == STATUS_PUBLISH]
+            to_delete_lessons = [td for td in lessons if td.status == STATUS_TO_DELETE]
+            deleted_lessons = []
+            for lesson in [draft for draft in lessons if draft.status == STATUS_DRAFT]:
+                # publish lesson
+                lesson.status = STATUS_PUBLISH
+                lesson.updated_user_id = user_id
+                lesson.updated_at = datetime.now()
+                published = next(
+                    (
+                        pub
+                        for pub in published_lessons
+                        if pub.lesson_id == lesson.lesson_id
+                    ),
+                    None,
+                )
+                if published:
+                    # history published lesson
+                    published.status = STATUS_HISTORY
+                    published.updated_user_id = user_id
+                    published.updated_at = datetime.now()
+                    published_lessons.remove(published)
+                published_lessons.append(lesson)
+            for lesson in to_delete_lessons:
+                lesson.status = STATUS_DELETE
+                lesson.updated_user_id = user_id
+                lesson.updated_at = datetime.now()
+                published = next(
+                    (
+                        pub
+                        for pub in published_lessons
+                        if pub.lesson_id == lesson.lesson_id
+                    ),
+                    None,
+                )
+                if published:
+                    # history published lesson
+                    published.status = STATUS_DELETE
+                    published.updated_user_id = user_id
+                    published.updated_at = datetime.now()
+                    published_lessons.remove(published)
+                    deleted_lessons.append(lesson)
+            app.logger.info(
+                f"published_lessons: {sorted([l.lesson_no for l in published_lessons])}"
+            )
+            app.logger.info(
+                f"deleted_lessons: {sorted([l.lesson_no for l in deleted_lessons])}"
+            )
+
+            # deal with draft block scripts
+            lesson_ids = [lesson.lesson_id for lesson in published_lessons]
+            block_scripts = AILessonScript.query.filter(
+                AILessonScript.lesson_id.in_(lesson_ids),
+                AILessonScript.status.in_([STATUS_DRAFT]),
+            ).all()
+            if block_scripts:
+                for block_script in block_scripts:
+                    block_script.status = STATUS_PUBLISH
+                    block_script.updated_user_id = user_id
+                    block_script.updated_at = datetime.now()
             db.session.commit()
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
@@ -227,7 +319,12 @@ def preview_scenario(app, user_id, scenario_id: str, variables: dict, skip: bool
         scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
         if scenario:
             check_scenario_can_publish(app, scenario_id)
-            return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
+            return (
+                get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + scenario.course_id
+                + "?preview=true"
+            )
 
 
 def get_content_type(filename):
