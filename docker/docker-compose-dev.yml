@@ -31,8 +31,8 @@ services:
     depends_on:
       - ai-shifu-api-dev
     volumes:
-      - ../src/cook-web/public:/cook-web/public
-      - ../src/cook-web/src:/cook-web/src
+      - ../src/cook-web/public:/app/public
+      - ../src/cook-web/src:/app/src
 
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev

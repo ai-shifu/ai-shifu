@@ -1,9 +1,6 @@
 FROM node:20.11.1 AS base
-# use pnpm
-RUN corepack enable
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
 
+RUN corepack enable
 
 # set work directory
 WORKDIR /app
@@ -12,16 +9,13 @@ WORKDIR /app
 # copy package.json and package-lock.json files
 COPY package*.json ./
 
-# copy ecosystem.config.js file
-COPY ecosystem.config.js ./
-
 # copy project source code
 COPY . .
-
-RUN pnpm install
+# install dependencies
+RUN npm install
 
 # expose port
-EXPOSE 5000
+EXPOSE 3000
 
 # start service
-CMD ["pnpm", "run", "dev"]
+CMD ["npm", "run", "dev"]
