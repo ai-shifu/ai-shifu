@@ -10,7 +10,6 @@ import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header';
 import { BlockType } from '@/types/scenario';
-import { Separator } from '../ui/separator';
 import RenderBlockContent from '../render-block';
 import RenderBlockUI from '../render-ui';
 import AIDebugDialog from '@/components/ai-debug';
@@ -187,10 +186,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
             <Header />
             <div className="flex-1 container mx-auto flex flex-row  overflow-hidden px-10">
                 <div className='p-2 flex flex-col overflow-hidden h-full'>
-                    <div className="flex items-center py-2">
-                        <h3 className="font-semibold">剧本标题</h3>
-                    </div>
-                    <Separator className="mb-4" />
                     <div className='flex-1 overflow-auto pr-4 w-[240px]'>
                         <ol className=' text-sm'>
                             <OutlineTree
@@ -200,6 +195,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 }}
                             />
                         </ol>
+                        <div className='h-20'></div>
                         <Button variant="outline" className='my-2 h-8 sticky bottom-0 left-4 ' size="sm" onClick={onAddChapter}>
                             <Plus />
                             新篇章

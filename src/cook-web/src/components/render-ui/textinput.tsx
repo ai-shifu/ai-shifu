@@ -86,7 +86,7 @@ export default function TextInput(props: ButtonProps) {
                 <label htmlFor="" className=' whitespace-nowrap w-[70px] shrink-0'>
                     指定模型：
                 </label>
-                <ModelList value={properties.prompt.properties.model} className=" h-8 w-[120px]" onChange={onModelChange} />
+                <ModelList value={properties.prompt.properties.model} className=" h-8 w-[200px]" onChange={onModelChange} />
             </div>
             <div className='flex flex-row items-center space-x-1 w-[275px]'>
                 <label htmlFor="" className=' whitespace-nowrap w-[70px] shrink-0'>

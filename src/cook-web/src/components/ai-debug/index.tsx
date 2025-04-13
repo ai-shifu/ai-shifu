@@ -13,7 +13,7 @@ import {
     PlusIcon
 } from "@heroicons/react/24/outline";
 import { useScenario } from "@/store";
-import MDXEditor from '@/components/text-editor';
+import CMEditor from '@/components/cm-editor';
 import ModelList from '@/components/model-list';
 
 
@@ -96,15 +96,12 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                         </CollapsibleTrigger>
                         <CollapsibleContent className="p-0">
                             {/* System Prompt Content */}
-                            <MDXEditor
+                            <CMEditor
                                 profiles={profiles}
                                 content={systemPrompt}
                                 onChange={setSystemPrompt}
                                 isEdit={true}
-                            >
-
-                            </MDXEditor>
-
+                            />
                         </CollapsibleContent>
                     </Collapsible>
 
@@ -127,14 +124,13 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="p-0">
-                            <MDXEditor
+                            <CMEditor
                                 profiles={profiles}
                                 content={userPrompt}
                                 onChange={setUserPrompt}
                                 isEdit={true}
-                            >
+                            />
 
-                            </MDXEditor>
                         </CollapsibleContent>
                     </Collapsible>
 

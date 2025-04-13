@@ -1,5 +1,6 @@
 
-import TextEditor from '@/components/text-editor';
+import CMEditor from '@/components/cm-editor';
+
 
 
 interface AIBlockProps {
@@ -21,7 +22,7 @@ interface AIBlock {
 export default function AI(props: AIBlock) {
 
     return (
-        <TextEditor
+        <CMEditor
             content={props.properties.prompt}
             profiles={props.properties.profiles}
             isEdit={props.isEdit}

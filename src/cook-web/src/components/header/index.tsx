@@ -1,13 +1,12 @@
 "use client"
 import React, { useState } from 'react';
-import { ArrowTrendingUpIcon, ChevronLeftIcon } from "@heroicons/react/24/outline"
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useScenario } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/use-alert';
 import api from '@/api'
-import { CircleAlert, CircleCheck } from 'lucide-react';
+import { ChevronLeft, CircleAlert, CircleCheck, TrendingUp } from 'lucide-react';
 import Preivew from '@/components/preview';
 import CourseSetting from '@/components/course-setting';
 
@@ -15,7 +14,7 @@ const Header = () => {
     const alert = useAlert();
     const router = useRouter();
     const [publishing, setPublishing] = useState(false);
-    const { isSaving, lastSaveTime, currentScenario, error,actions } = useScenario();
+    const { isSaving, lastSaveTime, currentScenario, error, actions } = useScenario();
     const onCourseSave = async () => {
         if (currentScenario) {
             await actions.loadScenario(currentScenario.id);
@@ -58,7 +57,7 @@ const Header = () => {
         <div className="flex items-center w-full h-14 px-2 py-2 bg-white border-b border-gray-200">
             <div className="flex items-center space-x-4">
                 <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
-                    <ChevronLeftIcon className="h-5 w-5" />
+                    <ChevronLeft className="h-5 w-5" />
                 </Button>
 
                 <div className="flex items-center">
@@ -71,7 +70,7 @@ const Header = () => {
                                     className="rounded"
                                 />
                             </div>
-                        ) :  null
+                        ) : null
                     }
 
                     <div className='flex flex-col'>
@@ -133,7 +132,7 @@ const Header = () => {
                     }
                     {
                         !publishing && (
-                            <ArrowTrendingUpIcon />
+                            <TrendingUp />
                         )
                     }
                     发布
