@@ -119,7 +119,7 @@ def get_user_profile_by_user_id(
 def save_user_profile(
     user_id: str, profile_key: str, profile_value: str, profile_type: int
 ):
-    PROFILES_LABLES = get_profile_labels()
+    PROFILES_LABELS = get_profile_labels()
     user_profile = UserProfile.query.filter_by(
         user_id=user_id, profile_key=profile_key
     ).first()
@@ -136,14 +136,14 @@ def save_user_profile(
             profile_id="",
         )
         db.session.add(user_profile)
-    if profile_key in PROFILES_LABLES:
-        profile_lable = PROFILES_LABLES[profile_key]
-        if profile_lable.get("mapping"):
-            if profile_lable.get("items_mapping"):
-                profile_value = profile_lable["items_mapping"].get(
+    if profile_key in PROFILES_LABELS:
+        profile_label = PROFILES_LABELS[profile_key]
+        if profile_label.get("mapping"):
+            if profile_label.get("items_mapping"):
+                profile_value = profile_label["items_mapping"].get(
                     profile_value, profile_value
                 )
-            setattr(user_info, profile_lable["mapping"], profile_value)
+            setattr(user_info, profile_label["mapping"], profile_value)
     db.session.flush()
     return UserProfileDTO(
         user_profile.user_id,
@@ -154,7 +154,7 @@ def save_user_profile(
 
 
 def save_user_profiles(app: Flask, user_id: str, profiles: dict):
-    PROFILES_LABLES = get_profile_labels()
+    PROFILES_LABELS = get_profile_labels()
     app.logger.info("save user profiles:{}".format(profiles))
     user_info = User.query.filter(User.user_id == user_id).first()
     for key, value in profiles.items():
@@ -172,12 +172,12 @@ def save_user_profiles(app: Flask, user_id: str, profiles: dict):
                 profile_id="",
             )
             db.session.add(user_profile)
-        if key in PROFILES_LABLES:
-            profile_lable = PROFILES_LABLES[key]
-            if profile_lable.get("mapping"):
-                if profile_lable.get("items_mapping"):
-                    value = profile_lable["items_mapping"].get(value, value)
-                setattr(user_info, profile_lable["mapping"], value)
+        if key in PROFILES_LABELS:
+            profile_label = PROFILES_LABELS[key]
+            if profile_label.get("mapping"):
+                if profile_label.get("items_mapping"):
+                    value = profile_label["items_mapping"].get(value, value)
+                setattr(user_info, profile_label["mapping"], value)
     db.session.flush()
     return True
 
@@ -198,30 +198,30 @@ def get_user_profiles(app: Flask, user_id: str, keys: list = None) -> dict:
 def get_user_profile_labels(app: Flask, user_id: str):
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
     user_info = User.query.filter(User.user_id == user_id).first()
-    PROFILES_LABLES = get_profile_labels()
+    PROFILES_LABELS = get_profile_labels()
     result = []
     if user_info:
-        for key in PROFILES_LABLES:
-            if PROFILES_LABLES[key].get("mapping"):
+        for key in PROFILES_LABELS:
+            if PROFILES_LABELS[key].get("mapping"):
                 item = {
                     "key": key,
-                    "label": PROFILES_LABLES[key]["label"],
-                    "type": PROFILES_LABLES[key].get(
-                        "type", "select" if "items" in PROFILES_LABLES[key] else "text"
+                    "label": PROFILES_LABELS[key]["label"],
+                    "type": PROFILES_LABELS[key].get(
+                        "type", "select" if "items" in PROFILES_LABELS[key] else "text"
                     ),
-                    "value": getattr(user_info, PROFILES_LABLES[key]["mapping"]),
-                    "items": PROFILES_LABLES[key].get("items"),
+                    "value": getattr(user_info, PROFILES_LABELS[key]["mapping"]),
+                    "items": PROFILES_LABELS[key].get("items"),
                 }
-                if PROFILES_LABLES[key].get("items_mapping"):
-                    item["value"] = PROFILES_LABLES[key]["items_mapping"].get(
-                        getattr(user_info, PROFILES_LABLES[key]["mapping"]),
-                        PROFILES_LABLES[key].get("items")[0],
+                if PROFILES_LABELS[key].get("items_mapping"):
+                    item["value"] = PROFILES_LABELS[key]["items_mapping"].get(
+                        getattr(user_info, PROFILES_LABELS[key]["mapping"]),
+                        PROFILES_LABELS[key].get("items")[0],
                     )
 
                 result.append(item)
 
     for user_profile in user_profiles:
-        if user_profile.profile_key in PROFILES_LABLES:
+        if user_profile.profile_key in PROFILES_LABELS:
             items = [key for key in result if key["key"] == user_profile.profile_key]
             item = items[0] if len(items) > 0 else None
             app.logger.info(
@@ -232,26 +232,26 @@ def get_user_profile_labels(app: Flask, user_id: str):
             if item is None:
                 item = {
                     "key": user_profile.profile_key,
-                    "label": PROFILES_LABLES[user_profile.profile_key]["label"],
-                    "type": PROFILES_LABLES[user_profile.profile_key].get(
+                    "label": PROFILES_LABELS[user_profile.profile_key]["label"],
+                    "type": PROFILES_LABELS[user_profile.profile_key].get(
                         "type",
                         (
                             "select"
-                            if "items" in PROFILES_LABLES[user_profile.profile_key]
+                            if "items" in PROFILES_LABELS[user_profile.profile_key]
                             else "text"
                         ),
                     ),
                     "value": user_profile.profile_value,
                     "items": (
-                        PROFILES_LABLES[user_profile.profile_key]["items"]
-                        if "items" in PROFILES_LABLES[user_profile.profile_key]
+                        PROFILES_LABELS[user_profile.profile_key]["items"]
+                        if "items" in PROFILES_LABELS[user_profile.profile_key]
                         else None
                     ),
                 }
                 result.append(item)
 
-            if PROFILES_LABLES[user_profile.profile_key].get("items_mapping"):
-                item["value"] = PROFILES_LABLES[user_profile.profile_key][
+            if PROFILES_LABELS[user_profile.profile_key].get("items_mapping"):
+                item["value"] = PROFILES_LABELS[user_profile.profile_key][
                     "items_mapping"
                 ][user_profile.profile_value]
             else:
@@ -259,10 +259,10 @@ def get_user_profile_labels(app: Flask, user_id: str):
     return result
 
 
-def update_user_profile_with_lable(
+def update_user_profile_with_label(
     app: Flask, user_id: str, profiles: list, update_all: bool = False
 ):
-    PROFILES_LABLES = get_profile_labels()
+    PROFILES_LABELS = get_profile_labels()
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
         # check nickname
@@ -283,33 +283,33 @@ def update_user_profile_with_lable(
             user_profile = (
                 user_profile_to_update[0] if len(user_profile_to_update) > 0 else None
             )
-            profile_lable = PROFILES_LABLES.get(profile["key"], None)
+            profile_label = PROFILES_LABELS.get(profile["key"], None)
             profile_value = profile["value"]
-            if profile_lable:
-                if profile_lable.get("items_mapping"):
-                    for k, v in profile_lable["items_mapping"].items():
+            if profile_label:
+                if profile_label.get("items_mapping"):
+                    for k, v in profile_label["items_mapping"].items():
                         if v == profile_value:
                             profile_value = k
-                default_value = profile_lable.get("default", None)
+                default_value = profile_label.get("default", None)
                 app.logger.info(
                     "default_value:{}, profile_value:{}".format(
                         default_value, profile_value
                     )
                 )
-                if profile_lable.get("mapping") and (
+                if profile_label.get("mapping") and (
                     update_all
                     or (
                         (profile_value != default_value)
-                        and getattr(user_info, profile_lable["mapping"])
+                        and getattr(user_info, profile_label["mapping"])
                         != profile_value
                     )
                 ):
                     app.logger.info(
                         "update user info: {} - {}".format(profile, profile_value)
                     )
-                    setattr(user_info, profile_lable["mapping"], profile_value)
+                    setattr(user_info, profile_label["mapping"], profile_value)
             else:
-                app.logger.info("profile_lable not found:{}".format(profile["key"]))
+                app.logger.info("profile_label not found:{}".format(profile["key"]))
             if user_profile and (profile_value != default_value):
                 user_profile.profile_value = profile_value
         db.session.flush()
