@@ -57,7 +57,7 @@ def debug_script(
             trace_args["user_id"] = user_id
             trace_args["session_id"] = "debug-" + block_id
             trace_args["input"] = block_prompt
-            trace_args["name"] = " debug"
+            trace_args["name"] = "debug"
             trace = langfuse_client.trace(**trace_args)
             app.logger.info(f"debug_script {block_id} ")
             model_setting = get_model_setting(app, block_info)
