@@ -1,5 +1,5 @@
 from flask import Flask
-from flaskr.route.common import make_common_response, bypass_token_validation
+from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
 from flaskr.api.llm import get_current_models
 from flaskr.service.llm.funcs import get_system_prompt, debug_script
@@ -32,7 +32,6 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
         return make_common_response(get_current_models(app))
 
     @app.route(path_prefix + "/get-system-prompt", methods=["GET"])
-    @bypass_token_validation
     def get_system_prompt_api():
         """
         get system prompt
@@ -75,7 +74,6 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
         return make_common_response(get_system_prompt(app, block_id))
 
     @app.route(path_prefix + "/debug-prompt", methods=["POST"])
-    @bypass_token_validation
     def debug_prompt_api():
         """
         debug prompt
