@@ -2,11 +2,8 @@
 import { useScenario } from '@/store';
 import AI from './ai'
 import SolidContent from './solid-content'
-
-
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Trash, Check } from 'lucide-react';
-import Button from '../button';
+import { Check, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 
 
@@ -90,13 +87,14 @@ export const RenderBlockContent = ({ id, type, properties }) => {
                                 </SelectGroup>
                             </SelectContent>
                         </Select>
-                        <div className='flex flex-row'>
-                            <div className='flex flex-row items-center w-6 ' onClick={onRemove}>
-                                <Trash className='h-5 w-5 cursor-pointer' />
+                        <div className='flex flex-row items-center'>
+                            <div className='flex flex-row items-center px-2' onClick={onRemove}>
+                                <Trash2 className='h-5 w-5 cursor-pointer' />
                             </div>
-                            <Button variant='ghost' className=' cursor-pointer' onClick={onSave} >
-                                <Check />完成
-                            </Button>
+                            <div className='h-4 border-r border-[#D8D8D8] mx-1'></div>
+                            <div className='flex flex-row items-center cursor-pointer px-2 ' onClick={onSave} >
+                                <Check className='h-5 w-5 text-primary mr-2 shrink-0' />完成
+                            </div>
                         </div>
                     </div>
 

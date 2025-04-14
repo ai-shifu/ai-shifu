@@ -10,7 +10,6 @@ import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header';
 import { BlockType } from '@/types/scenario';
-import { Separator } from '../ui/separator';
 import RenderBlockContent from '../render-block';
 import RenderBlockUI from '../render-ui';
 import AIDebugDialog from '@/components/ai-debug';
@@ -196,6 +195,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 }}
                             />
                         </ol>
+                        <div className='h-20'></div>
                         <Button variant="outline" className='my-2 h-8 sticky bottom-0 left-4 ' size="sm" onClick={onAddChapter}>
                             <Plus />
                             新篇章

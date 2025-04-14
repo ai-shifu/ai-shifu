@@ -42,7 +42,7 @@
     "loginTitle": "Login",
     "loginFeedback": "Submit feedback",
     "msgHaveRead": "I have read and agreed to ",
-    "msgAggrement": "The Service Agreement",
+    "msgAgreement": "The Service Agreement",
     "msgAnd": " and ",
     "msgPrivacyPolicy": "The Privacy Policy",
     "msgToAgree": "Please check to agree to the terms",
@@ -66,7 +66,7 @@
   "pay": {
     "payModalTitle": "Purchase",
     "paySuccess": "Paid successfully",
-    "protocalDesc": "Purchase means you have read and agreed to the following agreement",
+    "protocolDesc": "Purchase means you have read and agreed to the following agreement",
     "payChannel": "Payment Method",
     "payChannelWechat": "WeChat",
     "payChannelAlipay": "Alipay",
@@ -91,7 +91,7 @@
     "icp": "Beijing ICP No.2024076754 -2",
     "gongan": "Beijing Public Security No.11010502055644 ",
     "feedbackTitle": "Submit Feedback",
-    "userAggrement": "Service Agreement",
+    "userAgreement": "Service Agreement",
     "privacyPolicy": "Privacy Policy",
     "contactUs": "Contact Us",
     "shortcut": "Shortcut"

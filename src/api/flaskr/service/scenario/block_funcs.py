@@ -263,3 +263,29 @@ def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]
                 block_model.status = 0
             db.session.commit()
         return True
+
+
+def get_block_by_id(app, block_id: str):
+    with app.app_context():
+        block = AILessonScript.query.filter(
+            AILessonScript.script_id == block_id,
+            AILessonScript.status == 1,
+        ).first()
+        return block
+
+
+def get_system_block_by_outline_id(app, outline_id: str):
+    with app.app_context():
+        block = AILessonScript.query.filter(
+            AILessonScript.lesson_id == outline_id,
+            AILessonScript.status == 1,
+            AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
+        ).first()
+        if not block:
+            outline = AILesson.query.filter(
+                AILesson.lesson_id == outline_id,
+                AILesson.status == 1,
+            ).first()
+            if not outline:
+                raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+        return block

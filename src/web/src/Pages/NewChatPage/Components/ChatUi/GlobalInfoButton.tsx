@@ -60,11 +60,11 @@ const GlobalInfoButton = ({ className }) => {
     },
     {
       key: '3',
-      label: t('navigation.userAggrement'),
+      label: t('navigation.userAgreement'),
       icon: <img className={styles.rowIcon} src={OpenLinkIcon} alt="icon" />,
       onClick: () => {
         onPopoverClose();
-        window.open('/useraggrement');
+        window.open('/useragreement');
       },
     },
     {

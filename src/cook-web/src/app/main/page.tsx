@@ -15,13 +15,13 @@ import Loading from '@/components/loading';
 
 interface ScriptCardProps {
     id: string;
-    icon: React.ComponentType<{ className?: string }>;
+    image: string | undefined;
     title: string;
     description: string;
     isFavorite: boolean;
 }
 
-const ScriptCard = ({ id, icon: Icon, title, description, isFavorite }: ScriptCardProps) => {
+const ScriptCard = ({ id, image, title, description, isFavorite }: ScriptCardProps) => {
     const router = useRouter()
     return (
         <Card className="w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1rem)] cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out"
@@ -29,10 +29,16 @@ const ScriptCard = ({ id, icon: Icon, title, description, isFavorite }: ScriptCa
         >
             <CardContent className="p-4 cursor-pointer" >
                 <div className='flex flex-row items-center justify-between'>
-                    <div className='flex flex-row items-center'>
-                        <div className="p-2 h-10 w-10 rounded-lg bg-purple-50 mr-4 mb-3">
-                            <Icon className="w-6 h-6 text-purple-600" />
+                    <div className='flex flex-row items-center mb-2'>
+                        <div className="p-2 h-10 w-10 rounded-lg bg-purple-50 mr-4 flex items-center justify-center shrink-0">
+                            {
+                                image && <img src={image} alt="recipe" className="w-full h-full object-cover rounded-lg" />
+                            }
+                            {
+                                !image && <TrophyIcon className="w-6 h-6 text-purple-600" />
+                            }
                         </div>
+
                         <h3 className="font-medium text-gray-900 leading-5">{title}</h3>
                     </div>
                     {isFavorite && (
@@ -189,7 +195,7 @@ const ScriptManagementPage = () => {
                             <ScriptCard
                                 id={scenario.id + ""}
                                 key={scenario.id}
-                                icon={TrophyIcon}
+                                image={scenario.image}
                                 title={scenario.name || ""}
                                 description={scenario.description || ""}
                                 isFavorite={scenario.is_favorite || false}
