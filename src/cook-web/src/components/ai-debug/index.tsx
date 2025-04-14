@@ -1,68 +1,238 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
     XMarkIcon,
-    ChevronDownIcon,
-    ChevronUpIcon,
-    TrashIcon,
-    ClipboardDocumentIcon,
-    MinusIcon,
-    PlusIcon
 } from "@heroicons/react/24/outline";
 import { useScenario } from "@/store";
 import CMEditor from '@/components/cm-editor';
 import ModelList from '@/components/model-list';
+import api from '@/api';
+import { ChevronDown, ChevronUp, Copy, Minus, Plus, Trash2 } from "lucide-react";
+import { SITE_HOST } from "@/config/site";
+import { getToken } from "@/local/local";
+import { v4 as uuidv4 } from 'uuid';
+import Loading from "../loading";
+
+async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
+    const utf8Decoder = new TextDecoder("utf-8");
+    // let response = await fetch(fileURL);
+    // let reader = response.body.getReader();
+    let { value: chunk, done: readerDone } = await reader.read();
+    chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+
+    const re = /\r\n|\n|\r/gm;
+    let startIndex = 0;
+
+    for (; ;) {
+        // eslint-disable-next-line prefer-const
+        let result = re.exec(chunk);
+        if (!result) {
+            if (readerDone) {
+                break;
+            }
+            const remainder = chunk.substr(startIndex);
+            ({ value: chunk, done: readerDone } = await reader.read());
+            chunk =
+                remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+            startIndex = re.lastIndex = 0;
+            continue;
+        }
+        yield chunk.substring(startIndex, result.index);
+        startIndex = re.lastIndex;
+    }
+    if (startIndex < chunk.length) {
+        // last line didn't end in a newline char
+        yield chunk.substr(startIndex);
+    }
+}
 
 
 const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     const {
+        blockContentProperties,
         blocks,
+        actions
+        // profileItemDefinations
     } = useScenario();
     const [systemPrompt, setSystemPrompt] = useState('');
     const [userPrompt, setUserPrompt] = useState('');
     const [systemPromptOpen, setSystemPromptOpen] = useState(false);
     const [userPromptOpen, setUserPromptOpen] = useState(true);
-    const [temperature, setTemperature] = useState(0.8);
-    const [rowCount, setRowCount] = useState(2);
+    const [colCount, setColCount] = useState(2);
+    const [rowCount, setRowCount] = useState(300);
     const [profiles, setProfiles] = useState([]);
-    const [model, setModel] = useState('')
-    const init = () => {
+    // const [model, setModel] = useState('');
+    const [models, setModels] = useState<{ model: string, temprature: number }[]>([]);
+    const [results, setResults] = useState<string[]>([]);
+    const [runing, setRuning] = useState(false);
+    const abortRefs = useRef<AbortController[]>([]);
+
+    const [variables, setVariables] = useState({});
+    const init = async () => {
         const block = blocks.find((item) => item.properties.block_id === blockId);
         if (block) {
-            if (block.properties.block_content.type == 'systemprompt') {
-                setSystemPrompt(block.properties.block_content.properties.prompt);
-            } else if (block.properties.block_content.type == 'solidcontent') {
-                setUserPrompt(block.properties.block_content.properties.content);
+            const sysPrompt = await api.getSystemPrompt({
+                block_id: blockId
+            })
+            setSystemPrompt(sysPrompt);
+            if (block.properties.block_content.type == 'solidcontent') {
+                const contentProp = blockContentProperties[blockId];
+                setUserPrompt(contentProp.content);
             } else if (block.properties.block_content.type == 'ai') {
-                setUserPrompt(block.properties.block_content.properties.prompt);
-                setTemperature(block.properties.block_content.properties.temprature);
-                setProfiles(block.properties.block_content.properties.profiles);
-                setModel(block.properties.block_content.properties.model)
-                console.log(block.properties.block_content)
-            }
-            // setSystemPrompt(block.properties.block_content);
-        }
-        // Search from the current block upwards until the first systemprompt block is found
-        const index = blocks.findIndex((item) => item.properties.block_id === blockId);
-        for (let i = index - 1; i >= 0; i--) {
-            if (blocks[i].properties.block_content.type === 'systemprompt') {
-                setSystemPrompt(blocks[i].properties.block_content.properties.prompt);
-                break;
+                const contentProp = blockContentProperties[blockId];
+                console.log(contentProp)
+                setUserPrompt(contentProp.prompt);
+                setProfiles(contentProp.profiles);
+                setModels([{
+                    model: contentProp.model,
+                    temprature: contentProp.temprature
+                }]);
             }
         }
+    }
+    const abort = async () => {
+        abortRefs.current.forEach((controller) => {
+            if (controller) {
+                controller.abort();
+            }
+        });
     }
     const onOpenChangeHandle = (open) => {
         onOpenChange(open);
     }
+    const fetchStream = async (url: string, data: any, index: number, rowIndex: number) => {
+        try {
+            const controller = new AbortController();
+            abortRefs.current[rowIndex * colCount + index] = controller;
+            const token = await getToken();
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                    "Token": token,
+                    "X-API-MODE": "admin",
+                    "X-Request-ID": uuidv4().replace(/-/g, '')
+                },
+                body: JSON.stringify(data),
+                signal: controller.signal,
+            });
+
+            if (!response.body) {
+                throw new Error('No response body');
+            }
+
+            const reader = response.body.getReader();
+
+            const lines: string[] = [];
+            for await (const line of makeTextSteamLineIterator(reader)) {
+                if (!(line as string).startsWith("data:")) {
+                    continue;
+                }
+                lines.push(line);
+                if (!line || line.includes('[DONE]')) {
+                    continue;
+                }
+                const json: any = line.replace(/^data:/, '');
+                const data = JSON.parse(json);
+                if (data.type === 'text') {
+                    const position = rowIndex * colCount + index;
+                    setResults(prev => {
+                        const newResults = [...prev];
+                        newResults[position] = newResults[position] + data.content;
+                        return newResults;
+                    })
+                } else if (data.type === 'text_end') {
+                    console.log('DONE')
+                }
+            }
+
+        } catch (error) {
+            console.error('Error in fetchStream:', error);
+            throw error;
+        }
+    }
+    const onDebug = async () => {
+        if (runing) {
+            await abort();
+            setRuning(false);
+            return;
+        }
+        setResults([]);
+
+        const totalResults = models.length * colCount;
+        setResults(new Array(totalResults).fill(''));
+        abortRefs.current = new Array(totalResults).fill(null);
+        setRuning(true);
+        for (let i = 0; i < models.length; i++) {
+            const { model, temprature } = models[i];
+
+            const promises = Array.from({ length: colCount }, (_, colIndex) =>
+                fetchStream(`${SITE_HOST}/api/llm/debug-prompt`, {
+                    "block_id": blockId,
+                    "block_model": model,
+                    "block_other_conf": {},
+                    "block_prompt": userPrompt,
+                    "block_system_prompt": systemPrompt,
+                    "block_temperature": temprature,
+                    "block_variables": variables
+                }, colIndex, i)
+            );
+
+            await Promise.all(promises);
+        }
+        setRuning(false);
+    }
+    const onCopy = (index: number) => {
+        const model = models[index];
+        setModels([...models, model]);
+
+    }
+    const setModel = (index: number, model: string) => {
+        const newModels = [...models];
+        newModels[index] = {
+            ...newModels[index],
+            model: model
+        };
+        setModels(newModels);
+    }
+    const setTemperature = (index: number, temprature: number) => {
+        const newModels = [...models];
+        newModels[index] = {
+            ...newModels[index],
+            temprature: temprature
+        };
+        setModels(newModels);
+    }
+    const onRemove = (index: number) => {
+        const newModels = [...models];
+        newModels.splice(index, 1);
+        setModels(newModels);
+    }
+    const onProfileValue = (name: string, value: string) => {
+        setVariables((state) => {
+            return {
+                ...state,
+                [name]: value
+            }
+        })
+    }
+    const updateBlock = async () => {
+        actions.setBlockContentPropertiesById(blockId, {
+            prompt: userPrompt,
+        })
+        onOpenChange(false);
+    }
+
     useEffect(() => {
         init();
     }, [])
     return (
         <Dialog open={open} onOpenChange={onOpenChangeHandle} >
-            <DialogContent className="flex flex-col sm:max-w-[600px] max-h-[90vh] overflow-y-auto text-sm">
+            <DialogContent className="flex flex-col sm:max-w-[600px] md:max-w-[800px] max-h-[90vh] overflow-y-auto text-sm">
                 <div className="absolute right-4 top-4 cursor-pointer">
                     <XMarkIcon className="h-4 w-4" onClick={() => onOpenChange(false)} />
                 </div>
@@ -70,13 +240,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                     <DialogTitle className="text-xl font-bold px-2">调试AI模版</DialogTitle>
                 </DialogHeader>
                 <div className=" flex-1 space-y-4 overflow-auto px-4">
-                    {/* Script Information */}
-
-
-                    {/* AI Module Content */}
-                    <div className="text-sm font-medium">AI Module Content:</div>
-
-                    {/* System Prompt */}
+                    <div className="text-sm font-medium">AI 模块内容:</div>
                     <Collapsible
                         open={systemPromptOpen}
                         onOpenChange={setSystemPromptOpen}
@@ -89,23 +253,21 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     {systemPromptOpen ? "展开" : "收起"}
                                 </span>
                                 {systemPromptOpen ?
-                                    <ChevronDownIcon className="h-4 w-4" /> :
-                                    <ChevronUpIcon className="h-4 w-4" />
+                                    <ChevronDown className="h-4 w-4" /> :
+                                    <ChevronUp className="h-4 w-4" />
                                 }
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="p-0">
-                            {/* System Prompt Content */}
                             <CMEditor
                                 profiles={profiles}
                                 content={systemPrompt}
                                 onChange={setSystemPrompt}
                                 isEdit={true}
-                            />
+                            >
+                            </CMEditor>
                         </CollapsibleContent>
                     </Collapsible>
-
-                    {/* User Prompt */}
                     <Collapsible
                         open={userPromptOpen}
                         onOpenChange={setUserPromptOpen}
@@ -118,74 +280,97 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     {userPromptOpen ? "收起" : "展开"}
                                 </span>
                                 {userPromptOpen ?
-                                    <ChevronUpIcon className="h-4 w-4" /> :
-                                    <ChevronDownIcon className="h-4 w-4" />
+                                    <ChevronUp className="h-4 w-4" /> :
+                                    <ChevronDown className="h-4 w-4" />
                                 }
                             </div>
                         </CollapsibleTrigger>
-                        <CollapsibleContent className="p-0">
+                        <CollapsibleContent className="py-2 overflow-hidden">
                             <CMEditor
                                 profiles={profiles}
                                 content={userPrompt}
                                 onChange={setUserPrompt}
                                 isEdit={true}
-                            />
-
-                        </CollapsibleContent>
-                    </Collapsible>
-
-                    {/* Model Selection and Temperature Setting */}
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <div className="mb-1 text-sm">选择模型：</div>
-                            <ModelList value={model} onChange={setModel} />
-                        </div>
-
-                        <div>
-                            <div className="mb-1 text-sm">设定温度：</div>
-                            <div className="flex items-center space-x-2">
-                                <Input
-                                    type="text"
-                                    value={temperature}
-                                    onChange={(e) => setTemperature(parseFloat(e.target.value))}
-                                    // step="0.1"
-                                    // min="0"
-                                    // max="1"
-                                    className="w-full"
-                                />
-                                <Button variant="outline" size="icon" disabled={temperature <= 0} className="h-8 w-8 shrink-0"
-                                    onClick={() => {
-                                        if (temperature <= 0) {
-                                            setTemperature(0);
-                                            return;
-                                        }
-                                        setTemperature(Number((temperature - 0.1).toFixed(1)))
-                                    }}
+                            >
+                            </CMEditor>
+                            <div className="flex flex-row justify-end px-2">
+                                <Button variant='ghost'
+                                    className="px-2 h-6 text-primary cursor-pointer"
+                                    onClick={updateBlock}
                                 >
-                                    <MinusIcon className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="icon" disabled={temperature >= 1} className="h-8 w-8 shrink-0"
-                                    onClick={() => {
-                                        if (temperature >= 1) {
-                                            setTemperature(1)
-                                            return;
-                                        }
-                                        setTemperature(Number((temperature + 0.1).toFixed(1)))
-                                    }}
-                                >
-                                    <PlusIcon className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0">
-                                    <TrashIcon className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0">
-                                    <ClipboardDocumentIcon className="h-4 w-4" />
+                                    将内容更新回剧本
                                 </Button>
                             </div>
-                        </div>
-                    </div>
+                        </CollapsibleContent>
+                    </Collapsible>
+                    <div className="flex flex-col gap-2">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <div className="mb-1 text-sm">选择模型：</div>
+                            </div>
 
-                    {/* Occurrence Variables and Input Variable Values */}
+                            <div>
+                                <div className="mb-1 text-sm">设定温度：</div>
+                            </div>
+                        </div>
+                        {
+                            models.map((model, i) => {
+                                return (
+                                    <div key={model.model + i} className="grid grid-cols-2 gap-4">
+                                        <ModelList className="h-8" value={model.model} onChange={setModel.bind(null, i)} />
+                                        <div className="flex items-center space-x-2">
+                                            <Input
+                                                type="text"
+                                                value={model.temprature}
+                                                onChange={(e) => setTemperature(i, parseFloat(e.target.value))}
+                                                // step="0.1"
+                                                // min="0"
+                                                // max="1"
+                                                className="w-full"
+                                            />
+                                            <Button variant="outline" size="icon" disabled={model.temprature <= 0} className="h-8 w-8 shrink-0"
+                                                onClick={() => {
+                                                    const val = Number(model.temprature);
+                                                    if (val <= 0) {
+                                                        setTemperature(i, 0);
+                                                        return;
+                                                    }
+                                                    setTemperature(i, Number((val - 0.1).toFixed(1)))
+                                                }}
+                                            >
+                                                <Minus className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="outline" size="icon" disabled={model.temprature >= 1} className="h-8 w-8 shrink-0"
+                                                onClick={() => {
+                                                    const val = Number(model.temprature);
+                                                    if (val >= 1) {
+                                                        setTemperature(i, 1)
+                                                        return;
+                                                    }
+                                                    setTemperature(i, Number((val + 0.1).toFixed(1)))
+                                                }}
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                                                onClick={onRemove.bind(null, i)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                            <Button variant="outline" size="icon"
+                                                className="h-8 w-8 shrink-0"
+                                                onClick={onCopy.bind(null, i)}
+                                            >
+                                                <Copy className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+
+                                    </div>
+
+                                )
+                            })
+                        }
+                    </div>
                     <div>
                         {
                             profiles.map((item) => {
@@ -193,11 +378,11 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     <div key={item} className="grid grid-cols-2 gap-4">
                                         <div>
                                             <div className="mb-1 text-sm">出现变量：</div>
-                                            <Input placeholder={item} />
+                                            <Input value={item} readOnly />
                                         </div>
                                         <div>
                                             <div className="mb-1 text-sm">输入变量值：</div>
-                                            <Input />
+                                            <Input onChange={(e) => onProfileValue(item, e.target.value)} />
                                         </div>
                                     </div>
                                 )
@@ -205,12 +390,38 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                         }
                     </div>
 
-
-
-                    {/* Number of Columns and Maximum Number of Rows */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <div className="mb-1 text-sm">列数（一个模型测几遍）：</div>
+                            <div className="flex items-center space-x-2">
+                                <Input
+                                    type="text"
+                                    value={colCount}
+                                    onChange={(e) => setColCount(parseInt(e.target.value))}
+                                    className="w-full"
+                                />
+                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                                    onClick={() => {
+                                        if (colCount <= 1) {
+                                            setColCount(1)
+                                            return;
+                                        }
+                                        setColCount(colCount - 1)
+                                    }}
+                                >
+                                    <Minus className="h-4 w-4" />
+                                </Button>
+                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
+                                    onClick={() => {
+                                        setColCount(colCount + 1)
+                                    }}
+                                >
+                                    <Plus className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                        <div>
+                            <div className="mb-1 text-sm">行数：</div>
                             <div className="flex items-center space-x-2">
                                 <Input
                                     type="text"
@@ -218,38 +429,42 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     onChange={(e) => setRowCount(parseInt(e.target.value))}
                                     className="w-full"
                                 />
-                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                                    onClick={() => {
-                                        if (rowCount <= 1) {
-                                            setRowCount(1)
-                                            return;
-                                        }
-                                        setRowCount(rowCount - 1)
-                                    }}
-                                >
-                                    <MinusIcon className="h-4 w-4" />
-                                </Button>
-                                <Button variant="outline" size="icon" className="h-8 w-8 shrink-0"
-                                    onClick={() => {
-                                        setRowCount(rowCount + 1)
-                                    }}
-                                >
-                                    <PlusIcon className="h-4 w-4" />
-                                </Button>
                             </div>
-                        </div>
-
-                        <div>
-                            <div className="mb-1 text-sm">最大行数：</div>
-                            <Input type="number" placeholder="300" />
                         </div>
                     </div>
 
-                    {/* Start Debugging Button */}
                     <div className="mt-6 flex justify-center">
-                        <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full py-6">
-                            开始调试
+                        <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full" onClick={onDebug}>
+                            {
+                                !runing && <span>开始调试</span>
+                            }
+                            {
+                                runing && (
+                                    <span className="flex flex-row items-center">
+                                        <Loading className="h-4 w-4 animate-spin mr-1" />
+                                        停止输出
+                                    </span>
+                                )
+                            }
                         </Button>
+                    </div>
+                    <div className="flex flex-col gap-4">
+                        {models.map((model, modelIndex) => (
+                            <div key={model.model + modelIndex} className="space-y-2">
+                                <div className="grid gap-4"
+                                    style={{
+                                        gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+                                    }}
+                                >
+                                    {results.slice(modelIndex * colCount, (modelIndex + 1) * colCount).map((item, i) => (
+                                        <div key={i} className="flex flex-col space-y-2 bg-[#F5F5F4] rounded-md p-3">
+                                            <div className="text-sm text-gray-500"> {model.model}, {model.temprature}</div>
+                                            <div>{item}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </DialogContent>

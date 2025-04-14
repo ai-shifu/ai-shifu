@@ -87,7 +87,7 @@ export interface ScenarioActions {
     createSiblingUnit: (chapter: Outline) => Promise<void>;
     loadBlocks: (outlineId: string) => void;
     addBlock: (index: number, type: BlockType) => void;
-    setBlockContentPropertiesById: (id: string, properties: any, reset?: boolean) => void;
+    setBlockContentPropertiesById: (id: string, properties: AIBlockProperties | SolidContentBlockProperties, reset?: boolean) => void;
     setBlockContentTypesById: (id: string, type: string) => void;
     setBlockUIPropertiesById: (id: string, properties: any, reset?: boolean) => void;
     setBlockUITypesById: (id: string, type: string) => void;
@@ -103,4 +103,18 @@ export interface ScenarioActions {
 
 export interface ScenarioContextType extends ScenarioState {
     actions: ScenarioActions;
+}
+
+
+export interface AIBlockProperties {
+    prompt: string,
+    profiles?: string[],
+    model?: string,
+    temprature?: string,
+    other_conf?: string
+}
+
+export interface SolidContentBlockProperties {
+    content: string,
+    profiles?: string[]
 }

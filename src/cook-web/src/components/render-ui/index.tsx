@@ -1,8 +1,13 @@
 import Button from './button'
+import ButtonView from './view/button'
 import Option from './option'
+import OptionView from './view/option'
 import SingleInput from './input'
+import InputView from './view/input'
 import Goto from './goto'
+import GotoView from './view/goto'
 import TextInput from './textinput'
+import TextInputView from './view/textinput'
 import { useScenario } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
@@ -10,7 +15,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 
-const BlockMap = {
+const EditBlockMap = {
     button: Button,
     option: Option,
     goto: Goto,
@@ -21,7 +26,16 @@ const BlockMap = {
     payment: Button,
 }
 
-export const BlockUI = ({ id, type, properties }) => {
+const ViewBlockMap = {
+    button: ButtonView,
+    option: OptionView,
+    goto: GotoView,
+    phone: InputView,
+    code: InputView,
+    textinput: TextInputView,
+}
+
+export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
     const { actions, currentOutline, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties } = useScenario();
     const [error, setError] = useState('');
     const onPropertiesChange = async (properties) => {
@@ -46,7 +60,8 @@ export const BlockUI = ({ id, type, properties }) => {
         setError('');
     }, [type]);
 
-    const Ele = BlockMap[type]
+    const componentMap = mode === 'edit' ? EditBlockMap : ViewBlockMap
+    const Ele = componentMap[type]
     if (!Ele) {
         // console.log('type', type)
         return null
@@ -68,7 +83,7 @@ export const BlockUI = ({ id, type, properties }) => {
     )
 }
 
-export const RenderBlockUI = ({ block }) => {
+export const RenderBlockUI = ({ block, mode = 'edit' }) => {
     const {
         actions,
         blockUITypes,
@@ -128,6 +143,7 @@ export const RenderBlockUI = ({ block }) => {
                                 id={block.properties.block_id}
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
+                                mode={mode}
                             />
                         )
                     }
@@ -219,7 +235,6 @@ export const UITypes = [
                 "properties": {
                     "prompt": "",
                     "profiles": [
-                        "user_background"
                     ],
                     "model": "",
                     "temprature": "0.40",

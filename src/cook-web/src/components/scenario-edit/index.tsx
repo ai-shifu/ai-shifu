@@ -4,7 +4,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import type { DropTargetMonitor } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
-import { ChevronsRight, Play, Plus, Variable, GripVertical } from 'lucide-react';
+import { ChevronsRight, Plus, Variable, GripVertical } from 'lucide-react';
 import { useScenario } from '@/store';
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
@@ -281,7 +281,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         style={{
                             top: menuPosition.y + 'px',
                             left: menuPosition.x + 'px',
-                            zIndex: 9999,
+                            zIndex: 50,
                         }}
                     >
 
@@ -292,9 +292,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                             <DropdownMenuContent align='start' side='bottom' alignOffset={-5}>
                                 <DropdownMenuItem onClick={onDebugBlock.bind(null, menuPosition.blockId || "")}>
                                     <Variable />测试本模块
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                    <Play />从当前预览
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
