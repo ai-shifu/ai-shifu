@@ -22,6 +22,8 @@ const EditBlockMap = {
     phone: SingleInput,
     code: SingleInput,
     textinput: TextInput,
+    login: Button,
+    payment: Button,
 }
 
 const ViewBlockMap = {
@@ -300,5 +302,32 @@ export const UITypes = [
             return "";
         }
     },
-
+    {
+        type: 'login',
+        name: '登录',
+        properties: {
+            "button_name": "",
+            "button_key": ""
+        },
+        validate: (properties): string => {
+            if (!properties.button_name) {
+                return "按钮名称不能为空"
+            }
+            return ""
+        }
+    },
+    {
+        type: 'payment',
+        name: '支付',
+        properties: {
+            "button_name": "",
+            "button_key": ""
+        },
+        validate: (properties): string => {
+            if (!properties.button_name) {
+                return "按钮名称不能为空"
+            }
+            return ""
+        }
+    },
 ]
