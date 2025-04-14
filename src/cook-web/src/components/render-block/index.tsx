@@ -128,10 +128,7 @@ export const ContentTypes = [
         name: 'AI块',
         properties: {
             "prompt": "",
-            "profiles": [
-                "nickname",
-                "user_background"
-            ],
+            "profiles": [],
             "model": "",
             "temprature": "0.40",
             "other_conf": ""
@@ -142,10 +139,8 @@ export const ContentTypes = [
         name: '固定内容',
         properties: {
             "content": "",
-            "profiles": [
-                "nickname",
-                "user_background"
-            ],
+            "profiles": [],
         }
     }
 ]
+

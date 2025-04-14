@@ -281,7 +281,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         style={{
                             top: menuPosition.y + 'px',
                             left: menuPosition.x + 'px',
-                            zIndex: 9999,
+                            zIndex: 50,
                         }}
                     >
 
@@ -293,9 +293,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 <DropdownMenuItem onClick={onDebugBlock.bind(null, menuPosition.blockId || "")}>
                                     <Variable />测试本模块
                                 </DropdownMenuItem>
-                                <DropdownMenuItem>
+                                {/* <DropdownMenuItem>
                                     <Play />从当前预览
-                                </DropdownMenuItem>
+                                </DropdownMenuItem> */}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
