@@ -14,7 +14,6 @@ export default function Button(props: ButtonProps) {
     const { properties } = props
 
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        console.log('onChange', properties);
         props.onChange({
             ...properties,
             button_name: e.target.value,
