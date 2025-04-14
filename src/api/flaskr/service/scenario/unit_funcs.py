@@ -355,6 +355,14 @@ def delete_unit(app, user_id: str, unit_id: str):
                 + func.lpad(cast(AILesson.lesson_index - 1, String), 2, "0"),
             },
         )
+        AILessonScript.query.filter(
+            AILessonScript.lesson_id == unit_id,
+            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+        ).update(
+            {
+                "status": STATUS_TO_DELETE,
+            },
+        )
 
         db.session.commit()
         return True

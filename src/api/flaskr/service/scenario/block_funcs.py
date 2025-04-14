@@ -8,6 +8,7 @@ from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import save_profile_item_defination
 from flaskr.service.profile.models import ProfileItem
 from flaskr.service.common.models import raise_error
+from flaskr.service.scenario.utils import get_existing_blocks
 from flaskr.util import generate_id
 from flaskr.dao import db
 from datetime import datetime
@@ -41,16 +42,7 @@ def get_block_list(app, user_id: str, outline_id: str):
         )
         sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
         app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
-        blocks = (
-            AILessonScript.query.filter(
-                AILessonScript.lesson_id.in_(sub_outline_ids),
-                AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
-            )
-            .order_by(AILessonScript.script_index.asc())
-            .all()
-        )
-
+        blocks = get_existing_blocks(app, sub_outline_ids)
         ret = []
         app.logger.info(f"blocks : {len(blocks)}")
 
@@ -130,7 +122,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
 
         sub_outlines = (
             AILesson.query.filter(
-                AILesson.status == 1,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                 AILesson.course_id == outline.course_id,
                 AILesson.lesson_no.like(outline.lesson_no + "%"),
             )
@@ -140,14 +132,8 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
         app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
         # get all blocks
-        blocks = (
-            AILessonScript.query.filter(
-                AILessonScript.lesson_id.in_(sub_outline_ids),
-                AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-            )
-            .order_by(AILessonScript.script_index.asc())
-            .all()
-        )
+        blocks = get_existing_blocks(app, sub_outline_ids)
+        app.logger.info(f"blocks : {len(blocks)}")
         block_index = 1
         current_outline_id = outline_id
         block_models = []
@@ -161,16 +147,15 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                 block_model = None
                 app.logger.info(f"block_dto id : {block_dto.block_id}")
                 if block_dto.block_id is not None and block_dto.block_id != "":
-                    check_block = [
-                        b for b in blocks if b.script_id == block_dto.block_id
-                    ]
-                    if len(check_block) > 0:
-                        block_model = check_block[0]
+                    check_block = next(
+                        (b for b in blocks if b.script_id == block_dto.block_id), None
+                    )
+                    if check_block:
+                        block_model = check_block
                     else:
                         app.logger.warning(
                             f"block_dto id not found : {block_dto.block_id}"
                         )
-                history_block = None
                 if block_model is None:
                     block_model = AILessonScript(
                         script_id=generate_id(app),
@@ -185,9 +170,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         status=STATUS_DRAFT,
                     )
                 else:
-                    history_block = block_model.clone()
+                    new_block = block_model.clone()
 
-                profile = update_block_model(block_model, block_dto)
+                profile = update_block_model(new_block, block_dto)
+
                 if profile:
                     profile_item = save_profile_item_defination(
                         app, user_id, outline.course_id, profile
@@ -195,19 +181,25 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     block_model.script_ui_profile_id = profile_item.profile_id
                     block_model.script_check_prompt = profile_item.profile_prompt
                     profile_items.append(profile_item)
-                if history_block and not history_block.eq(block_model):
-                    history_block.status = STATUS_HISTORY
-                    db.session.add(history_block)
+                if new_block and not new_block.eq(block_model):
+                    new_block.status = STATUS_DRAFT
+                    new_block.updated = datetime.now()
+                    new_block.updated_user_id = user_id
+                    new_block.script_index = block_index
+                    new_block.lesson_id = current_outline_id
+                    if block_model.status != STATUS_PUBLISH:
+                        block_model.status = STATUS_HISTORY
+                    db.session.add(new_block)
+                    block_models.append(new_block)
+                else:
+                    block_models.append(block_model)
                 save_block_ids.append(block_model.script_id)
                 block_model.lesson_id = current_outline_id
                 block_model.script_index = block_index
                 block_model.updated = datetime.now()
                 block_model.updated_user_id = user_id
                 block_model.status = STATUS_DRAFT
-
-                db.session.merge(block_model)
                 block_index += 1
-                block_models.append(block_model)
             elif type == "outline":
                 # pass the top outline
                 pass
@@ -226,10 +218,14 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
 
 def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
     with app.app_context():
-        outline = AILesson.query.filter(
-            AILesson.lesson_id == outline_id,
-            AILesson.status == 1,
-        ).first()
+        outline = (
+            AILesson.query.filter(
+                AILesson.lesson_id == outline_id,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .order_by(AILesson.lesson_no.asc())
+            .first()
+        )
         if not outline:
             raise_error("SCENARIO.OUTLINE_NOT_FOUND")
         block_dto = convert_dict_to_block_dto({"type": "block", "properties": block})

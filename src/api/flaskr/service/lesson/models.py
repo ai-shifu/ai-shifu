@@ -74,6 +74,52 @@ class AICourse(db.Model):
     )
     status = Column(Integer, nullable=False, default=0, comment="Status of the course")
 
+    def clone(self):
+        return AICourse(
+            course_id=self.course_id,
+            course_name=self.course_name,
+            course_desc=self.course_desc,
+            course_keywords=self.course_keywords,
+            course_price=self.course_price,
+            course_status=self.course_status,
+            course_feishu_id=self.course_feishu_id,
+            course_teacher_avator=self.course_teacher_avator,
+            course_default_model=self.course_default_model,
+            course_default_temprature=self.course_default_temprature,
+            course_language=self.course_language,
+            course_name_multi_language=self.course_name_multi_language,
+            ask_count_limit=self.ask_count_limit,
+            ask_model=self.ask_model,
+            ask_prompt=self.ask_prompt,
+            ask_with_history=self.ask_with_history,
+            ask_mode=self.ask_mode,
+            created_user_id=self.created_user_id,
+            updated_user_id=self.updated_user_id,
+            status=self.status,
+            created=self.created,
+            updated=self.updated,
+        )
+
+    def eq(self, other):
+        return (
+            self.course_id == other.course_id
+            and self.course_name == other.course_name
+            and self.course_desc == other.course_desc
+            and self.course_keywords == other.course_keywords
+            and self.course_price == other.course_price
+            and self.course_feishu_id == other.course_feishu_id
+            and self.course_teacher_avator == other.course_teacher_avator
+            and self.course_default_model == other.course_default_model
+            and self.course_default_temprature == other.course_default_temprature
+            and self.course_language == other.course_language
+            and self.course_name_multi_language == other.course_name_multi_language
+            and self.ask_count_limit == other.ask_count_limit
+            and self.ask_model == other.ask_model
+            and self.ask_prompt == other.ask_prompt
+            and self.ask_with_history == other.ask_with_history
+            and self.ask_mode == other.ask_mode
+        )
+
 
 class AILesson(db.Model):
     __tablename__ = "ai_lesson"
@@ -161,6 +207,8 @@ class AILesson(db.Model):
 
     def clone(self):
         return AILesson(
+            course_id=self.course_id,
+            parent_id=self.parent_id,
             lesson_id=self.lesson_id,
             lesson_name=self.lesson_name,
             lesson_desc=self.lesson_desc,
@@ -194,6 +242,19 @@ class AILesson(db.Model):
             and self.lesson_desc == other.lesson_desc
             and self.lesson_no == other.lesson_no
             and self.lesson_index == other.lesson_index
+            and self.lesson_feishu_id == other.lesson_feishu_id
+            and self.lesson_status == other.lesson_status
+            and self.lesson_type == other.lesson_type
+            and self.lesson_summary == other.lesson_summary
+            and self.lesson_language == other.lesson_language
+            and self.lesson_default_model == other.lesson_default_model
+            and self.lesson_default_temprature == other.lesson_default_temprature
+            and self.lesson_name_multi_language == other.lesson_name_multi_language
+            and self.ask_count_limit == other.ask_count_limit
+            and self.ask_model == other.ask_model
+            and self.ask_prompt == other.ask_prompt
+            and self.ask_with_history == other.ask_with_history
+            and self.ask_mode == other.ask_mode
         )
 
 
@@ -358,6 +419,4 @@ class AILessonScript(db.Model):
             and self.ask_prompt == other.ask_prompt
             and self.ask_with_history == other.ask_with_history
             and self.ask_mode == other.ask_mode
-            and self.created_user_id == other.created_user_id
-            and self.updated_user_id == other.updated_user_id
         )

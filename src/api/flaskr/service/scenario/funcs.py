@@ -28,16 +28,25 @@ def get_raw_scenario_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
         total = AICourse.query.filter(AICourse.created_user_id == user_id).count()
-        courses = (
-            AICourse.query.filter(
+        subquery = (
+            db.session.query(db.func.max(AICourse.id))
+            .filter(
                 AICourse.created_user_id == user_id,
                 AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             )
+            .group_by(AICourse.course_id)
+        )
+
+        courses = (
+            db.session.query(AICourse)
+            .filter(AICourse.id.in_(subquery))
             .order_by(AICourse.id.desc())
             .offset(page_offset)
             .limit(page_size)
             .all()
         )
+        infos = [f"{c.course_id} + {c.course_name} + {c.status}\r\n" for c in courses]
+        app.logger.info(f"{infos}")
         scenario_dtos = [
             ScenarioDto(
                 course.course_id,
@@ -152,10 +161,14 @@ def create_scenario(
 
 def get_scenario_info(app, user_id: str, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter(
-            AICourse.course_id == scenario_id,
-            AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-        ).first()
+        scenario = (
+            AICourse.query.filter(
+                AICourse.course_id == scenario_id,
+                AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .order_by(AICourse.id.desc())
+            .first()
+        )
         if scenario:
             return ScenarioDto(
                 scenario_id=scenario.course_id,
@@ -232,13 +245,14 @@ def check_scenario_can_publish(app, scenario_id: str):
 
 def publish_scenario(app, user_id, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter(
-            AICourse.course_id == scenario_id, AICourse.status.in_([STATUS_DRAFT])
-        ).first()
-        if not scenario:
-            scenario = AICourse.query.filter(
-                AICourse.course_id == scenario_id, AICourse.status.in_([STATUS_PUBLISH])
-            ).first()
+        scenario = (
+            AICourse.query.filter(
+                AICourse.course_id == scenario_id,
+                AICourse.status.in_([STATUS_DRAFT, STATUS_PUBLISH]),
+            )
+            .order_by(AICourse.id.desc())
+            .first()
+        )
         if scenario:
             check_scenario_can_publish(app, scenario_id)
             scenario.status = STATUS_PUBLISH
@@ -401,7 +415,13 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
 
 def get_scenario_detail(app, user_id: str, scenario_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        scenario = (
+            AICourse.query.filter(
+                AICourse.course_id == scenario_id, AICourse.status.in_([STATUS_PUBLISH])
+            )
+            .order_by(AICourse.id.desc())
+            .first()
+        )
         if scenario:
             keywords = (
                 scenario.course_keywords.split(",") if scenario.course_keywords else []
@@ -420,6 +440,10 @@ def get_scenario_detail(app, user_id: str, scenario_id: str):
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
 
 
+# save scenario detail
+# @author: yfge
+# @date: 2025-04-14
+# save the scenario detail
 def save_scenario_detail(
     app,
     user_id: str,
@@ -432,16 +456,30 @@ def save_scenario_detail(
     scenario_price: float,
 ):
     with app.app_context():
-        scenario = AICourse.query.filter_by(course_id=scenario_id).first()
+        # query scenario
+        # the first query is to get the scenario latest record
+        scenario = (
+            AICourse.query.filter_by(course_id=scenario_id)
+            .order_by(AICourse.id.desc())
+            .first()
+        )
         if scenario:
-            scenario.course_name = scenario_name
-            scenario.course_desc = scenario_description
-            scenario.course_teacher_avator = scenario_teacher_avatar
-            scenario.course_keywords = ",".join(scenario_keywords)
-            scenario.course_default_model = scenario_model
-            scenario.course_price = scenario_price
-            scenario.updated_user_id = user_id
-            scenario.updated_at = datetime.now()
+            new_scenario = scenario.clone()
+            new_scenario.course_name = scenario_name
+            new_scenario.course_desc = scenario_description
+            new_scenario.course_teacher_avator = scenario_teacher_avatar
+            new_scenario.course_keywords = ",".join(scenario_keywords)
+            new_scenario.course_default_model = scenario_model
+            new_scenario.course_price = scenario_price
+            new_scenario.updated_user_id = user_id
+            new_scenario.updated_at = datetime.now()
+            if not scenario.eq(new_scenario):
+                new_scenario.status = STATUS_DRAFT
+                if scenario.status == STATUS_DRAFT:
+                    # if scenario is draft, history it
+                    # if scenario is publish,so DO NOTHING
+                    scenario.status = STATUS_HISTORY
+                db.session.add(new_scenario)
             db.session.commit()
             return ScenarioDetailDto(
                 scenario.course_id,
