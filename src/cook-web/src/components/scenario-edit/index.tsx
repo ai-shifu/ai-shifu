@@ -4,7 +4,7 @@ import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import type { DropTargetMonitor } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
-import { ChevronsRight, Play, Plus, Variable, GripVertical } from 'lucide-react';
+import { ChevronsRight, Plus, Variable, GripVertical } from 'lucide-react';
 import { useScenario } from '@/store';
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
