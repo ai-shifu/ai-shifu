@@ -42,7 +42,7 @@
     "loginTitle": "登录",
     "loginFeedback": "提交反馈",
     "msgHaveRead": "我已阅读并同意",
-    "msgAggrement": "服务协议",
+    "msgAgreement": "服务协议",
     "msgAnd": "&",
     "msgPrivacyPolicy": "隐私政策",
     "msgToAgree": "请勾选同意协议",
@@ -69,7 +69,7 @@
     "payChannelWechat": "微信",
     "payChannelAlipay": "支付宝",
     "paySuccess": "支付成功",
-    "protocalDesc": "购买即表示已阅读并同意以下协议",
+    "protocolDesc": "购买即表示已阅读并同意以下协议",
     "modelServiceAgreement": "《模型服务协议》",
     "userPrivacyPolicy": "《用户隐私协议》"
   },
@@ -91,7 +91,7 @@
     "icp": "京ICP备2024076754号-2",
     "gongan": "京公网安备11010502055644号",
     "feedbackTitle": "提交反馈",
-    "userAggrement": "服务协议",
+    "userAgreement": "服务协议",
     "privacyPolicy": "隐私协议",
     "contactUs": "联系我们",
     "shortcut": "快捷键"

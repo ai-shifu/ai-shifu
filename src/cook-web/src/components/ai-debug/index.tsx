@@ -7,7 +7,7 @@ import {
     XMarkIcon,
 } from "@heroicons/react/24/outline";
 import { useScenario } from "@/store";
-import MDXEditor from '@/components/text-editor';
+import CMEditor from '@/components/cm-editor';
 import ModelList from '@/components/model-list';
 import api from '@/api';
 import { ChevronDown, ChevronUp, Copy, Minus, Plus, Trash2 } from "lucide-react";
@@ -259,13 +259,13 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="p-0">
-                            <MDXEditor
+                            <CMEditor
                                 profiles={profiles}
                                 content={systemPrompt}
                                 onChange={setSystemPrompt}
                                 isEdit={true}
                             >
-                            </MDXEditor>
+                            </CMEditor>
                         </CollapsibleContent>
                     </Collapsible>
                     <Collapsible
@@ -286,14 +286,13 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                             </div>
                         </CollapsibleTrigger>
                         <CollapsibleContent className="py-2 overflow-hidden">
-                            <MDXEditor
+                            <CMEditor
                                 profiles={profiles}
                                 content={userPrompt}
                                 onChange={setUserPrompt}
                                 isEdit={true}
                             >
-
-                            </MDXEditor>
+                            </CMEditor>
                             <div className="flex flex-row justify-end px-2">
                                 <Button variant='ghost'
                                     className="px-2 h-6 text-primary cursor-pointer"

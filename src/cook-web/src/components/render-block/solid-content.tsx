@@ -1,5 +1,4 @@
-
-import TextEditor from '@/components/text-editor';
+import CMEditor from '@/components/cm-editor';
 
 
 interface SolideContnetProps {
@@ -29,7 +28,7 @@ export default function SolidContent(props: SolideContnet) {
     }
 
     return (
-        <TextEditor
+        <CMEditor
             content={props.properties.content}
             profiles={props.properties.profiles}
             isEdit={props.isEdit}
