@@ -293,9 +293,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 <DropdownMenuItem onClick={onDebugBlock.bind(null, menuPosition.blockId || "")}>
                                     <Variable />测试本模块
                                 </DropdownMenuItem>
-                                {/* <DropdownMenuItem>
-                                    <Play />从当前预览
-                                </DropdownMenuItem> */}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
