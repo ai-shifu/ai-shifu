@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
-import { Scenario, ScenarioContextType, Outline, Block, ProfileItem } from "../types/scenario";
+import { Scenario, ScenarioContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties } from "../types/scenario";
 import api from "@/api";
 import { ContentTypes } from "@/components/render-block";
 import { UITypes } from "@/components/render-ui";
@@ -627,7 +627,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         })
         setProfileItemDefinations(list);
     }
-    const setBlockContentPropertiesById = (id: string, properties: any, reset: boolean = false) => {
+    const setBlockContentPropertiesById = (id: string, properties: AIBlockProperties | SolidContentBlockProperties, reset: boolean = false) => {
         if (reset) {
             setBlockContentProperties({
                 ...blockContentProperties,

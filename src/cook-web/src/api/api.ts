@@ -40,7 +40,9 @@ const api = {
     getScenarioInfo: "GET /scenario/scenario-info",
     getScenarioDetail: "GET /scenario/scenario-detail",
     saveScenarioDetail: "POST /scenario/save-scenario-detail",
-    getModelList:"GET /llm/model-list"
+    getModelList: "GET /llm/model-list",
+    getSystemPrompt: "GET /llm/get-system-prompt",
+    debugPrompt: "GET /llm/debug-prompt",
 };
 
 export default api;
