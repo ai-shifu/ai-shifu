@@ -19,6 +19,7 @@ from flaskr.service.lesson.const import (
 from flaskr.service.scenario.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
 from sqlalchemy.sql import func, cast
 from sqlalchemy import String
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 
 
 def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
@@ -101,6 +102,7 @@ def create_unit(
                 lesson_type=type,
                 parent_id=parent_id,
             )
+            check_text_with_risk_control(app, unit_id, user_id, unit.get_str_to_check())
             AILesson.query.filter(
                 AILesson.course_id == scenario_id,
                 AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
@@ -224,6 +226,7 @@ def modify_unit(
             raise_error("SCENARIO.UNIT_NOT_FOUND")
         if unit:
             history_unit = unit.clone()
+            old_check_str = unit.get_str_to_check()
             if unit_name:
                 unit.lesson_name = unit_name
             if unit_description:
@@ -253,6 +256,9 @@ def modify_unit(
             unit.status = STATUS_DRAFT
             unit.updated_user_id = user_id
             unit.updated_at = datetime.now()
+            new_check_str = unit.get_str_to_check()
+            if old_check_str != new_check_str:
+                check_text_with_risk_control(app, unit_id, user_id, new_check_str)
             if unit_system_prompt:
                 system_script = AILessonScript.query.filter(
                     AILessonScript.lesson_id == unit_id,
@@ -272,8 +278,12 @@ def modify_unit(
                         created=datetime.now(),
                         updated=datetime.now(),
                     )
+                    check_text_with_risk_control(
+                        app, unit_id, user_id, system_script.get_str_to_check()
+                    )
                     db.session.add(system_script)
                 elif system_script.script_prompt != unit_system_prompt:
+                    old_check_str = system_script.get_str_to_check()
                     history_system_script = system_script.clone()
                     history_system_script.id = None
                     history_system_script.status = STATUS_HISTORY
@@ -283,6 +293,11 @@ def modify_unit(
                     system_script.script_prompt = unit_system_prompt
                     system_script.updated = datetime.now()
                     system_script.updated_user_id = user_id
+                    new_check_str = system_script.get_str_to_check()
+                    if old_check_str != new_check_str:
+                        check_text_with_risk_control(
+                            app, unit_id, user_id, new_check_str
+                        )
 
             db.session.commit()
             return OutlineDto(

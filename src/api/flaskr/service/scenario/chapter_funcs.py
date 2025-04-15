@@ -15,6 +15,7 @@ from ..lesson.const import (
 from datetime import datetime
 from .dtos import SimpleOutlineDto
 from .utils import get_existing_outlines, get_existing_blocks
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 
 
 # get chapter list
@@ -93,6 +94,9 @@ def create_chapter(
             lesson_index=chapter_index,
             lesson_type=chapter_type,
         )
+        check_text_with_risk_control(
+            app, chapter_id, user_id, chapter.get_str_to_check()
+        )
         db.session.add(chapter)
         db.session.commit()
         return ChapterDto(
@@ -147,6 +151,10 @@ def modify_chapter(
                     {AILesson.lesson_index: AILesson.lesson_index + 1},
                     synchronize_session=False,
                 )
+            old_check_str = chapter.get_str_to_check()
+            new_check_str = new_chapter.get_str_to_check()
+            if old_check_str != new_check_str:
+                check_text_with_risk_control(app, chapter_id, user_id, new_check_str)
             db.session.commit()
             return ChapterDto(
                 chapter.lesson_id,

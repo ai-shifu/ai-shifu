@@ -20,6 +20,7 @@ from flaskr.service.lesson.const import (
     STATUS_DELETE,
     STATUS_TO_DELETE,
 )
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
 
 
 def get_block_list(app, user_id: str, outline_id: str):
@@ -171,7 +172,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     )
                 else:
                     new_block = block_model.clone()
-
+                old_check_str = block_model.get_str_to_check()
                 profile = update_block_model(new_block, block_dto)
 
                 if profile:
@@ -181,6 +182,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     block_model.script_ui_profile_id = profile_item.profile_id
                     block_model.script_check_prompt = profile_item.profile_prompt
                     profile_items.append(profile_item)
+
                 if new_block and not new_block.eq(block_model):
                     new_block.status = STATUS_DRAFT
                     new_block.updated = datetime.now()
@@ -191,7 +193,18 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         block_model.status = STATUS_HISTORY
                     db.session.add(new_block)
                     block_models.append(new_block)
+                    new_check_str = new_block.get_str_to_check()
+                    if old_check_str != new_check_str:
+                        check_text_with_risk_control(
+                            app, block_model.script_id, user_id, new_check_str
+                        )
                 else:
+                    check_text_with_risk_control(
+                        app,
+                        block_model.script_id,
+                        user_id,
+                        block_model.get_str_to_check(),
+                    )
                     block_models.append(block_model)
                 save_block_ids.append(block_model.script_id)
                 block_model.lesson_id = current_outline_id
@@ -242,6 +255,8 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             status=STATUS_DRAFT,
         )
         update_block_model(block_model, block_dto)
+        check_str = block_model.get_str_to_check()
+        check_text_with_risk_control(app, block_model.script_id, user_id, check_str)
         block_model.lesson_id = outline_id
         block_model.script_index = block_index
         block_model.updated = datetime.now()

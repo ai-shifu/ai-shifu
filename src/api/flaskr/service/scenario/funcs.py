@@ -12,7 +12,7 @@ from ...service.lesson.const import (
     STATUS_HISTORY,
     STATUS_TO_DELETE,
 )
-
+from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args
 from ...common.config import get_config
 from ...service.resource.models import Resource
@@ -147,6 +147,7 @@ def create_scenario(
             status=STATUS_DRAFT,
             course_keywords=scenario_keywords,
         )
+        check_text_with_risk_control(app, course_id, user_id, course.get_str_to_check())
         db.session.add(course)
         db.session.commit()
         return ScenarioDto(
@@ -464,6 +465,7 @@ def save_scenario_detail(
             .first()
         )
         if scenario:
+            old_check_str = scenario.get_str_to_check()
             new_scenario = scenario.clone()
             new_scenario.course_name = scenario_name
             new_scenario.course_desc = scenario_description
@@ -473,6 +475,9 @@ def save_scenario_detail(
             new_scenario.course_price = scenario_price
             new_scenario.updated_user_id = user_id
             new_scenario.updated_at = datetime.now()
+            new_check_str = new_scenario.get_str_to_check()
+            if old_check_str != new_check_str:
+                check_text_with_risk_control(app, scenario_id, user_id, new_check_str)
             if not scenario.eq(new_scenario):
                 new_scenario.status = STATUS_DRAFT
                 if scenario.status == STATUS_DRAFT:

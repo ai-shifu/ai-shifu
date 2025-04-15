@@ -120,6 +120,9 @@ class AICourse(db.Model):
             and self.ask_mode == other.ask_mode
         )
 
+    def get_str_to_check(self):
+        return self.course_name + self.course_desc + self.course_keywords
+
 
 class AILesson(db.Model):
     __tablename__ = "ai_lesson"
@@ -256,6 +259,9 @@ class AILesson(db.Model):
             and self.ask_with_history == other.ask_with_history
             and self.ask_mode == other.ask_mode
         )
+
+    def get_str_to_check(self):
+        return self.lesson_name + self.lesson_desc + self.lesson_summary
 
 
 class AILessonScript(db.Model):
@@ -419,4 +425,15 @@ class AILessonScript(db.Model):
             and self.ask_prompt == other.ask_prompt
             and self.ask_with_history == other.ask_with_history
             and self.ask_mode == other.ask_mode
+        )
+
+    def get_str_to_check(self):
+        return (
+            self.script_prompt
+            + self.script_ui_content
+            + self.script_check_prompt
+            + self.script_check_flag
+            + self.script_ui_profile
+            + self.script_end_action
+            + self.script_other_conf
         )
