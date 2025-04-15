@@ -180,6 +180,7 @@ def delete_chapter(app, user_id: str, chapter_id: str):
             .order_by(AILesson.id.desc())
             .first()
         )
+        outline_ids = []
         if chapter:
             if chapter.status == STATUS_PUBLISH:
                 new_chapter = chapter.clone()
@@ -194,9 +195,17 @@ def delete_chapter(app, user_id: str, chapter_id: str):
                 chapter.status = STATUS_TO_DELETE
                 chapter.updated_user_id = user_id
                 chapter.updated_at = datetime.now()
+            outline_ids.append(chapter.lesson_id)
             outlines = get_existing_outlines(app, chapter.course_id)
             for outline in outlines:
                 if outline.lesson_no > chapter.lesson_no:
+                    if outline.lesson_no.startswith(chapter.lesson_no):
+                        # delete the sub outlines
+                        outline.status = STATUS_HISTORY
+                        outline.updated_user_id = user_id
+                        outline.updated_at = datetime.now()
+                        outline_ids.append(outline.lesson_id)
+                        continue
                     new_outline = outline.clone()
                     outline.status = STATUS_HISTORY
                     new_outline.status = STATUS_DRAFT
@@ -213,12 +222,10 @@ def delete_chapter(app, user_id: str, chapter_id: str):
                         f"reorder outline: {outline.lesson_id} {outline.lesson_no} =>  {new_outline.lesson_no}"
                     )
                     db.session.add(new_outline)
-            blocks = get_existing_blocks(app, [o.lesson_id for o in outlines])
+            blocks = get_existing_blocks(app, outline_ids)
             for block in blocks:
-                if block.lesson_no > chapter.lesson_no:
-                    block.status = STATUS_HISTORY
-                    db.session.add(block)
-            app.logger.info(f"outlines: {[o.lesson_no for o in outlines]}")
+                block.status = STATUS_HISTORY
+                db.session.add(block)
             db.session.commit()
             return True
         raise_error("SCENARIO.CHAPTER_NOT_FOUND")
