@@ -47,13 +47,12 @@ import ActiveMessageControl from './ChatMessage/ActiveMessageControl';
 import { convertKeysToCamelCase } from 'Utils/objUtils';
 import { useShallow } from 'zustand/react/shallow';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
-
+import logoColor120 from 'Assets/logos/logo-color-120.png';
 const USER_ROLE = {
   TEACHER: '老师',
   STUDENT: '学生',
 };
 
-const robotAvatar = 'https://avtar.agiclass.cn/sunner.jpg';
 
 const createMessage = ({
   id = '',
@@ -75,7 +74,7 @@ const createMessage = ({
   }
   const position = role === USER_ROLE.STUDENT ? 'right' : 'left';
 
-  let avatar = teach_avator || robotAvatar;
+  let avatar = teach_avator || logoColor120;
 
   if (role === USER_ROLE.STUDENT) {
     avatar = null;
