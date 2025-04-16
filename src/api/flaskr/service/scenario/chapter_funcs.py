@@ -211,6 +211,7 @@ def delete_chapter(app, user_id: str, chapter_id: str):
                 if outline.lesson_no > chapter.lesson_no:
                     if outline.lesson_no.startswith(chapter.lesson_no):
                         # delete the sub outlines
+
                         app.logger.info(
                             f"delete outline: {outline.lesson_id} {outline.lesson_no} {outline.lesson_name}"
                         )
