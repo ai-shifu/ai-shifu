@@ -16,11 +16,10 @@ from flaskr.service.lesson.const import (
     SCRIPT_TYPE_SYSTEM,
     STATUS_PUBLISH,
     STATUS_DRAFT,
-    STATUS_HISTORY,
     STATUS_DELETE,
-    STATUS_TO_DELETE,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from .utils import change_block_status_to_history
 
 
 def get_block_list(app, user_id: str, outline_id: str):
@@ -88,7 +87,7 @@ def delete_block(app, user_id: str, outline_id: str, block_id: str):
             ).first()
         if not block:
             raise_error("SCENARIO.BLOCK_NOT_FOUND")
-        block.status = STATUS_TO_DELETE
+        change_block_status_to_history(block, user_id, datetime.now())
         db.session.commit()
         return True
     pass
@@ -109,6 +108,7 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 # save block list
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     with app.app_context():
+        time = datetime.now()
         app.logger.info(f"save_block_list: {outline_id}")
         outline = AILesson.query.filter(
             AILesson.lesson_id == outline_id,
@@ -158,69 +158,77 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                             f"block_dto id not found : {block_dto.block_id}"
                         )
                 if block_model is None:
+                    # add new block
                     block_model = AILessonScript(
                         script_id=generate_id(app),
                         script_index=block_index,
                         script_name=block_dto.block_name,
                         script_desc=block_dto.block_desc,
                         script_type=block_dto.block_type,
-                        created=datetime.now(),
+                        created=time,
                         created_user_id=user_id,
-                        updated=datetime.now(),
+                        updated=time,
                         updated_user_id=user_id,
                         status=STATUS_DRAFT,
                     )
-                else:
-                    new_block = block_model.clone()
-                old_check_str = block_model.get_str_to_check()
-                profile = update_block_model(new_block, block_dto)
-
-                if profile:
-                    profile_item = save_profile_item_defination(
-                        app, user_id, outline.course_id, profile
-                    )
-                    block_model.script_ui_profile_id = profile_item.profile_id
-                    block_model.script_check_prompt = profile_item.profile_prompt
-                    profile_items.append(profile_item)
-
-                if new_block and not new_block.eq(block_model):
-                    new_block.status = STATUS_DRAFT
-                    new_block.updated = datetime.now()
-                    new_block.updated_user_id = user_id
-                    new_block.script_index = block_index
-                    new_block.lesson_id = current_outline_id
-                    if block_model.status != STATUS_PUBLISH:
-                        block_model.status = STATUS_HISTORY
-                    db.session.add(new_block)
-                    block_models.append(new_block)
-                    new_check_str = new_block.get_str_to_check()
-                    if old_check_str != new_check_str:
-                        check_text_with_risk_control(
-                            app, block_model.script_id, user_id, new_check_str
+                    profile = update_block_model(block_model, block_dto)
+                    if profile:
+                        profile_item = save_profile_item_defination(
+                            app, user_id, outline.course_id, profile
                         )
-                else:
+                        block_model.script_ui_profile_id = profile_item.profile_id
+                        profile_items.append(profile_item)
                     check_text_with_risk_control(
                         app,
                         block_model.script_id,
                         user_id,
                         block_model.get_str_to_check(),
                     )
+                    block_model.lesson_id = current_outline_id
+                    block_model.script_index = block_index
+                    block_model.updated = time
+                    block_model.updated_user_id = user_id
+                    block_model.status = STATUS_DRAFT
+                    db.session.add(block_model)
                     block_models.append(block_model)
-                save_block_ids.append(block_model.script_id)
-                block_model.lesson_id = current_outline_id
-                block_model.script_index = block_index
-                block_model.updated = datetime.now()
-                block_model.updated_user_id = user_id
-                block_model.status = STATUS_DRAFT
+                    save_block_ids.append(block_model.script_id)
+                else:
+                    # update origin block
+                    new_block = block_model.clone()
+                    old_check_str = block_model.get_str_to_check()
+                    profile = update_block_model(new_block, block_dto)
+                    if profile:
+                        profile_item = save_profile_item_defination(
+                            app, user_id, outline.course_id, profile
+                        )
+                        block_model.script_ui_profile_id = profile_item.profile_id
+                        block_model.script_check_prompt = profile_item.profile_prompt
+                        profile_items.append(profile_item)
+                    if new_block and not new_block.eq(block_model):
+                        # update origin block and save to history
+                        new_block.status = STATUS_DRAFT
+                        new_block.updated = time
+                        new_block.updated_user_id = user_id
+                        new_block.script_index = block_index
+                        new_block.lesson_id = current_outline_id
+                        change_block_status_to_history(block_model, user_id, time)
+                        db.session.add(new_block)
+                        block_models.append(new_block)
+                        new_check_str = new_block.get_str_to_check()
+                        if old_check_str != new_check_str:
+                            check_text_with_risk_control(
+                                app, new_block.script_id, user_id, new_check_str
+                            )
+                    save_block_ids.append(new_block.script_id)
                 block_index += 1
             elif type == "outline":
                 # pass the top outline
                 pass
-        AILessonScript.query.filter(
-            AILessonScript.lesson_id.in_(sub_outline_ids),
-            AILessonScript.status == 1,
-            AILessonScript.script_id.notin_(save_block_ids),
-        ).update({"status": 0})
+        app.logger.info("save block ids : {}".format(save_block_ids))
+        for block in blocks:
+            if block.script_id not in save_block_ids:
+                app.logger.info("delete block : {}".format(block.script_id))
+                change_block_status_to_history(block, user_id, time)
         db.session.commit()
         return [
             generate_block_dto(block_model, profile_items)
@@ -231,6 +239,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
 
 def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
     with app.app_context():
+        time = datetime.now()
         outline = (
             AILesson.query.filter(
                 AILesson.lesson_id == outline_id,
@@ -248,9 +257,9 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             script_name=block_dto.block_name,
             script_desc=block_dto.block_desc,
             script_type=block_dto.block_type,
-            created=datetime.now(),
+            created=time,
             created_user_id=user_id,
-            updated=datetime.now(),
+            updated=time,
             updated_user_id=user_id,
             status=STATUS_DRAFT,
         )
@@ -259,16 +268,19 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
         check_text_with_risk_control(app, block_model.script_id, user_id, check_str)
         block_model.lesson_id = outline_id
         block_model.script_index = block_index
-        block_model.updated = datetime.now()
+        block_model.updated = time
         block_model.updated_user_id = user_id
         block_model.status = STATUS_DRAFT
-        AILessonScript.query.filter(
-            AILessonScript.lesson_id == outline_id,
-            AILessonScript.status == 1,
-            AILessonScript.script_index >= block_index,
-        ).update(
-            {AILessonScript.script_index: AILessonScript.script_index + 1},
-        )
+        existing_blocks = get_existing_blocks(app, [outline_id])
+        for block in existing_blocks:
+            if block.script_index >= block_index:
+                new_block = block.clone()
+                new_block.script_index = block.script_index + 1
+                new_block.updated = time
+                new_block.updated_user_id = user_id
+                new_block.status = STATUS_DRAFT
+                change_block_status_to_history(new_block, user_id, time)
+                db.session.add(new_block)
         db.session.add(block_model)
         db.session.commit()
         return generate_block_dto(block_model, [])
