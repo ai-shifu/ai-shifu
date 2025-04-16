@@ -34,7 +34,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def register():
         """
-        注册用户
+        register
         ---
         tags:
           - user
@@ -45,36 +45,36 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     properties:
                         username:
                             type: string
-                            description: 用户名
+                            description: user name
                         password:
                             type: string
-                            description: 密码
+                            description: password
                         email:
                             type: string
-                            description: 邮箱
+                            description: email
                         name:
                             type: string
-                            description: 姓名
+                            description: name
                         mobile:
                             type: string
-                            description: 手机号
+                            description: mobile phone number
         responses:
             200:
-                description: 注册成功
+                description: Registration success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     $ref: "#/components/schemas/UserToken"
             400:
-                description: 参数错误
+                description: parameter error
         """
         app.logger.info("register")
         username = request.get_json().get("username", "")
@@ -90,7 +90,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def login():
         """
-        用户登录
+        user login
         ---
         tags:
             - user
@@ -101,34 +101,34 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     properties:
                         username:
                             type: string
-                            description: 用户名
+                            description: user name
                         password:
                             type: string
-                            description: 密码
+                            description: password
             -   in: header
                 required: false
                 name: X-API-MODE
                 schema:
                     type: string
-                    description: 模式 (api, admin)
+                    description: mode (api, admin)
                     default: api
         responses:
             200:
-                description: 登录成功
+                description: login is success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     $ref: "#/components/schemas/UserToken"
             400:
-                description: 参数错误
+                description: parameter error
         """
         app.logger.info("login")
         username = request.get_json().get("username", "")
@@ -171,23 +171,23 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/info", methods=["GET"])
     def info():
         """
-        获取用户信息
+        get user information
         ---
         tags:
             - user
         responses:
             200:
-                description: 获取用户信息
+                description: get user information
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     $ref: "#/components/schemas/UserInfo"
         """
@@ -226,7 +226,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def require_tmp():
         """
-        临时登录用户
+        Temp login user
         ---
         tags:
             - user
@@ -237,33 +237,33 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     properties:
                         temp_id:
                             type: string
-                            description: 临时用户ID
+                            description: Temp login user ID
                         source:
                             type: string
-                            description: 来源
+                            description: source
                         wxcode:
                             type: string
-                            description: 微信code
+                            description: WeChat code
                         language:
                             type: string
-                            description: 语言
+                            description: language
         responses:
             200:
-                description: 临时用户登录成功
+                description: Temp user login success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     $ref: "#/components/schemas/UserToken"
             400:
-                description: 参数错误
+                description: parameter error
 
 
         """
@@ -346,7 +346,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     # @bypass_token_validation
     def send_sms_code_api():
         """
-        发送短信验证码
+        Send SMS Captcha
         ---
         tags:
            - user
@@ -429,13 +429,13 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     def get_profile():
         course_id = request.args.get("course_id", None)
         """
-        获取用户信息
+        get user profile
         ---
         tags:
             - user
         responses:
             200:
-                description: Return user information
+                description: Return user profile
                 content:
                     application/json:
                         schema:
@@ -448,7 +448,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     description: return message
                                 data:
                                     type: object
-                                    description: user information
+                                    description: user profile
 
         """
         return make_common_response(
@@ -625,7 +625,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: integer
                                     description: feedback ID
             400:
-                description: 参数错误
+                description: parameter error
         """
 
         user_id = request.user.user_id
@@ -728,7 +728,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                 data:
                                     $ref: "#/components/schemas/UserToken"
             400:
-                description: 参数错误
+                description: parameter error
 
 
         """
@@ -789,7 +789,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                                     type: string
                                     description: return information
             400:
-                description: 参数错误
+                description: parameter error
         """
         with app.app_context():
             mail = request.get_json().get("mail", None)
