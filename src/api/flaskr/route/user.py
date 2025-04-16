@@ -333,7 +333,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         """
         mobile = request.get_json().get("mobile", None)
         mail = request.get_json().get("mail", None)
-        identifying_account=""
+        identifying_account = ""
         if mobile:
             identifying_account = mobile
         if mail:
@@ -634,7 +634,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("feedback")
         return make_common_response(submit_feedback(app, user_id, feedback))
 
-
     @app.route(path_prefix + "/send_mail_code", methods=["POST"])
     # @bypass_token_validation
     def send_mail_code_api():
@@ -749,7 +748,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             resp = make_response(make_common_response(ret))
             return resp
 
-    #set_user_password
+    # set_user_password
     @app.route(path_prefix + "/set_user_password", methods=["POST"])
     # @bypass_token_validation
     def set_user_password_api():
@@ -800,7 +799,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 raise_param_error("mail")
             if not raw_password:
                 raise_param_error("password")
-            return make_common_response(set_user_password(app, raw_password, mail, mobile, check_code))
+            return make_common_response(
+                set_user_password(app, raw_password, mail, mobile, check_code)
+            )
 
     # health check
     @app.route("/health", methods=["GET"])
