@@ -6,7 +6,7 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from ..service.user import (
-    create_new_user,
+    create_new_admin_user,
     verify_user,
     validate_user,
     update_user_info,
@@ -19,6 +19,7 @@ from ..service.user import (
     send_email_code,
     verify_sms_code,
     verify_mial_code,
+    set_user_password,
     upload_user_avatar,
     update_user_open_id,
 )
@@ -81,7 +82,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         email = request.get_json().get("email", "")
         name = request.get_json().get("name", "")
         mobile = request.get_json().get("mobile", "")
-        user_token = create_new_user(app, username, name, password, email, mobile)
+        user_token = create_new_admin_user(app, username, name, password, email, mobile)
         resp = make_response(make_common_response(user_token))
         return resp
 
@@ -696,7 +697,40 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         Send verify email code
         ---
         tags:
-           - user
+            - user
+        parameters:
+            -   in: body
+                required: true
+                schema:
+                    properties:
+                        mail:
+                            type: string
+                            description: mail
+                        mail_code:
+                            type: string
+                            description: mail chekcode
+                        course_id:
+                            type: string
+                            description: course id
+        responses:
+            200:
+                description: user logs in success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: 参数错误
+
+
         """
         with app.app_context():
 
@@ -707,13 +741,66 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 None if getattr(request, "user", None) is None else request.user.user_id
             )
             if not mail:
-                raise_param_error("mobile")
+                raise_param_error("mail")
             if not mail_code:
                 raise_param_error("sms_code")
             ret = verify_mial_code(app, user_id, mail, mail_code, course_id)
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp
+
+    #set_user_password
+    @app.route(path_prefix + "/set_user_password", methods=["POST"])
+    # @bypass_token_validation
+    def set_user_password_api():
+        """
+        Send set user password
+        ---
+        tags:
+            - user
+        parameters:
+            -   in: body
+                required: true
+                schema:
+                    properties:
+                        mail:
+                            type: string
+                            description: mail
+                        mobile:
+                            type: string
+                            description: mail chekcode
+                        raw_password:
+                            type: string
+                            description: course id
+                        check_code:
+                            type: string
+                            description: course id
+        responses:
+            200:
+                description: user set password success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+            400:
+                description: 参数错误
+        """
+        with app.app_context():
+            mail = request.get_json().get("mail", None)
+            mobile = request.get_json().get("mobile", None)
+            raw_password = request.get_json().get("raw_password", None)
+            check_code = request.get_json().get("check_code", None)
+            if not mail and not mobile:
+                raise_param_error("mail")
+            if not raw_password:
+                raise_param_error("password")
+            return make_common_response(set_user_password(app, raw_password, mail, mobile, check_code))
 
     # health check
     @app.route("/health", methods=["GET"])
