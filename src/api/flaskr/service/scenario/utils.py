@@ -1,11 +1,13 @@
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.lesson.const import (
-    STATUS_TO_DELETE,
-    STATUS_DELETE,
+    STATUS_PUBLISH,
+    STATUS_DRAFT,
     SCRIPT_TYPE_SYSTEM,
+    STATUS_HISTORY,
 )
 from flask import Flask
 from flaskr.dao import db
+from datetime import datetime
 
 
 def check_scenario_can_publish(app, scenario_id: str):
@@ -24,12 +26,11 @@ def get_existing_outlines(app: Flask, scenario_id: str):
         )
         .group_by(AILesson.lesson_id)
     )
-    outlines = AILesson.query.filter(AILesson.id.in_(subquery)).all()
-    return [
-        o
-        for o in outlines
-        if o.status != STATUS_TO_DELETE and o.status != STATUS_DELETE
-    ]
+    outlines = AILesson.query.filter(
+        AILesson.id.in_(subquery),
+        AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+    ).all()
+    return outlines
 
 
 # get the existing blocks for cook
@@ -46,10 +47,37 @@ def get_existing_blocks(app: Flask, outline_ids: list[str]):
         .group_by(AILessonScript.script_id)
     )
     blocks = (
-        AILessonScript.query.filter(AILessonScript.id.in_(subquery))
+        AILessonScript.query.filter(
+            AILessonScript.id.in_(subquery),
+            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+        )
         .order_by(AILessonScript.script_index.asc())
         .all()
     )
-    return [
-        o for o in blocks if o.status != STATUS_TO_DELETE and o.status != STATUS_DELETE
-    ]
+    return blocks
+
+
+# change the outline status to history
+# @author: yfge
+# @date: 2025-04-14
+def change_outline_status_to_history(
+    outline_info: AILesson, user_id: str, time: datetime
+):
+    if outline_info.status != STATUS_PUBLISH:
+        # if the outline is not publish, then we need to change the status to history
+        outline_info.status = STATUS_HISTORY
+        outline_info.updated_user_id = user_id
+        outline_info.updated = time
+
+
+# change the block status to history
+# @author: yfge
+# @date: 2025-04-14
+def change_block_status_to_history(
+    block_info: AILessonScript, user_id: str, time: datetime
+):
+    if block_info.status != STATUS_PUBLISH:
+        # if the block is not publish, then we need to change the status to history
+        block_info.status = STATUS_HISTORY
+        block_info.updated_user_id = user_id
+        block_info.updated = time

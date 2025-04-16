@@ -20,6 +20,7 @@ from flaskr.service.scenario.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
 from sqlalchemy.sql import func, cast
 from sqlalchemy import String
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.scenario.utils import get_existing_outlines
 
 
 def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
@@ -66,11 +67,9 @@ def create_unit(
             AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
         ).first()
         if chapter:
-            existing_unit_count = AILesson.query.filter(
-                AILesson.course_id == scenario_id,
-                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-                AILesson.parent_id == parent_id,
-            ).count()
+
+            outlines = get_existing_outlines(app, scenario_id)
+            existing_unit_count = len([o for o in outlines if o.parent_id == parent_id])
             unit_id = generate_id(app)
             if unit_index == 0:
                 unit_index = existing_unit_count + 1
@@ -225,17 +224,17 @@ def modify_unit(
         if not unit:
             raise_error("SCENARIO.UNIT_NOT_FOUND")
         if unit:
-            history_unit = unit.clone()
+            new_unit = unit.clone()
             old_check_str = unit.get_str_to_check()
             if unit_name:
-                unit.lesson_name = unit_name
+                new_unit.lesson_name = unit_name
             if unit_description:
-                unit.lesson_desc = unit_description
+                new_unit.lesson_desc = unit_description
             if unit_index:
-                unit.lesson_index = unit_index
+                new_unit.lesson_index = unit_index
 
-            unit.updated_user_id = user_id
-            unit.updated_at = datetime.now()
+            new_unit.updated_user_id = user_id
+            new_unit.updated_at = datetime.now()
             type = LESSON_TYPE_TRIAL
             if unit_type == UNIT_TYPE_NORMAL:
                 type = LESSON_TYPE_NORMAL
@@ -244,19 +243,19 @@ def modify_unit(
             if unit_is_hidden:
                 type = LESSON_TYPE_BRANCH_HIDDEN
 
-            unit.lesson_type = type
-            if not history_unit.eq(unit):
-                if history_unit.status != STATUS_PUBLISH:
-                    history_unit.status = STATUS_HISTORY
+            new_unit.lesson_type = type
+            if not new_unit.eq(unit):
+                if unit.status != STATUS_PUBLISH:
+                    unit.status = STATUS_HISTORY
                 else:
                     app.logger.info(
-                        f"unit is published, history unit: {history_unit.lesson_id} {history_unit.lesson_no}"
+                        f"unit is published, history unit: {unit.lesson_id} {unit.lesson_no}"
                     )
-                db.session.add(history_unit)
-            unit.status = STATUS_DRAFT
-            unit.updated_user_id = user_id
-            unit.updated_at = datetime.now()
-            new_check_str = unit.get_str_to_check()
+                new_unit.status = STATUS_DRAFT
+                new_unit.updated_user_id = user_id
+                new_unit.updated_at = datetime.now()
+                db.session.add(new_unit)
+            new_check_str = new_unit.get_str_to_check()
             if old_check_str != new_check_str:
                 check_text_with_risk_control(app, unit_id, user_id, new_check_str)
             if unit_system_prompt:
