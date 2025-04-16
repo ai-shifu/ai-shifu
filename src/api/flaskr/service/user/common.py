@@ -441,3 +441,85 @@ def verify_sms_code(
             ),
             token,
         )
+
+
+
+# verify mail code
+def verify_mial_code(
+    app: Flask, user_id, mail: str, chekcode: str, course_id: str = None
+) -> UserToken:
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
+    User = get_model(app)
+    check_save = redis.get(app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + mail)
+    if check_save is None and chekcode != FIX_CHECK_CODE:
+        raise_error("USER.MAIL_SEND_EXPIRED")
+    check_save_str = str(check_save, encoding="utf-8") if check_save else ""
+    if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
+        raise_error("USER.MAIL_CHECK_ERROR")
+    else:
+        user_info = (
+            User.query.filter(User.email == mail)
+            .order_by(User.user_state.desc())
+            .order_by(User.id.asc())
+            .first()
+        )
+        if not user_info:
+            user_info = (
+                User.query.filter(User.user_id == user_id)
+                .order_by(User.id.asc())
+                .first()
+            )
+        elif user_id != user_info.user_id:
+            new_profiles = get_user_profile_labels(app, user_id, course_id)
+            update_user_profile_with_lable(
+                app, user_info.user_id, new_profiles, course_id
+            )
+            origin_user = User.query.filter(User.user_id == user_id).first()
+            migrate_user_study_record(
+                app, origin_user.user_id, user_info.user_id, course_id
+            )
+            if (
+                origin_user
+                and origin_user.user_open_id != user_info.user_open_id  # noqa W503
+                and (
+                    user_info.user_open_id is None  # noqa W503
+                    or user_info.user_open_id == ""
+                )
+            ):
+                user_info.user_open_id = origin_user.user_open_id
+        if user_info is None:
+            user_id = str(uuid.uuid4()).replace("-", "")
+            user_info = User(
+                user_id=user_id, username="", name="", email=mail, mobile=""
+            )
+            if (
+                user_info.user_state is None
+                or user_info.user_state == USER_STATE_UNTEGISTERED  # noqa W503
+            ):
+                user_info.user_state = USER_STATE_REGISTERED
+            user_info.email = mail
+            db.session.add(user_info)
+        if user_info.user_state == USER_STATE_UNTEGISTERED:
+            user_info.email = mail
+            user_info.user_state = USER_STATE_REGISTERED
+        user_id = user_info.user_id
+        token = generate_token(app, user_id=user_id)
+        db.session.flush()
+        return UserToken(
+            UserInfo(
+                user_id=user_info.user_id,
+                username=user_info.username,
+                name=user_info.name,
+                email=user_info.email,
+                mobile=user_info.mobile,
+                user_state=user_info.user_state,
+                wx_openid=get_user_openid(user_info),
+                language=get_user_language(user_info),
+                user_avatar=user_info.user_avatar,
+            ),
+            token,
+        )

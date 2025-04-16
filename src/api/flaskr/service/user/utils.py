@@ -108,9 +108,16 @@ def send_email_code(app: Flask, email: str, checkcode: str):
             msg = MIMEMultipart()
             msg["From"] = app.config["SMTP_SENDER"]
             msg["To"] = email
+            #todo The theme is currently fixed and can be moved to the configuration file later
             msg["Subject"] = "AI-Shifu:Your Verification Code"
             characters = string.digits
             random_string = "".join(random.choices(characters, k=4))
+            #to set redis
+            redis.set(
+                app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + email,
+                random_string,
+                ex=app.config["MAIL_CODE_EXPIRE_TIME"],
+            )
             body = f"Your verification code is: {random_string}"
             msg.attach(MIMEText(body, "plain"))
 
