@@ -16,6 +16,7 @@ from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args
 from ...common.config import get_config
 from ...service.resource.models import Resource
+from .utils import get_existing_outlines_for_publish, get_existing_blocks_for_publish
 import oss2
 import uuid
 
@@ -260,70 +261,51 @@ def publish_scenario(app, user_id, scenario_id: str):
             scenario.updated_user_id = user_id
             scenario.updated_at = datetime.now()
             # deal with draft lessons
-            lessons = AILesson.query.filter(
-                AILesson.course_id == scenario_id,
-                AILesson.status.in_([STATUS_DRAFT, STATUS_PUBLISH, STATUS_TO_DELETE]),
-            ).all()
-            published_lessons = [pub for pub in lessons if pub.status == STATUS_PUBLISH]
-            to_delete_lessons = [td for td in lessons if td.status == STATUS_TO_DELETE]
-            deleted_lessons = []
-            for lesson in [draft for draft in lessons if draft.status == STATUS_DRAFT]:
-                # publish lesson
-                lesson.status = STATUS_PUBLISH
-                lesson.updated_user_id = user_id
-                lesson.updated_at = datetime.now()
-                published = next(
-                    (
-                        pub
-                        for pub in published_lessons
-                        if pub.lesson_id == lesson.lesson_id
-                    ),
-                    None,
-                )
-                if published:
-                    # history published lesson
-                    published.status = STATUS_HISTORY
-                    published.updated_user_id = user_id
-                    published.updated_at = datetime.now()
-                    published_lessons.remove(published)
-                published_lessons.append(lesson)
-            for lesson in to_delete_lessons:
-                lesson.status = STATUS_DELETE
-                lesson.updated_user_id = user_id
-                lesson.updated_at = datetime.now()
-                published = next(
-                    (
-                        pub
-                        for pub in published_lessons
-                        if pub.lesson_id == lesson.lesson_id
-                    ),
-                    None,
-                )
-                if published:
-                    # history published lesson
-                    published.status = STATUS_DELETE
-                    published.updated_user_id = user_id
-                    published.updated_at = datetime.now()
-                    published_lessons.remove(published)
-                    deleted_lessons.append(lesson)
-            app.logger.info(
-                f"published_lessons: {sorted([l.lesson_no for l in published_lessons])}"
-            )
-            app.logger.info(
-                f"deleted_lessons: {sorted([l.lesson_no for l in deleted_lessons])}"
-            )
-
-            # deal with draft block scripts
-            lesson_ids = [lesson.lesson_id for lesson in published_lessons]
-            block_scripts = AILessonScript.query.filter(
-                AILessonScript.lesson_id.in_(lesson_ids),
-                AILessonScript.status.in_([STATUS_DRAFT]),
-            ).all()
+            to_publish_lessons = get_existing_outlines_for_publish(app, scenario_id)
+            for to_publish_lesson in to_publish_lessons:
+                if to_publish_lesson.status == STATUS_TO_DELETE:
+                    to_publish_lesson.status = STATUS_DELETE
+                    AILesson.query.filter(
+                        AILesson.lesson_id == to_publish_lesson.lesson_id,
+                        AILesson.status.in_([STATUS_PUBLISH]),
+                    ).update(
+                        {
+                            "status": STATUS_DELETE,
+                            "updated_user_id": user_id,
+                            "updated": datetime.now(),
+                        }
+                    )
+                elif to_publish_lesson.status == STATUS_PUBLISH:
+                    to_publish_lesson.status = STATUS_PUBLISH
+                elif to_publish_lesson.status == STATUS_DRAFT:
+                    to_publish_lesson.status = STATUS_PUBLISH
+                to_publish_lesson.updated_user_id = user_id
+                to_publish_lesson.updated = datetime.now()
+                db.session.add(to_publish_lesson)
+            lesson_ids = [lesson.lesson_id for lesson in to_publish_lessons]
+            block_scripts = get_existing_blocks_for_publish(app, lesson_ids)
             if block_scripts:
                 for block_script in block_scripts:
-                    block_script.status = STATUS_PUBLISH
+                    if block_script.status == STATUS_TO_DELETE:
+                        block_script.status = STATUS_DELETE
+                        AILessonScript.query.filter(
+                            AILessonScript.script_id == block_script.script_id,
+                            AILessonScript.status.in_([STATUS_PUBLISH]),
+                        ).update(
+                            {
+                                "status": STATUS_DELETE,
+                                "updated_user_id": user_id,
+                                "updated": datetime.now(),
+                            }
+                        )
+
+                    elif block_script.status == STATUS_DRAFT:
+                        block_script.status = STATUS_PUBLISH
+                    elif block_script.status == STATUS_PUBLISH:
+                        block_script.status = STATUS_PUBLISH
                     block_script.updated_user_id = user_id
-                    block_script.updated_at = datetime.now()
+                    block_script.updated = datetime.now()
+                    db.session.add(block_script)
             db.session.commit()
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")

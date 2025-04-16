@@ -9,7 +9,6 @@ from ..lesson.const import (
     STATUS_PUBLISH,
     STATUS_DRAFT,
     STATUS_HISTORY,
-    STATUS_TO_DELETE,
 )
 from datetime import datetime
 from .dtos import SimpleOutlineDto
@@ -197,14 +196,6 @@ def delete_chapter(app, user_id: str, chapter_id: str):
         outline_ids = []
         if chapter:
             change_outline_status_to_history(chapter, user_id, time)
-            new_chapter = chapter.clone()
-            new_chapter.status = STATUS_TO_DELETE
-            new_chapter.updated_user_id = user_id
-            new_chapter.updated_at = time
-            app.logger.info(
-                f"new_chapter: {new_chapter.lesson_id} {new_chapter.lesson_name} {new_chapter.status}"
-            )
-            db.session.add(new_chapter)
             outline_ids.append(chapter.lesson_id)
             outlines = get_existing_outlines(app, chapter.course_id)
             for outline in outlines:
