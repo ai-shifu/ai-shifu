@@ -586,14 +586,16 @@ def chat_llm(
 
 
 def get_current_models(app: Flask) -> list[str]:
-    return (
-        OPENAI_MODELS
-        + ERNIE_MODELS
-        + GLM_MODELS
-        + QWEN_MODELS
-        + DEEP_SEEK_MODELS
-        + DIFY_MODELS
-        + SILICON_MODELS
-        + ERNIE_V2_MODELS
-        + ARK_MODELS
+    return list(
+        dict.fromkeys(
+            OPENAI_MODELS
+            + ERNIE_MODELS
+            + GLM_MODELS
+            + QWEN_MODELS
+            + DEEP_SEEK_MODELS
+            + DIFY_MODELS
+            + SILICON_MODELS
+            + ERNIE_V2_MODELS
+            + ARK_MODELS
+        )
     )
