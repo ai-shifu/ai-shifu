@@ -23,15 +23,16 @@ services:
       - ../src/web/public:/app/public
       - ../src/web/src:/app/src
 
-  ai-shifu-cook-dev:
-    container_name: ai-shifu-cook-dev
-    image: ai-shifu-cook-dev:latest
-    volumes:
-      - ./cook_data:/data
+  ai-shifu-cook-web-dev:
+    container_name: ai-shifu-cook-web-dev
+    image: ai-shifu-cook-web-dev:latest
     env_file:
       - ./.env
     depends_on:
-      - ai-shifu-mysql
+      - ai-shifu-api-dev
+    volumes:
+      - ../src/cook-web/public:/app/public
+      - ../src/cook-web/src:/app/src
 
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev
@@ -41,6 +42,7 @@ services:
       - "8081:8081"
     depends_on:
       - ai-shifu-web-dev
+      - ai-shifu-cook-web-dev
       - ai-shifu-api-dev
     restart: always
     volumes:

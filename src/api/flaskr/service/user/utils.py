@@ -57,7 +57,12 @@ def generation_img_chk(app: Flask, identifying_account: str):
         # Save the image to a BytesIO object
         buffered = BytesIO()
         captcha_image.save(buffered, format="PNG")
-        app.logger.info("identifying_account:" + identifying_account + " random_string:" + random_string)
+        app.logger.info(
+            "identifying_account:"
+            + identifying_account
+            + " random_string:"
+            + random_string
+        )
         # Encode the image to base64
         img_base64 = "data:image/png;base64," + base64.b64encode(
             buffered.getvalue()
@@ -108,11 +113,11 @@ def send_email_code(app: Flask, email: str, checkcode: str):
             msg = MIMEMultipart()
             msg["From"] = app.config["SMTP_SENDER"]
             msg["To"] = email
-            #todo The theme is currently fixed and can be moved to the configuration file later
+            # todo The theme is currently fixed and can be moved to the configuration file later
             msg["Subject"] = "AI-Shifu:Your Verification Code"
             characters = string.digits
             random_string = "".join(random.choices(characters, k=4))
-            #to set redis
+            # to set redis
             redis.set(
                 app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + email,
                 random_string,
@@ -123,7 +128,9 @@ def send_email_code(app: Flask, email: str, checkcode: str):
 
             try:
                 # Connect to the SMTP server
-                server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
+                server = smtplib.SMTP(
+                    app.config["SMTP_SERVER"], app.config["SMTP_PORT"]
+                )
                 server.starttls()
                 server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
 
@@ -133,5 +140,7 @@ def send_email_code(app: Flask, email: str, checkcode: str):
 
                 app.logger.info(f"Verification code sent to {email}")
             except Exception as e:
-                app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
+                app.logger.error(
+                    f"Failed to send verification code to {email}: {str(e)}"
+                )
                 raise_error("USER.EMAIL_SEND_FAILED")

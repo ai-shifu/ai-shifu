@@ -443,7 +443,6 @@ def verify_sms_code(
         )
 
 
-
 # verify mail code
 def verify_mial_code(
     app: Flask, user_id, mail: str, chekcode: str, course_id: str = None
@@ -524,31 +523,33 @@ def verify_mial_code(
             token,
         )
 
+
 def set_user_password(
-    app: Flask, raw_password: str, mail: str, mobile: str,checkcode: str,
+    app: Flask,
+    raw_password: str,
+    mail: str,
+    mobile: str,
+    checkcode: str,
 ):
     with app.app_context():
-        user = User.query.filter(
-            (User.email == mail)
-            | (User.mobile == mobile)
-        ).first()
+        user = User.query.filter((User.email == mail) | (User.mobile == mobile)).first()
         password_hash = hashlib.md5((user.user_id + raw_password).encode()).hexdigest()
         if user is None:
             raise_error("USER.USER_ES_NOT_EXIST")
-        if user.password_hash =="":
+        if user.password_hash == "":
             # Users who have not set a password can directly set a new password
-            user.password_hash=password_hash
+            user.password_hash = password_hash
 
         if user.password_hash != "":
             # The user has set a password. If you need to change the password, you need to confirm it with a Captcha
-            identifying_account=""
-            redisKey=""
+            identifying_account = ""
+            redisKey = ""
             if mobile:
                 identifying_account = mobile
-                redisKey="REDIS_KEY_PRRFIX_PHONE_CODE"
+                redisKey = "REDIS_KEY_PRRFIX_PHONE_CODE"
             if mail:
                 identifying_account = mail
-                redisKey="REDIS_KEY_PRRFIX_MAIL_CODE"
+                redisKey = "REDIS_KEY_PRRFIX_MAIL_CODE"
             if not identifying_account:
                 raise_error("USER.USER_ES_NOT_EXIST")
             check_save = redis.get(app.config[redisKey] + identifying_account)
@@ -558,7 +559,6 @@ def set_user_password(
             if checkcode != check_save_str and checkcode != FIX_CHECK_CODE:
                 raise_error("USER.CHEKCODE_CHECK_ERROR")
             if checkcode.lower() == check_save_str.lower():
-                user.password_hash=password_hash
+                user.password_hash = password_hash
         db.session.flush()
         db.session.commit()
-
