@@ -181,7 +181,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                         ...list[0].children[0],
                         depth: 1,
                     });
-                    loadBlocks(list[0].children[0].id);
+                    await loadBlocks(list[0].children[0].id);
                 }
             }
             setChapters(list);
