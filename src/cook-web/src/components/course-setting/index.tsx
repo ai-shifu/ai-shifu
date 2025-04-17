@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/form";
 
 import api from "@/api";
-import { SITE_HOST } from "@/config/site";
+import { getSiteHost } from "@/config/runtime-config";
 import { useScenario } from "@/store";
 
 interface Scenario {
@@ -78,7 +78,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
         previewUrl: false,
         url: false
     });
-
+    const SITE_HOST = getSiteHost();
     // Initialize the form with react-hook-form and zod resolver
     const form = useForm({
         resolver: zodResolver(courseSchema),
@@ -145,7 +145,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                 // Use the uploadFile function from file.ts
                 const response = await uploadFile(
                     file,
-                    `${SITE_HOST}/api/scenario/upfile`,
+                        `${SITE_HOST}/api/scenario/upfile`,
                     undefined,
                     undefined,
                     (progress) => {

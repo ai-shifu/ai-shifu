@@ -11,7 +11,7 @@ import CMEditor from '@/components/cm-editor';
 import ModelList from '@/components/model-list';
 import api from '@/api';
 import { ChevronDown, ChevronUp, Copy, Minus, Plus, Trash2 } from "lucide-react";
-import { SITE_HOST } from "@/config/site";
+import { getSiteHost } from "@/config/runtime-config";
 import { getToken } from "@/local/local";
 import { v4 as uuidv4 } from 'uuid';
 import Loading from "../loading";
@@ -51,6 +51,7 @@ async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
 
 
 const AIModelDialog = ({ blockId, open, onOpenChange }) => {
+    const SITE_HOST = getSiteHost();
     const {
         blockContentProperties,
         blocks,

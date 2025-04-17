@@ -1,8 +1,6 @@
 import '@chatui/core/dist/index.css';
 import Chat, { useMessages } from '@chatui/core';
 import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled } from '@ant-design/icons';
-
-
 import {
   useEffect,
   forwardRef,
@@ -47,13 +45,13 @@ import ActiveMessageControl from './ChatMessage/ActiveMessageControl';
 import { convertKeysToCamelCase } from 'Utils/objUtils';
 import { useShallow } from 'zustand/react/shallow';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
+import logoColor120 from 'Assets/logos/logo-color-120.png';
+
 
 const USER_ROLE = {
   TEACHER: '老师',
   STUDENT: '学生',
 };
-
-const robotAvatar = 'https://avtar.agiclass.cn/sunner.jpg';
 
 const createMessage = ({
   id = '',
@@ -75,7 +73,7 @@ const createMessage = ({
   }
   const position = role === USER_ROLE.STUDENT ? 'right' : 'left';
 
-  let avatar = teach_avator || robotAvatar;
+  let avatar = teach_avator || logoColor120;
 
   if (role === USER_ROLE.STUDENT) {
     avatar = null;
@@ -779,12 +777,12 @@ export const ChatComponents = forwardRef(
             {currentInteractionType === 1 ? (
               <LikeFilled className={styles.brandcolor} onClick={likeClick} />
             ) : (
-                <LikeOutlined className={styles.brandcolor} onClick={likeClick} />
+              <LikeOutlined className={styles.brandcolor} onClick={likeClick} />
             )}
             {currentInteractionType === 2 ? (
               <DislikeFilled className={styles.brandcolor} onClick={disClick} />
             ) : (
-                <DislikeOutlined className={styles.brandcolor} onClick={disClick} />
+              <DislikeOutlined className={styles.brandcolor} onClick={disClick} />
             )}
           </div>
         );
@@ -813,7 +811,7 @@ export const ChatComponents = forwardRef(
                 onImageLoaded={onImageLoaded}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
-              {((msg.isComplete || msg.logid) && msg.position=='left') && renderMessageContentOperation(msg)}
+              {((msg.isComplete || msg.logid) && msg.position == 'left') && renderMessageContentOperation(msg)}
             </div>
           );
         }

@@ -1,5 +1,5 @@
 /* eslint-disable */
-import { SITE_HOST } from "@/config/site";
+import { getSiteHost } from "@/config/runtime-config";
 import { fail } from '@/hooks/use-toast';
 import { getToken } from "@/local/local";
 import { v4 as uuidv4 } from 'uuid';
@@ -78,6 +78,11 @@ export class Request {
     };
     let fullUrl = url;
     if (!url.startsWith('http')) {
+      if (typeof window !== 'undefined') {
+        const siteHost = getSiteHost();
+        this.baseUrl = siteHost || 'http://localhost/api';
+
+      }
       fullUrl = this.baseUrl ? this.baseUrl + url : url;
     }
 
@@ -300,5 +305,4 @@ const defaultConfig = {
 };
 
 const request = new Request(defaultConfig);
-request.baseUrl = SITE_HOST;
 export default request;

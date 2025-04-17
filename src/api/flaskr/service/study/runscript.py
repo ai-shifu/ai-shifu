@@ -55,6 +55,7 @@ def run_script_inner(
     input_type: str = None,
     script_id: str = None,
     log_id: str = None,
+    preview_mode: bool = False,
 ) -> Generator[str, None, None]:
     with app.app_context():
         script_info = None
@@ -438,6 +439,7 @@ def run_script(
     input_type: str = None,
     script_id: str = None,
     log_id: str = None,
+    preview_mode: bool = False,
 ) -> Generator[ScriptDTO, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
@@ -448,7 +450,15 @@ def run_script(
     if lock.acquire(blocking=True):
         try:
             yield from run_script_inner(
-                app, user_id, course_id, lesson_id, input, input_type, script_id, log_id
+                app,
+                user_id,
+                course_id,
+                lesson_id,
+                input,
+                input_type,
+                script_id,
+                log_id,
+                preview_mode,
             )
         except Exception as e:
             app.logger.error("run_script error")
