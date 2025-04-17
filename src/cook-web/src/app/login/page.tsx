@@ -153,12 +153,12 @@ const LoginPage = () => {
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center">
                                     <Label htmlFor="password">密码</Label>
-                                    <Button
+                                    {/* <Button
                                         variant="link"
                                         className="px-0 text-sm text-gray-500 hover:text-purple-500"
                                     >
                                         忘记密码?
-                                    </Button>
+                                    </Button> */}
                                 </div>
                                 <div className="relative">
                                     <div className="space-y-1">
@@ -178,7 +178,7 @@ const LoginPage = () => {
                                         type="button"
                                         variant="ghost"
                                         size="sm"
-                                        className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                                        className="absolute right-0 top-0 h-8 px-3 hover:bg-transparent"
                                         onClick={() => setShowPassword(!showPassword)}
                                     >
                                         {showPassword ? (

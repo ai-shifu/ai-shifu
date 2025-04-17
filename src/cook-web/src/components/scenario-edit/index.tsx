@@ -139,7 +139,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
             document.getElementById('new_chapter')?.scrollIntoView({
                 behavior: 'smooth',
             });
-        }, 500);
+        }, 800);
     }
 
 
@@ -186,7 +186,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
             <Header />
             <div className="flex-1 container mx-auto flex flex-row  overflow-hidden px-10">
                 <div className='p-2 flex flex-col overflow-hidden h-full'>
-                    <div className='flex-1 overflow-auto pr-4 w-[240px]'>
+                    <div className='flex-1 h-full overflow-auto pr-4 w-[240px]'>
                         <ol className=' text-sm'>
                             <OutlineTree
                                 items={chapters}
@@ -195,7 +195,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                 }}
                             />
                         </ol>
-                        <div className='h-20'></div>
                         <Button variant="outline" className='my-2 h-8 sticky bottom-0 left-4 ' size="sm" onClick={onAddChapter}>
                             <Plus />
                             新篇章
