@@ -9,7 +9,7 @@ from .utils import generate_token
 from ...dao import db
 
 
-def create_new_user(
+def create_new_admin_user(
     app: Flask, username: str, name: str, raw_password: str, email: str, mobile: str
 ) -> UserToken:
     with app.app_context():

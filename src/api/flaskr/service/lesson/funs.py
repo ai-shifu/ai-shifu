@@ -12,6 +12,7 @@ from .const import (
     UI_TYPE_CONTINUED,
     UI_TYPE_SELECTION,
     UI_TYPES,
+    STATUS_PUBLISH,
 )
 from flask import Flask
 from ...dao import db
@@ -595,7 +596,13 @@ def get_lessons(app: Flask, feshu_doc_id) -> AICourseDetailDTO:
 
 def get_lesson_detail(app: Flask, lesson_id: str) -> AILessonDetailDTO:
     with app.app_context():
-        lesson = AILesson.query.filter_by(lesson_id=lesson_id).first()
+        lesson = (
+            AILesson.query.filter(
+                AILesson.lesson_id == lesson_id, AILesson.status.in_([STATUS_PUBLISH])
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if lesson is None:
             return None
         return AILessonDetailDTO(
@@ -712,11 +719,22 @@ def update_course_info(
 def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
     with app.app_context():
         if course_id is None or course_id == "":
-            course = AICourse.query.filter(AICourse.status == 1).first()
+            course = (
+                AICourse.query.filter(AICourse.status == 1)
+                .order_by(AICourse.id.desc())
+                .first()
+            )
             if course is None:
                 raise_error("LESSON.HAS_NOT_LESSON")
         else:
-            course = AICourse.query.filter(AICourse.course_id == course_id).first()
+            course = (
+                AICourse.query.filter(
+                    AICourse.course_id == course_id,
+                    AICourse.status.in_([STATUS_PUBLISH]),
+                )
+                .order_by(AICourse.id.desc())
+                .first()
+            )
             if course is None:
                 raise_error("LESSON.COURSE_NOT_FOUND")
 
