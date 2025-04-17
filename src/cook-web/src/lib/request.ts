@@ -79,8 +79,8 @@ export class Request {
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
-        const runtimeConfig = getSiteHost();
-        this.baseUrl = runtimeConfig || 'https://env2.dev.pillowai.cn';
+        const siteHost = getSiteHost();
+        this.baseUrl = siteHost || 'http://localhost/api';
 
       }
       fullUrl = this.baseUrl ? this.baseUrl + url : url;
