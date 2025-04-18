@@ -30,10 +30,12 @@ export interface SystemStoreState {
   channel: string;
   wechatCode: string;
   showVip: boolean;
+  privewMode:boolean;
   updateLanguage: (language: string) => void;
   updateChannel: (channel: string) => void;
   updateWechatCode: (code: string) => void;
   setShowVip: (show: boolean) => void;
+  updatePrivewMode: (mode: boolean) => void;
 }
 
 export interface CourseStoreState {

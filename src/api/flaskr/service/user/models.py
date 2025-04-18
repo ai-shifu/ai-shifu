@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, Date
+from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
@@ -30,12 +30,6 @@ class User(db.Model):
         default=func.now(),
         comment="Update time",
     )
-    default_model = Column(
-        String(255),
-        nullable=False,
-        default="gpt-3.5-turbo-0613",
-        comment="Default model",
-    )
     user_state = Column(Integer, nullable=True, default=0, comment="User_state")
     user_sex = Column(Integer, nullable=True, default=0, comment="user sex")
     user_birth = Column(Date, nullable=True, default="2003-1-1", comment="user birth")
@@ -47,8 +41,9 @@ class User(db.Model):
         String(255), nullable=True, index=True, default="", comment="user unicon id"
     )
     user_language = Column(
-        String(30), nullable=True, default="zh", comment="user language"
+        String(30), nullable=True, default="zh-CN", comment="user language"
     )
+    extra_data = Column(Text, nullable=True, default="", comment="extra_data")
 
     def __init__(
         self,
@@ -58,7 +53,6 @@ class User(db.Model):
         password_hash="",
         email="",
         mobile="",
-        default_model="gpt-3.5-turbo-0613",
         user_state=0,
         language="zh_CN",
     ):
@@ -68,7 +62,6 @@ class User(db.Model):
         self.password_hash = password_hash
         self.email = email
         self.mobile = mobile
-        self.default_model = default_model
         self.user_state = user_state
         self.user_language = language
 
@@ -142,16 +135,13 @@ class AdminUser(db.Model):
         onupdate=func.now(),
         comment="Update time",
     )
-    default_model = Column(
-        String(255),
-        nullable=False,
-        default="gpt-3.5-turbo-0613",
-        comment="Default model",
-    )
     user_state = Column(Integer, nullable=True, default=0, comment="User_state")
     user_sex = Column(Integer, nullable=True, default=0, comment="user sex")
-    user_birth = Column(Date, nullable=True, default="1984-1-1", comment="user birth")
+    user_birth = Column(Date, nullable=True, default="2003-1-1", comment="user birth")
     user_avatar = Column(String(255), nullable=True, default="", comment="user avatar")
+    user_language = Column(
+        String(30), nullable=True, default="zh-CN", comment="user language"
+    )
 
     def __init__(
         self,
@@ -161,8 +151,8 @@ class AdminUser(db.Model):
         password_hash="",
         email="",
         mobile="",
-        default_model="gpt-3.5-turbo-0613",
         user_state=0,
+        language="zh-CN",
     ):
         self.user_id = user_id
         self.username = username
@@ -170,8 +160,8 @@ class AdminUser(db.Model):
         self.password_hash = password_hash
         self.email = email
         self.mobile = mobile
-        self.default_model = default_model
         self.user_state = user_state
+        self.user_language = language
 
 
 class UserToken(db.Model):

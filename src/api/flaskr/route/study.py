@@ -45,6 +45,10 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                         script_id:
                             type: string
                             description: 脚本ID,如果为空则运行下一条，否则运行指定脚本
+                        preview_mode:
+                            type: boolean
+                            default: false
+                            description: 预览模式
         responses:
             200:
                 description: 返回脚本运行结果
@@ -60,6 +64,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         log_id = request.get_json().get("log_id", None)
         input = request.get_json().get("input", None)
         input_type = request.get_json().get("input_type", "start")
+        preview_mode = request.get_json().get("preview_mode", False)
         if course_id == "":
             course_id = None
         user_id = request.user.user_id
@@ -75,6 +80,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                     input_type=input_type,
                     script_id=script_id,
                     log_id=log_id,
+                    preview_mode=preview_mode,
                 ),
                 headers={"Cache-Control": "no-cache"},
                 mimetype="text/event-stream",

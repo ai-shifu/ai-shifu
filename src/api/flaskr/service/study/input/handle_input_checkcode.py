@@ -12,13 +12,14 @@ from flaskr.service.user.common import verify_sms_code_without_phone
 from flaskr.service.study.const import ROLE_STUDENT
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
+from flaskr.service.user.models import User
 
 
 @register_input_handler(input_type=INPUT_TYPE_CHECKCODE)
 @extensible_generic
 def handle_input_checkcode(
     app: Flask,
-    user_id: str,
+    user_info: User,
     lesson: AILesson,
     attend: AICourseLessonAttend,
     script_info: AILessonScript,
@@ -31,7 +32,8 @@ def handle_input_checkcode(
         log_script.script_content = input
         log_script.script_role = ROLE_STUDENT  # type: ignore
         db.session.add(log_script)
-        ret = verify_sms_code_without_phone(app, user_id, input)
+        course_id = attend.course_id
+        ret = verify_sms_code_without_phone(app, user_info, input, course_id)
         yield make_script_dto(
             "profile_update",
             {"key": "phone", "value": ret.userInfo.mobile},

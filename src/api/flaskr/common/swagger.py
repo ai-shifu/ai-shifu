@@ -4,9 +4,7 @@ import inspect
 
 swagger_config = {
     "openapi": "3.0.2",
-    "info": {"title": "AI 师傅 - API 文档", "version": "1.0.0"},
-    "optional_fields": ["components"],
-    "tags": ["用户", "课程", "订单", "支付"],
+    "info": {"title": "AI Shifu API", "version": "1.0.0"},
     "components": {"schemas": {}},
     "specs": [
         {
@@ -21,23 +19,37 @@ def parse_comments(cls):
     source = inspect.getsource(cls)
     tree = ast.parse(source)
     comments = {}
+
+    # 获取源代码的所有行
+    source_lines = source.splitlines()
+
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             for item in node.body:
-                if isinstance(item, ast.AnnAssign) or isinstance(item, ast.Assign):
-                    # Handle both annotated assignments and regular assignments
+                if isinstance(item, (ast.AnnAssign, ast.Assign)):
+                    # 获取字段名
                     if isinstance(item, ast.AnnAssign):
                         field_name = item.target.id
-                    else:  # it must be ast.Assign
+                    else:  # ast.Assign
                         field_name = item.targets[0].id
-                    if item.value and isinstance(item.value, ast.Str):
-                        comments[field_name] = item.value.s
-                    elif (
-                        item.value
-                        and isinstance(item.value, ast.Constant)
-                        and isinstance(item.value.value, str)
-                    ):
-                        comments[field_name] = item.value.value
+
+                    # 获取行号
+                    line_num = item.lineno - 1  # ast 行号从1开始，列表索引从0开始
+                    line = source_lines[line_num].strip()
+
+                    # 查找行内注释
+                    if "#" in line:
+                        comment = line.split("#", 1)[1].strip()
+                        comments[field_name] = comment
+                    # 如果没有注释但有字符串赋值，使用字符串值作为注释
+                    elif item.value and isinstance(item.value, (ast.Str, ast.Constant)):
+                        if isinstance(item.value, ast.Str):
+                            comments[field_name] = item.value.s
+                        elif isinstance(item.value, ast.Constant) and isinstance(
+                            item.value.value, str
+                        ):
+                            comments[field_name] = item.value.value
+
     return comments
 
 
@@ -45,7 +57,6 @@ def get_field_schema(typ, description: str = ""):
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
-
     if typ in (str, int, float, bool):
         field_schema["type"] = typ.__name__
         if typ == str:
@@ -78,9 +89,8 @@ def register_schema_to_swagger(cls):
     properties = {}
     required = []
     comments = parse_comments(cls)
-
     for name, typ in cls.__annotations__.items():
-        field_schema = get_field_schema(typ)
+        field_schema = get_field_schema(typ, description=comments.get(name, ""))
         properties[name] = field_schema
         required.append(name)
     schema = {

@@ -1,0 +1,21 @@
+FROM node:20.11.1 AS base
+
+RUN corepack enable
+
+# set work directory
+WORKDIR /app
+
+# install project dependencies
+# copy package.json and package-lock.json files
+COPY package*.json ./
+
+# copy project source code
+COPY . .
+# install dependencies
+RUN npm install
+
+# expose port
+EXPOSE 3000
+
+# start service
+CMD ["npm", "run", "dev"]

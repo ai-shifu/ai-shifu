@@ -90,6 +90,12 @@ ALIBABA_CLOUD_OSS_ENDPOINT="oss-cn-beijing.aliyuncs.com"
 ALIBABA_CLOUD_OSS_BUCKET=""
 ALIBABA_CLOUD_OSS_BASE_URL=""
 
+ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID=""
+ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET=""
+ALIBABA_CLOUD_OSS_COURSES_ENDPOINT="oss-cn-beijing.aliyuncs.com"
+ALIBABA_CLOUD_OSS_COURSES_BUCKET=""
+ALIBABA_CLOUD_OSS_COURSES_URL=""
+
 # (Optional) Langfuse settings for tracking LLM
 LANGFUSE_PUBLIC_KEY=""
 LANGFUSE_SECRET_KEY=""
@@ -99,6 +105,10 @@ LANGFUSE_HOST=""
 NETEASE_YIDUN_SECRET_ID=""
 NETEASE_YIDUN_SECRET_KEY=""
 NETEASE_YIDUN_BUSINESS_ID=""
+
+# Lark (Feishu) for script editing
+LARK_APP_ID=""
+LARK_APP_SECRET=""
 
 ... skip code ...
 
@@ -118,38 +128,10 @@ PORT=5000
 REACT_APP_ERUDA="true"
 
 
-#################
-# Editor (Cook) #
-#################
 
-# Lark (Feishu) for script editing
-LARK_APP_ID=""
-LARK_APP_SECRET=""
 
-# Database settings. If you don't know what they are, don't modify them.
-COOK_DB_USERNAME="root"
-COOK_DB_PASSWORD="ai-shifu"
-COOK_DB_DATABASE="ai-shifu-cook"
-COOK_DB_HOST="ai-shifu-mysql"
 
-# For uploading images
-COOK_IMG_LOCAL_DIR="/data/img/"
-COOK_IMG_OSS_ANAME="" # fill it the same as ALIBABA_CLOUD_OSS_BUCKET
-COOK_IMG_OSS_ENDPOINT=""
-COOK_IMG_OSS_BUCKET=""
 
-# API environment
-COOK_USE_API_ENV="prod"
-API_URL_TEST="http://ai-shifu-api:5800/api"
-API_URL_PROD="http://localhost:5800/api" # example as for local development
-
-# Logs
-COOK_LOG_LEVEL="DEBUG"
-COOK_LOG_OUT_LEVEL="DEBUG"
-COOK_LOG_DIR="/var/log/" # make sure you have the permission to write the file
-COOK_LOG_OUT_PATH="/var/log/ai-shifu-cook.log"
-COOK_LOG_ERR_LEVEL="ERROR"
-COOK_LOG_ERR_PATH="/var/log/ai-shifu-cook.err.log"
 
 ```
 

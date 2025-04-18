@@ -47,7 +47,7 @@ def generate_token(app: Flask, user_id: str) -> str:
 
 # generate image captcha
 # author: yfge
-def generation_img_chk(app: Flask, mobile: str):
+def generation_img_chk(app: Flask, identifying_account: str):
     with app.app_context():
         image_captcha = ImageCaptcha()
         characters = string.ascii_uppercase + string.digits
@@ -57,13 +57,18 @@ def generation_img_chk(app: Flask, mobile: str):
         # Save the image to a BytesIO object
         buffered = BytesIO()
         captcha_image.save(buffered, format="PNG")
-        app.logger.info("mobile:" + mobile + " random_string:" + random_string)
+        app.logger.info(
+            "identifying_account:"
+            + identifying_account
+            + " random_string:"
+            + random_string
+        )
         # Encode the image to base64
         img_base64 = "data:image/png;base64," + base64.b64encode(
             buffered.getvalue()
         ).decode("utf-8")
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + mobile,
+            app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + identifying_account,
             random_string,
             ex=app.config["CAPTCHA_CODE_EXPIRE_TIME"],
         )
@@ -71,14 +76,14 @@ def generation_img_chk(app: Flask, mobile: str):
 
 
 # send sms code
-def send_sms_code(app: Flask, phone: str, chekcode: str):
+def send_sms_code(app: Flask, phone: str, checkcode: str):
     with app.app_context():
         check_save = redis.get(app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + phone)
         if check_save is None:
             raise_error("USER.CHECK_CODE_EXPIRED")
         check_save_str = str(check_save, encoding="utf-8")
-        app.logger.info("check_save_str:" + check_save_str + " chekcode:" + chekcode)
-        if chekcode.lower() != check_save_str.lower():
+        app.logger.info("check_save_str:" + check_save_str + " checkcode:" + checkcode)
+        if checkcode.lower() != check_save_str.lower():
             raise_error("USER.CHECK_CODE_ERROR")
         else:
             characters = string.digits
@@ -94,28 +99,48 @@ def send_sms_code(app: Flask, phone: str, chekcode: str):
             return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
 
 
-def send_email_code(app: Flask, email: str, code: str, checkcode: str):
+def send_email_code(app: Flask, email: str, checkcode: str):
     with app.app_context():
-        # Create the email content
-        msg = MIMEMultipart()
-        msg["From"] = app.config["SMTP_SENDER"]
-        msg["To"] = email
-        msg["Subject"] = "AI-Shifu:Your Verification Code"
+        check_save = redis.get(app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + email)
+        if check_save is None:
+            raise_error("USER.CHECK_CODE_EXPIRED")
+        check_save_str = str(check_save, encoding="utf-8")
+        app.logger.info("check_save_str:" + check_save_str + " checkcode:" + checkcode)
+        if checkcode.lower() != check_save_str.lower():
+            raise_error("USER.CHECK_CODE_ERROR")
+        else:
+            # Create the email content
+            msg = MIMEMultipart()
+            msg["From"] = app.config["SMTP_SENDER"]
+            msg["To"] = email
+            # todo The theme is currently fixed and can be moved to the configuration file later
+            msg["Subject"] = "AI-Shifu:Your Verification Code"
+            characters = string.digits
+            random_string = "".join(random.choices(characters, k=4))
+            # to set redis
+            redis.set(
+                app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + email,
+                random_string,
+                ex=app.config["MAIL_CODE_EXPIRE_TIME"],
+            )
+            body = f"Your verification code is: {random_string}"
+            msg.attach(MIMEText(body, "plain"))
 
-        body = f"Your verification code is: {code}"
-        msg.attach(MIMEText(body, "plain"))
+            try:
+                # Connect to the SMTP server
+                server = smtplib.SMTP(
+                    app.config["SMTP_SERVER"], app.config["SMTP_PORT"]
+                )
+                server.starttls()
+                server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
 
-        try:
-            # Connect to the SMTP server
-            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
-            server.starttls()
-            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
+                # Send the email
+                server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
+                server.quit()
 
-            # Send the email
-            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
-            server.quit()
-
-            app.logger.info(f"Verification code sent to {email}")
-        except Exception as e:
-            app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
-            raise_error("USER.EMAIL_SEND_FAILED")
+                app.logger.info(f"Verification code sent to {email}")
+            except Exception as e:
+                app.logger.error(
+                    f"Failed to send verification code to {email}: {str(e)}"
+                )
+                raise_error("USER.EMAIL_SEND_FAILED")

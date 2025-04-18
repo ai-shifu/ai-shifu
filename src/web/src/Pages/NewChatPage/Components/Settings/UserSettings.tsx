@@ -20,6 +20,7 @@ import DynamicSettingItem from './DynamicSettingItem';
 import { useUserStore } from 'stores/useUserStore';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
+import { useEnvStore } from 'stores/envStore';
 
 const fixed_keys = ['nickname', 'avatar', 'sex', 'birth'];
 const hidden_keys = ['language'];
@@ -30,6 +31,7 @@ export const UserSettings = ({
   onClose,
   isBasicInfo = false,
 }) => {
+  const courseId = useEnvStore((state) => state.courseId);
   const { refreshUserInfo } = useUserStore(
     useShallow((state) => ({
       refreshUserInfo: state.refreshUserInfo,
@@ -76,10 +78,10 @@ export const UserSettings = ({
         value: v.value,
       });
     });
-    await updateUserProfile(data);
+    await updateUserProfile(data, courseId);
     await refreshUserInfo();
     onClose();
-  }, [avatar, birth, dynFormData, nickName, onClose, refreshUserInfo, sex]);
+  }, [avatar, birth, dynFormData, nickName, onClose, refreshUserInfo, sex, courseId]);
 
   const onNickNameChanged = useCallback(
     (e) => {
@@ -117,7 +119,7 @@ export const UserSettings = ({
   }, []);
 
   const loadData = useCallback(async () => {
-    const { data: respData } = await getUserProfile();
+    const { data: respData } = await getUserProfile(courseId);
     respData.forEach((v) => {
       if (v.key === 'nickname') {
         setNickName(v.value);

@@ -47,6 +47,10 @@ def create_app() -> Flask:
 
     # init redis
     dao.init_redis(app)
+
+    # init milvus
+    dao.init_milvus(app)
+
     # Init LLM
     with app.app_context():
         from flaskr.api import llm  # noqa
@@ -58,13 +62,9 @@ def create_app() -> Flask:
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
     from flaskr.framework.plugin.plugin_manager import plugin_manager
 
-    load_plugins_from_dir(app, "flaskr/service/study/input")
-    load_plugins_from_dir(app, "flaskr/service/study/ui")
-    load_plugins_from_dir(app, "flaskr/service/study/continue")
-
+    load_plugins_from_dir(app, "flaskr/service/")
     try:
         load_plugins_from_dir(app, "flaskr/plugins", plugin_manager)
-
     except Exception as e:
         app.logger.warning(f"load plugins error: {e}")
 
@@ -83,7 +83,6 @@ def create_app() -> Flask:
     # enable hot reload
     if app.config.get("ENV") == "development":
         plugin_manager.enable_hot_reload()
-
     return app
 
 

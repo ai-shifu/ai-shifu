@@ -6,7 +6,7 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from ..service.user import (
-    create_new_user,
+    create_new_admin_user,
     verify_user,
     validate_user,
     update_user_info,
@@ -16,7 +16,10 @@ from ..service.user import (
     generate_temp_user,
     generation_img_chk,
     send_sms_code,
+    send_email_code,
     verify_sms_code,
+    verify_mial_code,
+    set_user_password,
     upload_user_avatar,
     update_user_open_id,
 )
@@ -31,43 +34,47 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def register():
         """
-        注册用户
+        register
         ---
         tags:
-          - 用户
-
-        definitions:
-            UserInfo:
-                type: object
-
-                properties:
-                    user_id:
-                        type: string
-                        description: 用户ID
-                    username:
-                        type: string
-                        description: 用户名
-                    email:
-                        type: string
-                        description: 邮箱
-                    name:
-                        type: string
-                        description: 姓名
-                    mobile:
-                        type: string
-                        description: 手机号
+          - user
         parameters:
-          - in: body
-            name: UserInfo
-            required: true
-            schema:
-              id: UserInfo
-              required:
-                - username
-                - password
-                - email
-                - name
-                - mobile
+            -   in:   body
+                required: true
+                schema:
+                    properties:
+                        username:
+                            type: string
+                            description: user name
+                        password:
+                            type: string
+                            description: password
+                        email:
+                            type: string
+                            description: email
+                        name:
+                            type: string
+                            description: name
+                        mobile:
+                            type: string
+                            description: mobile phone number
+        responses:
+            200:
+                description: Registration success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: parameter error
         """
         app.logger.info("register")
         username = request.get_json().get("username", "")
@@ -75,18 +82,53 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         email = request.get_json().get("email", "")
         name = request.get_json().get("name", "")
         mobile = request.get_json().get("mobile", "")
-        user_token = create_new_user(app, username, name, password, email, mobile)
-        resp = make_response(make_common_response(user_token.userInfo))
+        user_token = create_new_admin_user(app, username, name, password, email, mobile)
+        resp = make_response(make_common_response(user_token))
         return resp
 
     @app.route(path_prefix + "/login", methods=["POST"])
     @bypass_token_validation
     def login():
         """
-        用户登录
+        user login
         ---
         tags:
-            -   用户
+            - user
+        parameters:
+            -   in: body
+                required: true
+                schema:
+                    properties:
+                        username:
+                            type: string
+                            description: user name
+                        password:
+                            type: string
+                            description: password
+            -   in: header
+                required: false
+                name: X-API-MODE
+                schema:
+                    type: string
+                    description: mode (api, admin)
+                    default: api
+        responses:
+            200:
+                description: login is success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: parameter error
         """
         app.logger.info("login")
         username = request.get_json().get("username", "")
@@ -110,11 +152,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             or request.endpoint in by_pass_login_func
             or request.endpoint is None
         ):
-            # 在登录和注册处理函数中绕过登录态验证
             return
-            # 检查装饰器标记，跳过Token校验
 
-        # 在这里执行登录态验证逻辑
         token = request.cookies.get("token", None)
         if not token:
             token = request.args.get("token", None)
@@ -131,6 +170,27 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/info", methods=["GET"])
     def info():
+        """
+        get user information
+        ---
+        tags:
+            - user
+        responses:
+            200:
+                description: get user information
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+                                data:
+                                    $ref: "#/components/schemas/UserInfo"
+        """
         return make_common_response(request.user)
 
     @app.route(path_prefix + "/update_info", methods=["POST"])
@@ -166,10 +226,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @bypass_token_validation
     def require_tmp():
         """
-        临时登录用户
+        Temp login user
         ---
         tags:
-            - 用户
+            - user
         parameters:
             -   in: body
                 required: true
@@ -177,33 +237,33 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                     properties:
                         temp_id:
                             type: string
-                            description: 临时用户ID
+                            description: Temp login user ID
                         source:
                             type: string
-                            description: 来源
+                            description: source
                         wxcode:
                             type: string
-                            description: 微信code
+                            description: WeChat code
                         language:
                             type: string
-                            description: 语言
+                            description: language
         responses:
             200:
-                description: 临时用户登录成功
+                description: Temp user login success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     $ref: "#/components/schemas/UserToken"
             400:
-                description: 参数错误
+                description: parameter error
 
 
         """
@@ -224,24 +284,72 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     # @bypass_token_validation
     def generate_chk_code():
         """
-        生成图形验证码
+        Generating a Graphical Captcha
         ---
         tags:
-            - 用户
+            - user
+        parameters:
+          - in: body
+            required: true
+            description: mobile or email
+            schema:
+              properties:
+                mobile:
+                  type: string
+                  description: mobile
+                mail:
+                  type: string
+                  description: email
+              required:
+                - mobile
+                - mail
+        responses:
+            200:
+                description:
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return message
+                                data:
+                                    type: object
+                                    description: return message
+                                    properties:
+                                        expire_in:
+                                            type: string
+                                            description: expire in
+                                        img:
+                                            type: string
+                                            description: img png base64
+
+
+            400:
+                description: parameter error
         """
         mobile = request.get_json().get("mobile", None)
-        if not mobile:
-            raise_param_error("mobile")
-        return make_common_response(generation_img_chk(app, mobile))
+        mail = request.get_json().get("mail", None)
+        identifying_account = ""
+        if mobile:
+            identifying_account = mobile
+        if mail:
+            identifying_account = mail
+        if not identifying_account:
+            raise_param_error("mobile or mail is required")
+        return make_common_response(generation_img_chk(app, identifying_account))
 
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     # @bypass_token_validation
     def send_sms_code_api():
         """
-        发送短信验证码
+        Send SMS Captcha
         ---
         tags:
-           - 用户
+           - user
 
         parameters:
           - in: body
@@ -250,37 +358,37 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
               properties:
                 mobile:
                   type: string
-                  description: 手机号
+                  description: mobile phone number
                 check_code:
                   type: string
-                  description: 图形验证码
+                  description: Graphics Captcha
               required:
                 - mobile
                 - check_code
         responses:
             200:
-                description: 发送成功
+                description: sent success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
-                                    description: 短信验证码
+                                    description: SMS Captcha
                                     schema:
                                         properties:
                                             expire_in:
                                                 type: integer
-                                                description: 短信验证码
+                                                description: SMS Captcha
 
 
             400:
-                description: 参数错误
+                description: parameter error
 
         """
         mobile = request.get_json().get("mobile", None)
@@ -294,10 +402,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
     # @bypass_token_validation
     def verify_sms_code_api():
+        """
+        Send verify email code
+        ---
+        tags:
+           - user
+        """
         with app.app_context():
 
             mobile = request.get_json().get("mobile", None)
             sms_code = request.get_json().get("sms_code", None)
+            course_id = request.get_json().get("course_id", None)
             user_id = (
                 None if getattr(request, "user", None) is None else request.user.user_id
             )
@@ -305,45 +420,48 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 raise_param_error("mobile")
             if not sms_code:
                 raise_param_error("sms_code")
-            ret = verify_sms_code(app, user_id, mobile, sms_code)
+            ret = verify_sms_code(app, user_id, mobile, sms_code, course_id)
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp
 
     @app.route(path_prefix + "/get_profile", methods=["GET"])
     def get_profile():
+        course_id = request.args.get("course_id", None)
         """
-        获取用户信息
+        get user profile
         ---
         tags:
-            - 用户
+            - user
         responses:
             200:
-                description: 返回用户信息
+                description: Return user profile
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return message
                                 data:
                                     type: object
-                                    description: 用户信息
+                                    description: user profile
 
         """
-        return make_common_response(get_user_profile_labels(app, request.user.user_id))
+        return make_common_response(
+            get_user_profile_labels(app, request.user.user_id, course_id)
+        )
 
     @app.route(path_prefix + "/update_profile", methods=["POST"])
     def update_profile():
         """
-        更新用户信息
+        update user information
         ---
         tags:
-            - 用户
+            - user
         parameters:
             - in: body
               name: body
@@ -357,30 +475,38 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                             properties:
                                 key:
                                     type: string
-                                    description: 属性名
+                                    description: attribute key
                                 value:
                                     type: string
-                                    description: 属性值
+                                    description: attribute value
+                    course_id:
+                        type: string
+                        description: Course ID
         responses:
             200:
-                description: 更新成功
+                description: update success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
         """
         profiles = request.get_json().get("profiles", None)
+        course_id = request.get_json().get("course_id", None)
         if not profiles:
             raise_param_error("profiles")
         with app.app_context():
             ret = update_user_profile_with_lable(
-                app, request.user.user_id, profiles, update_all=True
+                app,
+                request.user.user_id,
+                profiles,
+                update_all=True,
+                course_id=course_id,
             )
             db.session.commit()
             return make_common_response(ret)
@@ -388,32 +514,32 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/upload_avatar", methods=["POST"])
     def upload_avatar():
         """
-        上传头像
+        Upload avatar
         ---
         tags:
-            - 用户
+            - user
         parameters:
             - in: formData
               name: avatar
               type: file
               required: true
-              description: 头像文件
+              description: avatar file
         responses:
             200:
-                description: 上传成功
+                description: upload success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     type: string
-                                    description: 头像地址
+                                    description: avatar address
         """
         avatar = request.files.get("avatar", None)
         if not avatar:
@@ -425,10 +551,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/update_openid", methods=["POST"])
     def update_wechat_openid():
         """
-        更新微信openid
+        Update Wechat OpenID
         ---
+        summary: update wechat openid
         tags:
-            - 用户
+            - user
         parameters:
             - in: body
               name: body
@@ -438,20 +565,20 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 properties:
                     wxcode:
                         type: string
-                        description: 微信code
+                        description: wechat code
         responses:
             200:
-                description: 更新成功
+                description: upload success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     type: string
                                     description: openid
@@ -467,10 +594,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
     def sumbit_feedback_api():
         """
-        提交反馈
+        submit feedback
         ---
         tags:
-            - 用户
+            - user
         parameters:
             - in: body
               name: body
@@ -480,25 +607,25 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 properties:
                     feedback:
                         type: string
-                        description: 反馈内容
+                        description: feedback content
         responses:
             200:
-                description: 提交成功
+                description: submitted success
                 content:
                     application/json:
                         schema:
                             properties:
                                 code:
                                     type: integer
-                                    description: 返回码
+                                    description: return code
                                 message:
                                     type: string
-                                    description: 返回信息
+                                    description: return information
                                 data:
                                     type: integer
-                                    description: 反馈ID
+                                    description: feedback ID
             400:
-                description: 参数错误
+                description: parameter error
         """
 
         user_id = request.user.user_id
@@ -507,7 +634,176 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("feedback")
         return make_common_response(submit_feedback(app, user_id, feedback))
 
-    # 健康检查
+    @app.route(path_prefix + "/send_mail_code", methods=["POST"])
+    # @bypass_token_validation
+    def send_mail_code_api():
+        """
+        Send email Captcha
+        ---
+        tags:
+           - user
+
+        parameters:
+          - in: body
+            required: true
+            schema:
+              properties:
+                mail:
+                  type: string
+                  description: mail
+                check_code:
+                  type: string
+                  description: graphics captcha
+              required:
+                - mobile
+                - check_code
+        responses:
+            200:
+                description: sent successfully
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: retrun message
+                                data:
+                                    description: mail captcha expire_in
+                                    schema:
+                                        properties:
+                                            expire_in:
+                                                type: integer
+                                                description: expire in
+            400:
+                description: parameter error
+
+        """
+        mail = request.get_json().get("mail", None)
+        check_code = request.get_json().get("check_code", None)
+        if not mail:
+            raise_param_error("mail")
+        if not check_code:
+            raise_param_error("check_code")
+        return make_common_response(send_email_code(app, mail, check_code))
+
+    @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
+    # @bypass_token_validation
+    def verify_mail_code_api():
+        """
+        Send verify email code
+        ---
+        tags:
+            - user
+        parameters:
+            -   in: body
+                required: true
+                schema:
+                    properties:
+                        mail:
+                            type: string
+                            description: mail
+                        mail_code:
+                            type: string
+                            description: mail chekcode
+                        course_id:
+                            type: string
+                            description: course id
+        responses:
+            200:
+                description: user logs in success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: parameter error
+
+
+        """
+        with app.app_context():
+
+            mail = request.get_json().get("mail", None)
+            mail_code = request.get_json().get("mail_code", None)
+            course_id = request.get_json().get("course_id", None)
+            user_id = (
+                None if getattr(request, "user", None) is None else request.user.user_id
+            )
+            if not mail:
+                raise_param_error("mail")
+            if not mail_code:
+                raise_param_error("sms_code")
+            ret = verify_mial_code(app, user_id, mail, mail_code, course_id)
+            db.session.commit()
+            resp = make_response(make_common_response(ret))
+            return resp
+
+    # set_user_password
+    @app.route(path_prefix + "/set_user_password", methods=["POST"])
+    # @bypass_token_validation
+    def set_user_password_api():
+        """
+        Send set user password
+        ---
+        tags:
+            - user
+        parameters:
+            -   in: body
+                required: true
+                schema:
+                    properties:
+                        mail:
+                            type: string
+                            description: mail
+                        mobile:
+                            type: string
+                            description: mail chekcode
+                        raw_password:
+                            type: string
+                            description: course id
+                        check_code:
+                            type: string
+                            description: course id
+        responses:
+            200:
+                description: user set password success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+            400:
+                description: parameter error
+        """
+        with app.app_context():
+            mail = request.get_json().get("mail", None)
+            mobile = request.get_json().get("mobile", None)
+            raw_password = request.get_json().get("raw_password", None)
+            check_code = request.get_json().get("check_code", None)
+            if not mail and not mobile:
+                raise_param_error("mail")
+            if not raw_password:
+                raise_param_error("password")
+            return make_common_response(
+                set_user_password(app, raw_password, mail, mobile, check_code)
+            )
+
+    # health check
     @app.route("/health", methods=["GET"])
     @bypass_token_validation
     def health():

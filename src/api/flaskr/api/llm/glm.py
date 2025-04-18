@@ -120,8 +120,6 @@ def invoke_glm(
                 break
             parsed_data = json.loads(json_data)
             yield ChatResponse(**parsed_data)
-    print("response")
-    print(response)
     if response.status_code != 200:
         try:
             app.logger.error(

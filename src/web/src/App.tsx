@@ -14,7 +14,6 @@ import { useUserStore } from 'stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
 import { selectDefaultLanguage } from 'constants/userConstants';
 import { useCourseStore } from 'stores/useCourseStore';
-import { CourseInfo, UserInfo } from './types';
 import { EnvStoreState, SystemStoreState, CourseStoreState, UserStoreState } from './types/store';
 
 const initializeEnvData = async (): Promise<void> => {
@@ -97,6 +96,7 @@ const App = () => {
     updateWechatCode,
     setShowVip,
     updateLanguage,
+    updatePrivewMode,
   } = useSystemStore() as SystemStoreState;
 
   const browserLanguage = selectDefaultLanguage(
@@ -167,6 +167,12 @@ const App = () => {
     };
     fetchCourseInfo();
   }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
+  useEffect(() => {
+    if (params.previewMode) {
+      console.log('params.previewMode', params.previewMode);
+      updatePrivewMode(params.previewMode === 'true');
+    }
+  }, [params.previewMode, updatePrivewMode]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {

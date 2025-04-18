@@ -59,7 +59,9 @@ class FeishuLogHandler(logging.Handler):
             response = requests.post(self.webhook_url, json=payload)
             response.raise_for_status()
         except requests.exceptions.RequestException as e:
-            print(f"Failed to send log to Feishu: {e}")
+            from flask import current_app
+
+            current_app.logger.error(f"Failed to send log to Feishu: {e}")
 
 
 class ColoredRequestFormatter(RequestFormatter, colorlog.ColoredFormatter):

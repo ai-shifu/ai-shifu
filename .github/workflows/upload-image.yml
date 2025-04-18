@@ -19,7 +19,7 @@ env:
   ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN  }}
   AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'ai-shifu-web' }}
   AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-shifu-api' }}
-  AI_SHIFU_COOK_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_IMAGE_NAME || 'ai-shifu-cook' }}
+  AI_SHIFU_COOK_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_WEB_IMAGE_NAME || 'ai-shifu-cook-web' }}
 jobs:
   build:
     runs-on: ${{ 'ubuntu-latest' }}
@@ -33,9 +33,9 @@ jobs:
           - service_name: "build-web"
             image_name_env: "AI_SHIFU_WEB_IMAGE_NAME"
             context: "src/web"
-          - service_name: "build-cook"
-            image_name_env: "AI_SHIFU_COOK_IMAGE_NAME"
-            context: "src/cook"
+          - service_name: "build-cook-web"
+            image_name_env: "AI_SHIFU_COOK_WEB_IMAGE_NAME"
+            context: "src/cook-web"
 
     steps:
 
