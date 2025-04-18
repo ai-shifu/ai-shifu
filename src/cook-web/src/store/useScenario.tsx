@@ -277,7 +277,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         const list = buildBlockList(blocks);
         try {
             setError(null);
-            await api.saveBlocks({ outline_id: currentNode.id, blocks: list });
+            await api.saveBlocks({ outline_id: currentNode!.id, blocks: list });
         } catch (error) {
             console.error(error);
             setError("Failed to save blocks");

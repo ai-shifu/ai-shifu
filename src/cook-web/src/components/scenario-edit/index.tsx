@@ -107,7 +107,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blockContentProperties,
         blockUIProperties,
         blockUITypes,
-        // currentOutline,
         currentNode,
         isLoading
     } = useScenario();

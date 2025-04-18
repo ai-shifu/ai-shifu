@@ -69,7 +69,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     HTMLDivElement,
     TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-    const { focusId, actions, cataData, blocks, blockContentTypes, currentNode, blockUITypes, blockContentProperties, blockUIProperties } = useScenario();
+    const { focusId, actions, cataData, currentNode } = useScenario();
 
     const onNodeChange = async (value: string) => {
         console.log('onNodeChange', value, props.item)
