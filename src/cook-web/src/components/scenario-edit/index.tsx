@@ -107,7 +107,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blockContentProperties,
         blockUIProperties,
         blockUITypes,
-        currentOutline,
+        // currentOutline,
         currentNode,
         isLoading
     } = useScenario();
@@ -230,7 +230,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                                 newBlocks.splice(dragIndex, 1);
                                                 newBlocks.splice(hoverIndex, 0, dragBlock);
                                                 actions.setBlocks(newBlocks);
-                                                actions.autoSaveBlocks(currentOutline, newBlocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties)
+                                                actions.autoSaveBlocks(currentNode!.id, newBlocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties)
                                             }}
                                         >
                                             <div id={block.properties.block_id} className="relative flex flex-col gap-2 ">

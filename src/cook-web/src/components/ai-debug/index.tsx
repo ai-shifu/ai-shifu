@@ -66,7 +66,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     const [rowCount, setRowCount] = useState(300);
     const [profiles, setProfiles] = useState([]);
     // const [model, setModel] = useState('');
-    const [models, setModels] = useState<{ model: string, temprature: number }[]>([]);
+    const [models, setModels] = useState<{ model: string, temprature: number }[]>([{ model: 'gpt-4o-mini', temprature: 0.7 }]);
     const [results, setResults] = useState<string[]>([]);
     const [runing, setRuning] = useState(false);
     const abortRefs = useRef<AbortController[]>([]);

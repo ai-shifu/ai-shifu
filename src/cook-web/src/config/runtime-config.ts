@@ -1,21 +1,21 @@
 export interface RuntimeConfig {
-    siteHost: string;
-  }
+  siteHost: string;
+}
 
-  const defaultConfig: RuntimeConfig = {
-    siteHost: 'http://localhost/api',
-  };
+const defaultConfig: RuntimeConfig = {
+  siteHost: 'http://localhost',
+};
 
-  let globalConfig: RuntimeConfig = { ...defaultConfig };
+let globalConfig: RuntimeConfig = { ...defaultConfig };
 
-  export function setRuntimeConfig(config: Partial<RuntimeConfig>) {
-    globalConfig = { ...globalConfig, ...config };
-  }
+export function setRuntimeConfig(config: Partial<RuntimeConfig>) {
+  globalConfig = { ...globalConfig, ...config };
+}
 
-  export function getRuntimeConfig(): RuntimeConfig {
-    return globalConfig;
-  }
+export function getRuntimeConfig(): RuntimeConfig {
+  return globalConfig;
+}
 
-  export function getSiteHost(): string {
-    return getRuntimeConfig().siteHost;
-  }
+export function getSiteHost(): string {
+  return getRuntimeConfig().siteHost;
+}
