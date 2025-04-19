@@ -20,7 +20,8 @@ def handle_input_button(
     trace_args,
 ) -> ScriptDTO:
     app.logger.info("handle_input_button:{}".format(script_info.script_ui_content))
-    if script_info.script_ui_content == "继续":
+    # None or an empty string means default continue button
+    if not script_info.script_ui_content:
         display = False
     else:
         display = True

@@ -482,7 +482,6 @@ def update_lesson_info(
                 scripDb["script_check_flag"] = ""
                 scripDb["script_index"] = script_index
                 scripDb["script_ui_type"] = UI_TYPE_CONTINUED
-                scripDb["script_ui_content"] = "继续"
                 scripDb["script_type"] = SCRIPT_TYPE_FIX
                 scripDb["script_content_type"] = CONTENT_TYPE_TEXT
                 scripDb["script_model"] = ""
