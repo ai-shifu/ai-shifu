@@ -35,7 +35,7 @@ def handle_input_button(
     ]
     return ScriptDTO(
         "buttons",
-        {"title": "接下来", "buttons": btn},
+        {"buttons": btn},
         script_info.lesson_id,
         script_info.script_id,
     )

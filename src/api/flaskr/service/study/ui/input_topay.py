@@ -23,9 +23,7 @@ def handle_input_to_pay(
     order = init_buy_record(app, user_info.user_id, attend.course_id)
     if order.status != BUY_STATUS_SUCCESS:
         btn = [{"label": script_info.script_ui_content, "value": order.order_id}]
-        return ScriptDTO(
-            "order", {"title": "买课！", "buttons": btn}, script_info.script_id
-        )
+        return ScriptDTO("order", {"buttons": btn}, script_info.script_id)
     else:
         btn = [
             {
@@ -36,7 +34,7 @@ def handle_input_to_pay(
         ]
         return ScriptDTO(
             "buttons",
-            {"title": "接下来", "buttons": btn},
+            {"buttons": btn},
             script_info.lesson_id,
             script_info.script_id,
         )
