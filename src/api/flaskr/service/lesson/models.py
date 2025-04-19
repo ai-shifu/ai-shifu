@@ -183,7 +183,9 @@ class AILessonScript(db.Model):
     script_ui_type = Column(
         Integer, nullable=False, default=0, comment="Script UI type"
     )
-    script_ui_content = Column(Text, nullable=False, comment="Script UI content")
+    script_ui_content = Column(
+        Text, nullable=False, default="", comment="Script UI content"
+    )
     script_check_prompt = Column(Text, nullable=False, comment="Script check prompt")
     script_check_flag = Column(
         Text, nullable=False, default="", comment="Script check flag"
