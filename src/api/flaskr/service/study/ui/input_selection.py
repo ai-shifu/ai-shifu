@@ -24,7 +24,7 @@ def handle_input_selection(
         btn["type"] = INPUT_TYPE_SELECT
     return ScriptDTO(
         "buttons",
-        {"title": script_info.script_ui_content, "buttons": btns},
+        {"buttons": btns},
         script_info.lesson_id,
         script_info.script_id,
     )

@@ -35,7 +35,7 @@ def handle_input_continue(
     ]
     return ScriptDTO(
         "buttons",
-        {"title": msg, "buttons": btn},
+        {"buttons": btn},
         script_info.lesson_id,
         script_info.script_id,
     )
