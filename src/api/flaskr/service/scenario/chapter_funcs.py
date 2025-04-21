@@ -246,26 +246,17 @@ def update_chapter_order(
         update_chapter_order = [c for c in chapter_list if c.lesson_id in chapter_ids]
         # check parent no
         parent_no = ""
-        parent_id = None
         chapter_no_list = [len(chapter.lesson_no) for chapter in update_chapter_order]
         if len(set(chapter_no_list)) > 1:
             raise_error("SCENARIO.CHAPTER_NO_NOT_MATCH")
 
-        if chapter_no_list[0] > 2:
+        if chapter_no_list[0] > 0:
             parent_no = chapter_list[0].lesson_no[:2]
-            parent_id = chapter_list[0].parent_id
         else:
             parent_no = ""
-            parent_id = ""
-        for chapter in update_chapter_order:
-            if len(chapter.lesson_no) > 2:
-                if parent_no != "" and chapter.lesson_no[:2] != parent_no:
-                    raise_error("SCENARIO.CHAPTER_PARENT_NO_NOT_MATCH")
-                if parent_id is None:
-                    parent_id = chapter.parent_id
-                else:
-                    if chapter.parent_id != parent_id:
-                        raise_error("SCENARIO.CHAPTER_PARENT_ID_NOT_MATCH")
+        parent_ids = set([chapter.parent_id for chapter in update_chapter_order])
+        if len(parent_ids) > 1:
+            raise_error("SCENARIO.CHAPTER_PARENT_ID_NOT_MATCH")
         chapter_dtos = []
         update_chatpers = []
         for index, chapter_id in enumerate(chapter_ids):
