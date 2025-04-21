@@ -7,6 +7,7 @@ from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.const import INPUT_TYPE_CONTINUE
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
+from flaskr.i18n import _
 
 
 @register_ui_handler(UI_TYPE_BUTTON)
@@ -19,20 +20,22 @@ def handle_input_button(
     trace,
     trace_args,
 ) -> ScriptDTO:
-    app.logger.info("handle_input_button:{}".format(script_info.script_ui_content))
-    # None or an empty string means default continue button
-    if not script_info.script_ui_content:
-        display = False
-    else:
-        display = True
+    msg = script_info.script_ui_content
+    display = bool(msg)  # Set display based on whether msg has content
+    if not msg:
+        msg = _("COMMON.CONTINUE")  # Assign default message if msg is empty
+
+    app.logger.info("handle_input_button:{}".format(msg))
+
     btn = [
         {
-            "label": script_info.script_ui_content,
-            "value": script_info.script_ui_content,
+            "label": msg,
+            "value": msg,
             "type": INPUT_TYPE_CONTINUE,
             "display": display,
         }
     ]
+
     return ScriptDTO(
         "buttons",
         {"buttons": btn},
