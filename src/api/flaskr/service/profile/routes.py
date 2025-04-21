@@ -1,9 +1,9 @@
 from flask import Flask, request
 from flaskr.route.common import make_common_response
 from flaskr.service.profile.profile_manage import (
-    get_profile_item_defination_list,
+    get_profile_item_definition_list,
     add_profile_item_quick,
-    get_profile_item_defination_option_list,
+    get_profile_item_definition_option_list,
     save_profile_item,
 )
 from flaskr.framework.plugin.inject import inject
@@ -16,7 +16,7 @@ from flaskr.service.profile.dtos import ProfileValueDto
 
 @inject
 def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
-    @app.route(f"{path_prefix}/get-profile-item-definations", methods=["GET"])
+    @app.route(f"{path_prefix}/get-profile-item-definitions", methods=["GET"])
     def get_profile_item_defination_api():
         """
         Get profile item defination
@@ -58,13 +58,13 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         parent_id = request.args.get("parent_id")
         type = request.args.get("type", "all")
         return make_common_response(
-            get_profile_item_defination_list(app, parent_id=parent_id, type=type)
+            get_profile_item_definition_list(app, parent_id=parent_id, type=type)
         )
 
     @app.route(
-        f"{path_prefix}/get-profile-item-defination-option-list", methods=["GET"]
+        f"{path_prefix}/get-profile-item-definition-option-list", methods=["GET"]
     )
-    def get_profile_item_defination_option_list_api():
+    def get_profile_item_definition_option_list_api():
         """
         Get profile item defination option list
         ---
@@ -96,7 +96,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         """
         parent_id = request.args.get("parent_id")
         return make_common_response(
-            get_profile_item_defination_option_list(app, parent_id=parent_id)
+            get_profile_item_definition_option_list(app, parent_id=parent_id)
         )
 
     @app.route(f"{path_prefix}/add-profile-item-quick", methods=["POST"])

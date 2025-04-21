@@ -92,7 +92,7 @@ def convert_profile_item_to_profile_item_definition(
     )
 
 
-def get_profile_item_defination_list(
+def get_profile_item_definition_list(
     app: Flask, parent_id: str, type: str = "all"
 ) -> list[ProfileItemDefinition]:
     with app.app_context():
@@ -114,7 +114,7 @@ def get_profile_item_defination_list(
         return []
 
 
-def get_profile_item_defination_option_list(
+def get_profile_item_definition_option_list(
     app: Flask, parent_id: str
 ) -> list[ProfileValueDto]:
     with app.app_context():
@@ -148,7 +148,7 @@ def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
 
 # quick add profile item
 def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_id: str):
-    exist_profile_item_list = get_profile_item_defination_list(app, parent_id)
+    exist_profile_item_list = get_profile_item_definition_list(app, parent_id)
     if exist_profile_item_list:
         for exist_profile_item in exist_profile_item_list:
             if exist_profile_item.profile_key == key:
