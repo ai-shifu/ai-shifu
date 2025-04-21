@@ -55,7 +55,7 @@ def test_save_profile_item_option(test_client, app, token):
 
 def test_get_profile_list(test_client, app, token):
     response = test_client.get(
-        "/api/profiles/get-profile-item-definations?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
+        "/api/profiles/get-profile-item-definitions?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
         headers={
             "Token": token,
             "Content-Type": "application/json",
@@ -67,7 +67,7 @@ def test_get_profile_list(test_client, app, token):
 
 def test_get_profile_item_defination_option_list(test_client, app, token):
     response = test_client.get(
-        "/api/profiles/get-profile-item-defination-option-list?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
+        "/api/profiles/get-profile-item-definition-option-list?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
         headers={
             "Token": token,
             "Content-Type": "application/json",
