@@ -12,5 +12,5 @@ def test_get_profile_item_defination_list(app):
         )
         from flaskr.route.common import make_common_response
 
-        data = get_profile_item_defination_list(app, "a0e8ca493c104db1b190223ab3e140c7")
+        data = get_profile_item_defination_list(app, "b8e9efc6f62e4bed81b6dca5e5ce2385")
         app.logger.info(make_common_response(data))

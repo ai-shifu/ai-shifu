@@ -18,5 +18,5 @@ SEX_SECRET = "Secret"
 
 PROFILE_SCOPE_USER = "Customized Variables"
 PROFILE_SCOPE_SYSTEM = "System Variables"
-PROFILE_TYPE_STRING = "String"
-PROFILE_TYPE_ENUM = "Enum"
+PROFILE_TYPE_TEXT = "Text"
+PROFILE_TYPE_OPTION = "Option"

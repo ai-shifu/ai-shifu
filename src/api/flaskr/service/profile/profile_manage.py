@@ -23,6 +23,14 @@ from .dtos import (
     SelectProfileDto,
     ProfileValueDto,
 )
+from flaskr.i18n import _
+
+from .models import (
+    CONST_PROFILE_TYPE_TEXT,
+    CONST_PROFILE_TYPE_OPTION,
+    CONST_PROFILE_SCOPE_SYSTEM,
+    CONST_PROFILE_SCOPE_USER,
+)
 
 # from datetime import datetime
 from flaskr.service.lesson.models import AICourse
@@ -52,11 +60,11 @@ def get_profile_item_defination_list(
 ) -> list[ProfileItemDefinition]:
     with app.app_context():
         query = ProfileItem.query.filter(
-            ProfileItem.parent_id == parent_id, ProfileItem.status == 1
+            ProfileItem.parent_id.in_([parent_id, ""]), ProfileItem.status == 1
         )
-        if type == "text":
+        if type == CONST_PROFILE_TYPE_TEXT:
             query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_TEXT)
-        elif type == "option":
+        elif type == CONST_PROFILE_TYPE_OPTION:
             query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_SELECT)
         elif type == "all":
             pass
@@ -71,6 +79,30 @@ def get_profile_item_defination_list(
                         if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
                         else "text"
                     ),
+                    _(
+                        "PROFILE.PROFILE_TYPE_{}".format(
+                            (
+                                "option"
+                                if profile_item.profile_type
+                                == PROFILE_TYPE_INPUT_SELECT
+                                else "text"
+                            )
+                        ).upper()
+                    ),
+                    profile_item.profile_remark,
+                    (
+                        CONST_PROFILE_SCOPE_SYSTEM
+                        if profile_item.parent_id == ""
+                        else CONST_PROFILE_SCOPE_USER
+                    ),
+                    _(
+                        "PROFILE.PROFILE_SCOPE_{}".format(
+                            CONST_PROFILE_SCOPE_SYSTEM
+                            if profile_item.parent_id == ""
+                            else CONST_PROFILE_SCOPE_USER
+                        ).upper()
+                    ),
+                    profile_item.profile_id,
                 )
                 for profile_item in profile_item_list
             ]
