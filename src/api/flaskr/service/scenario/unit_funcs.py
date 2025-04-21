@@ -20,7 +20,6 @@ from flaskr.service.scenario.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
 from sqlalchemy.sql import func, cast
 from sqlalchemy import String
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from flaskr.service.scenario.utils import get_existing_outlines
 
 
 def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
@@ -61,20 +60,23 @@ def create_unit(
     with app.app_context():
         if len(unit_name) > 20:
             raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
-        chapter = AILesson.query.filter(
-            AILesson.course_id == scenario_id,
-            AILesson.lesson_id == parent_id,
-            AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-        ).first()
+        chapter = (
+            AILesson.query.filter(
+                AILesson.course_id == scenario_id,
+                AILesson.lesson_id == parent_id,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if chapter:
 
-            outlines = get_existing_outlines(app, scenario_id)
-            existing_unit_count = len([o for o in outlines if o.parent_id == parent_id])
+            app.logger.info(
+                f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_index: {unit_index}"
+            )
             unit_id = generate_id(app)
-            if unit_index == 0:
-                unit_index = existing_unit_count + 1
-            unit_no = chapter.lesson_no + f"{unit_index:02d}"
 
+            unit_no = chapter.lesson_no + f"{unit_index+1:02d}"
             app.logger.info(
                 f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_no: {unit_no} unit_index: {unit_index}"
             )

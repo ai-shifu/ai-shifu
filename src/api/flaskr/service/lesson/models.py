@@ -316,6 +316,7 @@ class AILessonScript(db.Model):
     script_ui_content = Column(
         Text, nullable=False, default="", comment="Script UI content"
     )
+
     script_check_prompt = Column(
         Text, nullable=False, default="", comment="Script check prompt"
     )
