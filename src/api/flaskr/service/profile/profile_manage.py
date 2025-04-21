@@ -47,7 +47,9 @@ def get_next_corlor_setting(parent_id: str):
     ]
 
 
-def get_profile_item_defination_list(app: Flask, parent_id: str, type: str = "all"):
+def get_profile_item_defination_list(
+    app: Flask, parent_id: str, type: str = "all"
+) -> list[ProfileItemDefinition]:
     with app.app_context():
         query = ProfileItem.query.filter(
             ProfileItem.parent_id == parent_id, ProfileItem.status == 1
