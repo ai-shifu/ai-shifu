@@ -92,6 +92,11 @@ def convert_profile_item_to_profile_item_definition(
     )
 
 
+# get profile item definition list
+# type: all, text, option
+# parent_id: scenario_id, profile_id
+# author: yfge
+# date: 2025-04-21
 def get_profile_item_definition_list(
     app: Flask, parent_id: str, type: str = "all"
 ) -> list[ProfileItemDefinition]:
@@ -425,27 +430,34 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
         profile_item.status = 0
         item_ids = [profile_id]
         if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT:
-            item_ids.append(
-                ProfileItemValue.query.filter_by(profile_id=profile_id)
-                .select(ProfileItemValue.profile_item_id)
-                .all()
+            item_ids.extend(
+                [
+                    item.profile_item_id
+                    for item in ProfileItemValue.query.filter_by(
+                        profile_id=profile_id
+                    ).all()
+                ]
             )
+
+        app.logger.info(item_ids)
+        if len(item_ids) > 0:
+
             ProfileItemValue.query.filter(
                 ProfileItemValue.profile_id == profile_id,
                 ProfileItemValue.profile_item_id.in_(item_ids),
             ).update({"status": 0, "updated_by": user_id, "updated": datetime.now()})
-
-        ProfileItemI18n.query.filter(
-            ProfileItemI18n.parent_id.in_(item_ids),
-            ProfileItemI18n.status == 1,
-        ).update(
-            {
-                "status": 0,
-                "updated_by": user_id,
-                "updated": datetime.now(),
-            }
-        )
+            ProfileItemI18n.query.filter(
+                ProfileItemI18n.parent_id.in_(item_ids),
+                ProfileItemI18n.status == 1,
+            ).update(
+                {
+                    "status": 0,
+                    "updated_by": user_id,
+                    "updated": datetime.now(),
+                }
+            )
         db.session.commit()
+        return True
 
 
 def save_profile_item_defination(

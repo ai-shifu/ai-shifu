@@ -248,12 +248,18 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         tags:
           - profiles
         parameters:
-          - name: profile_id
+          - name: body
             in: body
             required: true
-            type: string
-            description: |
-                profile_id,current pass the profile_id
+            type: object
+            schema:
+              type: object
+              properties:
+                profile_id:
+                  type: string
+                  required: true
+                  description: |
+                      profile_id,current pass the profile_id
         description: |
             Delete profile item
         responses:
