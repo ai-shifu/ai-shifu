@@ -6,7 +6,6 @@ def test_profile_item(app):
 
 
 def test_save_profile_item(test_client, app, token):
-    token = ""
     json_data = {
         "profile_id": None,
         "parent_id": "b8e9efc6f62e4bed81b6dca5e5ce2385",
@@ -53,7 +52,7 @@ def test_save_profile_item_option(test_client, app, token):
     app.logger.info(response.json)
 
 
-def test_get_profile_list(test_client, app, token):
+def test_get_profile_list_api(test_client, app, token):
     response = test_client.get(
         "/api/profiles/get-profile-item-definitions?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
         headers={
@@ -62,7 +61,20 @@ def test_get_profile_list(test_client, app, token):
             "X-API-MODE": "admin",
         },
     )
-    app.logger.info(response.json)
+    app.logger.info(response.data)
+
+
+def test_get_profile_list(app):
+    with app.app_context():
+        from flaskr.service.profile.profile_manage import (
+            get_profile_item_definition_list,
+        )
+        from flaskr.route.common import make_common_response
+
+        profile_item_definition_list = get_profile_item_definition_list(
+            app, "b8e9efc6f62e4bed81b6dca5e5ce2385"
+        )
+        app.logger.info(make_common_response(profile_item_definition_list))
 
 
 def test_get_profile_item_defination_option_list(test_client, app, token):
@@ -74,4 +86,43 @@ def test_get_profile_item_defination_option_list(test_client, app, token):
             "X-API-MODE": "admin",
         },
     )
-    app.logger.info(response.json)
+    app.logger.info(response.data)
+
+
+def test_delete_profile_item(test_client, app, token):
+    import json
+
+    response = test_client.get(
+        "/api/profiles/get-profile-item-definitions?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
+        headers={
+            "Token": token,
+            "Content-Type": "application/json",
+            "X-API-MODE": "admin",
+        },
+    )
+    app.logger.info(response.data)
+    profile_item_definition_list = json.loads(response.data).get("data")
+    original_length = len(profile_item_definition_list)
+    profile_id = profile_item_definition_list[0].get("profile_id")
+    response = test_client.post(
+        "/api/profiles/delete-profile-item",
+        json={"profile_id": profile_id},
+        headers={
+            "Token": token,
+            "Content-Type": "application/json",
+            "X-API-MODE": "admin",
+        },
+    )
+    app.logger.info(response.data)
+
+    response = test_client.get(
+        "/api/profiles/get-profile-item-definitions?parent_id=b8e9efc6f62e4bed81b6dca5e5ce2385",
+        headers={
+            "Token": token,
+            "Content-Type": "application/json",
+            "X-API-MODE": "admin",
+        },
+    )
+    app.logger.info(response.data)
+    profile_item_definition_list = json.loads(response.data).get("data")
+    assert len(profile_item_definition_list) == original_length - 1

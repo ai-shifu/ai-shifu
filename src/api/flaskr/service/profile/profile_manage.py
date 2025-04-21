@@ -104,7 +104,7 @@ def get_profile_item_definition_list(
         elif type == CONST_PROFILE_TYPE_OPTION:
             query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_SELECT)
         elif type == "all":
-            pass
+            query = query
         profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
         if profile_item_list:
             return [
@@ -120,7 +120,7 @@ def get_profile_item_definition_option_list(
     with app.app_context():
         profile_option_list = (
             ProfileItemValue.query.filter(
-                ProfileItemValue.parent_id == parent_id, ProfileItemValue.status == 1
+                ProfileItemValue.profile_id == parent_id, ProfileItemValue.status == 1
             )
             .order_by(ProfileItemValue.profile_value_index.asc())
             .all()
@@ -417,12 +417,34 @@ def add_profile_i18n(
         return profile_i18n
 
 
-def delete_profile_item(app: Flask, profile_id: str):
+def delete_profile_item(app: Flask, user_id: str, profile_id: str):
     with app.app_context():
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
             raise_error("PROFILE.NOT_FOUND")
         profile_item.status = 0
+        item_ids = [profile_id]
+        if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT:
+            item_ids.append(
+                ProfileItemValue.query.filter_by(profile_id=profile_id)
+                .select(ProfileItemValue.profile_item_id)
+                .all()
+            )
+            ProfileItemValue.query.filter(
+                ProfileItemValue.profile_id == profile_id,
+                ProfileItemValue.profile_item_id.in_(item_ids),
+            ).update({"status": 0, "updated_by": user_id, "updated": datetime.now()})
+
+        ProfileItemI18n.query.filter(
+            ProfileItemI18n.parent_id.in_(item_ids),
+            ProfileItemI18n.status == 1,
+        ).update(
+            {
+                "status": 0,
+                "updated_by": user_id,
+                "updated": datetime.now(),
+            }
+        )
         db.session.commit()
 
 

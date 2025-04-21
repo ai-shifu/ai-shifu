@@ -5,6 +5,7 @@ from flaskr.service.profile.profile_manage import (
     add_profile_item_quick,
     get_profile_item_definition_option_list,
     save_profile_item,
+    delete_profile_item,
 )
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common import raise_error
@@ -219,12 +220,13 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         profile_remark = request.get_json().get("profile_remark", None)
         profile_items = request.get_json().get("profile_items", None)
         profile_items_list = []
-        for item in profile_items:
-            profile_items_list.append(
-                ProfileValueDto(
-                    value=item.get("value", None), name=item.get("name", None)
+        if profile_items:
+            for item in profile_items:
+                profile_items_list.append(
+                    ProfileValueDto(
+                        value=item.get("value", None), name=item.get("name", None)
+                    )
                 )
-            )
         return make_common_response(
             save_profile_item(
                 app,
@@ -242,8 +244,38 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
     def delete_profile_item_api():
         """
         Delete profile item
+        ---
+        tags:
+          - profiles
+        parameters:
+          - name: profile_id
+            in: body
+            required: true
+            type: string
+            description: |
+                profile_id,current pass the profile_id
+        description: |
+            Delete profile item
+        responses:
+            200:
+                description: Delete profile item success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                  type: integer
+                                message:
+                                  type: string
+                                data:
+                                  type: object
+                                  $ref: '#/components/schemas/ProfileItemDefinition'
         """
-        pass
+        user_id = request.user.user_id
+        profile_id = request.get_json().get("profile_id", None)
+        if not profile_id:
+            raise_error("PROFILE.PROFILE_ID_REQUIRED")
+        return make_common_response(delete_profile_item(app, user_id, profile_id))
 
     @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
     def get_profile_item_api():
