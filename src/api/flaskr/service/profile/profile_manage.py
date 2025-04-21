@@ -23,7 +23,7 @@ from .dtos import (
     SelectProfileDto,
     ProfileValueDto,
 )
-from flaskr.i18n import _
+from flaskr.i18n import _, get_current_language
 
 from .models import (
     CONST_PROFILE_TYPE_TEXT,
@@ -55,6 +55,43 @@ def get_next_corlor_setting(parent_id: str):
     ]
 
 
+def convert_profile_item_to_profile_item_definition(
+    profile_item: ProfileItem,
+) -> ProfileItemDefinition:
+    return ProfileItemDefinition(
+        profile_item.profile_key,
+        get_color_setting(profile_item.profile_color_setting),
+        (
+            "option"
+            if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
+            else "text"
+        ),
+        _(
+            "PROFILE.PROFILE_TYPE_{}".format(
+                (
+                    "option"
+                    if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
+                    else "text"
+                )
+            ).upper()
+        ),
+        profile_item.profile_remark,
+        (
+            CONST_PROFILE_SCOPE_SYSTEM
+            if profile_item.parent_id == ""
+            else CONST_PROFILE_SCOPE_USER
+        ),
+        _(
+            "PROFILE.PROFILE_SCOPE_{}".format(
+                CONST_PROFILE_SCOPE_SYSTEM
+                if profile_item.parent_id == ""
+                else CONST_PROFILE_SCOPE_USER
+            ).upper()
+        ),
+        profile_item.profile_id,
+    )
+
+
 def get_profile_item_defination_list(
     app: Flask, parent_id: str, type: str = "all"
 ) -> list[ProfileItemDefinition]:
@@ -71,39 +108,7 @@ def get_profile_item_defination_list(
         profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
         if profile_item_list:
             return [
-                ProfileItemDefinition(
-                    profile_item.profile_key,
-                    get_color_setting(profile_item.profile_color_setting),
-                    (
-                        "option"
-                        if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
-                        else "text"
-                    ),
-                    _(
-                        "PROFILE.PROFILE_TYPE_{}".format(
-                            (
-                                "option"
-                                if profile_item.profile_type
-                                == PROFILE_TYPE_INPUT_SELECT
-                                else "text"
-                            )
-                        ).upper()
-                    ),
-                    profile_item.profile_remark,
-                    (
-                        CONST_PROFILE_SCOPE_SYSTEM
-                        if profile_item.parent_id == ""
-                        else CONST_PROFILE_SCOPE_USER
-                    ),
-                    _(
-                        "PROFILE.PROFILE_SCOPE_{}".format(
-                            CONST_PROFILE_SCOPE_SYSTEM
-                            if profile_item.parent_id == ""
-                            else CONST_PROFILE_SCOPE_USER
-                        ).upper()
-                    ),
-                    profile_item.profile_id,
-                )
+                convert_profile_item_to_profile_item_definition(profile_item)
                 for profile_item in profile_item_list
             ]
         return []
@@ -167,81 +172,150 @@ def add_profile_item_quick_internal(app: Flask, parent_id: str, key: str, user_i
     db.session.add(profile_item)
     db.session.flush()
     app.logger.info(profile_item.profile_color_setting)
-    return ProfileItemDefinition(
-        profile_item.profile_key,
-        get_color_setting(profile_item.profile_color_setting),
-        "option" if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT else "text",
-    )
-
-
-def save_profile_item(app: Flask, profile_item: ProfileItem):
-    pass
+    return convert_profile_item_to_profile_item_definition(profile_item)
 
 
 # add profile defination
-def add_profile_item(
+def save_profile_item(
     app: Flask,
+    profile_id: str,
     parent_id: str,
+    user_id: str,
     key: str,
     type: int,
-    show_type: int,
-    remark: str,
-    user_id: str,
+    show_type: int = PROFILE_SHOW_TYPE_HIDDEN,
+    remark: str = "",
     profile_prompt: str = None,
-    profile_check_model: str = None,
-    profile_check_model_args: str = None,
-    items: list[str] = [],
+    profile_prompt_model: str = None,
+    profile_prompt_model_args: str = None,
+    items: list[ProfileValueDto] = None,
 ):
     with app.app_context():
+        if profile_id and bool(profile_id):
+            profile_item = ProfileItem.query.filter(
+                ProfileItem.profile_id == profile_id,
+                ProfileItem.status == 1,
+            ).first()
+        else:
+            profile_item = ProfileItem(
+                parent_id=parent_id,
+                profile_id=generate_id(app),
+                profile_key=key,
+                profile_type=type,
+                profile_show_type=show_type,
+                profile_remark=remark,
+                profile_color_setting=str(get_next_corlor_setting(parent_id)),
+                profile_prompt=profile_prompt,
+                profile_prompt_model=profile_prompt_model,
+                profile_prompt_model_args=profile_prompt_model_args,
+                created_by=user_id,
+                updated_by=user_id,
+            )
+            db.session.add(profile_item)
+            profile_id = profile_item.profile_id
         if not key:
             raise_error("PROFILE.KEY_REQUIRED")
         exist_item = ProfileItem.query.filter(
-            ProfileItem.parent_id == parent_id, ProfileItem.profile_key == key
+            ProfileItem.parent_id == parent_id,
+            ProfileItem.profile_key == key,
+            ProfileItem.profile_id != profile_id,
         ).first()
         if exist_item:
             raise_error("PROFILE.KEY_EXIST")
 
         if type == PROFILE_TYPE_INPUT_TEXT and not profile_prompt:
-            raise_error("PROFILE.PROMPT_REQUIRED")
+            # raise_error("PROFILE.PROMPT_REQUIRED")
+            profile_prompt = ""
         if type == PROFILE_TYPE_INPUT_SELECT and not items:
             raise_error("PROFILE.ITEMS_REQUIRED")
-        profile_id = generate_id(app)
-        profile_item = ProfileItem(
-            parent_id=parent_id,
-            profile_id=profile_id,
-            profile_key=key,
-            profile_type=type,
-            profile_show_type=show_type,
-            profile_remark=remark,
-            profile_color_setting=str(get_next_corlor_setting(parent_id)),
-            profile_check_prompt=profile_prompt,
-            profile_check_model=profile_check_model,
-            profile_check_model_args=profile_check_model_args,
-            created_by=user_id,
-            updated_by=user_id,
-        )
-        for index, item in enumerate(items):
-            profile_item_value = ProfileItemValue(
-                parent_id=parent_id,
-                profile_id=profile_id,
-                profile_item_id=generate_id(app),
-                profile_value=item,
-                profile_index=index,
-                created_by=user_id,
-                updated_by=user_id,
-                status=1,
-            )
-            db.session.add(profile_item_value)
+
+        current_language = get_current_language()
+
+        if items and len(items) > 0:
+            exist_profile_item_value_list = ProfileItemValue.query.filter(
+                ProfileItemValue.profile_id == profile_id,
+            ).all()
+            if exist_profile_item_value_list:
+                exist_profile_item_value_i18n_list = ProfileItemI18n.query.filter(
+                    ProfileItemI18n.parent_id.in_(
+                        [item.profile_item_id for item in exist_profile_item_value_list]
+                    ),
+                    ProfileItemI18n.conf_type == PROFILE_CONF_TYPE_ITEM,
+                ).all()
+            else:
+                exist_profile_item_value_i18n_list = []
+            update_item_ids = []
+            update_item_i18n_ids = []
+            for index, item in enumerate(items):
+                profile_item_value = next(
+                    (
+                        item
+                        for item in exist_profile_item_value_list
+                        if item.profile_value == item.value
+                    ),
+                    None,
+                )
+                if not profile_item_value:
+                    profile_item_value = ProfileItemValue(
+                        profile_id=profile_id,
+                        profile_item_id=generate_id(app),
+                        profile_value=item.value,
+                        profile_value_index=index,
+                        created_by=user_id,
+                        updated_by=user_id,
+                        status=1,
+                    )
+                    db.session.add(profile_item_value)
+                    update_item_ids.append(profile_item_value.id)
+                else:
+                    profile_item_value.profile_value = item.value
+                    profile_item_value.profile_value_index = index
+                    profile_item_value.updated_by = user_id
+                    profile_item_value.updated = datetime.now()
+                update_item_ids.append(profile_item_value.profile_item_id)
+                profile_item_value_i18n = next(
+                    (
+                        item
+                        for item in exist_profile_item_value_i18n_list
+                        if item.profile_value == item.value
+                        and item.language == current_language
+                    ),
+                    None,
+                )
+                if not profile_item_value_i18n:
+                    profile_item_value_i18n = ProfileItemI18n(
+                        parent_id=profile_item_value.profile_item_id,
+                        language=current_language,
+                        profile_item_remark=item.name,
+                        conf_type=PROFILE_CONF_TYPE_ITEM,
+                        created_by=user_id,
+                        updated_by=user_id,
+                        status=1,
+                    )
+                    db.session.add(profile_item_value_i18n)
+                    update_item_i18n_ids.append(profile_item_value_i18n.id)
+                else:
+                    profile_item_value_i18n.profile_item_remark = item.name
+                    profile_item_value_i18n.updated_by = user_id
+                    profile_item_value_i18n.updated = datetime.now()
+                    update_item_i18n_ids.append(profile_item_value_i18n.id)
+            ProfileItemValue.query.filter(
+                ProfileItemValue.profile_id == profile_id,
+                ProfileItemValue.profile_item_id.notin_(update_item_ids),
+                ProfileItemValue.status == 1,
+            ).update({"status": 0})
+            delete_item_ids = [
+                item.id
+                for item in exist_profile_item_value_i18n_list
+                if item.id not in update_item_ids
+            ]
+            if delete_item_ids:
+                ProfileItemI18n.query.filter(
+                    ProfileItemI18n.id._in(delete_item_ids),
+                    ProfileItemI18n.status == 1,
+                ).update({"status": 0})
         db.session.commit()
-        return ProfileItemDefinition(
-            profile_item.profile_key,
-            get_color_setting(profile_item.profile_color_setting),
-            (
-                "option"
-                if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
-                else "text"
-            ),
-        )
+        return convert_profile_item_to_profile_item_definition(profile_item)
 
 
 def update_profile_item(
@@ -275,7 +349,7 @@ def update_profile_item(
             if len(items) == 0:
                 raise_error("PROFILE.ITEMS_REQUIRED")
             profile_item_value = ProfileItemValue.query.filter_by(
-                profile_id=profile_id
+                profile_id=profile_id, status=1
             ).all()
             for profile_item_value in profile_item_value:
                 profile_item_value.profile_value = items[
@@ -284,15 +358,7 @@ def update_profile_item(
                 profile_item_value.updated_by = user_id
                 profile_item_value.status = 1
         db.session.commit()
-        return ProfileItemDefinition(
-            profile_item.profile_key,
-            get_color_setting(profile_item.profile_color_setting),
-            (
-                "option"
-                if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
-                else "text"
-            ),
-        )
+        return convert_profile_item_to_profile_item_definition(profile_item)
 
 
 def get_profile_item_defination(app: Flask, parent_id: str, profile_key: str):
@@ -301,15 +367,7 @@ def get_profile_item_defination(app: Flask, parent_id: str, profile_key: str):
             parent_id=parent_id, profile_key=profile_key
         ).first()
         if profile_item:
-            return ProfileItemDefinition(
-                profile_item.profile_key,
-                get_color_setting(profile_item.profile_color_setting),
-                (
-                    "option"
-                    if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT
-                    else "text"
-                ),
-            )
+            return convert_profile_item_to_profile_item_definition(profile_item)
         return None
 
 

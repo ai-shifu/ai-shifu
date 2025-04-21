@@ -15,3 +15,9 @@ def app():
     app = create_app()
     yield app
     print("test app close")
+
+
+@pytest.fixture
+def test_client(app):
+    with app.test_client() as client:
+        yield client
