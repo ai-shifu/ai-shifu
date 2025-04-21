@@ -21,3 +21,8 @@ def app():
 def test_client(app):
     with app.test_client() as client:
         yield client
+
+
+@pytest.fixture
+def token():
+    return ""
