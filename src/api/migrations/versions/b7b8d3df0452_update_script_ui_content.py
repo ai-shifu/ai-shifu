@@ -18,12 +18,13 @@ depends_on = None
 
 
 def upgrade():
-    ai_lesson_script_table = sa.table('ai_lesson_script',
-                                      sa.column('script_ui_content', sa.String))
+    ai_lesson_script_table = sa.table(
+        "ai_lesson_script", sa.column("script_ui_content", sa.String)
+    )
     op.execute(
-        ai_lesson_script_table.update().
-        where(ai_lesson_script_table.c.script_ui_content == '继续').
-        values(script_ui_content='')
+        ai_lesson_script_table.update()
+        .where(ai_lesson_script_table.c.script_ui_content == "继续")
+        .values(script_ui_content="")
     )
 
 
