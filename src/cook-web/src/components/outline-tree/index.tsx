@@ -18,8 +18,9 @@ interface ICataTreeProps {
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
     const { items, onChange, } = props;
-    const { actions, chapters } = useScenario();
-    const onItemsChanged = (data: TreeItems<Outline>, reason: ItemChangedReason<Outline>) => {
+    const { actions } = useScenario();
+    const onItemsChanged = async (data: TreeItems<Outline>, reason: ItemChangedReason<Outline>) => {
+        console.log(data, reason)
         if (reason.type == 'dropped') {
             console.log(reason.draggedItem);
             const parentId = reason.draggedItem.parentId;
@@ -27,10 +28,10 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
                 const parent = data.find((item) => item.id == parentId);
                 const ids = parent?.children?.map((item) => item.id) || [];
                 console.log(ids)
-                actions.updateChapterOrder(ids);
+                await actions.updateChapterOrder(ids);
             } else {
-                const ids = chapters.map((item) => item.id);
-                actions.updateChapterOrder(ids);
+                const ids = data.map((item) => item.id);
+                await actions.updateChapterOrder(ids);
             }
 
         }
