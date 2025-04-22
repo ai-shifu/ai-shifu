@@ -72,7 +72,7 @@ export default function Goto(props: ButtonProps) {
         })
     }
     const loadProfileItemDefinations = async () => {
-        const list = await api.getProfileItemDefinations({
+        const list = await api.getProfileItemDefinitions({
             parent_id: currentScenario?.id
         })
         setProfileItemDefinations(list)
