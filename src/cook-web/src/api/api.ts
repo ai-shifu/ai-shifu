@@ -28,7 +28,7 @@ const api = {
     getBlocks: "GET /scenario/blocks",
     saveBlocks: "POST /scenario/save-blocks",
     getProfile: "GET /user/get_profile",
-    getProfileItemDefinations: "GET /profiles/get-profile-item-definations",
+    getProfileItemDefinitions: "GET /profiles/get-profile-item-definitions",
     addProfileItem: "POST /profiles/add-profile-item-quick",
     getUserInfo: "GET /user/info",
     updateChapterOrder: "POST /scenario/update-chapter-order",

@@ -622,7 +622,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
 
     const loadProfileItemDefinations = async (scenarioId: string) => {
-        const list = await api.getProfileItemDefinations({
+        const list = await api.getProfileItemDefinitions({
             parent_id: scenarioId,
             type: "all"
         })
