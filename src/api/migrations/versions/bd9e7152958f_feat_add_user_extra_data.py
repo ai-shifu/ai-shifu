@@ -24,7 +24,7 @@ def upgrade():
             sa.Column(
                 "script_ui_profile_id",
                 sa.String(length=36),
-                nullable=False,
+                nullable=True,
                 comment="Script UI profile id",
             )
         )

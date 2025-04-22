@@ -126,7 +126,7 @@ def upgrade():
             sa.Column(
                 "parent_id",
                 sa.String(length=36),
-                nullable=False,
+                nullable=True,
                 comment="Parent lesson UUID",
             )
         )
