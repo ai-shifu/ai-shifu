@@ -216,6 +216,23 @@ class AILesson(db.Model):
     def is_final(self):
         return len(self.lesson_no) > 2
 
+    def __eq__(self, other):
+        if not isinstance(other, AILesson):
+            return NotImplemented
+        return (
+            self.lesson_id == other.lesson_id and
+            self.lesson_no == other.lesson_no and
+            self.lesson_name == other.lesson_name and
+            self.lesson_desc == other.lesson_desc and
+            self.course_id == other.course_id and
+            self.created_user_id == other.created_user_id and
+            self.updated_user_id == other.updated_user_id and
+            self.status == other.status and
+            self.lesson_index == other.lesson_index and
+            self.lesson_type == other.lesson_type and
+            self.updated_at == other.updated_at
+        )
+
     def clone(self):
         return AILesson(
             course_id=self.course_id,

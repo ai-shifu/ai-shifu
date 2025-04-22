@@ -151,7 +151,7 @@ def modify_chapter(
                     {AILesson.lesson_index: AILesson.lesson_index + 1},
                     synchronize_session=False,
                 )
-            if not new_chapter.equals(chapter):
+            if new_chapter != chapter:
                 change_outline_status_to_history(chapter, user_id, time)
                 db.session.add(new_chapter)
             existing_chapter_count = AILesson.query.filter(
