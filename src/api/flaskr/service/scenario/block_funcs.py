@@ -177,6 +177,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                             app, user_id, outline.course_id, profile
                         )
                         block_model.script_ui_profile_id = profile_item.profile_id
+                        block_model.script_check_prompt = profile_item.profile_prompt
                         profile_items.append(profile_item)
                     check_text_with_risk_control(
                         app,
@@ -201,8 +202,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         profile_item = save_profile_item_defination(
                             app, user_id, outline.course_id, profile
                         )
-                        block_model.script_ui_profile_id = profile_item.profile_id
-                        block_model.script_check_prompt = profile_item.profile_prompt
+                        new_block.script_ui_profile_id = profile_item.profile_id
+                        new_block.script_check_prompt = profile_item.profile_prompt
+                        if profile_item.profile_prompt_model:
+                            new_block.script_model = profile_item.profile_prompt_model
                         profile_items.append(profile_item)
                     if new_block and not new_block.eq(block_model):
                         # update origin block and save to history

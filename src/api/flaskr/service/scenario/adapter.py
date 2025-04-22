@@ -175,14 +175,12 @@ def update_block_model(
             block_model.script_ui_type = UI_TYPE_TO_PAY
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
-        elif isinstance(block_dto.block_ui, ButtonDto):
-            check_button_dto(block_dto.block_ui)
-            block_model.script_ui_type = UI_TYPE_BUTTON
-            block_model.script_ui_content = block_dto.block_ui.button_key
-            block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, GotoDto):
+            from flask import current_app as app
+
+            app.logger.info(f"GOTODTO block_dto.block_ui: {block_dto.block_ui}")
             block_model.script_ui_type = UI_TYPE_BRANCH
-            block_model.script_ui_content = block_dto.block_ui.input_name
+            block_model.script_ui_content = block_dto.block_ui.button_name
             block_model.script_other_conf = json.dumps(
                 {
                     "var_name": block_dto.block_ui.goto_settings.profile_key,
@@ -198,6 +196,12 @@ def update_block_model(
                     ],
                 }
             )
+        elif isinstance(block_dto.block_ui, ButtonDto):
+            check_button_dto(block_dto.block_ui)
+            block_model.script_ui_type = UI_TYPE_BUTTON
+            block_model.script_ui_content = block_dto.block_ui.button_key
+            block_model.script_ui_content = block_dto.block_ui.button_name
+
         elif isinstance(block_dto.block_ui, OptionDto):
             if not block_dto.block_ui.option_key:
                 raise_error("SCENARIO.OPTION_KEY_REQUIRED")
@@ -256,6 +260,9 @@ def update_block_model(
                 block_model.script_ui_content = block_dto.block_ui.input_placeholder
             if block_dto.block_ui.prompt:
                 block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
+            if block_dto.block_ui.prompt.model:
+                block_model.script_model = block_dto.block_ui.prompt.model
+
             block_model.script_ui_profile = (
                 "[" + "][".join(block_dto.block_ui.prompt.profiles) + "]"
             )
@@ -363,7 +370,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
                 GotoDtoItem(
                     value=item.get("value"),
                     type="outline",
-                    goto_id=item.get("lark_table_id"),
+                    goto_id=item.get("goto_id"),
                 )
             )
         ret.block_ui = GotoDto(

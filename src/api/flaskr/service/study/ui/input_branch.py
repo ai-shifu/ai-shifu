@@ -38,6 +38,7 @@ def handle_input_branch(
     profile = get_user_profiles(app, user_info.user_id, [branch_key])
     branch_value = profile.get(branch_key, "")
     jump_rule = branch_info.get("jump_rule", [])
+    app.logger.info("rule:{}".format(jump_rule))
     course_id = attend.course_id
     for rule in jump_rule:
         app.logger.info(
@@ -45,15 +46,24 @@ def handle_input_branch(
         )
         if branch_value == rule.get("value", ""):
             app.logger.info("branch jump begin")
+
             attend_info = AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.attend_id == attend.attend_id
             ).first()
-            next_lesson = AILesson.query.filter(
-                AILesson.lesson_feishu_id == rule.get("lark_table_id", ""),
-                AILesson.status == 1,
-                AILesson.course_id == course_id,
-                func.length(AILesson.lesson_no) > 2,
-            ).first()
+            next_lesson = None
+            if rule.get("lark_table_id", "") != "":
+                next_lesson = AILesson.query.filter(
+                    AILesson.lesson_feishu_id == rule.get("lark_table_id", ""),
+                    AILesson.status == 1,
+                    AILesson.course_id == course_id,
+                    func.length(AILesson.lesson_no) > 2,
+                ).first()
+            if rule.get("goto_id", "") != "":
+                next_lesson = AILesson.query.filter(
+                    AILesson.lesson_id == rule.get("goto_id", ""),
+                    AILesson.status == 1,
+                    AILesson.course_id == course_id,
+                ).first()
             if next_lesson:
                 next_attend = AICourseLessonAttend.query.filter(
                     AICourseLessonAttend.user_id == user_info.user_id,
@@ -79,7 +89,9 @@ def handle_input_branch(
                 attend_info.status = ATTEND_STATUS_BRANCH
                 db.session.flush()
                 attend_info = next_attend
-                app.logger.info("branch jump")
+                app.logger.info(
+                    "branch jump to lesson:{}".format(next_lesson.lesson_no)
+                )
             else:
                 app.logger.warning(
                     "next lesson is not found,lark_table_id:{}".format(

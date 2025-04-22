@@ -87,10 +87,14 @@ def get_lesson_system(app: Flask, lesson_id: str) -> str:
         if parent_lesson:
             lesson_ids.append(parent_lesson.lesson_id)
     app.logger.info("lesson_ids:{}".format(lesson_ids))
-    scripts = AILessonScript.query.filter(
-        AILessonScript.lesson_id.in_(lesson_ids),
-        AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
-    ).all()
+    scripts = (
+        AILessonScript.query.filter(
+            AILessonScript.lesson_id.in_(lesson_ids),
+            AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
+        )
+        .order_by(AILessonScript.id.desc())
+        .all()
+    )
     app.logger.info("scripts:{}".format(scripts))
     if len(scripts) > 0:
         for script in scripts:
@@ -351,12 +355,16 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
             return get_script(app, attend_id, next)
     elif next > 0:
         attend_info.script_index = attend_info.script_index + next
-    script_info = AILessonScript.query.filter(
-        AILessonScript.lesson_id == attend_info.lesson_id,
-        AILessonScript.status == 1,
-        AILessonScript.script_index == attend_info.script_index,
-        AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
-    ).first()
+    script_info = (
+        AILessonScript.query.filter(
+            AILessonScript.lesson_id == attend_info.lesson_id,
+            AILessonScript.status == 1,
+            AILessonScript.script_index == attend_info.script_index,
+            AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+        )
+        .order_by(AILessonScript.id.desc())
+        .first()
+    )
     if not script_info:
         app.logger.info("no script found")
         app.logger.info(attend_info.lesson_id)
@@ -380,7 +388,14 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
 
 
 def get_script_by_id(app: Flask, script_id: str) -> AILessonScript:
-    return AILessonScript.query.filter_by(script_id=script_id).first()
+    return (
+        AILessonScript.query.filter(
+            AILessonScript.script_id == script_id,
+            AILessonScript.status == 1,
+        )
+        .order_by(AILessonScript.id.desc())
+        .first()
+    )
 
 
 def make_script_dto(
@@ -697,7 +712,7 @@ def check_script_is_last_script(
                 AILessonScript.lesson_id == last_lesson.lesson_id,
                 AILessonScript.status == 1,
             )
-            .order_by(AILessonScript.script_index.desc())
+            .order_by(AILessonScript.id.desc())
             .first()
         )
         if (
