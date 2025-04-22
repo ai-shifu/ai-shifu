@@ -52,7 +52,7 @@ export const CreateScenarioDialog = ({
 
     const handleSubmit = async (values: z.infer<typeof formSchema>) => {
         await onSubmit(values);
-        form.reset();
+        // form.reset();
     };
 
     React.useEffect(() => {

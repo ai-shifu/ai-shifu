@@ -18,18 +18,24 @@ def make_continue_ui(
     trace_args,
 ) -> ScriptDTO:
     msg = script_info.script_ui_content
-    if msg == "":
-        msg = _("COMMON.CONTINUE")
+    display = bool(msg)  # Set display based on whether msg has content
+    if not msg:
+        msg = _("COMMON.CONTINUE")  # Assign default message if msg is empty
+
+    app.logger.info("handle_input_continue:{}".format(msg))
+
     btn = [
         {
             "label": msg,
             "value": msg,
             "type": INPUT_TYPE_CONTINUE,
+            "display": display,
         }
     ]
+
     return ScriptDTO(
         "buttons",
-        {"title": msg, "buttons": btn},
+        {"buttons": btn},
         script_info.lesson_id,
         script_info.script_id,
     )

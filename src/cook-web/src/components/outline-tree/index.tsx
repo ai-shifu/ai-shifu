@@ -18,8 +18,9 @@ interface ICataTreeProps {
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
     const { items, onChange, } = props;
-    const { actions, chapters } = useScenario();
-    const onItemsChanged = (data: TreeItems<Outline>, reason: ItemChangedReason<Outline>) => {
+    const { actions } = useScenario();
+    const onItemsChanged = async (data: TreeItems<Outline>, reason: ItemChangedReason<Outline>) => {
+        console.log(data, reason)
         if (reason.type == 'dropped') {
             console.log(reason.draggedItem);
             const parentId = reason.draggedItem.parentId;
@@ -27,10 +28,10 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
                 const parent = data.find((item) => item.id == parentId);
                 const ids = parent?.children?.map((item) => item.id) || [];
                 console.log(ids)
-                actions.updateChapterOrder(ids);
+                await actions.updateChapterOrder(ids);
             } else {
-                const ids = chapters.map((item) => item.id);
-                actions.updateChapterOrder(ids);
+                const ids = data.map((item) => item.id);
+                await actions.updateChapterOrder(ids);
             }
 
         }
@@ -69,7 +70,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     HTMLDivElement,
     TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-    const { focusId, actions, cataData, currentOutline, currentNode } = useScenario();
+    const { focusId, actions, cataData, currentNode } = useScenario();
 
     const onNodeChange = async (value: string) => {
         console.log('onNodeChange', value, props.item)
@@ -106,16 +107,15 @@ const MinimalTreeItemComponent = React.forwardRef<
         if (props.item.id == 'new_chapter') {
             return;
         }
-        if (currentNode?.id !== props.item.id) {
-            await actions.saveBlocks();
-        }
+
         if (props.item.depth == 0) {
             actions.setCurrentNode(props.item);
             actions.setBlocks([]);
             return;
         }
+
         actions.setCurrentNode(props.item);
-        actions.loadBlocks(props.item.id || "");
+        await actions.loadBlocks(props.item.id || "");
     }
     return (
         <SimpleTreeItemWrapper {...props} ref={ref}>
@@ -124,7 +124,7 @@ const MinimalTreeItemComponent = React.forwardRef<
                 className={cn(
                     'flex items-center flex-1 px-0 py-1 justify-between w-full group',
                     (props.item?.children?.length || 0) > 0 ? 'pl-0' : 'pl-4',
-                    currentOutline == props.item.id ? 'bg-gray-100' : ''
+                    currentNode?.id == props.item.id ? 'bg-gray-100' : ''
                 )}
                 onClick={onSelect}
             >

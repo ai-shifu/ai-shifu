@@ -63,7 +63,6 @@ export interface ScenarioState {
     blockContentProperties: { [x: string]: any };
     blockContentTypes: { [x: string]: string };
     blockContentState: { [x: string]: 'edit' | 'preview' };
-    currentOutline: string;
     profileItemDefinations: ProfileItem[];
     currentNode: Outline | null;
     models: string[];
@@ -96,6 +95,7 @@ export interface ScenarioActions {
     setBlocks: (blocks: Block[]) => void;
     saveBlocks: () => Promise<void>;
     autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => Promise<void>;
+    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => Promise<void>;
     removeBlock: (id: string) => Promise<void>;
     setCurrentNode: (node: Outline) => void;
     loadModels: () => void;

@@ -13,7 +13,7 @@ const BlockMap = {
 }
 
 export const RenderBlockContent = ({ id, type, properties }) => {
-    const { actions, blocks, blockContentTypes, blockContentState, currentOutline, blockUITypes, blockContentProperties, blockUIProperties } = useScenario();
+    const { actions, blocks, blockContentTypes, blockContentState, currentNode, blockUITypes, blockContentProperties, blockUIProperties } = useScenario();
     const [error, setError] = useState('')
     const onPropertiesChange = async (properties) => {
         console.log(id, properties)
@@ -33,7 +33,9 @@ export const RenderBlockContent = ({ id, type, properties }) => {
             setError('内容不能为空')
             return;
         }
-        actions.autoSaveBlocks(currentOutline, blocks, blockContentTypes, p, blockUITypes, blockUIProperties)
+        if (currentNode) {
+            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, p, blockUITypes, blockUIProperties)
+        }
     }
 
     const onContentTypeChange = (id: string, type: string) => {

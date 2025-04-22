@@ -3,10 +3,6 @@ import json
 from flaskr.service.common.aidtos import AIDto
 
 
-CONST_PROFILE_TYPE_TEXT = "text"
-CONST_PROFILE_TYPE_SELECT = "select"
-
-
 @register_schema_to_swagger
 class ColorSetting:
     color: str  # the background color of the profile item
@@ -27,20 +23,42 @@ class ColorSetting:
 class ProfileItemDefinition:
     profile_key: str  # the key of the profile item and could be used in prompt
     color_setting: ColorSetting  # the color setting of the profile item
-    profile_type: str
+    profile_type: str  # the type of the profile item, could be text or option
+    profile_remark: str  # the remark of the profile item
+    profile_scope: str  # the scope of the profile item, could be system or user
+    profile_scope_str: str  # the string of the profile scope,could be in i18n
+    profile_id: str  # the id of the profile item
 
     def __init__(
-        self, profile_key: str, color_setting: ColorSetting, profile_type: str
+        self,
+        profile_key: str,
+        color_setting: ColorSetting,
+        profile_type: str,
+        profile_type_str: str,
+        profile_remark: str,
+        profile_scope: str,
+        profile_scope_str: str,
+        profile_id: str,
     ):
         self.profile_key = profile_key
         self.color_setting = color_setting
         self.profile_type = profile_type
+        self.profile_type_str = profile_type_str
+        self.profile_remark = profile_remark
+        self.profile_scope = profile_scope
+        self.profile_scope_str = profile_scope_str
+        self.profile_id = profile_id
 
     def __json__(self):
         return {
             "profile_key": self.profile_key,
             "color_setting": self.color_setting,
             "profile_type": self.profile_type,
+            "profile_type_str": self.profile_type_str,
+            "profile_remark": self.profile_remark,
+            "profile_scope": self.profile_scope,
+            "profile_scope_str": self.profile_scope_str,
+            "profile_id": self.profile_id,
         }
 
     def __str__(self):

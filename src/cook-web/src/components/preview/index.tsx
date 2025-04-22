@@ -19,7 +19,7 @@ import { useAlert } from '@/components/ui/use-alert'
 const PreviewSettingsModal = () => {
     const { showAlert } = useAlert();
     const [open, setOpen] = useState(false);
-    const { profileItemDefinations, currentScenario } = useScenario();
+    const { profileItemDefinations, currentScenario, actions } = useScenario();
 
     const [autoSkipEmptyFields, setAutoSkipEmptyFields] = useState(false);
     const [formValues, setFormValues] = useState({});
@@ -28,6 +28,7 @@ const PreviewSettingsModal = () => {
         setFormValues(prev => ({ ...prev, [key]: value }));
     };
     const handleStartPreview = async () => {
+        await actions.saveBlocks();
         // Handle the start preview action
         console.log('Start preview with values:', formValues);
         const reuslt = await api.previewScenario({

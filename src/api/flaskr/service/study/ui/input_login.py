@@ -21,7 +21,6 @@ def handle_require_login(
     trace,
     trace_args,
 ) -> ScriptDTO:
-
     btn = [
         {
             "label": script_info.script_ui_content,
@@ -31,7 +30,7 @@ def handle_require_login(
     ]
     return ScriptDTO(
         INPUT_TYPE_REQUIRE_LOGIN,
-        {"title": "接下来", "buttons": btn},
+        {"buttons": btn},
         script_info.lesson_id,
         script_info.script_id,
     )
