@@ -14,7 +14,6 @@ from .chapter_funcs import (
     get_chapter_list,
     create_chapter,
     modify_chapter,
-    delete_chapter,
     update_chapter_order,
     get_outline_tree,
 )
@@ -633,7 +632,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         chapter_id = request.get_json().get("chapter_id")
         if not chapter_id:
             raise_param_error("chapter_id is required")
-        return make_common_response(delete_chapter(app, user_id, chapter_id))
+        return make_common_response(delete_unit(app, user_id, chapter_id))
 
     @app.route(path_prefix + "/update-chapter-order", methods=["POST"])
     def update_chapter_order_api():

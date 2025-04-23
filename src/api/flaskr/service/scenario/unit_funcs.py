@@ -3,7 +3,6 @@ from flaskr.service.lesson.const import (
     STATUS_PUBLISH,
     STATUS_DRAFT,
     STATUS_HISTORY,
-    STATUS_TO_DELETE,
 )
 from flaskr.util.uuid import generate_id
 from flaskr.dao import db
@@ -20,19 +19,30 @@ from flaskr.service.scenario.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
 from sqlalchemy.sql import func, cast
 from sqlalchemy import String
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.scenario.utils import (
+    get_existing_outlines,
+    change_outline_status_to_history,
+    get_original_outline_tree,
+    OutlineTreeNode,
+    reorder_outline_tree_and_save,
+)
+
+import queue
 
 
 def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
     with app.app_context():
-        units = (
-            AILesson.query.filter(
-                AILesson.course_id == scenario_id,
-                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-                AILesson.parent_id == chapter_id,
-            )
-            .order_by(AILesson.lesson_index)
-            .all()
+        existing_outlines = get_existing_outlines(app, scenario_id)
+        chapter = next(
+            (
+                outline
+                for outline in existing_outlines
+                if outline.lesson_id == chapter_id
+            ),
+            None,
         )
+        if not chapter:
+            raise_error("SCENARIO.CHAPTER_NOT_FOUND")
         return [
             UnitDto(
                 unit.lesson_id,
@@ -41,7 +51,8 @@ def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
                 unit.lesson_desc,
                 unit.lesson_type,
             )
-            for unit in units
+            for unit in existing_outlines
+            if unit.parent_id == chapter_id
         ]
 
 
@@ -60,22 +71,23 @@ def create_unit(
     with app.app_context():
         if len(unit_name) > 20:
             raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
-        chapter = (
-            AILesson.query.filter(
-                AILesson.course_id == scenario_id,
-                AILesson.lesson_id == parent_id,
-                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-            )
-            .order_by(AILesson.id.desc())
-            .first()
+        existing_outlines = get_existing_outlines(app, scenario_id)
+        chapter = next(
+            (
+                outline
+                for outline in existing_outlines
+                if outline.lesson_id == parent_id
+            ),
+            None,
         )
-        if chapter:
+        if not chapter:
+            raise_error("SCENARIO.CHAPTER_NOT_FOUND")
 
+        if chapter:
             app.logger.info(
                 f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_index: {unit_index}"
             )
             unit_id = generate_id(app)
-
             unit_no = chapter.lesson_no + f"{unit_index+1:02d}"
             app.logger.info(
                 f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_no: {unit_no} unit_index: {unit_index}"
@@ -160,7 +172,14 @@ def create_unit(
 
 def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
     with app.app_context():
-        unit = AILesson.query.filter_by(lesson_id=unit_id).first()
+        unit = (
+            AILesson.query.filter(
+                AILesson.lesson_id == unit_id,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if not unit:
             raise_error("SCENARIO.UNIT_NOT_FOUND")
 
@@ -175,11 +194,15 @@ def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
             hidden = True
 
         system_prompt = None
-        system_script = AILessonScript.query.filter(
-            AILessonScript.lesson_id == unit_id,
-            AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
-            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-        ).first()
+        system_script = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == unit_id,
+                AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
+                AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
         if system_script:
             system_prompt = system_script.script_prompt
         else:
@@ -220,13 +243,11 @@ def modify_unit(
             AILesson.lesson_id == unit_id, AILesson.status.in_([STATUS_DRAFT])
         ).first()
         if not unit:
-            unit = AILesson.query.filter(
-                AILesson.lesson_id == unit_id, AILesson.status.in_([STATUS_PUBLISH])
-            ).first()
-        if not unit:
             raise_error("SCENARIO.UNIT_NOT_FOUND")
         if unit:
+            time = datetime.now()
             new_unit = unit.clone()
+            change_outline_status_to_history(unit, user_id, time)
             old_check_str = unit.get_str_to_check()
             if unit_name:
                 new_unit.lesson_name = unit_name
@@ -236,7 +257,7 @@ def modify_unit(
                 new_unit.lesson_index = unit_index
 
             new_unit.updated_user_id = user_id
-            new_unit.updated_at = datetime.now()
+            new_unit.updated = time
             type = LESSON_TYPE_TRIAL
             if unit_type == UNIT_TYPE_NORMAL:
                 type = LESSON_TYPE_NORMAL
@@ -255,7 +276,7 @@ def modify_unit(
                     )
                 new_unit.status = STATUS_DRAFT
                 new_unit.updated_user_id = user_id
-                new_unit.updated_at = datetime.now()
+                new_unit.updated_at = time
                 db.session.add(new_unit)
             new_check_str = new_unit.get_str_to_check()
             if old_check_str != new_check_str:
@@ -315,70 +336,38 @@ def modify_unit(
 
 def delete_unit(app, user_id: str, unit_id: str):
     with app.app_context():
+        time = datetime.now()
         # check unit is draft
-        app.logger.info(f"delete unit: {unit_id}")
         unit = AILesson.query.filter(
-            AILesson.lesson_id == unit_id, AILesson.status.in_([STATUS_DRAFT])
+            AILesson.lesson_id == unit_id,
+            AILesson.status.in_([STATUS_DRAFT, STATUS_PUBLISH]),
         ).first()
-        if unit is None:
-            unit = AILesson.query.filter(
-                AILesson.lesson_id == unit_id, AILesson.status.in_([STATUS_PUBLISH])
-            ).first()
-        if unit is None:
-            raise_error("SCENARIO.UNIT_NOT_FOUND")
-        parent_no = ""
-        if len(unit.lesson_no) > 2:
-            parent_no = unit.lesson_no[:2]
-        else:
-            parent_no = unit.lesson_no
+        outline_tree = get_original_outline_tree(app, unit.course_id)
+        q = queue.Queue()
+        root = OutlineTreeNode(None)
+        for outline in outline_tree:
+            root.add_child(outline)
+        q.put(root)
 
-        if unit.status == STATUS_PUBLISH:
-            app.logger.info(
-                f"unit is published, prepare to delete: {unit.lesson_id} {unit.lesson_no}"
-            )
-            prepare_delete_unit = unit.clone()
-            app.logger.info(
-                f"prepare_delete_unit: {prepare_delete_unit.lesson_id} {prepare_delete_unit.lesson_no} {prepare_delete_unit.lesson_index} {prepare_delete_unit.parent_id}"
-            )
-            prepare_delete_unit.id = None
-            prepare_delete_unit.status = STATUS_TO_DELETE
-            prepare_delete_unit.updated_user_id = user_id
-            prepare_delete_unit.parent_id = unit.parent_id
-            prepare_delete_unit.lesson_no = unit.lesson_no
-            prepare_delete_unit.lesson_index = unit.lesson_index
-            prepare_delete_unit.course_id = unit.course_id
-            prepare_delete_unit.lesson_name = unit.lesson_name
-            prepare_delete_unit.lesson_desc = unit.lesson_desc
-            prepare_delete_unit.lesson_type = unit.lesson_type
-            prepare_delete_unit.updated_at = datetime.now()
-            db.session.add(prepare_delete_unit)
-        else:
-            app.logger.info(
-                f"unit is draft, delete unit: {unit.lesson_id} {unit.lesson_no}"
-            )
-            unit.status = STATUS_TO_DELETE
-            unit.updated_user_id = user_id
-            parent_no = unit.lesson_no[:2]
-        AILesson.query.filter(
-            AILesson.course_id == unit.course_id,
-            AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-            AILesson.parent_id == unit.parent_id,
-            AILesson.lesson_index >= unit.lesson_index,
-        ).update(
-            {
-                "lesson_index": AILesson.lesson_index - 1,
-                "lesson_no": parent_no
-                + func.lpad(cast(AILesson.lesson_index - 1, String), 2, "0"),
-            },
-        )
-        AILessonScript.query.filter(
-            AILessonScript.lesson_id == unit_id,
-            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-        ).update(
-            {
-                "status": STATUS_TO_DELETE,
-            },
-        )
-
+        delete_q = queue.Queue()
+        while not q.empty():
+            node = q.get()
+            if node.outline_id == unit_id:
+                # to mark the unit as deleted
+                delete_q.put(node)
+                if node.parent_node:
+                    node.parent_node.remove_child(node)
+            else:
+                for child in node.children:
+                    q.put(child)
+        # delete the unit and all the children
+        delete_unit_ids = []
+        while not delete_q.empty():
+            node = delete_q.get()
+            delete_unit_ids.append(node.outline_id)
+            change_outline_status_to_history(node.outline, user_id, time)
+            for child in node.children:
+                delete_q.put(child)
+        # reorder the outline tree
+        reorder_outline_tree_and_save(app, root, user_id, time)
         db.session.commit()
-        return True

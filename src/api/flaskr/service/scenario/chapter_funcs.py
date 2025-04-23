@@ -17,6 +17,7 @@ from .utils import (
     get_existing_blocks,
     change_outline_status_to_history,
     change_block_status_to_history,
+    get_original_outline_tree,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 
@@ -202,7 +203,6 @@ def delete_chapter(app, user_id: str, chapter_id: str):
                 if outline.lesson_no > chapter.lesson_no:
                     if outline.lesson_no.startswith(chapter.lesson_no):
                         # delete the sub outlines
-
                         app.logger.info(
                             f"delete outline: {outline.lesson_id} {outline.lesson_no} {outline.lesson_name}"
                         )
@@ -323,42 +323,7 @@ def update_chapter_order(
 # is used for the scenario outline page in the cook-web
 def get_outline_tree(app, user_id: str, scenario_id: str):
     with app.app_context():
-        outlines = get_existing_outlines(app, scenario_id)
-        outline_tree_dto = [
-            SimpleOutlineDto(node.lesson_id, node.lesson_no, node.lesson_name)
-            for node in outlines
-        ]
-        need_to_update_parent = False
-        for outline in outlines:
-            if len(outline.lesson_no) > 2 and outline.parent_id == "":
-                parent = next(
-                    (c for c in outlines if c.lesson_no == outline.lesson_no[:-2]),
-                    None,
-                )
-                if parent:
-                    app.logger.info(
-                        f"update outline parent_id: {outline.lesson_id} {outline.lesson_name} {parent.lesson_id} {parent.lesson_name}"
-                    )
-                    outline.parent_id = parent.lesson_id
-                    need_to_update_parent = True
-        if need_to_update_parent:
-            db.session.commit()
-        node_dict = {}
-        outline_tree = []
-        for node in outline_tree_dto:
-            app.logger.info(f"node: {node.__json__()}")
-            node_dict[node.outline_no] = node
-        for node in outline_tree_dto:
-            if len(node.outline_no) == 2:
-                outline_tree.append(node_dict[node.outline_no])
-            else:
-                parent_no = node.outline_no[:-2]
-                if parent_no in node_dict and parent_no != node.outline_no:
-                    app.logger.info(
-                        f"parent_no: {parent_no}, node.outline_no: {node.outline_no}"
-                    )
 
-                    node_dict[parent_no].outline_children.append(
-                        node_dict[node.outline_no]
-                    )
-        return outline_tree
+        outlines = get_original_outline_tree(app, scenario_id)
+        outline_tree_dto = [SimpleOutlineDto(node) for node in outlines]
+        return outline_tree_dto

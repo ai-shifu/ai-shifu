@@ -1,5 +1,6 @@
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.common.aidtos import AIDto, SystemPromptDto
+from flaskr.service.scenario.utils import OutlineTreeNode
 
 
 @register_schema_to_swagger
@@ -124,15 +125,16 @@ class SimpleOutlineDto:
 
     def __init__(
         self,
-        outline_id: str,
-        outline_no: str,
-        outline_name: str,
-        outline_children: list["SimpleOutlineDto"] = None,
+        node: OutlineTreeNode,
     ):
-        self.outline_id = outline_id
-        self.outline_no = outline_no
-        self.outline_name = outline_name
-        self.outline_children = outline_children if outline_children is not None else []
+        self.outline_id = node.outline_id
+        self.outline_no = node.lesson_no
+        self.outline_name = node.outline.lesson_name
+        self.outline_children = (
+            [SimpleOutlineDto(child) for child in node.children]
+            if node.children
+            else []
+        )
 
     def __json__(self):
         return {
