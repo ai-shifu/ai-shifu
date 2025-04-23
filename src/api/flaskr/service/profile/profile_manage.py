@@ -202,6 +202,19 @@ def save_profile_item(
                 ProfileItem.profile_id == profile_id,
                 ProfileItem.status == 1,
             ).first()
+            if not profile_item:
+                raise_error("PROFILE.NOT_FOUND")
+            app.logger.info("type:{}".format(type))
+            profile_item.updated = datetime.now()
+            profile_item.updated_by = user_id
+            profile_item.profile_key = key
+            profile_item.profile_type = type
+            profile_item.profile_show_type = show_type
+            profile_item.profile_remark = remark
+            profile_item.profile_color_setting = str(get_next_corlor_setting(parent_id))
+            profile_item.profile_prompt = profile_prompt
+            profile_item.profile_prompt_model = profile_prompt_model
+
         else:
             profile_item = ProfileItem(
                 parent_id=parent_id,
@@ -229,7 +242,7 @@ def save_profile_item(
         ).first()
         if exist_item:
             raise_error("PROFILE.KEY_EXIST")
-
+       
         if type == PROFILE_TYPE_INPUT_TEXT and not profile_prompt:
             # raise_error("PROFILE.PROMPT_REQUIRED")
             profile_prompt = ""
