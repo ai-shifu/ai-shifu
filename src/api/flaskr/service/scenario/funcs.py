@@ -277,8 +277,31 @@ def publish_scenario(app, user_id, scenario_id: str):
                     )
                 elif to_publish_lesson.status == STATUS_PUBLISH:
                     to_publish_lesson.status = STATUS_PUBLISH
+                    AILesson.query.filter(
+                        AILesson.lesson_id == to_publish_lesson.lesson_id,
+                        AILesson.status.in_([STATUS_PUBLISH]),
+                        AILesson.id != to_publish_lesson.id,
+                    ).update(
+                        {
+                            "status": STATUS_HISTORY,
+                            "updated_user_id": user_id,
+                            "updated": datetime.now(),
+                        }
+                    )
+
                 elif to_publish_lesson.status == STATUS_DRAFT:
                     to_publish_lesson.status = STATUS_PUBLISH
+                    AILesson.query.filter(
+                        AILesson.lesson_id == to_publish_lesson.lesson_id,
+                        AILesson.status.in_([STATUS_PUBLISH]),
+                        AILesson.id != to_publish_lesson.id,
+                    ).update(
+                        {
+                            "status": STATUS_HISTORY,
+                            "updated_user_id": user_id,
+                            "updated": datetime.now(),
+                        }
+                    )
                 to_publish_lesson.updated_user_id = user_id
                 to_publish_lesson.updated = datetime.now()
                 db.session.add(to_publish_lesson)
@@ -301,8 +324,31 @@ def publish_scenario(app, user_id, scenario_id: str):
 
                     elif block_script.status == STATUS_DRAFT:
                         block_script.status = STATUS_PUBLISH
+                        AILessonScript.query.filter(
+                            AILessonScript.script_id == block_script.script_id,
+                            AILessonScript.status.in_([STATUS_PUBLISH]),
+                            AILessonScript.id != block_script.id,
+                        ).update(
+                            {
+                                "status": STATUS_HISTORY,
+                                "updated_user_id": user_id,
+                                "updated": datetime.now(),
+                            }
+                        )
+
                     elif block_script.status == STATUS_PUBLISH:
                         block_script.status = STATUS_PUBLISH
+                        AILessonScript.query.filter(
+                            AILessonScript.script_id == block_script.script_id,
+                            AILessonScript.status.in_([STATUS_PUBLISH]),
+                            AILessonScript.id != block_script.id,
+                        ).update(
+                            {
+                                "status": STATUS_HISTORY,
+                                "updated_user_id": user_id,
+                                "updated": datetime.now(),
+                            }
+                        )
                     block_script.updated_user_id = user_id
                     block_script.updated = datetime.now()
                     db.session.add(block_script)
