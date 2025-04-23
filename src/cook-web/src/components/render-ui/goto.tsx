@@ -98,7 +98,7 @@ export default function Goto(props: GotoProps) {
                 items: list.map((item) => {
                     return {
                         value: item.value,
-                        goto_id: "",
+                        goto_id: properties.goto_settings.items.find((i) => i.value === item.value)?.goto_id || "",
                         type: "goto"
                     }
                 })
