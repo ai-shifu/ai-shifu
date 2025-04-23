@@ -1,13 +1,11 @@
 
 import React, { useEffect, useState } from 'react'
 
-import { Input } from '../ui/input'
 import OutlineSelector from '@/components/outline-selector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useScenario } from '@/store'
 import { Outline } from '@/types/scenario'
 import api from '@/api'
-import Button from '../button'
 
 interface ColorSetting {
     color: string;
