@@ -269,6 +269,7 @@ export const UITypes = [
         }
 
     },
+    /**commit temp  for current version
     {
         type: 'phone',
         name: '手机号',
@@ -304,7 +305,7 @@ export const UITypes = [
             }
             return "";
         }
-    },
+    }, **/
     {
         type: 'login',
         name: '登录',
