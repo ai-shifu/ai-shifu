@@ -17,13 +17,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import type { Profile, EnumItem, ProfileType } from '@/components/profiles/type'
 import api from '@/api'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem
-} from '@/components/ui/select'
+
 
 interface ProfileSaveProps {
   parentId?: string

@@ -37,7 +37,7 @@ export function ForgotPasswordForm({ onSuccess, onLoginClick, isDialog = false }
 
     try {
       setIsLoading(true)
-      const { error } = await mockAuth.resetPasswordForEmail(email)
+      const { error } = await mockAuth.resetPasswordForEmail()
 
       if (error) throw error
 

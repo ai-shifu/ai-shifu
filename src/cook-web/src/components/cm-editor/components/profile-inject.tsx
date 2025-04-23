@@ -16,6 +16,6 @@ const ProfileInject: React.FC<ProfileInjectProps> = ({
     onSelect?.(profile)
   }, [])
 
-  return <ProfileSelect parentId={currentScenario?.id as unknown as number} onSelect={handleSelect} />
+  return <ProfileSelect parentId={currentScenario?.id as unknown as string} onSelect={handleSelect} />
 }
 export default ProfileInject

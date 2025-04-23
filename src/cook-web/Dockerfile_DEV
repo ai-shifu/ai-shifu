@@ -12,7 +12,7 @@ COPY package*.json ./
 # copy project source code
 COPY . .
 # install dependencies
-RUN npm install
+RUN npm install --ignore-scripts
 
 # expose port
 EXPOSE 3000
