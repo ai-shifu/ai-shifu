@@ -43,6 +43,11 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
     // defaultValue: '',
     profile_items: []
   })
+
+
+  useEffect(() => {
+    console.log(profile)
+  }, [profile])
   const [newEnumItem, setNewEnumItem] = useState<EnumItem>({
     value: '',
     name: ''
@@ -101,13 +106,42 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
   }
 
   useEffect(() => {
-    if (value) {
-      setProfile(value)
-      setEditingId(value.profile_id as unknown as number)
-      setIsEditing(!!value.profile_id)
-    } else {
-      resetForm()
+    const fetchProfileItemOptionList = async () => {
+        if (value) {
+          setEditingId(value.profile_id as unknown as number)
+          setIsEditing(!!value.profile_id)
+          if (value.profile_type === "option" && value.profile_id) {
+            const res = await api.getProfileItemOptionList({parent_id: value.profile_id})
+            if (res) {
+              const enumItems: EnumItem[] = []
+              for (let i = 0; i < res.length; i++) {
+                const item = res[i]
+                enumItems.push({
+                  value: item.value,
+                  name: item.name
+                })
+              }
+              await setProfile({
+                ...value,
+                profile_items: enumItems
+              })
+            }else{
+              await setProfile({
+                ...value,
+                profile_items: []
+              })
+            }
+          }else{
+            await setProfile({
+              ...value,
+              profile_items: []
+            })
+          }
+        } else {
+          resetForm()
+        }
     }
+    fetchProfileItemOptionList()
   }, [value])
 
   return (
@@ -209,6 +243,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                           <div className='col-span-2 text-right'>操作</div>
                         </div>
                         <div className='divide-y'>
+                          
                           {(profile.profile_items || []).map((item, index) => (
                             <div
                               key={index}

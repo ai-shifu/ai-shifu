@@ -110,6 +110,7 @@ def get_profile_item_definition_list(
             query = query.filter(ProfileItem.profile_type == PROFILE_TYPE_INPUT_SELECT)
         elif type == "all":
             query = query
+        app.logger.info(type)
         profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
         if profile_item_list:
             return [
@@ -215,6 +216,7 @@ def save_profile_item(
                 profile_prompt_model_args=profile_prompt_model_args,
                 created_by=user_id,
                 updated_by=user_id,
+                status=1,
             )
             db.session.add(profile_item)
             profile_id = profile_item.profile_id
@@ -254,9 +256,9 @@ def save_profile_item(
             for index, item in enumerate(items):
                 profile_item_value = next(
                     (
-                        item
-                        for item in exist_profile_item_value_list
-                        if item.profile_value == item.value
+                        p
+                        for p in exist_profile_item_value_list
+                        if p.profile_value == item.value
                     ),
                     None,
                 )
@@ -276,14 +278,15 @@ def save_profile_item(
                     profile_item_value.profile_value = item.value
                     profile_item_value.profile_value_index = index
                     profile_item_value.updated_by = user_id
+                    profile_item_value.status = 1
                     profile_item_value.updated = datetime.now()
                 update_item_ids.append(profile_item_value.profile_item_id)
                 profile_item_value_i18n = next(
                     (
-                        item
-                        for item in exist_profile_item_value_i18n_list
-                        if item.profile_value == item.value
-                        and item.language == current_language
+                        i18n
+                        for i18n in exist_profile_item_value_i18n_list
+                        if i18n.parent_id == profile_item_value.profile_item_id
+                        and i18n.language == current_language
                     ),
                     None,
                 )
@@ -303,6 +306,7 @@ def save_profile_item(
                     profile_item_value_i18n.profile_item_remark = item.name
                     profile_item_value_i18n.updated_by = user_id
                     profile_item_value_i18n.updated = datetime.now()
+                    profile_item_value_i18n.status = 1
                     update_item_i18n_ids.append(profile_item_value_i18n.id)
             ProfileItemValue.query.filter(
                 ProfileItemValue.profile_id == profile_id,
@@ -316,7 +320,7 @@ def save_profile_item(
             ]
             if delete_item_ids:
                 ProfileItemI18n.query.filter(
-                    ProfileItemI18n.id._in(delete_item_ids),
+                    ProfileItemI18n.id.in_(delete_item_ids),
                     ProfileItemI18n.status == 1,
                 ).update({"status": 0})
         db.session.commit()
