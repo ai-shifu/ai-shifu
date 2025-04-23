@@ -417,7 +417,5 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         app.logger.info(f"profile_key: {profile_key}")
         app.logger.info(f"items: {items}")
         app.logger.info(f"block.script_ui_content: {block.script_ui_content}")
-        ret.block_ui = OptionDto(
-            profile_key, profile_key, profile_key, items
-        )
+        ret.block_ui = OptionDto(profile_key, profile_key, profile_key, items)
     return ret
