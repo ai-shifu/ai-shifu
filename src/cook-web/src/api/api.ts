@@ -21,7 +21,7 @@ const api = {
     sendMailCode: 'POST /user/send_mail_code',
     geneCaptcha: 'POST /user/generate_chk_code',
     requireTmp: 'POST /user/require_tmp',
-    
+
     getScenarioList: 'GET /scenario/scenarios',
     createScenario: "POST /scenario/create-scenario",
     getScenarioChapters: "GET /scenario/chapters",
