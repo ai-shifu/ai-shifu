@@ -119,6 +119,8 @@ def get_existing_blocks(app: Flask, outline_ids: list[str]):
         )
         .group_by(AILessonScript.script_id)
     )
+
+    
     
     query  = (
         AILessonScript.query.filter(
@@ -128,6 +130,8 @@ def get_existing_blocks(app: Flask, outline_ids: list[str]):
         .order_by(AILessonScript.script_index.asc())
        
     )
+
+    
     blocks = query.all()
     return blocks
 
