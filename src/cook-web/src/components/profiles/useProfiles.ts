@@ -28,6 +28,7 @@ const useProfiles = ({
     )
     const systemProfiles = filteredProfiles?.filter(v => v.profile_scope === 'system')
     const customProfiles = filteredProfiles?.filter(v => v.profile_scope === 'user')
+    console.log('customProfiles', customProfiles)
     return [systemProfiles, customProfiles]
   }
 

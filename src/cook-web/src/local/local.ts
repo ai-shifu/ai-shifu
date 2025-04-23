@@ -29,7 +29,7 @@ export const getLocalStore = (key: string) => {
     }
 };
 
-export const getToken = async () => {
+export const getToken =  () => {
     return getLocalStore(USER_TOKEN) || '';
 };
 

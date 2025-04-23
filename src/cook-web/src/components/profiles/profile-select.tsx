@@ -127,7 +127,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                   >
                     <div className='flex flex-col'>
                       <div className='flex items-center'>
-                        <span>{profile.profile_remark}</span>
+                        <span>{profile.profile_key}</span>
                         {hoveredId === profile.profile_id &&
                           profile.profile_type === 'text' &&
                           profile.defaultValue && (

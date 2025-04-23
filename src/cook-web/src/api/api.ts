@@ -1,4 +1,5 @@
 
+
 /**
  * Interface URL
  * login ---- The specific request method name used in business
@@ -13,8 +14,14 @@
  */
 
 const api = {
-    login: 'POST /user/login', //token
+    // auth
+    login: 'POST /user/login',
     register: 'POST /user/register',
+    sendSmsCode: 'POST /user/send_sms_code',
+    sendMailCode: 'POST /user/send_mail_code',
+    geneCaptcha: 'POST /user/generate_chk_code',
+    requireTmp: 'POST /user/require_tmp',
+    
     getScenarioList: 'GET /scenario/scenarios',
     createScenario: "POST /scenario/create-scenario",
     getScenarioChapters: "GET /scenario/chapters",
