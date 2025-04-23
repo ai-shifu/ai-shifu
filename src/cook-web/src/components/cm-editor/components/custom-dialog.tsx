@@ -1,4 +1,3 @@
-
 import React, { useContext } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import EditorContext from '../editor-context'
@@ -14,7 +13,7 @@ const CustomDialog: React.FC<CustomDialogProps> = ({ children }) => {
       <Dialog.Portal>
         <Dialog.Overlay className='fixed inset-0 bg-black/50' />
         <Dialog.Content className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 shadow-lg min-w-[400px]'>
-          <Dialog.Title className='font-medium mb-4'>
+          <Dialog.Title className='text-lg font-medium mb-4'>
             请设置
           </Dialog.Title>
           <div className='space-y-4'>{children}</div>

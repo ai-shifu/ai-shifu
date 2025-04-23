@@ -1,7 +1,7 @@
 enum SelectedOption {
   Video = 'video',
   Image = 'Image',
-  Profile = 'Profile',
+  Variable = 'Variable',
   Empty = ''
 }
 interface IEditorContext {
@@ -14,6 +14,24 @@ interface IEditorContext {
 }
 
 
+type VariableType = 'system' | 'custom'
+type DataType = 'string' | 'enum'
+
+interface EnumItem {
+  value: string
+  alias: string
+}
+
+interface Variable {
+  id: string
+  name: string
+  alias: string
+  type: VariableType
+  dataType: DataType
+  defaultValue?: string
+  enumItems?: EnumItem[]
+}
+
 
 export { SelectedOption }
-export type { IEditorContext }
+export type { IEditorContext, Variable, EnumItem, VariableType, DataType }

@@ -10,11 +10,10 @@ import {
 import { EditorView } from '@codemirror/view'
 import CustomDialog from './components/custom-dialog'
 import EditorContext from './editor-context'
-import type { Profile } from '@/components/profiles/type'
+import VariableInject from './components/variable-inject'
 import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
-import ProfileInject from './components/profile-inject'
-import { SelectedOption, IEditorContext } from './type'
+import { SelectedOption, IEditorContext, Variable } from './type'
 
 function createSlashCommands (
   onSelectOption: (selectedOption: SelectedOption) => void
@@ -43,7 +42,7 @@ function createSlashCommands (
         {
           label: '变量',
           apply: (view, _, from, to) => {
-            handleSelect(view, _, from, to, SelectedOption.Profile)
+            handleSelect(view, _, from, to, SelectedOption.Variable)
           }
         },
         {
@@ -81,6 +80,7 @@ const Editor: React.FC<EditorProps> = ({
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
     SelectedOption.Empty
   )
+  // TODO: confirm
   const [profileList, setProfileList] = useState<string[]>(profiles)
 
   const editorViewRef = useRef<EditorView | null>(null)
@@ -91,7 +91,7 @@ const Editor: React.FC<EditorProps> = ({
     dialogOpen,
     setDialogOpen,
     profileList,
-    setProfileList,
+    setProfileList
   }
 
   const onSelectedOption = useCallback((selectedOption: SelectedOption) => {
@@ -114,9 +114,9 @@ const Editor: React.FC<EditorProps> = ({
     })
   }, [])
 
-  const handleSelectProfile = useCallback(
-    (profile: Profile) => {
-      const textToInsert = `{${profile.profile_key}}`
+  const handleSelectVariable = useCallback(
+    (variable: Variable) => {
+      const textToInsert = `{${variable.name}}`
       insertText(textToInsert)
       setDialogOpen(false)
     },
@@ -163,7 +163,7 @@ const Editor: React.FC<EditorProps> = ({
                 foldGutter: false
               }}
               className='border rounded-md'
-              placeholder='输入“/”快速插入内容'
+              placeholder='输入 / 触发命令菜单...'
               value={content}
               theme='light'
               height='10em'
@@ -172,8 +172,8 @@ const Editor: React.FC<EditorProps> = ({
               }}
             />
             <CustomDialog>
-              {selectedOption === SelectedOption.Profile && (
-                <ProfileInject onSelect={handleSelectProfile} />
+              {selectedOption === SelectedOption.Variable && (
+                <VariableInject onSelect={handleSelectVariable} />
               )}
               {selectedOption === SelectedOption.Image && (
                 <ImageInject onSelect={handleSelectResource} />
