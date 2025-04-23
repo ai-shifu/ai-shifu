@@ -115,6 +115,8 @@ LARK_APP_SECRET=""
 # Path of log file
 LOGGING_PATH="/var/log/ai-shifu.log"  # make sure you have the permission to write the file
 
+# Website access domain name
+WEB_URL=""
 
 ############
 # Frontend #
