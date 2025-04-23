@@ -198,6 +198,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     new_block = block_model.clone()
                     old_check_str = block_model.get_str_to_check()
                     profile = update_block_model(new_block, block_dto)
+                    new_block.script_index = block_index
                     if profile:
                         profile_item = save_profile_item_defination(
                             app, user_id, outline.course_id, profile
