@@ -252,7 +252,7 @@ def modify_unit(
         if unit:
             time = datetime.now()
             new_unit = unit.clone()
-         
+
             old_check_str = unit.get_str_to_check()
             if unit_name:
                 new_unit.lesson_name = unit_name

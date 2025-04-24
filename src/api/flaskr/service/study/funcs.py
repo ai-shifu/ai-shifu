@@ -70,11 +70,15 @@ def get_lesson_tree_to_study_inner(
         if buy_record:
             paid = buy_record.status == BUY_STATUS_SUCCESS
 
-        lessons = AILesson.query.filter(
-            AILesson.course_id == course_id,
-            AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-            AILesson.status == 1,
-        ).order_by(AILesson.id.desc()).all()
+        lessons = (
+            AILesson.query.filter(
+                AILesson.course_id == course_id,
+                AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
+                AILesson.status == 1,
+            )
+            .order_by(AILesson.id.desc())
+            .all()
+        )
 
         online_lessons = [i for i in lessons if i.status == 1]
         online_lessons = sorted(
@@ -314,10 +318,14 @@ def get_lesson_tree_to_study(
 @extensible
 def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
     with app.app_context():
-        lesson_info = AILesson.query.filter(
-            AILesson.lesson_id == lesson_id,
-            AILesson.status == 1,
-        ).order_by(AILesson.id.desc()).first()
+        lesson_info = (
+            AILesson.query.filter(
+                AILesson.lesson_id == lesson_id,
+                AILesson.status == 1,
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         course_info = AICourse.query.filter_by(course_id=lesson_info.course_id).first()
         if not course_info:
             return None
@@ -326,11 +334,15 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         if not lesson_info:
             return None
         if len(lesson_info.lesson_no) <= 2:
-            lesson_infos = AILesson.query.filter(
-                AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
-                AILesson.status == 1,
-                AILesson.course_id == lesson_info.course_id,
-            ).order_by(AILesson.id.desc()).all()
+            lesson_infos = (
+                AILesson.query.filter(
+                    AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
+                    AILesson.status == 1,
+                    AILesson.course_id == lesson_info.course_id,
+                )
+                .order_by(AILesson.id.desc())
+                .all()
+            )
             lesson_ids = [lesson.lesson_id for lesson in lesson_infos]
         attend_infos = (
             AICourseLessonAttend.query.filter(
@@ -371,19 +383,27 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         user_info = User.query.filter_by(user_id=user_id).first()
         ret = StudyRecordDTO(items, teach_avator=teach_avator)
         last_script_id = attend_scripts[-1].script_id
-        last_script = AILessonScript.query.filter(
-            AILessonScript.script_id == last_script_id,
-            AILessonScript.status == 1,
-        ).order_by(AILessonScript.id.desc()).first()
+        last_script = (
+            AILessonScript.query.filter(
+                AILessonScript.script_id == last_script_id,
+                AILessonScript.status == 1,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
         last_lesson_id = last_script.lesson_id
         lesson_id = last_lesson_id
         last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
         if len(last_attends) == 0:
-            last_attend = AICourseLessonAttend.query.filter(
-                AICourseLessonAttend.user_id == user_id,
-                AICourseLessonAttend.lesson_id == last_lesson_id,
-                AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-            ).order_by(AICourseLessonAttend.id.desc()).first()
+            last_attend = (
+                AICourseLessonAttend.query.filter(
+                    AICourseLessonAttend.user_id == user_id,
+                    AICourseLessonAttend.lesson_id == last_lesson_id,
+                    AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+                )
+                .order_by(AICourseLessonAttend.id.desc())
+                .first()
+            )
             if last_attend is None:
                 pass
         else:
@@ -417,17 +437,25 @@ def get_lesson_study_progress(
 ) -> StudyRecordProgressDTO:
     with app.app_context():
         attend_status_values = get_attend_status_values()
-        lesson_info = AILesson.query.filter(
-            AILesson.lesson_id == lesson_id,
-            AILesson.status == 1,
-        ).order_by(AILesson.id.desc()).first()
+        lesson_info = (
+            AILesson.query.filter(
+                AILesson.lesson_id == lesson_id,
+                AILesson.status == 1,
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if not lesson_info:
             return None
-        attend_info = AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_id,
-            AICourseLessonAttend.lesson_id == lesson_id,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-        ).order_by(AICourseLessonAttend.id.desc()).first()
+        attend_info = (
+            AICourseLessonAttend.query.filter(
+                AICourseLessonAttend.user_id == user_id,
+                AICourseLessonAttend.lesson_id == lesson_id,
+                AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+            )
+            .order_by(AICourseLessonAttend.id.desc())
+            .first()
+        )
         if not attend_info:
             return None
 
@@ -450,11 +478,15 @@ def get_lesson_study_progress(
         if attend_info is None:
             return None
 
-        script_info = AILessonScript.query.filter(
-            AILessonScript.lesson_id == attend_info.lesson_id,
-            AILessonScript.script_index == attend_info.script_index,
-            AILessonScript.status == 1,
-        ).order_by(AILessonScript.id.desc()).first()
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.status == 1,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
         if script_info is None:
             return None
 
@@ -474,16 +506,24 @@ def get_lesson_study_progress(
 @extensible
 def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
     with app.app_context():
-        script_info = AILessonScript.query.filter(
-            AILessonScript.script_id == script_id,
-            AILessonScript.status == 1,
-        ).order_by(AILessonScript.id.desc()).first()
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.script_id == script_id,
+                AILessonScript.status == 1,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
         if not script_info:
             return None
-        lesson = AILesson.query.filter(
-            AILesson.lesson_id == script_info.lesson_id,
-            AILesson.status == 1,
-        ).order_by(AILesson.id.desc()).first()
+        lesson = (
+            AILesson.query.filter(
+                AILesson.lesson_id == script_info.lesson_id,
+                AILesson.status == 1,
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if not lesson:
             return None
         return ScriptInfoDTO(
@@ -497,10 +537,14 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
 @extensible
 def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
     with app.app_context():
-        lesson_info = AILesson.query.filter(
-            AILesson.lesson_id == lesson_id,
-            AILesson.status == 1,
-        ).order_by(AILesson.id.desc()).first()
+        lesson_info = (
+            AILesson.query.filter(
+                AILesson.lesson_id == lesson_id,
+                AILesson.status == 1,
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if not lesson_info:
             app.logger.info("lesson_info not found")
             return False
@@ -508,11 +552,15 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         course_id = lesson_info.course_id
         if len(lesson_no) > 2:
             raise_error("LESSON.LESSON_CANNOT_BE_RESET")
-        lessons = AILesson.query.filter(
-            AILesson.lesson_no.like(lesson_no + "%"),
-            AILesson.status == 1,
-            AILesson.course_id == course_id,
-        ).order_by(AILesson.id.desc()).all()
+        lessons = (
+            AILesson.query.filter(
+                AILesson.lesson_no.like(lesson_no + "%"),
+                AILesson.status == 1,
+                AILesson.course_id == course_id,
+            )
+            .order_by(AILesson.id.desc())
+            .all()
+        )
         lesson_ids = [lesson.lesson_id for lesson in lessons]
         attend_infos = AICourseLessonAttend.query.filter(
             AICourseLessonAttend.user_id == user_id,
