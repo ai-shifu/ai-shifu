@@ -446,7 +446,8 @@ def get_scenario_detail(app, user_id: str, scenario_id: str):
     with app.app_context():
         scenario = (
             AICourse.query.filter(
-                AICourse.course_id == scenario_id, AICourse.status.in_([STATUS_PUBLISH,STATUS_DRAFT])
+                AICourse.course_id == scenario_id,
+                AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             )
             .order_by(AICourse.id.desc())
             .first()
