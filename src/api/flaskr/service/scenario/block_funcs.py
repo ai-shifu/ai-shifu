@@ -8,7 +8,7 @@ from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import save_profile_item_defination
 from flaskr.service.profile.models import ProfileItem
 from flaskr.service.common.models import raise_error
-from flaskr.service.scenario.utils import get_existing_blocks
+from flaskr.service.scenario.utils import get_existing_blocks, get_original_outline_tree
 from flaskr.util import generate_id
 from flaskr.dao import db
 from datetime import datetime
@@ -20,6 +20,7 @@ from flaskr.service.lesson.const import (
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from .utils import change_block_status_to_history
+import queue
 
 
 def get_block_list(app, user_id: str, outline_id: str):
@@ -30,17 +31,26 @@ def get_block_list(app, user_id: str, outline_id: str):
         ).first()
         if not lesson:
             raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+        tree = get_original_outline_tree(app, lesson.course_id)
+
+        q = queue.Queue()
+        for node in tree:
+            q.put(node)
+        sub_outline_ids = []
+        find_outline = False
+        sub_outlines = []
+        while not q.empty():
+            node = q.get()
+            if node.outline_id == outline_id:
+                find_outline = True
+                q.queue.clear()
+            if find_outline:
+                sub_outline_ids.append(node.outline_id)
+                sub_outlines.append(node.outline)
+            if node.children and len(node.children) > 0:
+                for child in node.children:
+                    q.put(child)
         # get sub outline list
-        sub_outlines = (
-            AILesson.query.filter(
-                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-                AILesson.course_id == lesson.course_id,
-                AILesson.lesson_no.like(lesson.lesson_no + "%"),
-            )
-            .order_by(AILesson.lesson_no.asc())
-            .all()
-        )
-        sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
         app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
         blocks = get_existing_blocks(app, sub_outline_ids)
         ret = []
