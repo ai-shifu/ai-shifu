@@ -252,7 +252,7 @@ def modify_unit(
         if unit:
             time = datetime.now()
             new_unit = unit.clone()
-            change_outline_status_to_history(unit, user_id, time)
+         
             old_check_str = unit.get_str_to_check()
             if unit_name:
                 new_unit.lesson_name = unit_name
@@ -273,12 +273,7 @@ def modify_unit(
 
             new_unit.lesson_type = type
             if not new_unit.eq(unit):
-                if unit.status != STATUS_PUBLISH:
-                    unit.status = STATUS_HISTORY
-                else:
-                    app.logger.info(
-                        f"unit is published, history unit: {unit.lesson_id} {unit.lesson_no}"
-                    )
+                change_outline_status_to_history(unit, user_id, time)
                 new_unit.status = STATUS_DRAFT
                 new_unit.updated_user_id = user_id
                 new_unit.updated_at = time

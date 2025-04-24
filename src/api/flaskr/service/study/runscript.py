@@ -92,7 +92,8 @@ def run_script_inner(
             else:
                 lesson_info = AILesson.query.filter(
                     AILesson.lesson_id == lesson_id,
-                ).first()
+                    AILesson.status == 1,
+                ).order_by(AILesson.id.desc()).first()
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
                 course_id = lesson_info.course_id
@@ -106,7 +107,7 @@ def run_script_inner(
                 course_info = AICourse.query.filter(
                     AICourse.course_id == course_id,
                     AICourse.status == 1,
-                ).first()
+                ).order_by(AICourse.id.desc()).first()
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
                 # return the teacher avator
