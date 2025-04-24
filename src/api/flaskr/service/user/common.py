@@ -346,19 +346,20 @@ def migrate_user_study_record(
             continue
         else:
             migrate_attends.append(from_attend)
-    for attend in migrate_attends:
-        app.logger.info(
-            "migrate_user_study_record from_attend.lesson_id:" + attend.lesson_id
-        )
-        attend.user_id = to_user_id
-    for attend in migrate_attends:
+    if len(migrate_attends) > 0:
         db.session.execute(
             text(
-                "update ai_course_lesson_attendscript set user_id = '%s' where attend_id = '%s'"
-                % (to_user_id, attend.attend_id)
+                "update ai_course_lesson_attend set user_id = '%s' where id in (%s)"
+                % (to_user_id, ",".join([attend.id for attend in migrate_attends]))
             )
         )
-    if len(migrate_attends) > 0:
+        db.session.execute(
+            text(
+                "update ai_course_lesson_attendscript set user_id = '%s' where attend_id in (%s)"
+                % (to_user_id, ",".join([attend.attend_id for attend in migrate_attends]))
+            )
+        ) 
+        
         db.session.flush()
 
 
