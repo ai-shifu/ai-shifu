@@ -175,6 +175,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
     // Handle form submission
     const onSubmit = async (data) => {
         // Combine form data with keywords and image
+        console.log("data", data)
         const fullFormData = {
             ...data,
             keywords,
@@ -489,6 +490,9 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                             <Button
                                 type="submit"
                                 className="bg-purple-600 hover:bg-purple-700 text-white"
+                                onClick={() => {
+                                    onSubmit(form.getValues())
+                                }}
                             >
                                 保存
                             </Button>
