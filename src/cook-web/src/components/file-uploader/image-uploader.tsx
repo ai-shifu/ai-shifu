@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { uploadFile } from '@/lib/file'
-import { SITE_HOST } from '@/config/site'
+import { getSiteHost } from "@/config/runtime-config";
 
 type ImageUploaderProps = {
   value?: string
@@ -25,6 +25,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
   const [fileName, setFileName] = useState<string>('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const siteHost = getSiteHost()
 
   const resetState = () => {
     setImageUrl('')
@@ -40,7 +41,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
     try {
       const response = await uploadFile(
         file,
-        `${SITE_HOST}/api/scenario/upfile`,
+        `${siteHost}/api/scenario/upfile`,
         undefined,
         undefined,
         progress => {
