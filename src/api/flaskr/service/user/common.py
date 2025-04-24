@@ -356,10 +356,13 @@ def migrate_user_study_record(
         db.session.execute(
             text(
                 "update ai_course_lesson_attendscript set user_id = '%s' where attend_id in (%s)"
-                % (to_user_id, ",".join([attend.attend_id for attend in migrate_attends]))
+                % (
+                    to_user_id,
+                    ",".join([attend.attend_id for attend in migrate_attends]),
+                )
             )
-        ) 
-        
+        )
+
         db.session.flush()
 
 
