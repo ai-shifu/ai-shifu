@@ -1,10 +1,11 @@
-"""add default system profiles 
+"""add default system profiles
 
 Revision ID: b6cbcf622c0a
 Revises: b4e38ed4754d
 Create Date: 2025-04-25 06:00:44.318139
 
 """
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -13,14 +14,15 @@ from flaskr.service.profile.models import PROFILE_TYPE_INPUT_TEXT, PROFILE_SHOW_
 from flask import Flask
 
 # revision identifiers, used by Alembic.
-revision = 'b6cbcf622c0a'
-down_revision = 'b4e38ed4754d'
+revision = "b6cbcf622c0a"
+down_revision = "b4e38ed4754d"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
     from flask import current_app as app
+
     with app.app_context():
         nickname_prompt = """"从用户输入的内容中提取昵称，并判断是否合法，返回 JSON 格式的结果。
 如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_nickname": "解析出的昵称"}}}}`
@@ -87,7 +89,7 @@ def upgrade():
             type=PROFILE_TYPE_INPUT_TEXT,
             show_type=PROFILE_SHOW_TYPE_ALL,
             remark="用户喜欢的讲课风格",
-            profile_prompt=stype_prompt,    
+            profile_prompt=stype_prompt,
             profile_prompt_model="",
             profile_prompt_model_args="{}",
             items=[],
