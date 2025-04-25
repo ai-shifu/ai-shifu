@@ -197,6 +197,8 @@ def save_profile_item(
     items: list[ProfileValueDto] = None,
 ):
     with app.app_context():
+        if not parent_id or parent_id == "":
+            raise_error("PROFILE.PARENT_ID_REQUIRED")
         if profile_id and bool(profile_id):
             profile_item = ProfileItem.query.filter(
                 ProfileItem.profile_id == profile_id,
@@ -444,6 +446,8 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
             raise_error("PROFILE.NOT_FOUND")
+        if profile_item.parent_id == "" or profile_item.parent_id is None:
+            raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_DELETE")
         profile_item.status = 0
         item_ids = [profile_id]
         if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT:
