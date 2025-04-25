@@ -359,12 +359,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 mobile:
                   type: string
                   description: mobile phone number
-                check_code:
-                  type: string
-                  description: Graphics Captcha
               required:
                 - mobile
-                - check_code
         responses:
             200:
                 description: sent success
@@ -392,12 +388,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         """
         mobile = request.get_json().get("mobile", None)
-        check_code = request.get_json().get("check_code", None)
         if not mobile:
             raise_param_error("mobile")
-        if not check_code:
-            raise_param_error("check_code")
-        return make_common_response(send_sms_code(app, mobile, check_code))
+
+        return make_common_response(send_sms_code(app, mobile))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
     # @bypass_token_validation
@@ -651,12 +645,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 mail:
                   type: string
                   description: mail
-                check_code:
-                  type: string
-                  description: graphics captcha
               required:
                 - mobile
-                - check_code
         responses:
             200:
                 description: sent successfully
@@ -682,12 +672,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         """
         mail = request.get_json().get("mail", None)
-        check_code = request.get_json().get("check_code", None)
         if not mail:
             raise_param_error("mail")
-        if not check_code:
-            raise_param_error("check_code")
-        return make_common_response(send_email_code(app, mail, check_code))
+        return make_common_response(send_email_code(app, mail))
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
     # @bypass_token_validation

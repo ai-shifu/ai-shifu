@@ -76,71 +76,55 @@ def generation_img_chk(app: Flask, identifying_account: str):
 
 
 # send sms code
-def send_sms_code(app: Flask, phone: str, checkcode: str):
+def send_sms_code(app: Flask, phone: str):
     with app.app_context():
-        check_save = redis.get(app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + phone)
-        if check_save is None:
-            raise_error("USER.CHECK_CODE_EXPIRED")
-        check_save_str = str(check_save, encoding="utf-8")
-        app.logger.info("check_save_str:" + check_save_str + " checkcode:" + checkcode)
-        if checkcode.lower() != check_save_str.lower():
-            raise_error("USER.CHECK_CODE_ERROR")
-        else:
-            characters = string.digits
-            # Generate a random string of length 4
-            random_string = "".join(random.choices(characters, k=4))
-            # 发送短信验证码
-            redis.set(
-                app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone,
-                random_string,
-                ex=app.config["PHONE_CODE_EXPIRE_TIME"],
-            )
-            send_sms_code_ali(app, phone, random_string)
-            return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
+        characters = string.digits
+        # Generate a random string of length 4
+        random_string = "".join(random.choices(characters, k=4))
+        # 发送短信验证码
+        redis.set(
+            app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone,
+            random_string,
+            ex=app.config["PHONE_CODE_EXPIRE_TIME"],
+        )
+        send_sms_code_ali(app, phone, random_string)
+        return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
 
 
-def send_email_code(app: Flask, email: str, checkcode: str):
+def send_email_code(app: Flask, email: str):
     with app.app_context():
-        check_save = redis.get(app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + email)
-        if check_save is None:
-            raise_error("USER.CHECK_CODE_EXPIRED")
-        check_save_str = str(check_save, encoding="utf-8")
-        app.logger.info("check_save_str:" + check_save_str + " checkcode:" + checkcode)
-        if checkcode.lower() != check_save_str.lower():
-            raise_error("USER.CHECK_CODE_ERROR")
-        else:
-            # Create the email content
-            msg = MIMEMultipart()
-            msg["From"] = app.config["SMTP_SENDER"]
-            msg["To"] = email
-            # todo The theme is currently fixed and can be moved to the configuration file later
-            msg["Subject"] = "AI-Shifu:Your Verification Code"
-            characters = string.digits
-            random_string = "".join(random.choices(characters, k=4))
-            # to set redis
-            redis.set(
-                app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + email,
-                random_string,
-                ex=app.config["MAIL_CODE_EXPIRE_TIME"],
+        # Create the email content
+        msg = MIMEMultipart()
+        msg["From"] = app.config["SMTP_SENDER"]
+        msg["To"] = email
+        # todo The theme is currently fixed and can be moved to the configuration file later
+        msg["Subject"] = "AI-Shifu:Your Verification Code"
+        characters = string.digits
+        random_string = "".join(random.choices(characters, k=4))
+        # to set redis
+        redis.set(
+            app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + email,
+            random_string,
+            ex=app.config["MAIL_CODE_EXPIRE_TIME"],
+        )
+        body = f"Your verification code is: {random_string}"
+        msg.attach(MIMEText(body, "plain"))
+
+        try:
+            # Connect to the SMTP server
+            server = smtplib.SMTP(
+                app.config["SMTP_SERVER"], app.config["SMTP_PORT"]
             )
-            body = f"Your verification code is: {random_string}"
-            msg.attach(MIMEText(body, "plain"))
+            server.starttls()
+            server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
 
-            try:
-                # Connect to the SMTP server
-                server = smtplib.SMTP(
-                    app.config["SMTP_SERVER"], app.config["SMTP_PORT"]
-                )
-                server.starttls()
-                server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
+            # Send the email
+            server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
+            server.quit()
 
-                # Send the email
-                server.sendmail(app.config["SMTP_SENDER"], email, msg.as_string())
-                server.quit()
-
-                app.logger.info(f"Verification code sent to {email}")
-            except Exception as e:
-                app.logger.error(
-                    f"Failed to send verification code to {email}: {str(e)}"
-                )
-                raise_error("USER.EMAIL_SEND_FAILED")
+            app.logger.info(f"Verification code sent to {email}")
+        except Exception as e:
+            app.logger.error(
+                f"Failed to send verification code to {email}: {str(e)}"
+            )
+            raise_error("USER.EMAIL_SEND_FAILED")
