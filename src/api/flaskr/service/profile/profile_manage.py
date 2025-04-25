@@ -198,10 +198,19 @@ def save_profile_item(
 ):
     with app.app_context():
         if not parent_id or parent_id == "":
-            raise_error("PROFILE.PARENT_ID_REQUIRED")
+            raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_UPDATE")
+        exist_system_profile_list = ProfileItem.query.filter(
+            ProfileItem.parent_id == "",
+            ProfileItem.status == 1,
+        ).all()
+        if exist_system_profile_list:
+            for exist_system_profile in exist_system_profile_list:
+                if exist_system_profile.profile_key == key:
+                    raise_error("PROFILE.SYSTEM_PROFILE_KEY_EXIST")
         if profile_id and bool(profile_id):
             profile_item = ProfileItem.query.filter(
                 ProfileItem.profile_id == profile_id,
+                ProfileItem.parent_id == parent_id,
                 ProfileItem.status == 1,
             ).first()
             if not profile_item:
