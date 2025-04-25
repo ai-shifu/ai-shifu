@@ -106,7 +106,7 @@ const Header = () => {
                         {
                             lastSaveTime && (
                                 <div key={lastSaveTime.getTime()} className='bg-gray-100 rounded px-2 py-1 text-xs text-gray-500 transform transition-all duration-300 ease-in-out translate-x-0 opacity-100 animate-slide-in'>
-                                    已自动保存 {lastSaveTime?.toLocaleString()}
+                                    已保存 {lastSaveTime?.toLocaleString()}
                                 </div>
                             )
                         }
