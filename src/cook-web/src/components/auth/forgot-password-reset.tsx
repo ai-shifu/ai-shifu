@@ -14,12 +14,11 @@ import { PasswordStrengthIndicator } from "./password-strength-indicator"
 
 interface ForgotPasswordResetProps {
   email: string
-  otp: string
   onBack: () => void
   onComplete: () => void
 }
 
-export function ForgotPasswordReset({ email, otp, onBack, onComplete }: ForgotPasswordResetProps) {
+export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswordResetProps) {
    const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [password, setPassword] = useState("")
@@ -96,9 +95,8 @@ export function ForgotPasswordReset({ email, otp, onBack, onComplete }: ForgotPa
     try {
       setIsLoading(true)
 
-      const response = await apiService.resetPassword({
+      const response = await apiService.setPassword({
         mail: email,
-        mail_code: otp,
         raw_password: password,
       })
 

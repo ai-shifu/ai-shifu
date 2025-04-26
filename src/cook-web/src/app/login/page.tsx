@@ -17,6 +17,7 @@ import { PhoneRegister } from '@/components/auth/phone-register'
 import { EmailRegister } from '@/components/auth/email-register'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 import { FeedbackForm } from '@/components/auth//feedback-form'
+import Image from 'next/image'
 
 export default function AuthPage () {
   const router = useRouter()
@@ -46,37 +47,49 @@ export default function AuthPage () {
 
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
-      <div className='w-full max-w-md'>
+      <div className='w-full max-w-md space-y-2'>
+        <div className='flex flex-col items-center space-y-2'>
+          <h2 className='text-purple-600 flex items-center font-semibold'>
+            <Image
+              className='dark:invert'
+              src='/logo.svg'
+              alt='AI-Shifu'
+              width={140}
+              height={30}
+              priority
+            />
+          </h2>
+        </div>
         <Card>
           <CardHeader>
             {authMode === 'login' && (
               <>
-                <CardTitle className='text-2xl text-center'>用户登录</CardTitle>
-                <CardDescription className='text-center'>
+                <CardTitle className='text-xl text-center'>用户登录</CardTitle>
+                <CardDescription className='text-sm text-center'>
                   请选择登录方式
                 </CardDescription>
               </>
             )}
             {authMode === 'register' && (
               <>
-                <CardTitle className='text-2xl text-center'>用户注册</CardTitle>
-                <CardDescription className='text-center'>
+                <CardTitle className='text-xl text-center'>用户注册</CardTitle>
+                <CardDescription className='text-sm text-center'>
                   请选择注册方式
                 </CardDescription>
               </>
             )}
             {authMode === 'forgot-password' && (
               <>
-                <CardTitle className='text-2xl text-center'>忘记密码</CardTitle>
-                <CardDescription className='text-center'>
+                <CardTitle className='text-xl text-center'>忘记密码</CardTitle>
+                <CardDescription className='text-sm text-center'>
                   请输入您的邮箱并获取验证码
                 </CardDescription>
               </>
             )}
             {authMode === 'feedback' && (
               <>
-                <CardTitle className='text-2xl text-center'>提交反馈</CardTitle>
-                <CardDescription className='text-center'>
+                <CardTitle className='text-xl text-center'>提交反馈</CardTitle>
+                <CardDescription className='text-sm text-center'>
                   请告诉我们您遇到的问题或建议
                 </CardDescription>
               </>
