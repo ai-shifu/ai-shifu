@@ -13,11 +13,9 @@ export function ForgotPasswordForm({ onComplete }: ForgotPasswordFormProps) {
    const { toast } = useToast()
   const [step, setStep] = useState<"verify" | "reset">("verify")
   const [email, setEmail] = useState("")
-  const [otp, setOtp] = useState("")
 
-  const handleVerifyNext = (email: string, otp: string) => {
+  const handleVerifyNext = (email: string) => {
     setEmail(email)
-    setOtp(otp)
     setStep("reset")
   }
 
@@ -34,7 +32,7 @@ export function ForgotPasswordForm({ onComplete }: ForgotPasswordFormProps) {
       {step === "verify" && <ForgotPasswordCombined onNext={handleVerifyNext} />}
 
       {step === "reset" && (
-        <ForgotPasswordReset email={email} otp={otp} onBack={() => setStep("verify")} onComplete={handleComplete} />
+        <ForgotPasswordReset email={email} onBack={() => setStep("verify")} onComplete={handleComplete} />
       )}
     </div>
   )

@@ -8,7 +8,6 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location src/cook-web/.eslintcache --max-warnings 0",
-    "prepare": "husky install",
     "precommit": "lint-staged"
   },
   "dependencies": {
