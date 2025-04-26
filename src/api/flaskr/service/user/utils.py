@@ -7,6 +7,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from flaskr.i18n import _
 
 from ..common.models import raise_error
 from ...dao import redis_client as redis
@@ -175,8 +176,7 @@ def send_email_code(app: Flask, email: str, ip: str = None):
         msg = MIMEMultipart()
         msg["From"] = app.config["SMTP_SENDER"]
         msg["To"] = email
-        # todo The theme is currently fixed and can be moved to the configuration file later
-        msg["Subject"] = "AI-Shifu:Your Verification Code"
+        msg["Subject"] = _("EMAIL_VERIFICATION_SUBJECT")
         characters = string.digits
         random_string = "".join(random.choices(characters, k=4))
         # to set redis
