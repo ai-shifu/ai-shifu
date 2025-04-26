@@ -134,7 +134,6 @@ const App = () => {
   }
 
   useEffect(() => {
-    console.log('enableWxcode', enableWxcode);
     if (!envDataInitialized) return;
     if (enableWxcode && inWechat()) {
       const { appId } = useEnvStore.getState() as EnvStoreState;
@@ -163,9 +162,6 @@ const App = () => {
   ]);
 
 
-  useEffect(() => {
-    console.log('checkWxcode', checkWxcode);
-  },[checkWxcode]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
@@ -228,7 +224,6 @@ const App = () => {
   }, [language, envDataInitialized, updateLanguage]);
 
   useEffect(() => {
-    console.log('check init', envDataInitialized, checkWxcode);
     if (!envDataInitialized) return;
     if (!checkWxcode) return;
     const checkLogin = async () => {
