@@ -343,7 +343,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(generation_img_chk(app, identifying_account))
 
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
     def send_sms_code_api():
         """
         Send SMS Captcha
@@ -394,7 +394,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(send_sms_code(app, mobile))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
     def verify_sms_code_api():
         """
         Send verify email code
@@ -629,7 +629,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(submit_feedback(app, user_id, feedback))
 
     @app.route(path_prefix + "/send_mail_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
     def send_mail_code_api():
         """
         Send email Captcha
@@ -677,7 +677,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(send_email_code(app, mail))
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
     def verify_mail_code_api():
         """
         Send verify email code

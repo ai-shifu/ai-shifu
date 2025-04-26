@@ -400,7 +400,7 @@ def verify_sms_code(
                 .order_by(User.id.asc())
                 .first()
             )
-        elif user_id != user_info.user_id:
+        elif user_id != user_info.user_id and course_id is not None:
             new_profiles = get_user_profile_labels(app, user_id, course_id)
             update_user_profile_with_lable(
                 app, user_info.user_id, new_profiles, course_id
@@ -481,7 +481,7 @@ def verify_mial_code(
                 .order_by(User.id.asc())
                 .first()
             )
-        elif user_id != user_info.user_id:
+        elif user_id != user_info.user_id and course_id is not None:
             new_profiles = get_user_profile_labels(app, user_id, course_id)
             update_user_profile_with_lable(
                 app, user_info.user_id, new_profiles, course_id
