@@ -785,9 +785,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         raw_password:
                             type: string
                             description: course id
-                        check_code:
-                            type: string
-                            description: course id
         responses:
             200:
                 description: user set password success
@@ -808,13 +805,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             mail = request.get_json().get("mail", None)
             mobile = request.get_json().get("mobile", None)
             raw_password = request.get_json().get("raw_password", None)
-            check_code = request.get_json().get("check_code", None)
             if not mail and not mobile:
                 raise_param_error("mail")
             if not raw_password:
                 raise_param_error("password")
             return make_common_response(
-                set_user_password(app, raw_password, mail, mobile, check_code)
+                set_user_password(app, raw_password, mail, mobile)
             )
 
     # health check
