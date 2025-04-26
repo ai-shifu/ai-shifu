@@ -73,7 +73,7 @@ export class Request {
       headers: {
         ...this.defaultConfig.headers,
         ...config.headers,
-        "X-API-MODE": "admin",
+        // "X-API-MODE": "admin",
       }
     };
     let fullUrl = url;
@@ -93,7 +93,7 @@ export class Request {
         Authorization: `Bearer ${this.token}`,
         ...mergedConfig.headers,
         "Token": this.token,
-        "X-API-MODE": "admin",
+        // "X-API-MODE": "admin",
         "X-Request-ID": uuidv4().replace(/-/g, '')
       } as any;
     }

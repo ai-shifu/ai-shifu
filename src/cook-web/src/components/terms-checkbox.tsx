@@ -1,4 +1,3 @@
-import Link from "next/link"
 import { Checkbox } from "@/components/ui/checkbox"
 
 interface TermsCheckboxProps {
@@ -16,13 +15,13 @@ export function TermsCheckbox({ checked, onCheckedChange, disabled = false }: Te
         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
       >
         我已阅读并同意
-        <Link href="/terms" className="text-primary hover:underline mx-1" target="_blank">
+        <a href="https://ai-shifu.com/useragreement" className="text-primary hover:underline mx-1" target="_blank">
           服务协议
-        </Link>
+        </a>
         &
-        <Link href="/privacy" className="text-primary hover:underline mx-1" target="_blank">
+        <a href="https://ai-shifu.com/privacypolicy" className="text-primary hover:underline mx-1" target="_blank">
           隐私政策
-        </Link>
+        </a>
       </label>
     </div>
   )
