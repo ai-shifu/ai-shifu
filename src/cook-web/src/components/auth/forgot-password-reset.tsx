@@ -32,7 +32,6 @@ export function ForgotPasswordReset({ email, otp, onBack, onComplete }: ForgotPa
     isValid: false,
   })
 
-  // 验证密码
   const validatePassword = (password: string) => {
     if (!password) {
       setPasswordError("请输入密码")
@@ -51,7 +50,6 @@ export function ForgotPasswordReset({ email, otp, onBack, onComplete }: ForgotPa
     return true
   }
 
-  // 验证确认密码
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
       setConfirmPasswordError("请确认密码")
@@ -67,19 +65,16 @@ export function ForgotPasswordReset({ email, otp, onBack, onComplete }: ForgotPa
     return true
   }
 
-  // 密码输入处理
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setPassword(value)
     validatePassword(value)
 
-    // 如果已经输入了确认密码，则同时验证确认密码
     if (confirmPassword) {
       validateConfirmPassword(confirmPassword)
     }
   }
 
-  // 确认密码输入处理
   const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setConfirmPassword(value)
@@ -90,7 +85,6 @@ export function ForgotPasswordReset({ email, otp, onBack, onComplete }: ForgotPa
     }
   }
 
-  // 重置密码
   const handleResetPassword = async () => {
     const isPasswordValid = validatePassword(password)
     const isConfirmPasswordValid = validateConfirmPassword(confirmPassword)

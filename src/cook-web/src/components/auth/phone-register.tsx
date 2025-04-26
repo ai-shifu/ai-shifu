@@ -30,7 +30,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
   const [phoneError, setPhoneError] = useState('')
   const [otpError, setOtpError] = useState('')
 
-  // 验证手机号
   const validatePhone = (phone: string) => {
     if (!phone) {
       setPhoneError('请输入手机号')
@@ -46,7 +45,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
     return true
   }
 
-  // 验证验证码
   const validateOtp = (otp: string) => {
     if (!otp) {
       setOtpError('请输入验证码')
@@ -56,7 +54,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
     return true
   }
 
-  // 手机号输入处理
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setPhoneNumber(value)
@@ -67,7 +64,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
     }
   }
 
-  // 验证码输入处理
   const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setPhoneOtp(value)
@@ -78,7 +74,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
     }
   }
 
-  // 手机号注册 - 发送验证码
   const handleSendPhoneOtp = async () => {
     if (!validatePhone(phoneNumber)) {
       return
@@ -101,9 +96,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
 
       if (response) {
         setShowPhoneOtpInput(true)
-        // 设置60秒倒计时
         setPhoneCountdown(60)
-        // 启动倒计时
         const timer = setInterval(() => {
           setPhoneCountdown(prevCountdown => {
             if (prevCountdown <= 1) {
@@ -136,7 +129,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
     }
   }
 
-  // 手机号注册 - 验证OTP
   const handleVerifyPhoneOtp = async () => {
     if (!validateOtp(phoneOtp)) {
       return
@@ -159,7 +151,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
       })
 
       if (response) {
-        // 验证成功后注册
         toast({
           title: '注册成功'
         })

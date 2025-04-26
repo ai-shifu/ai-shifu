@@ -12,6 +12,7 @@ import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidEmail, checkPasswordStrength } from '@/lib/validators'
 import { PasswordStrengthIndicator } from './password-strength-indicator'
+import { setToken } from '@/local/local'
 
 interface EmailRegisterProps {
   onRegisterSuccess: () => void
@@ -226,6 +227,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       })
 
       if (response) {
+        setToken(response.token)
         setStep('password')
         toast({
           title: '邮箱验证成功',

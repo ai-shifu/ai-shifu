@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
+import { setToken } from '@/local/local'
 
 interface ForgotPasswordCombinedProps {
   onNext: (email: string, otp: string) => void
@@ -140,6 +141,7 @@ export function ForgotPasswordCombined ({
       })
 
       if (response) {
+        setToken(response.token)
         toast({
           title: '验证成功',
           description: '请设置新密码'

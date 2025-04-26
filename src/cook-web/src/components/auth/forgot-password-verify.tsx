@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
+import { setToken } from '@/local/local'
 
 interface ForgotPasswordVerifyProps {
   email: string
@@ -22,9 +23,8 @@ export function ForgotPasswordVerify ({
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [otp, setOtp] = useState('')
-  const [countdown, setCountdown] = useState(60) // 1分钟倒计时
+  const [countdown, setCountdown] = useState(60)
 
-  // 启动倒计时
   useState(() => {
     const timer = setInterval(() => {
       setCountdown(prevCountdown => {
@@ -39,7 +39,6 @@ export function ForgotPasswordVerify ({
     return () => clearInterval(timer)
   })
 
-  // 重新发送验证码
   const handleResendOtp = async () => {
     try {
       setIsLoading(true)
@@ -49,7 +48,6 @@ export function ForgotPasswordVerify ({
       })
 
       if (response) {
-        // 重置倒计时
         setCountdown(60)
         toast({
           title: '验证码已重新发送',
@@ -73,7 +71,6 @@ export function ForgotPasswordVerify ({
     }
   }
 
-  // 验证OTP
   const handleVerifyOtp = async () => {
     if (!otp) {
       toast({
@@ -92,6 +89,8 @@ export function ForgotPasswordVerify ({
       })
 
       if (response) {
+        setToken(response.token)
+
         toast({
           title: '验证成功',
           description: '请设置新密码'

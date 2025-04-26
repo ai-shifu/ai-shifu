@@ -27,7 +27,6 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
   const [countdown, setCountdown] = useState(0)
   const [phoneError, setPhoneError] = useState('')
 
-  // 验证手机号
   const validatePhone = (phone: string) => {
     if (!phone) {
       setPhoneError('请输入手机号')
@@ -43,7 +42,6 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
     return true
   }
 
-  // 手机号输入处理
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setPhoneNumber(value)
@@ -54,7 +52,6 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
     }
   }
 
-  // 手机号登录 - 发送验证码
   const handleSendOtp = async () => {
     if (!validatePhone(phoneNumber)) {
       return
@@ -77,9 +74,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       console.log('sendSmsCode response:', response)
       if (response) {
         setShowOtpInput(true)
-        // 设置60秒倒计时
         setCountdown(60)
-        // 启动倒计时
         const timer = setInterval(() => {
           setCountdown(prevCountdown => {
             if (prevCountdown <= 1) {
@@ -112,7 +107,6 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
     }
   }
 
-  // 手机号登录 - 验证OTP
   const handleVerifyOtp = async () => {
     if (!phoneOtp) {
       toast({
