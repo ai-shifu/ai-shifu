@@ -80,7 +80,7 @@ const RouterView = () => useRoutes(routes);
 
 const App = () => {
   const [envDataInitialized, setEnvDataInitialized] = useState<boolean>(false);
-
+  const [checkWxcode, setCheckWxcode] = useState<boolean>(false);
   useEffect(() => {
     const initialize = async (): Promise<void> => {
       await initializeEnvData();
@@ -134,6 +134,7 @@ const App = () => {
   }
 
   useEffect(() => {
+    console.log('enableWxcode', enableWxcode);
     if (!envDataInitialized) return;
     if (enableWxcode && inWechat()) {
       const { appId } = useEnvStore.getState() as EnvStoreState;
@@ -147,7 +148,10 @@ const App = () => {
       }
       if (currCode !== wechatCode) {
         updateWechatCode(currCode);
+        setCheckWxcode(true);
       }
+    } else {
+      setCheckWxcode(true);
     }
     setLoading(false);
   }, [
@@ -157,6 +161,11 @@ const App = () => {
     envDataInitialized,
     enableWxcode,
   ]);
+
+
+  useEffect(() => {
+    console.log('checkWxcode', checkWxcode);
+  },[checkWxcode]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
@@ -169,7 +178,6 @@ const App = () => {
   }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
   useEffect(() => {
     if (params.previewMode) {
-      console.log('params.previewMode', params.previewMode);
       updatePrivewMode(params.previewMode === 'true');
     }
   }, [params.previewMode, updatePrivewMode]);
@@ -221,13 +229,14 @@ const App = () => {
 
   useEffect(() => {
     if (!envDataInitialized) return;
+    if (!checkWxcode) return;
     const checkLogin = async () => {
       setLoading(true);
       await (useUserStore.getState() as UserStoreState).checkLogin();
       setLoading(false);
     };
     checkLogin();
-  }, [envDataInitialized]);
+  }, [envDataInitialized, checkWxcode]);
 
   return (
     <ConfigProvider locale={{ locale: language }}>
