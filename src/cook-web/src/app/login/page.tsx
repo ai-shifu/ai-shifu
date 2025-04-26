@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -18,6 +18,7 @@ import { EmailRegister } from '@/components/auth/email-register'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 import { FeedbackForm } from '@/components/auth//feedback-form'
 import Image from 'next/image'
+import { setToken } from '@/local/local'
 
 export default function AuthPage () {
   const router = useRouter()
@@ -42,14 +43,18 @@ export default function AuthPage () {
   }
 
   const handleBackToLogin = () => {
-    setAuthMode('login')
+    router.push('/main')
   }
+
+  useEffect(() => {
+    setToken('')
+  }, [])
 
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
       <div className='w-full max-w-md space-y-2'>
-        <div className='flex flex-col items-center space-y-2'>
-          <h2 className='text-purple-600 flex items-center font-semibold'>
+        <div className='flex flex-col items-center'>
+          <h2 className='text-purple-600 flex items-center font-semibold pb-2'>
             <Image
               className='dark:invert'
               src='/logo.svg'

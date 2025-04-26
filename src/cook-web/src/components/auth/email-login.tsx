@@ -100,13 +100,6 @@ export function EmailLogin ({
         username,
         password
       })
-      console.log('login response:', response)
-      if (response) {
-        toast({
-          title: response.message || '登录失败'
-        })
-        return
-      }
       if (response) {
         toast({
           title: '登录成功'

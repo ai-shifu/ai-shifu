@@ -118,7 +118,9 @@ export class Request {
         console.log(res);
         if (res.code == 0) {
           return res.data;
-        } if (res.code == 1001 || res.code == 1005) {
+        }
+        fail(res.message)
+        if (res.code == 1001 || res.code == 1005) {
           window.location.href = '/login';
         } else {
           throw new ErrorWithCode(res.message, res.code);
