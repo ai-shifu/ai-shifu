@@ -197,7 +197,7 @@ def save_profile_item(
     items: list[ProfileValueDto] = None,
 ):
     with app.app_context():
-        if not parent_id or parent_id == "":
+        if (not parent_id or parent_id == "") and user_id != "":
             raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_UPDATE")
         exist_system_profile_list = ProfileItem.query.filter(
             ProfileItem.parent_id == "",
@@ -415,7 +415,8 @@ def add_profile_i18n(
     with app.app_context():
         if conf_type == PROFILE_CONF_TYPE_PROFILE:
             profile_item = ProfileItem.query.filter(
-                ProfileItem.profile_id == parent_id
+                ProfileItem.profile_id == parent_id,
+                ProfileItem.status == 1,
             ).first()
         elif conf_type == PROFILE_CONF_TYPE_ITEM:
             profile_item = ProfileItemValue.query.filter(
@@ -433,7 +434,6 @@ def add_profile_i18n(
         ).first()
         if not profile_i18n:
             profile_i18n = ProfileItemI18n(
-                i18n_id=generate_id(app),
                 parent_id=parent_id,
                 conf_type=conf_type,
                 language=language,

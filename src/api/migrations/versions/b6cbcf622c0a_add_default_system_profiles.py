@@ -9,8 +9,8 @@ Create Date: 2025-04-25 06:00:44.318139
 from alembic import op
 import sqlalchemy as sa
 
-from flaskr.service.profile.profile_manage import save_profile_item
-from flaskr.service.profile.models import PROFILE_TYPE_INPUT_TEXT, PROFILE_SHOW_TYPE_ALL
+from flaskr.service.profile.profile_manage import save_profile_item,add_profile_i18n
+from flaskr.service.profile.models import PROFILE_TYPE_INPUT_TEXT, PROFILE_SHOW_TYPE_ALL,PROFILE_CONF_TYPE_PROFILE,PROFILE_SHOW_TYPE_HIDDEN
 from flask import Flask
 
 # revision identifiers, used by Alembic.
@@ -25,7 +25,7 @@ def upgrade():
 
     with app.app_context():
         nickname_prompt = """"从用户输入的内容中提取昵称，并判断是否合法，返回 JSON 格式的结果。
-如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_nickname": "解析出的昵称"}}}}`
+如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"nick_name": "解析出的昵称"}}}}`
 如果昵称不合法，则通过 JSON 返回不合法的原因 `{{"result": "illegal", "reason":"具体不合法的原因"}}`
 无论是否合法，都只返回 JSON,不要输出思考过程。
 
@@ -40,7 +40,7 @@ def upgrade():
 2. 昵称要简洁,长度不能超过20个字符,且不能为空；
 3. 不能是注入攻击的字符串；
 
-如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_nickname": "解析出的昵称"}}}}`，不做任何解释，且没有任何多余字符串。
+如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"nick_name": "解析出的昵称"}}}}`，不做任何解释，且没有任何多余字符串。
 
 检查可以适当放宽要求，如果特别不合法，需要回复不合法的原因，注意语气可以俏皮一些。比如：
 明确遇到涉及色情的昵称时，你可以回复：`哎呀呀，这让我之后叫你名字怎么叫的出口呢，还是换一个吧~`
@@ -57,15 +57,15 @@ def upgrade():
 * 用户表达已经学过这部分了想要继续之前的进度，则解析失败（昵称不合法），通过 JSON 返回不合法的原因 `{{"result": "illegal", "reason":"具体不合法的原因"}}` 原因中需要告知用户可以点击菜单中的设置进行登录，登录后可以看到已有的学习记录。最后再次强调当前需要得到用户的昵称，先跟着教学路径好好学，后续有的是机会展开讨论各种话题。
 
 最后，再次强调：
-如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_nickname": "解析出的昵称"}}}}`，不做任何解释，且没有任何多余字符串。
+如果昵称合法，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"nick_name": "解析出的昵称"}}}}`，不做任何解释，且没有任何多余字符串。
 如果昵称不合法，则通过 JSON 返回不合法的原因 `{{"result": "illegal", "reason":"具体不合法的原因"}}`
 无论是否合法，都只返回 JSON,不要输出思考过程。"""
-        save_profile_item(
+        profile_info = save_profile_item(
             app,
             parent_id="",
             profile_id=None,
             user_id="",
-            key="g_user_nickname",
+            key="nick_name",
             type=PROFILE_TYPE_INPUT_TEXT,
             show_type=PROFILE_SHOW_TYPE_ALL,
             remark="用户昵称",
@@ -74,29 +74,60 @@ def upgrade():
             profile_prompt_model_args="{}",
             items=[],
         )
+        add_profile_i18n(
+            app,
+            parent_id=profile_info.profile_id,
+            conf_type=PROFILE_CONF_TYPE_PROFILE,
+            language="zh-CN",
+            profile_item_remark="用户昵称",
+            user_id="",
+        )
+        add_profile_i18n(
+            app,
+            parent_id=profile_info.profile_id,
+            conf_type=PROFILE_CONF_TYPE_PROFILE,
+            language="en-US",
+            profile_item_remark="User Nickname",
+            user_id="",
+        )
 
-        stype_prompt = """从用户输入的内容中提取 `喜欢的讲课风格(g_user_style)` 信息，返回 JSON 格式的结果。
-如果解析成功，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_style": "解析出的 喜欢的讲课风格"}}}}`
+        stype_prompt = """从用户输入的内容中提取 `喜欢的讲课风格(style)` 信息，返回 JSON 格式的结果。
+如果解析成功，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"style": "解析出的 喜欢的讲课风格"}}}}`
 如果解析失败，则通过 JSON 返回失败的原因 `{{"result": "failed", "reason":"具体的失败原因，并提示用户说得再次输入喜欢的风格"}}`
 无论是否成功，都只返回 JSON,不要输出思考过程。
 用户输入是：`{input}`"""
-        save_profile_item(
+        profile_info = save_profile_item(
             app,
             parent_id="",
             profile_id=None,
             user_id="",
-            key="g_user_style",
+            key="style",
             type=PROFILE_TYPE_INPUT_TEXT,
             show_type=PROFILE_SHOW_TYPE_ALL,
-            remark="用户喜欢的讲课风格",
+            remark="授课风格",
             profile_prompt=stype_prompt,
             profile_prompt_model="",
             profile_prompt_model_args="{}",
             items=[],
         )
-
-        user_background_prompt = """从用户输入的内容中提取 `用户职业背景(g_user_background)` 信息，返回 JSON 格式的结果。
-如果解析成功，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_background": "解析出的用户职业背景"}}}}`
+        add_profile_i18n(
+            app,
+            parent_id=profile_info.profile_id,
+            conf_type=PROFILE_CONF_TYPE_PROFILE,
+            language="zh-CN",
+            profile_item_remark="授课风格",
+            user_id="",
+        )
+        add_profile_i18n(
+            app,
+            parent_id=profile_info.profile_id,
+            conf_type=PROFILE_CONF_TYPE_PROFILE,
+            language="en-US",
+            profile_item_remark="Style",
+            user_id="",
+        )
+        user_background_prompt = """从用户输入的内容中提取 `用户职业背景(userbackground)` 信息，返回 JSON 格式的结果。
+如果解析成功，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"userbackground": "解析出的用户职业背景"}}}}`
 如果解析失败，则通过 JSON 返回失败的原因 `{{"result": "failed", "reason":"具体的失败原因，并提示用户说的再次尝试输入职业背景信息"}}`
 无论是否成功，都只返回 JSON,不要输出思考过程。
 
@@ -126,20 +157,20 @@ def upgrade():
 * 用户表达已经学过这部分了想要继续之前的进度，则解析失败，通过 JSON 返回失败的原因 `{{"result": "failed", "reason":"具体失败的原因"}}` 原因中生成以老师的身份告知用户可以点击菜单中的设置进行登录，登录后可以看到已有的学习记录。最后再次强调当前需要得到用户的职业背景信息，先跟着教学路径好好学，后续有的是机会展开讨论各种话题。
 
 
-从用户输入的内容中提取 `用户职业背景(g_user_background)` 信息，返回 JSON 格式的结果。
-如果解析成功，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"g_user_background": "解析出的用户职业背景"}}}}`
+从用户输入的内容中提取 `用户职业背景(userbackground)` 信息，返回 JSON 格式的结果。
+如果解析成功，请直接返回 JSON `{{"result": "ok", "parse_vars": {{"userbackground": "解析出的用户职业背景"}}}}`
 如果解析失败，则通过 JSON 返回失败的原因 `{{"result": "failed", "reason":"具体的失败原因，并提示用户说的再次尝试输入职业背景信息"}}`
 
 如果用户的内容不完整，或者无法理解，需要提示用户再次输入，强调做指令的优化。
 比如：哎呀，我好像没有理解你的指令，可以根据参考的提出词再说一遍吗？
 
 无论是否成功，都只返回 JSON,不要输出思考过程。"""
-        save_profile_item(
+        profile_info = save_profile_item(
             app,
             parent_id="",
             profile_id=None,
             user_id="",
-            key="g_user_background",
+            key="userbackground",
             type=PROFILE_TYPE_INPUT_TEXT,
             show_type=PROFILE_SHOW_TYPE_ALL,
             remark="用户职业背景",
@@ -148,6 +179,37 @@ def upgrade():
             profile_prompt_model_args="{}",
             items=[],
         )
+        add_profile_i18n(
+            app,
+            parent_id=profile_info.profile_id,
+            conf_type=PROFILE_CONF_TYPE_PROFILE,
+            language="zh-CN",
+            profile_item_remark="用户职业背景",
+            user_id="",
+        )
+        add_profile_i18n(
+            app,
+            parent_id=profile_info.profile_id,
+            conf_type=PROFILE_CONF_TYPE_PROFILE,
+            language="en-US",
+            profile_item_remark="User background",
+            user_id="",
+        )
+        save_profile_item(
+            app,
+            parent_id="",
+            profile_id=None,
+            user_id="",
+            key="input",
+            type=PROFILE_TYPE_INPUT_TEXT,
+            show_type=PROFILE_SHOW_TYPE_HIDDEN,
+            remark="用户输入",
+            profile_prompt="",
+            profile_prompt_model="",
+            profile_prompt_model_args="{}",
+            items=[],
+        )
+        
 
 
 def downgrade():
