@@ -1,4 +1,5 @@
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, current_app
+from functools import wraps
 
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.profile.funcs import (
@@ -29,9 +30,30 @@ from flaskr.dao import db
 from flaskr.i18n import set_language
 
 
+def optional_token_validation(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.cookies.get("token", None)
+        if not token:
+            token = request.args.get("token", None)
+        if not token:
+            token = request.headers.get("Token", None)
+        if not token and request.method.upper() == "POST" and request.is_json:
+            token = request.get_json().get("token", None)
+
+        if token:
+            token = str(token)
+            user = validate_user(current_app, token)
+            set_language(user.language)
+            request.user = user
+        return f(*args, **kwargs)
+    return decorated_function
+
+
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/register", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def register():
         """
         register
@@ -88,6 +110,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def login():
         """
         user login
@@ -344,6 +367,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def send_sms_code_api():
         """
         Send SMS Captcha
@@ -395,6 +419,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def verify_sms_code_api():
         """
         Send verify email code
@@ -630,6 +655,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/send_mail_code", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def send_mail_code_api():
         """
         Send email Captcha
@@ -678,6 +704,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def verify_mail_code_api():
         """
         Send verify email code
