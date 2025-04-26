@@ -228,6 +228,7 @@ const App = () => {
   }, [language, envDataInitialized, updateLanguage]);
 
   useEffect(() => {
+    console.log('check init', envDataInitialized, checkWxcode);
     if (!envDataInitialized) return;
     if (!checkWxcode) return;
     const checkLogin = async () => {
