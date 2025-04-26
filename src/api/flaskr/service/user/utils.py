@@ -82,6 +82,8 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
         if ip:
             ip_ban_key = app.config["REDIS_KEY_PRRFIX_IP_BAN"] + ip
             if redis.get(ip_ban_key):
+                # Development, debugging and use
+                # redis.delete(ip_ban_key)
                 raise_error("USER.IP_BANNED")
 
             # Check IP sending frequency
@@ -136,6 +138,8 @@ def send_email_code(app: Flask, email: str, ip: str = None):
         if ip:
             ip_ban_key = app.config["REDIS_KEY_PRRFIX_IP_BAN"] + ip
             if redis.get(ip_ban_key):
+                # Development, debugging and use
+                # redis.delete(ip_ban_key)
                 raise_error("USER.IP_BANNED")
 
             # Check IP sending frequency
@@ -206,3 +210,4 @@ def send_email_code(app: Flask, email: str, ip: str = None):
                 f"Failed to send verification code to {email}: {str(e)}"
             )
             raise_error("USER.EMAIL_SEND_FAILED")
+        return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}

@@ -26,7 +26,7 @@ from .utils import generate_token, get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
 from .models import User as CommonUser, AdminUser as AdminUser
 from flaskr.common.log import get_mode
-
+from flaskr.service.lesson.models import AICourse
 
 FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
 
@@ -436,6 +436,10 @@ def verify_sms_code(
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.mobile = phone
             db.session.add(user_info)
+            # New user registration requires course association detection
+            # When there is an install ui, the logic here should be removed
+            init_first_course(app, user_info.user_id)
+
         if user_info.user_state == USER_STATE_UNTEGISTERED:
             user_info.mobile = phone
             user_info.user_state = USER_STATE_REGISTERED
@@ -518,6 +522,10 @@ def verify_mial_code(
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.email = mail
             db.session.add(user_info)
+            # New user registration requires course association detection
+            # When there is an install ui, the logic here should be removed
+            init_first_course(app, user_info.user_id)
+
         if user_info.user_state == USER_STATE_UNTEGISTERED:
             user_info.email = mail
             user_info.user_state = USER_STATE_REGISTERED
@@ -540,6 +548,27 @@ def verify_mial_code(
             token,
         )
 
+def init_first_course(app: Flask, user_id: str):
+    """
+    Check if there is only one user and one course. If so, update the creator of the course
+    """
+    with app.app_context():
+        # Check the number of users
+        user_count = User.query.count()
+        if user_count != 1:
+            return
+
+        # Check the number of courses
+        course_count = AICourse.query.count()
+        if course_count != 1:
+            return
+
+        # Get the only course
+        course = AICourse.query.first()
+        if course:
+            # The creator of the updated course
+            course.created_user_id = user_id
+            db.session.commit()
 
 def set_user_password(
     app: Flask,
