@@ -548,8 +548,7 @@ def set_user_password(
         if user.password_hash == "":
             # Users who have not set a password can directly set a new password
             user.password_hash = password_hash
-
-        if user.password_hash != "":
+        elif user.password_hash != "":
             # The user has set a password. If you need to change the password, you need to confirm it with a Captcha
             identifying_account = ""
             redisKey = ""
@@ -567,7 +566,7 @@ def set_user_password(
             check_save_str = str(check_save, encoding="utf-8") if check_save else ""
             if checkcode != check_save_str and checkcode != FIX_CHECK_CODE:
                 raise_error("USER.CHEKCODE_CHECK_ERROR")
-            if checkcode.lower() == check_save_str.lower():
+            if checkcode.lower() == check_save_str.lower() or checkcode == FIX_CHECK_CODE:
                 user.password_hash = password_hash
         db.session.flush()
         db.session.commit()
