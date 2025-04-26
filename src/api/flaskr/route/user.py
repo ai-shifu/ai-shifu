@@ -391,7 +391,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if not mobile:
             raise_param_error("mobile")
 
-        return make_common_response(send_sms_code(app, mobile))
+        return make_common_response(send_sms_code(app, mobile, request.remote_addr))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
     @bypass_token_validation
@@ -674,7 +674,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         mail = request.get_json().get("mail", None)
         if not mail:
             raise_param_error("mail")
-        return make_common_response(send_email_code(app, mail))
+        return make_common_response(send_email_code(app, mail, request.remote_addr))
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
     @bypass_token_validation
