@@ -19,7 +19,7 @@ from flaskr.service.lesson.const import (
     STATUS_DELETE,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from .utils import change_block_status_to_history
+from .utils import change_block_status_to_history,get_original_outline_tree
 import queue
 
 
@@ -131,16 +131,25 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             return []
         outline_id = outline.lesson_id
 
-        sub_outlines = (
-            AILesson.query.filter(
-                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-                AILesson.course_id == outline.course_id,
-                AILesson.lesson_no.like(outline.lesson_no + "%"),
-            )
-            .order_by(AILesson.lesson_no.asc())
-            .all()
-        )
-        sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
+        tree = get_original_outline_tree(app, outline.course_id)
+
+        q = queue.Queue()
+        for node in tree:
+            q.put(node)
+        sub_outline_ids = []
+        find_outline = False
+        sub_outlines = []
+        while not q.empty():
+            node = q.get()
+            if node.outline_id == outline_id:
+                find_outline = True
+                q.queue.clear()
+            if find_outline:
+                sub_outline_ids.append(node.outline_id)
+                sub_outlines.append(node.outline)
+            if node.children and len(node.children) > 0:
+                for child in node.children:
+                    q.put(child)
         app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
         # get all blocks
         blocks = get_existing_blocks(app, sub_outline_ids)
