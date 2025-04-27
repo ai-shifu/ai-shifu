@@ -394,6 +394,7 @@ def verify_sms_code(
     if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
         raise_error("USER.SMS_CHECK_ERROR")
     else:
+        redis.delete(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
         user_info = (
             User.query.filter(User.mobile == phone)
             .order_by(User.user_state.desc())
