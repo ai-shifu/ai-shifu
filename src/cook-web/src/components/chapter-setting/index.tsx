@@ -8,8 +8,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SlidersHorizontal } from 'lucide-react';
 import api from '@/api';
 import Loading from '../loading';
+import { cn } from '@/lib/utils';
 
-const ChapterSettingsDialog = ({ unitId }: { unitId: string }) => {
+const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpenChange?: (open: boolean) => void }) => {
     const [open, setOpen] = useState(false);
     const [chapterType, setChapterType] = useState("normal");
     const [systemPrompt, setSystemPrompt] = useState("");
@@ -43,14 +44,32 @@ const ChapterSettingsDialog = ({ unitId }: { unitId: string }) => {
         } else {
             init();
         }
-    }, [open, unitId])
+        onOpenChange?.(open);
+    }, [open, unitId, onOpenChange])
 
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+            open={open}
+            onOpenChange={(newOpen) => {
+                if (document.activeElement?.tagName === 'INPUT' ||
+                    document.activeElement?.tagName === 'TEXTAREA' ||
+                    document.activeElement?.getAttribute('role') === 'radio' ||
+                    document.activeElement?.getAttribute('role') === 'checkbox') {
+                    return;
+                }
+                setOpen(newOpen);
+                onOpenChange?.(newOpen);
+            }}
+        >
             <DialogTrigger asChild>
                 <SlidersHorizontal className='cursor-pointer h-4 w-4 text-gray-500' />
             </DialogTrigger>
-            <DialogContent className="sm:max-w-lg bg-gray-100">
+            <DialogContent
+                className="sm:max-w-lg bg-gray-100"
+                onPointerDown={(e) => {
+                    e.stopPropagation();
+                }}
+            >
                 <DialogHeader>
                     <DialogTitle className="text-lg font-medium">章节设置</DialogTitle>
                 </DialogHeader>
