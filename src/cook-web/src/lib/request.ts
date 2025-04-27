@@ -73,7 +73,7 @@ export class Request {
       headers: {
         ...this.defaultConfig.headers,
         ...config.headers,
-        "X-API-MODE": "admin",
+        // "X-API-MODE": "admin",
       }
     };
     let fullUrl = url;
@@ -93,7 +93,7 @@ export class Request {
         Authorization: `Bearer ${this.token}`,
         ...mergedConfig.headers,
         "Token": this.token,
-        "X-API-MODE": "admin",
+        // "X-API-MODE": "admin",
         "X-Request-ID": uuidv4().replace(/-/g, '')
       } as any;
     }
@@ -118,7 +118,9 @@ export class Request {
         console.log(res);
         if (res.code == 0) {
           return res.data;
-        } if (res.code == 1001 || res.code == 1005) {
+        }
+        fail(res.message)
+        if ((res.code == 1001 || res.code == 1005) && location.pathname !== '/login') {
           window.location.href = '/login';
         } else {
           throw new ErrorWithCode(res.message, res.code);
