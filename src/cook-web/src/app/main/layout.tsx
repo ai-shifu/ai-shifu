@@ -7,11 +7,11 @@ import {
 } from "@/components/ui/sheet";
 import {
   Bars3Icon,
-  BookOpenIcon,
-  BoltIcon,
-  LightBulbIcon,
+  // BookOpenIcon,
+  // BoltIcon,
+  // LightBulbIcon,
   DocumentIcon,
-  CheckBadgeIcon
+  // CheckBadgeIcon
 } from '@heroicons/react/24/outline';
 import Image from "next/image";
 import Link from "next/link";
