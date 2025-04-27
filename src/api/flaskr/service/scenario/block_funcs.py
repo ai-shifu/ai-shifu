@@ -23,6 +23,7 @@ from .utils import change_block_status_to_history, get_original_outline_tree
 import queue
 from flaskr.dao import redis_client
 
+
 def get_block_list(app, user_id: str, outline_id: str):
     with app.app_context():
         lesson = AILesson.query.filter(
@@ -116,7 +117,9 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 
 
 # save block list
-def save_block_list_internal (app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+def save_block_list_internal(
+    app, user_id: str, outline_id: str, block_list: list[BlockDto]
+):
     with app.app_context():
         time = datetime.now()
         app.logger.info(f"save_block_list: {outline_id}")
@@ -243,7 +246,9 @@ def save_block_list_internal (app, user_id: str, outline_id: str, block_list: li
                         change_block_status_to_history(block_model, user_id, time)
 
                         db.session.add(new_block)
-                        app.logger.info(f"update block : {new_block.id} {new_block.status}")
+                        app.logger.info(
+                            f"update block : {new_block.id} {new_block.status}"
+                        )
                         block_models.append(new_block)
                         new_check_str = new_block.get_str_to_check()
                         if old_check_str != new_check_str:
@@ -265,6 +270,8 @@ def save_block_list_internal (app, user_id: str, outline_id: str, block_list: li
             generate_block_dto(block_model, profile_items)
             for block_model in block_models
         ]
+
+
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     timeout = 5 * 60
     blocking_timeout = 1
@@ -285,6 +292,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
         app.logger.error("lockfail")
         return []
     return
+
 
 def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
     with app.app_context():
