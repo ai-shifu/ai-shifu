@@ -264,7 +264,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       setIsLoading(true)
 
       const response = await apiService.setPassword({
-        email: email,
+        mail: email,
         raw_password: password,
       })
 
