@@ -165,8 +165,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             if type == "block":
                 block_dto = convert_dict_to_block_dto(block)
                 block_model = None
+                block_id = generate_id(app)
                 app.logger.info(f"block_dto id : {block_dto.block_id}")
                 if block_dto.block_id is not None and block_dto.block_id != "":
+                    block_id = block_dto.block_id
                     check_block = next(
                         (b for b in blocks if b.script_id == block_dto.block_id), None
                     )
@@ -176,14 +178,16 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         app.logger.warning(
                             f"block_dto id not found : {block_dto.block_id}"
                         )
+                        
                 if block_model is None:
                     # add new block
                     block_model = AILessonScript(
-                        script_id=generate_id(app),
+                        script_id=block_id,
                         script_index=block_index,
                         script_name=block_dto.block_name,
                         script_desc=block_dto.block_desc,
                         script_type=block_dto.block_type,
+                        lesson_id=current_outline_id,
                         created=time,
                         created_user_id=user_id,
                         updated=time,
