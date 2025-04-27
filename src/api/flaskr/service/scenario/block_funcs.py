@@ -21,7 +21,7 @@ from flaskr.service.lesson.const import (
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from .utils import change_block_status_to_history, get_original_outline_tree
 import queue
-
+from flaskr.dao import redis_client
 
 def get_block_list(app, user_id: str, outline_id: str):
     with app.app_context():
@@ -116,7 +116,7 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 
 
 # save block list
-def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+def save_block_list_internal (app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     with app.app_context():
         time = datetime.now()
         app.logger.info(f"save_block_list: {outline_id}")
@@ -265,8 +265,26 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             generate_block_dto(block_model, profile_items)
             for block_model in block_models
         ]
-    pass
+def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+    timeout = 5 * 60
+    blocking_timeout = 1
+    lock_key = app.config.get("REDIS_KEY_PRRFIX") + ":save_block_list:" + outline_id
+    lock = redis_client.lock(
+        lock_key, timeout=timeout, blocking_timeout=blocking_timeout
+    )
+    if lock.acquire(blocking=True):
+        try:
+            return save_block_list_internal(app, user_id, outline_id, block_list)
+        except Exception as e:
+            app.logger.error(e)
+        finally:
+            lock.release()
+        return
+    else:
 
+        app.logger.error("lockfail")
+        return []
+    return
 
 def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
     with app.app_context():
@@ -310,7 +328,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
                 new_block.updated = time
                 new_block.updated_user_id = user_id
                 new_block.status = STATUS_DRAFT
-                change_block_status_to_history(new_block, user_id, time)
+                change_block_status_to_history(block, user_id, time)
                 db.session.add(new_block)
         db.session.add(block_model)
         db.session.commit()
