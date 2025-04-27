@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -8,7 +8,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SlidersHorizontal } from 'lucide-react';
 import api from '@/api';
 import Loading from '../loading';
-import { cn } from '@/lib/utils';
 
 const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpenChange?: (open: boolean) => void }) => {
     const [open, setOpen] = useState(false);
@@ -16,16 +15,8 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
     const [systemPrompt, setSystemPrompt] = useState("");
     const [hideChapter, setHideChapter] = useState(true);
     const [loading, setLoading] = useState(false);
-    const onConfirm = async () => {
-        await api.modifyUnit({
-            "unit_id": unitId,
-            "unit_is_hidden": hideChapter,
-            "unit_system_prompt": systemPrompt,
-            "unit_type": chapterType
-        })
-        setOpen(false);
-    }
-    const init = async () => {
+
+    const init = useCallback(async () => {
         setOpen(true);
         setLoading(true);
         const result = await api.getUnitInfo({
@@ -35,7 +26,18 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
         setSystemPrompt(result.system_prompt);
         setHideChapter(result.is_hidden);
         setLoading(false);
+    }, [unitId]);
+
+    const onConfirm = async () => {
+        await api.modifyUnit({
+            "unit_id": unitId,
+            "unit_is_hidden": hideChapter,
+            "unit_system_prompt": systemPrompt,
+            "unit_type": chapterType
+        })
+        setOpen(false);
     }
+
     useEffect(() => {
         if (!open) {
             setChapterType("formal");
@@ -45,7 +47,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
             init();
         }
         onOpenChange?.(open);
-    }, [open, unitId, onOpenChange])
+    }, [open, unitId, onOpenChange, init])
 
     return (
         <Dialog
@@ -78,7 +80,6 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                         <div className='flex justify-center items-center h-24'>
                             <Loading />
                         </div>
-
                     )
                 }
                 {
@@ -134,7 +135,6 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                         确定
                     </Button>
                 </div>
-
             </DialogContent>
         </Dialog>
     );
