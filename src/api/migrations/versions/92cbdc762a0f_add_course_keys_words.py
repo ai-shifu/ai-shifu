@@ -9,7 +9,6 @@ Create Date: 2025-02-05 04:08:18.853986
 from alembic import op
 import sqlalchemy as sa
 
-
 # revision identifiers, used by Alembic.
 revision = "92cbdc762a0f"
 down_revision = "35619240774c"
@@ -22,7 +21,11 @@ def upgrade():
     with op.batch_alter_table("ai_course", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
-                "course_keywords", sa.Text(), nullable=False, comment="Course keywords"
+                "course_keywords",
+                sa.Text(),
+                nullable=True,
+                default="",
+                comment="Course keywords",
             )
         )
 
