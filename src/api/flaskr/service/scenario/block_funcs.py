@@ -194,6 +194,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         updated_user_id=user_id,
                         status=STATUS_DRAFT,
                     )
+                    app.logger.info(f"new block : {block_model.script_id}")
                     profile = update_block_model(block_model, block_dto)
                     if profile:
                         profile_item = save_profile_item_defination(
@@ -214,6 +215,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     block_model.updated_user_id = user_id
                     block_model.status = STATUS_DRAFT
                     db.session.add(block_model)
+                    app.logger.info(f"new block : {block_model.id}")
                     block_models.append(block_model)
                     save_block_ids.append(block_model.script_id)
                 else:
@@ -239,6 +241,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         new_block.script_index = block_index
                         new_block.lesson_id = current_outline_id
                         change_block_status_to_history(block_model, user_id, time)
+                        app.logger.info(f"update block : {new_block.id} {new_block.status}")
                         db.session.add(new_block)
                         block_models.append(new_block)
                         new_check_str = new_block.get_str_to_check()
