@@ -31,6 +31,7 @@ node_modules/
 /.pnp
 .pnp.js
 
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
@@ -174,6 +175,10 @@ dev.http
 src/cook/test*
 src/cook/codesifu-demo.db
 src/cook/auth_config.yml
+src/cook-web/.next/
+src/cook-web/node_modules/
+src/cook-web/public/
+src/cook-web/next-env.d.ts
 
 # Docker data directories
 docker/cook_data/
