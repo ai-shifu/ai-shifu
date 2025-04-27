@@ -781,7 +781,7 @@ def check_script_is_last_script(
                 AILessonScript.lesson_id == last_lesson.lesson_id,
                 AILessonScript.status == 1,
             )
-            .order_by(AILessonScript.id.desc())
+            .order_by(AILessonScript.script_index.desc())
             .first()
         )
         if (
