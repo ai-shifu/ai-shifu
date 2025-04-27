@@ -67,6 +67,7 @@ def generate_temp_user(
                             user_state=user_info.user_state,
                             wx_openid=user_info.user_open_id,
                             language=user_info.user_language,
+                            has_password=bool(user_info.password_hash),
                         ),
                         token=generate_token(app, user_id=user_info.user_id),
                     )
@@ -95,6 +96,7 @@ def generate_temp_user(
                     user_state=new_user.user_state,
                     wx_openid=new_user.user_open_id,
                     language=new_user.user_language,
+                    has_password=bool(new_user.password_hash),
                 ),
                 token=token,
             )
@@ -116,6 +118,7 @@ def generate_temp_user(
                             user_state=user.user_state,
                             wx_openid=user.user_open_id,
                             language=user.user_language,
+                            has_password=bool(user.password_hash),
                         ),
                         token=generate_token(app, user_id=user.user_id),
                     )
@@ -133,6 +136,7 @@ def generate_temp_user(
                     user_state=user.user_state,
                     wx_openid=user.user_open_id,
                     language=user.user_language,
+                    has_password=bool(user.password_hash),
                 ),
                 token=token,
             )

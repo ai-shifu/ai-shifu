@@ -25,6 +25,7 @@ class UserInfo:
     user_state: str
     language: str
     user_avatar: str
+    has_password: bool
 
     def __init__(
         self,
