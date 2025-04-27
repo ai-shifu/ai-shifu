@@ -241,10 +241,9 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         new_block.script_index = block_index
                         new_block.lesson_id = current_outline_id
                         change_block_status_to_history(block_model, user_id, time)
-                        app.logger.info(
-                            f"update block : {new_block.id} {new_block.status}"
-                        )
+
                         db.session.add(new_block)
+                        app.logger.info(f"update block : {new_block.id} {new_block.status}")
                         block_models.append(new_block)
                         new_check_str = new_block.get_str_to_check()
                         if old_check_str != new_check_str:
