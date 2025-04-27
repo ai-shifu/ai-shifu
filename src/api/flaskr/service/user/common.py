@@ -480,6 +480,7 @@ def verify_mial_code(
     if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
         raise_error("USER.MAIL_CHECK_ERROR")
     else:
+        redis.delete(app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + mail)
         user_info = (
             User.query.filter(User.email == mail)
             .order_by(User.user_state.desc())
