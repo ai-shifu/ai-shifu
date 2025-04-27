@@ -100,6 +100,9 @@ export function EmailLogin ({
         username,
         password
       })
+      if (response.code) {
+        return
+      }
       if (response) {
         toast({
           title: '登录成功'

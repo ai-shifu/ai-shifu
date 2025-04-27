@@ -71,7 +71,9 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       const response = await apiService.sendSmsCode({
         mobile: phoneNumber
       })
-      console.log('sendSmsCode response:', response)
+      if (response.code) {
+        return
+      }
       if (response) {
         setShowOtpInput(true)
         setCountdown(60)
@@ -131,7 +133,9 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         mobile: phoneNumber,
         sms_code: phoneOtp
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         toast({
           title: '登录成功'

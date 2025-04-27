@@ -86,9 +86,12 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
       setIsLoading(true)
 
       const response = await apiService.submitFeedback({
+        mail: email,
         feedback: content
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         toast({
           title: '反馈提交成功',

@@ -57,7 +57,9 @@ export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
       const response = await apiService.sendMailCode({
         mail: email
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         toast({
           title: '验证码已发送',

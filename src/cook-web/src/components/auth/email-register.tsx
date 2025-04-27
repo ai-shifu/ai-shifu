@@ -163,7 +163,9 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       const response = await apiService.sendMailCode({
         mail: email
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         // setCodeSent(true)
         setCountdown(60)
@@ -225,7 +227,9 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail: email,
         mail_code: emailOtp
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         setToken(response.token)
         setStep('password')
@@ -267,7 +271,9 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail: email,
         raw_password: password,
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         toast({
           title: '注册成功'

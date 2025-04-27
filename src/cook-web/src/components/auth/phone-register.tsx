@@ -94,6 +94,10 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         mobile: phoneNumber
       })
 
+      if (response.code) {
+        return
+      }
+
       if (response) {
         setShowPhoneOtpInput(true)
         setPhoneCountdown(60)
@@ -149,7 +153,9 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         mobile: phoneNumber,
         sms_code: phoneOtp
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         toast({
           title: '注册成功'

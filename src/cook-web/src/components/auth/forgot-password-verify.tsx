@@ -46,7 +46,9 @@ export function ForgotPasswordVerify ({
       const response = await apiService.sendMailCode({
         mail: email
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         setCountdown(60)
         toast({
@@ -87,7 +89,9 @@ export function ForgotPasswordVerify ({
         mail: email,
         mail_code: otp
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         setToken(response.token)
 

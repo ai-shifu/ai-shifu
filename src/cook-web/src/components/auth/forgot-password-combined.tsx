@@ -86,7 +86,9 @@ export function ForgotPasswordCombined ({
       const response = await apiService.sendMailCode({
         mail: email
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         setCodeSent(true)
         setCountdown(60)
@@ -139,7 +141,9 @@ export function ForgotPasswordCombined ({
         mail: email,
         mail_code: otp
       })
-
+      if (response.code) {
+        return
+      }
       if (response) {
         setToken(response.token)
         toast({

@@ -120,7 +120,7 @@ export class Request {
           return res.data;
         }
         fail(res.message)
-        if (res.code == 1001 || res.code == 1005) {
+        if ((res.code == 1001 || res.code == 1005) && location.pathname !== '/login') {
           window.location.href = '/login';
         } else {
           throw new ErrorWithCode(res.message, res.code);

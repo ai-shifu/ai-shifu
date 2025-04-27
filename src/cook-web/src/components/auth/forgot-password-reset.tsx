@@ -99,6 +99,9 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
         mail: email,
         raw_password: password,
       })
+      if (response.code) {
+        return
+      }
 
       if (response) {
         toast({
