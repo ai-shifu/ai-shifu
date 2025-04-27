@@ -308,6 +308,8 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
         if not outline:
             raise_error("SCENARIO.OUTLINE_NOT_FOUND")
         block_dto = convert_dict_to_block_dto({"type": "block", "properties": block})
+        # add 1 to the block index / 1 is the index of the block in the outline
+        block_index = block_index + 1
         block_model = AILessonScript(
             script_id=generate_id(app),
             script_index=block_index,
