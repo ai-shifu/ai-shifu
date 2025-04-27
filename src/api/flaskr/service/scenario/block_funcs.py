@@ -178,7 +178,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         app.logger.warning(
                             f"block_dto id not found : {block_dto.block_id}"
                         )
-                        
+
                 if block_model is None:
                     # add new block
                     block_model = AILessonScript(
