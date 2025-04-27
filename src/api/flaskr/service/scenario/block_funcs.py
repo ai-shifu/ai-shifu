@@ -150,10 +150,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             if node.children and len(node.children) > 0:
                 for child in node.children:
                     q.put(child)
-        app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
+        app.logger.info(f"new sub_outline_ids : {sub_outline_ids}")
         # get all blocks
         blocks = get_existing_blocks(app, sub_outline_ids)
-        app.logger.info(f"blocks : {len(blocks)}")
+        app.logger.info(f"new blocks : {len(blocks)}")
         block_index = 1
         current_outline_id = outline_id
         block_models = []
