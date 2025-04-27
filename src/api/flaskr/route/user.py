@@ -611,6 +611,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
     def sumbit_feedback_api():
         """
         submit feedback
@@ -624,6 +626,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
               schema:
                 type: object
                 properties:
+                    mail:
+                        type: string
+                        description: mail
                     feedback:
                         type: string
                         description: feedback content
@@ -646,12 +651,14 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             400:
                 description: parameter error
         """
-
-        user_id = request.user.user_id
+        user_id = getattr(request, "user", None)
+        if user_id:
+            user_id = user_id.user_id
         feedback = request.get_json().get("feedback", None)
+        mail = request.get_json().get("mail", None)
         if not feedback:
             raise_param_error("feedback")
-        return make_common_response(submit_feedback(app, user_id, feedback))
+        return make_common_response(submit_feedback(app, user_id, feedback, mail))
 
     @app.route(path_prefix + "/send_mail_code", methods=["POST"])
     @bypass_token_validation
