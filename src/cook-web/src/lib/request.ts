@@ -115,16 +115,14 @@ export class Request {
       const res = await response.json();
       // check if there is a code property, use Object API
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-        console.log(res);
+
+        if (location.pathname == '/login') {
+          return res;
+        }
         if (res.code == 0) {
           return res.data;
         }
-        fail(res.message)
-        if ((res.code == 1001 || res.code == 1005) && location.pathname !== '/login') {
-          window.location.href = '/login';
-        } else {
-          throw new ErrorWithCode(res.message, res.code);
-        }
+
       }
       return res;
     } catch (error: any) {

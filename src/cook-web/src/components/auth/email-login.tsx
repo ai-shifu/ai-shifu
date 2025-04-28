@@ -100,26 +100,28 @@ export function EmailLogin ({
         username,
         password
       })
-      if (response.code) {
-        return
-      }
-      if (response) {
+      if (response.code==0) {
         toast({
           title: '登录成功'
         })
         setToken(response.token)
         onLoginSuccess()
-      } else {
+      }
+
+      if (response.code == 1001 || response.code == 1005 || response.code === 1003 ) {
         toast({
           title: '登录失败',
-          description: response.msg || '用户名或密码错误',
+          description: '用户名或密码错误',
+          // description: response.msg || '用户名或密码错误',
           variant: 'destructive'
         })
       }
+
     } catch (error: any) {
       toast({
         title: '登录失败',
-        description: error.message || '网络错误，请稍后重试',
+        description: '网络错误，请稍后重试',
+        // description: error.message || '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {

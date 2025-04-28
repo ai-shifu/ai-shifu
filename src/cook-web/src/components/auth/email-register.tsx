@@ -282,14 +282,16 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       } else {
         toast({
           title: '注册失败',
-          description: response.msg || '请稍后重试',
+          // description: response.msg || '请稍后重试',
+          description:  '请稍后重试',
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
         title: '注册失败',
-        description: error.message || '网络错误，请稍后重试',
+        description:  '网络错误，请稍后重试',
+        // description: error.message || '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {

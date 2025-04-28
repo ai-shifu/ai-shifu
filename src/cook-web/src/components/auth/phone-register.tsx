@@ -172,7 +172,8 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
     } catch (error: any) {
       toast({
         title: '注册失败',
-        description: error.message || '网络错误，请稍后重试',
+        description:  '网络错误，请稍后重试',
+        // description: error.message || '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {
