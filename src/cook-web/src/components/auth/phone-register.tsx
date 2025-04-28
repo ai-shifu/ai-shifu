@@ -98,7 +98,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         return
       }
 
-      if (response) {
+      if (response.code==0) {
         setShowPhoneOtpInput(true)
         setPhoneCountdown(60)
         const timer = setInterval(() => {
@@ -156,7 +156,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
       if (response.code) {
         return
       }
-      if (response) {
+      if (response.code==0) {
         toast({
           title: '注册成功'
         })
@@ -165,15 +165,14 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
       } else {
         toast({
           title: '验证失败',
-          description: response.msg || '验证码错误',
+          description: '验证码错误',
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
         title: '注册失败',
-        description:  '网络错误，请稍后重试',
-        // description: error.message || '网络错误，请稍后重试',
+        description: error.message || '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {

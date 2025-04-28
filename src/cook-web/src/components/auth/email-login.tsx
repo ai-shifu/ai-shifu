@@ -120,8 +120,7 @@ export function EmailLogin ({
     } catch (error: any) {
       toast({
         title: '登录失败',
-        description: '网络错误，请稍后重试',
-        // description: error.message || '网络错误，请稍后重试',
+        description: error.message || '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {

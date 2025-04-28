@@ -74,7 +74,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       if (response.code) {
         return
       }
-      if (response) {
+      if (response.code==0) {
         setShowOtpInput(true)
         setCountdown(60)
         const timer = setInterval(() => {
@@ -136,7 +136,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       if (response.code) {
         return
       }
-      if (response) {
+      if (response.code==0) {
         toast({
           title: '登录成功'
         })
@@ -145,7 +145,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       } else {
         toast({
           title: '验证失败',
-          description: response.msg || '验证码错误',
+          description: '验证码错误',
           variant: 'destructive'
         })
       }

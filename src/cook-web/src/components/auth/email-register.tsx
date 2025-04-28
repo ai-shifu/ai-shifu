@@ -230,7 +230,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       if (response.code) {
         return
       }
-      if (response) {
+      if (response.code==0) {
         setToken(response.token)
         setStep('password')
         toast({
@@ -274,7 +274,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       if (response.code) {
         return
       }
-      if (response) {
+      if (response.code==0) {
         toast({
           title: '注册成功'
         })
@@ -282,7 +282,6 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       } else {
         toast({
           title: '注册失败',
-          // description: response.msg || '请稍后重试',
           description:  '请稍后重试',
           variant: 'destructive'
         })
@@ -290,8 +289,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
     } catch (error: any) {
       toast({
         title: '注册失败',
-        description:  '网络错误，请稍后重试',
-        // description: error.message || '网络错误，请稍后重试',
+        description: error.message || '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {
