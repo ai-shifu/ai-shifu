@@ -30,7 +30,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [step, setStep] = useState<'verify' | 'password'>('verify')
   const [countdown, setCountdown] = useState(0)
-  // const [codeSent, setCodeSent] = useState(false)
+  const [showOtpInput, setShowOtpInput] = useState(false)
 
   const [emailError, setEmailError] = useState('')
   const [otpError, setOtpError] = useState('')
@@ -164,8 +164,8 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail: email
       })
 
-      if (response.code==0) {
-        // setCodeSent(true)
+      if (response.code==0) {          
+        setShowOtpInput(true)
         setCountdown(60)
         const timer = setInterval(() => {
           setCountdown(prevCountdown => {
@@ -326,7 +326,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
                 placeholder='请输入验证码'
                 value={emailOtp}
                 onChange={handleOtpChange}
-                disabled={isLoading || !email || !!emailError}
+                disabled={isLoading || !email || !!emailError ||  !showOtpInput}
                 className={`flex-1 ${
                   otpError ? 'border-red-500 focus-visible:ring-red-500' : ''
                 }`}
@@ -341,7 +341,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
                 }
                 className='whitespace-nowrap h-8'
               >
-                {isSendingCode ? (
+                {isSendingCode && !showOtpInput ? (
                   <Loader2 className='h-4 w-4 animate-spin mr-2' />
                 ) : countdown > 0 ? (
                   `${countdown}秒后重新获取`
