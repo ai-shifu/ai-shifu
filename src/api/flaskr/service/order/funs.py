@@ -183,9 +183,10 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
 
     expire_time = origin_record.created + datetime.timedelta(minutes=pay_order_expire_time)
     if datetime.datetime.now() > expire_time:
-        # 订单超时
-        # 更新订单状态
+        # Order timeout
+        # Update the order status
         origin_record.status = BUY_STATUS_TIMEOUT
+        # 检查订单是否存在优惠券，如果有优惠券要退回
         db.session.commit()
         return True
     return False
@@ -193,13 +194,14 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
         order_timeout_make_new_order = False
-        course_info = AICourse.query.filter(AICourse.course_id == course_id,AICourse.status!=BUY_STATUS_TIMEOUT).first()
+        course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         if not course_info:
             raise_error("LESSON.COURSE_NOT_FOUND")
         origin_record = (
             AICourseBuyRecord.query.filter(
                 AICourseBuyRecord.user_id == user_id,
                 AICourseBuyRecord.course_id == course_id,
+                AICourseBuyRecord.status!=BUY_STATUS_TIMEOUT
             )
             .order_by(AICourseBuyRecord.id.asc())
             .first()
