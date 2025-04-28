@@ -94,9 +94,6 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         mobile: phoneNumber
       })
 
-      if (response.code) {
-        return
-      }
 
       if (response.code==0) {
         setShowPhoneOtpInput(true)
@@ -153,9 +150,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         mobile: phoneNumber,
         sms_code: phoneOtp
       })
-      if (response.code) {
-        return
-      }
+
       if (response.code==0) {
         toast({
           title: '注册成功'

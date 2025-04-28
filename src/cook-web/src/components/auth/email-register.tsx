@@ -227,9 +227,6 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail: email,
         mail_code: emailOtp
       })
-      if (response.code) {
-        return
-      }
       if (response.code==0) {
         setToken(response.token)
         setStep('password')
@@ -271,9 +268,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail: email,
         raw_password: password,
       })
-      if (response.code) {
-        return
-      }
+
       if (response.code==0) {
         toast({
           title: '注册成功'

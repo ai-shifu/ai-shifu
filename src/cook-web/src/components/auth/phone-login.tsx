@@ -71,9 +71,6 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       const response = await apiService.sendSmsCode({
         mobile: phoneNumber
       })
-      if (response.code) {
-        return
-      }
       if (response.code==0) {
         setShowOtpInput(true)
         setCountdown(60)
@@ -133,15 +130,19 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         mobile: phoneNumber,
         sms_code: phoneOtp
       })
-      if (response.code) {
-        return
-      }
-      if (response.code==0) {
+
+      if (response.code == 0) {
         toast({
           title: '登录成功'
         })
         setToken(response.token)
         onLoginSuccess()
+      } else if (response.code == 1003) {
+        toast({
+          title: '验证失败',
+          description: '验证码已过期',
+          variant: 'destructive'
+        })
       } else {
         toast({
           title: '验证失败',
@@ -149,6 +150,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
           variant: 'destructive'
         })
       }
+
     } catch (error: any) {
       toast({
         title: '验证失败',
