@@ -242,6 +242,7 @@ def extract_variables(template: str) -> list:
 def get_fmt_prompt(
     app: Flask,
     user_id: str,
+    course_id: str,
     profile_tmplate: str,
     input: str = None,
     profile_array_str: str = None,
@@ -250,7 +251,7 @@ def get_fmt_prompt(
     propmpt_keys = []
     profiles = {}
 
-    profiles = get_user_profiles(app, user_id)
+    profiles = get_user_profiles(app, user_id, course_id)
     propmpt_keys = list(profiles.keys())
     if input:
         profiles["input"] = input
