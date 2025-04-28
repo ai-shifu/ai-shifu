@@ -135,7 +135,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         toast({
           title: '登录成功'
         })
-        setToken(response.token)
+        setToken(response.data.token)
         onLoginSuccess()
       } else if (response.code == 1003) {
         toast({

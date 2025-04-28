@@ -1,5 +1,6 @@
 from flask import Flask, request, make_response, current_app
 from functools import wraps
+import threading
 
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.profile.funcs import (
@@ -29,6 +30,7 @@ from .common import make_common_response, bypass_token_validation, by_pass_login
 from flaskr.dao import db
 from flaskr.i18n import set_language
 
+thread_local = threading.local()
 
 def optional_token_validation(f):
     @wraps(f)
@@ -414,8 +416,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         mobile = request.get_json().get("mobile", None)
         if not mobile:
             raise_param_error("mobile")
-
-        return make_common_response(send_sms_code(app, mobile, request.remote_addr))
+        client_ip = getattr(thread_local, "client_ip", request.remote_addr)
+        return make_common_response(send_sms_code(app, mobile, client_ip))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
     @bypass_token_validation
@@ -707,7 +709,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         mail = request.get_json().get("mail", None)
         if not mail:
             raise_param_error("mail")
-        return make_common_response(send_email_code(app, mail, request.remote_addr))
+        client_ip = getattr(thread_local, "client_ip", request.remote_addr)
+        return make_common_response(send_email_code(app, mail, client_ip))
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
     @bypass_token_validation

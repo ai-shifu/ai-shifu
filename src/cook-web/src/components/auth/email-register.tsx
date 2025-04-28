@@ -226,7 +226,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail_code: emailOtp
       })
       if (response.code==0) {
-        setToken(response.token)
+        setToken(response.data.token)
         setStep('password')
         toast({
           title: '邮箱验证成功',

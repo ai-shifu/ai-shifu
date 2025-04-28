@@ -156,7 +156,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
           title: '注册成功'
         })
         onRegisterSuccess()
-        setToken(response.token)
+        setToken(response.data.token)
       } else {
         toast({
           title: '验证失败',

@@ -89,7 +89,7 @@ export function ForgotPasswordVerify ({
       })
 
       if (response.code == 0) {
-        setToken(response.token)
+        setToken(response.data.token)
 
         toast({
           title: '验证成功',

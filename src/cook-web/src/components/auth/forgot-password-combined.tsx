@@ -141,7 +141,7 @@ export function ForgotPasswordCombined ({
       })
 
       if (response.code == 0) {
-        setToken(response.token)
+        setToken(response.data.token)
         toast({
           title: '验证成功',
           description: '请设置新密码'

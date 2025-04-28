@@ -104,7 +104,7 @@ export function EmailLogin ({
         toast({
           title: '登录成功'
         })
-        setToken(response.token)
+        setToken(response.data.token)
         onLoginSuccess()
       }
 
