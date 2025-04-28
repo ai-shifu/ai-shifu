@@ -119,10 +119,10 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
           variant: 'destructive'
         })
       }
-    } catch (error: any) {
+    } catch {
       toast({
         title: '发送验证码失败',
-        description: error.message || '网络错误，请稍后重试',
+        description: '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {
@@ -164,10 +164,10 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
           variant: 'destructive'
         })
       }
-    } catch (error: any) {
+    } catch {
       toast({
         title: '注册失败',
-        description: error.message || '网络错误，请稍后重试',
+        description: '网络错误，请稍后重试',
         variant: 'destructive'
       })
     } finally {

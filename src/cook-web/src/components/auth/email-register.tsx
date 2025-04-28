@@ -228,6 +228,15 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       if (response.code==0) {
         setToken(response.data.token)
         setStep('password')
+        setPassword('')
+        setConfirmPassword('')
+        setPasswordError('')
+        setConfirmPasswordError('')
+        setPasswordStrength({
+          score: 0,
+          feedback: [],
+          isValid: false
+        })
         toast({
           title: '邮箱验证成功',
           description: '请设置您的密码'

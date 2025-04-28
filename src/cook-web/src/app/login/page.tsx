@@ -43,7 +43,7 @@ export default function AuthPage () {
   }
 
   const handleBackToLogin = () => {
-    router.push('/main')
+    setAuthMode('login')
   }
 
   useEffect(() => {
