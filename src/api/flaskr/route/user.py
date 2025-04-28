@@ -416,7 +416,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         mobile = request.get_json().get("mobile", None)
         if not mobile:
             raise_param_error("mobile")
-        client_ip = getattr(thread_local, "client_ip", request.remote_addr)
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
         return make_common_response(send_sms_code(app, mobile, client_ip))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
@@ -709,7 +712,10 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         mail = request.get_json().get("mail", None)
         if not mail:
             raise_param_error("mail")
-        client_ip = getattr(thread_local, "client_ip", request.remote_addr)
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
         return make_common_response(send_email_code(app, mail, client_ip))
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
