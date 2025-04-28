@@ -163,9 +163,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       const response = await apiService.sendMailCode({
         mail: email
       })
-      if (response.code) {
-        return
-      }
+
       if (response) {
         // setCodeSent(true)
         setCountdown(60)
