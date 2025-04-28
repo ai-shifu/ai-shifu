@@ -214,7 +214,7 @@ def get_user_profiles(
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
     result = {}
-    if keys is None:
+    if keys is None or len(keys) == 0:
         for user_profile in user_profiles:
             if user_profile.profile_id == "" or user_profile.profile_id in [
                 item.profile_id for item in profiles_items
