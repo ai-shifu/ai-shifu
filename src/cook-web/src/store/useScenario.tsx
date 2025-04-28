@@ -283,7 +283,6 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
     const saveBlocks = async () => {
         if (isLoading) {
-            console.log('isLoading')
             return;
         }
         const list = buildBlockList(blocks);
@@ -387,8 +386,6 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     const saveCurrentBlocks = useCallback(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => {
         if (isLoading) {
             return;
-        } else {
-            console.debug('auto save')
         }
         setIsSaving(true);
         setError(null);
