@@ -14,6 +14,12 @@ from flaskr.api.check import (
 )
 from flaskr.util.uuid import generate_id
 from flaskr.service.common import raise_error
+from flaskr.service.profile.profile_manage import get_profile_item_definition_list
+from flaskr.service.profile.models import (
+    PROFILE_TYPE_INPUT_SELECT,
+    PROFILE_TYPE_INPUT_TEXT,
+    CONST_PROFILE_TYPE_OPTION,
+)
 
 
 def check_text_content(
@@ -155,23 +161,41 @@ def save_user_profile(
     )
 
 
-def save_user_profiles(app: Flask, user_id: str, profiles: dict):
+def save_user_profiles(app: Flask, user_id: str, course_id: str, profiles: dict):
     PROFILES_LABLES = get_profile_labels()
     app.logger.info("save user profiles:{}".format(profiles))
     user_info = User.query.filter(User.user_id == user_id).first()
+    profiles_items = get_profile_item_definition_list(app, course_id)
     for key, value in profiles.items():
+        profile_item = next(
+            (item for item in profiles_items if item.profile_key == key), None
+        )
+        profile_id = ""
+        if profile_item:
+            profile_type = (
+                PROFILE_TYPE_INPUT_SELECT
+                if profile_item.profile_type == CONST_PROFILE_TYPE_OPTION
+                else PROFILE_TYPE_INPUT_TEXT
+            )
+            profile_id = profile_item.profile_id
+        else:
+            profile_type = 1
+            profile_id = ""
         user_profile = UserProfile.query.filter_by(
             user_id=user_id, profile_key=key
         ).first()
         if user_profile:
             user_profile.profile_value = value
+            user_profile.profile_type = profile_type
+            if user_profile.profile_id != "" and profile_id != user_profile.profile_id:
+                user_profile.profile_id = profile_id
         else:
             user_profile = UserProfile(
                 user_id=user_id,
                 profile_key=key,
                 profile_value=value,
-                profile_type=1,
-                profile_id="",
+                profile_type=profile_type,
+                profile_id=profile_id,
             )
             db.session.add(user_profile)
         if key in PROFILES_LABLES:
@@ -184,16 +208,25 @@ def save_user_profiles(app: Flask, user_id: str, profiles: dict):
     return True
 
 
-def get_user_profiles(app: Flask, user_id: str, keys: list = None) -> dict:
+def get_user_profiles(
+    app: Flask, user_id: str, course_id: str, keys: list = None
+) -> dict:
+    profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
     result = {}
-    if keys is None:
+    if keys is None or len(keys) == 0:
         for user_profile in user_profiles:
-            result[user_profile.profile_key] = user_profile.profile_value
+            if user_profile.profile_id == "" or user_profile.profile_id in [
+                item.profile_id for item in profiles_items
+            ]:
+                result[user_profile.profile_key] = user_profile.profile_value
         return result
     for user_profile in user_profiles:
         if user_profile.profile_key in keys:
-            result[user_profile.profile_key] = user_profile.profile_value
+            if user_profile.profile_id == "" or user_profile.profile_id in [
+                item.profile_id for item in profiles_items
+            ]:
+                result[user_profile.profile_key] = user_profile.profile_value
     return result
 
 

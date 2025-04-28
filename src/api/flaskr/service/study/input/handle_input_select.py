@@ -41,7 +41,7 @@ def handle_input_select(
         profile_tosave[conf_key] = input
     for k in profile_keys:
         profile_tosave[k] = input
-    save_user_profiles(app, user_info.user_id, profile_tosave)
+    save_user_profiles(app, user_info.user_id, lesson.course_id, profile_tosave)
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
