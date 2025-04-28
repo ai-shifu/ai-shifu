@@ -240,7 +240,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       } else {
         toast({
           title: '验证失败',
-          description: response.msg || '验证码错误',
+          description:  '验证码错误',
           variant: 'destructive'
         })
       }
