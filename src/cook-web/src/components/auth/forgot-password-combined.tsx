@@ -86,10 +86,8 @@ export function ForgotPasswordCombined ({
       const response = await apiService.sendMailCode({
         mail: email
       })
-      if (response.code) {
-        return
-      }
-      if (response) {
+
+      if (response.code == 0) {
         setCodeSent(true)
         setCountdown(60)
         const timer = setInterval(() => {
@@ -109,7 +107,7 @@ export function ForgotPasswordCombined ({
       } else {
         toast({
           title: '发送验证码失败',
-          description: response.msg || '请稍后重试',
+          description:  '请稍后重试',
           variant: 'destructive'
         })
       }
@@ -141,10 +139,8 @@ export function ForgotPasswordCombined ({
         mail: email,
         mail_code: otp
       })
-      if (response.code) {
-        return
-      }
-      if (response) {
+
+      if (response.code == 0) {
         setToken(response.token)
         toast({
           title: '验证成功',
@@ -154,7 +150,7 @@ export function ForgotPasswordCombined ({
       } else {
         toast({
           title: '验证失败',
-          description: response.msg || '验证码错误',
+          description:  '验证码错误',
           variant: 'destructive'
         })
       }

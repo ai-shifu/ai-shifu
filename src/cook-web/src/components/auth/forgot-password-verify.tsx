@@ -46,10 +46,8 @@ export function ForgotPasswordVerify ({
       const response = await apiService.sendMailCode({
         mail: email
       })
-      if (response.code) {
-        return
-      }
-      if (response) {
+
+      if (response.code == 0) {
         setCountdown(60)
         toast({
           title: '验证码已重新发送',
@@ -58,7 +56,7 @@ export function ForgotPasswordVerify ({
       } else {
         toast({
           title: '发送验证码失败',
-          description: response.msg || '请稍后重试',
+          description:  '请稍后重试',
           variant: 'destructive'
         })
       }
@@ -89,10 +87,8 @@ export function ForgotPasswordVerify ({
         mail: email,
         mail_code: otp
       })
-      if (response.code) {
-        return
-      }
-      if (response) {
+
+      if (response.code == 0) {
         setToken(response.token)
 
         toast({
@@ -103,7 +99,7 @@ export function ForgotPasswordVerify ({
       } else {
         toast({
           title: '验证失败',
-          description: response.msg || '验证码错误',
+          description: '验证码错误',
           variant: 'destructive'
         })
       }

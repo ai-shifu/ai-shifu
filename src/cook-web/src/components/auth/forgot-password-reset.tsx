@@ -99,11 +99,9 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
         mail: email,
         raw_password: password,
       })
-      if (response.code) {
-        return
-      }
 
-      if (response) {
+
+      if (response.code == 0) {
         toast({
           title: "密码已重置",
           description: "请使用新密码登录",
@@ -112,7 +110,7 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
       } else {
         toast({
           title: "重置密码失败",
-          description: response.msg || "请稍后重试",
+          description:  "请稍后重试",
           variant: "destructive",
         })
       }
