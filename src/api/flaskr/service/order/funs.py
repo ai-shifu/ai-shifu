@@ -11,6 +11,7 @@ from flaskr.service.order.consts import (
     BUY_STATUS_SUCCESS,
     BUY_STATUS_TO_BE_PAID,
     BUY_STATUS_VALUES,
+    BUY_STATUS_TIMEOUT,
     DISCOUNT_TYPE_FIXED,
     DISCOUNT_TYPE_PERCENT,
 )
@@ -174,9 +175,25 @@ def send_order_feishu(app: Flask, record_id: str):
     send_notify(app, title, msgs)
 
 
+def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
+    pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME")
+    if pay_order_expire_time is None:
+        return False
+    pay_order_expire_time = int(pay_order_expire_time)
+
+    expire_time = origin_record.created + datetime.timedelta(minutes=pay_order_expire_time)
+    if datetime.datetime.now() > expire_time:
+        # 订单超时
+        # 更新订单状态
+        origin_record.status = BUY_STATUS_TIMEOUT
+        db.session.commit()
+        return True
+    return False
+
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
-        course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
+        order_timeout_make_new_order = False
+        course_info = AICourse.query.filter(AICourse.course_id == course_id,AICourse.status!=BUY_STATUS_TIMEOUT).first()
         if not course_info:
             raise_error("LESSON.COURSE_NOT_FOUND")
         origin_record = (
@@ -187,12 +204,14 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .order_by(AICourseBuyRecord.id.asc())
             .first()
         )
-        if origin_record and active_id is None:
-            return query_buy_record(app, origin_record.record_id)
         if origin_record:
-            buy_record = origin_record
-            order_id = origin_record.record_id
-        else:
+            order_timeout_make_new_order=is_order_has_timeout(app, origin_record)
+
+        if order_timeout_make_new_order!=True and origin_record  and active_id is None:
+            return query_buy_record(app, origin_record.record_id)
+
+        if order_timeout_make_new_order:
+            print("创建新订单")
             buy_record = AICourseBuyRecord()
             order_id = str(get_uuid(app))
             buy_record.user_id = user_id
