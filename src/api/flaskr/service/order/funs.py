@@ -17,7 +17,7 @@ from flaskr.service.order.consts import (
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import User, UserConversion
-from flaskr.service.active import query_active_record, query_and_join_active
+from flaskr.service.active import query_active_record, query_and_join_active,query_to_failure_active
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.api.doc.feishu import send_notify
@@ -186,8 +186,9 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
         # Order timeout
         # Update the order status
         origin_record.status = BUY_STATUS_TIMEOUT
-        # 检查订单是否存在优惠券，如果有优惠券要退回
         db.session.commit()
+        # Check if there are any coupons in the order. If there are, make them failure
+        query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
         return True
     return False
 
@@ -208,12 +209,12 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         )
         if origin_record:
             order_timeout_make_new_order=is_order_has_timeout(app, origin_record)
+        else:
+            order_timeout_make_new_order=True
 
         if order_timeout_make_new_order!=True and origin_record  and active_id is None:
             return query_buy_record(app, origin_record.record_id)
-
         if order_timeout_make_new_order:
-            print("创建新订单")
             buy_record = AICourseBuyRecord()
             order_id = str(get_uuid(app))
             buy_record.user_id = user_id
