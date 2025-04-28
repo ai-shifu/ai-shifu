@@ -78,7 +78,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
     setPasswordStrength(strength)
 
     if (!strength.isValid) {
-      setPasswordError('密码强度不足')
+      // setPasswordError('密码强度不足')
       return false
     }
 

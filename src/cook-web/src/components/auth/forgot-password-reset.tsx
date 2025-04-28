@@ -33,7 +33,7 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError("请输入密码")
+      // setPasswordError("请输入密码")
       return false
     }
 
@@ -41,7 +41,7 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
     setPasswordStrength(strength)
 
     if (!strength.isValid) {
-      setPasswordError("密码强度不足")
+      // setPasswordError("密码强度不足")
       return false
     }
 
