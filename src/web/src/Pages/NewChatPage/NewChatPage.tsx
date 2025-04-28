@@ -125,11 +125,11 @@ const NewChatPage = (props) => {
   }, [chapterId, lessonId, loadTree]);
 
   const initAndCheckLogin = useCallback(async () => {
-    if (inWechat() && wechatCode) {
+    if (inWechat() && wechatCode && hasLogin) {
       await updateWxcode({ wxcode: wechatCode });
     }
     setInitialized(true);
-  }, [wechatCode]);
+  }, [wechatCode, hasLogin]);
 
   const onLoginModalClose = useCallback(async () => {
     setLoginModalOpen(false);
