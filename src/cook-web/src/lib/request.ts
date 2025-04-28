@@ -115,7 +115,6 @@ export class Request {
       const res = await response.json();
       // check if there is a code property, use Object API
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-        console.log(res);
         if (res.code == 0) {
           return res.data;
         } if (res.code == 1001 || res.code == 1005) {
@@ -127,7 +126,6 @@ export class Request {
       return res;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.log(url, error);
       console.error('Request failed:', error.message);
       fail(error.message)
       throw error;

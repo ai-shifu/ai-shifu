@@ -114,12 +114,12 @@ const MinimalTreeItemComponent = React.forwardRef<
         }
 
         if (props.item.depth == 0) {
-            actions.setCurrentNode(props.item);
+            await actions.setCurrentNode(props.item);
             actions.setBlocks([]);
             return;
         }
 
-        actions.setCurrentNode(props.item);
+        await actions.setCurrentNode(props.item);
         await actions.loadBlocks(props.item.id || "");
     }
 
