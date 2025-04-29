@@ -130,7 +130,6 @@ export class Request {
       return res;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.log(url, error);
       console.error('Request failed:', error.message);
       fail(error.message)
       throw error;

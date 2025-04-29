@@ -19,8 +19,9 @@ from flaskr.service.lesson.const import (
     STATUS_DELETE,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from .utils import change_block_status_to_history
+from .utils import change_block_status_to_history, get_original_outline_tree
 import queue
+from flaskr.dao import redis_client
 
 
 def get_block_list(app, user_id: str, outline_id: str):
@@ -116,7 +117,9 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 
 
 # save block list
-def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+def save_block_list_internal(
+    app, user_id: str, outline_id: str, block_list: list[BlockDto]
+):
     with app.app_context():
         time = datetime.now()
         app.logger.info(f"save_block_list: {outline_id}")
@@ -131,20 +134,29 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             return []
         outline_id = outline.lesson_id
 
-        sub_outlines = (
-            AILesson.query.filter(
-                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
-                AILesson.course_id == outline.course_id,
-                AILesson.lesson_no.like(outline.lesson_no + "%"),
-            )
-            .order_by(AILesson.lesson_no.asc())
-            .all()
-        )
-        sub_outline_ids = [outline.lesson_id for outline in sub_outlines]
-        app.logger.info(f"sub_outline_ids : {sub_outline_ids}")
+        tree = get_original_outline_tree(app, outline.course_id)
+
+        q = queue.Queue()
+        for node in tree:
+            q.put(node)
+        sub_outline_ids = []
+        find_outline = False
+        sub_outlines = []
+        while not q.empty():
+            node = q.get()
+            if node.outline_id == outline_id:
+                find_outline = True
+                q.queue.clear()
+            if find_outline:
+                sub_outline_ids.append(node.outline_id)
+                sub_outlines.append(node.outline)
+            if node.children and len(node.children) > 0:
+                for child in node.children:
+                    q.put(child)
+        app.logger.info(f"new sub_outline_ids : {sub_outline_ids}")
         # get all blocks
         blocks = get_existing_blocks(app, sub_outline_ids)
-        app.logger.info(f"blocks : {len(blocks)}")
+        app.logger.info(f"new blocks : {len(blocks)}")
         block_index = 1
         current_outline_id = outline_id
         block_models = []
@@ -156,8 +168,10 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             if type == "block":
                 block_dto = convert_dict_to_block_dto(block)
                 block_model = None
+                block_id = generate_id(app)
                 app.logger.info(f"block_dto id : {block_dto.block_id}")
                 if block_dto.block_id is not None and block_dto.block_id != "":
+                    block_id = block_dto.block_id
                     check_block = next(
                         (b for b in blocks if b.script_id == block_dto.block_id), None
                     )
@@ -167,20 +181,23 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         app.logger.warning(
                             f"block_dto id not found : {block_dto.block_id}"
                         )
+
                 if block_model is None:
                     # add new block
                     block_model = AILessonScript(
-                        script_id=generate_id(app),
+                        script_id=block_id,
                         script_index=block_index,
                         script_name=block_dto.block_name,
                         script_desc=block_dto.block_desc,
                         script_type=block_dto.block_type,
+                        lesson_id=current_outline_id,
                         created=time,
                         created_user_id=user_id,
                         updated=time,
                         updated_user_id=user_id,
                         status=STATUS_DRAFT,
                     )
+                    app.logger.info(f"new block : {block_model.script_id}")
                     profile = update_block_model(block_model, block_dto)
                     if profile:
                         profile_item = save_profile_item_defination(
@@ -201,6 +218,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                     block_model.updated_user_id = user_id
                     block_model.status = STATUS_DRAFT
                     db.session.add(block_model)
+                    app.logger.info(f"new block : {block_model.id}")
                     block_models.append(block_model)
                     save_block_ids.append(block_model.script_id)
                 else:
@@ -226,7 +244,11 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
                         new_block.script_index = block_index
                         new_block.lesson_id = current_outline_id
                         change_block_status_to_history(block_model, user_id, time)
+
                         db.session.add(new_block)
+                        app.logger.info(
+                            f"update block : {new_block.id} {new_block.status}"
+                        )
                         block_models.append(new_block)
                         new_check_str = new_block.get_str_to_check()
                         if old_check_str != new_check_str:
@@ -248,7 +270,28 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
             generate_block_dto(block_model, profile_items)
             for block_model in block_models
         ]
-    pass
+
+
+def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+    timeout = 5 * 60
+    blocking_timeout = 1
+    lock_key = app.config.get("REDIS_KEY_PRRFIX") + ":save_block_list:" + outline_id
+    lock = redis_client.lock(
+        lock_key, timeout=timeout, blocking_timeout=blocking_timeout
+    )
+    if lock.acquire(blocking=True):
+        try:
+            return save_block_list_internal(app, user_id, outline_id, block_list)
+        except Exception as e:
+            app.logger.error(e)
+        finally:
+            lock.release()
+        return
+    else:
+
+        app.logger.error("lockfail")
+        return []
+    return
 
 
 def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
@@ -265,6 +308,8 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
         if not outline:
             raise_error("SCENARIO.OUTLINE_NOT_FOUND")
         block_dto = convert_dict_to_block_dto({"type": "block", "properties": block})
+        # add 1 to the block index / 1 is the index of the block in the outline
+        block_index = block_index + 1
         block_model = AILessonScript(
             script_id=generate_id(app),
             script_index=block_index,
@@ -293,7 +338,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
                 new_block.updated = time
                 new_block.updated_user_id = user_id
                 new_block.status = STATUS_DRAFT
-                change_block_status_to_history(new_block, user_id, time)
+                change_block_status_to_history(block, user_id, time)
                 db.session.add(new_block)
         db.session.add(block_model)
         db.session.commit()
