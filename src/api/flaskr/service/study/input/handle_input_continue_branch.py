@@ -38,7 +38,7 @@ def handle_input_continue_branch(
     )
     branch_info = json.loads(script_info.script_other_conf)
     branch_key = branch_info.get("var_name", "")
-    profile = get_user_profiles(app, user_info.user_id, [branch_key])
+    profile = get_user_profiles(app, user_info.user_id, attend.course_id, [branch_key])
     branch_value = profile.get(branch_key, "")
     jump_rule = branch_info.get("jump_rule", [])
 

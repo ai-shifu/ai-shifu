@@ -25,6 +25,7 @@ class UserInfo:
     user_state: str
     language: str
     user_avatar: str
+    has_password: bool
 
     def __init__(
         self,
@@ -36,6 +37,7 @@ class UserInfo:
         user_state,
         wx_openid,
         language,
+        has_password,
         user_avatar=None,
     ):
         self.user_id = user_id
@@ -47,6 +49,7 @@ class UserInfo:
         self.wx_openid = wx_openid
         self.language = language
         self.user_avatar = user_avatar
+        self.has_password = has_password
 
     def __json__(self):
         return {
@@ -59,6 +62,7 @@ class UserInfo:
             "openid": self.wx_openid,
             "language": self.language,
             "avatar": self.user_avatar,
+            "has_password": self.has_password,
         }
 
     def __html__(self):

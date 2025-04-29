@@ -73,7 +73,7 @@ export class Request {
       headers: {
         ...this.defaultConfig.headers,
         ...config.headers,
-        "X-API-MODE": "admin",
+        // "X-API-MODE": "admin",
       }
     };
     let fullUrl = url;
@@ -93,7 +93,7 @@ export class Request {
         Authorization: `Bearer ${this.token}`,
         ...mergedConfig.headers,
         "Token": this.token,
-        "X-API-MODE": "admin",
+        // "X-API-MODE": "admin",
         "X-Request-ID": uuidv4().replace(/-/g, '')
       } as any;
     }
@@ -115,19 +115,21 @@ export class Request {
       const res = await response.json();
       // check if there is a code property, use Object API
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-        console.log(res);
+
+        if (location.pathname == '/login') {
+          return res;
+        }
+        if (location.pathname != '/login' && (res.code == 1001 || res.code == 1005 || res.code == 1004)) {
+            window.location.href = '/login';
+        }
         if (res.code == 0) {
           return res.data;
-        } if (res.code == 1001 || res.code == 1005) {
-          window.location.href = '/login';
-        } else {
-          throw new ErrorWithCode(res.message, res.code);
         }
+
       }
       return res;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.log(url, error);
       console.error('Request failed:', error.message);
       fail(error.message)
       throw error;

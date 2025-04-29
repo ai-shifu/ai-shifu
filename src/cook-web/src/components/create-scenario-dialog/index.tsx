@@ -25,8 +25,8 @@ const formSchema = z.object({
         .min(1, "请输入剧本名称")
         .max(20, "剧本名称不能超过20个字符"),
     scenario_description: z.string()
-        .min(1, "请输入剧本描述")
-        .max(500, "剧本描述不能超过500个字符"),
+        .max(500, "剧本描述不能超过500个字符")
+        .optional(),
     scenario_image: z.string().default(""),
 });
 
