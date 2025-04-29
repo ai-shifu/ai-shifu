@@ -265,7 +265,8 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             buy_record.pay_value = 0
         buy_record.updated = now
         discountRecord.updated = now
-        discount.discount_used = discount.discount_used + 1
+        if not userDiscountRecord:
+            discount.discount_used = discount.discount_used + 1
         db.session.commit()
 
         if buy_record.discount_value >= buy_record.price:

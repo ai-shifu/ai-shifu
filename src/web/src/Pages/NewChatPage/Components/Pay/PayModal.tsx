@@ -221,7 +221,7 @@ export const PayModal = ({
         messageApi.error(resp.message);
         return;
       }
-      refreshOrderQrcode();
+      refreshOrderQrcode(resp.data.order_id);
       onCouponCodeModalClose();
     },
     [messageApi, onCouponCodeModalClose, orderId, refreshOrderQrcode]
