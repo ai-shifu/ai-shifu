@@ -33,6 +33,7 @@ from ...util.uuid import generate_id as get_uuid
 from ..lesson.const import LESSON_TYPE_TRIAL
 from .pingxx_order import create_pingxx_order
 from .models import Discount
+import pytz
 
 
 @register_schema_to_swagger
@@ -180,9 +181,10 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
     if pay_order_expire_time is None:
         return False
     pay_order_expire_time = int(pay_order_expire_time)
+    created_timestamp = int(origin_record.created.timestamp()) - 8 * 3600  # 减去8小时的秒数
+    current_timestamp = int(datetime.datetime.now().timestamp())
 
-    expire_time = origin_record.created + datetime.timedelta(seconds=pay_order_expire_time)
-    if datetime.datetime.now() > expire_time:
+    if current_timestamp > (created_timestamp + pay_order_expire_time):
         # Order timeout
         # Update the order status
         origin_record.status = BUY_STATUS_TIMEOUT
