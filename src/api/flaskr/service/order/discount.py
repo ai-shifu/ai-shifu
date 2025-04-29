@@ -184,11 +184,23 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             raise_error("DISCOUNT.ORDER_DISCOUNT_ALREADY_USED")
         if order_discount:
             return order_discount
-        discountRecord = DiscountRecord.query.filter(
+
+        userDiscountRecord = DiscountRecord.query.filter(
             DiscountRecord.discount_code == discount_code,
             DiscountRecord.status == DISCOUNT_STATUS_ACTIVE,
+            DiscountRecord.user_id == user_id,
         ).first()
+
+        discountRecord = None
         discount = None
+        if  userDiscountRecord:
+            discountRecord=userDiscountRecord
+        else:
+            discountRecord = DiscountRecord.query.filter(
+                DiscountRecord.discount_code == discount_code,
+                DiscountRecord.status == DISCOUNT_STATUS_ACTIVE,
+            ).first()
+
         if not discountRecord:
             # query fixcode
             discount = Discount.query.filter(

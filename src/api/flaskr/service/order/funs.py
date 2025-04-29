@@ -34,7 +34,7 @@ from ..lesson.const import LESSON_TYPE_TRIAL
 from .pingxx_order import create_pingxx_order
 from .models import Discount
 import pytz
-from .discount import timeout_discount_code_rollback
+
 
 @register_schema_to_swagger
 class AICourseLessonAttendDTO:
@@ -181,6 +181,7 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
     if pay_order_expire_time is None:
         return False
     pay_order_expire_time = int(pay_order_expire_time)
+
     created_timestamp = int(origin_record.created.timestamp()) - 8 * 3600  # 减去8小时的秒数
     current_timestamp = int(datetime.datetime.now().timestamp())
 
@@ -191,6 +192,8 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
         db.session.commit()
         # Check if there are any coupons in the order. If there are, make them failure
         query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
+        #Check if there are discount coupons in the order. If there are, rollback the discount coupons
+        from .discount import timeout_discount_code_rollback
         timeout_discount_code_rollback(app, origin_record.user_id, origin_record.record_id)
         return True
     return False
