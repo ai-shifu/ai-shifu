@@ -18,7 +18,7 @@ from ..service.user import (
     send_sms_code,
     send_email_code,
     verify_sms_code,
-    verify_mial_code,
+    verify_mail_code,
     set_user_password,
     upload_user_avatar,
     update_user_open_id,
@@ -743,7 +743,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 raise_param_error("mail")
             if not mail_code:
                 raise_param_error("sms_code")
-            ret = verify_mial_code(app, user_id, mail, mail_code, course_id)
+            ret = verify_mail_code(app, user_id, mail, mail_code, course_id)
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp

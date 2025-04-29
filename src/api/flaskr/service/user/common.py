@@ -453,7 +453,7 @@ def verify_sms_code(
 
 
 # verify mail code
-def verify_mial_code(
+def verify_mail_code(
     app: Flask, user_id, mail: str, chekcode: str, course_id: str = None
 ) -> UserToken:
     from flaskr.service.profile.funcs import (
