@@ -34,7 +34,7 @@ from ..lesson.const import LESSON_TYPE_TRIAL
 from .pingxx_order import create_pingxx_order
 from .models import Discount
 import pytz
-
+from .discount import timeout_discount_code_rollback
 
 @register_schema_to_swagger
 class AICourseLessonAttendDTO:
@@ -191,6 +191,7 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
         db.session.commit()
         # Check if there are any coupons in the order. If there are, make them failure
         query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
+        timeout_discount_code_rollback(app, origin_record.user_id, origin_record.record_id)
         return True
     return False
 
@@ -299,7 +300,8 @@ def generate_charge(
         )
 
         buy_record = AICourseBuyRecord.query.filter(
-            AICourseBuyRecord.record_id == record_id
+            AICourseBuyRecord.record_id == record_id,
+            AICourseBuyRecord.status!=BUY_STATUS_TIMEOUT
         ).first()
         if not buy_record:
             raise_error("ORDER.ORDER_NOT_FOUND")
