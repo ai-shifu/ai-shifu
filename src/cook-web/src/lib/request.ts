@@ -119,6 +119,9 @@ export class Request {
         if (location.pathname == '/login') {
           return res;
         }
+        if (location.pathname != '/login' && res.code==1001) {
+            window.location.href = '/login';
+        }
         if (res.code == 0) {
           return res.data;
         }
