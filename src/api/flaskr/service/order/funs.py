@@ -177,12 +177,11 @@ def send_order_feishu(app: Flask, record_id: str):
 
 def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
     pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME")
-    app.logger.info("PAY_ORDER_EXPIRE_TIME :{}".format(pay_order_expire_time))
     if pay_order_expire_time is None:
         return False
     pay_order_expire_time = int(pay_order_expire_time)
 
-    expire_time = origin_record.created + datetime.timedelta(minutes=pay_order_expire_time)
+    expire_time = origin_record.created + datetime.timedelta(seconds=pay_order_expire_time)
     if datetime.datetime.now() > expire_time:
         # Order timeout
         # Update the order status
@@ -210,9 +209,6 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         )
         if origin_record:
             order_timeout_make_new_order=is_order_has_timeout(app, origin_record)
-            app.logger.info(
-            "Whether the user's order has exceeded the time limit :{} order_id:{}".format(order_timeout_make_new_order, origin_record.id)
-            )
         else:
             order_timeout_make_new_order=True
 
