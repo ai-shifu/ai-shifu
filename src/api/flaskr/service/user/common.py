@@ -26,7 +26,7 @@ from .utils import generate_token, get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
 from .models import User as CommonUser, AdminUser as AdminUser
 from flaskr.common.log import get_mode
-
+from flaskr.service.lesson.models import AICourse
 
 FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
 
@@ -64,6 +64,7 @@ def verify_user(app: Flask, login: str, raw_password: str) -> UserToken:
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
                         user_avatar=user.user_avatar,
+                        has_password=user.password_hash != "",
                     ),
                     token=token,
                 )
@@ -94,6 +95,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
                         user_avatar=user.user_avatar,
+                        has_password=user.password_hash != "",
                     )
             else:
                 user_id = jwt.decode(
@@ -122,6 +124,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         wx_openid=get_user_openid(user),
                         language=get_user_language(user),
                         user_avatar=user.user_avatar,
+                        has_password=user.password_hash != "",
                     )
                 else:
                     raise_error("USER.USER_TOKEN_EXPIRED")
@@ -156,6 +159,7 @@ def update_user_info(
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
                 user_avatar=user.user_avatar,
+                has_password=user.password_hash != "",
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -182,6 +186,7 @@ def change_user_passwd(app: Flask, user: UserInfo, oldpwd, newpwd) -> UserInfo:
                     wx_openid=get_user_openid(user),
                     language=get_user_language(user),
                     user_avatar=user.user_avatar,
+                    has_password=user.password_hash != "",
                 )
             else:
                 raise_error("USER.OLD_PASSWORD_ERROR")
@@ -204,6 +209,7 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
                 user_avatar=user.user_avatar,
+                has_password=user.password_hash != "",
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -388,6 +394,7 @@ def verify_sms_code(
     if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
         raise_error("USER.SMS_CHECK_ERROR")
     else:
+        redis.delete(app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone)
         user_info = (
             User.query.filter(User.mobile == phone)
             .order_by(User.user_state.desc())
@@ -400,7 +407,7 @@ def verify_sms_code(
                 .order_by(User.id.asc())
                 .first()
             )
-        elif user_id != user_info.user_id:
+        elif user_id != user_info.user_id and course_id is not None:
             new_profiles = get_user_profile_labels(app, user_id, course_id)
             update_user_profile_with_lable(
                 app, user_info.user_id, new_profiles, course_id
@@ -430,6 +437,10 @@ def verify_sms_code(
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.mobile = phone
             db.session.add(user_info)
+            # New user registration requires course association detection
+            # When there is an install ui, the logic here should be removed
+            init_first_course(app, user_info.user_id)
+
         if user_info.user_state == USER_STATE_UNTEGISTERED:
             user_info.mobile = phone
             user_info.user_state = USER_STATE_REGISTERED
@@ -447,6 +458,7 @@ def verify_sms_code(
                 wx_openid=get_user_openid(user_info),
                 language=get_user_language(user_info),
                 user_avatar=user_info.user_avatar,
+                has_password=user_info.password_hash != "",
             ),
             token,
         )
@@ -469,6 +481,7 @@ def verify_mial_code(
     if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
         raise_error("USER.MAIL_CHECK_ERROR")
     else:
+        redis.delete(app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + mail)
         user_info = (
             User.query.filter(User.email == mail)
             .order_by(User.user_state.desc())
@@ -481,7 +494,7 @@ def verify_mial_code(
                 .order_by(User.id.asc())
                 .first()
             )
-        elif user_id != user_info.user_id:
+        elif user_id != user_info.user_id and course_id is not None:
             new_profiles = get_user_profile_labels(app, user_id, course_id)
             update_user_profile_with_lable(
                 app, user_info.user_id, new_profiles, course_id
@@ -511,6 +524,10 @@ def verify_mial_code(
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.email = mail
             db.session.add(user_info)
+            # New user registration requires course association detection
+            # When there is an install ui, the logic here should be removed
+            init_first_course(app, user_info.user_id)
+
         if user_info.user_state == USER_STATE_UNTEGISTERED:
             user_info.email = mail
             user_info.user_state = USER_STATE_REGISTERED
@@ -528,9 +545,33 @@ def verify_mial_code(
                 wx_openid=get_user_openid(user_info),
                 language=get_user_language(user_info),
                 user_avatar=user_info.user_avatar,
+                has_password=user_info.password_hash != "",
             ),
             token,
         )
+
+
+def init_first_course(app: Flask, user_id: str):
+    """
+    Check if there is only one user and one course. If so, update the creator of the course
+    """
+    with app.app_context():
+        # Check the number of users
+        user_count = User.query.count()
+        if user_count != 1:
+            return
+
+        # Check the number of courses
+        course_count = AICourse.query.count()
+        if course_count != 1:
+            return
+
+        # Get the only course
+        course = AICourse.query.first()
+        if course:
+            # The creator of the updated course
+            course.created_user_id = user_id
+            db.session.commit()
 
 
 def set_user_password(
@@ -538,36 +579,13 @@ def set_user_password(
     raw_password: str,
     mail: str,
     mobile: str,
-    checkcode: str,
 ):
     with app.app_context():
         user = User.query.filter((User.email == mail) | (User.mobile == mobile)).first()
         password_hash = hashlib.md5((user.user_id + raw_password).encode()).hexdigest()
         if user is None:
             raise_error("USER.USER_ES_NOT_EXIST")
-        if user.password_hash == "":
-            # Users who have not set a password can directly set a new password
-            user.password_hash = password_hash
-
-        if user.password_hash != "":
-            # The user has set a password. If you need to change the password, you need to confirm it with a Captcha
-            identifying_account = ""
-            redisKey = ""
-            if mobile:
-                identifying_account = mobile
-                redisKey = "REDIS_KEY_PRRFIX_PHONE_CODE"
-            if mail:
-                identifying_account = mail
-                redisKey = "REDIS_KEY_PRRFIX_MAIL_CODE"
-            if not identifying_account:
-                raise_error("USER.USER_ES_NOT_EXIST")
-            check_save = redis.get(app.config[redisKey] + identifying_account)
-            if check_save is None and checkcode != FIX_CHECK_CODE:
-                raise_error("USER.CHEKCODE_SEND_EXPIRED")
-            check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-            if checkcode != check_save_str and checkcode != FIX_CHECK_CODE:
-                raise_error("USER.CHEKCODE_CHECK_ERROR")
-            if checkcode.lower() == check_save_str.lower():
-                user.password_hash = password_hash
+        user.password_hash = password_hash
         db.session.flush()
         db.session.commit()
+        return True

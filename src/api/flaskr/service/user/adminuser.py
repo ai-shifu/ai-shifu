@@ -43,6 +43,7 @@ def create_new_admin_user(
                 user_state=new_user.user_state,
                 wx_openid="",
                 language="zh_CN",
+                has_password=True,
             ),
             token=token,
         )

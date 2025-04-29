@@ -141,8 +141,6 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         if not scenario_name:
             raise_param_error("scenario_name is required")
         scenario_description = request.get_json().get("scenario_description")
-        if not scenario_description:
-            raise_param_error("scenario_description is required")
         scenario_image = request.get_json().get("scenario_image")
         return make_common_response(
             create_scenario(

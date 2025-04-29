@@ -1,4 +1,6 @@
-from flask import Flask, request, make_response
+from flask import Flask, request, make_response, current_app
+from functools import wraps
+import threading
 
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.profile.funcs import (
@@ -28,10 +30,34 @@ from .common import make_common_response, bypass_token_validation, by_pass_login
 from flaskr.dao import db
 from flaskr.i18n import set_language
 
+thread_local = threading.local()
+
+
+def optional_token_validation(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        token = request.cookies.get("token", None)
+        if not token:
+            token = request.args.get("token", None)
+        if not token:
+            token = request.headers.get("Token", None)
+        if not token and request.method.upper() == "POST" and request.is_json:
+            token = request.get_json().get("token", None)
+
+        if token:
+            token = str(token)
+            user = validate_user(current_app, token)
+            set_language(user.language)
+            request.user = user
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
     @app.route(path_prefix + "/register", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def register():
         """
         register
@@ -88,6 +114,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/login", methods=["POST"])
     @bypass_token_validation
+    @optional_token_validation
     def login():
         """
         user login
@@ -343,7 +370,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(generation_img_chk(app, identifying_account))
 
     @app.route(path_prefix + "/send_sms_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
+    @optional_token_validation
     def send_sms_code_api():
         """
         Send SMS Captcha
@@ -359,12 +387,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 mobile:
                   type: string
                   description: mobile phone number
-                check_code:
-                  type: string
-                  description: Graphics Captcha
               required:
                 - mobile
-                - check_code
         responses:
             200:
                 description: sent success
@@ -392,15 +416,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         """
         mobile = request.get_json().get("mobile", None)
-        check_code = request.get_json().get("check_code", None)
         if not mobile:
             raise_param_error("mobile")
-        if not check_code:
-            raise_param_error("check_code")
-        return make_common_response(send_sms_code(app, mobile, check_code))
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
+        return make_common_response(send_sms_code(app, mobile, client_ip))
 
     @app.route(path_prefix + "/verify_sms_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
+    @optional_token_validation
     def verify_sms_code_api():
         """
         Send verify email code
@@ -592,6 +618,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         )
 
     @app.route(path_prefix + "/submit-feedback", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
     def sumbit_feedback_api():
         """
         submit feedback
@@ -605,6 +633,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
               schema:
                 type: object
                 properties:
+                    mail:
+                        type: string
+                        description: mail
                     feedback:
                         type: string
                         description: feedback content
@@ -627,15 +658,18 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             400:
                 description: parameter error
         """
-
-        user_id = request.user.user_id
+        user_id = getattr(request, "user", None)
+        if user_id:
+            user_id = user_id.user_id
         feedback = request.get_json().get("feedback", None)
+        mail = request.get_json().get("mail", None)
         if not feedback:
             raise_param_error("feedback")
-        return make_common_response(submit_feedback(app, user_id, feedback))
+        return make_common_response(submit_feedback(app, user_id, feedback, mail))
 
     @app.route(path_prefix + "/send_mail_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
+    @optional_token_validation
     def send_mail_code_api():
         """
         Send email Captcha
@@ -651,12 +685,8 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 mail:
                   type: string
                   description: mail
-                check_code:
-                  type: string
-                  description: graphics captcha
               required:
                 - mobile
-                - check_code
         responses:
             200:
                 description: sent successfully
@@ -682,15 +712,17 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
         """
         mail = request.get_json().get("mail", None)
-        check_code = request.get_json().get("check_code", None)
         if not mail:
             raise_param_error("mail")
-        if not check_code:
-            raise_param_error("check_code")
-        return make_common_response(send_email_code(app, mail, check_code))
+        if "X-Forwarded-For" in request.headers:
+            client_ip = request.headers["X-Forwarded-For"].split(",")[0].strip()
+        else:
+            client_ip = request.remote_addr
+        return make_common_response(send_email_code(app, mail, client_ip))
 
     @app.route(path_prefix + "/verify_mail_code", methods=["POST"])
-    # @bypass_token_validation
+    @bypass_token_validation
+    @optional_token_validation
     def verify_mail_code_api():
         """
         Send verify email code
@@ -771,9 +803,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         raw_password:
                             type: string
                             description: course id
-                        check_code:
-                            type: string
-                            description: course id
         responses:
             200:
                 description: user set password success
@@ -794,13 +823,12 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             mail = request.get_json().get("mail", None)
             mobile = request.get_json().get("mobile", None)
             raw_password = request.get_json().get("raw_password", None)
-            check_code = request.get_json().get("check_code", None)
             if not mail and not mobile:
                 raise_param_error("mail")
             if not raw_password:
                 raise_param_error("password")
             return make_common_response(
-                set_user_password(app, raw_password, mail, mobile, check_code)
+                set_user_password(app, raw_password, mail, mobile)
             )
 
     # health check

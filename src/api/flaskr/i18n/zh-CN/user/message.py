@@ -1,0 +1,1 @@
+EMAIL_VERIFICATION_SUBJECT = "AI-Shifu: 您的验证码"

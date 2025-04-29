@@ -127,12 +127,8 @@ def create_scenario(
         course_id = generate_id(app)
         if not scenario_name:
             raise_error("SCENARIO.SCENARIO_NAME_REQUIRED")
-        if not scenario_description:
-            raise_error("SCENARIO.SCENARIO_DESCRIPTION_REQUIRED")
         if len(scenario_name) > 20:
             raise_error("SCENARIO.SCENARIO_NAME_TOO_LONG")
-        if len(scenario_description) < 10:
-            raise_error("SCENARIO.SCENARIO_DESCRIPTION_TOO_SHORT")
         if len(scenario_description) > 500:
             raise_error("SCENARIO.SCENARIO_DESCRIPTION_TOO_LONG")
         existing_course = AICourse.query.filter_by(course_name=scenario_name).first()
