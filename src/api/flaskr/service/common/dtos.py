@@ -50,6 +50,7 @@ class UserInfo:
         self.language = language
         self.user_avatar = user_avatar
         self.has_password = has_password
+
     def __json__(self):
         return {
             "user_id": self.user_id,

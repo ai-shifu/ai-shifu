@@ -127,7 +127,9 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
         )
 
         # Record the sending time
-        redis.set(phone_limit_key, int(time.time()), ex=int(app.config["SMS_CODE_INTERVAL"]))
+        redis.set(
+            phone_limit_key, int(time.time()), ex=int(app.config["SMS_CODE_INTERVAL"])
+        )
 
         send_sms_code_ali(app, phone, random_string)
         return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
@@ -187,16 +189,16 @@ def send_email_code(app: Flask, email: str, ip: str = None):
         )
 
         # Record the sending time of this time
-        redis.set(email_limit_key, int(time.time()), ex=int(app.config["MAIL_CODE_INTERVAL"]))
+        redis.set(
+            email_limit_key, int(time.time()), ex=int(app.config["MAIL_CODE_INTERVAL"])
+        )
 
         body = f"Your verification code is: {random_string}"
         msg.attach(MIMEText(body, "plain"))
 
         try:
             # Connect to the SMTP server
-            server = smtplib.SMTP(
-                app.config["SMTP_SERVER"], app.config["SMTP_PORT"]
-            )
+            server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
             server.starttls()
             server.login(app.config["SMTP_USERNAME"], app.config["SMTP_PASSWORD"])
 
@@ -206,8 +208,6 @@ def send_email_code(app: Flask, email: str, ip: str = None):
 
             app.logger.info(f"Verification code sent to {email}")
         except Exception as e:
-            app.logger.error(
-                f"Failed to send verification code to {email}: {str(e)}"
-            )
+            app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
             raise_error("USER.EMAIL_SEND_FAILED")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
