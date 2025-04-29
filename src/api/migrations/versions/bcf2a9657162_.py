@@ -25,9 +25,8 @@ def upgrade():
                comment='0 default, 1 system configuration, 2 user configuration, 3 course configuration',
                existing_nullable=False,
                existing_server_default=sa.text("'0'"))
-
-    # Data cleaning operation
-    op.execute("UPDATE active_user_record SET status = 4101 WHERE status = 0")
+        # Data cleaning operation
+        op.execute("UPDATE active_user_record SET status = 4101 WHERE status = 0")
 
     # ### end Alembic commands ###
 
@@ -41,6 +40,5 @@ def downgrade():
                existing_comment='0 default, 1 system configuration, 2 user configuration, 3 course configuration',
                existing_nullable=False,
                existing_server_default=sa.text("'0'"))
-
-    # Revert data cleaning operation
-    op.execute("UPDATE active_user_record SET status = 0 WHERE status = 4101")
+        # Revert data cleaning operation
+        op.execute("UPDATE active_user_record SET status = 0 WHERE status = 4101")
