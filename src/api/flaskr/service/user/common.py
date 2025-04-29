@@ -550,6 +550,7 @@ def verify_mial_code(
             token,
         )
 
+
 def init_first_course(app: Flask, user_id: str):
     """
     Check if there is only one user and one course. If so, update the creator of the course
@@ -571,6 +572,7 @@ def init_first_course(app: Flask, user_id: str):
             # The creator of the updated course
             course.created_user_id = user_id
             db.session.commit()
+
 
 def init_first_course(app: Flask, user_id: str):
     """

@@ -50,6 +50,7 @@ def optional_token_validation(f):
             set_language(user.language)
             request.user = user
         return f(*args, **kwargs)
+
     return decorated_function
 
 
