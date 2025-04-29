@@ -197,9 +197,20 @@ def save_profile_item(
     items: list[ProfileValueDto] = None,
 ):
     with app.app_context():
+        if (not parent_id or parent_id == "") and user_id != "":
+            raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_UPDATE")
+        exist_system_profile_list = ProfileItem.query.filter(
+            ProfileItem.parent_id == "",
+            ProfileItem.status == 1,
+        ).all()
+        if exist_system_profile_list:
+            for exist_system_profile in exist_system_profile_list:
+                if exist_system_profile.profile_key == key:
+                    raise_error("PROFILE.SYSTEM_PROFILE_KEY_EXIST")
         if profile_id and bool(profile_id):
             profile_item = ProfileItem.query.filter(
                 ProfileItem.profile_id == profile_id,
+                ProfileItem.parent_id == parent_id,
                 ProfileItem.status == 1,
             ).first()
             if not profile_item:
@@ -404,7 +415,8 @@ def add_profile_i18n(
     with app.app_context():
         if conf_type == PROFILE_CONF_TYPE_PROFILE:
             profile_item = ProfileItem.query.filter(
-                ProfileItem.profile_id == parent_id
+                ProfileItem.profile_id == parent_id,
+                ProfileItem.status == 1,
             ).first()
         elif conf_type == PROFILE_CONF_TYPE_ITEM:
             profile_item = ProfileItemValue.query.filter(
@@ -422,7 +434,6 @@ def add_profile_i18n(
         ).first()
         if not profile_i18n:
             profile_i18n = ProfileItemI18n(
-                i18n_id=generate_id(app),
                 parent_id=parent_id,
                 conf_type=conf_type,
                 language=language,
@@ -444,6 +455,8 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
             raise_error("PROFILE.NOT_FOUND")
+        if profile_item.parent_id == "" or profile_item.parent_id is None:
+            raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_DELETE")
         profile_item.status = 0
         item_ids = [profile_id]
         if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT:

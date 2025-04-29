@@ -164,7 +164,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         mail: email
       })
 
-      if (response.code==0) {          
+      if (response.code==0) {
         setShowOtpInput(true)
         setCountdown(60)
         const timer = setInterval(() => {

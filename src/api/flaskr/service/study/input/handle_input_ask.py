@@ -55,7 +55,9 @@ def handle_input_ask(
     system_prompt = get_lesson_system(app, script_info.lesson_id)
     system_message = system_prompt if system_prompt else ""
     # format the system message
-    system_message = get_fmt_prompt(app, user_info.user_id, system_message)
+    system_message = get_fmt_prompt(
+        app, user_info.user_id, attend.course_id, system_message
+    )
     system_message = system_message if system_message else "" + "\n 之前的会话历史为:\n"
     for script in history_scripts:
         if script.script_role == ROLE_STUDENT:
@@ -93,7 +95,8 @@ def handle_input_ask(
             "content": get_fmt_prompt(
                 app,
                 user_info.user_id,
-                profile_tmplate=follow_up_info.ask_prompt,
+                attend.course_id,
+                follow_up_info.ask_prompt,
                 input=f"已知'{all_retrieval_result}'，请问'{input}'",
             ),
         }

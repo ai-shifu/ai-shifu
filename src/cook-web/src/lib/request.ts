@@ -119,6 +119,9 @@ export class Request {
         if (location.pathname == '/login') {
           return res;
         }
+        if (location.pathname != '/login' && (res.code == 1001 || res.code == 1005 || res.code == 1004)) {
+            window.location.href = '/login';
+        }
         if (res.code == 0) {
           return res.data;
         }
@@ -127,7 +130,6 @@ export class Request {
       return res;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.log(url, error);
       console.error('Request failed:', error.message);
       fail(error.message)
       throw error;

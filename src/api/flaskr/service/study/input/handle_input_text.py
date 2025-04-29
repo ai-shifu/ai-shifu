@@ -42,6 +42,7 @@ def handle_input_text(
     prompt = get_fmt_prompt(
         app,
         user_info.user_id,
+        attend.course_id,
         script_info.script_check_prompt,
         input,
         script_info.script_profile,
@@ -97,7 +98,7 @@ def handle_input_text(
     if check_success:
         app.logger.info("check success")
         profile_tosave = jsonObj.get("parse_vars")
-        save_user_profiles(app, user_info.user_id, profile_tosave)
+        save_user_profiles(app, user_info.user_id, lesson.course_id, profile_tosave)
         for key in profile_tosave:
             yield make_script_dto(
                 "profile_update",

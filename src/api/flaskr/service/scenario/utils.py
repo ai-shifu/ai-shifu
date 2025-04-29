@@ -177,6 +177,12 @@ def change_outline_status_to_history(
 def change_block_status_to_history(
     block_info: AILessonScript, user_id: str, time: datetime
 ):
+    from flask import current_app as app
+
+    app.logger.info(
+        f"change_block_status_to_history: {block_info.id} {block_info.status}"
+    )
+
     if block_info.status != STATUS_PUBLISH:
         # if the block is not publish, then we need to change the status to history
         block_info.status = STATUS_HISTORY

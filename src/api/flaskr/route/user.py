@@ -32,6 +32,7 @@ from flaskr.i18n import set_language
 
 thread_local = threading.local()
 
+
 def optional_token_validation(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
