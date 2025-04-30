@@ -6,9 +6,6 @@ Create Date: 2025-04-25 06:00:44.318139
 
 """
 
-from alembic import op
-import sqlalchemy as sa
-
 from flaskr.service.profile.profile_manage import save_profile_item, add_profile_i18n
 from flaskr.service.profile.models import (
     PROFILE_TYPE_INPUT_TEXT,
@@ -16,7 +13,6 @@ from flaskr.service.profile.models import (
     PROFILE_CONF_TYPE_PROFILE,
     PROFILE_SHOW_TYPE_HIDDEN,
 )
-from flask import Flask
 
 # revision identifiers, used by Alembic.
 revision = "b6cbcf622c0a"

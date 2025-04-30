@@ -19,7 +19,7 @@ from flaskr.service.lesson.const import (
     STATUS_DELETE,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from .utils import change_block_status_to_history, get_original_outline_tree
+from .utils import change_block_status_to_history
 import queue
 from flaskr.dao import redis_client
 

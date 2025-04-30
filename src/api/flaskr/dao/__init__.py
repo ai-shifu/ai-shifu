@@ -59,7 +59,6 @@ def init_redis(app: Flask):
 
 def run_with_redis(app, key, timeout: int, func, args):
     with app.app_context():
-        global redis_client
         app.logger.info("run_with_redis start {}".format(key))
         lock = redis_client.lock(key, timeout=timeout, blocking_timeout=timeout)
         if lock.acquire(blocking=False):

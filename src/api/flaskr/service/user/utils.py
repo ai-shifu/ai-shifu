@@ -113,7 +113,6 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
 
             interval = int(app.config["SMS_CODE_INTERVAL"])
             if time_diff < interval:
-                remaining_time = interval - time_diff
                 raise_error("USER.SMS_SEND_TOO_FREQUENT")
 
         characters = string.digits
@@ -171,7 +170,6 @@ def send_email_code(app: Flask, email: str, ip: str = None):
 
             interval = int(app.config["MAIL_CODE_INTERVAL"])
             if time_diff < interval:
-                remaining_time = interval - time_diff
                 raise_error("USER.EMAIL_SEND_TOO_FREQUENT")
 
         # Create the email content

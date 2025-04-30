@@ -88,7 +88,7 @@ def create_unit(
                 f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_index: {unit_index}"
             )
             unit_id = generate_id(app)
-            unit_no = chapter.lesson_no + f"{unit_index+1:02d}"
+            unit_no = chapter.lesson_no + f"{unit_index + 1:02d}"
             app.logger.info(
                 f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_no: {unit_no} unit_index: {unit_index}"
             )

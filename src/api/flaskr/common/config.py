@@ -42,7 +42,6 @@ class Config(FlaskConfig):
 
 
 def get_config(key: str, default: Any = None) -> Any:
-    global __INSTANCE__
     if __INSTANCE__ is None:
         raise AppException("Config is not initialized")
     return __INSTANCE__.get(key, default)
