@@ -40,7 +40,9 @@ export const FeedbackModal = ({ open, onClose, inMobile = false }) => {
       <Form form={form} className={styles.formWrapper}>
         <Form.Item
           name="feedback"
-          rules={[{ required: true, message:t('feedback.feedbackPlaceholder') }]}
+          rules={[
+            { required: true, message: t('feedback.feedbackPlaceholder') },
+          ]}
         >
           <TextArea
             // value={feedback}
@@ -58,7 +60,7 @@ export const FeedbackModal = ({ open, onClose, inMobile = false }) => {
       >
         {t('feedback.feedbackSubmit')}
       </MainButton>
-      { contextHolder }
+      {contextHolder}
     </Modal>
   );
 };

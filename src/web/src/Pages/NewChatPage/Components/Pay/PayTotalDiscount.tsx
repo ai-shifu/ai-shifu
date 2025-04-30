@@ -10,7 +10,10 @@ export const PayTotalDiscount = ({ discount }) => {
   return (
     <div className={styles.payTotalDiscount}>
       <div>已节省：</div>
-      <div>{'￥'}{discount || '0.00'}</div>{' '}
+      <div>
+        {'￥'}
+        {discount || '0.00'}
+      </div>{' '}
       <AiOutlineExclamationCircle
         className={styles.descIcon}
         onClick={onDescIconClick}

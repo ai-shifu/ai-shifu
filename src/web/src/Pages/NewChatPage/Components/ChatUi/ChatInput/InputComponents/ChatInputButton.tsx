@@ -22,22 +22,28 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
 
     if (type === INTERACTION_TYPE.ORDER) {
       onClick?.(INTERACTION_OUTPUT_TYPE.ORDER, false, { orderId: props.value });
-      return
+      return;
     }
     if (type === INTERACTION_TYPE.NONBLOCK_ORDER) {
-      onClick?.(INTERACTION_OUTPUT_TYPE.NONBLOCK_ORDER, false, { orderId: props.value });
-      return
+      onClick?.(INTERACTION_OUTPUT_TYPE.NONBLOCK_ORDER, false, {
+        orderId: props.value,
+      });
+      return;
     }
     if (type === INTERACTION_TYPE.REQUIRE_LOGIN) {
-      onClick?.(INTERACTION_OUTPUT_TYPE.REQUIRE_LOGIN,false, props.value);
+      onClick?.(INTERACTION_OUTPUT_TYPE.REQUIRE_LOGIN, false, props.value);
       return;
     }
 
-    onClick?.(INTERACTION_OUTPUT_TYPE.CONTINUE, props.display !== undefined ? props.display : false, props.value);
-  }
+    onClick?.(
+      INTERACTION_OUTPUT_TYPE.CONTINUE,
+      props.display !== undefined ? props.display : false,
+      props.value,
+    );
+  };
 
   const { inMacOs } = useUiLayoutStore(
-    useShallow((state) => ({ inMacOs: state.inMacOs }))
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
 
   useHotkeys(
@@ -45,7 +51,7 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
     () => {
       onBtnClick();
     },
-    [onBtnClick]
+    [onBtnClick],
   );
 
   return (

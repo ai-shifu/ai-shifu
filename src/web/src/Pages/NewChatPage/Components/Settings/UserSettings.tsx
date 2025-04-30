@@ -35,7 +35,7 @@ export const UserSettings = ({
   const { refreshUserInfo } = useUserStore(
     useShallow((state) => ({
       refreshUserInfo: state.refreshUserInfo,
-    }))
+    })),
   );
 
   const { t, i18n } = useTranslation();
@@ -81,13 +81,22 @@ export const UserSettings = ({
     await updateUserProfile(data, courseId);
     await refreshUserInfo();
     onClose();
-  }, [avatar, birth, dynFormData, nickName, onClose, refreshUserInfo, sex, courseId]);
+  }, [
+    avatar,
+    birth,
+    dynFormData,
+    nickName,
+    onClose,
+    refreshUserInfo,
+    sex,
+    courseId,
+  ]);
 
   const onNickNameChanged = useCallback(
     (e) => {
       setNickName(e.target.value);
     },
-    [setNickName]
+    [setNickName],
   );
 
   const onSexSettingModalOk = useCallback(
@@ -95,7 +104,7 @@ export const UserSettings = ({
       setSex(e.sex);
       setSexSettingModalOpen(false);
     },
-    [setSex]
+    [setSex],
   );
 
   const onSexSelectClick = useCallback(() => {
@@ -131,13 +140,16 @@ export const UserSettings = ({
         setBirth(v.value);
       }
     });
-    setDynFormData(respData.filter((v) => (!fixed_keys.includes(v.key) && !hidden_keys.includes(v.key))));
+    setDynFormData(
+      respData.filter(
+        (v) => !fixed_keys.includes(v.key) && !hidden_keys.includes(v.key),
+      ),
+    );
   }, []);
-
 
   useEffect(() => {
     loadData();
-  },[i18n.language,loadData]);
+  }, [i18n.language, loadData]);
 
   const onChangeAvatarChanged = useCallback(({ dataUrl }) => {
     setAvatar(dataUrl);

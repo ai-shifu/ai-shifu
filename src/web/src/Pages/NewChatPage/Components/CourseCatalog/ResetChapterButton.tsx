@@ -22,7 +22,6 @@ export const ResetChapterButton = ({
     updateLessonId: state.updateLessonId,
   }));
 
-
   const onButtonClick = useCallback(
     async (e) => {
       Modal.confirm({
@@ -49,7 +48,17 @@ export const ResetChapterButton = ({
       e.detail = { chapterId };
       onClick?.(e);
     },
-    [chapterId, chapterName, onClick, onConfirm, resetChapter, t, trackEvent, lessonId, updateLessonId]
+    [
+      chapterId,
+      chapterName,
+      onClick,
+      onConfirm,
+      resetChapter,
+      t,
+      trackEvent,
+      lessonId,
+      updateLessonId,
+    ],
   );
 
   return (
@@ -60,7 +69,7 @@ export const ResetChapterButton = ({
         size="small"
         shape="round"
       >
-        {t('lesson.reset.resetTitle') }
+        {t('lesson.reset.resetTitle')}
       </LineButton>
     </>
   );

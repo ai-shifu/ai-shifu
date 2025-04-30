@@ -1,14 +1,22 @@
 /* eslint-disable */
-import { getSiteHost } from "@/config/runtime-config";
+import { getSiteHost } from '@/config/runtime-config';
 import { fail } from '@/hooks/use-toast';
-import { getToken } from "@/local/local";
+import { getToken } from '@/local/local';
 import { v4 as uuidv4 } from 'uuid';
 
 export type RequestConfig = RequestInit & { params?: any; data?: any };
 
-export type StreamRequestConfig = RequestInit & { params?: any; data?: any, parseChunk?: (chunkValue: string) => string };
+export type StreamRequestConfig = RequestInit & {
+  params?: any;
+  data?: any;
+  parseChunk?: (chunkValue: string) => string;
+};
 
-export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
+export type StreamCallback = (
+  done: boolean,
+  text: string,
+  abort: () => void,
+) => void;
 
 export class ErrorWithCode extends Error {
   code: number;
@@ -27,15 +35,14 @@ function parseJson(text: string) {
   }
 }
 
-
 async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
-  const utf8Decoder = new TextDecoder("utf-8");
+  const utf8Decoder = new TextDecoder('utf-8');
   let { value: chunk, done: readerDone } = await reader.read();
-  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : '';
   const re = /\r\n|\n|\r/gm;
   let startIndex = 0;
 
-  for (; ;) {
+  for (;;) {
     // eslint-disable-next-line prefer-const
     const result = re.exec(chunk);
     if (!result) {
@@ -45,7 +52,7 @@ async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
       const remainder = chunk.substr(startIndex);
       ({ value: chunk, done: readerDone } = await reader.read());
       chunk =
-        remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+        remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : '');
       startIndex = re.lastIndex = 0;
       continue;
     }
@@ -74,14 +81,13 @@ export class Request {
         ...this.defaultConfig.headers,
         ...config.headers,
         // "X-API-MODE": "admin",
-      }
+      },
     };
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
         const siteHost = getSiteHost();
         this.baseUrl = siteHost || 'http://localhost/api';
-
       }
       fullUrl = this.baseUrl ? this.baseUrl + url : url;
     }
@@ -92,51 +98,65 @@ export class Request {
       mergedConfig.headers = {
         Authorization: `Bearer ${this.token}`,
         ...mergedConfig.headers,
-        "Token": this.token,
+        Token: this.token,
         // "X-API-MODE": "admin",
-        "X-Request-ID": uuidv4().replace(/-/g, '')
+        'X-Request-ID': uuidv4().replace(/-/g, ''),
       } as any;
     }
 
     return {
       url: fullUrl,
-      config: mergedConfig
+      config: mergedConfig,
     };
   }
   // intercept request, handle exceptions uniformly
   async interceptFetch(url: string, config: RequestConfig) {
     try {
-      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(
+        url,
+        config,
+      );
       const response = await fetch(fullUrl, mergedConfig);
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        throw new ErrorWithCode(
+          `Request failed with status ${response.status}`,
+          response.status,
+        );
       }
 
       const res = await response.json();
       // check if there is a code property, use Object API
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-
         if (location.pathname == '/login') {
           return res;
         }
-        if (location.pathname != '/login' && (res.code == 1001 || res.code == 1005 || res.code == 1004)) {
-            window.location.href = '/login';
+        if (
+          location.pathname != '/login' &&
+          (res.code == 1001 || res.code == 1005 || res.code == 1004)
+        ) {
+          window.location.href = '/login';
         }
         if (res.code == 0) {
           return res.data;
         }
-
       }
       return res;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error.message);
-      fail(error.message)
+      fail(error.message);
       throw error;
     }
   }
-  async interceptFetchByStreamLine(url: string, config: StreamRequestConfig, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+  async interceptFetchByStreamLine(
+    url: string,
+    config: StreamRequestConfig,
+    callback?: StreamCallback,
+  ) {
+    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(
+      url,
+      config,
+    );
     try {
       const { parseChunk, ...rest } = mergedConfig as any;
       const controller = new AbortController();
@@ -147,7 +167,10 @@ export class Request {
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        throw new ErrorWithCode(
+          `Request failed with status ${response.status}`,
+          response.status,
+        );
       }
 
       const data = response.body as any;
@@ -173,7 +196,6 @@ export class Request {
         });
       }
       return lines;
-
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error);
@@ -182,8 +204,15 @@ export class Request {
     }
   }
 
-  async interceptFetchByStream(url: string, config: StreamRequestConfig, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+  async interceptFetchByStream(
+    url: string,
+    config: StreamRequestConfig,
+    callback?: StreamCallback,
+  ) {
+    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(
+      url,
+      config,
+    );
 
     try {
       const { parseChunk, ...rest } = mergedConfig as any;
@@ -195,7 +224,10 @@ export class Request {
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status} ${response.statusText}`, response.status);
+        throw new ErrorWithCode(
+          `Request failed with status ${response.status} ${response.statusText}`,
+          response.status,
+        );
       }
 
       const data = response.body as any;
@@ -233,7 +265,6 @@ export class Request {
           return result;
         }
       }
-
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error);
@@ -260,29 +291,43 @@ export class Request {
   }
 
   stream(url: string, body = {}, config = {}, callback?: StreamCallback) {
-    return this.interceptFetchByStream(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig, callback);
+    return this.interceptFetchByStream(
+      url,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        ...config,
+      } as RequestConfig,
+      callback,
+    );
   }
 
   streamLine(url: string, body = {}, config = {}, callback?: StreamCallback) {
-    return this.interceptFetchByStreamLine(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig, callback);
+    return this.interceptFetchByStreamLine(
+      url,
+      {
+        method: 'POST',
+        body: JSON.stringify(body),
+        ...config,
+      } as RequestConfig,
+      callback,
+    );
   }
   async fetch(url: string, config: RequestConfig) {
     try {
-      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(
+        url,
+        config,
+      );
       const response = await fetch(fullUrl, {
         ...mergedConfig,
-        method: "POST"
+        method: 'POST',
       });
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status} ${response.statusText}`, response.status);
+        throw new ErrorWithCode(
+          `Request failed with status ${response.status} ${response.statusText}`,
+          response.status,
+        );
       }
       return response;
     } catch (error: any) {

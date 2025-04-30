@@ -12,12 +12,12 @@ const TrialNodeBottomArea = ({ payload }) => {
     useShallow((state) => ({
       hasPay: state.hasPay,
       updateHasPay: state.updateHasPay,
-    }))
+    })),
   );
 
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
-  const onClick = useCallback( () => {
+  const onClick = useCallback(() => {
     shifu.payTools.openPay({});
     trackEvent(EVENT_NAMES.POP_PAY, { from: 'left-nav-banner' });
   }, [EVENT_NAMES.POP_PAY, trackEvent]);
@@ -30,8 +30,11 @@ const TrialNodeBottomArea = ({ payload }) => {
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
 
     return () => {
-      shifu.events.removeEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
-    }
+      shifu.events.removeEventListener(
+        shifu.EventTypes.PAY_MODAL_OK,
+        onModalOk,
+      );
+    };
   });
 
   return hasPay ? (

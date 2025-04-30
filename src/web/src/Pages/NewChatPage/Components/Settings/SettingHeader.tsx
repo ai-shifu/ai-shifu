@@ -17,7 +17,7 @@ export const SettingHeader = ({ className, onHomeClick }) => {
               </span>
             ),
           },
-          { title: <span>{t("settings.settingTite")}</span> },
+          { title: <span>{t('settings.settingTite')}</span> },
         ]}
       />
     </div>

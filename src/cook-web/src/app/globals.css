@@ -2,7 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
-body,html {
+body,
+html {
   font-family: Arial, Helvetica, sans-serif;
   font-size: 14px;
 }

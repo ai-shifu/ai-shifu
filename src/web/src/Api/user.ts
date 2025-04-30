@@ -14,7 +14,7 @@ export const register = ({ username, password, mobile, email }) => {
   return request({
     url: '/api/user/register',
     method: 'post',
-    data: { username, password, email, mobile }
+    data: { username, password, email, mobile },
   });
 };
 
@@ -28,7 +28,7 @@ export const login = (username, password) => {
   return request({
     url: '/api/user/login',
     method: 'post',
-    data: { username, password }
+    data: { username, password },
   });
 };
 
@@ -43,7 +43,6 @@ export const getUserInfo = () => {
   });
 };
 
-
 /**
  *
  */
@@ -51,16 +50,15 @@ export const updateUserInfo = (name) => {
   return request({
     url: '/api/user/update_info',
     method: 'post',
-    data: { name }
+    data: { name },
   });
 };
-
 
 export const updatePassword = (old_password, new_password) => {
   return request({
     url: '/api/user/update_password',
     method: 'post',
-    data: { old_password, new_password }
+    data: { old_password, new_password },
   });
 };
 
@@ -68,16 +66,15 @@ export const requireResetPasswordCode = (username) => {
   return request({
     url: '/api/user/require_reset_code',
     method: 'post',
-    data: { username }
+    data: { username },
   });
 };
-
 
 export const resetPassword = (username, new_password, code) => {
   return request({
     url: '/api/user/reset_password',
     method: 'post',
-    data: { username, new_password, code }
+    data: { username, new_password, code },
   });
 };
 
@@ -89,15 +86,17 @@ export const resetPassword = (username, new_password, code) => {
  * https://agiclass.feishu.cn/docx/WyXhdgeVzoKVqDx1D4wc0eMknmg
  */
 export const registerTmp = ({ temp_id }) => {
-  const { channel: source, wechatCode: wxcode,language } = useSystemStore.getState();
+  const {
+    channel: source,
+    wechatCode: wxcode,
+    language,
+  } = useSystemStore.getState();
 
-  return request(
-    {
-      url: '/api/user/require_tmp',
-      method: 'post',
-      data: { temp_id, source, wxcode,language }
-    }
-  );
+  return request({
+    url: '/api/user/require_tmp',
+    method: 'post',
+    data: { temp_id, source, wxcode, language },
+  });
 };
 
 /**
@@ -106,13 +105,11 @@ export const registerTmp = ({ temp_id }) => {
  */
 export const updateWxcode = ({ wxcode }) => {
   // const { wechatCode: wxcode } = useSystemStore.getState();
-  return request(
-    {
-      url: '/api/user/update_openid',
-      method: 'post',
-      data: { wxcode }
-    }
-  );
+  return request({
+    url: '/api/user/update_openid',
+    method: 'post',
+    data: { wxcode },
+  });
 };
 
 /**
@@ -153,13 +150,12 @@ export const verifySmsCode = ({ mobile, sms_code, course_id }) => {
   });
 };
 
-
 // 获取用户详细信息
 export const getUserProfile = (courseId) => {
   return request({
     url: '/api/user/get_profile',
     method: 'get',
-    params: { course_id: courseId }
+    params: { course_id: courseId },
   });
 };
 
@@ -181,18 +177,17 @@ export const updateUserProfile = (data, courseId) => {
     url: '/api/user/update_profile',
     method: 'POST',
     data: {
-      "profiles": data,
-      "course_id": courseId
-    }
+      profiles: data,
+      course_id: courseId,
+    },
   });
 };
-
 
 // submit feedback
 export const submitFeedback = (feedback) => {
   return request({
     url: '/api/user/submit-feedback',
     method: 'POST',
-    data: {feedback}
+    data: { feedback },
   });
 };

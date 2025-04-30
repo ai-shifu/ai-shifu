@@ -13,7 +13,7 @@ const TIMEOUT = 5000;
 export const CopyButton = ({ content }) => {
   const [hasCopy, setHasCopy] = useState(false);
   const timeoutRef = useRef();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   const onCopyClick = () => {
     copyText(content);

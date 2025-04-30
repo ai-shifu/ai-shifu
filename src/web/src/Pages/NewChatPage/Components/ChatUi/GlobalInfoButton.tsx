@@ -83,18 +83,22 @@ const GlobalInfoButton = ({ className }) => {
       onClick: () => {
         onPopoverClose();
         onShortcutModalOpen();
-      }
+      },
     },
   ];
 
   const { inMacOs } = useUiLayoutStore(
-    useShallow((state) => ({ inMacOs: state.inMacOs }))
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
 
-  useHotkeys(genHotKeyIdentifier(SHORTCUT_IDS.SHORTCUT, inMacOs), () => {
-    onPopoverClose();
-    onShortcutModalOpen();
-  }, []);
+  useHotkeys(
+    genHotKeyIdentifier(SHORTCUT_IDS.SHORTCUT, inMacOs),
+    () => {
+      onPopoverClose();
+      onShortcutModalOpen();
+    },
+    [],
+  );
 
   return (
     <>

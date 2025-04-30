@@ -21,7 +21,7 @@ export const ChangeAvatar = ({
 
   useEffect(() => {
     setImg(image);
-  }, [image])
+  }, [image]);
   const onAvatarClick = () => {
     uploadRef.current.click();
   };
@@ -33,7 +33,7 @@ export const ChangeAvatar = ({
       setImg(imgUrl);
       setModalOpen(false);
     },
-    [onChange]
+    [onChange],
   );
 
   const onAvatarUploadChange = useCallback(async (e) => {
@@ -68,7 +68,7 @@ export const ChangeAvatar = ({
             className={styles.avatarUpload}
             ref={uploadRef}
             onChange={onAvatarUploadChange}
-            accept='.png,.jpg,.jpeg,.bmp,.webp'
+            accept=".png,.jpg,.jpeg,.bmp,.webp"
           />
           <img
             className={styles.editIcon}

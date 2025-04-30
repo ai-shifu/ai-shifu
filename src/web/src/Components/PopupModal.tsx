@@ -20,7 +20,7 @@ export const PopupModal = ({
         onClose?.(event);
       }
     },
-    [onClose]
+    [onClose],
   );
 
   // 监听点击事件

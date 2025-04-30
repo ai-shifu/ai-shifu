@@ -1,11 +1,7 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
+    "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -27,81 +23,31 @@
     "types": ["node"],
     "baseUrl": "./src",
     "paths": {
-      "@Assets": [
-        "./Assets"
-      ],
-      "@Components": [
-        "./Components"
-      ],
-      "@pages": [
-        "./pages"
-      ],
-      "@assets": [
-        "./assets"
-      ],
-      "@images": [
-        "./assets/img"
-      ],
-      "@icons": [
-        "./assets/icons"
-      ],
-      "@constants": [
-        "./constants"
-      ],
-      "@Service": [
-        "./Service"
-      ],
-      "@Utils": [
-        "./Utils"
-      ],
-      "@stores": [
-        "./stores"
-      ],
-      "@Api": [
-        "./Api"
-      ],
-      "@/*": [
-        "./"
-      ],
-      "components/*": [
-        "./components/*"
-      ],
-      "@ShiNiang": [
-        "./ShiNiang"
-      ],
-      "utils/*": [
-        "./utils/*"
-      ],
-      "Assets/*": [
-        "./Assets/*"
-      ],
-      "Components/*": [
-        "./Components/*"
-      ],
-      "constants/*": [
-        "./constants/*"
-      ],
-      "Service/*": [
-        "./Service/*"
-      ],
-      "Utils/*": [
-        "./Utils/*"
-      ],
-      "stores/*": [
-        "./stores/*"
-      ],
-      "Api/*": [
-        "./Api/*"
-      ],
-      "ShiNiang/*": [
-        "./ShiNiang/*"
-      ]
+      "@Assets": ["./Assets"],
+      "@Components": ["./Components"],
+      "@pages": ["./pages"],
+      "@assets": ["./assets"],
+      "@images": ["./assets/img"],
+      "@icons": ["./assets/icons"],
+      "@constants": ["./constants"],
+      "@Service": ["./Service"],
+      "@Utils": ["./Utils"],
+      "@stores": ["./stores"],
+      "@Api": ["./Api"],
+      "@/*": ["./"],
+      "components/*": ["./components/*"],
+      "@ShiNiang": ["./ShiNiang"],
+      "utils/*": ["./utils/*"],
+      "Assets/*": ["./Assets/*"],
+      "Components/*": ["./Components/*"],
+      "constants/*": ["./constants/*"],
+      "Service/*": ["./Service/*"],
+      "Utils/*": ["./Utils/*"],
+      "stores/*": ["./stores/*"],
+      "Api/*": ["./Api/*"],
+      "ShiNiang/*": ["./ShiNiang/*"]
     }
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "node_modules"
-  ]
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }

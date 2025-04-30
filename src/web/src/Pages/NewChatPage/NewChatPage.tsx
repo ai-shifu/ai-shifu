@@ -69,7 +69,7 @@ const NewChatPage = (props) => {
         updateLessonId: state.updateLessonId,
         chapterId: state.chapterId,
         updateChapterId: state.updateChapterId,
-      }))
+      })),
     );
 
   const {
@@ -92,9 +92,8 @@ const NewChatPage = (props) => {
   const { courseId } = useParams();
   const { updateCourseId } = useEnvStore.getState();
   const { wechatCode } = useSystemStore(
-    useShallow((state) => ({ wechatCode: state.wechatCode }))
+    useShallow((state) => ({ wechatCode: state.wechatCode })),
   );
-
 
   useEffect(() => {
     if (tree) {
@@ -102,11 +101,11 @@ const NewChatPage = (props) => {
     }
   }, [i18n.language]);
 
-  useEffect(()=>{
-    if(selectedLessonId){
+  useEffect(() => {
+    if (selectedLessonId) {
       updateLessonId(selectedLessonId);
     }
-  },[selectedLessonId,updateLessonId]);
+  }, [selectedLessonId, updateLessonId]);
 
   const fetchData = useCallback(async () => {
     if (tree) {
@@ -156,18 +155,17 @@ const NewChatPage = (props) => {
     (val) => {
       updateLesson(val.id, val);
     },
-    [updateLesson]
+    [updateLesson],
   );
 
   const onChapterUpdate = useCallback(
     ({ id, status, status_value }) => {
       updateChapterStatus(id, { status, status_value });
     },
-    [updateChapterStatus]
+    [updateChapterStatus],
   );
 
   const onGoChapter = async (id) => {
-
     updateChapterId(id);
   };
 
@@ -211,7 +209,7 @@ const NewChatPage = (props) => {
           chapterId: chapter.id,
           lessonId: id,
         },
-      })
+      }),
     );
 
     if (mobileStyle) {
@@ -268,14 +266,11 @@ const NewChatPage = (props) => {
     })();
   }, [hasCheckLogin, initAndCheckLogin]);
 
-
-
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async (e) => {
       await reloadTree(e.detail.chapter_id);
       onGoChapter(e.detail.chapter_id);
-
     };
     const eventHandler = () => {
       setLoginModalOpen(true);
@@ -290,37 +285,36 @@ const NewChatPage = (props) => {
 
     shifu.events.addEventListener(
       shifu.EventTypes.OPEN_LOGIN_MODAL,
-      eventHandler
+      eventHandler,
     );
 
     shifu.events.addEventListener(
       shifu.EventTypes.OPEN_PAY_MODAL,
-      payEventHandler
+      payEventHandler,
     );
 
     shifu.events.addEventListener(
       shifu.EventTypes.RESET_CHAPTER,
-      resetChapterEventHandler
+      resetChapterEventHandler,
     );
 
     return () => {
       shifu.events.removeEventListener(
         shifu.EventTypes.OPEN_LOGIN_MODAL,
-        eventHandler
+        eventHandler,
       );
 
       shifu.events.removeEventListener(
         shifu.EventTypes.OPEN_PAY_MODAL,
-        payEventHandler
+        payEventHandler,
       );
 
       shifu.events.removeEventListener(
         shifu.EventTypes.RESET_CHAPTER,
-        resetChapterEventHandler
+        resetChapterEventHandler,
       );
     };
   });
-
 
   useEffect(() => {
     if (hasCheckLogin && loadedChapterId !== chapterId) {
@@ -328,7 +322,6 @@ const NewChatPage = (props) => {
       setLoadedChapterId(chapterId);
     }
   }, [chapterId, hasCheckLogin, loadData, loadedChapterId]);
-
 
   return (
     <div className={classNames(styles.newChatPage)}>

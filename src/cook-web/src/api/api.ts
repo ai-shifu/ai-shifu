@@ -58,7 +58,7 @@ const api = {
 
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
-  getProfileList: 'GET /profiles/get-profile-item-definitions'
-}
+  getProfileList: 'GET /profiles/get-profile-item-definitions',
+};
 
-export default api
+export default api;

@@ -17,8 +17,13 @@ const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_OUTPUT_TYPE.CHECKCODE,
 };
 
-export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
-  const {t}= useTranslation();
+export const ChatInputText = ({
+  onClick,
+  type,
+  disabled = false,
+  props = {},
+}) => {
+  const { t } = useTranslation();
   const [input, setInput] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
 
@@ -30,13 +35,13 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
       return;
     }
 
-    onClick?.(outputType, true,input.trim());
+    onClick?.(outputType, true, input.trim());
     setInput('');
   };
 
   useEffect(() => {
     if (!disabled) {
-      const elem = document.querySelector(`.${styles.inputField}`)
+      const elem = document.querySelector(`.${styles.inputField}`);
 
       if (elem) {
         elem.focus();
@@ -59,7 +64,9 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
               }
               setInput(newValue);
             }}
-            placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
+            placeholder={
+              props?.content?.content || t('chat.chatInputPlaceholder')
+            }
             className={styles.inputField}
             disabled={disabled}
             onKeyDown={(e) => {
@@ -68,9 +75,13 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
                 onSendClick();
               }
             }}
-          >
-          </Input>
-          <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
+          ></Input>
+          <img
+            src={require('@Assets/newchat/light/icon-send.png')}
+            alt=""
+            className={styles.sendIcon}
+            onClick={onSendClick}
+          />
         </div>
         {contextHolder}
       </div>

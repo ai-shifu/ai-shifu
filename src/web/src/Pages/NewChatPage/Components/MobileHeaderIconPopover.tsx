@@ -2,7 +2,9 @@ import { memo } from 'react';
 import { shifu } from 'Service/Shifu';
 
 const MobileHeaderIconPopover = ({ payload, onClose, onOpen }) => {
-  const Control = shifu.getControl(shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER);
+  const Control = shifu.getControl(
+    shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
+  );
 
   return Control && payload ? (
     <div>

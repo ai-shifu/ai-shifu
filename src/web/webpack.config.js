@@ -11,12 +11,12 @@ module.exports = {
   resolve: {
     extensions: ['.ts', '.tsx', '.js', '.jsx'],
     fallback: {
-      "util": require.resolve("util/"),
-      "stream": require.resolve("stream-browserify"),
-      "buffer": require.resolve("buffer/"),
-      "process": false,
-      "querystring": require.resolve("querystring-es3"),
-      "url": require.resolve("url/"),
+      util: require.resolve('util/'),
+      stream: require.resolve('stream-browserify'),
+      buffer: require.resolve('buffer/'),
+      process: false,
+      querystring: require.resolve('querystring-es3'),
+      url: require.resolve('url/'),
     },
     alias: {
       '@Assets': path.resolve(__dirname, 'src/Assets'),
@@ -31,15 +31,15 @@ module.exports = {
       '@stores': path.resolve(__dirname, 'src/stores'),
       '@Api': path.resolve(__dirname, 'src/Api'),
       '@ShiNiang': path.resolve(__dirname, 'src/ShiNiang'),
-      'Assets': path.resolve(__dirname, 'src/Assets'),
-      'Components': path.resolve(__dirname, 'src/Components'),
-      'constants': path.resolve(__dirname, 'src/constants'),
-      'Service': path.resolve(__dirname, 'src/Service'),
-      'Utils': path.resolve(__dirname, 'src/Utils'),
-      'stores': path.resolve(__dirname, 'src/stores'),
-      'Api': path.resolve(__dirname, 'src/Api'),
-      'ShiNiang': path.resolve(__dirname, 'src/ShiNiang'),
-    }
+      Assets: path.resolve(__dirname, 'src/Assets'),
+      Components: path.resolve(__dirname, 'src/Components'),
+      constants: path.resolve(__dirname, 'src/constants'),
+      Service: path.resolve(__dirname, 'src/Service'),
+      Utils: path.resolve(__dirname, 'src/Utils'),
+      stores: path.resolve(__dirname, 'src/stores'),
+      Api: path.resolve(__dirname, 'src/Api'),
+      ShiNiang: path.resolve(__dirname, 'src/ShiNiang'),
+    },
   },
   module: {
     rules: [
@@ -54,9 +54,9 @@ module.exports = {
           loader: 'esbuild-loader',
           options: {
             loader: 'tsx',
-            target: 'es2015'
-          }
-        }
+            target: 'es2015',
+          },
+        },
       },
       {
         test: /\.(js|jsx)$/,
@@ -64,17 +64,17 @@ module.exports = {
         use: {
           loader: 'babel-loader',
           options: {
-            presets: ['@babel/preset-env', '@babel/preset-react']
-          }
-        }
+            presets: ['@babel/preset-env', '@babel/preset-react'],
+          },
+        },
       },
       {
         test: /\.css$/,
-        use: ['style-loader', 'css-loader']
+        use: ['style-loader', 'css-loader'],
       },
       {
         test: /\.scss$/,
-        use: ['style-loader', 'css-loader', 'sass-loader']
+        use: ['style-loader', 'css-loader', 'sass-loader'],
       },
       {
         test: /\.(png|jpg|gif|svg)$/,
@@ -82,13 +82,11 @@ module.exports = {
           loader: 'file-loader',
           options: {
             name: '[name].[ext]',
-            outputPath: 'images/'
-          }
-        }
-      }
-    ]
+            outputPath: 'images/',
+          },
+        },
+      },
+    ],
   },
-  plugins: [
-    new NodePolyfillPlugin()
-  ]
+  plugins: [new NodePolyfillPlugin()],
 };

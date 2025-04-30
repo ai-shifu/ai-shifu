@@ -35,11 +35,11 @@ export const NavHeader = ({
         className,
         styles.navHeader,
         isCollapse ? styles.collapse : '',
-        mobileStyle ? styles.mobile : ''
+        mobileStyle ? styles.mobile : '',
       )}
     >
       <div className={styles.logoArea} onClick={onLogoAreaClick}>
-        <LogoWithText direction= {isCollapse ? "col" : "row"} size={30} />
+        <LogoWithText direction={isCollapse ? 'col' : 'row'} size={30} />
       </div>
 
       {showCollapseBtn && (

@@ -21,13 +21,13 @@ export const CourseCatalogList = ({
 }) => {
   const { t } = useTranslation();
   const [trialNodePosition, setTrialNodePosition] = useState(
-    TRAIL_NODE_POSITION.NORMAL
+    TRAIL_NODE_POSITION.NORMAL,
   );
   const [trialNodePayload, setTrialNodePayload] = useState(null);
 
   const getRightAreaControl = useCallback(() => {
     const Control = shifu.getControl(
-      shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA
+      shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA,
     );
 
     return Control && bannerInfo ? <Control payload={bannerInfo} /> : <></>;
@@ -35,13 +35,13 @@ export const CourseCatalogList = ({
 
   useEffect(() => {
     setTrialNodePayload(
-      catalogs.find((c) => !!c.bannerInfo)?.bannerInfo || null
+      catalogs.find((c) => !!c.bannerInfo)?.bannerInfo || null,
     );
   }, [catalogs]);
 
   const onNodePositionChange = (position) => {
     setTrialNodePosition(position);
-  }
+  };
 
   return (
     <>

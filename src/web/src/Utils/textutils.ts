@@ -1,21 +1,21 @@
-import { isMobile } from "react-device-detect";
+import { isMobile } from 'react-device-detect';
 import { inWechat } from 'constants/uiConstants';
 
 const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i);
 
 const copyTextOld = async (text) => {
   return new Promise((resolve) => {
-    const textArea = document.createElement("textArea");
+    const textArea = document.createElement('textArea');
     textArea.value = text;
     textArea.style.width = 0;
-    textArea.style.position = "fixed";
-    textArea.style.left = "-999px";
-    textArea.style.top = "10px";
-    textArea.setAttribute("readonly", "readonly");
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999px';
+    textArea.style.top = '10px';
+    textArea.setAttribute('readonly', 'readonly');
     document.body.appendChild(textArea);
 
     textArea.select();
-    document.execCommand("copy");
+    document.execCommand('copy');
     document.body.removeChild(textArea);
   });
 };
@@ -45,13 +45,13 @@ export const copyText = async (text) => {
 };
 
 export const snakeToCamel = (str) => {
-    return str.replace(/(_\w)/g, function(match) {
-        return match[1].toUpperCase();
-    });
-}
+  return str.replace(/(_\w)/g, function (match) {
+    return match[1].toUpperCase();
+  });
+};
 
 export const camelToSnake = (str) => {
-  return str.replace(/[A-Z]/g, function(match) {
-      return '_' + match.toLowerCase();
+  return str.replace(/[A-Z]/g, function (match) {
+    return '_' + match.toLowerCase();
   });
-}
+};

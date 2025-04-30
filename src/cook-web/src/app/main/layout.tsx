@@ -1,10 +1,6 @@
 import React from 'react';
-import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import {
   Bars3Icon,
   // BookOpenIcon,
@@ -13,25 +9,33 @@ import {
   DocumentIcon,
   // CheckBadgeIcon
 } from '@heroicons/react/24/outline';
-import Image from "next/image";
-import Link from "next/link";
-import UserProfile from '@/components/user-profile'
-
+import Image from 'next/image';
+import Link from 'next/link';
+import UserProfile from '@/components/user-profile';
 
 const MainInterface = ({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
-  const menuItems: { type?: string, icon?: React.ReactNode, label?: string, href?: string, id?: string }[] = [
-    { icon: <DocumentIcon className="w-4 h-4" />, label: "剧本", href: "/main" },
+  const menuItems: {
+    type?: string;
+    icon?: React.ReactNode;
+    label?: string;
+    href?: string;
+    id?: string;
+  }[] = [
+    {
+      icon: <DocumentIcon className="w-4 h-4" />,
+      label: '剧本',
+      href: '/main',
+    },
     // { icon: <BookOpenIcon className="w-4 h-4" />, label: "知识库", href: "/main/knowledge" },
     // { type: 'divider' },
     // { icon: <BoltIcon className="w-4 h-4" />, label: "模版", href: "/main/template" },
     // { icon: <LightBulbIcon className="w-4 h-4" />, label: "灵感", href: "/main/inspiration" },
     // { icon: <CheckBadgeIcon className="w-4 h-4" />, label: "最佳实践", href: "/main/best-practice" },
   ];
-
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full relative shadow-md rounded-2xl bg-background">
@@ -49,7 +53,7 @@ const MainInterface = ({
         <nav className="space-y-1">
           {menuItems.map((item, index) => {
             if (item.type == 'divider') {
-              return <div key={index} className='h-px bg-gray-200'></div>
+              return <div key={index} className="h-px bg-gray-200"></div>;
             }
             return (
               <Link
@@ -60,12 +64,12 @@ const MainInterface = ({
                 {item.icon}
                 <span>{item.label}</span>
               </Link>
-            )
+            );
           })}
         </nav>
       </div>
 
-      <div className='p-2 relative'>
+      <div className="p-2 relative">
         <UserProfile />
       </div>
     </div>
@@ -78,9 +82,7 @@ const MainInterface = ({
       </div>
       <div className="flex-1 p-5  overflow-hidden">
         <div className="max-w-6xl mx-auto h-full overflow-hidden">
-          {
-            children
-          }
+          {children}
         </div>
       </div>
       <div className="md:hidden w-full border-b p-4">
@@ -103,5 +105,4 @@ const MainInterface = ({
   );
 };
 
-
-export default MainInterface
+export default MainInterface;

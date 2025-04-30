@@ -36,7 +36,10 @@ const TrialNodeOuter = ({ nodePosition, payload, containerScrollTop }) => {
   }, [nodePosition]);
 
   return (
-    <div className={`${styles.trialNodeOuter} ${getClassName()}`} style={getStyle()}>
+    <div
+      className={`${styles.trialNodeOuter} ${getClassName()}`}
+      style={getStyle()}
+    >
       {getTrialNodeAreaControl()}
     </div>
   );

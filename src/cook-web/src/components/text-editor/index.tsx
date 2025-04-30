@@ -20,7 +20,6 @@ interface TextEditorProps {
   isEdit: boolean;
 }
 
-
 // 将文本中的变量部分转换为 Markdown 代码块
 const processContent = (content: string) => {
   // 匹配 {variable} 格式的变量
@@ -33,7 +32,10 @@ export default function TextEditor(props: TextEditorProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Variable[]>([]);
   const [cursorPosition, setCursorPosition] = useState(0);
-  const [suggestionPosition, setSuggestionPosition] = useState({ top: 0, left: 0 });
+  const [suggestionPosition, setSuggestionPosition] = useState({
+    top: 0,
+    left: 0,
+  });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const mockVariables = useMemo(() => {
@@ -47,7 +49,6 @@ export default function TextEditor(props: TextEditorProps) {
       };
     });
   }, [profileItemDefinations]);
-
 
   const updateCursorPosition = () => {
     if (textareaRef.current) {
@@ -70,13 +71,19 @@ export default function TextEditor(props: TextEditorProps) {
       document.body.appendChild(span);
 
       const rect = textareaRef.current.getBoundingClientRect();
-      const lineHeight = parseInt(window.getComputedStyle(textareaRef.current).lineHeight);
-      const paddingTop = parseInt(window.getComputedStyle(textareaRef.current).paddingTop);
-      const paddingLeft = parseInt(window.getComputedStyle(textareaRef.current).paddingLeft);
+      const lineHeight = parseInt(
+        window.getComputedStyle(textareaRef.current).lineHeight,
+      );
+      const paddingTop = parseInt(
+        window.getComputedStyle(textareaRef.current).paddingTop,
+      );
+      const paddingLeft = parseInt(
+        window.getComputedStyle(textareaRef.current).paddingLeft,
+      );
 
       setSuggestionPosition({
-        top: rect.top + paddingTop + (lineNumber * lineHeight),
-        left: rect.left + paddingLeft + span.offsetWidth
+        top: rect.top + paddingTop + lineNumber * lineHeight,
+        left: rect.left + paddingLeft + span.offsetWidth,
       });
 
       document.body.removeChild(span);
@@ -84,12 +91,11 @@ export default function TextEditor(props: TextEditorProps) {
   };
 
   const insertVariable = (variable: Variable) => {
-
-
-    console.log(variable.name)
+    console.log(variable.name);
     const textBeforeCursor = props.content.substring(0, cursorPosition);
     const textAfterCursor = props.content.substring(cursorPosition);
-    const newContent = textBeforeCursor + variable.name + '}}' + textAfterCursor;
+    const newContent =
+      textBeforeCursor + variable.name + '}}' + textAfterCursor;
     props.onChange(newContent, props.isEdit);
     setShowSuggestions(false);
 
@@ -119,7 +125,6 @@ export default function TextEditor(props: TextEditorProps) {
     } else {
       setShowSuggestions(false);
     }
-
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -127,11 +132,15 @@ export default function TextEditor(props: TextEditorProps) {
       switch (e.key) {
         case 'ArrowUp':
           e.preventDefault();
-          setSelectedIndex(prev => (prev > 0 ? prev - 1 : suggestions.length - 1));
+          setSelectedIndex((prev) =>
+            prev > 0 ? prev - 1 : suggestions.length - 1,
+          );
           break;
         case 'ArrowDown':
           e.preventDefault();
-          setSelectedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : 0));
+          setSelectedIndex((prev) =>
+            prev < suggestions.length - 1 ? prev + 1 : 0,
+          );
           break;
         case 'Enter':
         case 'Tab':
@@ -156,7 +165,6 @@ export default function TextEditor(props: TextEditorProps) {
   const handleBlur = () => {
     // 延迟关闭下拉菜单，以便能够点击选择
     setTimeout(() => {
-
       setShowSuggestions(false);
     }, 200);
   };
@@ -166,7 +174,7 @@ export default function TextEditor(props: TextEditorProps) {
       return (
         <div className="relative">
           <textarea
-            placeholder='请输入'
+            placeholder="请输入"
             ref={textareaRef}
             value={props.content}
             onChange={handleInput}
@@ -181,29 +189,36 @@ export default function TextEditor(props: TextEditorProps) {
               className="fixed z-10 bg-white border rounded shadow-lg w-64"
               style={{
                 top: `${suggestionPosition.top}px`,
-                left: `${suggestionPosition.left}px`
+                left: `${suggestionPosition.left}px`,
               }}
             >
               {suggestions.map((suggestion, index) => (
                 <div
                   key={suggestion.name}
-                  className={`p-2 hover:bg-gray-100 cursor-pointer ${index === selectedIndex ? 'bg-blue-50' : ''
-                    }`}
+                  className={`p-2 hover:bg-gray-100 cursor-pointer ${
+                    index === selectedIndex ? 'bg-blue-50' : ''
+                  }`}
                   onClick={() => insertVariable(suggestion)}
                 >
                   <div className="flex items-center">
-                    <div className={`w-3 h-3 rounded-full mr-2 `}
+                    <div
+                      className={`w-3 h-3 rounded-full mr-2 `}
                       style={{
-                        backgroundColor: suggestion.color
+                        backgroundColor: suggestion.color,
                       }}
                     ></div>
-                    <div className="font-bold"
+                    <div
+                      className="font-bold"
                       style={{
-                        color: suggestion.text_color
+                        color: suggestion.text_color,
                       }}
-                    >{suggestion.name}</div>
+                    >
+                      {suggestion.name}
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-500 ml-5">{suggestion.description}</div>
+                  <div className="text-sm text-gray-500 ml-5">
+                    {suggestion.description}
+                  </div>
                 </div>
               ))}
             </div>
@@ -222,9 +237,15 @@ export default function TextEditor(props: TextEditorProps) {
             code({ node, className, children, ...props }) {
               // 检查是否是变量（没有语言标记的代码块）
               if (!className) {
-                const variable = mockVariables.find(v => v.name === String(children));
+                const variable = mockVariables.find(
+                  (v) => v.name === String(children),
+                );
                 return (
-                  <span className={`${variable?.color || 'bg-blue-100 text-blue-800'} px-1 py-0.5 rounded`}>
+                  <span
+                    className={`${
+                      variable?.color || 'bg-blue-100 text-blue-800'
+                    } px-1 py-0.5 rounded`}
+                  >
                     {children}
                   </span>
                 );
@@ -245,7 +266,7 @@ export default function TextEditor(props: TextEditorProps) {
                   {children}
                 </code>
               );
-            }
+            },
           }}
         >
           {processContent(props.content)}
@@ -254,10 +275,5 @@ export default function TextEditor(props: TextEditorProps) {
     );
   };
 
-
-  return (
-    <div className="container mx-auto p-2">
-      {renderContent()}
-    </div>
-  );
+  return <div className="container mx-auto p-2">{renderContent()}</div>;
 }

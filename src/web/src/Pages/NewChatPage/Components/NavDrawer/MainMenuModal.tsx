@@ -13,7 +13,6 @@ import { getUserProfile, updateUserProfile } from 'Api/user';
 import { LANGUAGE_DICT } from 'constants/userConstants';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking';
 
-
 const MainMenuModal = ({
   open,
   onClose = () => {},
@@ -28,10 +27,8 @@ const MainMenuModal = ({
     useShallow((state) => ({
       logout: state.logout,
       hasLogin: state.hasLogin,
-    }))
+    })),
   );
-
-
 
   const { i18n, t } = useTranslation();
   const languageDrowdownContainer = (triggerNode) => {
@@ -50,7 +47,6 @@ const MainMenuModal = ({
       label: lang.label,
     })),
     onClick: async ({ key }) => {
-
       const languageData = LANGUAGE_DICT[key];
 
       if (languageData) {
@@ -106,7 +102,11 @@ const MainMenuModal = ({
       open={open}
       onClose={onClose}
       wrapStyle={{ ...style }}
-      className={classNames(className, styles.mainMenuModalWrapper, mobileStyle && styles.mobile)}
+      className={classNames(
+        className,
+        styles.mainMenuModalWrapper,
+        mobileStyle && styles.mobile,
+      )}
     >
       <div className={styles.mainMenuModal} ref={htmlRef}>
         <div className={styles.mainMenuModalRow} onClick={onUserInfoClick}>
@@ -134,7 +134,7 @@ const MainMenuModal = ({
           <div
             className={classNames(
               styles.mainMenuModalRow,
-              styles.languageRowInner
+              styles.languageRowInner,
             )}
           >
             <div className={styles.languageRowLeft}>

@@ -1,6 +1,11 @@
 import '@chatui/core/dist/index.css';
 import Chat, { useMessages } from '@chatui/core';
-import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled } from '@ant-design/icons';
+import {
+  LikeOutlined,
+  DislikeOutlined,
+  LikeFilled,
+  DislikeFilled,
+} from '@ant-design/icons';
 import {
   useEffect,
   forwardRef,
@@ -9,7 +14,11 @@ import {
   useContext,
   useRef,
 } from 'react';
-import { runScript, getLessonStudyRecord, scriptContentOperation } from 'Api/study';
+import {
+  runScript,
+  getLessonStudyRecord,
+  scriptContentOperation,
+} from 'Api/study';
 import { genUuid } from 'Utils/common';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea';
 import { AppContext } from 'Components/AppContext';
@@ -46,7 +55,6 @@ import { convertKeysToCamelCase } from 'Utils/objUtils';
 import { useShallow } from 'zustand/react/shallow';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 import logoColor120 from 'Assets/logos/logo-color-120.png';
-
 
 const USER_ROLE = {
   TEACHER: '老师',
@@ -178,14 +186,14 @@ export const ChatComponents = forwardRef(
     {
       className,
       lessonUpdate,
-      onGoChapter = () => { },
+      onGoChapter = () => {},
       chapterId,
       lessonId,
       onPurchased,
       chapterUpdate,
       updateSelectedLesson,
     },
-    ref
+    ref,
   ) => {
     const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
@@ -222,7 +230,7 @@ export const ChatComponents = forwardRef(
     const { updateResetedChapterId } = useCourseStore(
       useShallow((state) => ({
         updateResetedChapterId: state.updateResetedChapterId,
-      }))
+      })),
     );
 
     const { messages, appendMsg, setTyping, updateMsg, resetList, deleteMsg } =
@@ -242,7 +250,7 @@ export const ChatComponents = forwardRef(
         checkLogin: state.checkLogin,
         updateUserInfo: state.updateUserInfo,
         refreshUserInfo: state.refreshUserInfo,
-      }))
+      })),
     );
 
     const {
@@ -319,7 +327,7 @@ export const ChatComponents = forwardRef(
           updateSelectedLesson(content.lesson_id);
         }
       },
-      [chatId, lessonUpdate, updateSelectedLesson]
+      [chatId, lessonUpdate, updateSelectedLesson],
     );
 
     const nextStep = useCallback(
@@ -362,7 +370,7 @@ export const ChatComponents = forwardRef(
               if (lastMsg !== null && lastMsg.type === 'text') {
                 const currText = fixMarkdownStream(
                   lastMsg.content,
-                  response.content
+                  response.content,
                 );
                 lastMsg.content = lastMsg.content + currText;
                 updateMsg(lastMsg.id, lastMsg);
@@ -487,7 +495,7 @@ export const ChatComponents = forwardRef(
                 visible: content.visible,
               });
             }
-          } catch (e) { }
+          } catch (e) {}
         });
       },
       [
@@ -501,7 +509,7 @@ export const ChatComponents = forwardRef(
         updateMsg,
         updateUserInfo,
         userInfo,
-      ]
+      ],
     );
 
     const onImageLoaded = useCallback(() => {
@@ -559,7 +567,7 @@ export const ChatComponents = forwardRef(
                 id: `lesson-${newLessonId}`,
                 script_type: CHAT_MESSAGE_TYPE.LESSON_SEPARATOR,
                 logid: v.id,
-              })
+              }),
             );
           }
 
@@ -588,7 +596,7 @@ export const ChatComponents = forwardRef(
               logid: v.id,
             },
             userInfo,
-            teach_avator
+            teach_avator,
           );
           appendMsg(newMessage);
           lastMsg = newMessage;
@@ -645,7 +653,7 @@ export const ChatComponents = forwardRef(
           } else {
             return;
           }
-        }
+        },
       );
     });
 
@@ -655,23 +663,21 @@ export const ChatComponents = forwardRef(
         () => {
           setLoadedChapterId(chapterId);
           resetAndLoadData();
-        }
+        },
       );
     }, [chapterId, resetAndLoadData]);
 
     // debugger
     useEffect(() => {
       if (window.ztDebug) {
-        window.ztDebug.resend = () => {
-
-        };
+        window.ztDebug.resend = () => {};
 
         window.ztDebug.resendX = (
           chatId,
           lessonId,
           val,
           type,
-          scriptId = null
+          scriptId = null,
         ) => {
           nextStep({
             chatId,
@@ -729,7 +735,7 @@ export const ChatComponents = forwardRef(
         scrollToBottom,
         setTyping,
         userInfo,
-      ]
+      ],
     );
 
     const onPayModalOk = useCallback(() => {
@@ -739,7 +745,6 @@ export const ChatComponents = forwardRef(
     }, [handleSend, onPurchased, refreshUserInfo]);
 
     const [interactionTypes, setInteractionTypes] = useState({});
-
 
     const renderMessageContentOperation = useCallback(
       (msg) => {
@@ -751,7 +756,9 @@ export const ChatComponents = forwardRef(
               [msg.id]: currentType === 1 ? 0 : 1,
             };
 
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(
+              () => {},
+            );
             return updatedTypes;
           });
         };
@@ -764,7 +771,9 @@ export const ChatComponents = forwardRef(
               [msg.id]: currentType === 2 ? 0 : 2,
             };
 
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(
+              () => {},
+            );
             return updatedTypes;
           });
         };
@@ -782,14 +791,16 @@ export const ChatComponents = forwardRef(
             {currentInteractionType === 2 ? (
               <DislikeFilled className={styles.brandcolor} onClick={disClick} />
             ) : (
-              <DislikeOutlined className={styles.brandcolor} onClick={disClick} />
+              <DislikeOutlined
+                className={styles.brandcolor}
+                onClick={disClick}
+              />
             )}
           </div>
         );
       },
-      [interactionTypes, setInteractionTypes]
+      [interactionTypes, setInteractionTypes],
     );
-
 
     const renderMessageContent = useCallback(
       (msg) => {
@@ -811,13 +822,15 @@ export const ChatComponents = forwardRef(
                 onImageLoaded={onImageLoaded}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
-              {((msg.isComplete || msg.logid) && msg.position == 'left') && renderMessageContentOperation(msg)}
+              {(msg.isComplete || msg.logid) &&
+                msg.position == 'left' &&
+                renderMessageContentOperation(msg)}
             </div>
           );
         }
         return <></>;
       },
-      [isStreaming, mobileStyle, onImageLoaded, renderMessageContentOperation]
+      [isStreaming, mobileStyle, onImageLoaded, renderMessageContentOperation],
     );
 
     const onChatInputSend = useCallback(
@@ -868,7 +881,7 @@ export const ChatComponents = forwardRef(
 
         handleSend(type, display, val, scriptId);
       },
-      [handleSend, onGoChapter, onLoginModalOpen, onPayModalOpen, trackEvent]
+      [handleSend, onGoChapter, onLoginModalOpen, onPayModalOpen, trackEvent],
     );
 
     useImperativeHandle(ref, () => ({}));
@@ -905,19 +918,21 @@ export const ChatComponents = forwardRef(
 
       events.addEventListener(
         BZ_EVENT_NAMES.GO_TO_NAVIGATION_NODE,
-        onGoToNavigationNode
+        onGoToNavigationNode,
       );
 
       return () => {
         events.removeEventListener(
           BZ_EVENT_NAMES.GO_TO_NAVIGATION_NODE,
-          onGoToNavigationNode
+          onGoToNavigationNode,
         );
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
-        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        const messageIndex = messages.findIndex(
+          (msg) => msg.id === lastMsgRef.current.id,
+        );
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
         } else if (messageIndex !== messages.length - 1) {
@@ -932,7 +947,7 @@ export const ChatComponents = forwardRef(
         className={classNames(
           styles.chatComponents,
           className,
-          mobileStyle ? styles.mobile : ''
+          mobileStyle ? styles.mobile : '',
         )}
         ref={chatRef}
       >
@@ -986,7 +1001,7 @@ export const ChatComponents = forwardRef(
         {showActionControl && getActionControl()}
       </div>
     );
-  }
+  },
 );
 
 export default memo(ChatComponents);

@@ -10,28 +10,30 @@ export const MainButtonM = forwardRef((props, ref) => {
   // 防止重复提交
   const _onClick = (e) => {
     if (loading) {
-      return
+      return;
     }
 
     const ret = props.onClick?.(e);
     if (!(ret instanceof Promise)) {
-      return
+      return;
     }
 
     setLoading(true);
-    ret.then(() => {
-      setLoading(false);
-    }).catch(() => {
-      setLoading(false);
-    });
-  }
+    ret
+      .then(() => {
+        setLoading(false);
+      })
+      .catch(() => {
+        setLoading(false);
+      });
+  };
 
   return (
     <Button
       ref={ref}
       color="primary"
       fill="solid"
-      shape='rounded'
+      shape="rounded"
       {...props}
       onClick={_onClick}
       className={classNames(styles.mainButtonM, props.className)}

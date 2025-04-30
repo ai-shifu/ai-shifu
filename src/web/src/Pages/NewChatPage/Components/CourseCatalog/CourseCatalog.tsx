@@ -17,12 +17,11 @@ export const CourseCatalog = ({
   onLessonSelect = ({ id }) => {},
   onTrySelect = ({ chapterId, lessonId }) => {},
 }) => {
-
   const _onTrySelect = useCallback(
     ({ id: lessonId }) => {
       onTrySelect?.({ chapterId: id, lessonId });
     },
-    [id, onTrySelect]
+    [id, onTrySelect],
   );
 
   const onResetButtonClick = useCallback((e) => {
@@ -40,21 +39,21 @@ export const CourseCatalog = ({
       className={classNames(
         styles.courseCatalog,
         collapse && styles.collapse,
-        mobileStyle && styles.mobile
+        mobileStyle && styles.mobile,
       )}
     >
       <div className={styles.titleRow} onClick={onTitleRowClick}>
         <div className={styles.leftSection}>{name}</div>
         <div className={styles.rightSection}>
-          {
-            (status === LESSON_STATUS_VALUE.LEARNING || status === LESSON_STATUS_VALUE.COMPLETED) &&
+          {(status === LESSON_STATUS_VALUE.LEARNING ||
+            status === LESSON_STATUS_VALUE.COMPLETED) && (
             <ResetChapterButton
               onClick={onResetButtonClick}
               chapterId={id}
               className={styles.resetButton}
               lessonId={lessons?.[0]?.id}
             />
-          }
+          )}
           <img
             className={styles.collapseBtn}
             src={require('@Assets/newchat/light/icon16-arrow-down.png')}

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-"use client"
+'use client';
 import React, {
   useCallback,
   useEffect,
@@ -52,12 +52,12 @@ import { customListSortingStrategy } from './SortingStrategy';
 
 export type SortableTreeProps<
   TData extends Record<string, any>,
-  TElement extends HTMLElement
+  TElement extends HTMLElement,
 > = {
   items: TreeItems<TData>;
   onItemsChanged(
     items: TreeItems<TData>,
-    reason: ItemChangedReason<TData>
+    reason: ItemChangedReason<TData>,
   ): void;
   TreeItemComponent: TreeItemComponentType<TData, TElement>;
   indentationWidth?: number;
@@ -101,7 +101,7 @@ export const dropAnimationDefaultConfig: DropAnimation = {
 
 export function SortableTree<
   TreeItemData extends Record<string, any>,
-  TElement extends HTMLElement = HTMLDivElement
+  TElement extends HTMLElement = HTMLDivElement,
 >({
   items,
   indicator,
@@ -130,12 +130,12 @@ export function SortableTree<
     const collapsedItems = flattenedTree.reduce<UniqueIdentifier[]>(
       (acc, { children, collapsed, id }) =>
         collapsed && children?.length ? [...acc, id] : acc,
-      []
+      [],
     );
 
     const result = removeChildrenOf(
       flattenedTree,
-      activeId ? [activeId, ...collapsedItems] : collapsedItems
+      activeId ? [activeId, ...collapsedItems] : collapsedItems,
     );
     return result;
   }, [activeId, items]);
@@ -146,7 +146,7 @@ export function SortableTree<
     offsetLeft,
     indentationWidth,
     keepGhostInPlace ?? false,
-    canRootHaveChildren
+    canRootHaveChildren,
   );
   const sensorContext: SensorContext<TreeItemData> = useRef({
     items: flattenedItems,
@@ -155,13 +155,13 @@ export function SortableTree<
   const sensors = useSensors(
     useSensor(
       PointerSensor,
-      pointerSensorOptions ?? defaultPointerSensorOptions
-    )
+      pointerSensorOptions ?? defaultPointerSensorOptions,
+    ),
   );
 
   const sortedIds = useMemo(
     () => flattenedItems.map(({ id }) => id),
-    [flattenedItems]
+    [flattenedItems],
   );
   const activeItem = activeId
     ? flattenedItems.find(({ id }) => id === activeId)
@@ -184,7 +184,7 @@ export function SortableTree<
         item,
       });
     },
-    [onItemsChanged]
+    [onItemsChanged],
   );
 
   const handleCollapse = useCallback(
@@ -197,10 +197,10 @@ export function SortableTree<
         {
           type: item.collapsed ? 'collapsed' : 'expanded',
           item: item,
-        }
+        },
       );
     },
-    [onItemsChanged]
+    [onItemsChanged],
   );
 
   const announcements: Announcements = useMemo(
@@ -221,7 +221,7 @@ export function SortableTree<
         return `Moving was cancelled. ${active.id} was dropped in its original position.`;
       },
     }),
-    []
+    [],
   );
 
   const strategyCallback = useCallback(() => {
@@ -341,7 +341,7 @@ export function SortableTree<
           draggedItem: newActiveItem,
           draggedFromParent: draggedFromParent,
           droppedToParent: currentParent,
-        })
+        }),
       );
     }
   }
@@ -362,7 +362,7 @@ export function SortableTree<
   function getMovementAnnouncement(
     eventName: string,
     activeId: UniqueIdentifier,
-    overId?: UniqueIdentifier
+    overId?: UniqueIdentifier,
   ) {
     if (overId && projected) {
       if (eventName !== 'onDragEnd') {

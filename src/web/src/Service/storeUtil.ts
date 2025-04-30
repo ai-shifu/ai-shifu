@@ -14,7 +14,7 @@ const createStore = (key) => {
     },
     remove: () => {
       store.remove(key);
-    }
+    },
   };
 };
 
@@ -29,7 +29,7 @@ const createBoolStore = (key) => {
     },
     remove: () => {
       store.remove(key);
-    }
+    },
   };
 };
 
@@ -49,5 +49,5 @@ export const tokenTool = {
   remove: () => {
     tokenStore.remove();
     tokenFakedStore.remove();
-  }
+  },
 };

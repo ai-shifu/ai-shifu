@@ -1,10 +1,10 @@
-import request from "../Service/Request";
+import request from '../Service/Request';
 
 export const testPurchaseOrder = ({ orderId }) => {
   return request({
     url: '/api/order/order-test',
     method: 'post',
-    data: { order_id: orderId }
+    data: { order_id: orderId },
   });
 };
 
@@ -13,7 +13,7 @@ export const initOrder = (course_id) => {
   return request({
     url: '/api/order/init-order',
     method: 'post',
-    data: { course_id }
+    data: { course_id },
   });
 };
 
@@ -22,7 +22,7 @@ export const getPayUrl = ({ channel, orderId }) => {
   return request({
     method: 'POST',
     url: '/api/order/reqiure-to-pay',
-    data: { channel, order_id: orderId }
+    data: { channel, order_id: orderId },
   });
 };
 
@@ -43,7 +43,7 @@ export const applyDiscountCode = ({ orderId, code }) => {
     data: {
       discount_code: code,
       order_id: orderId,
-    }
+    },
   });
 };
 
@@ -56,6 +56,6 @@ export const initActiveOrder = ({ recordId, action, courseId }) => {
       course_id: courseId,
       action,
       record_id: recordId,
-    }
+    },
   });
-}
+};

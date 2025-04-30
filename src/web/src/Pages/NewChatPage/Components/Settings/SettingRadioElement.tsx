@@ -1,5 +1,5 @@
 import { Radio, Space } from 'antd';
-import { useEffect, memo, useState, useCallback  } from 'react';
+import { useEffect, memo, useState, useCallback } from 'react';
 import styles from './SettingRadioElement.module.scss';
 import classNames from 'classnames';
 
@@ -21,20 +21,27 @@ export const SettingRadioElement = ({
       setCurr(e.target.value);
       onChange(e.target.value);
     },
-    [setCurr, onChange]
+    [setCurr, onChange],
   );
 
   return (
-    <div
-      className={classNames(styles.settingRadio, className)}
-    >
+    <div className={classNames(styles.settingRadio, className)}>
       <div className={styles.title}>{title}</div>
       <div className={styles.inputWrapper}>
         <Radio.Group onChange={_onChange} value={curr}>
           <Space direction="vertical">
             {options.map((v) => {
               const { label, value } = v;
-              return <Radio key={value} value={value} checked={value === curr} className={styles.inputElement}>{label}</Radio>;
+              return (
+                <Radio
+                  key={value}
+                  value={value}
+                  checked={value === curr}
+                  className={styles.inputElement}
+                >
+                  {label}
+                </Radio>
+              );
             })}
           </Space>
         </Radio.Group>

@@ -8,12 +8,11 @@ import { shifu } from 'Service/Shifu';
 import 'Utils/pollyfill';
 import 'ShiNiang/index';
 
-
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <BrowserRouter>
     <App />
-  </BrowserRouter>
+  </BrowserRouter>,
 );
 
 if (window.shifuPlugins) {

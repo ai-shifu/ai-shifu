@@ -1,4 +1,4 @@
-import { createContext } from "react";
+import { createContext } from 'react';
 import { THEME_LIGHT, FRAME_LAYOUT_PC } from '@constants/uiConstants';
 
 export const AppContext = createContext({

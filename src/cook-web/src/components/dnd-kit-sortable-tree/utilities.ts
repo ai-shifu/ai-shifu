@@ -13,7 +13,7 @@ function getDragDepth(offset: number, indentationWidth: number) {
   return Math.round(offset / indentationWidth);
 }
 
-let _revertLastChanges = () => { };
+let _revertLastChanges = () => {};
 export function getProjection<T>(
   items: FlattenedItem<T>[],
   activeId: UniqueIdentifier | null,
@@ -21,7 +21,7 @@ export function getProjection<T>(
   dragOffset: number,
   indentationWidth: number,
   keepGhostInPlace: boolean,
-  canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<T>) => boolean)
+  canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<T>) => boolean),
 ): {
   depth: number;
   parentId: UniqueIdentifier | null;
@@ -29,7 +29,7 @@ export function getProjection<T>(
   isLast: boolean;
 } | null {
   _revertLastChanges();
-  _revertLastChanges = () => { };
+  _revertLastChanges = () => {};
   if (!activeId || !overId) return null;
 
   const overItemIndex = items.findIndex(({ id }) => id === overId);
@@ -43,7 +43,7 @@ export function getProjection<T>(
     parent = findParentWhichCanHaveChildren(
       parent,
       activeItem,
-      canRootHaveChildren
+      canRootHaveChildren,
     );
     if (parent === undefined) return null;
     return {
@@ -60,9 +60,10 @@ export function getProjection<T>(
   const depth = activeItem.depth;
 
   // Find the parent based on the original item's depth
-  const parent = previousItem && previousItem.depth === depth
-    ? previousItem.parent
-    : activeItem.parent;
+  const parent =
+    previousItem && previousItem.depth === depth
+      ? previousItem.parent
+      : activeItem.parent;
   const isLast = (nextItem?.depth ?? -1) < depth;
 
   if (parent && parent.isLast) {
@@ -89,7 +90,7 @@ export function getProjection<T>(
   function findParentWhichCanHaveChildren(
     parent: FlattenedItem<T> | null,
     dragItem: FlattenedItem<T>,
-    canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<T>) => boolean)
+    canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<T>) => boolean),
   ): FlattenedItem<T> | null | undefined {
     if (!parent) {
       const rootCanHaveChildren =
@@ -107,7 +108,7 @@ export function getProjection<T>(
       return findParentWhichCanHaveChildren(
         parent.parent,
         activeItem,
-        canRootHaveChildren
+        canRootHaveChildren,
       );
     return parent;
   }
@@ -122,7 +123,7 @@ function flatten<T extends Record<string, any>>(
   items: TreeItems<T>,
   parentId: UniqueIdentifier | null = null,
   depth = 0,
-  parent: FlattenedItem<T> | null = null
+  parent: FlattenedItem<T> | null = null,
 ): FlattenedItem<T>[] {
   return items?.reduce<FlattenedItem<T>[]>((acc, item, index) => {
     const flattenedItem: FlattenedItem<T> = {
@@ -142,13 +143,13 @@ function flatten<T extends Record<string, any>>(
 }
 
 export function flattenTree<T extends Record<string, any>>(
-  items: TreeItems<T>
+  items: TreeItems<T>,
 ): FlattenedItem<T>[] {
   return flatten(items);
 }
 
 export function buildTree<T extends Record<string, any>>(
-  flattenedItems: FlattenedItem<T>[]
+  flattenedItems: FlattenedItem<T>[],
 ): TreeItems<T> {
   const root: TreeItem<T> = { id: 'root', children: [] } as any;
   const nodes: Record<string, TreeItem<T>> = { [root.id]: root };
@@ -172,7 +173,7 @@ export function findItem<T>(items: TreeItem<T>[], itemId: UniqueIdentifier) {
 
 export function findItemDeep<T extends Record<string, any>>(
   items: TreeItems<T>,
-  itemId: UniqueIdentifier
+  itemId: UniqueIdentifier,
 ): TreeItem<T> | undefined {
   for (const item of items) {
     const { id, children } = item;
@@ -195,7 +196,7 @@ export function findItemDeep<T extends Record<string, any>>(
 
 export function removeItem<T extends Record<string, any>>(
   items: TreeItems<T>,
-  id: string
+  id: string,
 ) {
   const newItems = [];
 
@@ -216,12 +217,12 @@ export function removeItem<T extends Record<string, any>>(
 
 export function setProperty<
   TData extends Record<string, any>,
-  T extends keyof TreeItem<TData>
+  T extends keyof TreeItem<TData>,
 >(
   items: TreeItems<TData>,
   id: string,
   property: T,
-  setter: (value: TreeItem<TData>[T]) => TreeItem<TData>[T]
+  setter: (value: TreeItem<TData>[T]) => TreeItem<TData>[T],
 ) {
   for (const item of items) {
     if (item.id === id) {
@@ -249,7 +250,7 @@ function countChildren<T>(items: TreeItem<T>[], count = 0): number {
 
 export function getChildCount<T extends Record<string, any>>(
   items: TreeItems<T>,
-  id: UniqueIdentifier
+  id: UniqueIdentifier,
 ) {
   if (!id) {
     return 0;
@@ -262,7 +263,7 @@ export function getChildCount<T extends Record<string, any>>(
 
 export function removeChildrenOf<T>(
   items: FlattenedItem<T>[],
-  ids: UniqueIdentifier[]
+  ids: UniqueIdentifier[],
 ) {
   const excludeParentIds = [...ids];
 
@@ -280,7 +281,7 @@ export function removeChildrenOf<T>(
 
 export function getIsOverParent<T>(
   parent: FlattenedItem<T> | null,
-  overId: UniqueIdentifier
+  overId: UniqueIdentifier,
 ): boolean {
   if (!parent || !overId) return false;
   if (parent.id === overId) return true;

@@ -1,9 +1,9 @@
-import { FRAME_LAYOUT_MOBILE } from 'constants/uiConstants'
+import { FRAME_LAYOUT_MOBILE } from 'constants/uiConstants';
 
 const checkMobileStyle = (frameLayout) => {
-  return frameLayout === FRAME_LAYOUT_MOBILE
-}
+  return frameLayout === FRAME_LAYOUT_MOBILE;
+};
 
 export const utils = {
-  checkMobileStyle
-}
+  checkMobileStyle,
+};

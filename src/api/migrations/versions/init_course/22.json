@@ -1,155 +1,155 @@
 {
-    "code": 0,
-    "data": {
-        "has_more": false,
-        "items": [
+  "code": 0,
+  "data": {
+    "has_more": false,
+    "items": [
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
             {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "课程合作",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "Prompt",
-                    "后续交互": "显示 按钮",
-                    "小节": [
-                        {
-                            "text": "1.1 AI 师傅深入了解",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "讲解下面内容：\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 2024 年 10 月 24 日，AI 师傅（AI-Shifu）宣布正式向全球开源，\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- `开源功能`有:\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "可控对话流：用预设的提示词剧本约束 AI 的输出，控制对话过程。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "互动：对话中可以向用户提出问题，获得用户的输入反馈。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "个性化：根据用户输入的身份背景、兴趣偏好等信息做个性化输出。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "追问：随时基于上下文提问，获得更多信息。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "剧本开发环境：用飞书多维表格做编辑器，配合调试器，可以便捷地调试剧本提示词。",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recuf0cJXTiIUK"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "课程合作",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "Prompt",
-                    "小节": [
-                        {
-                            "text": "1.1 AI 师傅深入了解",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "讲解下面内容：\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 在教育培训、小说故事、产品指南、调查问卷和游戏 NPC 等场景，AI 师傅都能提供更具互动性和沉浸感的体验。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 在营销场景里，与古典老师的新精英团队做了销转的尝试，通过对话流的学习方式有效地筛选出高意向用户，获得了古典老师的认可。初步判断，前置学习 AI 师傅的课程对订单成交有影响，用户在交互中留下来的资料可被销售做为有效线索继续转化，后续我们也会继续探索，尝试做用户种草。",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recuf0cVAQQIBS"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "课程合作",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "固定剧本",
-                    "后续交互": "显示 按钮",
-                    "小节": [
-                        {
-                            "text": "1.1 AI 师傅深入了解",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "你如果懂技术可以直接自行配置，开源地址👇\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "<a href=\" \" target=\"_blank\">",
-                            "type": "text"
-                        },
-                        {
-                            "link": "https://github.com/ai-shifu/ai-shifu",
-                            "text": "https://github.com/ai-shifu/ai-shifu",
-                            "type": "url"
-                        },
-                        {
-                            "text": "</a >\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "如果你想跟AI 师傅合作课程，可以通过服务号联系团队人员，经过沟通之后，给你开通体验账号。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recuf0cZRZ1adD"
+              "text": "课程合作",
+              "type": "text"
             }
-        ],
-        "total": 3
-    },
-    "msg": "success"
+          ],
+          "剧本类型": "Prompt",
+          "后续交互": "显示 按钮",
+          "小节": [
+            {
+              "text": "1.1 AI 师傅深入了解",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "讲解下面内容：\n",
+              "type": "text"
+            },
+            {
+              "text": "- 2024 年 10 月 24 日，AI 师傅（AI-Shifu）宣布正式向全球开源，\n",
+              "type": "text"
+            },
+            {
+              "text": "- `开源功能`有:\n",
+              "type": "text"
+            },
+            {
+              "text": "可控对话流：用预设的提示词剧本约束 AI 的输出，控制对话过程。\n",
+              "type": "text"
+            },
+            {
+              "text": "互动：对话中可以向用户提出问题，获得用户的输入反馈。\n",
+              "type": "text"
+            },
+            {
+              "text": "个性化：根据用户输入的身份背景、兴趣偏好等信息做个性化输出。\n",
+              "type": "text"
+            },
+            {
+              "text": "追问：随时基于上下文提问，获得更多信息。\n",
+              "type": "text"
+            },
+            {
+              "text": "剧本开发环境：用飞书多维表格做编辑器，配合调试器，可以便捷地调试剧本提示词。",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recuf0cJXTiIUK"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "课程合作",
+              "type": "text"
+            }
+          ],
+          "剧本类型": "Prompt",
+          "小节": [
+            {
+              "text": "1.1 AI 师傅深入了解",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "讲解下面内容：\n",
+              "type": "text"
+            },
+            {
+              "text": "- 在教育培训、小说故事、产品指南、调查问卷和游戏 NPC 等场景，AI 师傅都能提供更具互动性和沉浸感的体验。\n",
+              "type": "text"
+            },
+            {
+              "text": "- 在营销场景里，与古典老师的新精英团队做了销转的尝试，通过对话流的学习方式有效地筛选出高意向用户，获得了古典老师的认可。初步判断，前置学习 AI 师傅的课程对订单成交有影响，用户在交互中留下来的资料可被销售做为有效线索继续转化，后续我们也会继续探索，尝试做用户种草。",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recuf0cVAQQIBS"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "课程合作",
+              "type": "text"
+            }
+          ],
+          "剧本类型": "固定剧本",
+          "后续交互": "显示 按钮",
+          "小节": [
+            {
+              "text": "1.1 AI 师傅深入了解",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "你如果懂技术可以直接自行配置，开源地址👇\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "<a href=\" \" target=\"_blank\">",
+              "type": "text"
+            },
+            {
+              "link": "https://github.com/ai-shifu/ai-shifu",
+              "text": "https://github.com/ai-shifu/ai-shifu",
+              "type": "url"
+            },
+            {
+              "text": "</a >\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "如果你想跟AI 师傅合作课程，可以通过服务号联系团队人员，经过沟通之后，给你开通体验账号。\n",
+              "type": "text"
+            },
+            {
+              "text": "",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recuf0cZRZ1adD"
+      }
+    ],
+    "total": 3
+  },
+  "msg": "success"
 }

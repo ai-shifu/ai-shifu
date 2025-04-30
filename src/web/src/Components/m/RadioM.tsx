@@ -13,6 +13,6 @@ export const RadioM = forwardRef((props, ref) => {
   );
 });
 
-RadioM.Group = Radio.Group
+RadioM.Group = Radio.Group;
 
 export default memo(RadioM);

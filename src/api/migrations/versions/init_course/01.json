@@ -1,420 +1,410 @@
 {
-    "code": 0,
-    "data": {
-        "has_more": false,
-        "items": [
+  "code": 0,
+  "data": {
+    "has_more": false,
+    "items": [
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
             {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "system_role",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "系统角色",
-                    "模版内容": [
-                        {
-                            "text": "# 角色\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "`你` 叫 `AI师傅` ，是`AI-Shifu`平台的向导。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "`你` 作为一个私人向导，`你` 只为他/她(`学员`)一个人提供个性化教学服务。 \n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "`我` 是课程设计者，`我` 跟 `你` 说的话都是指导 `你` 该如何向 `学员` 输出内容进行教学。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "`你` 需要直接用 讲师/私教 的口吻输出。你输出的内容都是给 `学员` 看的，不是给 `我` 看的， 输出的内容不能让 `学员` 感受到有 `我` 的存在。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "# 背景\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "你和学员是第一次见面，学员并不清楚你是做什么的。学员会对你好奇，你要结合不同学员的情况，介绍清楚AI师傅，与学员建立起信任关系。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "AI 师傅是一个由大语言模型驱动的向导，由AI主导的对话流。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "# 教学目标\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "让学员快速进入到不同路径里，进行深入使用AI师傅。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "# 要求\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "学员的`名字`是`{nickname}`，你只为学员进行一对一的个性化教学讲解。 \n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "学员的`工作背景`是 `{user_background}`。你需要结合`学员`的`工作背景`举出具体案例。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "他/她选择的 `授课风格` 是 `{style}`，你需要用`{style}`的`授课风格` 进行回答。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "# 输出格式要求\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 按照 Markdown 格式输出。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 单个段落的字数务必不要超过200字。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 输出不要有任何级别的标题（如#, ##, ### 或 H1, H2 之类的标题），但可以有 bullet（有序号、无序号都可以），也可以有重点加粗。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 称呼用户时可以用 `同学`、`你` 或者学员的昵称，但一定不要用 `大家`、`同学们` 等称呼多人的方式。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- **Don't talk nonsense and make up facts.**",
-                            "type": "text"
-                        }
-                    ],
-                    "模版变量": [
-                        "nickname",
-                        "style",
-                        "user_background"
-                    ],
-                    "编写指引": [
-                        {
-                            "text": "由于体验课中我们已经收集了一些学员信息，因此在后续的章的剧本表格中，我们就可以在 system_role 里添加上所有已收集到的学员信息。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "这样就省去了在所有 Prompt 中都重复告知 AI 学员的个性化信息。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "当然，某些 Prompt 中需要特别针对学员的某项信息来生成教学内容是，还是需要再 Prompt 中进行强调。",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recueauenPgkcu"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "确认用户选择的工具",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "Prompt",
-                    "后续交互": "显示 按钮组",
-                    "小节": [
-                        {
-                            "text": "1.1 进入下一步",
-                            "type": "text"
-                        }
-                    ],
-                    "按钮组配置": [
-                        {
-                            "text": "{\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    \"var_name\": \"option\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    \"btns\": [\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "{\"label\": \"学习课程\", \"value\": \"学习课程\"},\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "{\"label\": \"课程合作\", \"value\": \"课程合作\"}\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    ]\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "}",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "{nickname}，聊了这么多，想必你对AI 师傅已经有所了解了，那么我们继续下一步吧。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "请从以下两个选项中做个选择 ！\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "⚠️ 如果这两个都不是你的选择，可以去服务号「AI师傅-一对一学习社区」里找到官方人员咨询。",
-                            "type": "text"
-                        }
-                    ],
-                    "模版变量": [
-                        "nickname"
-                    ],
-                    "解析用户输入内容": [
-                        "option"
-                    ]
-                },
-                "last_modified_time": 1730116087000,
-                "record_id": "recudgt0LluS8h"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "跳转分支",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "固定剧本",
-                    "后续交互": "跳转按钮",
-                    "小节": [
-                        {
-                            "text": "1.1 进入下一步",
-                            "type": "text"
-                        }
-                    ],
-                    "按钮标题": [
-                        {
-                            "text": "来吧",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "你选择的是 `{option}` ，那就让我们来快速开始吧！",
-                            "type": "text"
-                        }
-                    ],
-                    "模版变量": [
-                        "option"
-                    ],
-                    "编写指引": [
-                        {
-                            "text": "有时需要针对不同的学员信息进行阶段性的分支教学。 此时就需要使用 跳转分支 的功能。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "将【后续交互】设置为 `跳转分支`，并填写【跳转配置】，其中\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "var_name 是要判断的变量，在实例中是option，就是说要根据学员身上 option 变量值的不同跳转到不同的分支去。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "jump_type 是跳转类型，目前只支持 silent 静默跳转，就是用户在学习时是感觉不到跳到了不同的分支中的。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "jump_rule 中定义了具体的调整规则，这里我们需要穷举前面 var_name 中指定的 变量 其可能有的值，并根据值的不同，定义要跳转到那个剧本文档中。分别填写：\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "* 变量值： value（就是 var_name 中指定的 变量 其可能有的值）\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "* 飞书多维表格ID： lark_table_id，这个值可以在浏览器打开其表格后，查看地址栏 URL中 table= 的值\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "* 飞书多维表格的View ID： lark_view_id，这个值可以在浏览器打开其表格后，查看地址栏 URL中 view= 的值\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "> Tips:\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "> 跳转分支的变量值 往往是通过 按钮组获得的，因为这样获得的变量值是确定的，数量也是明确的，便于做明确的分支教学。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "> 分支表格所在的文档还得是当前文档，不能用其他文档里的表格\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "",
-                            "type": "text"
-                        }
-                    ],
-                    "跳转配置": [
-                        {
-                            "text": "{\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    \"var_name\": \"option\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    \"jump_type\": \"silent\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    \"?jump_type\": \"silent 静默的，用户无感知的； explicit 显示的，用户可感知的；\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    \"jump_rule\": [{\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "        \"value\": \"学习课程\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "        \"lark_table_id\": \"tblDEvaHJAIkIfst\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "        \"lark_view_id\": \"vewlGkI2Jp\"\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    }, {\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "        \"value\": \"课程合作\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "        \"lark_table_id\": \"tblcQxIckOB8r2s9\",\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "        \"lark_view_id\": \"vewlGkI2Jp\"\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "    }]\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "}",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730116904000,
-                "record_id": "recuf0ckpqtDw1"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "结束",
-                            "type": "text"
-                        }
-                    ],
-                    "后续交互": "显示 按钮",
-                    "小节": [
-                        {
-                            "text": "1.2 一起探索未来",
-                            "type": "text"
-                        }
-                    ],
-                    "按钮标题": [
-                        {
-                            "text": "进入下一章",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "感谢你加入我们一起探索和共创，AI 师傅因为有你，获得更多可能性！\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "这才是开始，接下来我们一起努力吧！",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recug9uZgqAJEn"
+              "text": "system_role",
+              "type": "text"
             }
-        ],
-        "total": 4
-    },
-    "msg": "success"
+          ],
+          "剧本类型": "系统角色",
+          "模版内容": [
+            {
+              "text": "# 角色\n",
+              "type": "text"
+            },
+            {
+              "text": "`你` 叫 `AI师傅` ，是`AI-Shifu`平台的向导。\n",
+              "type": "text"
+            },
+            {
+              "text": "`你` 作为一个私人向导，`你` 只为他/她(`学员`)一个人提供个性化教学服务。 \n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "`我` 是课程设计者，`我` 跟 `你` 说的话都是指导 `你` 该如何向 `学员` 输出内容进行教学。\n",
+              "type": "text"
+            },
+            {
+              "text": "`你` 需要直接用 讲师/私教 的口吻输出。你输出的内容都是给 `学员` 看的，不是给 `我` 看的， 输出的内容不能让 `学员` 感受到有 `我` 的存在。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "# 背景\n",
+              "type": "text"
+            },
+            {
+              "text": "你和学员是第一次见面，学员并不清楚你是做什么的。学员会对你好奇，你要结合不同学员的情况，介绍清楚AI师傅，与学员建立起信任关系。\n",
+              "type": "text"
+            },
+            {
+              "text": "AI 师傅是一个由大语言模型驱动的向导，由AI主导的对话流。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "# 教学目标\n",
+              "type": "text"
+            },
+            {
+              "text": "让学员快速进入到不同路径里，进行深入使用AI师傅。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "# 要求\n",
+              "type": "text"
+            },
+            {
+              "text": "学员的`名字`是`{nickname}`，你只为学员进行一对一的个性化教学讲解。 \n",
+              "type": "text"
+            },
+            {
+              "text": "学员的`工作背景`是 `{user_background}`。你需要结合`学员`的`工作背景`举出具体案例。\n",
+              "type": "text"
+            },
+            {
+              "text": "他/她选择的 `授课风格` 是 `{style}`，你需要用`{style}`的`授课风格` 进行回答。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "# 输出格式要求\n",
+              "type": "text"
+            },
+            {
+              "text": "- 按照 Markdown 格式输出。\n",
+              "type": "text"
+            },
+            {
+              "text": "- 单个段落的字数务必不要超过200字。\n",
+              "type": "text"
+            },
+            {
+              "text": "- 输出不要有任何级别的标题（如#, ##, ### 或 H1, H2 之类的标题），但可以有 bullet（有序号、无序号都可以），也可以有重点加粗。\n",
+              "type": "text"
+            },
+            {
+              "text": "- 称呼用户时可以用 `同学`、`你` 或者学员的昵称，但一定不要用 `大家`、`同学们` 等称呼多人的方式。\n",
+              "type": "text"
+            },
+            {
+              "text": "- **Don't talk nonsense and make up facts.**",
+              "type": "text"
+            }
+          ],
+          "模版变量": ["nickname", "style", "user_background"],
+          "编写指引": [
+            {
+              "text": "由于体验课中我们已经收集了一些学员信息，因此在后续的章的剧本表格中，我们就可以在 system_role 里添加上所有已收集到的学员信息。\n",
+              "type": "text"
+            },
+            {
+              "text": "这样就省去了在所有 Prompt 中都重复告知 AI 学员的个性化信息。\n",
+              "type": "text"
+            },
+            {
+              "text": "当然，某些 Prompt 中需要特别针对学员的某项信息来生成教学内容是，还是需要再 Prompt 中进行强调。",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recueauenPgkcu"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "确认用户选择的工具",
+              "type": "text"
+            }
+          ],
+          "剧本类型": "Prompt",
+          "后续交互": "显示 按钮组",
+          "小节": [
+            {
+              "text": "1.1 进入下一步",
+              "type": "text"
+            }
+          ],
+          "按钮组配置": [
+            {
+              "text": "{\n",
+              "type": "text"
+            },
+            {
+              "text": "    \"var_name\": \"option\",\n",
+              "type": "text"
+            },
+            {
+              "text": "    \"btns\": [\n",
+              "type": "text"
+            },
+            {
+              "text": "{\"label\": \"学习课程\", \"value\": \"学习课程\"},\n",
+              "type": "text"
+            },
+            {
+              "text": "{\"label\": \"课程合作\", \"value\": \"课程合作\"}\n",
+              "type": "text"
+            },
+            {
+              "text": "    ]\n",
+              "type": "text"
+            },
+            {
+              "text": "}",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "{nickname}，聊了这么多，想必你对AI 师傅已经有所了解了，那么我们继续下一步吧。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "请从以下两个选项中做个选择 ！\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "⚠️ 如果这两个都不是你的选择，可以去服务号「AI师傅-一对一学习社区」里找到官方人员咨询。",
+              "type": "text"
+            }
+          ],
+          "模版变量": ["nickname"],
+          "解析用户输入内容": ["option"]
+        },
+        "last_modified_time": 1730116087000,
+        "record_id": "recudgt0LluS8h"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "跳转分支",
+              "type": "text"
+            }
+          ],
+          "剧本类型": "固定剧本",
+          "后续交互": "跳转按钮",
+          "小节": [
+            {
+              "text": "1.1 进入下一步",
+              "type": "text"
+            }
+          ],
+          "按钮标题": [
+            {
+              "text": "来吧",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "你选择的是 `{option}` ，那就让我们来快速开始吧！",
+              "type": "text"
+            }
+          ],
+          "模版变量": ["option"],
+          "编写指引": [
+            {
+              "text": "有时需要针对不同的学员信息进行阶段性的分支教学。 此时就需要使用 跳转分支 的功能。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "将【后续交互】设置为 `跳转分支`，并填写【跳转配置】，其中\n",
+              "type": "text"
+            },
+            {
+              "text": "var_name 是要判断的变量，在实例中是option，就是说要根据学员身上 option 变量值的不同跳转到不同的分支去。\n",
+              "type": "text"
+            },
+            {
+              "text": "jump_type 是跳转类型，目前只支持 silent 静默跳转，就是用户在学习时是感觉不到跳到了不同的分支中的。\n",
+              "type": "text"
+            },
+            {
+              "text": "jump_rule 中定义了具体的调整规则，这里我们需要穷举前面 var_name 中指定的 变量 其可能有的值，并根据值的不同，定义要跳转到那个剧本文档中。分别填写：\n",
+              "type": "text"
+            },
+            {
+              "text": "* 变量值： value（就是 var_name 中指定的 变量 其可能有的值）\n",
+              "type": "text"
+            },
+            {
+              "text": "* 飞书多维表格ID： lark_table_id，这个值可以在浏览器打开其表格后，查看地址栏 URL中 table= 的值\n",
+              "type": "text"
+            },
+            {
+              "text": "* 飞书多维表格的View ID： lark_view_id，这个值可以在浏览器打开其表格后，查看地址栏 URL中 view= 的值\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "> Tips:\n",
+              "type": "text"
+            },
+            {
+              "text": "> 跳转分支的变量值 往往是通过 按钮组获得的，因为这样获得的变量值是确定的，数量也是明确的，便于做明确的分支教学。\n",
+              "type": "text"
+            },
+            {
+              "text": "> 分支表格所在的文档还得是当前文档，不能用其他文档里的表格\n",
+              "type": "text"
+            },
+            {
+              "text": "",
+              "type": "text"
+            }
+          ],
+          "跳转配置": [
+            {
+              "text": "{\n",
+              "type": "text"
+            },
+            {
+              "text": "    \"var_name\": \"option\",\n",
+              "type": "text"
+            },
+            {
+              "text": "    \"jump_type\": \"silent\",\n",
+              "type": "text"
+            },
+            {
+              "text": "    \"?jump_type\": \"silent 静默的，用户无感知的； explicit 显示的，用户可感知的；\",\n",
+              "type": "text"
+            },
+            {
+              "text": "    \"jump_rule\": [{\n",
+              "type": "text"
+            },
+            {
+              "text": "        \"value\": \"学习课程\",\n",
+              "type": "text"
+            },
+            {
+              "text": "        \"lark_table_id\": \"tblDEvaHJAIkIfst\",\n",
+              "type": "text"
+            },
+            {
+              "text": "        \"lark_view_id\": \"vewlGkI2Jp\"\n",
+              "type": "text"
+            },
+            {
+              "text": "    }, {\n",
+              "type": "text"
+            },
+            {
+              "text": "        \"value\": \"课程合作\",\n",
+              "type": "text"
+            },
+            {
+              "text": "        \"lark_table_id\": \"tblcQxIckOB8r2s9\",\n",
+              "type": "text"
+            },
+            {
+              "text": "        \"lark_view_id\": \"vewlGkI2Jp\"\n",
+              "type": "text"
+            },
+            {
+              "text": "    }]\n",
+              "type": "text"
+            },
+            {
+              "text": "}",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730116904000,
+        "record_id": "recuf0ckpqtDw1"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "结束",
+              "type": "text"
+            }
+          ],
+          "后续交互": "显示 按钮",
+          "小节": [
+            {
+              "text": "1.2 一起探索未来",
+              "type": "text"
+            }
+          ],
+          "按钮标题": [
+            {
+              "text": "进入下一章",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "感谢你加入我们一起探索和共创，AI 师傅因为有你，获得更多可能性！\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "这才是开始，接下来我们一起努力吧！",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recug9uZgqAJEn"
+      }
+    ],
+    "total": 4
+  },
+  "msg": "success"
 }

@@ -7,13 +7,12 @@ import { userInfoStore } from 'Service/storeUtil';
 import { useEffect } from 'react';
 
 const contents = {
-  "zh-CN": zhContent,
-  "en-US": enContent,
-  "en": enContent,
-}
+  'zh-CN': zhContent,
+  'en-US': enContent,
+  en: enContent,
+};
 
 export const PrivacyPolicyPage = () => {
-
   const { language, updateLanguage } = useSystemStore();
   useEffect(() => {
     const userInfo = userInfoStore.get();
@@ -22,11 +21,11 @@ export const PrivacyPolicyPage = () => {
     }
   }, [updateLanguage]);
   const markdown = contents[language];
-  return <div className={styles.PrivacyPolicyPage}>
-    <ReactMarkdown
-      children={markdown}
-    />
-  </div>
-}
+  return (
+    <div className={styles.PrivacyPolicyPage}>
+      <ReactMarkdown children={markdown} />
+    </div>
+  );
+};
 
 export default PrivacyPolicyPage;

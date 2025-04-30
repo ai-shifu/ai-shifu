@@ -10,14 +10,21 @@ import i18n from '../i18n';
 import { UserStoreState } from '../types/store';
 import { useEnvStore } from './envStore';
 
-export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
+export const useUserStore = create<
+  UserStoreState,
+  [['zustand/subscribeWithSelector', never]]
+>(
   subscribeWithSelector((set) => ({
     hasCheckLogin: false,
     hasLogin: false,
     userInfo: null,
     login: async ({ mobile, smsCode }) => {
       const courseId = useEnvStore.getState().courseId;
-      const res = await verifySmsCode({ mobile, sms_code: smsCode, course_id: courseId });
+      const res = await verifySmsCode({
+        mobile,
+        sms_code: smsCode,
+        course_id: courseId,
+      });
       const { userInfo, token } = res.data;
       await tokenTool.set({ token, faked: false });
 
@@ -26,7 +33,6 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         userInfo,
       }));
       i18n.changeLanguage(userInfo.language);
-
     },
 
     checkLoginForce: async () => {
@@ -69,7 +75,11 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         }
         i18n.changeLanguage(userInfo.language);
       } catch (err) {
-        if ((err.status && err.status === 403) || (err.code && err.code === 1005) || (err.code && err.code === 1001)) {
+        if (
+          (err.status && err.status === 403) ||
+          (err.code && err.code === 1005) ||
+          (err.code && err.code === 1001)
+        ) {
           const res = await registerTmp({ temp_id: genUuid() });
           const token = res.data.token;
           await tokenTool.set({ token, faked: true });
@@ -118,7 +128,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
           userInfo: {
             ...state.userInfo,
             ...userInfo,
-          }
+          },
         };
       });
     },
@@ -127,14 +137,13 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       const res = await getUserInfo();
       set(() => ({
         userInfo: {
-          ...res.data
-        }
+          ...res.data,
+        },
       }));
       await userInfoStore.set(res.data);
       i18n.changeLanguage(res.data.language);
-
     },
 
     updateHasCheckLogin: (hasCheckLogin) => set(() => ({ hasCheckLogin })),
-  }))
+  })),
 );

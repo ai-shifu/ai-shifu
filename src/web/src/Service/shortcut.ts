@@ -2,7 +2,7 @@ export const SHORTCUT_IDS = {
   CONTINUE: 'continue',
   ASK: 'ask',
   SHORTCUT: 'shortcut',
-}
+};
 
 export const shortcutKeys = [
   {
@@ -19,12 +19,12 @@ export const shortcutKeys = [
     id: SHORTCUT_IDS.SHORTCUT,
     keys: ['ctrl', '/'],
     macKeys: ['cmd', '/'],
-  }
+  },
 ];
 
 export const findShortcutKeyOption = (id) => {
   return shortcutKeys.find((item) => item.id === id);
-}
+};
 
 export const genHotKeyIdentifier = (id, inMacOs) => {
   const option = findShortcutKeyOption(id);
@@ -33,4 +33,4 @@ export const genHotKeyIdentifier = (id, inMacOs) => {
   }
 
   return inMacOs ? option.macKeys.join('+') : option.keys.join('+');
-}
+};

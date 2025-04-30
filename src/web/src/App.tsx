@@ -14,7 +14,12 @@ import { useUserStore } from 'stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
 import { selectDefaultLanguage } from 'constants/userConstants';
 import { useCourseStore } from 'stores/useCourseStore';
-import { EnvStoreState, SystemStoreState, CourseStoreState, UserStoreState } from './types/store';
+import {
+  EnvStoreState,
+  SystemStoreState,
+  CourseStoreState,
+  UserStoreState,
+} from './types/store';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -41,7 +46,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateCourseId(data?.REACT_APP_COURSE_ID || '');
         await updateAppId(data?.REACT_APP_APP_ID || '');
         await updateAlwaysShowLessonTree(
-          data?.REACT_APP_ALWAYS_SHOW_LESSON_TREE || 'false'
+          data?.REACT_APP_ALWAYS_SHOW_LESSON_TREE || 'false',
         );
         await updateUmamiWebsiteId(data?.REACT_APP_UMAMI_WEBSITE_ID || '');
         await updateUmamiScriptSrc(data?.REACT_APP_UMAMI_SCRIPT_SRC || '');
@@ -54,7 +59,8 @@ const initializeEnvData = async (): Promise<void> => {
       }
     } catch (error) {
     } finally {
-      let { umamiWebsiteId, umamiScriptSrc } = useEnvStore.getState() as EnvStoreState;
+      let { umamiWebsiteId, umamiScriptSrc } =
+        useEnvStore.getState() as EnvStoreState;
       if (getBoolEnv('eruda')) {
         import('eruda').then((eruda) => eruda.default.init());
       }
@@ -100,19 +106,23 @@ const App = () => {
   } = useSystemStore() as SystemStoreState;
 
   const browserLanguage = selectDefaultLanguage(
-    navigator.language || navigator.languages[0]
+    navigator.language || navigator.languages[0],
   );
 
   const [language] = useState(browserLanguage);
 
   const courseId = useEnvStore((state: EnvStoreState) => state.courseId);
-  const updateCourseId = useEnvStore((state: EnvStoreState) => state.updateCourseId);
-  const enableWxcode = useEnvStore((state: EnvStoreState) => state.enableWxcode);
+  const updateCourseId = useEnvStore(
+    (state: EnvStoreState) => state.updateCourseId,
+  );
+  const enableWxcode = useEnvStore(
+    (state: EnvStoreState) => state.enableWxcode,
+  );
 
   const { updateCourseName } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       updateCourseName: state.updateCourseName,
-    }))
+    })),
   );
 
   useEffect(() => {
@@ -161,8 +171,6 @@ const App = () => {
     enableWxcode,
   ]);
 
-
-
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
@@ -187,8 +195,10 @@ const App = () => {
           if (resp.data) {
             setShowVip(resp.data.course_price > 0);
             updateCourseName(resp.data.course_name);
-            document.title = resp.data.course_name + ' - AI 师傅'
-            const metaDescription = document.querySelector('meta[name="description"]');
+            document.title = resp.data.course_name + ' - AI 师傅';
+            const metaDescription = document.querySelector(
+              'meta[name="description"]',
+            );
             if (metaDescription) {
               metaDescription.setAttribute('content', resp.data.course_desc);
             } else {
@@ -197,13 +207,18 @@ const App = () => {
               newMetaDescription.setAttribute('content', resp.data.course_desc);
               document.head.appendChild(newMetaDescription);
             }
-            const metaKeywords = document.querySelector('meta[name="keywords"]');
+            const metaKeywords = document.querySelector(
+              'meta[name="keywords"]',
+            );
             if (metaKeywords) {
               metaKeywords.setAttribute('content', resp.data.course_keywords);
             } else {
               const newMetaKeywords = document.createElement('meta');
               newMetaKeywords.setAttribute('name', 'keywords');
-              newMetaKeywords.setAttribute('content', resp.data.course_keywords);
+              newMetaKeywords.setAttribute(
+                'content',
+                resp.data.course_keywords,
+              );
               document.head.appendChild(newMetaKeywords);
             }
           } else {

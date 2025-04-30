@@ -115,7 +115,7 @@ export const LoginModal = ({
       onFeedbackClick?.();
       onClose();
     },
-    [onClose, onFeedbackClick]
+    [onClose, onFeedbackClick],
   );
 
   const onAfterOpenChange = useCallback(() => {
@@ -244,9 +244,7 @@ export const LoginModal = ({
             onChange={(e) => setAgreement(e.target.checked)}
           >
             {t('user.msgHaveRead')}
-            <span
-              className={styles.link}
-            >
+            <span className={styles.link}>
               <a href="/useragreement" target="_blank" rel="noreferrer">
                 {t('user.msgAgreement')}
               </a>

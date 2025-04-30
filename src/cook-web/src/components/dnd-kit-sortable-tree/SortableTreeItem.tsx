@@ -38,7 +38,7 @@ const animateLayoutChanges: AnimateLayoutChanges = ({
 
 type SortableTreeItemProps<
   T,
-  TElement extends HTMLElement
+  TElement extends HTMLElement,
 > = TreeItemProps<T> & {
   id: string;
   TreeItemComponent: TreeItemComponentType<T, TElement>;
@@ -49,7 +49,7 @@ type SortableTreeItemProps<
 
 const SortableTreeItemNotMemoized = function SortableTreeItem<
   T,
-  TElement extends HTMLElement
+  TElement extends HTMLElement,
 >({
   id,
   depth,
@@ -80,7 +80,7 @@ const SortableTreeItemNotMemoized = function SortableTreeItem<
   });
   const isOverParent = useMemo(
     () => !!over?.id && getIsOverParent(parent, over.id),
-    [over?.id]
+    [over?.id],
   );
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
@@ -122,5 +122,5 @@ const SortableTreeItemNotMemoized = function SortableTreeItem<
 };
 
 export const SortableTreeItem = React.memo(
-  SortableTreeItemNotMemoized
+  SortableTreeItemNotMemoized,
 ) as typeof SortableTreeItemNotMemoized;

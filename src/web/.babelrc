@@ -2,7 +2,10 @@
   "presets": [
     ["@babel/preset-env", { "targets": { "node": "current" } }],
     "@babel/preset-react",
-    ["@babel/preset-typescript", { "allowNamespaces": true, "isTSX": true, "allExtensions": true }]
+    [
+      "@babel/preset-typescript",
+      { "allowNamespaces": true, "isTSX": true, "allExtensions": true }
+    ]
   ],
   "plugins": [
     "@babel/plugin-transform-typescript",

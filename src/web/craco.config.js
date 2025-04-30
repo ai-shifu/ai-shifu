@@ -24,7 +24,7 @@ module.exports = {
   webpack: {
     configure: (webpackConfig) => {
       const oneOfRuleIndex = webpackConfig.module.rules.findIndex(
-        (rule) => rule.oneOf
+        (rule) => rule.oneOf,
       );
 
       if (oneOfRuleIndex >= 0) {
@@ -34,13 +34,13 @@ module.exports = {
         });
 
         const tsRule = webpackConfig.module.rules[oneOfRuleIndex].oneOf.find(
-          rule => rule.test && rule.test.toString().includes('tsx')
+          (rule) => rule.test && rule.test.toString().includes('tsx'),
         );
 
         if (tsRule) {
           webpackConfig.module.rules[oneOfRuleIndex].oneOf =
             webpackConfig.module.rules[oneOfRuleIndex].oneOf.filter(
-              rule => !(rule.test && rule.test.toString().includes('tsx'))
+              (rule) => !(rule.test && rule.test.toString().includes('tsx')),
             );
         }
 
@@ -52,36 +52,37 @@ module.exports = {
             options: {
               loader: 'tsx',
               target: 'es2015',
-              tsconfigRaw: require('./tsconfig.json')
-            }
-          }
+              tsconfigRaw: require('./tsconfig.json'),
+            },
+          },
         });
       }
 
       // ios 16- don't support look behind
       webpackConfig.module.rules.push({
         test: /\.js$/,
-        use: [{
-          loader: 'string-replace-loader',
-          options: {
-            multiple: [
-              {
-                search: '?<=\\\\s|',
-                replace: '',
-              },
-              {
-                search: '?<=^',
-                replace: '^',
-              },
-              {
-                search: '?<="',
-                replace: '?="',
-              }
-            ]
-          }
-        }]
-      })
-
+        use: [
+          {
+            loader: 'string-replace-loader',
+            options: {
+              multiple: [
+                {
+                  search: '?<=\\\\s|',
+                  replace: '',
+                },
+                {
+                  search: '?<=^',
+                  replace: '^',
+                },
+                {
+                  search: '?<="',
+                  replace: '?="',
+                },
+              ],
+            },
+          },
+        ],
+      });
 
       if (process.env.NODE_ENV === 'production') {
         webpackConfig.devtool = false;
@@ -91,13 +92,13 @@ module.exports = {
         ...webpackConfig.resolve,
         fallback: {
           ...webpackConfig.resolve?.fallback,
-          "util": require.resolve("util/"),
-          "stream": require.resolve("stream-browserify"),
-          "buffer": require.resolve("buffer/"),
-          "process": false,
-          "querystring": require.resolve("querystring-es3"),
-          "url": require.resolve("url/"),
-        }
+          util: require.resolve('util/'),
+          stream: require.resolve('stream-browserify'),
+          buffer: require.resolve('buffer/'),
+          process: false,
+          querystring: require.resolve('querystring-es3'),
+          url: require.resolve('url/'),
+        },
       };
 
       const webpack = require('webpack');

@@ -20,7 +20,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
       updateHasPay: state.updateHasPay,
       orderPromotePopoverOpen: state.orderPromotePopoverOpen,
       updateOrderPromotePopoverOpen: state.updateOrderPromotePopoverOpen,
-    }))
+    })),
   );
 
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
@@ -31,12 +31,12 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     } else {
       onClose?.();
     }
-  }, [onClose, onOpen, orderPromotePopoverOpen])
+  }, [onClose, onOpen, orderPromotePopoverOpen]);
 
   const onOkButtonClick = useCallback(() => {
     if (!hasPay) {
       shifu.payTools.openPay({});
-      trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' })
+      trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
   }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);
@@ -44,7 +44,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
   const onCancelButtonClick = useCallback(() => {
     updateOrderPromotePopoverOpen(false);
     onClose?.();
-  }, [onClose, updateOrderPromotePopoverOpen])
+  }, [onClose, updateOrderPromotePopoverOpen]);
 
   useEffect(() => {
     const onEventHandler = () => {
@@ -53,7 +53,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
 
     customEvents.addEventListener(
       EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-      onEventHandler
+      onEventHandler,
     );
 
     const onModalOk = () => {
@@ -65,15 +65,14 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     return () => {
       customEvents.removeEventListener(
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-        onEventHandler
+        onEventHandler,
       );
       shifu.events.removeEventListener(
         shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk
+        onModalOk,
       );
     };
   }, [onOpen, updateHasPay, updateOrderPromotePopoverOpen]);
-
 
   return (
     <>

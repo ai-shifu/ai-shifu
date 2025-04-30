@@ -19,20 +19,30 @@ export const PayChannelSwitchItem = memo(
   }) => {
     const _onClick = () => {
       onClick?.({ channel });
-    }
+    };
     return (
-      <div className={classNames(styles.channelSwitchItem, selected && styles.selected) } onClick={_onClick}>
-        <img className={styles.channelIcon} src={selected ? iconSelected : icon} alt={text} />
+      <div
+        className={classNames(
+          styles.channelSwitchItem,
+          selected && styles.selected,
+        )}
+        onClick={_onClick}
+      >
+        <img
+          className={styles.channelIcon}
+          src={selected ? iconSelected : icon}
+          alt={text}
+        />
         <div className={styles.channelText}>{text}</div>
       </div>
     );
-  }
+  },
 );
 export const PayChannelSwitch = ({
   channel = PAY_CHANNEL_WECHAT,
   onChange = ({ channel }) => {},
 }) => {
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   return (
     <div className={styles.channelSwitch}>
       <PayChannelSwitchItem

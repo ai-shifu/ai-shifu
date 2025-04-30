@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
   const [form] = Form.useForm();
-  const {t} = useTranslation();
+  const { t } = useTranslation();
 
   const _onOk = useCallback(async () => {
     try {
@@ -29,7 +29,10 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
           rules={[{ required: true, message: t('groupon.grouponInputMsg') }]}
           name="couponCode"
         >
-          <Input placeholder={t('groupon.grouponPlaceholder')} name="couponCode" />
+          <Input
+            placeholder={t('groupon.grouponPlaceholder')}
+            name="couponCode"
+          />
         </Form.Item>
       </Form>
     </Modal>

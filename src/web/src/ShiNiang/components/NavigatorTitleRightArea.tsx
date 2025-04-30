@@ -22,11 +22,11 @@ const NavigatorTitleRightArea = ({ payload }) => {
       updateHasPay: state.updateHasPay,
       orderPromotePopoverOpen: state.orderPromotePopoverOpen,
       updateOrderPromotePopoverOpen: state.updateOrderPromotePopoverOpen,
-    }))
+    })),
   );
 
   const { frameLayout } = shifu.stores.useUiLayoutStore(
-    useShallow((state) => ({ frameLayout: state.frameLayout }))
+    useShallow((state) => ({ frameLayout: state.frameLayout })),
   );
 
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
@@ -54,7 +54,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
 
     customEvents.addEventListener(
       EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-      onEventHandler
+      onEventHandler,
     );
 
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
@@ -62,11 +62,11 @@ const NavigatorTitleRightArea = ({ payload }) => {
     return () => {
       customEvents.removeEventListener(
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-        onEventHandler
+        onEventHandler,
       );
       shifu.events.removeEventListener(
         shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk
+        onModalOk,
       );
     };
   }, [updateHasPay, updateOrderPromotePopoverOpen]);

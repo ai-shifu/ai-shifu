@@ -7,9 +7,9 @@ import { getScriptInfo } from 'Api/lesson';
 export { EVENT_NAMES } from 'common/tools/tracking';
 
 const USER_STATE_DICT = {
-  '未注册': 'guest',
-  '已注册': 'user',
-  '已付费': 'member',
+  未注册: 'guest',
+  已注册: 'user',
+  已付费: 'member',
 };
 export const useTracking = () => {
   const { frameLayout } = useUiLayoutStore((state) => state);
@@ -23,33 +23,38 @@ export const useTracking = () => {
     };
   }, [frameLayout, userInfo?.state, userInfo?.user_id]);
 
-  const trackEvent = useCallback(async (eventName, eventData) => {
-    try {
-      const basicData = getEventBasicData();
-      const data = {
-        ...eventData,
-        ...basicData
-      };
-      tracking(eventName, data);
-    } catch { }
-  }, [getEventBasicData]);
+  const trackEvent = useCallback(
+    async (eventName, eventData) => {
+      try {
+        const basicData = getEventBasicData();
+        const data = {
+          ...eventData,
+          ...basicData,
+        };
+        tracking(eventName, data);
+      } catch {}
+    },
+    [getEventBasicData],
+  );
 
+  const trackTrailProgress = useCallback(
+    async (scriptId) => {
+      try {
+        const { data: scriptInfo } = await getScriptInfo(scriptId);
 
-  const trackTrailProgress = useCallback(async (scriptId) => {
-    try {
-      const { data: scriptInfo } = await getScriptInfo(scriptId);
+        // 是否体验课
+        if (!scriptInfo?.is_trial_lesson) {
+          return;
+        }
 
-      // 是否体验课
-      if (!scriptInfo?.is_trial_lesson) {
-        return;
-      }
-
-      trackEvent(EVENT_NAMES.TRIAL_PROGRESS, {
-        progress_no: scriptInfo.script_index,
-        progress_desc: scriptInfo.script_name,
-      });
-    } catch { }
-  }, [trackEvent]);
+        trackEvent(EVENT_NAMES.TRIAL_PROGRESS, {
+          progress_no: scriptInfo.script_index,
+          progress_desc: scriptInfo.script_name,
+        });
+      } catch {}
+    },
+    [trackEvent],
+  );
 
   return { trackEvent, trackTrailProgress, EVENT_NAMES };
 };

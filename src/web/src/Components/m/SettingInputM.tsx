@@ -35,15 +35,20 @@ export const SettingInputM = ({
       if (!ret) {
         setIsError(true);
         setErrorMessage(r.message);
-        return true
+        return true;
       }
-      return false
+      return false;
     });
   };
 
   return (
     <div className={styles.settingInputM}>
-      <div className={styles.title} style={{visibility: _value ? 'visible' : 'hidden'}}>{title}</div>
+      <div
+        className={styles.title}
+        style={{ visibility: _value ? 'visible' : 'hidden' }}
+      >
+        {title}
+      </div>
       <div className={styles.inputWrapper}>
         <Input
           className={styles.inputElement}
@@ -54,7 +59,12 @@ export const SettingInputM = ({
           clearable={true}
         />
       </div>
-      <div className={styles.errorMessage} style={{visibility: isError ? 'visible' : 'hidden'}} >{errorMessage}</div>
+      <div
+        className={styles.errorMessage}
+        style={{ visibility: isError ? 'visible' : 'hidden' }}
+      >
+        {errorMessage}
+      </div>
     </div>
   );
 };

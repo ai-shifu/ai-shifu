@@ -25,7 +25,9 @@ const ActiveMessage = ({
         <div className={styles.activeWrapper}>
           <div>
             <span dangerouslySetInnerHTML={{ __html: msg }}></span>{' '}
-            {button && <ToPayButton onClick={_onButtonClick}>{button}</ToPayButton>}
+            {button && (
+              <ToPayButton onClick={_onButtonClick}>{button}</ToPayButton>
+            )}
           </div>
         </div>
       </div>

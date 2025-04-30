@@ -13,8 +13,7 @@ module.exports = {
         REACT_APP_APP_ID: process.env.REACT_APP_APP_ID,
         REACT_APP_UMAMI_WEBSITE_ID: process.env.REACT_APP_UMAMI_WEBSITE_ID,
         REACT_APP_UMAMI_SCRIPT_SRC: process.env.REACT_APP_UMAMI_SCRIPT_SRC,
-
       },
-    }
-  ]
+    },
+  ],
 };

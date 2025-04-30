@@ -7,6 +7,6 @@ export const submitFeedback = (feedback) => {
   return request({
     url: '/api/user/submit-feedback',
     method: 'post',
-    data: { feedback }
+    data: { feedback },
   });
 };

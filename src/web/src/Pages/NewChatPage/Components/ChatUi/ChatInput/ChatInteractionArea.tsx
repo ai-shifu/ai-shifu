@@ -55,7 +55,7 @@ export const ChatInteractionArea = ({
         height: e.contentRect.height,
       });
     },
-    [onSizeChange]
+    [onSizeChange],
   );
 
   const handleAskClick = () => {

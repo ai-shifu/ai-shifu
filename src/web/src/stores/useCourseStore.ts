@@ -3,19 +3,21 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { resetChapter as apiResetChapter } from 'Api/lesson';
 import { CourseStoreState } from '../types/store';
 
-export const useCourseStore = create<CourseStoreState, [["zustand/subscribeWithSelector", never]]>(
-  subscribeWithSelector((set,get) => ({
+export const useCourseStore = create<
+  CourseStoreState,
+  [['zustand/subscribeWithSelector', never]]
+>(
+  subscribeWithSelector((set, get) => ({
     courseName: '',
     updateCourseName: (courseName) => set(() => ({ courseName })),
     lessonId: null,
     updateLessonId: (lessonId) => set(() => ({ lessonId })),
     chapterId: '',
-    updateChapterId: (newChapterId) =>  {
+    updateChapterId: (newChapterId) => {
       const currentChapterId = get().chapterId;
       if (currentChapterId === newChapterId) {
         return;
       }
-
 
       return set(() => ({ chapterId: newChapterId }));
     },
@@ -23,10 +25,12 @@ export const useCourseStore = create<CourseStoreState, [["zustand/subscribeWithS
     changePurchased: (purchased) => set(() => ({ purchased })),
     // 用于重置章节
     resetedChapterId: null,
-    updateResetedChapterId: (resetedChapterId) => set(() => ({ resetedChapterId })),
+    updateResetedChapterId: (resetedChapterId) =>
+      set(() => ({ resetedChapterId })),
     resetChapter: async (resetedChapterId) => {
       await apiResetChapter({ chapterId: resetedChapterId });
       set({ chapterId: resetedChapterId });
       set({ resetedChapterId });
     },
-  })));
+  })),
+);

@@ -8,7 +8,7 @@ export const AuthProvider = (props) => {
   // const [auth, setAuth] = useState(!!Cookies.get('token'));
 
   return (
-    <AuthContext.Provider value={{auth, setAuth}}>
+    <AuthContext.Provider value={{ auth, setAuth }}>
       {props.children}
     </AuthContext.Provider>
   );

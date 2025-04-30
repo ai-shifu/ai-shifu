@@ -23,13 +23,13 @@ export const ChatMobileHeader = ({
   } = useDisclosture();
 
   const hasPopoverContentControl = shifu.hasControl(
-    shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER
+    shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
 
   return (
     <div className={classNames(styles.ChatMobileHeader, className)}>
       {iconPopoverPayload && (
-        <div className="hidden" style={{display: "none"}}>
+        <div className="hidden" style={{ display: 'none' }}>
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
             onOpen={onIconPopoverOpen}

@@ -58,7 +58,7 @@ export const PayModalM = ({
   const [initLoading, setInitLoading] = useState(true);
   const [price, setPrice] = useState('0.00');
   const [payChannel, setPayChannel] = useState(
-    inWechat() ? PAY_CHANNEL_WECHAT_JSAPI : PAY_CHANNEL_ZHIFUBAO
+    inWechat() ? PAY_CHANNEL_WECHAT_JSAPI : PAY_CHANNEL_ZHIFUBAO,
   );
   const [isCompleted, setIsCompleted] = useState(false);
   const [orderId, setOrderId] = useState('');
@@ -76,7 +76,7 @@ export const PayModalM = ({
   } = useDisclosture();
   const courseId = getStringEnv('courseId');
   const { hasLogin } = useUserStore(
-    useShallow((state) => ({ hasLogin: state.hasLogin }))
+    useShallow((state) => ({ hasLogin: state.hasLogin })),
   );
 
   const initOrderUniform = useCallback(
@@ -90,7 +90,7 @@ export const PayModalM = ({
         return initOrder(courseId);
       }
     },
-    [payload, type]
+    [payload, type],
   );
 
   const handlePay = useCallback(async () => {
@@ -189,7 +189,13 @@ export const PayModalM = ({
                     </div>
 
                     {originalPrice && (
-                      <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
+                      <div
+                        className={styles.originalPriceWrapper}
+                        style={{
+                          visibility:
+                            originalPrice === price ? 'hidden' : 'visible',
+                        }}
+                      >
                         <div className={styles.originalPrice}>
                           {originalPrice}
                         </div>
@@ -223,7 +229,7 @@ export const PayModalM = ({
                                 className={classNames(
                                   styles.payChannelRow,
                                   payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
-                                    styles.selected
+                                    styles.selected,
                                 )}
                                 onClick={onPayChannelWechatClick}
                               >
@@ -248,7 +254,7 @@ export const PayModalM = ({
                                 className={classNames(
                                   styles.payChannelRow,
                                   payChannel === PAY_CHANNEL_ZHIFUBAO &&
-                                    styles.selected
+                                    styles.selected,
                                 )}
                                 onClick={onPayChannelZhifubaoClick}
                               >

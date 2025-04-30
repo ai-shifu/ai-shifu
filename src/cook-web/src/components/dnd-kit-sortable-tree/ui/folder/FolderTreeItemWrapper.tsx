@@ -7,7 +7,7 @@ import type { TreeItemComponentProps, FlattenedItem } from '../../types';
 import './FolderTreeItemWrapper.css';
 
 function flattenParents<T>(
-  parent: FlattenedItem<T> | null
+  parent: FlattenedItem<T> | null,
 ): FlattenedItem<T>[] {
   if (!parent) return [];
   return [...flattenParents(parent.parent), parent];
@@ -57,7 +57,7 @@ export const FolderTreeItemWrapper = forwardRef<
         ghost && 'dnd-sortable-tree_folder_ghost',
         disableSelection && 'dnd-sortable-tree_folder_disable-selection',
         disableInteraction && 'dnd-sortable-tree_folder_disable-interaction',
-        className
+        className,
       )}
       ref={wrapperRef}
       style={style}
@@ -91,7 +91,7 @@ export const FolderTreeItemWrapper = forwardRef<
           className={clsx(
             'dnd-sortable-tree_folder_tree-item-collapse_button',
             collapsed &&
-            'dnd-sortable-tree_folder_tree-item-collapse_button-collapsed'
+              'dnd-sortable-tree_folder_tree-item-collapse_button-collapsed',
           )}
         />
       )}
@@ -108,5 +108,5 @@ export const FolderTreeItemWrapper = forwardRef<
 }) as <T>(
   p: React.PropsWithChildren<
     TreeItemComponentProps<T> & React.RefAttributes<HTMLDivElement>
-  >
+  >,
 ) => React.ReactElement;

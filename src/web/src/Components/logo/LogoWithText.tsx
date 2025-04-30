@@ -20,8 +20,6 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     height: isRow ? size + 'px' : 'auto',
   };
 
-
-
   return (
     <div
       style={{
@@ -33,9 +31,17 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     >
       <a href={siteUrl}>
         {isRow ? (
-          <img src={ logoHorizontal || logoRow} alt="logo" style={{ ...commonStyles }} />
+          <img
+            src={logoHorizontal || logoRow}
+            alt="logo"
+            style={{ ...commonStyles }}
+          />
         ) : (
-          <img src={logoVertical || logoColumn} alt="logo" style={{ ...commonStyles }} />
+          <img
+            src={logoVertical || logoColumn}
+            alt="logo"
+            style={{ ...commonStyles }}
+          />
         )}
       </a>
     </div>

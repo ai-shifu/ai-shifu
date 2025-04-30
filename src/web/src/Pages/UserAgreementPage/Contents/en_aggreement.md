@@ -71,6 +71,7 @@ You must promptly update your information. In cases where AI Shifu, as the platf
    - Publicly insulting or defaming others, or maliciously attacking others;
    - Damaging the reputation of state organs;
    - Other content inappropriate for publication on AI Shifu or violating the constitution, laws, or administrative regulations.
+
 4. You shall not misuse AI Shifu in the following ways:
 
    - In a way that infringes on any person’s rights;

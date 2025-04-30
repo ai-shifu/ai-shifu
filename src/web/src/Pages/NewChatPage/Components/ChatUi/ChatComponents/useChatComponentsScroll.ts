@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useState } from 'react';
 import { smoothScroll } from 'Utils/smoothScroll';
 
 const SCROLL_BOTTOM_THROTTLE = 50;
@@ -28,59 +28,67 @@ export const useChatComponentsScroll = ({
     appendMsg({ type: 'loading', position: 'pop' });
   }, [appendMsg, messages]);
 
-  const onMessageListScroll = useCallback((e) => {
+  const onMessageListScroll = useCallback(
+    (e) => {
+      const scrollWrapper = e.target;
+      const inner = scrollWrapper.children[0];
 
-    const scrollWrapper = e.target;
-    const inner = scrollWrapper.children[0];
+      if (!scrollWrapper || !inner) {
+        return;
+      }
 
-    if (!scrollWrapper || !inner) {
-      return;
-    }
+      if (
+        scrollWrapper.scrollTop >= 0 &&
+        scrollWrapper.scrollTop + scrollWrapper.clientHeight <
+          inner.clientHeight - SCROLL_BOTTOM_THROTTLE
+      ) {
+        stopAutoScroll();
+      } else {
+        startAutoScroll();
+      }
+    },
+    [startAutoScroll, stopAutoScroll],
+  );
 
-    if (
-      scrollWrapper.scrollTop >= 0 &&
-      scrollWrapper.scrollTop + scrollWrapper.clientHeight <
-      inner.clientHeight - SCROLL_BOTTOM_THROTTLE
-    ) {
-      stopAutoScroll();
-    } else {
-      startAutoScroll();
-    }
-  }, [startAutoScroll, stopAutoScroll]);
+  const scrollTo = useCallback(
+    (height, stopScroll = false) => {
+      if (stopScroll) {
+        stopAutoScroll();
+      }
 
-  const scrollTo = useCallback((height, stopScroll = false) => {
-    if (stopScroll) {
-      stopAutoScroll();
-    }
+      const wrapper = chatRef.current?.querySelector(
+        `.${containerStyle} .PullToRefresh`,
+      );
 
-    const wrapper = chatRef.current?.querySelector(
-      `.${containerStyle} .PullToRefresh`
-    );
+      if (!wrapper) {
+        return;
+      }
+      smoothScroll({ el: wrapper, to: height });
+    },
+    [chatRef, containerStyle, stopAutoScroll],
+  );
 
-    if (!wrapper) {
-      return;
-    }
-    smoothScroll({ el: wrapper, to: height });
-  }, [chatRef, containerStyle, stopAutoScroll]);
+  const scrollToLesson = useCallback(
+    (lessonId) => {
+      if (!chatRef.current) {
+        return;
+      }
 
-  const scrollToLesson = useCallback((lessonId) => {
-    if (!chatRef.current) {
-      return;
-    }
+      const lessonNode = chatRef.current.querySelector(
+        `[data-id=lesson-${lessonId}]`,
+      );
+      if (!lessonNode) {
+        return;
+      }
 
-    const lessonNode = chatRef.current.querySelector(
-      `[data-id=lesson-${lessonId}]`
-    );
-    if (!lessonNode) {
-      return;
-    }
-
-    scrollTo(lessonNode.offsetTop, true);
-  }, [chatRef, scrollTo]);
+      scrollTo(lessonNode.offsetTop, true);
+    },
+    [chatRef, scrollTo],
+  );
 
   const scrollToBottom = useCallback(() => {
     const inner = chatRef.current?.querySelector(
-      `.${containerStyle} .PullToRefresh-inner`
+      `.${containerStyle} .PullToRefresh-inner`,
     );
 
     if (!inner) {
@@ -96,5 +104,5 @@ export const useChatComponentsScroll = ({
     scrollTo,
     scrollToLesson,
     scrollToBottom,
-  }
-}
+  };
+};

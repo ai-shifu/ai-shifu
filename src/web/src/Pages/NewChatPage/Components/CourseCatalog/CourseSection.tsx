@@ -12,7 +12,7 @@ export const CourseSection = ({
   selected,
   canLearning = false,
   onSelect = ({ id }) => {},
-  onTrySelect= ({ id }) => {},
+  onTrySelect = ({ id }) => {},
 }) => {
   const genIconClassName = () => {
     switch (status_value) {
@@ -30,7 +30,10 @@ export const CourseSection = ({
 
   const onSectionClick = useCallback(() => {
     onTrySelect?.({ id });
-    if (status_value === LESSON_STATUS_VALUE.NOT_START || status_value === LESSON_STATUS_VALUE.LOCKED) {
+    if (
+      status_value === LESSON_STATUS_VALUE.NOT_START ||
+      status_value === LESSON_STATUS_VALUE.LOCKED
+    ) {
       return;
     }
 
@@ -42,7 +45,7 @@ export const CourseSection = ({
       className={classNames(
         styles.courseSection,
         selected && styles.selected,
-        canLearning ? styles.available : styles.unavailable
+        canLearning ? styles.available : styles.unavailable,
       )}
       onClick={onSectionClick}
     >

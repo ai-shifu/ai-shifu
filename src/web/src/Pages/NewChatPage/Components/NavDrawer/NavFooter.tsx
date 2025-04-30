@@ -23,7 +23,7 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
     <div
       className={classNames(
         styles.navFooter,
-        isCollapse ? styles.collapse : ''
+        isCollapse ? styles.collapse : '',
       )}
       onClick={onClick}
       ref={htmlRef}

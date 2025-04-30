@@ -30,7 +30,7 @@ export const ChatUi = ({
     <div
       className={classNames(
         styles.ChatUi,
-        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : ''
+        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
       )}
     >
       {

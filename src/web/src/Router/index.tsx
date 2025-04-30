@@ -1,8 +1,8 @@
-import NewChatPage from "../Pages/NewChatPage/NewChatPage";
-import UserAgreementPage from "Pages/UserAgreementPage/UserAgreementPage";
-import PrivacyPolicyPage from "Pages/PrivacyPolicyPage/PrivacyPolicyPage";
-import { Navigate } from "react-router-dom";
-import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage";
+import NewChatPage from '../Pages/NewChatPage/NewChatPage';
+import UserAgreementPage from 'Pages/UserAgreementPage/UserAgreementPage';
+import PrivacyPolicyPage from 'Pages/PrivacyPolicyPage/PrivacyPolicyPage';
+import { Navigate } from 'react-router-dom';
+import NotFoundPage from '../Pages/NotFoundPage/NotFoundPage';
 
 /**
  * @description 用于存放导航栏的需要权限的路由，同时 系统的导航菜单也是基于此路由表进行渲染的
@@ -10,45 +10,45 @@ import NotFoundPage from "../Pages/NotFoundPage/NotFoundPage";
  * */
 const routes = [
   {
-    path: "/",
-    element: <Navigate to='/c/'></Navigate>,
+    path: '/',
+    element: <Navigate to="/c/"></Navigate>,
   },
   {
     path: '/useragreement',
-    element: <UserAgreementPage />
+    element: <UserAgreementPage />,
   },
   {
     path: '/privacypolicy',
-    element: <PrivacyPolicyPage />
+    element: <PrivacyPolicyPage />,
   },
   {
     path: '/course',
-    element: <NewChatPage />
+    element: <NewChatPage />,
   },
   {
     path: '/c/:courseId',
-    element: <NewChatPage />
+    element: <NewChatPage />,
   },
   {
     path: '/c/',
-    element: <NewChatPage />
+    element: <NewChatPage />,
   },
   {
     path: '/newchat',
-    element: <Navigate to='/c/'></Navigate>
+    element: <Navigate to="/c/"></Navigate>,
   },
   {
     path: '/newchat/:tmpId',
-    element: <Navigate to='/c/'></Navigate>
+    element: <Navigate to="/c/"></Navigate>,
   },
   {
     path: '/404',
-    element: <NotFoundPage />
+    element: <NotFoundPage />,
   },
   {
     path: '*',
-    element: <Navigate to="/404" />
-  }
+    element: <Navigate to="/404" />,
+  },
 ];
 
 export default routes;

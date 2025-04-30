@@ -42,19 +42,27 @@ const AskButtonInner = ({
   const { t, i18n } = useTranslation();
   const [oldPercent, setOldPercent] = useState(null);
 
-  const onButtonClick = useCallback( () => {
+  const onButtonClick = useCallback(() => {
     if (!disabled) {
       onClick();
     }
   }, [disabled, onClick]);
 
   const updateRealPercent = useCallback((percent) => {
-    setEndPoint(calculateArcPoint(calculateAngle(formatPercentForAnime(percent))));
-    setLargeArcFlag(calculateAngle(formatPercentForAnime(percent)) < 180 ? 1 : 0);
+    setEndPoint(
+      calculateArcPoint(calculateAngle(formatPercentForAnime(percent))),
+    );
+    setLargeArcFlag(
+      calculateAngle(formatPercentForAnime(percent)) < 180 ? 1 : 0,
+    );
   }, []);
 
   const formatPercentForAnime = (percent) => {
-    return percent <= PERCENT_THRESHOLD_MIN ? PERCENT_MIN : percent >= PERCENT_THRESHOLD_MAX ? PERCENT_MAX : percent;
+    return percent <= PERCENT_THRESHOLD_MIN
+      ? PERCENT_MIN
+      : percent >= PERCENT_THRESHOLD_MAX
+        ? PERCENT_MAX
+        : percent;
   };
 
   useEffect(() => {
@@ -120,7 +128,7 @@ const AskButtonInner = ({
               i18n.language &&
                 (i18n.language.includes('cn') || i18n.language.includes('CN'))
                 ? styles.chinese
-                : ''
+                : '',
             )}
           >
             {t('chat.ask')}

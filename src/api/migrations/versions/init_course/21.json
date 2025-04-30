@@ -1,168 +1,163 @@
 {
-    "code": 0,
-    "data": {
-        "has_more": false,
-        "items": [
+  "code": 0,
+  "data": {
+    "has_more": false,
+    "items": [
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
             {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "学习课程",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "Prompt",
-                    "后续交互": "显示 按钮",
-                    "小节": [
-                        {
-                            "text": "1.1 AI 师傅深入了解",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "##输出步骤\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 介绍AI 师傅的第一门自研课程《跟AI学编程》，零基础的学员也可以通过AI 辅助工具快速写出自己的应用程序。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 随着AI编程工具的出现，改变了传统学编程的方法，你不需要从复杂的撰写基础语法学起，而是可以借助AI来实现编程程序，在项目实践和解决问题中完成编程的学习。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "- 学完课程的用户在掌握了如何用AI编程的方法之后，可以很快做出自己人生中的第一个应用程序。",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recuf0cJXTiIUK"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "学习课程",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "固定剧本",
-                    "小节": [
-                        {
-                            "text": "1.1 AI 师傅深入了解",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "下面是部分真实用户的反馈。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "<img src=\"",
-                            "type": "text"
-                        },
-                        {
-                            "link": "https://img.agiclass.cn/review.png",
-                            "text": "https://img.agiclass.cn/review.png",
-                            "type": "url"
-                        },
-                        {
-                            "text": "\" style=\"width : 80%\" > \n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "更多用户反馈在这里👇\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "<a href=\" \" target=\"_blank\">",
-                            "type": "text"
-                        },
-                        {
-                            "link": "https://mp.weixin.qq.com/s?__biz=MzkzMTczMjY0NA==&mid=2247483698&idx=1&sn=252e9ea6f8c6f24bdfec47c37f7caed4&chksm=c267ccf9f51045ef1f534d1f88f3a11c0b6a5d12318e83d043d2be6335b115bea7d91ba9b728&scene=21#wechat_redirect",
-                            "text": "https://mp.weixin.qq.com/s?__biz=MzkzMTczMjY0NA==&mid=2247483698&idx=1&sn=252e9ea6f8c6f24bdfec47c37f7caed4&chksm=c267ccf9f51045ef1f534d1f88f3a11c0b6a5d12318e83d043d2be6335b115bea7d91ba9b728&scene=21#wechat_redirect",
-                            "type": "url"
-                        },
-                        {
-                            "text": "</a >",
-                            "type": "text"
-                        }
-                    ],
-                    "模版变量": [
-                        "nickname"
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recuf0cVAQQIBS"
-            },
-            {
-                "created_time": 1730096286000,
-                "fields": {
-                    "剧本简述": [
-                        {
-                            "text": "学习课程",
-                            "type": "text"
-                        }
-                    ],
-                    "剧本类型": "固定剧本",
-                    "后续交互": "显示 按钮",
-                    "小节": [
-                        {
-                            "text": "1.1 AI 师傅深入了解",
-                            "type": "text"
-                        }
-                    ],
-                    "模版内容": [
-                        {
-                            "text": "点击进入 ",
-                            "type": "text"
-                        },
-                        {
-                            "link": "http://AI-shifu.com",
-                            "text": "AI-shifu.com",
-                            "type": "url"
-                        },
-                        {
-                            "text": " ，进行课程学习。\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "\n",
-                            "type": "text"
-                        },
-                        {
-                            "text": "电脑端和移动端都可以，不过电脑端体验更佳。",
-                            "type": "text"
-                        }
-                    ],
-                    "模版变量": [
-                        "industry",
-                        "occupation"
-                    ]
-                },
-                "last_modified_time": 1730096286000,
-                "record_id": "recuf0cZRZ1adD"
+              "text": "学习课程",
+              "type": "text"
             }
-        ],
-        "total": 3
-    },
-    "msg": "success"
+          ],
+          "剧本类型": "Prompt",
+          "后续交互": "显示 按钮",
+          "小节": [
+            {
+              "text": "1.1 AI 师傅深入了解",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "##输出步骤\n",
+              "type": "text"
+            },
+            {
+              "text": "- 介绍AI 师傅的第一门自研课程《跟AI学编程》，零基础的学员也可以通过AI 辅助工具快速写出自己的应用程序。\n",
+              "type": "text"
+            },
+            {
+              "text": "- 随着AI编程工具的出现，改变了传统学编程的方法，你不需要从复杂的撰写基础语法学起，而是可以借助AI来实现编程程序，在项目实践和解决问题中完成编程的学习。\n",
+              "type": "text"
+            },
+            {
+              "text": "- 学完课程的用户在掌握了如何用AI编程的方法之后，可以很快做出自己人生中的第一个应用程序。",
+              "type": "text"
+            }
+          ]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recuf0cJXTiIUK"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "学习课程",
+              "type": "text"
+            }
+          ],
+          "剧本类型": "固定剧本",
+          "小节": [
+            {
+              "text": "1.1 AI 师傅深入了解",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "下面是部分真实用户的反馈。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "<img src=\"",
+              "type": "text"
+            },
+            {
+              "link": "https://img.agiclass.cn/review.png",
+              "text": "https://img.agiclass.cn/review.png",
+              "type": "url"
+            },
+            {
+              "text": "\" style=\"width : 80%\" > \n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "更多用户反馈在这里👇\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "<a href=\" \" target=\"_blank\">",
+              "type": "text"
+            },
+            {
+              "link": "https://mp.weixin.qq.com/s?__biz=MzkzMTczMjY0NA==&mid=2247483698&idx=1&sn=252e9ea6f8c6f24bdfec47c37f7caed4&chksm=c267ccf9f51045ef1f534d1f88f3a11c0b6a5d12318e83d043d2be6335b115bea7d91ba9b728&scene=21#wechat_redirect",
+              "text": "https://mp.weixin.qq.com/s?__biz=MzkzMTczMjY0NA==&mid=2247483698&idx=1&sn=252e9ea6f8c6f24bdfec47c37f7caed4&chksm=c267ccf9f51045ef1f534d1f88f3a11c0b6a5d12318e83d043d2be6335b115bea7d91ba9b728&scene=21#wechat_redirect",
+              "type": "url"
+            },
+            {
+              "text": "</a >",
+              "type": "text"
+            }
+          ],
+          "模版变量": ["nickname"]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recuf0cVAQQIBS"
+      },
+      {
+        "created_time": 1730096286000,
+        "fields": {
+          "剧本简述": [
+            {
+              "text": "学习课程",
+              "type": "text"
+            }
+          ],
+          "剧本类型": "固定剧本",
+          "后续交互": "显示 按钮",
+          "小节": [
+            {
+              "text": "1.1 AI 师傅深入了解",
+              "type": "text"
+            }
+          ],
+          "模版内容": [
+            {
+              "text": "点击进入 ",
+              "type": "text"
+            },
+            {
+              "link": "http://AI-shifu.com",
+              "text": "AI-shifu.com",
+              "type": "url"
+            },
+            {
+              "text": " ，进行课程学习。\n",
+              "type": "text"
+            },
+            {
+              "text": "\n",
+              "type": "text"
+            },
+            {
+              "text": "电脑端和移动端都可以，不过电脑端体验更佳。",
+              "type": "text"
+            }
+          ],
+          "模版变量": ["industry", "occupation"]
+        },
+        "last_modified_time": 1730096286000,
+        "record_id": "recuf0cZRZ1adD"
+      }
+    ],
+    "total": 3
+  },
+  "msg": "success"
 }

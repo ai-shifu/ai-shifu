@@ -40,7 +40,7 @@ const AskButton = ({
   }, [isNoLimited, total, used]);
 
   const { inMacOs } = useUiLayoutStore(
-    useShallow((state) => ({ inMacOs: state.inMacOs }))
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
 
   useHotkeys(
@@ -48,7 +48,7 @@ const AskButton = ({
     () => {
       buttonClick();
     },
-    [buttonClick]
+    [buttonClick],
   );
 
   return (

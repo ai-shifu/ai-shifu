@@ -8,8 +8,8 @@ body {
 }
 
 :root {
-  --main-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
-    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+  --main-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+    "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
     sans-serif;
   --font-color-main: #06295d;
   --font-size-1: 32px;
@@ -46,9 +46,9 @@ body {
   --color-7: #38547d;
   --color-8: #9ba9be;
   --color-9: #cdd4df;
-  --color-20: #8C4B1D;
-  --color-21:#002FA7;
-  --color-disabled-1: #6C6C6C;
+  --color-20: #8c4b1d;
+  --color-21: #002fa7;
+  --color-disabled-1: #6c6c6c;
   --color-1-rgb: 15, 99, 238;
 
   /* 状态颜色 */
@@ -81,7 +81,5 @@ code {
   padding: 16px;
   border-radius: 4px;
 }
-
-
 
 /* 字体定义 */

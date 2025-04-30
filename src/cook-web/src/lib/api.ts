@@ -1,67 +1,82 @@
-import http, { RequestConfig, StreamCallback, StreamRequestConfig } from './request';
+import http, {
+  RequestConfig,
+  StreamCallback,
+  StreamRequestConfig,
+} from './request';
 const apiPrefix = '/api';
 
 const objectToQueryString = (obj: any) => {
-    const params = new URLSearchParams();
-    for (const key in obj) {
-        params.append(key, obj[key]);
-    }
-    return params.toString();
+  const params = new URLSearchParams();
+  for (const key in obj) {
+    params.append(key, obj[key]);
+  }
+  return params.toString();
 };
 export const gen = (option: string) => {
-    let url = option;
-    let method = 'GET';
+  let url = option;
+  let method = 'GET';
 
-    const paramsArray = option.split(' ');
-    if (paramsArray.length === 2) {
-        method = paramsArray[0];
-        url = paramsArray[1];
+  const paramsArray = option.split(' ');
+  if (paramsArray.length === 2) {
+    method = paramsArray[0];
+    url = paramsArray[1];
+  }
+
+  if (!url.startsWith('http')) {
+    url = apiPrefix + url;
+  }
+
+  return function (
+    params: { [x: string]: any },
+    config: RequestConfig | StreamRequestConfig = {},
+    callback?: StreamCallback,
+  ) {
+    let tarUrl = url;
+    let body;
+    if (method === 'GET') {
+      if (params) {
+        const queryString = objectToQueryString(params);
+        tarUrl = `${url}?${queryString}`;
+      }
+    } else {
+      if (params) {
+        body = JSON.stringify(params);
+      }
     }
 
-    if (!url.startsWith('http')) {
-        url = apiPrefix + url;
+    if (method === 'STREAM') {
+      return http.interceptFetchByStream(
+        tarUrl,
+        {
+          ...config,
+          body,
+          method,
+        },
+        callback,
+      );
     }
-
-    return function (params: { [x: string]: any }, config: RequestConfig | StreamRequestConfig = {}, callback?: StreamCallback) {
-        let tarUrl = url;
-        let body;
-        if (method === 'GET') {
-            if (params) {
-                const queryString = objectToQueryString(params);
-                tarUrl = `${url}?${queryString}`;
-            }
-
-        } else {
-            if (params) {
-                body = JSON.stringify(params);
-            }
-        }
-
-        if (method === 'STREAM') {
-            return http.interceptFetchByStream(tarUrl, {
-                ...config,
-                body,
-                method,
-            }, callback);
-        }
-        if (method === 'STREAMLINE') {
-            return http.interceptFetchByStreamLine(tarUrl, {
-                ...config,
-                body,
-                method,
-            }, callback);
-        }
-        if (method === 'PROXY') {
-            return http.fetch(tarUrl, {
-                ...config,
-                body,
-                method,
-            });
-        }
-        return http.interceptFetch(tarUrl, {
-            ...config,
-            body,
-            method,
-        });
-    };
+    if (method === 'STREAMLINE') {
+      return http.interceptFetchByStreamLine(
+        tarUrl,
+        {
+          ...config,
+          body,
+          method,
+        },
+        callback,
+      );
+    }
+    if (method === 'PROXY') {
+      return http.fetch(tarUrl, {
+        ...config,
+        body,
+        method,
+      });
+    }
+    return http.interceptFetch(tarUrl, {
+      ...config,
+      body,
+      method,
+    });
+  };
 };

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import styles from './NotFoundPage.module.scss';
-import logoColor from 'Assets/logos/logo-color-392.png'
+import logoColor from 'Assets/logos/logo-color-392.png';
 import { useEnvStore } from 'stores/envStore';
 const NotFoundPage = () => {
   const { t } = useTranslation();

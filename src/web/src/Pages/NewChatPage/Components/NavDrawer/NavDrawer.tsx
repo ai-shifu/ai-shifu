@@ -104,7 +104,7 @@ const NavDrawer = ({
       }
       onMainModalClose();
     },
-    [onMainModalClose]
+    [onMainModalClose],
   );
 
   const onFooterClick = useCallback(() => {
@@ -118,7 +118,7 @@ const NavDrawer = ({
     <div
       className={classNames(
         styles.navDrawerWrapper,
-        mobileStyle ? styles.mobile : ''
+        mobileStyle ? styles.mobile : '',
       )}
       style={{ width: isCollapse ? COLLAPSE_WIDTH : calcNavWidth(frameLayout) }}
     >

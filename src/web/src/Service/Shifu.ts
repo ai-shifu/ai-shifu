@@ -7,8 +7,8 @@ import { INTERACTION_OUTPUT_TYPE } from 'constants/courseConstants';
 import { useTracking } from 'common/hooks/useTracking';
 
 const createShifu = () => {
-  const chatInputActionControls = {}
-  const controls = {}
+  const chatInputActionControls = {};
+  const controls = {};
   const eventHandlers = new EventTarget();
 
   const EventTypes = {
@@ -19,18 +19,18 @@ const createShifu = () => {
     PAY_MODAL_OK: 'PAY_MODAL_OK',
     PAY_MODAL_CANCEL: 'PAY_MODAL_CANCEL',
     RESET_CHAPTER: 'RESET_CHAPTER',
-  }
+  };
 
   const ControlTypes = {
     NAVIGATOR_TITLE_RIGHT_AREA: 'NAVIGATOR_TITLE_RIGHT_AREA',
     TRIAL_NODE_BOTTOM_AREA: 'TRIAL_NODE_BOTTOM_AREA',
     MOBILE_HEADER_ICON_POPOVER: 'MOBILE_HEADER_ICON_POPOVER',
     ACTIVE_MESSAGE: 'ACTIVE_MESSAGE',
-  }
+  };
 
   const constants = {
     INTERACTION_OUTPUT_TYPE,
-  }
+  };
 
   const getConfig = () => {
     return {
@@ -40,72 +40,87 @@ const createShifu = () => {
       inMobile: useUiLayoutStore.getState().inMobile,
       inWechat: useUiLayoutStore.getState().inWechat,
       token: tokenTool.get(),
-      mobileStyle: useUiLayoutStore.getState().frameLayout === FRAME_LAYOUT_MOBILE,
-    }
-  }
+      mobileStyle:
+        useUiLayoutStore.getState().frameLayout === FRAME_LAYOUT_MOBILE,
+    };
+  };
 
   const registerControl = (type, control) => {
     controls[type] = control;
-  }
+  };
 
   const getControl = (type) => {
     return controls[type];
-  }
+  };
 
   const hasControl = (type) => {
     return type in controls;
-  }
+  };
 
   const registerChatInputActionControls = (type, control) => {
     chatInputActionControls[type] = control;
-  }
+  };
 
   const getChatInputActionControls = (type) => {
     return chatInputActionControls[type];
-  }
+  };
 
   const hasChatInputActionControls = (type) => {
     return type in chatInputActionControls;
-  }
+  };
 
   const loginTools = {
     openLogin: () => {
       eventHandlers.dispatchEvent(new CustomEvent(EventTypes.OPEN_LOGIN_MODAL));
     },
     emitLoginModalCancel: (e) => {
-      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.LOGIN_MODAL_CANCEL, { detail: e }));
+      eventHandlers.dispatchEvent(
+        new CustomEvent(EventTypes.LOGIN_MODAL_CANCEL, { detail: e }),
+      );
     },
     emitLoginModalOk: (e) => {
-      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.LOGIN_MODAL_OK, { detail: e }));
-    }
-  }
+      eventHandlers.dispatchEvent(
+        new CustomEvent(EventTypes.LOGIN_MODAL_OK, { detail: e }),
+      );
+    },
+  };
 
   const payTools = {
     openPay: ({ type = '', payload = {} }) => {
-      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.OPEN_PAY_MODAL, { detail: { type, payload } }));
+      eventHandlers.dispatchEvent(
+        new CustomEvent(EventTypes.OPEN_PAY_MODAL, {
+          detail: { type, payload },
+        }),
+      );
     },
     emitPayModalCancel: (e) => {
-      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.PAY_MODAL_CANCEL, { detail: e }));
+      eventHandlers.dispatchEvent(
+        new CustomEvent(EventTypes.PAY_MODAL_CANCEL, { detail: e }),
+      );
     },
     emitPayModalOk: (e) => {
-      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.PAY_MODAL_OK, { detail: e }));
-    }
-  }
+      eventHandlers.dispatchEvent(
+        new CustomEvent(EventTypes.PAY_MODAL_OK, { detail: e }),
+      );
+    },
+  };
 
   const resetTools = {
     resetChapter: (e) => {
-      eventHandlers.dispatchEvent(new CustomEvent(EventTypes.RESET_CHAPTER, { detail: e }));
-    }
-  }
+      eventHandlers.dispatchEvent(
+        new CustomEvent(EventTypes.RESET_CHAPTER, { detail: e }),
+      );
+    },
+  };
 
   const stores = {
     useUserStore,
     useUiLayoutStore,
-  }
+  };
 
   const hooks = {
     useTracking,
-  }
+  };
 
   const installPlugin = (plugin) => {
     plugin.install({
@@ -121,8 +136,8 @@ const createShifu = () => {
       utils,
       constants,
       hooks,
-    })
-  }
+    });
+  };
 
   return {
     stores,
@@ -143,7 +158,7 @@ const createShifu = () => {
     utils,
     constants,
     hooks,
-  }
-}
+  };
+};
 
 export const shifu = createShifu();

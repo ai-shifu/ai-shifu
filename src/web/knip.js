@@ -1,12 +1,11 @@
 const config = {
   rootDir: 'src',
   project: ['src/**/*.{js,jsx}!'],
-  ignore: [
-  ],
+  ignore: [],
   paths: {
     'public/*': ['public/*'],
   },
-  "ignoreExportsUsedInFile": false
+  ignoreExportsUsedInFile: false,
 };
 
 export default config;

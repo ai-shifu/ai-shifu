@@ -12,16 +12,16 @@ import { shortcutKeys } from 'Service/shortcut';
 const ShortcutModal = ({ open, onClose }) => {
   const { mobileStyle } = useContext(AppContext);
   const { inMacOs } = useUiLayoutStore(
-    useShallow((state) => ({ inMacOs: state.inMacOs }))
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
   const { t } = useTranslation();
   const shortcutKeysOptions = shortcutKeys.map((v) => ({
     id: v.id,
     title: t(`common.shortcut.title.${v.id}`),
     keys: (inMacOs ? v.macKeys : v.keys).map((v) => {
-      return t(`common.shortcut.key.${v}`)
+      return t(`common.shortcut.key.${v}`);
     }),
-  }))
+  }));
 
   const getShortcutKey = (keyText, index) => {
     const isSingleText = keyText.length === 1;
@@ -31,7 +31,7 @@ const ShortcutModal = ({ open, onClose }) => {
         key={index}
         className={classNames(
           styles.shortcutKey,
-          isSingleText ? styles.singleText : styles.multiText
+          isSingleText ? styles.singleText : styles.multiText,
         )}
       >
         {keyText}

@@ -2,18 +2,16 @@ enum SelectedOption {
   Video = 'video',
   Image = 'Image',
   Profile = 'Profile',
-  Empty = ''
+  Empty = '',
 }
 interface IEditorContext {
-  selectedOption: SelectedOption
-  setSelectedOption: (selectedOption: SelectedOption) => void
-  dialogOpen: boolean
-  setDialogOpen: (dialogOpen:boolean) => void
-  profileList?: string[],
-  setProfileList?: (profiles: string[]) => void
+  selectedOption: SelectedOption;
+  setSelectedOption: (selectedOption: SelectedOption) => void;
+  dialogOpen: boolean;
+  setDialogOpen: (dialogOpen: boolean) => void;
+  profileList?: string[];
+  setProfileList?: (profiles: string[]) => void;
 }
 
-
-
-export { SelectedOption }
-export type { IEditorContext }
+export { SelectedOption };
+export type { IEditorContext };

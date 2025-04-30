@@ -17,9 +17,12 @@ export const SexSettingModal = ({
   const [selectedSex, setSelectedSex] = useState(initialValues.sex);
   const [messageApi, contextHolder] = message.useMessage();
   const { t } = useTranslation();
-  const checkSelected = useCallback((sex) => {
-    return sex === selectedSex;
-  }, [selectedSex]);
+  const checkSelected = useCallback(
+    (sex) => {
+      return sex === selectedSex;
+    },
+    [selectedSex],
+  );
   const getSelectedClassName = (sex) => {
     return checkSelected(sex) ? 'selected' : '';
   };
@@ -39,7 +42,7 @@ export const SexSettingModal = ({
         ? require('@Assets/newchat/light/icon16-male-hl@2x.png')
         : require('@Assets/newchat/light/icon16-male@2x.png');
     },
-    [checkSelected]
+    [checkSelected],
   );
 
   const sexFemaleIcon = useCallback(
@@ -48,14 +51,17 @@ export const SexSettingModal = ({
         ? require('@Assets/newchat/light/icon16-female-hl@2x.png')
         : require('@Assets/newchat/light/icon16-female@2x.png');
     },
-    [checkSelected]
+    [checkSelected],
   );
 
-  const sexSecretIcon = useCallback((sex) => {
-    return checkSelected(sex)
-      ? require('@Assets/newchat/light/icon16-account-hl@2x.png')
-      : require('@Assets/newchat/light/icon16-account.png');
-  }, [checkSelected]);
+  const sexSecretIcon = useCallback(
+    (sex) => {
+      return checkSelected(sex)
+        ? require('@Assets/newchat/light/icon16-account-hl@2x.png')
+        : require('@Assets/newchat/light/icon16-account.png');
+    },
+    [checkSelected],
+  );
 
   return (
     <SettingBaseModal
@@ -67,7 +73,10 @@ export const SexSettingModal = ({
     >
       <div className={styles.sexWrapper}>
         <div
-          className={classNames(styles.sexItem, getSelectedClassName(t('user.sex.male')))}
+          className={classNames(
+            styles.sexItem,
+            getSelectedClassName(t('user.sex.male')),
+          )}
           onClick={() => setSelectedSex(t('user.sex.male'))}
         >
           <img
@@ -80,7 +89,7 @@ export const SexSettingModal = ({
         <div
           className={classNames(
             styles.sexItem,
-            getSelectedClassName(t('user.sex.female'))
+            getSelectedClassName(t('user.sex.female')),
           )}
           onClick={() => setSelectedSex(t('user.sex.female'))}
         >
@@ -94,7 +103,7 @@ export const SexSettingModal = ({
         <div
           className={classNames(
             styles.sexItem,
-            getSelectedClassName(t('user.sex.secret'))
+            getSelectedClassName(t('user.sex.secret')),
           )}
           onClick={() => setSelectedSex(t('user.sex.secret'))}
         >

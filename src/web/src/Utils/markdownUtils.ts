@@ -1,4 +1,3 @@
-
 export const fixMarkdown = (text) => {
   return fixCode(text);
 };

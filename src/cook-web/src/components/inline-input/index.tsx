@@ -11,28 +11,33 @@ interface InlineInputProps {
   onFocus?: () => void;
 }
 
-export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value, onChange, className, onFocus }) => {
+export const InlineInput: React.FC<InlineInputProps> = ({
+  isEdit = false,
+  value,
+  onChange,
+  className,
+  onFocus,
+}) => {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isEdit) {
-
       setIsEditing(true);
       setTimeout(() => {
         inputRef.current?.focus();
-      }, 500)
+      }, 500);
     }
   }, [isEdit]);
 
   const handleDoubleClick = () => {
     setIsEditing(true);
-    onFocus?.()
+    onFocus?.();
   };
 
   const handleBlur = () => {
-    if (inputValue === "") {
+    if (inputValue === '') {
       return;
     }
     setIsEditing(false);
@@ -41,12 +46,12 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
 
   const debouncedOnChange = useCallback(
     debounce((value: string) => {
-      if (value === "") {
+      if (value === '') {
         return;
       }
-      onChange(value || "未命名");
+      onChange(value || '未命名');
     }, 300),
-    [onChange]
+    [onChange],
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,14 +68,14 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
-      console.log('enter', inputValue)
+      console.log('enter', inputValue);
       debouncedOnChange(inputValue);
     }
   };
 
   useEffect(() => {
     setIsEditing(isEdit);
-  }, [isEdit])
+  }, [isEdit]);
 
   return (
     <div className={cn('inline-block w-full', className)}>
@@ -89,7 +94,13 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
           onPointerDown={(e) => e.stopPropagation()}
         />
       ) : (
-        <span title={value} className='w-full block whitespace-nowrap  max-w-52 2xl:max-w-72 overflow-hidden text-ellipsis' onDoubleClick={handleDoubleClick}>{value}</span>
+        <span
+          title={value}
+          className="w-full block whitespace-nowrap  max-w-52 2xl:max-w-72 overflow-hidden text-ellipsis"
+          onDoubleClick={handleDoubleClick}
+        >
+          {value}
+        </span>
       )}
     </div>
   );

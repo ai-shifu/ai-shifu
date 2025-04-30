@@ -9,7 +9,7 @@ export const DynamicSettingItem = ({ settingItem, onChange, className }) => {
 
   const _onRaidoChange = (e) => {
     onChange(settingItem.key, e);
-  }
+  };
 
   return (
     <>
@@ -22,7 +22,8 @@ export const DynamicSettingItem = ({ settingItem, onChange, className }) => {
           value={settingItem.value}
         />
       )}
-      {settingItem.type === 'select' && <SettingRadioElement
+      {settingItem.type === 'select' && (
+        <SettingRadioElement
           title={settingItem.label}
           placeholder={settingItem.label}
           onChange={_onRaidoChange}
@@ -32,7 +33,8 @@ export const DynamicSettingItem = ({ settingItem, onChange, className }) => {
             label: option,
             value: option,
           }))}
-      />}
+        />
+      )}
     </>
   );
 };

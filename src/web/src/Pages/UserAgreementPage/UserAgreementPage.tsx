@@ -8,7 +8,7 @@ import { userInfoStore } from 'Service/storeUtil';
 const aggreements = {
   'zh-CN': zhCNAggreement,
   'en-US': enAggreement,
-  'en': enAggreement,
+  en: enAggreement,
 };
 
 export const UserAgreementPage = () => {

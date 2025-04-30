@@ -27,7 +27,7 @@
       color: var(--color-4);
     }
 
-    :global(.Message[data-type=lessonSeparator]) {
+    :global(.Message[data-type="lessonSeparator"]) {
       height: 0;
       overflow: hidden;
     }
@@ -64,7 +64,7 @@
         line-height: 1.8em;
       }
 
-      &>p {
+      & > p {
         margin-bottom: 1.5em;
 
         &:last-child {
@@ -95,7 +95,6 @@
     }
 
     :global(.Bubble.text table) {
-
       background-color: var(--color-5);
       padding: 0px 20px 10px 20px;
       margin-top: 20px;
@@ -134,7 +133,6 @@
         background-color: var(--color-4);
         border-right: 1px solid #fff;
         border-bottom: 1px solid #fff;
-
       }
     }
   }
@@ -154,10 +152,10 @@
 }
 
 .messageContentOperation {
-  display:flex;
+  display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  justify-content:space-around;
+  justify-content: space-around;
   width: 50px;
   margin-left: 5px;
 }

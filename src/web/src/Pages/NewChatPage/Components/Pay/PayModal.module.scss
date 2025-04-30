@@ -155,7 +155,6 @@
         font-size: var(--font-size-5);
       }
     }
-
   }
 }
 
@@ -168,9 +167,9 @@
   box-sizing: border-box;
 
   .title {
-      font-size: var(--font-size-2);
-      text-align: center;
-      color: var(--color-20);
+    font-size: var(--font-size-2);
+    text-align: center;
+    color: var(--color-20);
   }
 
   .completeWrapper {
@@ -194,7 +193,7 @@
     text-align: center;
     color: var(--color-8);
   }
-  .paySuccessBg{
+  .paySuccessBg {
     width: 100%;
     height: auto;
     margin-top: 20px;

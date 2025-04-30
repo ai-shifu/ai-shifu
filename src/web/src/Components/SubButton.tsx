@@ -1,5 +1,5 @@
-import { Button } from "antd";
-import styles from "./SubButton.module.scss";
+import { Button } from 'antd';
+import styles from './SubButton.module.scss';
 
 const SubButton = ({
   disabled,

@@ -1,41 +1,45 @@
-import { useState, useEffect } from 'react'
-import type { Profile } from './type'
-import api from '@/api'
+import { useState, useEffect } from 'react';
+import type { Profile } from './type';
+import api from '@/api';
 
 type useProfileParams = {
-  parentId?: string
-  searchTerm: string
-  refreshFlag?: number
-}
+  parentId?: string;
+  searchTerm: string;
+  refreshFlag?: number;
+};
 const useProfiles = ({
   parentId,
   searchTerm,
-  refreshFlag
+  refreshFlag,
 }: useProfileParams) => {
-  const [profiles, setProfiles] = useState<Profile[]>()
+  const [profiles, setProfiles] = useState<Profile[]>();
   const fetchList = async () => {
     const list = await api.getProfileList({
-        parent_id: parentId
-      })
-    setProfiles(list as unknown as Profile[])
-  }
+      parent_id: parentId,
+    });
+    setProfiles(list as unknown as Profile[]);
+  };
 
   const getProfilesByType = (profiles: Profile[] | undefined) => {
     const filteredProfiles = profiles?.filter(
-      profile =>
+      (profile) =>
         profile.profile_key.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        profile.profile_key.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    const systemProfiles = filteredProfiles?.filter(v => v.profile_scope === 'system')
-    const customProfiles = filteredProfiles?.filter(v => v.profile_scope === 'user')
-    return [systemProfiles, customProfiles]
-  }
+        profile.profile_key.toLowerCase().includes(searchTerm.toLowerCase()),
+    );
+    const systemProfiles = filteredProfiles?.filter(
+      (v) => v.profile_scope === 'system',
+    );
+    const customProfiles = filteredProfiles?.filter(
+      (v) => v.profile_scope === 'user',
+    );
+    return [systemProfiles, customProfiles];
+  };
 
   useEffect(() => {
-    fetchList()
-  }, [parentId, refreshFlag])
+    fetchList();
+  }, [parentId, refreshFlag]);
 
-  return getProfilesByType(profiles)
-}
+  return getProfilesByType(profiles);
+};
 
-export default useProfiles
+export default useProfiles;

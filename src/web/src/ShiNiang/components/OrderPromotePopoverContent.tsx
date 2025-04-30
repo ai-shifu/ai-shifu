@@ -5,7 +5,12 @@ import MainButton from 'ShiNiang/components/MainButton';
 import styles from './OrderPromotePopoverContent.module.scss';
 import classNames from 'classnames';
 
-const OrderPromotePopoverContent = ({ payload, onCancelButtonClick, onOkButtonClick, className }) => {
+const OrderPromotePopoverContent = ({
+  payload,
+  onCancelButtonClick,
+  onOkButtonClick,
+  className,
+}) => {
   return (
     <div className={classNames(styles.orderPromotePopoverContent, className)}>
       <div className={styles.leftColumn}>

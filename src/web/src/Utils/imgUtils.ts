@@ -29,7 +29,7 @@ export const genCroppedImg = async (
   imageSrc,
   pixelCrop,
   rotation = 0,
-  flip = { horizontal: false, vertical: false }
+  flip = { horizontal: false, vertical: false },
 ) => {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
@@ -45,7 +45,7 @@ export const genCroppedImg = async (
   const { width: bBoxWidth, height: bBoxHeight } = rotateSize(
     image.width,
     image.height,
-    rotation
+    rotation,
   );
 
   // set canvas size to match the bounding box
@@ -82,7 +82,7 @@ export const genCroppedImg = async (
     0,
     0,
     pixelCrop.width,
-    pixelCrop.height
+    pixelCrop.height,
   );
 
   return new Promise((resolve) => {
@@ -93,7 +93,6 @@ export const genCroppedImg = async (
   });
 };
 
-
 /**
  * convert file to data url
  * DataURLs format: data:[<mediatype>][;base64],<data>
@@ -102,7 +101,9 @@ export const genCroppedImg = async (
 export const convertFileToDataUrl = async (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.addEventListener('load', (e) => { resolve(e.target.result); });
+    reader.addEventListener('load', (e) => {
+      resolve(e.target.result);
+    });
     reader.addEventListener('error', (err) => reject(err));
 
     reader.readAsDataURL(file);

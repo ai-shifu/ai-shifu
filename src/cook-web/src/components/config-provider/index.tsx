@@ -25,7 +25,11 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  return <ConfigContext.Provider value={{ isLoaded }}>{children}</ConfigContext.Provider>;
+  return (
+    <ConfigContext.Provider value={{ isLoaded }}>
+      {children}
+    </ConfigContext.Provider>
+  );
 }
 
 export function useConfig() {

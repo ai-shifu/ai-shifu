@@ -25,7 +25,12 @@ export const SettingBaseModal = ({
       closeOnMaskClick={true}
       content={
         <div
-          style={{ width: calModalWidth({ inMobile: mobileStyle, width: defaultWidth }) }}
+          style={{
+            width: calModalWidth({
+              inMobile: mobileStyle,
+              width: defaultWidth,
+            }),
+          }}
           className={styles.modalWrapper}
         >
           {header(t, title || t('common.settings'))}

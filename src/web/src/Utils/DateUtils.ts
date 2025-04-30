@@ -1,5 +1,7 @@
 export const formatDate = (date) => {
-    return date.getFullYear() + "-" + (date.getMonth() + 1) + "-" + date.getDate();
+  return (
+    date.getFullYear() + '-' + (date.getMonth() + 1) + '-' + date.getDate()
+  );
 };
 
 // check leap year

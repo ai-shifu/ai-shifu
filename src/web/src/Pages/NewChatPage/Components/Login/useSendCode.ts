@@ -20,7 +20,7 @@ export const useSendCode = ({ countDownTime = DEFAULT_COUNTDOWN }) => {
     setCountDown(countDownTime);
 
     timer.current = setInterval(() => {
-      setCountDown(countDown => {
+      setCountDown((countDown) => {
         if (countDown === 0) {
           clearInterval(timer.current);
           timer.current = null;

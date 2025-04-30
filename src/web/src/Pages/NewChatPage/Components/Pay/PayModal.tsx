@@ -66,7 +66,7 @@ export const PayModal = ({
   const [priceItems, setPriceItems] = useState([]);
 
   const { hasLogin } = useUserStore(
-    useShallow((state) => ({ hasLogin: state.hasLogin }))
+    useShallow((state) => ({ hasLogin: state.hasLogin })),
   );
 
   const initOrderUniform = useCallback(
@@ -80,7 +80,7 @@ export const PayModal = ({
         return initOrder(courseId);
       }
     },
-    [payload, type]
+    [payload, type],
   );
 
   useInterval(
@@ -104,7 +104,7 @@ export const PayModal = ({
       setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
       setPrice(resp.value_to_pay);
     },
-    hasLogin ? interval : null
+    hasLogin ? interval : null,
   );
 
   const refreshOrderQrcode = useCallback(
@@ -124,7 +124,7 @@ export const PayModal = ({
         }
       }
     },
-    [payChannel]
+    [payChannel],
   );
 
   const courseId = getStringEnv('courseId');
@@ -205,7 +205,7 @@ export const PayModal = ({
     (e) => {
       onCancel?.(e);
     },
-    [onCancel]
+    [onCancel],
   );
 
   const onCouponCodeClick = useCallback(() => {
@@ -224,7 +224,7 @@ export const PayModal = ({
       refreshOrderQrcode();
       onCouponCodeModalClose();
     },
-    [messageApi, onCouponCodeModalClose, orderId, refreshOrderQrcode]
+    [messageApi, onCouponCodeModalClose, orderId, refreshOrderQrcode],
   );
 
   const onPayChannelSelectChange = useCallback((e) => {
@@ -273,7 +273,7 @@ export const PayModal = ({
                   <div
                     className={classNames(
                       styles.price,
-                      (isLoading || isTimeout) && styles.disabled
+                      (isLoading || isTimeout) && styles.disabled,
                     )}
                   >
                     <span className={styles.priceSign}>￥</span>
@@ -281,7 +281,13 @@ export const PayModal = ({
                   </div>
                 </div>
                 {originalPrice && (
-                  <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
+                  <div
+                    className={styles.originalPriceWrapper}
+                    style={{
+                      visibility:
+                        originalPrice === price ? 'hidden' : 'visible',
+                    }}
+                  >
                     <div className={styles.originalPrice}>{originalPrice}</div>
                   </div>
                 )}
@@ -332,9 +338,7 @@ export const PayModal = ({
                   </>
                 ) : (
                   <div className={styles.loginButtonWrapper}>
-                    <MainButton onClick={onLoginButtonClick}>
-                      登录
-                    </MainButton>
+                    <MainButton onClick={onLoginButtonClick}>登录</MainButton>
                   </div>
                 )}
                 <PayModalFooter />

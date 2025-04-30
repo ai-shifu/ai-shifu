@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState } from 'react';
 import { getLessonTree } from 'Api/lesson';
 import { produce } from 'immer';
 import { LESSON_STATUS_VALUE } from 'constants/courseConstants';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking';
 import { useEnvStore } from 'stores/envStore';
-import { useCallback } from "react";
+import { useCallback } from 'react';
 export const checkChapterCanLearning = ({ status, status_value }) => {
-  return status_value === LESSON_STATUS_VALUE.LEARNING || status_value === LESSON_STATUS_VALUE.COMPLETED || status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING;
+  return (
+    status_value === LESSON_STATUS_VALUE.LEARNING ||
+    status_value === LESSON_STATUS_VALUE.COMPLETED ||
+    status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING
+  );
 };
 
 export const useLessonTree = () => {
@@ -17,27 +21,39 @@ export const useLessonTree = () => {
 
   const getCurrElement = useCallback(async () => {
     if (!tree || !selectedLessonId) {
-      return { catalog: null, lesson: null }
+      return { catalog: null, lesson: null };
     }
 
     for (const catalog of tree.catalogs) {
-      const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
+      const lesson = catalog.lessons.find((v) => v.id === selectedLessonId);
       if (lesson) {
         return { catalog, lesson };
       }
     }
     return { catalog: null, lesson: null };
-  }, [selectedLessonId, tree])
+  }, [selectedLessonId, tree]);
 
   const initialSelectedChapter = useCallback((tree) => {
-    let catalog = tree.catalogs.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING);
+    let catalog = tree.catalogs.find(
+      (v) => v.status_value === LESSON_STATUS_VALUE.LEARNING,
+    );
     if (catalog) {
-      const lesson = catalog.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING);
+      const lesson = catalog.lessons.find(
+        (v) =>
+          v.status_value === LESSON_STATUS_VALUE.LEARNING ||
+          v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+      );
       lesson && setSelectedLessonId(lesson.id);
     } else {
-      catalog = tree.catalogs.find(v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING);
+      catalog = tree.catalogs.find(
+        (v) => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+      );
       if (catalog) {
-        const lesson = catalog.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING);
+        const lesson = catalog.lessons.find(
+          (v) =>
+            v.status_value === LESSON_STATUS_VALUE.LEARNING ||
+            v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+        );
         lesson && setSelectedLessonId(lesson.id);
       }
     }
@@ -57,8 +73,8 @@ export const useLessonTree = () => {
     }
 
     let lessonCount = 0;
-    const catalogs = treeData.lessons.map(l => {
-      const lessons = l.children.map(c => {
+    const catalogs = treeData.lessons.map((l) => {
+      const lessons = l.children.map((c) => {
         lessonCount += 1;
         return {
           id: c.lesson_id,
@@ -90,9 +106,8 @@ export const useLessonTree = () => {
     return newTree;
   }, [updateCourseId]);
 
-
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
-    const chapter = tree.catalogs.find(v => v.id === chapterId);
+    const chapter = tree.catalogs.find((v) => v.id === chapterId);
 
     if (!chapter) {
       return false;
@@ -100,11 +115,15 @@ export const useLessonTree = () => {
 
     let lesson = null;
     if (lessonId) {
-      lesson = chapter.lessons.find(v => v.id === lessonId);
+      lesson = chapter.lessons.find((v) => v.id === lessonId);
     }
 
     if (!lesson) {
-      lesson = chapter.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING);
+      lesson = chapter.lessons.find(
+        (v) =>
+          v.status_value === LESSON_STATUS_VALUE.LEARNING ||
+          v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+      );
     }
 
     if (!lesson) {
@@ -116,51 +135,57 @@ export const useLessonTree = () => {
   }, []);
 
   // 用于重新加载课程树，但保持临时状态
-  const reloadTree = useCallback(async (chapterId = undefined, lessonId = undefined) => {
-    const newTree = await loadTreeInner();
-    if (chapterId === undefined) {
-      initialSelectedChapter(newTree);
-    } else {
-      setSelectedState(newTree, chapterId, lessonId);
-    }
-    // 设置 collapse 状态
-    await newTree.catalogs.forEach(c => {
-      const oldCatalog = tree.catalogs.find(oc => oc.id === c.id);
-
-      if (oldCatalog) {
-        c.collapse = oldCatalog.collapse;
+  const reloadTree = useCallback(
+    async (chapterId = undefined, lessonId = undefined) => {
+      const newTree = await loadTreeInner();
+      if (chapterId === undefined) {
+        initialSelectedChapter(newTree);
+      } else {
+        setSelectedState(newTree, chapterId, lessonId);
       }
-    });
-    setTree(newTree);
-    return newTree;
-  }, [loadTreeInner, tree]);
+      // 设置 collapse 状态
+      await newTree.catalogs.forEach((c) => {
+        const oldCatalog = tree.catalogs.find((oc) => oc.id === c.id);
 
-  const loadTree = useCallback(async (chapterId = '', lessonId = '') => {
-    let newTree = null;
-    if (!tree) {
-      newTree = await loadTreeInner();
-    } else {
-      newTree = tree;
-    }
+        if (oldCatalog) {
+          c.collapse = oldCatalog.collapse;
+        }
+      });
+      setTree(newTree);
+      return newTree;
+    },
+    [loadTreeInner, tree],
+  );
 
-    const selected = setSelectedState(newTree, chapterId, lessonId);
-    if (!selected) {
-      initialSelectedChapter(newTree);
-    }
-    setTree(newTree);
+  const loadTree = useCallback(
+    async (chapterId = '', lessonId = '') => {
+      let newTree = null;
+      if (!tree) {
+        newTree = await loadTreeInner();
+      } else {
+        newTree = tree;
+      }
 
-    return newTree;
-  }, [initialSelectedChapter, loadTreeInner, setSelectedState, tree]);
+      const selected = setSelectedState(newTree, chapterId, lessonId);
+      if (!selected) {
+        initialSelectedChapter(newTree);
+      }
+      setTree(newTree);
+
+      return newTree;
+    },
+    [initialSelectedChapter, loadTreeInner, setSelectedState, tree],
+  );
 
   const updateSelectedLesson = async (lessonId, forceExpand = false) => {
     setSelectedLessonId(lessonId);
-    setTree(old => {
+    setTree((old) => {
       if (!old) {
         return;
       }
-      const nextState = produce(old, draft => {
-        draft.catalogs.forEach(c => {
-          c.lessons.forEach(ls => {
+      const nextState = produce(old, (draft) => {
+        draft.catalogs.forEach((c) => {
+          c.lessons.forEach((ls) => {
             if (ls.id === lessonId) {
               if (forceExpand) {
                 c.collapse = false;
@@ -177,7 +202,7 @@ export const useLessonTree = () => {
     if (!tree) {
       return;
     }
-    const ca = tree.catalogs.find(c => c.id === catalogId);
+    const ca = tree.catalogs.find((c) => c.id === catalogId);
     if (!ca) {
       return;
     }
@@ -190,9 +215,8 @@ export const useLessonTree = () => {
   };
 
   const toggleCollapse = ({ id }) => {
-
-    const nextState = produce(tree, draft => {
-      draft.catalogs.forEach(c => {
+    const nextState = produce(tree, (draft) => {
+      draft.catalogs.forEach((c) => {
         if (c.id === id) {
           c.collapse = !c.collapse;
         }
@@ -203,18 +227,18 @@ export const useLessonTree = () => {
   };
 
   const updateLesson = (id, val) => {
-    setTree(old => {
+    setTree((old) => {
       if (!old) {
         return;
       }
 
-      const nextState = produce(old, draft => {
-        draft.catalogs.forEach(c => {
-          const idx = c.lessons.findIndex(ch => ch.id === id);
+      const nextState = produce(old, (draft) => {
+        draft.catalogs.forEach((c) => {
+          const idx = c.lessons.findIndex((ch) => ch.id === id);
           if (idx !== -1) {
             const newLesson = {
               ...c.lessons[idx],
-              ...val
+              ...val,
             };
             newLesson.canLearning = checkChapterCanLearning(newLesson);
             c.lessons[idx] = newLesson;
@@ -227,18 +251,18 @@ export const useLessonTree = () => {
   };
 
   const updateChapterStatus = (id, { status, status_value }) => {
-    setTree(old => {
+    setTree((old) => {
       if (!old) {
         return;
       }
 
-      const nextState = produce(old, draft => {
-        const idx = draft.catalogs.findIndex(ch => ch.id === id);
+      const nextState = produce(old, (draft) => {
+        const idx = draft.catalogs.findIndex((ch) => ch.id === id);
         if (idx !== -1) {
           draft.catalogs[idx] = {
             ...draft.catalogs[idx],
             status,
-            status_value
+            status_value,
           };
         }
       });
@@ -248,8 +272,8 @@ export const useLessonTree = () => {
   };
 
   const getChapterByLesson = (lessonId) => {
-    const chapter = tree.catalogs.find(ch => {
-      return ch.lessons.find(ls => ls.id === lessonId);
+    const chapter = tree.catalogs.find((ch) => {
+      return ch.lessons.find((ls) => ls.id === lessonId);
     });
 
     return chapter;
@@ -264,13 +288,13 @@ export const useLessonTree = () => {
     let to = '';
 
     for (const catalog of tree.catalogs) {
-      const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
+      const lesson = catalog.lessons.find((v) => v.id === selectedLessonId);
 
       if (lesson) {
         from = `${catalog.name}|${lesson.name}`;
       }
 
-      const toLesson = catalog.lessons.find(v => v.id === lessonId);
+      const toLesson = catalog.lessons.find((v) => v.id === lessonId);
       if (toLesson) {
         to = `${catalog.name}|${toLesson.name}`;
       }
@@ -283,7 +307,6 @@ export const useLessonTree = () => {
 
     trackEvent(EVENT_NAMES.NAV_SECTION_SWITCH, eventData);
   };
-
 
   return {
     tree,
