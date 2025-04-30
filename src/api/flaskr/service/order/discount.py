@@ -153,7 +153,8 @@ def send_feishu_discount_code(
         msgs.append("渠道：{}".format(channel))
         send_notify(app, title, msgs)
 
-def timeout_discount_code_rollback(app: Flask, user_id,  order_id):
+
+def timeout_discount_code_rollback(app: Flask, user_id, order_id):
     with app.app_context():
         discount = DiscountRecord.query.filter(
             DiscountRecord.user_id == user_id,
@@ -193,8 +194,8 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
 
         discountRecord = None
         discount = None
-        if  userDiscountRecord:
-            discountRecord=userDiscountRecord
+        if userDiscountRecord:
+            discountRecord = userDiscountRecord
         else:
             discountRecord = DiscountRecord.query.filter(
                 DiscountRecord.discount_code == discount_code,
