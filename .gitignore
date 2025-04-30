@@ -179,6 +179,7 @@ src/cook/auth_config.yml
 docker/cook_data/
 docker/mysql_data/
 docker/redis_data/
+docker/milvus_data/
 
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
