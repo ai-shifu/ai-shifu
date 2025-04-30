@@ -182,7 +182,9 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
         return False
     pay_order_expire_time = int(pay_order_expire_time)
 
-    created_timestamp = int(origin_record.created.timestamp()) - 8 * 3600
+    bj_time = pytz.timezone("Asia/Shanghai")
+    aware_created = bj_time.localize(origin_record.created)
+    created_timestamp = int(aware_created.timestamp())
     current_timestamp = int(datetime.datetime.now().timestamp())
 
     if current_timestamp > (created_timestamp + pay_order_expire_time):
