@@ -1,7 +1,7 @@
 # INSTALL FROM SOURCE CODE STEP BY STEP
 ## Prerequisites
 ### Concept
-Firstly, look at the source code sturcture:
+Firstly, look at the source code structure:
 ```
 $ ls
 api cook web
@@ -187,4 +187,4 @@ streamlit  run Home.py
 ```
 
 ## Step 6: Access the application
-Go to the browser and have fun!              
+Go to the browser and have fun!                            
