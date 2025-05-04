@@ -99,7 +99,7 @@ def get_lesson_tree_to_study_inner(
         app.logger.info("attend_infos:{}".format(len(attend_infos)))
         # init the attend info for the trial lessons
 
-        is_first_chatpter = False
+        is_first_chapter = False
         is_first_lesson = False
 
         if len(attend_infos) == 0:
@@ -116,8 +116,8 @@ def get_lesson_tree_to_study_inner(
 
                 status = ATTEND_STATUS_LOCKED
 
-                if len(lesson.lesson_no) == 2 and not is_first_chatpter:
-                    is_first_chatpter = True
+                if len(lesson.lesson_no) == 2 and not is_first_chapter:
+                    is_first_chapter = True
                     status = ATTEND_STATUS_NOT_STARTED
                 if len(lesson.lesson_no) == 4 and not is_first_lesson:
                     is_first_lesson = True
