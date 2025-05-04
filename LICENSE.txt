@@ -4,11 +4,11 @@ AI-Shifu is licensed under the Apache License 2.0, with the following additional
 
 1. AI-Shifu may be utilized commercially, including as an application for enterprises or as a submodule for other applications. Should the conditions below be met, a commercial license must be obtained from the producer:
 
-a. Host more than 5 guides: Unless explicitly authorized by AI-Shifu in writing, you are not permitted to use the AI-Shifu source code to host a system with more than 5 guides simultaneously.
-    - Guides Definition: Within the context of AI-Shifu, one guide corresponds to one course, regardless of the purpose of the course. The course provides a separated script and has an unique ID.
+a. Host more than 5 shifus: Unless explicitly authorized by AI-Shifu in writing, you are not permitted to use the AI-Shifu source code to host a system with more than 5 shifus simultaneously.
+    - Shifu Definition: Within the context of AI-Shifu, one shifu corresponds to one course, regardless of the purpose of the course. The course provides a separated script and has a unique ID.
 
 b. LOGO and copyright information: In the process of using AI-Shifu's frontend, you may not remove or modify the LOGO or copyright information in the AI-Shifu console or applications. This restriction is inapplicable to uses of AI-Shifu that do not involve its frontend.
-    - Frontend Definition: For the purposes of this license, the "frontend" of AI-Shifu includes all components located in the `src/web/` and `src/admin-web` directory when running AI-Shifu from the raw source code, or the "web" image when running AI-Shifu with Docker.
+    - Frontend Definition: For the purposes of this license, the "frontend" of AI-Shifu includes all components located in the `src/web/`, `src/cook-web/`, and `src/admin-web` directory when running AI-Shifu from the raw source code, or the `ai-shifu-web` and `ai-shifu-cook-web` images when running AI-Shifu with Docker.
 
 Please contact business@ai-shifu.com by email to inquire about licensing matters.
 
