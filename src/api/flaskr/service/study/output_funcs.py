@@ -5,7 +5,7 @@ from flask import Flask
 from flaskr.service.lesson.const import (
     CONTENT_TYPE_IMAGE,
     SCRIPT_TYPE_FIX,
-    SCRIPT_TYPE_PORMPT,
+    SCRIPT_TYPE_PROMPT,
 )
 from flaskr.api.llm import invoke_llm
 from flaskr.service.common.models import AppException
@@ -128,7 +128,7 @@ def generate_prompt_output(
 
 OUTPUT_HANDLERS = {
     SCRIPT_TYPE_FIX: generate_fix_output,
-    SCRIPT_TYPE_PORMPT: generate_prompt_output,
+    SCRIPT_TYPE_PROMPT: generate_prompt_output,
 }
 
 
