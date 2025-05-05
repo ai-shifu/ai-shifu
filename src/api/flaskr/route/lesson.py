@@ -58,7 +58,7 @@ def register_lesson_handler(app: Flask, path_prefix: str) -> Flask:
               required: false
               schema:
                 type: string
-            - name: app_secrect
+            - name: app_secret
               in: query
               description: 飞书应用秘钥,不传则使用默认的飞书应用秘钥
               required: false
@@ -78,7 +78,7 @@ def register_lesson_handler(app: Flask, path_prefix: str) -> Flask:
         view_id = request.args.get("view_id")
         lesson_type = request.args.get("lesson_type", LESSON_TYPE_NORMAL)
         app_id = request.args.get("app_id", None)
-        app_secrect = request.args.get("app_secrect", None)
+        app_secret = request.args.get("app_secret", None)
         course_id = request.args.get("course_id", None)
         if not doc_id:
             raise_param_error("doc_id is not found")
@@ -98,7 +98,7 @@ def register_lesson_handler(app: Flask, path_prefix: str) -> Flask:
                 index,
                 lesson_type,
                 app_id,
-                app_secrect,
+                app_secret,
                 course_id,
             )
         )
