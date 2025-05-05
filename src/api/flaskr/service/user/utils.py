@@ -39,7 +39,7 @@ def generate_token(app: Flask, user_id: str) -> str:
             algorithm="HS256",
         )
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_USER"] + user_id,
+            app.config["REDIS_KEY_PREFIX_USER"] + user_id,
             token,
             ex=app.config["TOKEN_EXPIRE_TIME"],
         )
@@ -69,7 +69,7 @@ def generation_img_chk(app: Flask, identifying_account: str):
             buffered.getvalue()
         ).decode("utf-8")
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_CAPTCHA"] + identifying_account,
+            app.config["REDIS_KEY_PREFIX_CAPTCHA"] + identifying_account,
             random_string,
             ex=app.config["CAPTCHA_CODE_EXPIRE_TIME"],
         )
@@ -81,14 +81,14 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
     with app.app_context():
         # Check IP ban status
         if ip:
-            ip_ban_key = app.config["REDIS_KEY_PRRFIX_IP_BAN"] + ip
+            ip_ban_key = app.config["REDIS_KEY_PREFIX_IP_BAN"] + ip
             if redis.get(ip_ban_key):
                 # Development, debugging and use
                 # redis.delete(ip_ban_key)
                 raise_error("USER.IP_BANNED")
 
             # Check IP sending frequency
-            ip_limit_key = app.config["REDIS_KEY_PRRFIX_IP_LIMIT"] + ip
+            ip_limit_key = app.config["REDIS_KEY_PREFIX_IP_LIMIT"] + ip
             ip_send_count = redis.get(ip_limit_key)
 
             if ip_send_count:
@@ -103,7 +103,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
                 redis.set(ip_limit_key, 1, ex=int(app.config["IP_SMS_LIMIT_TIME"]))
 
         # Check phone sending frequency limit
-        phone_limit_key = app.config["REDIS_KEY_PRRFIX_PHONE_LIMIT"] + phone
+        phone_limit_key = app.config["REDIS_KEY_PREFIX_PHONE_LIMIT"] + phone
         last_send_time = redis.get(phone_limit_key)
 
         if last_send_time:
@@ -120,7 +120,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
         random_string = "".join(random.choices(characters, k=4))
         # 发送短信验证码
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_PHONE_CODE"] + phone,
+            app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone,
             random_string,
             ex=app.config["PHONE_CODE_EXPIRE_TIME"],
         )
@@ -138,14 +138,14 @@ def send_email_code(app: Flask, email: str, ip: str = None):
     with app.app_context():
         # Check IP ban status
         if ip:
-            ip_ban_key = app.config["REDIS_KEY_PRRFIX_IP_BAN"] + ip
+            ip_ban_key = app.config["REDIS_KEY_PREFIX_IP_BAN"] + ip
             if redis.get(ip_ban_key):
                 # Development, debugging and use
                 # redis.delete(ip_ban_key)
                 raise_error("USER.IP_BANNED")
 
             # Check IP sending frequency
-            ip_limit_key = app.config["REDIS_KEY_PRRFIX_IP_LIMIT"] + ip
+            ip_limit_key = app.config["REDIS_KEY_PREFIX_IP_LIMIT"] + ip
             ip_send_count = redis.get(ip_limit_key)
 
             if ip_send_count:
@@ -160,7 +160,7 @@ def send_email_code(app: Flask, email: str, ip: str = None):
                 redis.set(ip_limit_key, 1, ex=int(app.config["IP_MAIL_LIMIT_TIME"]))
 
         # Check the transmission frequency limit
-        email_limit_key = app.config["REDIS_KEY_PRRFIX_MAIL_LIMIT"] + email
+        email_limit_key = app.config["REDIS_KEY_PREFIX_MAIL_LIMIT"] + email
         last_send_time = redis.get(email_limit_key)
 
         if last_send_time:
@@ -181,7 +181,7 @@ def send_email_code(app: Flask, email: str, ip: str = None):
         random_string = "".join(random.choices(characters, k=4))
         # to set redis
         redis.set(
-            app.config["REDIS_KEY_PRRFIX_MAIL_CODE"] + email,
+            app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email,
             random_string,
             ex=app.config["MAIL_CODE_EXPIRE_TIME"],
         )
