@@ -12,6 +12,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "../ui/alert-dialog"
+import { useTranslation } from 'react-i18next';
 
 
 interface ButtonProps {
@@ -30,14 +31,22 @@ interface ButtonProps {
     onChange: (properties: any) => void
 }
 
+/**
+ * Renders a configurable option with editable name and a dynamic list of buttons, supporting creation, editing, and deletion of buttons.
+ *
+ * Allows users to modify the option's name and manage its associated buttons, including adding new buttons, editing button names and keys, and deleting buttons with confirmation when only one remains. Changes are propagated via the provided `onChange` callback.
+ *
+ * @remark All user-facing text is internationalized using the `react-i18next` translation hook.
+ */
 export default function Option(props: ButtonProps) {
     const { properties } = props;
+    const { t } = useTranslation();
     const { option_name, buttons } = properties;
     const [tempValue, setTempValue] = useState(option_name);
     const [tempButtons, setTempButtons] = useState(buttons.length === 0 ? [{
         "properties": {
-            "button_name": "全部",
-            "button_key": "全部"
+            "button_name": t('option.button-name'),
+            "button_key": t('option.button-key')
         },
         "type": "button"
     }] : buttons);
@@ -81,8 +90,8 @@ export default function Option(props: ButtonProps) {
     const onAdd = (index: number) => {
         const newButton = {
             "properties": {
-                "button_name": "全部",
-                "button_key": "全部"
+                "button_name": t('option.button-name'),
+                "button_key": t('option.button-key')
             },
             "type": "button"
         }
@@ -114,8 +123,8 @@ export default function Option(props: ButtonProps) {
         if (tempButtons.length === 0) {
             const defaultButton = {
                 "properties": {
-                    "button_name": "全部",
-                    "button_key": "全部"
+                    "button_name": t('option.button-name'),
+                    "button_key": t('option.button-key')
                 },
                 "type": "button"
             };
@@ -133,7 +142,7 @@ export default function Option(props: ButtonProps) {
         <div className='flex flex-col space-y-1'>
             <div className='flex flex-row items-center'>
                 <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
-                    变量：
+                    {t('option.variable')}
                 </span>
                 <Input className='h-8 w-[400px]' placeholder='请输入' value={tempValue} onChange={onValueChange}></Input>
             </div>
@@ -142,7 +151,7 @@ export default function Option(props: ButtonProps) {
                     tempButtons.length === 0 ? (
                         <div className='flex flex-row items-center'>
                             <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
-                                值：
+                                {t('option.value')}
                             </span>
                             <Input className='w-40' placeholder='请输入值' value="全部" onChange={(e) => {
                                 const newButton = {
@@ -155,7 +164,7 @@ export default function Option(props: ButtonProps) {
                                 setTempButtons([newButton]);
                             }}></Input>
                             <span className='flex flex-row items-center whitespace-nowrap  w-[50px] ml-4'>
-                                标题：
+                                {t('option.title')}
                             </span>
                             <Input className='w-40 ml-4' placeholder='请输入标题' value="全部" onChange={(e) => {
                                 const newButton = {
@@ -176,11 +185,11 @@ export default function Option(props: ButtonProps) {
                             return (
                                 <div key={index} className='flex flex-row items-center'>
                                     <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
-                                        值：
+                                        {t('option.value')}
                                     </span>
                                     <Input value={button.properties.button_key} className='w-40' onChange={onButtonValueChange.bind(null, index)}></Input>
                                     <span className='flex flex-row items-center whitespace-nowrap  w-[50px] ml-4'>
-                                        标题：
+                                        {t('option.title')}
                                     </span>
                                     <Input value={button.properties.button_name} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
                                     <Button className='h-8 w-8' variant="ghost" onClick={onAdd.bind(null, index)} >
@@ -202,20 +211,20 @@ export default function Option(props: ButtonProps) {
                     className='h-8 w-20'
                     onClick={handleConfirm}
                 >
-                    完成
+                    {t('option.complete')}
                 </Button>
             </div>
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>确认删除</AlertDialogTitle>
+                        <AlertDialogTitle>{t('option.confirm-delete')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            您的操作将会造成当前内容的丢失，是否确认？
+                            {t('option.confirm-delete-description')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>确认</AlertDialogAction>
+                        <AlertDialogCancel>{t('option.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDelete}>{t('option.confirm')}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>

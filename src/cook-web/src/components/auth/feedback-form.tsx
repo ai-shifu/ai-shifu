@@ -11,11 +11,19 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
+import { useTranslation } from 'react-i18next';
 
 interface FeedbackFormProps {
   onComplete: () => void
 }
 
+/**
+ * Renders a user feedback form with email and content fields, including validation and submission handling.
+ *
+ * Displays validation errors for invalid input and shows toast notifications for submission success or failure. Invokes {@link onComplete} after successful feedback submission.
+ *
+ * @param onComplete - Callback function called after successful feedback submission.
+ */
 export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
@@ -23,15 +31,15 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
   const [content, setContent] = useState('')
   const [emailError, setEmailError] = useState('')
   const [contentError, setContentError] = useState('')
-
+  const { t } = useTranslation();
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError('请输入邮箱')
+      setEmailError(t('login.email-error'))
       return false
     }
 
     if (!isValidEmail(email)) {
-      setEmailError('请输入有效的邮箱地址')
+      setEmailError(t('login.email-error'))
       return false
     }
 
@@ -41,12 +49,12 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
 
   const validateContent = (content: string) => {
     if (!content) {
-      setContentError('请输入反馈内容')
+      setContentError(t('login.content-error'))
       return false
     }
 
     if (content.length < 10) {
-      setContentError('反馈内容至少10个字符')
+      setContentError(t('login.content-error'))
       return false
     }
 
@@ -94,21 +102,21 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
       }
       if (response) {
         toast({
-          title: '反馈提交成功',
-          description: '感谢您的反馈，我们会尽快处理'
+          title: t('login.feedback-submitted'),
+          description: t('login.thank-you-for-your-feedback')
         })
         onComplete()
       } else {
         toast({
-          title: '提交失败',
-          description: response.msg || '请稍后重试',
+          title: t('login.submit-failed'),
+          description: response.msg || t('login.please-try-again-later'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '提交失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.submit-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -123,12 +131,12 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
           htmlFor='feedback-email'
           className={emailError ? 'text-red-500' : ''}
         >
-          您的邮箱
+          {t('login.your-email')}
         </Label>
         <Input
           id='feedback-email'
           type='email'
-          placeholder='请输入您的邮箱'
+          placeholder={t('login.email-placeholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -143,11 +151,11 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
           htmlFor='feedback-content'
           className={contentError ? 'text-red-500' : ''}
         >
-          反馈内容
+          {t('login.feedback-content')}
         </Label>
         <Textarea
           id='feedback-content'
-          placeholder='请详细描述您遇到的问题或建议'
+          placeholder={t('login.content-placeholder')}
           rows={5}
           value={content}
           onChange={handleContentChange}
@@ -160,7 +168,7 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
       </div>
       <Button className='w-full h-8' onClick={handleSubmit} disabled={isLoading}>
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        提交反馈
+        {t('login.submit-feedback')}
       </Button>
     </div>
   )

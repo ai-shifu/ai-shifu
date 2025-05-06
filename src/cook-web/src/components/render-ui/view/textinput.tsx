@@ -1,5 +1,5 @@
 import React from 'react'
-
+import { useTranslation } from 'react-i18next';
 interface TextInputViewProps {
     properties: {
         "prompt": {
@@ -18,13 +18,19 @@ interface TextInputViewProps {
     }
 }
 
+/**
+ * Displays a read-only view of text input properties with internationalized labels.
+ *
+ * Renders input name, key, prompt, model, and temperature values in a styled layout using translated labels.
+ */
 export default function TextInputView(props: TextInputViewProps) {
     const { properties } = props
+    const { t } = useTranslation();
     return (
         <div className='flex flex-col space-y-2 w-full'>
             <div className='flex flex-row items-center space-x-1'>
                 <label className='whitespace-nowrap w-[70px] shrink-0'>
-                    输入提示：
+                    {t('textinput.input-placeholder')}
                 </label>
                 <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
                     {properties.input_name}
@@ -32,7 +38,7 @@ export default function TextInputView(props: TextInputViewProps) {
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label className='whitespace-nowrap w-[70px] shrink-0'>
-                    变量名：
+                    {t('textinput.input-key')}
                 </label>
                 <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
                     {properties.input_key}
@@ -40,7 +46,7 @@ export default function TextInputView(props: TextInputViewProps) {
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label className='whitespace-nowrap w-[70px] shrink-0'>
-                    提示词：
+                    {t('textinput.prompt')}
                 </label>
                 <div className='px-3 py-2 bg-gray-50 rounded-md w-full min-h-[80px] whitespace-pre-wrap'>
                     {properties.prompt.properties.prompt}
@@ -48,7 +54,7 @@ export default function TextInputView(props: TextInputViewProps) {
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label className='whitespace-nowrap w-[70px] shrink-0'>
-                    指定模型：
+                    {t('textinput.model')}
                 </label>
                 <div className='px-3 py-2 bg-gray-50 rounded-md w-[200px]'>
                     {properties.prompt.properties.model}
@@ -56,7 +62,7 @@ export default function TextInputView(props: TextInputViewProps) {
             </div>
             <div className='flex flex-row items-center space-x-1 w-[275px]'>
                 <label className='whitespace-nowrap w-[70px] shrink-0'>
-                    设定温度：
+                    {t('textinput.temprature')}
                 </label>
                 <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
                     {properties.prompt.properties.temprature}

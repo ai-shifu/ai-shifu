@@ -1,5 +1,5 @@
 import React from 'react'
-
+import { useTranslation } from 'react-i18next';
 interface OptionViewProps {
     properties: {
         "option_name": string,
@@ -15,12 +15,18 @@ interface OptionViewProps {
     }
 }
 
+/**
+ * Displays an option's name and a list of its associated buttons in a read-only view.
+ *
+ * Renders the option name with a localized label and displays each button as a disabled element showing its name.
+ */
 export default function OptionView(props: OptionViewProps) {
     const { properties } = props
+    const { t } = useTranslation();
     return (
         <div className='flex flex-col space-y-2'>
             <div className='flex flex-row items-center space-x-1'>
-                <span className='whitespace-nowrap'>变量名：</span>
+                <span className='whitespace-nowrap'>{t('option.option-name')}</span>
                 <div className='px-3 py-2 bg-gray-50 rounded-md'>
                     {properties.option_name}
                 </div>
