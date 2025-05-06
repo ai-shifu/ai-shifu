@@ -4,12 +4,18 @@ import { useState } from "react"
 import { ForgotPasswordCombined } from "@/components/auth/forgot-password-combined"
 import { ForgotPasswordReset } from "@/components/auth/forgot-password-reset"
 import { useToast } from "@/hooks/use-toast";
-
+import { useTranslation } from 'react-i18next';
 interface ForgotPasswordFormProps {
   onComplete: () => void
 }
 
+/**
+ * Renders a two-step password reset form with verification and reset stages.
+ *
+ * @param onComplete - Callback invoked after the password reset process is finished.
+ */
 export function ForgotPasswordForm({ onComplete }: ForgotPasswordFormProps) {
+  const { t } = useTranslation();
    const { toast } = useToast()
   const [step, setStep] = useState<"verify" | "reset">("verify")
   const [email, setEmail] = useState("")
@@ -21,8 +27,8 @@ export function ForgotPasswordForm({ onComplete }: ForgotPasswordFormProps) {
 
   const handleComplete = () => {
     toast({
-      title: "密码已重置",
-      description: "请使用新密码登录",
+      title: t('login.password-reset'),
+      description: t('login.please-use-new-password'),
     })
     onComplete()
   }

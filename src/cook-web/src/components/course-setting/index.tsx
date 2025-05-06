@@ -31,7 +31,7 @@ import {
     FormLabel,
     FormMessage,
 } from "@/components/ui/form";
-
+import { useTranslation } from 'react-i18next'
 import api from "@/api";
 import { getSiteHost } from "@/config/runtime-config";
 import { useScenario } from "@/store";
@@ -49,24 +49,18 @@ interface Scenario {
 }
 
 
-// Define the validation schema using Zod
-const courseSchema = z.object({
-    previewUrl: z.string(),
-    url: z.string(),
-    name: z.string()
-        .min(1, "课程名称不能为空")
-        .max(50, "课程名称不能超过50字"),
-    description: z.string()
-        .min(1, "课程简介不能为空")
-        .max(300, "课程简介不能超过300字"),
-    model: z.string().min(1, "请选择模型"),
-    price: z.string()
-        .min(1, "价格不能为空")
-        .regex(/^\d+(\.\d{1,2})?$/, "价格必须是有效的数字格式"),
-});
-
+/****
+ * Displays a dialog for creating or editing a course scenario, including form fields for course details, keywords, avatar upload, and model selection.
+ *
+ * Opens a modal dialog where users can input or modify course information such as name, description, keywords, avatar image, model, and price. Supports form validation, image upload with progress tracking, and internationalized UI text. On submission, saves the scenario details and invokes the provided callback.
+ *
+ * @param scenarioId - The ID of the scenario to edit.
+ * @param onSave - Callback invoked after successfully saving the scenario.
+ */
 export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioId: string, onSave: () => void }) {
+
     const [open, setOpen] = useState(false);
+    const { t } = useTranslation();
     const [keywords, setKeywords] = useState(["AIGC"]);
     const [courseImage, setCourseImage] = useState<File | null>(null);
     const [imageError, setImageError] = useState("");
@@ -80,6 +74,23 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
     });
     const SITE_HOST = getSiteHost();
     // Initialize the form with react-hook-form and zod resolver
+
+    // Define the validation schema using Zod
+    const courseSchema = z.object({
+        previewUrl: z.string(),
+        url: z.string(),
+        name: z.string()
+            .min(1, t('course-setting.course-name-cannot-be-empty'))
+            .max(50, t('course-setting.course-name-cannot-exceed-50-characters')),
+        description: z.string()
+            .min(1, t('course-setting.course-description-cannot-be-empty'))
+            .max(300, t('course-setting.course-description-cannot-exceed-300-characters')),
+        model: z.string().min(1, t('course-setting.please-select-model')),
+        price: z.string()
+            .min(1, t('course-setting.price-cannot-be-empty'))
+            .regex(/^\d+(\.\d{1,2})?$/, t('course-setting.price-must-be-valid-number-format')),
+    });
+
     const form = useForm({
         resolver: zodResolver(courseSchema),
         defaultValues: {
@@ -122,14 +133,14 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
         if (file) {
             // Validate file size
             if (file.size > 2 * 1024 * 1024) {
-                setImageError("文件大小不能超过2MB");
+                setImageError(t('course-setting.file-size-cannot-exceed-2mb'));
                 setCourseImage(null);
                 return;
             }
 
             // Validate file type
             if (!['image/jpeg', 'image/png'].includes(file.type)) {
-                setImageError("只支持JPG和PNG格式");
+                setImageError(t('course-setting.only-support-jpg-and-png-format'));
                 setCourseImage(null);
                 return;
             }
@@ -165,7 +176,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
 
             } catch (error) {
                 console.error("Upload error:", error);
-                setImageError("上传失败，请重试");
+                setImageError(t('course-setting.upload-failed-please-try-again'));
             } finally {
                 setIsUploading(false);
             }
@@ -230,7 +241,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
             </DialogTrigger>
             <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle className="text-lg font-medium">课程设置</DialogTitle>
+                    <DialogTitle className="text-lg font-medium">{t('course-setting.title')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -240,7 +251,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="previewUrl"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-2 space-y-0">
-                                        <FormLabel className="text-right text-sm">预览地址</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('course-setting.preview-url')}</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
                                                 <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap ">
@@ -267,7 +278,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="url"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-2 space-y-0">
-                                        <FormLabel className="text-right text-sm">学习地址</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('course-setting.learning-url')}</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
                                                 <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
@@ -295,10 +306,10 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-start gap-4 space-y-0">
-                                        <FormLabel className="text-right text-sm pt-2">课程名称</FormLabel>
+                                        <FormLabel className="text-right text-sm pt-2">{t('course-setting.course-name')}</FormLabel>
                                         <div className="col-span-3">
                                             <FormControl>
-                                                <Input {...field} maxLength={50} placeholder="限制50字以内" />
+                                                <Input {...field} maxLength={50} placeholder={t('course-setting.limit-50-characters')} />
                                             </FormControl>
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {field.value.length}/50
@@ -313,13 +324,13 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-start gap-4">
-                                        <FormLabel className="text-right text-sm pt-2">课程简介</FormLabel>
+                                        <FormLabel className="text-right text-sm pt-2">{t('course-setting.course-description')}</FormLabel>
                                         <div className="col-span-3">
                                             <FormControl>
                                                 <Textarea
                                                     {...field}
                                                     maxLength={300}
-                                                    placeholder="限制300字以内"
+                                                    placeholder={t('course-setting.limit-300-characters')}
                                                     rows={4}
                                                 />
                                             </FormControl>
@@ -332,7 +343,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 )}
                             />
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <label className="text-right text-sm pt-2 font-semibold">关键词</label>
+                                <label className="text-right text-sm pt-2 font-semibold">{t('course-setting.keywords')}</label>
                                 <div className="col-span-3">
                                     <div className="flex flex-wrap gap-2 mb-2">
                                         {keywords.map((keyword, index) => (
@@ -355,7 +366,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     <div className="flex gap-2">
                                         <Input
                                             id="keywordInput"
-                                            placeholder="输入关键词"
+                                            placeholder={t('course-setting.input-keywords')}
                                             className="flex-grow h-8"
                                         />
                                         <Button
@@ -365,20 +376,20 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                             variant="outline"
                                             size="sm"
                                         >
-                                            + 添加关键字
+                                            {t('course-setting.add-keyword')}
                                         </Button>
                                     </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <label className="text-right text-sm pt-2 font-semibold">课程头像</label>
+                                <label className="text-right text-sm pt-2 font-semibold">{t('course-setting.course-avatar')}</label>
                                 <div className="col-span-3">
                                     {uploadedImageUrl ? (
                                         <div className="mb-2">
                                             <div className="relative w-24 l h-24 bg-gray-100 rounded-lg overflow-hidden">
                                                 <img
                                                     src={uploadedImageUrl}
-                                                    alt="课程头像"
+                                                    alt={t('course-setting.course-avatar')}
                                                     className="w-full h-full object-cover"
                                                 />
                                                 <button
@@ -396,7 +407,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                             onClick={() => document.getElementById("imageUpload")?.click()}
                                         >
                                             <Plus className="h-8 w-8 mb-2 text-gray-400" />
-                                            <p className="text-sm text-center">上传</p>
+                                            <p className="text-sm text-center">{t('course-setting.upload')}</p>
                                         </div>
                                     )}
 
@@ -409,7 +420,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     />
 
                                     <p className="text-xs text-gray-500 mt-1">
-                                        支持 JPG、PNG 格式，文件小于 2MB
+                                        {t('course-setting.support-jpg-png-format-file-less-than-2mb')}
                                     </p>
 
                                     {isUploading && (
@@ -421,7 +432,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                                 ></div>
                                             </div>
                                             <p className="text-xs text-gray-500 mt-1 text-center">
-                                                上传中 {uploadProgress}%
+                                                {t('course-setting.uploading')} {uploadProgress}%
                                             </p>
                                         </div>
                                     )}
@@ -432,7 +443,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
 
                                     {courseImage && !isUploading && !uploadedImageUrl && (
                                         <p className="text-green-500 text-xs mt-1">
-                                            已选择: {courseImage?.name}
+                                            {t('course-setting.selected')}: {courseImage?.name}
                                         </p>
                                     )}
                                 </div>
@@ -442,7 +453,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="model"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-4">
-                                        <FormLabel className="text-right text-sm">选择模型</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('course-setting.select-model')}</FormLabel>
                                         <div className="col-span-3">
                                             <Select
                                                 onValueChange={field.onChange}
@@ -450,7 +461,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                             >
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder="选择模型" />
+                                                        <SelectValue placeholder={t('course-setting.select-model')} />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -471,10 +482,10 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="price"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-4">
-                                        <FormLabel className="text-right text-sm">价格</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('course-setting.price')}</FormLabel>
                                         <div className="col-span-3">
                                             <FormControl>
-                                                <Input {...field} placeholder="数字" />
+                                                <Input {...field} placeholder={t('course-setting.number')} />
                                             </FormControl>
                                             <FormMessage />
                                         </div>
@@ -485,7 +496,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                         </div>
                         <DialogFooter className="sm:justify-end pt-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                                取消
+                                {t('course-setting.cancel')}
                             </Button>
                             <Button
                                 type="submit"
@@ -494,7 +505,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     onSubmit(form.getValues())
                                 }}
                             >
-                                保存
+                                {t('course-setting.save')}
                             </Button>
                         </DialogFooter>
                     </form>

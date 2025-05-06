@@ -10,25 +10,34 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
+import { useTranslation } from 'react-i18next';
 
 interface ForgotPasswordEmailProps {
   onNext: (email: string) => void
 }
 
+/**
+ * React component for handling the email input and OTP sending process in a "forgot password" workflow.
+ *
+ * Renders an email input field with validation and a button to send a verification code (OTP) to the provided email address. Displays error messages and loading indicators as appropriate. On successful OTP sending, invokes the {@link onNext} callback with the entered email.
+ *
+ * @param onNext - Callback invoked with the email address after a successful OTP send.
+ */
 export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
   const { toast } = useToast()
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError('请输入邮箱')
+      setEmailError(t('login.email-error'))
       return false
     }
 
     if (!isValidEmail(email)) {
-      setEmailError('请输入有效的邮箱地址')
+      setEmailError(t('login.email-error'))
       return false
     }
 
@@ -60,21 +69,21 @@ export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
 
       if (response.code==0) {
         toast({
-          title: '验证码已发送',
-          description: '请查看您的邮箱'
+          title: t('login.code-sent'),
+          description: t('login.please-check-your-email')
         })
         onNext(email)
       } else {
         toast({
-          title: '发送验证码失败',
-          description:  '请稍后重试',
+          title: t('login.send-otp-failed'),
+          description: t('login.please-try-again-later'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '发送验证码失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.send-otp-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -86,12 +95,12 @@ export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
     <div className='space-y-4'>
       <div className='space-y-2'>
         <Label htmlFor='email' className={emailError ? 'text-red-500' : ''}>
-          邮箱
+          {t('login.email')}
         </Label>
         <Input
           id='email'
           type='email'
-          placeholder='请输入邮箱'
+          placeholder={t('login.email-placeholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -108,7 +117,7 @@ export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
         disabled={isLoading || !email || !!emailError}
       >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        获取验证码
+        {t('login.get-otp')}
       </Button>
     </div>
   )

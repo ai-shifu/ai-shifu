@@ -6,7 +6,7 @@ import { useScenario } from '@/store'
 import { Outline } from '@/types/scenario'
 import api from '@/api'
 import { Button } from '../ui/button'
-
+import { useTranslation } from 'react-i18next';
 interface ColorSetting {
     color: string;
     text_color: string;
@@ -35,9 +35,16 @@ interface GotoProps {
     onChange: (properties: any) => void
 }
 
-export default function Goto(props: GotoProps) {
+/**
+     * Renders a UI for configuring "goto" settings, allowing users to select a profile and assign navigation targets for each profile item.
+     *
+     * Displays a dropdown for profile selection and a list of profile items, each with an option to select a target node. Changes are confirmed via a callback.
+     *
+     * @param props - Contains the current goto settings, button configuration, and a callback for when settings change.
+     */
+    export default function Goto(props: GotoProps) {
     const { properties } = props
-    const {
+    const { t } = useTranslation();
         chapters,
         currentScenario
     } = useScenario();
@@ -116,7 +123,7 @@ export default function Goto(props: GotoProps) {
         <div className='flex flex-col space-y-1'>
             <div className='flex flex-row items-center space-x-1'>
                 <div className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-                    变量选择：
+                    {t('goto.select-variable')}
                 </div>
                 <Select
                     value={selectedProfile?.profile_id || ""}
@@ -129,7 +136,7 @@ export default function Goto(props: GotoProps) {
                 >
                     <SelectTrigger className="h-8 w-[170px]">
                         <SelectValue>
-                            {selectedProfile?.profile_key || "选择变量"}
+                            {selectedProfile?.profile_key || t('goto.select-variable')}
                         </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -143,7 +150,7 @@ export default function Goto(props: GotoProps) {
             </div>
             <div className='flex flex-row items-start py-2'>
                 <div className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-                    跳转位置：
+                    {t('goto.goto-settings')}
                 </div>
                 <div className='flex flex-col space-y-1 '>
                     {
@@ -151,7 +158,7 @@ export default function Goto(props: GotoProps) {
                             return (
                                 <div className='flex flex-row items-center space-x-2' key={`${item.value}-${index}`}>
                                     <span className='w-40'>{item.value}</span>
-                                    <span className='px-2'>跳转到</span>
+                                    <span className='px-2'>{t('goto.goto-settings-jump-to')}</span>
                                     <span>
                                         <OutlineSelector value={item.goto_id} chapters={chapters} onSelect={onNodeSelect.bind(null, index)} />
                                     </span>
@@ -168,7 +175,7 @@ export default function Goto(props: GotoProps) {
                     className='h-8 w-20'
                     onClick={handleConfirm}
                 >
-                    完成
+                    {t('goto.complete')}
                 </Button>
             </div>
         </div>

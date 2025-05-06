@@ -4,7 +4,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
+import { useTranslation } from 'react-i18next';
 interface Variable {
   name: string;
   description: string;
@@ -28,8 +28,21 @@ const processContent = (content: string) => {
   return content?.replace(variableRegex, '`$1`');
 };
 
+/**
+ * A React text editor component with variable insertion, suggestion dropdown, and Markdown rendering.
+ *
+ * In edit mode, provides a textarea that supports variable insertion via a suggestion dropdown triggered by typing `{`. Variables are inserted at the cursor position and styled according to their color settings. In view mode, renders the content as Markdown with syntax highlighting and custom variable styling.
+ *
+ * @param props.content - The text content to display or edit.
+ * @param props.profiles - List of profile keys for variable suggestions.
+ * @param props.onChange - Callback invoked when the content changes or edit mode is toggled.
+ * @param props.isEdit - Whether the editor is in edit mode.
+ *
+ * @returns The text editor UI, either as an editable textarea with variable suggestions or as rendered Markdown.
+ */
 export default function TextEditor(props: TextEditorProps) {
   const { profileItemDefinations } = useScenario();
+  const { t } = useTranslation();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Variable[]>([]);
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -166,7 +179,7 @@ export default function TextEditor(props: TextEditorProps) {
       return (
         <div className="relative">
           <textarea
-            placeholder='请输入'
+            placeholder={t('text-editor.placeholder')}
             ref={textareaRef}
             value={props.content}
             onChange={handleInput}

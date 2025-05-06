@@ -11,15 +11,28 @@ import { Loader2 } from "lucide-react"
 import apiService from "@/api"
 import { checkPasswordStrength } from "@/lib/validators"
 import { PasswordStrengthIndicator } from "./password-strength-indicator"
-
+import { useTranslation } from 'react-i18next';
 interface ForgotPasswordResetProps {
   email: string
   onBack: () => void
   onComplete: () => void
 }
 
+/**
+ * React component for resetting a forgotten password with validation and API integration.
+ *
+ * Renders a form that allows users to set a new password and confirm it, providing real-time validation feedback and password strength indication. On successful reset, notifies the user and invokes a completion callback.
+ *
+ * @param email - The email address associated with the account to reset.
+ * @param onBack - Callback invoked when the user chooses to navigate back.
+ * @param onComplete - Callback invoked after a successful password reset.
+ *
+ * @remark
+ * All user-facing text is internationalized using the `useTranslation` hook.
+ */
 export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswordResetProps) {
    const { toast } = useToast()
+   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
@@ -51,12 +64,12 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError("请确认密码")
+      setConfirmPasswordError(t('login.please-confirm-password'))
       return false
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError("两次输入的密码不一致")
+      setConfirmPasswordError(t('login.password-not-match'))
       return false
     }
 
@@ -103,21 +116,21 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
 
       if (response.code == 0) {
         toast({
-          title: "密码已重置",
-          description: "请使用新密码登录",
+          title: t('login.password-reset'),
+          description: t('login.please-use-new-password'),
         })
         onComplete()
       } else {
         toast({
-          title: "重置密码失败",
-          description:  "请稍后重试",
+          title: t('login.reset-password-failed'),
+          description: t('login.please-try-again-later'),
           variant: "destructive",
         })
       }
     } catch (error: any) {
       toast({
-        title: "重置密码失败",
-        description: error.message || "网络错误，请稍后重试",
+        title: t('login.reset-password-failed'),
+        description: error.message || t('login.network-error'),
         variant: "destructive",
       })
     } finally {
@@ -129,12 +142,12 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
     <div className="space-y-4">
       <div className="space-y-2">
         <Label htmlFor="new-password" className={passwordError ? "text-red-500" : ""}>
-          新密码
+          {t('login.new-password')}
         </Label>
         <Input
           id="new-password"
           type="password"
-          placeholder="请输入新密码"
+          placeholder={t('login.new-password-placeholder')}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}
@@ -145,12 +158,12 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirm-new-password" className={confirmPasswordError ? "text-red-500" : ""}>
-          确认新密码
+          {t('login.confirm-new-password')}
         </Label>
         <Input
           id="confirm-new-password"
           type="password"
-          placeholder="请再次输入新密码"
+          placeholder={t('login.confirm-new-password-placeholder')}
           value={confirmPassword}
           onChange={handleConfirmPasswordChange}
           disabled={isLoading}
@@ -160,7 +173,7 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
       </div>
       <div className="flex justify-between">
         <Button className="h-8" variant="outline" onClick={onBack} disabled={isLoading}>
-          返回
+          {t('login.back')}
         </Button>
         <Button
           onClick={handleResetPassword}
@@ -175,7 +188,7 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
           }
         >
           {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          重置密码
+          {t('login.reset-password')}
         </Button>
       </div>
     </div>
