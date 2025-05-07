@@ -228,7 +228,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             order_timeout_make_new_order = True
 
-        if order_timeout_make_new_order != True and origin_record and active_id is None:
+        if (not order_timeout_make_new_order) and origin_record and active_id is None:
             return query_buy_record(app, origin_record.record_id)
         if order_timeout_make_new_order:
             buy_record = AICourseBuyRecord()
