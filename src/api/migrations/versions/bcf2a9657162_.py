@@ -11,6 +11,10 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
+# Update profile_type column and clean up active_user_record statuses
+# This migration updates the profile_type column in the user_profile table to include
+# a descriptive comment and modifies its properties. Additionally, it performs a data
+# cleaning operation on the active_user_record table, updating statuses from 0 to 4101.
 revision = "bcf2a9657162"
 down_revision = "b7b8d3df0452"
 branch_labels = None
