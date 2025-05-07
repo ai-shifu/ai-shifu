@@ -69,15 +69,16 @@ def create_active_user_record(
 
 
 def query_to_failure_active(app, user_id, order_id):
-    active_infos = ActiveUserRecord.query.filter(
-        ActiveUserRecord.order_id == order_id,
-        ActiveUserRecord.user_id == user_id,
-        ActiveUserRecord.status == ACTIVE_JOIN_STATUS_ENABLE,
-    ).all()
-    for active_info in active_infos:
-        active_info.status = ACTIVE_JOIN_STATUS_FAILURE
-        db.session.merge(active_info)
-    db.session.commit()
+    with app.app_context():
+        ActiveUserRecord.query.filter(
+            ActiveUserRecord.order_id == order_id,
+            ActiveUserRecord.user_id == user_id,
+            ActiveUserRecord.status == ACTIVE_JOIN_STATUS_ENABLE,
+        ).update(
+            {ActiveUserRecord.status: ACTIVE_JOIN_STATUS_FAILURE},
+            synchronize_session="fetch",
+        )
+        db.session.commit()
 
 
 # query active and join active
