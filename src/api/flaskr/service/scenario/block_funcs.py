@@ -275,7 +275,7 @@ def save_block_list_internal(
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     timeout = 5 * 60
     blocking_timeout = 1
-    lock_key = app.config.get("REDIS_KEY_PRRFIX") + ":save_block_list:" + outline_id
+    lock_key = app.config.get("REDIS_KEY_PREFIX") + ":save_block_list:" + outline_id
     lock = redis_client.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )

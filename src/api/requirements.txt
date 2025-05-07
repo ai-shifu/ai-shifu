@@ -128,3 +128,4 @@ XlsxWriter==3.2.0
 yarl==1.9.4
 zope.event==5.0
 zope.interface==7.1.1
+sqlparse==0.5.3

@@ -2,6 +2,9 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
 from pymilvus import MilvusClient
+from sqlalchemy import event
+import sqlparse
+import logging
 
 
 def init_db(app: Flask):
@@ -29,8 +32,42 @@ def init_db(app: Flask):
         )
     else:
         app.logger.info("init dbconfig from config")
+
+    if app.debug:
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+
     db = SQLAlchemy()
     db.init_app(app)
+
+    # Enable formatted SQL output in the development environment
+    if app.debug:
+
+        def setup_sql_logging():
+            @event.listens_for(db.engine, "before_cursor_execute")
+            def before_cursor_execute(
+                conn, cursor, statement, parameters, context, executemany
+            ):
+                # Format the SQL statement
+                formatted_sql = sqlparse.format(
+                    statement, reindent=True, keyword_case="upper", strip_comments=True
+                )
+
+                # If there are parameters, try formatting
+                if parameters:
+                    try:
+                        # Try to format the parameters into the SQL statement
+                        raw_sql = formatted_sql % parameters
+                    except (TypeError, ValueError):
+                        # If the formatting fails, the SQL and parameters will be displayed respectively
+                        raw_sql = f"SQL:\n{formatted_sql}\nParameters: {parameters}"
+                else:
+                    raw_sql = formatted_sql
+
+                app.logger.info(f"\n{raw_sql}\n")
+
+        # Set the event listener in the application context
+        with app.app_context():
+            setup_sql_logging()
 
 
 def init_redis(app: Flask):
