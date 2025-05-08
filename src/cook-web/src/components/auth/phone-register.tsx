@@ -12,12 +12,20 @@ import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidPhoneNumber } from '@/lib/validators'
 import { setToken } from '@/local/local'
-
+import { useTranslation } from 'react-i18next';
 interface PhoneRegisterProps {
   onRegisterSuccess: () => void
 }
 
+/****
+ * React component for phone number registration with OTP verification.
+ *
+ * Renders a registration form that allows users to enter their phone number, receive an OTP via SMS, and verify the OTP to complete registration. Handles validation, OTP sending and verification, countdown timer for OTP resend, and displays feedback messages using toast notifications. Invokes the provided callback upon successful registration.
+ *
+ * @param onRegisterSuccess - Callback function called after successful registration and OTP verification.
+ */
 export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
+  const { t } = useTranslation();
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [termsAccepted, setTermsAccepted] = useState(false)
@@ -32,12 +40,12 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
 
   const validatePhone = (phone: string) => {
     if (!phone) {
-      setPhoneError('请输入手机号')
+      setPhoneError(t('login.phone-error'))
       return false
     }
 
     if (!isValidPhoneNumber(phone)) {
-      setPhoneError('请输入有效的手机号')
+      setPhoneError(t('login.phone-error'))
       return false
     }
 
@@ -47,7 +55,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError('请输入验证码')
+      setOtpError(t('login.otp-error'))
       return false
     }
     setOtpError('')
@@ -81,7 +89,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -109,20 +117,20 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         }, 1000)
 
         toast({
-          title: '验证码已发送',
-          description: '请查看您的手机短信'
+          title: t('login.otp-sent'),
+          description: t('login.please-check-your-phone-message')
         })
       } else {
         toast({
-          title: '发送验证码失败',
-          description: response.msg || '请稍后重试',
+          title: t('login.send-otp-failed'),
+          description: response.msg || t('login.please-try-again-later'),
           variant: 'destructive'
         })
       }
     } catch {
       toast({
-        title: '发送验证码失败',
-        description: '网络错误，请稍后重试',
+        title: t('login.send-otp-failed'),
+        description: t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -137,7 +145,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -153,21 +161,21 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
 
       if (response.code==0) {
         toast({
-          title: '注册成功'
+          title: t('login.register-success')
         })
         onRegisterSuccess()
         setToken(response.data.token)
       } else {
         toast({
-          title: '验证失败',
-          description: '验证码错误',
+          title: t('login.verify-failed'),
+          description: t('login.otp-error'),
           variant: 'destructive'
         })
       }
     } catch {
       toast({
-        title: '注册失败',
-        description: '网络错误，请稍后重试',
+        title: t('login.register-failed'),
+        description: t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -182,11 +190,11 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
           htmlFor='register-phone'
           className={phoneError ? 'text-red-500' : ''}
         >
-          手机号
+          {t('login.phone')}
         </Label>
         <Input
           id='register-phone'
-          placeholder='请输入手机号'
+          placeholder={t('login.phone-placeholder')}
           value={phoneNumber}
           onChange={handlePhoneChange}
           disabled={isLoading}
@@ -201,7 +209,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
         <div className='flex-1'>
           <Input
             id='register-phone-otp'
-            placeholder='请输入验证码'
+            placeholder={t('login.otp-placeholder')}
             value={phoneOtp}
             onChange={handleOtpChange}
             disabled={isLoading || !showPhoneOtpInput}
@@ -221,9 +229,9 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
           {isLoading && !showPhoneOtpInput ? (
             <Loader2 className='h-4 w-4 animate-spin mr-2' />
           ) : phoneCountdown > 0 ? (
-            `${phoneCountdown}秒后重新获取`
+            `${phoneCountdown}`+t('login.seconds-later')
           ) : (
-            '获取验证码'
+            t('login.get-otp')
           )}
         </Button>
       </div>
@@ -264,7 +272,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
             {isLoading ? (
               <Loader2 className='h-4 w-4 animate-spin mr-2' />
             ) : null}
-            注册
+            {t('login.register')}
           </Button>
         </div>
       )}

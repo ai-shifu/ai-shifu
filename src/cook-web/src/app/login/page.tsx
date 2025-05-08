@@ -19,7 +19,16 @@ import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 import { FeedbackForm } from '@/components/auth//feedback-form'
 import Image from 'next/image'
 import { setToken } from '@/local/local'
-
+import LanguageSelect from '@/components/language-select'
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
+/**
+ * Renders a multi-mode authentication page with support for login, registration, password recovery, and feedback, featuring dynamic language selection and internationalized UI.
+ *
+ * The component manages authentication and registration flows via tabbed interfaces for phone and email methods, and allows users to switch between modes. All user-facing text is localized, and users can change the interface language using a language selector. Upon successful authentication or registration, users are redirected to the main page.
+ *
+ * @remark The authentication token is cleared on mount to ensure a fresh session.
+ */
 export default function AuthPage () {
   const router = useRouter()
   const [authMode, setAuthMode] = useState<
@@ -29,7 +38,7 @@ export default function AuthPage () {
   const [registerMethod, setRegisterMethod] = useState<'phone' | 'email'>(
     'phone'
   )
-
+  const [language, setLanguage] = useState('zh-CN')
   const handleAuthSuccess = () => {
     router.push('/main')
   }
@@ -46,15 +55,26 @@ export default function AuthPage () {
     setAuthMode('login')
   }
 
+  const { t } = useTranslation();
   useEffect(() => {
     setToken('')
   }, [])
 
+  useEffect(() => {
+    i18n.changeLanguage(language)
+
+  }, [language])
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
+
+
+
+
+
+
       <div className='w-full max-w-md space-y-2'>
-        <div className='flex flex-col items-center'>
-          <h2 className='text-purple-600 flex items-center font-semibold pb-2'>
+        <div className='flex flex-col items-center relative'>
+          <h2 className='text-purple-600 flex items-center font-semibold pb-2  w-full justify-center'>
             <Image
               className='dark:invert'
               src='/logo.svg'
@@ -63,43 +83,49 @@ export default function AuthPage () {
               height={30}
               priority
             />
-          </h2>
+
+          <div className='absolute top-0 right-0'>
+          <LanguageSelect language={language} onSetLanguage={setLanguage} variant='circle' />
+        </div>
+        </h2>
         </div>
         <Card>
           <CardHeader>
             {authMode === 'login' && (
               <>
-                <CardTitle className='text-xl text-center'>用户登录</CardTitle>
+                <CardTitle className='text-xl text-center'>{t('login.title')}</CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  请选择登录方式
+                  {t('login.description')}
                 </CardDescription>
               </>
             )}
             {authMode === 'register' && (
               <>
-                <CardTitle className='text-xl text-center'>用户注册</CardTitle>
+                <CardTitle className='text-xl text-center'>{t('login.register')}</CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  请选择注册方式
+                  {t('login.register-description')}
                 </CardDescription>
               </>
             )}
             {authMode === 'forgot-password' && (
               <>
-                <CardTitle className='text-xl text-center'>忘记密码</CardTitle>
+                <CardTitle className='text-xl text-center'>{t('login.forgot-password')}</CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  请输入您的邮箱并获取验证码
+                  {t('login.forgot-password')}
                 </CardDescription>
               </>
             )}
             {authMode === 'feedback' && (
               <>
-                <CardTitle className='text-xl text-center'>提交反馈</CardTitle>
+                <CardTitle className='text-xl text-center'>{t('login.feedback')}</CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  请告诉我们您遇到的问题或建议
+                  {t('login.feedback')}
                 </CardDescription>
               </>
             )}
+
           </CardHeader>
+
           <CardContent>
             {authMode === 'login' && (
               <Tabs
@@ -110,8 +136,8 @@ export default function AuthPage () {
                 className='w-full'
               >
                 <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>手机号登录</TabsTrigger>
-                  <TabsTrigger value='password'>邮箱登录</TabsTrigger>
+                  <TabsTrigger value='phone'>{t('login.phone')}</TabsTrigger>
+                  <TabsTrigger value='password'>{t('login.email')}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value='phone'>
@@ -136,8 +162,8 @@ export default function AuthPage () {
                 className='w-full'
               >
                 <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>手机号注册</TabsTrigger>
-                  <TabsTrigger value='email'>邮箱注册</TabsTrigger>
+                  <TabsTrigger value='phone'>{t('login.phone')}</TabsTrigger>
+                  <TabsTrigger value='email'>{t('login.email')}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value='phone'>
@@ -162,12 +188,12 @@ export default function AuthPage () {
             {authMode === 'login' && (
               <>
                 <p className='text-sm text-muted-foreground'>
-                  还没有账号?{' '}
+                  {t('login.no-account')}
                   <button
                     onClick={() => setAuthMode('register')}
                     className='text-primary hover:underline'
                   >
-                    立即注册
+                    {t('login.register')}
                   </button>
                 </p>
               </>
@@ -175,12 +201,12 @@ export default function AuthPage () {
             {authMode === 'register' && (
               <>
                 <p className='text-sm text-muted-foreground'>
-                  已有账号?{' '}
+                  {t('login.has-account')}
                   <button
                     onClick={() => setAuthMode('login')}
                     className='text-primary hover:underline'
                   >
-                    立即登录
+                    {t('login.login')}
                   </button>
                 </p>
               </>
@@ -190,22 +216,25 @@ export default function AuthPage () {
                 onClick={handleBackToLogin}
                 className='text-primary hover:underline'
               >
-                返回登录
+                {t('login.back-to-login')}
               </button>
             )}
             {authMode !== 'feedback' && (
               <p className='text-sm text-muted-foreground'>
-                登录遇到问题?{' '}
+                {t('login.problem')}
                 <button
                   onClick={handleFeedback}
                   className='text-primary hover:underline'
                 >
-                  提交反馈
+                  {t('login.submit-feedback')}
                 </button>
               </p>
             )}
           </CardFooter>
         </Card>
+
+
+
       </div>
     </div>
   )

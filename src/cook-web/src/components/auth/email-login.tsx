@@ -12,12 +12,20 @@ import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
 import { setToken } from '@/local/local'
-
+import { useTranslation } from 'react-i18next';
 interface EmailLoginProps {
   onLoginSuccess: () => void
   onForgotPassword: () => void
 }
 
+/**
+ * React component for an email and password login form with validation, terms acceptance, and localized UI.
+ *
+ * Renders input fields for email and password, a terms acceptance checkbox, and a login button. Validates user input, enforces terms acceptance, and interacts with an API to authenticate the user. Provides feedback via inline error messages and toast notifications. Invokes {@link onLoginSuccess} on successful login and {@link onForgotPassword} when the "forgot password" button is clicked.
+ *
+ * @param onLoginSuccess - Callback invoked after a successful login.
+ * @param onForgotPassword - Callback invoked when the user selects "forgot password".
+ */
 export function EmailLogin ({
   onLoginSuccess,
   onForgotPassword
@@ -29,15 +37,16 @@ export function EmailLogin ({
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
+  const { t } = useTranslation();
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError('请输入邮箱')
+      setEmailError(t('login.email-error'))
       return false
     }
 
     if (!isValidEmail(email)) {
-      setEmailError('请输入有效的邮箱地址')
+      setEmailError(t('login.email-error'))
       return false
     }
 
@@ -47,7 +56,7 @@ export function EmailLogin ({
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError('请输入密码')
+      setPasswordError(t('login.password-error'))
       return false
     }
 
@@ -85,7 +94,7 @@ export function EmailLogin ({
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -102,7 +111,7 @@ export function EmailLogin ({
       })
       if (response.code==0) {
         toast({
-          title: '登录成功'
+          title: t('login.login-success')
         })
         setToken(response.data.token)
         onLoginSuccess()
@@ -110,8 +119,8 @@ export function EmailLogin ({
 
       if (response.code == 1001 || response.code == 1005 || response.code === 1003 ) {
         toast({
-          title: '登录失败',
-          description: '用户名或密码错误',
+          title: t('login.login-failed'),
+          description: t('login.username-or-password-error'),
           // description: response.msg || '用户名或密码错误',
           variant: 'destructive'
         })
@@ -119,8 +128,8 @@ export function EmailLogin ({
 
     } catch (error: any) {
       toast({
-        title: '登录失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.login-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -132,12 +141,12 @@ export function EmailLogin ({
     <div className='space-y-4'>
       <div className='space-y-2'>
         <Label htmlFor='email' className={emailError ? 'text-red-500' : ''}>
-          邮箱
+          {t('login.email')}
         </Label>
         <Input
           id='email'
           type='email'
-          placeholder='请输入邮箱'
+          placeholder={t('login.email-placeholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -153,20 +162,20 @@ export function EmailLogin ({
             htmlFor='password'
             className={passwordError ? 'text-red-500' : ''}
           >
-            密码
+            {t('login.password')}
           </Label>
           <button
             type='button'
             onClick={onForgotPassword}
             className='text-primary text-sm hover:underline'
           >
-            忘记密码?
+            {t('login.forgot-password')}
           </button>
         </div>
         <Input
           id='password'
           type='password'
-          placeholder='请输入密码'
+          placeholder={t('login.password-placeholder')}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}
@@ -191,7 +200,7 @@ export function EmailLogin ({
         }
       >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        登录
+        {t('login.login')}
       </Button>
     </div>
   )
