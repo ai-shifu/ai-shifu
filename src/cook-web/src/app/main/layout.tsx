@@ -1,3 +1,4 @@
+'use client'
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import {
@@ -7,29 +8,21 @@ import {
 } from "@/components/ui/sheet";
 import {
   Bars3Icon,
-  // BookOpenIcon,
-  // BoltIcon,
-  // LightBulbIcon,
   DocumentIcon,
-  // CheckBadgeIcon
 } from '@heroicons/react/24/outline';
 import Image from "next/image";
 import Link from "next/link";
-import UserProfile from '@/components/user-profile'
-
+import UserProfile from '@/components/user-profile';
+import { useTranslation } from 'react-i18next';
 
 const MainInterface = ({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
+  const { t } = useTranslation();
   const menuItems: { type?: string, icon?: React.ReactNode, label?: string, href?: string, id?: string }[] = [
-    { icon: <DocumentIcon className="w-4 h-4" />, label: "剧本", href: "/main" },
-    // { icon: <BookOpenIcon className="w-4 h-4" />, label: "知识库", href: "/main/knowledge" },
-    // { type: 'divider' },
-    // { icon: <BoltIcon className="w-4 h-4" />, label: "模版", href: "/main/template" },
-    // { icon: <LightBulbIcon className="w-4 h-4" />, label: "灵感", href: "/main/inspiration" },
-    // { icon: <CheckBadgeIcon className="w-4 h-4" />, label: "最佳实践", href: "/main/best-practice" },
+    { icon: <DocumentIcon className="w-4 h-4" />, label: t('common.scenario'), href: "/main" },
   ];
 
 
@@ -95,7 +88,7 @@ const MainInterface = ({
               <SidebarContent />
             </SheetContent>
           </Sheet>
-          <h1 className="text-xl font-bold">首页</h1>
+          <h1 className="text-xl font-bold">{t('common.home')}</h1>
           <div className="w-6" /> {/* Spacer for centering */}
         </div>
       </div>

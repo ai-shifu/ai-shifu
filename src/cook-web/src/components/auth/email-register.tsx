@@ -13,7 +13,8 @@ import apiService from '@/api'
 import { isValidEmail, checkPasswordStrength } from '@/lib/validators'
 import { PasswordStrengthIndicator } from './password-strength-indicator'
 import { setToken } from '@/local/local'
-
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 interface EmailRegisterProps {
   onRegisterSuccess: () => void
 }
@@ -36,7 +37,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
   const [otpError, setOtpError] = useState('')
   const [passwordError, setPasswordError] = useState('')
   const [confirmPasswordError, setConfirmPasswordError] = useState('')
-
+  const { t } = useTranslation();
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     feedback: [] as string[],
@@ -45,12 +46,12 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError('请输入邮箱')
+      setEmailError(t('login.email-empty'))
       return false
     }
 
     if (!isValidEmail(email)) {
-      setEmailError('请输入有效的邮箱地址')
+      setEmailError(t('login.email-error'))
       return false
     }
 
@@ -60,7 +61,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError('请输入验证码')
+      setOtpError(t('login.otp-error'))
       return false
     }
 
@@ -70,7 +71,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError('请输入密码')
+      setPasswordError(t('login.password-error'))
       return false
     }
 
@@ -78,7 +79,6 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
     setPasswordStrength(strength)
 
     if (!strength.isValid) {
-      // setPasswordError('密码强度不足')
       return false
     }
 
@@ -88,12 +88,12 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError('请确认密码')
+      setConfirmPasswordError(t('login.confirm-password-error'))
       return false
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError('两次输入的密码不一致')
+      setConfirmPasswordError(t('login.confirm-password-error'))
       return false
     }
 
@@ -150,7 +150,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -178,20 +178,20 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         }, 1000)
 
         toast({
-          title: '验证码已发送',
-          description: '请查看您的邮箱'
+          title: t('login.otp-sent'),
+          description: t('login.please-check-your-email')
         })
       } else {
         toast({
-          title: '发送验证码失败',
-          description: response.msg || '请稍后重试',
+          title: t('login.send-otp-failed'),
+          description: response.msg || t('login.please-try-again-later'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '发送验证码失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.send-otp-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -211,7 +211,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -223,7 +223,8 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
       const response = await apiService.verifyMailCode({
         mail: email,
-        mail_code: emailOtp
+        mail_code: emailOtp,
+        language: i18n.language
       })
       if (response.code==0) {
         setToken(response.data.token)
@@ -238,20 +239,20 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
           isValid: false
         })
         toast({
-          title: '邮箱验证成功',
-          description: '请设置您的密码'
+          title: t('login.email-verified'),
+          description: t('login.please-set-your-password')
         })
       } else {
         toast({
-          title: '验证失败',
-          description:  '验证码错误',
+          title: t('login.verification-failed'),
+          description: t('login.otp-error'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '验证失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.verification-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -278,20 +279,20 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
 
       if (response.code==0) {
         toast({
-          title: '注册成功'
+          title: t('login.register-success')
         })
         onRegisterSuccess()
       } else {
         toast({
-          title: '注册失败',
-          description:  '请稍后重试',
+          title: t('login.register-failed'),
+          description: t('login.please-try-again-later'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '注册失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.register-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -304,11 +305,11 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
       {step === 'verify' && (
         <div className='space-y-4'>
           <div className='space-y-2'>
-            <Label htmlFor='register-email'>邮箱</Label>
+            <Label htmlFor='register-email'>{t('login.email')}</Label>
             <Input
               id='register-email'
               type='email'
-              placeholder='请输入邮箱'
+              placeholder={t('login.email-placeholder')}
               value={email}
               onChange={handleEmailChange}
               disabled={isLoading}
@@ -323,7 +324,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
             <div className='flex space-x-2'>
               <Input
                 id='register-email-otp'
-                placeholder='请输入验证码'
+                placeholder={t('login.otp-placeholder')}
                 value={emailOtp}
                 onChange={handleOtpChange}
                 disabled={isLoading || !email || !!emailError ||  !showOtpInput}
@@ -344,9 +345,9 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
                 {isSendingCode && !showOtpInput ? (
                   <Loader2 className='h-4 w-4 animate-spin mr-2' />
                 ) : countdown > 0 ? (
-                  `${countdown}秒后重新获取`
+                  t('login.seconds-later', { count: countdown })
                 ) : (
-                  '获取验证码'
+                  t('login.get-otp')
                 )}
               </Button>
             </div>
@@ -374,7 +375,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
             {isVerifying ? (
               <Loader2 className='h-4 w-4 animate-spin mr-2' />
             ) : null}
-            下一步
+            {t('login.next')}
           </Button>
         </div>
       )}
@@ -386,12 +387,12 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
               htmlFor='register-password'
               className={passwordError ? 'text-red-500' : ''}
             >
-              密码
+              {t('login.password')}
             </Label>
             <Input
               id='register-password'
               type='password'
-              placeholder='请输入密码'
+              placeholder={t('login.password-placeholder')}
               value={password}
               onChange={handlePasswordChange}
               disabled={isLoading}
@@ -400,7 +401,6 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
               }
             />
             <PasswordStrengthIndicator
-              score={passwordStrength.score}
               feedback={passwordStrength.feedback}
             />
             {passwordError && (
@@ -412,12 +412,12 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
               htmlFor='confirm-password'
               className={confirmPasswordError ? 'text-red-500' : ''}
             >
-              确认密码
+              {t('login.confirm-password')}
             </Label>
             <Input
               id='confirm-password'
               type='password'
-              placeholder='请再次输入密码'
+              placeholder={t('login.confirm-password-placeholder')}
               value={confirmPassword}
               onChange={handleConfirmPasswordChange}
               disabled={isLoading}
@@ -438,7 +438,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
               onClick={() => setStep('verify')}
               disabled={isLoading}
             >
-              返回
+              {t('login.back')}
             </Button>
             <Button
               className='h-8'
@@ -455,7 +455,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
               {isLoading ? (
                 <Loader2 className='h-4 w-4 animate-spin mr-2' />
               ) : null}
-              完成注册
+              {t('login.complete-registration')}
             </Button>
           </div>
         </div>

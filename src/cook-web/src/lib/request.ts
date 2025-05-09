@@ -177,7 +177,6 @@ export class Request {
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error);
-      console.log(error.stack);
       throw error;
     }
   }
@@ -237,7 +236,6 @@ export class Request {
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error);
-      console.log(error.stack);
       throw error;
     }
   }
@@ -287,7 +285,6 @@ export class Request {
       return response;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.log(url, error);
       console.error('Request failed:', error.message);
       fail(error.message);
       throw error;

@@ -8,7 +8,8 @@ import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline'
 import Image from "next/image";
 import api from '@/api'
 import { setToken } from '@/local/local';
-import { useRouter } from 'next/navigation'
+import { useRouter } from 'next/navigation';
+import { useTranslation } from 'react-i18next';
 
 
 interface UserInfo {
@@ -29,6 +30,7 @@ interface Response {
 
 
 const LoginPage = () => {
+    const { t } = useTranslation();
     const [showPassword, setShowPassword] = React.useState(false);
     const [formData, setFormData] = React.useState({
         username: '',
@@ -42,23 +44,23 @@ const LoginPage = () => {
     const router = useRouter();
     const validateUsername = (username: string) => {
         if (!username.trim()) {
-            return '用户名不能为空';
+            return t("login.username-not-empty");
         }
         return '';
     };
 
     const validatePassword = (password: string) => {
         if (password.length < 8) {
-            return '密码长度至少8位';
+            return t("login.password-length-at-least-8");
         }
         if (!/[A-Za-z]/.test(password)) {
-            return '密码必须包含字母';
+            return t("login.password-must-contain-letters");
         }
         if (!/[0-9]/.test(password)) {
-            return '密码必须包含数字';
+            return t("login.password-must-contain-numbers");
         }
         if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-            return '密码必须包含特殊字符';
+            return t("login.password-must-contain-special-characters");
         }
         return '';
     };
@@ -103,7 +105,6 @@ const LoginPage = () => {
             username: formData.username,
             password: formData.password
         });
-        console.log(result);
         const token = result.token;
         setToken(token);
 
@@ -133,13 +134,13 @@ const LoginPage = () => {
                     <CardContent>
                         <form className="space-y-6">
                             <div className="space-y-1">
-                                <Label htmlFor="username">账号</Label>
+                                <Label htmlFor="username">{t("login.username")}</Label>
                                 <div className="space-y-1">
                                     <Input
                                         autoComplete='off'
                                         id="username"
                                         name="username"
-                                        placeholder="请输入邮箱/手机号"
+                                        placeholder={t("login.username-placeholder")}
                                         value={formData.username}
                                         onChange={handleChange}
                                         className={errors.username ? "border-red-500" : ""}
@@ -152,7 +153,7 @@ const LoginPage = () => {
 
                             <div className="space-y-1">
                                 <div className="flex justify-between items-center">
-                                    <Label htmlFor="password">密码</Label>
+                                    <Label htmlFor="password">{t("login.password")}</Label>
                                     {/* <Button
                                         variant="link"
                                         className="px-0 text-sm text-gray-500 hover:text-purple-500"
@@ -195,23 +196,23 @@ const LoginPage = () => {
                                 className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!!errors.username || !!errors.password || !formData.username || !formData.password}
                             >
-                                登录
+                                {t("login.login")}
                             </Button>
 
                             <div className="text-center  text-stone-900 text-base">
-                                想要体验创作？ <a className='underline cursor-pointer hover:text-purple-500' href="http://">申请入驻</a>
+                                {t("login.want-to-experience-creation")} <a className='underline cursor-pointer hover:text-purple-500' href="http://">{t("login.apply-for-admission")}</a>
                             </div>
                         </form>
                     </CardContent>
                 </Card>
                 <div className="text-xs text-stone-500 text-center">
-                    点击登录即代表您已同意
+                    {t("login.click-login-to-represent-you-have-agreed-to")}
                     <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500">
-                        用户协议
+                        {t("login.user-agreement")}
                     </a>
-                    和
+                    {t("login.and")}
                     <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500">
-                        服务协议
+                        {t("login.service-agreement")}
                     </a>
                 </div>
             </div>

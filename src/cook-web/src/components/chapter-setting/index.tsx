@@ -8,8 +8,10 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { SlidersHorizontal } from 'lucide-react';
 import api from '@/api';
 import Loading from '../loading';
+import { useTranslation } from 'react-i18next';
 
 const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpenChange?: (open: boolean) => void }) => {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [chapterType, setChapterType] = useState("normal");
     const [systemPrompt, setSystemPrompt] = useState("");
@@ -73,7 +75,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                 }}
             >
                 <DialogHeader>
-                    <DialogTitle className="text-lg font-medium">章节设置</DialogTitle>
+                    <DialogTitle className="text-lg font-medium">{t('chapter-setting.title')}</DialogTitle>
                 </DialogHeader>
                 {
                     loading && (
@@ -86,7 +88,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                     !loading && (
                         <div className="space-y-6 py-4">
                             <div className="flex items-center space-x-4">
-                                <div className="w-24 text-sm">章节类型</div>
+                                <div className="w-24 text-sm">{t('chapter-setting.chapter-type')}</div>
                                 <RadioGroup
                                     value={chapterType}
                                     onValueChange={setChapterType}
@@ -94,19 +96,19 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                                 >
                                     <div className="flex items-center space-x-2">
                                         <RadioGroupItem value="normal" id="formal" />
-                                        <Label htmlFor="formal">正式章节</Label>
+                                        <Label htmlFor="formal">{t('chapter-setting.formal-chapter')}</Label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <RadioGroupItem value="trial" id="trial" />
-                                        <Label htmlFor="trial">试用章节</Label>
+                                        <Label htmlFor="trial">{t('chapter-setting.trial-chapter')}</Label>
                                     </div>
                                 </RadioGroup>
                             </div>
 
                             <div className="flex space-x-4">
-                                <div className="w-24 text-sm mt-2">系统提示词</div>
+                                <div className="w-24 text-sm mt-2">{t('chapter-setting.system-prompt')}</div>
                                 <Textarea
-                                    placeholder="请输入xxx"
+                                    placeholder={t('chapter-setting.please-input')}
                                     value={systemPrompt}
                                     onChange={(e) => setSystemPrompt(e.target.value)}
                                     className="h-24 bg-white"
@@ -114,14 +116,14 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                             </div>
 
                             <div className="flex items-center space-x-4">
-                                <div className="w-24 text-sm">是否隐藏</div>
+                                <div className="w-24 text-sm">{t('chapter-setting.is-hidden')}</div>
                                 <div className="flex items-center space-x-2">
                                     <Checkbox
                                         id="hideChapter"
                                         checked={hideChapter}
                                         onCheckedChange={setHideChapter as any}
                                     />
-                                    <Label htmlFor="hideChapter">隐藏章节</Label>
+                                    <Label htmlFor="hideChapter">{t('chapter-setting.hide-chapter')}</Label>
                                 </div>
                             </div>
                         </div>
@@ -129,10 +131,10 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                 }
                 <div className="flex justify-end space-x-2 pt-4">
                     <Button variant="outline" onClick={() => setOpen(false)}>
-                        取消
+                        {t('common.cancel')}
                     </Button>
                     <Button disabled={loading} onClick={onConfirm}>
-                        确定
+                        {t('common.confirm')}
                     </Button>
                 </div>
             </DialogContent>

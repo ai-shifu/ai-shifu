@@ -27,7 +27,6 @@ export default function AI(props: AIBlock) {
             profiles={props.properties.profiles}
             isEdit={props.isEdit}
             onChange={(value, isEdit) => {
-                console.log(value)
                 props.onChange({ ...props.properties, prompt: value });
                 if (props.onEditChange) {
                     props.onEditChange(isEdit);

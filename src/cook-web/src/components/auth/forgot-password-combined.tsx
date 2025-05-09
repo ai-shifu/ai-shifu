@@ -11,7 +11,8 @@ import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
 import { setToken } from '@/local/local'
-
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 interface ForgotPasswordCombinedProps {
   onNext: (email: string, otp: string) => void
 }
@@ -19,6 +20,7 @@ interface ForgotPasswordCombinedProps {
 export function ForgotPasswordCombined ({
   onNext
 }: ForgotPasswordCombinedProps) {
+  const { t } = useTranslation();
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [isSendingCode, setIsSendingCode] = useState(false)
@@ -30,14 +32,15 @@ export function ForgotPasswordCombined ({
   const [countdown, setCountdown] = useState(0)
   const [codeSent, setCodeSent] = useState(false)
 
+
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError('请输入邮箱')
+      setEmailError(t('login.email-empty'))
       return false
     }
 
     if (!isValidEmail(email)) {
-      setEmailError('请输入有效的邮箱地址')
+      setEmailError(t('login.email-error'))
       return false
     }
 
@@ -47,7 +50,7 @@ export function ForgotPasswordCombined ({
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError('请输入验证码')
+      setOtpError(t('login.otp-error'))
       return false
     }
 
@@ -84,7 +87,8 @@ export function ForgotPasswordCombined ({
       setIsSendingCode(true)
 
       const response = await apiService.sendMailCode({
-        mail: email
+        mail: email,
+        language: i18n.language
       })
 
       if (response.code == 0) {
@@ -101,20 +105,20 @@ export function ForgotPasswordCombined ({
         }, 1000)
 
         toast({
-          title: '验证码已发送',
-          description: '请查看您的邮箱'
+          title: t('login.otp-sent'),
+          description: t('login.please-check-your-email')
         })
       } else {
         toast({
-          title: '发送验证码失败',
-          description:  '请稍后重试',
+          title: t('login.send-otp-failed'),
+          description: t('login.please-try-again-later'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '发送验证码失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.send-otp-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -137,27 +141,28 @@ export function ForgotPasswordCombined ({
 
       const response = await apiService.verifyMailCode({
         mail: email,
-        mail_code: otp
+        mail_code: otp,
+        language: i18n.language
       })
 
       if (response.code == 0) {
         setToken(response.data.token)
         toast({
-          title: '验证成功',
-          description: '请设置新密码'
+          title: t('login.verification-success'),
+          description: t('login.please-set-new-password')
         })
         onNext(email, otp)
       } else {
         toast({
-          title: '验证失败',
-          description:  '验证码错误',
+          title: t('login.verification-failed'),
+          description: t('login.otp-error'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '验证失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.verification-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -170,13 +175,13 @@ export function ForgotPasswordCombined ({
     <div className='space-y-4'>
       <div className='space-y-2'>
         <Label htmlFor='email' className={emailError ? 'text-red-500' : ''}>
-          邮箱
+          {t('login.email')}
         </Label>
         <div className='flex space-x-2'>
           <Input
             id='email'
             type='email'
-            placeholder='请输入邮箱'
+            placeholder={t('login.email-placeholder')}
             value={email}
             onChange={handleEmailChange}
             disabled={isLoading}
@@ -192,9 +197,9 @@ export function ForgotPasswordCombined ({
             {isSendingCode ? (
               <Loader2 className='h-4 w-4 animate-spin mr-2' />
             ) : countdown > 0 ? (
-              `${countdown}秒后重新获取`
+              t('login.seconds-later', { count: countdown })
             ) : (
-              '获取验证码'
+              t('login.get-otp')
             )}
           </Button>
         </div>
@@ -203,11 +208,11 @@ export function ForgotPasswordCombined ({
 
       <div className='space-y-2'>
         <Label htmlFor='otp' className={otpError ? 'text-red-500' : ''}>
-          验证码
+          {t('login.otp')}
         </Label>
         <Input
           id='otp'
-          placeholder='请输入验证码'
+          placeholder={t('login.otp-placeholder')}
           value={otp}
           onChange={handleOtpChange}
           disabled={isLoading || !codeSent}
@@ -226,7 +231,7 @@ export function ForgotPasswordCombined ({
         }
       >
         {isVerifying ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        下一步
+        {t('login.next')}
       </Button>
     </div>
   )

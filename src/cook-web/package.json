@@ -8,7 +8,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location src/cook-web/.eslintcache --max-warnings 0",
-    "precommit": "lint-staged"
+    "precommit": "lint-staged",
+    "generate-languages": "node src/scripts/generate-languages.js",
+    "update-i18n": "node src/scripts/update-i18n.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -37,6 +39,7 @@
     "@uiw/react-codemirror": "^4.23.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "i18next-http-backend": "^3.0.2",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
     "next": "^15.3.0",
@@ -45,6 +48,7 @@
     "react-dnd-html5-backend": "^16.0.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.54.2",
+    "react-i18next": "^15.5.1",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
     "remark-gfm": "^4.0.1",

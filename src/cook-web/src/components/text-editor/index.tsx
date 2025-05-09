@@ -4,7 +4,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
+import { useTranslation } from 'react-i18next';
 interface Variable {
   name: string;
   description: string;
@@ -30,6 +30,7 @@ const processContent = (content: string) => {
 
 export default function TextEditor(props: TextEditorProps) {
   const { profileItemDefinations } = useScenario();
+  const { t } = useTranslation();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Variable[]>([]);
   const [cursorPosition, setCursorPosition] = useState(0);
@@ -86,7 +87,6 @@ export default function TextEditor(props: TextEditorProps) {
   const insertVariable = (variable: Variable) => {
 
 
-    console.log(variable.name)
     const textBeforeCursor = props.content.substring(0, cursorPosition);
     const textAfterCursor = props.content.substring(cursorPosition);
     const newContent = textBeforeCursor + variable.name + '}}' + textAfterCursor;
@@ -166,7 +166,7 @@ export default function TextEditor(props: TextEditorProps) {
       return (
         <div className="relative">
           <textarea
-            placeholder='请输入'
+            placeholder={t('text-editor.placeholder')}
             ref={textareaRef}
             value={props.content}
             onChange={handleInput}

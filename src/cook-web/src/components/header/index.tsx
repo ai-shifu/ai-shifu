@@ -9,8 +9,9 @@ import api from '@/api'
 import { ChevronLeft, CircleAlert, CircleCheck, TrendingUp } from 'lucide-react';
 import Preivew from '@/components/preview';
 import CourseSetting from '@/components/course-setting';
-
+import { useTranslation } from 'react-i18next';
 const Header = () => {
+    const { t } = useTranslation();
     const alert = useAlert();
     const router = useRouter();
     const [publishing, setPublishing] = useState(false);
@@ -25,10 +26,10 @@ const Header = () => {
         // actions.publishScenario();
         await actions.saveBlocks();
         alert.showAlert({
-            confirmText: '确认',
-            cancelText: '取消',
-            title: '是否确认发布',
-            description: '发布将会把当前内容更新上线，请确认后再发布！',
+            confirmText: t('header.confirm'),
+            cancelText: t('header.cancel'),
+            title: t('header.confirm-publish'),
+            description: t('header.confirm-publish-description'),
             async onConfirm() {
                 setPublishing(true)
                 const reuslt = await api.publishScenario({
@@ -36,12 +37,12 @@ const Header = () => {
                 });
                 setPublishing(false)
                 alert.showAlert({
-                    title: '发布成功',
-                    confirmText: '去查看',
-                    cancelText: '关闭',
+                    title: t('header.publish-success'),
+                    confirmText: t('header.go-to-view'),
+                    cancelText: t('header.close'),
                     description: (
                         <div className="flex flex-col space-y-2">
-                            <span>发布成功，请前往查看</span>
+                            <span>{t('header.publish-success-description')}</span>
                             <a href={reuslt} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">
                                 {reuslt}
                             </a>
@@ -106,7 +107,7 @@ const Header = () => {
                         {
                             lastSaveTime && (
                                 <div key={lastSaveTime.getTime()} className='bg-gray-100 rounded px-2 py-1 text-xs text-gray-500 transform transition-all duration-300 ease-in-out translate-x-0 opacity-100 animate-slide-in'>
-                                    已保存 {lastSaveTime?.toLocaleString()}
+                                    {t('header.saved')} {lastSaveTime?.toLocaleString()}
                                 </div>
                             )
                         }
@@ -135,7 +136,7 @@ const Header = () => {
                             <TrendingUp />
                         )
                     }
-                    发布
+                    {t('header.publish')}
                 </Button>
             </div>
         </div>

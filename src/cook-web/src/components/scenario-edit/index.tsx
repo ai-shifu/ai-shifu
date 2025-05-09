@@ -5,7 +5,7 @@ import type { DropTargetMonitor } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
 import { ChevronsRight, Plus, Variable, GripVertical } from 'lucide-react';
-import { useScenario } from '@/store';
+import { useScenario, useAuth } from '@/store';
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header';
@@ -16,7 +16,8 @@ import AIDebugDialog from '@/components/ai-debug';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import AddBlock from '@/components/add-block';
 import Loading from '../loading';
-
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 interface DragItem {
     id: string;
     index: number;
@@ -30,6 +31,7 @@ interface DraggableBlockProps {
 }
 
 const DraggableBlock = ({ id, index, moveBlock, children }: DraggableBlockProps) => {
+
     const ref = React.useRef<HTMLDivElement>(null);
 
     const [{ handlerId }, drop] = useDrop<DragItem, void, { handlerId: string | symbol | null }>({
@@ -99,6 +101,13 @@ const DraggableBlock = ({ id, index, moveBlock, children }: DraggableBlockProps)
 };
 
 const ScriptEditor = ({ id }: { id: string }) => {
+    const { t } = useTranslation();
+    const { profile } = useAuth();
+    useEffect(() => {
+        if (profile){
+            i18n.changeLanguage(profile.language);
+        }
+    }, [profile]);
     const {
         blocks,
         chapters,
@@ -196,7 +205,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         </ol>
                         <Button variant="outline" className='my-2 h-8 sticky bottom-0 left-4 ' size="sm" onClick={onAddChapter}>
                             <Plus />
-                            新篇章
+                            {t('scenario.new_chapter')}
                         </Button>
                     </div>
 
@@ -289,7 +298,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='start' side='bottom' alignOffset={-5}>
                                 <DropdownMenuItem onClick={onDebugBlock.bind(null, menuPosition.blockId || "")}>
-                                    <Variable />测试本模块
+                                    <Variable />{t('scenario.debug')}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>

@@ -1,9 +1,12 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
+'use client';
+
 import { Scenario, ScenarioContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties } from "../types/scenario";
 import api from "@/api";
-import { ContentTypes } from "@/components/render-block";
-import { UITypes } from "@/components/render-ui";
+import { useContentTypes } from "@/components/render-block";
+import { useUITypes } from "@/components/render-ui";
 import { debounce } from "lodash";
+import { createContext, ReactNode, useContext, useState, useCallback } from "react";
+
 const ScenarioContext = createContext<ScenarioContextType | undefined>(undefined);
 
 const buildBlockListWithAllInfo = (blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => {
@@ -50,6 +53,11 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     const [currentNode, setCurrentNode] = useState<Outline | null>(null);
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItem[]>([]);
     const [models, setModels] = useState<string[]>([]);
+
+    // 确保在客户端环境下获取 UI 类型和内容类型
+    const UITypes = useUITypes();
+    const ContentTypes = useContentTypes();
+
     const loadScenario = async (scenarioId: string) => {
         try {
             setIsLoading(true);
@@ -545,7 +553,6 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
 
     const createSiblingUnit = async (data: Outline) => {
         try {
-            console.log('createSiblingUnit')
             updateOutlineStatus(data.id, 'saving');
             setError(null);
 
@@ -586,7 +593,6 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         })
     }
     const updateOuline = async (id: string, value: Outline) => {
-        console.log(id, value)
         setCataData({
             ...cataData,
             [id]: {

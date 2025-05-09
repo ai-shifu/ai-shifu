@@ -2,12 +2,13 @@
 import React, {useState} from 'react'
 import { ImageUploader } from '@/components/file-uploader'
 import { Button } from '@/components/ui/button'
-
+import { useTranslation } from 'react-i18next'
 type ImageInjectProps = {
   onSelect: (url: string) => void
 }
 
 const ImageInject: React.FC<ImageInjectProps> = ({ onSelect }) => {
+  const { t } = useTranslation();
   const [imageUrl, setImageUrl] = useState<string>('')
   const handleSelect = () => {
     onSelect?.("![image](" + imageUrl + ")")
@@ -21,7 +22,7 @@ const ImageInject: React.FC<ImageInjectProps> = ({ onSelect }) => {
           onClick={handleSelect}
           disabled={!imageUrl}
         >
-          使用图片
+          {t('common.use-image')}
         </Button>
       </div>
     </div>

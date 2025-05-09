@@ -14,9 +14,10 @@ import { PlayIcon } from 'lucide-react';
 import { useScenario } from '@/store';
 import api from '@/api';
 import { useAlert } from '@/components/ui/use-alert'
-
+import { useTranslation } from 'react-i18next';
 
 const PreviewSettingsModal = () => {
+    const { t } = useTranslation();
     const { showAlert } = useAlert();
     const [open, setOpen] = useState(false);
     const { profileItemDefinations, currentScenario, actions } = useScenario();
@@ -30,7 +31,6 @@ const PreviewSettingsModal = () => {
     const handleStartPreview = async () => {
         await actions.saveBlocks();
         // Handle the start preview action
-        console.log('Start preview with values:', formValues);
         const reuslt = await api.previewScenario({
             "scenario_id": currentScenario?.id || '',
             "skip": autoSkipEmptyFields,
@@ -55,18 +55,18 @@ const PreviewSettingsModal = () => {
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-8 px-2 text-xs font-normal">
-                    <PlayIcon />  预览
+                    <PlayIcon />  {t('preview.preview')}
                 </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                    <DialogTitle className="text-center text-xl font-medium">预览设置</DialogTitle>
+                    <DialogTitle className="text-center text-xl font-medium">{t('preview.preview-settings')}</DialogTitle>
                 </DialogHeader>
 
                 <div className="py-4">
                     <div className='grid grid-cols-2 gap-4'>
-                        <h3 className="mb-1 text-sm font-medium">出现变量:</h3>
-                        <h3 className="mb-1 text-sm font-medium">输入变量值:</h3>
+                        <h3 className="mb-1 text-sm font-medium">{t('preview.variable-appear')}</h3>
+                        <h3 className="mb-1 text-sm font-medium">{t('preview.input-variable-value')}</h3>
                         {
                             profileItemDefinations.map((field) => (
                                 <>
@@ -85,7 +85,7 @@ const PreviewSettingsModal = () => {
                     </div>
 
                     <div className="flex items-center justify-end space-x-2 mt-4">
-                        <span className="text-sm">自动跳过</span>
+                        <span className="text-sm">{t('preview.auto-skip')}</span>
                         <Switch
                             checked={autoSkipEmptyFields}
                             onCheckedChange={setAutoSkipEmptyFields}
@@ -98,7 +98,7 @@ const PreviewSettingsModal = () => {
                         className="w-full bg-purple-600 hover:bg-purple-700"
                         onClick={handleStartPreview}
                     >
-                        开始预览
+                        {t('preview.start-preview')}
                     </Button>
                 </DialogFooter>
             </DialogContent>

@@ -12,7 +12,7 @@ import { CreateScenarioDialog } from "@/components/create-scenario-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
-
+import { useTranslation } from 'react-i18next';
 interface ScriptCardProps {
     id: string;
     image: string | undefined;
@@ -56,7 +56,9 @@ const ScriptCard = ({ id, image, title, description, isFavorite }: ScriptCardPro
 }
 
 const ScriptManagementPage = () => {
+
     const { toast } = useToast();
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState("all");
     const [scenarios, setScenarios] = useState<Scenario[]>([]);
     const [loading, setLoading] = useState(false);
@@ -77,7 +79,6 @@ const ScriptManagementPage = () => {
                 page_size: pageSize,
                 is_favorite: activeTab === "favorites",
             });
-            console.log(items)
             if (items.length < pageSize) {
                 setHasMore(false);
             }
@@ -93,8 +94,8 @@ const ScriptManagementPage = () => {
         try {
             await api.createScenario(values);
             toast({
-                title: "创建成功",
-                description: "新剧本已创建",
+                title: t('common.create-success'),
+                description: t('common.create-success-description'),
             });
             setScenarios([]);
             setHasMore(true);
@@ -103,8 +104,8 @@ const ScriptManagementPage = () => {
             setShowCreateScenarioModal(false);
         } catch (error) {
             toast({
-                title: "创建失败",
-                description: error instanceof Error ? error.message : "未知错误",
+                title: t('common.create-failed'),
+                description: error instanceof Error ? error.message : t('common.unknown-error'),
                 variant: "destructive",
             });
         }
@@ -140,12 +141,12 @@ const ScriptManagementPage = () => {
         <div className="h-full bg-gray-50 p-0">
             <div className="max-w-7xl mx-auto h-full overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-5">
-                    <h1 className="text-2xl font-semibold text-gray-900">剧本</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">{t('common.scenario')}</h1>
                 </div>
                 <div className="flex space-x-3 mb-5">
                     <Button size='sm' variant="outline" onClick={handleCreateScenarioModal}>
                         <PlusIcon className="w-5 h-5 mr-1" />
-                        新建空白剧本
+                        {t('common.create-blank-scenario')}
                     </Button>
                     <CreateScenarioDialog
                         open={showCreateScenarioModal}
@@ -166,7 +167,7 @@ const ScriptManagementPage = () => {
                                     <RectangleStackOutlineIcon className="w-5 h-5 mr-1" />
                                 )
                             }
-                            全部
+                            {t('common.all')}
                         </TabsTrigger>
                         <TabsTrigger value="favorites">
                             {
@@ -179,7 +180,7 @@ const ScriptManagementPage = () => {
                                     <StarOutlineIcon className="w-5 h-5 mr-1" />
                                 )
                             }
-                            收藏
+                            {t('common.favorites')}
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="all" className=' flex-1 overflow-auto'>
@@ -210,11 +211,11 @@ const ScriptManagementPage = () => {
                             <Loading />
                         )}
                         {!hasMore && scenarios.length > 0 && (
-                            <p className="text-gray-500 text-sm">没有更多剧本了</p>
+                            <p className="text-gray-500 text-sm">{t('common.no-more-scenarios')}</p>
                         )}
                         {
                             !loading && !hasMore && scenarios.length == 0 && (
-                                <p className="text-gray-500 text-sm">暂无剧本</p>
+                                <p className="text-gray-500 text-sm">{t('common.no-scenarios')}</p>
                             )
                         }
                     </div>

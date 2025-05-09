@@ -134,7 +134,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
         return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
 
 
-def send_email_code(app: Flask, email: str, ip: str = None):
+def send_email_code(app: Flask, email: str, ip: str = None, language: str = None):
     with app.app_context():
         # Check IP ban status
         if ip:

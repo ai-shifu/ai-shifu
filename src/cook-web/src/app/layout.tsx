@@ -5,6 +5,8 @@ import "./globals.css";
 import '@/assets/css/md-editor.css';
 import '@/assets/css/markdown.css';
 import { ConfigProvider } from '@/components/config-provider';
+import '@/i18n';
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

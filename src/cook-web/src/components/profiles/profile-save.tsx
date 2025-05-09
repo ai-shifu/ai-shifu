@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import type { Profile, EnumItem, ProfileType } from '@/components/profiles/type'
 import api from '@/api'
-
+import { useTranslation } from 'react-i18next';
 interface ProfileSaveProps {
   parentId?: string
   value?: Profile
@@ -33,6 +33,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
   onOpenChange,
   onSaveSuccess = () => {}
 }) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(!!value?.profile_id)
   const [editingId, setEditingId] = useState<number>()
   const [profile, setProfile] = useState<Profile>({
@@ -42,10 +43,6 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
     profile_items: []
   })
 
-
-  useEffect(() => {
-    console.log(profile)
-  }, [profile])
   const [newEnumItem, setNewEnumItem] = useState<EnumItem>({
     value: '',
     name: ''
@@ -154,15 +151,15 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
       >
         <DialogContent className='sm:max-w-[500px]'>
           <DialogHeader>
-            <DialogTitle>{isEditing ? '编辑变量' : '添加新变量'}</DialogTitle>
+            <DialogTitle>{isEditing ? t('profiles.edit-variable') : t('profiles.add-new-variable')}</DialogTitle>
             <DialogDescription>
-              {isEditing ? '修改现有变量的属性。' : '创建一个新的自定义变量。'}
+              {isEditing ? t('profiles.modify-existing-variable') : t('profiles.create-a-new-custom-variable')}
             </DialogDescription>
           </DialogHeader>
           <div className='grid gap-4 py-4'>
             <div className='grid grid-cols-4 items-center gap-4'>
               <Label htmlFor='profile_key' className='text-right'>
-                变量名
+                {t('profiles.variable-name')}
               </Label>
               <Input
                 id='profile_key'
@@ -175,7 +172,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
             </div>
             <div className='grid grid-cols-4 items-center gap-4'>
               <Label htmlFor='title' className='text-right'>
-                标题
+                {t('profiles.title')}
               </Label>
               <Input
                 id='profile_remark'
@@ -184,11 +181,11 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                   setProfile({ ...profile, profile_remark: e.target.value })
                 }
                 className='col-span-3'
-                placeholder='可选'
+                placeholder={t('profiles.optional')}
               />
             </div>
             <div className='grid grid-cols-4 items-center gap-4'>
-              <Label className='text-right'>数据类型</Label>
+              <Label className='text-right'>{t('profiles.data-type')}</Label>
               <div className='col-span-3'>
                 <RadioGroup
                   value={profile.profile_type}
@@ -199,11 +196,11 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                 >
                   <div className='flex items-center space-x-2'>
                     <RadioGroupItem value='text' id='text' />
-                    <Label htmlFor='text'>字符串</Label>
+                    <Label htmlFor='text'>{t('profiles.string')}</Label>
                   </div>
                   <div className='flex items-center space-x-2'>
                     <RadioGroupItem value='option' id='option' />
-                    <Label htmlFor='option'>枚举</Label>
+                    <Label htmlFor='option'>{t('profiles.option')}</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -233,13 +230,13 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               <>
                 <div className='grid grid-cols-4 gap-4'>
                   <div className='col-span-4'>
-                    <Label className='mb-2 block'>枚举项</Label>
+                    <Label className='mb-2 block'>{t('profiles.enum-item')}</Label>
                     {!!profile.profile_items?.length && (
                       <div className='mb-3 rounded-md border'>
                         <div className='grid grid-cols-12 border-b bg-muted px-3 py-2 text-sm font-medium'>
-                          <div className='col-span-5'>枚举值</div>
-                          <div className='col-span-5'>标题</div>
-                          <div className='col-span-2 text-right'>操作</div>
+                          <div className='col-span-5'>{t('profiles.option-value')}</div>
+                          <div className='col-span-5'>{t('profiles.option-name')}</div>
+                          <div className='col-span-2 text-right'>{t('profiles.operation')}</div>
                         </div>
                         <div className='divide-y'>
 
@@ -272,7 +269,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
 
                     <div className='grid grid-cols-12 gap-2'>
                       <Input
-                        placeholder='枚举值'
+                        placeholder={t('profiles.option-value')}
                         value={newEnumItem.value}
                         onChange={e =>
                           setNewEnumItem({
@@ -283,7 +280,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                         className='col-span-5'
                       />
                       <Input
-                        placeholder='标题'
+                        placeholder={t('profiles.title')}
                         value={newEnumItem.name}
                         onChange={e =>
                           setNewEnumItem({
@@ -300,7 +297,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                           !newEnumItem.value.trim() || !newEnumItem.name.trim()
                         }
                       >
-                        添加
+                        {t('profiles.add')}
                       </Button>
                     </div>
                   </div>
@@ -347,7 +344,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               variant='outline'
               onClick={handleCancelSaveProfile}
             >
-              取消
+              {t('profiles.cancel')}
             </Button>
             <Button
               className='h-8'
@@ -358,7 +355,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                   (profile.profile_items || []).length === 0)
               }
             >
-              {isEditing ? '保存' : '添加'}
+              {isEditing ? t('profiles.save') : t('profiles.add')}
             </Button>
           </DialogFooter>
         </DialogContent>
