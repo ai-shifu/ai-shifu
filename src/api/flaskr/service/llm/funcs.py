@@ -69,9 +69,6 @@ def debug_script(
             app.logger.info(f"block_temperature: {block_temperature}")
             app.logger.info(f"block_variables: {block_variables}")
             app.logger.info(f"block_other_conf: {block_other_conf}")
-            app.logger.info(f"block_model: {block_model}")
-            app.logger.info(f"block_temperature: {block_temperature}")
-
             if not block_model or not block_model.strip():
                 block_model = model_setting.model_name
             if block_temperature is None:
