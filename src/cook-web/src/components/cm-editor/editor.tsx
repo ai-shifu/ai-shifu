@@ -15,7 +15,15 @@ import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
 import { SelectedOption, IEditorContext } from './type'
-
+import { useTranslation } from 'react-i18next'
+/**
+ * Creates a CodeMirror autocompletion source for slash commands, enabling insertion of variables, images, or videos.
+ *
+ * When the user types a slash followed by word characters (e.g., `/variable`), presents localized autocompletion options. Selecting an option clears the matched text and triggers the provided callback with the selected option type.
+ *
+ * @param onSelectOption - Callback invoked with the selected slash command option.
+ * @returns A function compatible with CodeMirror's autocompletion API, providing slash command options.
+ */
 function createSlashCommands (
   onSelectOption: (selectedOption: SelectedOption) => void
 ) {
@@ -41,19 +49,19 @@ function createSlashCommands (
       to: word.to,
       options: [
         {
-          label: '变量',
+          label: t('cm-editor.variable'),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Profile)
           }
         },
         {
-          label: '图片',
+          label: t('cm-editor.image'),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Image)
           }
         },
         {
-          label: '视频',
+          label: t('cm-editor.video'),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Video)
           }
@@ -77,6 +85,7 @@ const Editor: React.FC<EditorProps> = ({
   profiles = [],
   onChange
 }) => {
+  const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
     SelectedOption.Empty
@@ -163,7 +172,7 @@ const Editor: React.FC<EditorProps> = ({
                 foldGutter: false
               }}
               className='border rounded-md'
-              placeholder='输入“/”快速插入内容'
+              placeholder={t('cm-editor.input-slash-to-insert-content')}
               value={content}
               theme='light'
               height='10em'
