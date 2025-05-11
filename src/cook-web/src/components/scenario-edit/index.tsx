@@ -152,12 +152,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
 
 
-    const onShowMenu = (id: string, type: string, e: MouseEvent) => {
+    const onShowMenu = (id: string, type: string, e: React.MouseEvent<HTMLDivElement>) => {
         console.log(id, type, e);
         if (type !== 'ai') {
             return;
         }
-        const target = e.currentTarget;
+        const target = e.currentTarget as HTMLElement;
         // 计算相对于div的坐标，页面滚动时，保持相对位置
         const rect = target.getBoundingClientRect();
         const width = target.offsetWidth;
@@ -247,7 +247,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                         >
                                             <div id={block.properties.block_id} className="relative flex flex-col gap-2 ">
                                                 <div className=' '
-                                                    onMouseOver={onShowMenu.bind(null, block.properties.block_id, block?.properties?.block_content?.type)}
+                                                    onMouseOver={(e) => onShowMenu(block.properties.block_id, block?.properties?.block_content?.type, e)}
                                                     onMouseLeave={onHideMenu}
                                                 >
                                                     <RenderBlockContent
