@@ -87,11 +87,12 @@ function sortObjectKeys(obj) {
 function pruneUnusedKeys(obj, validKeys, prefix = '') {
   if (typeof obj !== 'object' || obj === null) return obj;
   const result = {};
+  const validKeysSet = new Set(validKeys);
 
   const hasValidChildren = (obj, currentPrefix) => {
     for (const key in obj) {
       const fullKey = currentPrefix ? `${currentPrefix}.${key}` : key;
-      if (validKeys.includes(fullKey)) return true;
+      if (validKeysSet.has(fullKey)) return true;
       if (typeof obj[key] === 'object' && obj[key] !== null) {
         if (hasValidChildren(obj[key], fullKey)) return true;
       }
@@ -102,15 +103,15 @@ function pruneUnusedKeys(obj, validKeys, prefix = '') {
   for (const key in obj) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
 
-    if (key === 'langName' || validKeys.includes(fullKey)) {
+    if (key === 'langName' || validKeysSet.has(fullKey)) {
       if (typeof obj[key] === 'object' && obj[key] !== null) {
-        result[key] = pruneUnusedKeys(obj[key], validKeys, fullKey);
+        result[key] = pruneUnusedKeys(obj[key], validKeysSet, fullKey);
       } else {
         result[key] = obj[key];
       }
     } else if (typeof obj[key] === 'object' && obj[key] !== null) {
       if (hasValidChildren(obj[key], fullKey)) {
-        result[key] = pruneUnusedKeys(obj[key], validKeys, fullKey);
+        result[key] = pruneUnusedKeys(obj[key], validKeysSet, fullKey);
       }
     }
   }

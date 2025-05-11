@@ -259,14 +259,14 @@
     "variable": "Variable",
     "variable-placeholder": "Variable"
   },
+  "outline-selector": {
+    "select-chapter": "Select Outline"
+  },
   "outline-tree": {
     "cancel": "Cancel",
     "confirm": "Confirm",
     "confirm-delete": "Confirm Delete",
     "confirm-delete-description": "Your operation will cause the current content to be lost, whether to confirm?"
-  },
-  "outline-selector": {
-    "select-chapter": "Select Outline"
   },
   "preview": {
     "auto-skip": "Auto Skip",
