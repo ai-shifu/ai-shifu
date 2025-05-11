@@ -714,8 +714,10 @@ class ModelSetting:
 
 
 def get_model_setting(
-    app: Flask, script_info: AILessonScript, status: list[int] = [STATUS_PUBLISH]
+    app: Flask, script_info: AILessonScript, status: list[int] = None
 ) -> ModelSetting:
+    if status is None:
+        status = [STATUS_PUBLISH]
     if script_info.script_model and script_info.script_model.strip():
         return ModelSetting(
             script_info.script_model, {"temperature": script_info.script_temprature}
