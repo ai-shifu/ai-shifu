@@ -371,7 +371,6 @@ def get_block_by_id(app, block_id: str):
         block = (
             AILessonScript.query.filter(
                 AILessonScript.script_id == block_id,
-                # AILessonScript.status == 1,
             )
             .order_by(AILessonScript.id.desc())
             .first()
