@@ -29,10 +29,17 @@ const UserProfileCard = () => {
     const { t } = useTranslation();
     const [profile, setProfile] = useState<UserInfo>();
     const [language, setLanguage] = useState<string>(i18n.language);
+
+    const normalizeLanguage = (lang: string): string => {
+        return lang.replace('_', '-');
+    }
+
     const init = async () => {
         const res = await api.getUserInfo({});
+        console.log("come in", res, i18n);
         setProfile(res);
-        setLanguage(res.language);
+        const normalizedLang = normalizeLanguage(res.language);
+        setLanguage(normalizedLang);
     }
     useEffect(() => {
         init();
@@ -50,8 +57,9 @@ const UserProfileCard = () => {
 
 
     const updateLanguage = (language: string) => {
-        setLanguage(language);
-        api.updateUserInfo({language: language});
+        const normalizedLang = normalizeLanguage(language);
+        setLanguage(normalizedLang);
+        api.updateUserInfo({language: normalizedLang});
     }
 
 
