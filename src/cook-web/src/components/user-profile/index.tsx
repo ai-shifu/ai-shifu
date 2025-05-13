@@ -31,7 +31,12 @@ const UserProfileCard = () => {
     const [language, setLanguage] = useState<string>(i18n.language);
 
     const normalizeLanguage = (lang: string): string => {
-        return lang.replace('_', '-');
+        const supportedLanguages = Object.values(i18n.options.fallbackLng || {}).flat();
+        const normalizedLang = lang.replace('_', '-');
+        if (supportedLanguages.includes(normalizedLang)) {
+            return normalizedLang;
+        }
+        return 'en-US';
     }
 
     const init = async () => {
