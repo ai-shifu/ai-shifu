@@ -416,9 +416,10 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
     }, []);
 
-    const autoSaveBlocks = useCallback((outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string): Promise<void> => {
-        return debounce(saveCurrentBlocks, 3000)(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, scenario_id) || Promise.resolve();
-    }, [saveCurrentBlocks]);
+    const autoSaveBlocks = useCallback(debounce((outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => {
+        return saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, scenario_id);
+    }, 3000), [saveCurrentBlocks]) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
+
 
     const addSiblingOutline = async (item: Outline, name = '') => {
         const id = 'new_chapter'
