@@ -86,7 +86,6 @@ export const CourseSection = ({
         <div className={styles.bottomLine}></div>
       </div>
       <div className={styles.textArea}>
-
         <div className={styles.courseTitle}>{name}</div>
       </div>
     </div>
