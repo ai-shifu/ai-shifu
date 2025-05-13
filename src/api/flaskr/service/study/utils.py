@@ -637,6 +637,10 @@ def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
         .order_by(AILesson.id.desc())
         .first()
     )
+    #If the course has been updated, the history lesson may not be found
+    if not ai_lesson:
+        app.logger.error(f"Lesson not found for script_id: {script_info.script_id}, lesson_id: {script_info.lesson_id}")
+        raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
 
     if ai_lesson.ask_mode != ASK_MODE_DEFAULT:
         ask_model = ai_lesson.ask_model
