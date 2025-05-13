@@ -84,8 +84,8 @@ export interface ScenarioActions {
     replaceOutline: (id: string, outline: Outline) => Promise<void>;
     createUnit: (chapter: Outline) => Promise<void>;
     createSiblingUnit: (chapter: Outline) => Promise<void>;
-    loadBlocks: (outlineId: string) => void;
-    addBlock: (index: number, type: BlockType) => void;
+    loadBlocks: (outlineId: string, scenario_id: string) => void;
+    addBlock: (index: number, type: BlockType, scenario_id: string) => void;
     setBlockContentPropertiesById: (id: string, properties: AIBlockProperties | SolidContentBlockProperties, reset?: boolean) => void;
     setBlockContentTypesById: (id: string, type: string) => void;
     setBlockUIPropertiesById: (id: string, properties: any, reset?: boolean) => void;
@@ -93,10 +93,10 @@ export interface ScenarioActions {
     updateChapterOrder: (chapterIds: string[]) => Promise<void>
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;
-    saveBlocks: () => Promise<void>;
-    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => Promise<void>;
-    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => Promise<void>;
-    removeBlock: (id: string) => Promise<void>;
+    saveBlocks: (scenario_id: string) => Promise<void>;
+    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
+    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
+    removeBlock: (id: string, scenario_id: string) => Promise<void>;
     setCurrentNode: (node: Outline) => void;
     loadModels: () => void;
 }

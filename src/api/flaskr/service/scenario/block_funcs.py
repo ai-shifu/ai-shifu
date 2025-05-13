@@ -19,7 +19,7 @@ from flaskr.service.lesson.const import (
     STATUS_DELETE,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from .utils import change_block_status_to_history, get_original_outline_tree
+from .utils import change_block_status_to_history
 import queue
 from flaskr.dao import redis_client
 
@@ -275,7 +275,7 @@ def save_block_list_internal(
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
     timeout = 5 * 60
     blocking_timeout = 1
-    lock_key = app.config.get("REDIS_KEY_PRRFIX") + ":save_block_list:" + outline_id
+    lock_key = app.config.get("REDIS_KEY_PREFIX") + ":save_block_list:" + outline_id
     lock = redis_client.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
@@ -368,25 +368,36 @@ def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]
 
 def get_block_by_id(app, block_id: str):
     with app.app_context():
-        block = AILessonScript.query.filter(
-            AILessonScript.script_id == block_id,
-            AILessonScript.status == 1,
-        ).first()
+        block = (
+            AILessonScript.query.filter(
+                AILessonScript.script_id == block_id,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
         return block
 
 
 def get_system_block_by_outline_id(app, outline_id: str):
     with app.app_context():
-        block = AILessonScript.query.filter(
-            AILessonScript.lesson_id == outline_id,
-            AILessonScript.status == 1,
-            AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
-        ).first()
+        block = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == outline_id,
+                AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+                AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
         if not block:
-            outline = AILesson.query.filter(
-                AILesson.lesson_id == outline_id,
-                AILesson.status == 1,
-            ).first()
+            outline = (
+                AILesson.query.filter(
+                    AILesson.lesson_id == outline_id,
+                    AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+                )
+                .order_by(AILesson.id.desc())
+                .first()
+            )
             if not outline:
                 raise_error("SCENARIO.OUTLINE_NOT_FOUND")
         return block

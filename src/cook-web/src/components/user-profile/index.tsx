@@ -6,7 +6,9 @@ import Social from "../social";
 import { useEffect, useState } from "react";
 import api from '@/api'
 import { setToken } from "@/local/local";
-
+import { useTranslation } from 'react-i18next';
+import LanguageSelect from '@/components/language-select';
+import i18n from '@/i18n';
 interface UserInfo {
     user_id: string;
     username: string;
@@ -17,26 +19,48 @@ interface UserInfo {
     openid: string;
     language: string;
     avatar: string;
+
+
 }
 
-const userMenuItems: { icon: React.ReactNode, label: string, href: string, id?: string }[] = [
-    { icon: <HeartIcon className="w-4 h-4" />, id: 'follow', label: "关注我们", href: "#" },
-];
 
 
 const UserProfileCard = () => {
+    const { t } = useTranslation();
     const [profile, setProfile] = useState<UserInfo>();
+    const [language, setLanguage] = useState<string>(i18n.language);
     const init = async () => {
         const res = await api.getUserInfo({});
         setProfile(res);
+        setLanguage(res.language);
     }
     useEffect(() => {
         init();
     }, [])
 
+    useEffect(() => {
+        if (language !== i18n.language) {
+            i18n.changeLanguage(language);
+        }
+    }, [language]);
+
     if (!profile) {
         return null;
     }
+
+
+    const updateLanguage = (language: string) => {
+        setLanguage(language);
+        api.updateUserInfo({language: language});
+    }
+
+
+
+
+
+    const userMenuItems: { icon: React.ReactNode, label: string, href: string, id?: string }[] = [
+        { icon: <HeartIcon className="w-4 h-4" />, id: 'follow', label: t('common.follow'), href: "#" },
+    ];
 
     return (
         <Popover>
@@ -104,10 +128,12 @@ const UserProfileCard = () => {
                             >
                                 {item.icon}
                                 <span>{item.label}</span>
+
                             </a>
                         )
 
                     })}
+                    <LanguageSelect  language={language} onSetLanguage={updateLanguage} variant='standard' />
                 </div>
                 <hr />
                 <div
@@ -118,7 +144,7 @@ const UserProfileCard = () => {
                     className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer"
                 >
                     <LogOut className="w-4 h-4" />
-                    <span>退出登录</span>
+                    <span>{t('common.logout')}</span>
                 </div>
             </PopoverContent>
         </Popover>

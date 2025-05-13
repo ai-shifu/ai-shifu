@@ -304,7 +304,7 @@ def update_lesson_info(
     index: int = None,
     lesson_type: int = LESSON_TYPE_NORMAL,
     app_id: str = None,
-    app_secrect: str = None,
+    app_secret: str = None,
     course_id: str = None,
     file_name: str = None,
 ):
@@ -380,8 +380,8 @@ def update_lesson_info(
         kwargs = {}
         if app_id is not None:
             kwargs["app_id"] = app_id
-        if app_secrect is not None:
-            kwargs["app_secrect"] = app_secrect
+        if app_secret is not None:
+            kwargs["app_secret"] = app_secret
         while True:
             if file_name:
                 with open(file_name, "r") as json_file:

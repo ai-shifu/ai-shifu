@@ -12,12 +12,14 @@ import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidPhoneNumber } from '@/lib/validators'
 import { setToken } from '@/local/local'
-
+import { useTranslation } from 'react-i18next';
+import i18n from '@/i18n';
 interface PhoneLoginProps {
   onLoginSuccess: () => void
 }
 
 export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
+
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
@@ -26,15 +28,15 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
   const [termsAccepted, setTermsAccepted] = useState(false)
   const [countdown, setCountdown] = useState(0)
   const [phoneError, setPhoneError] = useState('')
-
+  const { t } = useTranslation();
   const validatePhone = (phone: string) => {
     if (!phone) {
-      setPhoneError('请输入手机号')
+      setPhoneError(t('login.phone-empty'))
       return false
     }
 
     if (!isValidPhoneNumber(phone)) {
-      setPhoneError('请输入有效的手机号')
+      setPhoneError(t('login.phone-error'))
       return false
     }
 
@@ -59,7 +61,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -69,7 +71,8 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
       setIsLoading(true)
 
       const response = await apiService.sendSmsCode({
-        mobile: phoneNumber
+        mobile: phoneNumber,
+        language: i18n.language
       })
       if (response.code==0) {
         setShowOtpInput(true)
@@ -85,20 +88,20 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         }, 1000)
 
         toast({
-          title: '验证码已发送',
-          description: '请查看您的手机短信'
+          title: t('login.otp-sent'),
+          description: t('login.please-check-your-phone-sms')
         })
       } else {
         toast({
-          title: '发送验证码失败',
-          description: response.msg || '请稍后重试',
+          title: t('login.send-otp-failed'),
+          description: response.msg || t('login.network-error'),
           variant: 'destructive'
         })
       }
     } catch (error: any) {
       toast({
-        title: '发送验证码失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.send-otp-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -109,7 +112,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
   const handleVerifyOtp = async () => {
     if (!phoneOtp) {
       toast({
-        title: '请输入验证码',
+        title: t('login.otp-error'),
         variant: 'destructive'
       })
       return
@@ -117,7 +120,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
 
     if (!termsAccepted) {
       toast({
-        title: '请阅读并同意服务协议和隐私政策',
+        title: t('login.terms-error'),
         variant: 'destructive'
       })
       return
@@ -128,33 +131,34 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
 
       const response = await apiService.verifySmsCode({
         mobile: phoneNumber,
-        sms_code: phoneOtp
+        sms_code: phoneOtp,
+        language: i18n.language
       })
 
       if (response.code == 0) {
         toast({
-          title: '登录成功'
+          title: t('login.login-success')
         })
         setToken(response.data.token)
         onLoginSuccess()
       } else if (response.code == 1003) {
         toast({
-          title: '验证失败',
-          description: '验证码已过期',
+          title: t('login.verification-failed'),
+          description: t('login.otp-expired'),
           variant: 'destructive'
         })
       } else {
         toast({
-          title: '验证失败',
-          description: '验证码错误',
+          title: t('login.verification-failed'),
+          description: t('login.otp-error'),
           variant: 'destructive'
         })
       }
 
     } catch (error: any) {
       toast({
-        title: '验证失败',
-        description: error.message || '网络错误，请稍后重试',
+        title: t('login.verification-failed'),
+        description: error.message || t('login.network-error'),
         variant: 'destructive'
       })
     } finally {
@@ -166,11 +170,11 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
     <div className='space-y-4'>
       <div className='space-y-2'>
         <Label htmlFor='phone' className={phoneError ? 'text-red-500' : ''}>
-          手机号
+          {t('login.phone')}
         </Label>
         <Input
           id='phone'
-          placeholder='请输入手机号'
+          placeholder={t('login.phone-placeholder')}
           value={phoneNumber}
           onChange={handlePhoneChange}
           disabled={isLoading}
@@ -185,7 +189,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         <div className='flex-1'>
           <Input
             id='otp'
-            placeholder='请输入验证码'
+            placeholder={t('login.otp-placeholder')}
             value={phoneOtp}
             onChange={e => setPhoneOtp(e.target.value)}
             disabled={isLoading || !showOtpInput}
@@ -199,9 +203,9 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
           {isLoading && !showOtpInput ? (
             <Loader2 className='h-4 w-4 animate-spin mr-2' />
           ) : countdown > 0 ? (
-            `${countdown}秒后重新获取`
+            t('login.seconds-later', { count: countdown })
           ) : (
-            '获取验证码'
+            t('login.get-otp')
           )}
         </Button>
       </div>
@@ -221,7 +225,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
           disabled={isLoading || !phoneOtp}
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-          登录
+          {t('login.login')}
         </Button>
       )}
     </div>

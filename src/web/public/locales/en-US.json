@@ -70,8 +70,11 @@
     "payChannel": "Payment Method",
     "payChannelWechat": "WeChat",
     "payChannelAlipay": "Alipay",
-    "modelServiceAgreement": "《Model Service Agreement》",
-    "userPrivacyPolicy": "《User Privacy Policy》"
+    "modelServiceAgreement": "Model Service Agreement",
+    "userPrivacyPolicy": "User Privacy Policy",
+    "virtualProductDesc": "Notes:",
+    "virtualProductPoint1": "1. By completing this purchase, you acknowledge that you have read and accept {{modelServiceAgreement}} and {{userPrivacyPolicy}}.",
+    "virtualProductPoint2": "2. This purchase is for digital content; once the transaction is finalized, no refunds or transfers will be permitted."
   },
   "groupon": {
     "grouponTitle": "Voucher Code",

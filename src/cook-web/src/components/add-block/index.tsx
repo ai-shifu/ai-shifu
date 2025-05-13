@@ -2,10 +2,11 @@
 import React from 'react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { Plus } from 'lucide-react'
-import { ContentTypes } from '../render-block'
+import { useContentTypes } from '../render-block'
 import { BlockType } from '@/types/scenario'
 
 export default function AddBlock({ onAdd }: { onAdd: (type: BlockType) => void }) {
+    const contentTypes = useContentTypes()
     return (
         <DropdownMenu>
             <DropdownMenuTrigger>
@@ -15,7 +16,7 @@ export default function AddBlock({ onAdd }: { onAdd: (type: BlockType) => void }
             </DropdownMenuTrigger>
             <DropdownMenuContent align='start' side='bottom' alignOffset={-5}>
                 {
-                    ContentTypes.map((item) => {
+                    contentTypes.map((item) => {
                         return (
                             <DropdownMenuItem key={item.type} onClick={() => onAdd(item.type as BlockType)}>
                                 <span className='text-sm'>{item.name}</span>

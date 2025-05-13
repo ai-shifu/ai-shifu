@@ -10,6 +10,7 @@ from langchain.prompts import PromptTemplate
 from flaskr.service.common import raise_error
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.study.utils import make_script_dto_to_stream
+from flaskr.service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 
 
 def format_script_prompt(script_prompt: str, script_variables: dict) -> str:
@@ -60,10 +61,14 @@ def debug_script(
             trace_args["name"] = "debug"
             trace = langfuse_client.trace(**trace_args)
             app.logger.info(f"debug_script {block_id} ")
-            model_setting = get_model_setting(app, block_info)
+            model_setting = get_model_setting(
+                app, block_info, [STATUS_PUBLISH, STATUS_DRAFT]
+            )
             app.logger.info(f"model_setting: {model_setting}")
             app.logger.info(f"block_model: {block_model}")
             app.logger.info(f"block_temperature: {block_temperature}")
+            app.logger.info(f"block_variables: {block_variables}")
+            app.logger.info(f"block_other_conf: {block_other_conf}")
             if not block_model or not block_model.strip():
                 block_model = model_setting.model_name
             if block_temperature is None:

@@ -20,7 +20,7 @@ from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPE_SYSTEM,
-    SCRIPT_TYPE_PORMPT,
+    SCRIPT_TYPE_PROMPT,
     UI_TYPE_BUTTON,
     UI_TYPE_LOGIN,
     UI_TYPE_PHONE,
@@ -125,7 +125,7 @@ def update_block_model(
     block_model.script_ui_content = ""
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
-            block_model.script_type = SCRIPT_TYPE_PORMPT
+            block_model.script_type = SCRIPT_TYPE_PROMPT
             block_model.script_prompt = block_dto.block_content.prompt
             if block_dto.block_content.profiles:
                 block_model.script_profile = (
@@ -301,7 +301,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
             block.script_prompt, get_profiles(block.script_profile)
         )
         ret.block_type = "solid"
-    elif block.script_type == SCRIPT_TYPE_PORMPT:
+    elif block.script_type == SCRIPT_TYPE_PROMPT:
         ret.block_content = AIDto(
             prompt=block.script_prompt,
             profiles=get_profiles(block.script_profile),

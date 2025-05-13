@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { debounce } from 'lodash';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
-
+import { useTranslation } from 'react-i18next';
 interface InlineInputProps {
   isEdit?: boolean;
   value: string;
@@ -12,6 +12,7 @@ interface InlineInputProps {
 }
 
 export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value, onChange, className, onFocus }) => {
+  const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,9 +45,9 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
       if (value === "") {
         return;
       }
-      onChange(value || "未命名");
+      onChange(value || t('inline-input.unnamed'));
     }, 300),
-    [onChange]
+    [onChange, t]
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +64,6 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
-      console.log('enter', inputValue)
       debouncedOnChange(inputValue);
     }
   };

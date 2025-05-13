@@ -11,12 +11,17 @@ from flaskr.service.order.consts import (
     BUY_STATUS_SUCCESS,
     BUY_STATUS_TO_BE_PAID,
     BUY_STATUS_VALUES,
+    BUY_STATUS_TIMEOUT,
     DISCOUNT_TYPE_FIXED,
     DISCOUNT_TYPE_PERCENT,
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import User, UserConversion
-from flaskr.service.active import query_active_record, query_and_join_active
+from flaskr.service.active import (
+    query_active_record,
+    query_and_join_active,
+    query_to_failure_active,
+)
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.api.doc.feishu import send_notify
@@ -32,6 +37,7 @@ from ...util.uuid import generate_id as get_uuid
 from ..lesson.const import LESSON_TYPE_TRIAL
 from .pingxx_order import create_pingxx_order
 from .models import Discount
+import pytz
 
 
 @register_schema_to_swagger
@@ -174,8 +180,37 @@ def send_order_feishu(app: Flask, record_id: str):
     send_notify(app, title, msgs)
 
 
+def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
+    pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME")
+    if pay_order_expire_time is None:
+        return False
+    pay_order_expire_time = int(pay_order_expire_time)
+
+    bj_time = pytz.timezone("Asia/Shanghai")
+    aware_created = bj_time.localize(origin_record.created)
+    created_timestamp = int(aware_created.timestamp())
+    current_timestamp = int(datetime.datetime.now().timestamp())
+
+    if current_timestamp > (created_timestamp + pay_order_expire_time):
+        # Order timeout
+        # Update the order status
+        origin_record.status = BUY_STATUS_TIMEOUT
+        db.session.commit()
+        # Check if there are any coupons in the order. If there are, make them failure
+        query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
+        # Check if there are discount coupons in the order. If there are, rollback the discount coupons
+        from .discount import timeout_discount_code_rollback
+
+        timeout_discount_code_rollback(
+            app, origin_record.user_id, origin_record.record_id
+        )
+        return True
+    return False
+
+
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
+        order_timeout_make_new_order = False
         course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         if not course_info:
             raise_error("LESSON.COURSE_NOT_FOUND")
@@ -183,18 +218,23 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             AICourseBuyRecord.query.filter(
                 AICourseBuyRecord.user_id == user_id,
                 AICourseBuyRecord.course_id == course_id,
+                AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
             )
             .order_by(AICourseBuyRecord.id.asc())
             .first()
         )
-        if origin_record and active_id is None:
-            return query_buy_record(app, origin_record.record_id)
         if origin_record:
-            buy_record = origin_record
-            order_id = origin_record.record_id
+            order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
         else:
+            order_timeout_make_new_order = True
+
+        if (not order_timeout_make_new_order) and origin_record and active_id is None:
+            return query_buy_record(app, origin_record.record_id)
+
+        order_id = str(get_uuid(app))
+
+        if order_timeout_make_new_order:
             buy_record = AICourseBuyRecord()
-            order_id = str(get_uuid(app))
             buy_record.user_id = user_id
             buy_record.course_id = course_id
             buy_record.price = course_info.course_price
@@ -202,6 +242,9 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record.record_id = order_id
             buy_record.discount_value = decimal.Decimal(0.00)
             buy_record.pay_value = course_info.course_price
+        else:
+            buy_record = origin_record
+            order_id = origin_record.record_id
 
         active_records = query_and_join_active(
             app, course_id, user_id, order_id, active_id
@@ -275,7 +318,8 @@ def generate_charge(
         )
 
         buy_record = AICourseBuyRecord.query.filter(
-            AICourseBuyRecord.record_id == record_id
+            AICourseBuyRecord.record_id == record_id,
+            AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
         ).first()
         if not buy_record:
             raise_error("ORDER.ORDER_NOT_FOUND")

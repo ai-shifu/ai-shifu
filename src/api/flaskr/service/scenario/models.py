@@ -50,3 +50,30 @@ class ScenarioResource(db.Model):
     created_at = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
     )
+
+
+class AiCourseAuth(db.Model):
+    __tablename__ = "ai_course_auth"
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    course_auth_id = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="course_auth_id UUID",
+        index=True,
+    )
+    course_id = Column(String(36), nullable=False, default="", comment="course_id UUID")
+    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
+    # 1 read 2 write 3 delete 4 publish
+    auth_type = Column(String(255), nullable=False, default="[]", comment="auth_info")
+    status = Column(Integer, nullable=False, default=0, comment="Status")
+    created_at = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated_at = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )

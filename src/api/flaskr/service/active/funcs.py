@@ -6,7 +6,11 @@ from ...dao import db
 from .models import Active, ActiveUserRecord
 from ...util import generate_id
 from ..common import raise_error
-from flaskr.service.active.consts import ACTIVE_JOIN_TYPE_AUTO
+from flaskr.service.active.consts import (
+    ACTIVE_JOIN_TYPE_AUTO,
+    ACTIVE_JOIN_STATUS_ENABLE,
+    ACTIVE_JOIN_STATUS_FAILURE,
+)
 
 
 def save_active(
@@ -64,6 +68,19 @@ def create_active_user_record(
     return active_user_record
 
 
+def query_to_failure_active(app, user_id, order_id):
+    with app.app_context():
+        ActiveUserRecord.query.filter(
+            ActiveUserRecord.order_id == order_id,
+            ActiveUserRecord.user_id == user_id,
+            ActiveUserRecord.status == ACTIVE_JOIN_STATUS_ENABLE,
+        ).update(
+            {ActiveUserRecord.status: ACTIVE_JOIN_STATUS_FAILURE},
+            synchronize_session="fetch",
+        )
+        db.session.commit()
+
+
 # query active and join active
 def query_and_join_active(
     app, course_id, user_id, order_id, active_id=None
@@ -102,6 +119,7 @@ def query_and_join_active(
         active_user_record = ActiveUserRecord.query.filter(
             ActiveUserRecord.active_id == active_info.active_id,
             ActiveUserRecord.user_id == user_id,
+            ActiveUserRecord.status == ACTIVE_JOIN_STATUS_ENABLE,
         ).first()
         if active_user_record:
             active_user_records.append(active_user_record)
@@ -113,7 +131,7 @@ def query_and_join_active(
                     user_id,
                     active_info.active_price,
                     order_id,
-                    0,
+                    ACTIVE_JOIN_STATUS_ENABLE,
                     active_info.active_name,
                 )
             )
@@ -135,7 +153,7 @@ def join_active(app, active_id, user_id, order_id):
         user_id,
         active_info.active_price,
         order_id,
-        0,
+        ACTIVE_JOIN_STATUS_ENABLE,
         active_info.active_name,
     )
     return active_user_record

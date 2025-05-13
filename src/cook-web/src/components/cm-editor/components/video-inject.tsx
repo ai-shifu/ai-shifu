@@ -2,20 +2,25 @@
 import Button from '@/components/button'
 import { Input } from '@/components/ui/input'
 import React, { useState, useRef, useEffect } from 'react'
-
+import { useTranslation } from 'react-i18next'
 type VideoInjectProps = {
+  value?: string
   onSelect: (resourceUrl: string) => void
 }
 
-const VideoInject: React.FC<VideoInjectProps> = ({ onSelect }) => {
-  const [inputUrl, setInputUrl] = useState('')
+const biliVideoUrlRegexp =
+  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+)/g
+
+const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
+  const { t } = useTranslation();
+  const [inputUrl, setInputUrl] = useState<string>(value || '')
   const [embedUrl, setEmbedUrl] = useState('')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const lastUrlRef = useRef('')
   const [errorTips, setErrorTips] = useState('')
 
   const isValidBilibiliUrl = (url: string) => {
-    return /^(https?:\/\/)?(www\.)?bilibili\.com\/video\/[a-zA-Z0-9]+/.test(url)
+    return biliVideoUrlRegexp.test(url)
   }
 
   const generateEmbedUrl = (url: string) => {
@@ -25,7 +30,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ onSelect }) => {
 
   const handleRun = () => {
     if (!isValidBilibiliUrl(inputUrl)) {
-      setErrorTips('⚠️ 请输入有效的B站视频地址')
+      setErrorTips(t('common.please-input-valid-bilibili-url'))
       return
     }
 
@@ -41,8 +46,14 @@ const VideoInject: React.FC<VideoInjectProps> = ({ onSelect }) => {
   }
 
   const handleSelect = () => {
-    if (embedUrl) {
-      onSelect(embedUrl)
+    if (inputUrl) {
+      try {
+        const returnUrlObj = new URL(inputUrl)
+        onSelect(returnUrlObj.origin + returnUrlObj.pathname)
+      } catch (error) {
+        console.log('error', error)
+        onSelect(inputUrl)
+      }
     }
   }
 
@@ -63,13 +74,13 @@ const VideoInject: React.FC<VideoInjectProps> = ({ onSelect }) => {
           type='text'
           value={inputUrl}
           onChange={e => setInputUrl(e.target.value?.trim())}
-          placeholder='请输入B站视频地址'
+          placeholder={t('common.please-input-bilibili-url')}
           autoComplete='off'
         />
         <Button className='h-8' onClick={handleRun}>
-          运行
+          {t('common.run')}
         </Button>
-        {embedUrl && <Button className='h-8' onClick={handleSelect}>使用资源</Button>}
+        {embedUrl && <Button className='h-8' onClick={handleSelect}>{t('common.use-resource')}</Button>}
       </div>
       {!!errorTips && <div>{errorTips}</div>}
 
@@ -97,5 +108,5 @@ const VideoInject: React.FC<VideoInjectProps> = ({ onSelect }) => {
     </div>
   )
 }
-
+export { biliVideoUrlRegexp }
 export default VideoInject

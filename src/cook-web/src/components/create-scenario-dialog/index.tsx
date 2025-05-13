@@ -19,28 +19,36 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from 'react-i18next';
 
-const formSchema = z.object({
-    scenario_name: z.string()
-        .min(1, "请输入剧本名称")
-        .max(20, "剧本名称不能超过20个字符"),
-    scenario_description: z.string()
-        .max(500, "剧本描述不能超过500个字符")
-        .optional(),
-    scenario_image: z.string().default(""),
-});
 
+interface FormSchema {
+    scenario_name: string;
+    scenario_description: string;
+    scenario_image: string;
+}
 interface CreateScenarioDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onSubmit: (values: z.infer<typeof formSchema>) => Promise<void>;
+    onSubmit: (values: FormSchema) => Promise<void>;
 }
-
 export const CreateScenarioDialog = ({
     open,
     onOpenChange,
     onSubmit
 }: CreateScenarioDialogProps) => {
+    const { t } = useTranslation();
+
+    const formSchema = z.object({
+            scenario_name: z.string()
+                .min(1, t('create-scenario-dialog.scenario-name-cannot-be-empty'))
+                .max(20, t('create-scenario-dialog.scenario-name-cannot-exceed-20-characters')),
+            scenario_description: z.string()
+                .max(500, t('create-scenario-dialog.scenario-description-cannot-exceed-500-characters'))
+            .optional(),
+        scenario_image: z.string().default(""),
+    });
+
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -50,7 +58,7 @@ export const CreateScenarioDialog = ({
         },
     });
 
-    const handleSubmit = async (values: z.infer<typeof formSchema>) => {
+    const handleSubmit = async (values) => {
         await onSubmit(values);
         // form.reset();
     };
@@ -66,7 +74,7 @@ export const CreateScenarioDialog = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>新建空白剧本</DialogTitle>
+                    <DialogTitle>{t('create-scenario-dialog.create-blank-scenario')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
@@ -79,9 +87,9 @@ export const CreateScenarioDialog = ({
                                         style={{
                                             color: "#000000"
                                         }}
-                                    >剧本名称</FormLabel>
+                                    >{t('create-scenario-dialog.scenario-name')}</FormLabel>
                                     <FormControl>
-                                        <Input autoComplete='off' placeholder="请输入剧本名称" {...field} />
+                                        <Input autoComplete='off' placeholder={t('create-scenario-dialog.please-input-scenario-name')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -96,9 +104,9 @@ export const CreateScenarioDialog = ({
                                         style={{
                                             color: "#000000"
                                         }}
-                                    >剧本描述</FormLabel>
+                                    >{t('create-scenario-dialog.scenario-description')}</FormLabel>
                                     <FormControl>
-                                        <Textarea autoComplete='off' placeholder="请输入剧本描述" {...field} />
+                                        <Textarea autoComplete='off' placeholder={t('create-scenario-dialog.please-input-scenario-description')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -106,7 +114,7 @@ export const CreateScenarioDialog = ({
                         />
                         <div className="flex justify-end">
                             <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? "创建中..." : "创建"}
+                                {form.formState.isSubmitting ? t('create-scenario-dialog.creating') : t('create-scenario-dialog.create')}
                             </Button>
                         </div>
                     </form>

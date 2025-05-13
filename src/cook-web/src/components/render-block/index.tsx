@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Check, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-
+import { useTranslation } from 'react-i18next';
 
 const BlockMap = {
     ai: AI,
@@ -14,12 +14,13 @@ const BlockMap = {
 }
 
 export const RenderBlockContent = ({ id, type, properties }) => {
-    const { actions, blocks, blockContentTypes, blockContentState, currentNode, blockUITypes, blockContentProperties, blockUIProperties } = useScenario();
+    const { t } = useTranslation();
+    const { actions, blocks, blockContentTypes, blockContentState, currentNode, blockUITypes, blockContentProperties, blockUIProperties, currentScenario } = useScenario();
     const [error, setError] = useState('')
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+    const ContentTypes = useContentTypes()
 
     const onPropertiesChange = async (properties) => {
-        console.log(id, properties)
         await actions.setBlockContentPropertiesById(id, properties)
         const p = {
             ...blockContentProperties,
@@ -30,14 +31,14 @@ export const RenderBlockContent = ({ id, type, properties }) => {
         }
         setError('')
         if (type == 'ai' && properties.prompt == '') {
-            setError('内容不能为空')
+            setError(t('render-block.ai-content-empty'))
             return;
         } else if (type == 'solidcontent' && properties.content == '') {
-            setError('内容不能为空')
+            setError(t('render-block.solid-content-empty'))
             return;
         }
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, p, blockUITypes, blockUIProperties)
+            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, p, blockUITypes, blockUIProperties, currentScenario?.id || '')
         }
     }
 
@@ -54,21 +55,22 @@ export const RenderBlockContent = ({ id, type, properties }) => {
         // check if the block is empty
         const block = blocks.find((item) => item.properties.block_id == id);
         if (type == 'ai' && block && properties.prompt == '') {
-            setError('内容不能为空')
+            setError(t('render-block.ai-content-empty'))
             return;
         } else if (type == 'solidcontent' && block && properties.content == '') {
-            setError('内容不能为空')
+            setError(t('render-block.solid-content-empty'))
             return;
         }
         setIsEdit(false)
-        await actions.saveBlocks();
+        await actions.saveBlocks(currentScenario?.id || '');
     }
     const onRemove = async () => {
         setShowDeleteDialog(true)
     }
 
     const handleConfirmDelete = async () => {
-        await actions.removeBlock(id);
+        if (!currentNode?.id) return;
+        await actions.removeBlock(id, currentScenario?.id || '');
         setShowDeleteDialog(false)
     }
 
@@ -84,7 +86,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
                             onValueChange={onContentTypeChange.bind(null, id)}
                         >
                             <SelectTrigger className="h-8 w-[120px]">
-                                <SelectValue placeholder="请选择" />
+                                <SelectValue placeholder={t('render-block.select-content-type')} />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
@@ -104,7 +106,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
                             </div>
                             <div className='h-4 border-r border-[#D8D8D8] mx-1'></div>
                             <div className='flex flex-row items-center cursor-pointer px-2 ' onClick={onSave} >
-                                <Check className='h-5 w-5 text-primary mr-2 shrink-0' />完成
+                                <Check className='h-5 w-5 text-primary mr-2 shrink-0' />{t('render-block.complete')}
                             </div>
                         </div>
                     </div>
@@ -129,14 +131,14 @@ export const RenderBlockContent = ({ id, type, properties }) => {
             <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>确认删除</AlertDialogTitle>
+                        <AlertDialogTitle>{t('render-block.confirm-delete')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            您的操作将会造成当前内容的丢失，是否确认？
+                            {t('render-block.confirm-delete-description')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>确认</AlertDialogAction>
+                        <AlertDialogCancel>{t('render-block.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDelete}>{t('render-block.confirm')}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -146,24 +148,28 @@ export const RenderBlockContent = ({ id, type, properties }) => {
 
 export default RenderBlockContent;
 
-export const ContentTypes = [
+export const useContentTypes = () =>
     {
-        type: 'ai',
-        name: 'AI块',
-        properties: {
+        const { t } = useTranslation();
+        return [
+            {
+                type: 'ai',
+                name: t('render-block.ai-content'),
+                properties: {
             "prompt": "",
             "profiles": [],
             "model": "",
             "temprature": "0.40",
             "other_conf": ""
-        }
-    },
-    {
-        type: 'solidcontent',
-        name: '固定内容',
-        properties: {
-            "content": "",
-            "profiles": [],
-        }
-    }
-]
+            }
+        },
+        {
+            type: 'solidcontent',
+            name: t('render-block.solid-content'),
+            properties: {
+                "content": "",
+                "profiles": [],
+            }
+            }
+        ]
+}

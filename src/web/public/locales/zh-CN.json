@@ -71,7 +71,10 @@
     "paySuccess": "支付成功",
     "protocolDesc": "购买即表示已阅读并同意以下协议",
     "modelServiceAgreement": "《模型服务协议》",
-    "userPrivacyPolicy": "《用户隐私协议》"
+    "userPrivacyPolicy": "《用户隐私协议》",
+    "virtualProductDesc": "说明：",
+    "virtualProductPoint1": "1. 购买即表示已阅读并同意{{modelServiceAgreement}}和{{userPrivacyPolicy}}。",
+    "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。"
   },
   "groupon": {
     "grouponTitle": "兑换码",

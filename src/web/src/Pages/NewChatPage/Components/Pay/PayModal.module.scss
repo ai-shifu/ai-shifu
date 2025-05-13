@@ -156,6 +156,30 @@
       }
     }
 
+    .virtualProductDesc {
+      margin: 20px auto 0;
+      width: 80%;
+      padding: 15px;
+      background-color: rgba(var(--color-1-rgb), 0.05);
+      border-radius: 10px;
+      font-size: var(--font-size-5);
+      color: var(--color-8);
+
+      .descTitle {
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .descPoint {
+        margin-bottom: 8px;
+        line-height: 1.5;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+
   }
 }
 

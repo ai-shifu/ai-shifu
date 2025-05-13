@@ -1,12 +1,12 @@
 # INSTALL FROM SOURCE CODE STEP BY STEP
 ## Prerequisites
 ### Concept
-Firstly, look at the source code sturcture:
+Firstly, look at the source code structure:
 ```
 $ ls
 api cook web
 ```
-AI Shifu is composed by backend in api and frontend in web. and the cook is the editor for the course.
+AI Shifu is composed of backend in `api` and frontend in `web`. And `cook` is the editor for the course.
 So, we can
 
 ### Tools
@@ -101,7 +101,7 @@ LANGFUSE_PUBLIC_KEY=""
 LANGFUSE_SECRET_KEY=""
 LANGFUSE_HOST=""
 
-# (Optional) Netease YIDUN settings for content detection
+# (Optional) NetEase YIDUN settings for content detection
 NETEASE_YIDUN_SECRET_ID=""
 NETEASE_YIDUN_SECRET_KEY=""
 NETEASE_YIDUN_BUSINESS_ID=""
@@ -113,7 +113,7 @@ LARK_APP_SECRET=""
 ... skip code ...
 
 # Path of log file
-LOGGING_PATH="/var/log/ai-shifu.log"  # make sure you have the permission to write the file
+LOGGING_PATH="/var/log/ai-shifu.log"  # make sure you have the permission to write to the file
 
 # Website access domain name
 WEB_URL=""
@@ -187,4 +187,4 @@ streamlit  run Home.py
 ```
 
 ## Step 6: Access the application
-Go to the browser and have fun!              
+Go to the browser and have fun!

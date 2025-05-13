@@ -1,9 +1,9 @@
-from ...dao import db
+from ...dao import redis_client as redis, db
 from datetime import datetime
 from .dtos import ScenarioDto, ScenarioDetailDto
 from ..lesson.models import AICourse, AILesson, AILessonScript
 from ...util.uuid import generate_id
-from .models import FavoriteScenario
+from .models import FavoriteScenario, AiCourseAuth
 from ..common.dtos import PageNationDTO
 from ...service.lesson.const import (
     STATUS_PUBLISH,
@@ -19,6 +19,7 @@ from ...service.resource.models import Resource
 from .utils import get_existing_outlines_for_publish, get_existing_blocks_for_publish
 import oss2
 import uuid
+import json
 
 
 def get_raw_scenario_list(
@@ -523,3 +524,53 @@ def save_scenario_detail(
                 get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
             )
         raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+
+
+def scenario_permission_verification(
+    app,
+    user_id: str,
+    scenario_id: str,
+    auth_type: str,
+):
+    with app.app_context():
+        cache_key = (
+            get_config("REDIS_KEY_PREFIX", "ai-shifu:")
+            + "scenario_permission:"
+            + user_id
+            + ":"
+            + scenario_id
+        )
+        cache_key_expire = int(get_config("SCENARIO_PERMISSION_CACHE_EXPIRE", "1"))
+        cache_result = redis.get(cache_key)
+        if cache_result is not None:
+            try:
+                cached_auth_types = json.loads(cache_result)
+                return auth_type in cached_auth_types
+            except (json.JSONDecodeError, TypeError):
+                redis.delete(cache_key)
+        # If it is not in the cache, query the database
+        scenario = AICourse.query.filter(
+            AICourse.course_id == scenario_id, AICourse.created_user_id == user_id
+        ).first()
+        if scenario:
+            # The creator has all the permissions
+            # Cache all permissions
+            all_auth_types = ["view", "edit", "publish"]
+            redis.set(cache_key, json.dumps(all_auth_types), cache_key_expire)
+            return True
+        else:
+            # Collaborators need to verify specific permissions
+            auth = AiCourseAuth.query.filter(
+                AiCourseAuth.course_id == scenario_id, AiCourseAuth.user_id == user_id
+            ).first()
+            if auth:
+                try:
+                    auth_types = json.loads(auth.auth_type)
+                    # Check whether the passed-in auth_type is in the array
+                    result = auth_type in auth_types
+                    redis.set(cache_key, auth.auth_type, cache_key_expire)
+                    return result
+                except (json.JSONDecodeError, TypeError):
+                    return False
+            else:
+                return False

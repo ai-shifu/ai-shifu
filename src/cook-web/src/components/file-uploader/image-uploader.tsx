@@ -8,17 +8,24 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { uploadFile } from '@/lib/file'
-import { getSiteHost } from "@/config/runtime-config";
+import { getSiteHost } from '@/config/runtime-config'
+import { useToast } from '@/hooks/use-toast'
+import { useTranslation } from 'react-i18next';
+
 
 type ImageUploaderProps = {
   value?: string
   onChange?: (value: string) => void
 }
 
+const agiImgUrlRegexp =
+  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/g
+
 const ImageUploader:React.FC<ImageUploaderProps> = ({
   value,
   onChange,
 }) => {
+  const { t } = useTranslation();
   const [imageUrl, setImageUrl] = useState<string>(value ||'')
   const [inputUrl, setInputUrl] = useState<string>('')
   const [isUploading, setIsUploading] = useState<boolean>(false)
@@ -26,6 +33,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const siteHost = getSiteHost()
+  const { toast } = useToast()
 
   const resetState = () => {
     setImageUrl('')
@@ -50,7 +58,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       )
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`)
+        throw new Error(`${t('file-uploader.upload-failed')}: ${response.statusText}`)
       }
 
       const res = await response.json()
@@ -59,7 +67,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       }
 
       if (!response.ok) {
-        throw new Error('Upload failed')
+        throw new Error(t('file-uploader.upload-failed'))
       }
 
       setImageUrl(res.data)
@@ -68,7 +76,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       img.src = res.data
     } catch (error) {
       console.error('Error uploading image:', error)
-      alert('Failed to upload image')
+      alert(t('file-uploader.failed-to-upload-image'))
     } finally {
       setIsUploading(false)
     }
@@ -76,6 +84,20 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   const handleUrlUpload = async () => {
     if (!inputUrl) return
+    if (!agiImgUrlRegexp.test(inputUrl)) {
+      try {
+        const response = await fetch(inputUrl)
+        const blob = await response.blob()
+        const file = new File([blob], 'image.jpg', { type: blob.type })
+        await uploadImage(file)
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        toast({
+          title: t('file-uploader.failed-to-upload-image')
+        })
+      }
+      return
+    }
     const urlParts = inputUrl.split('/')
     setFileName(urlParts[urlParts.length - 1])
     setImageUrl(inputUrl)
@@ -103,17 +125,17 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   useEffect(() => {
     onChange?.(imageUrl)
-  },[imageUrl])
+  }, [imageUrl])
 
   return (
     <div className='space-y-6'>
       {!imageUrl ? (
         <>
           <div className='text-xs'>
-            <h2 className='font-bold mb-4'>URL</h2>
+            <h2 className='font-bold mb-4'>{t('file-uploader.url')}</h2>
             <div className='flex gap-2'>
               <Input
-                placeholder='粘贴或输入图片 URL'
+                placeholder={t('file-uploader.paste-or-input-image-url')}
                 value={inputUrl}
                 onChange={e => setInputUrl(e.target.value)}
                 className='flex-1'
@@ -123,13 +145,13 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
                 disabled={isUploading || !inputUrl}
                 className='w-24 h-8'
               >
-                运行
+                {t('file-uploader.run')}
               </Button>
             </div>
           </div>
 
           <div>
-            <h2 className='font-bold mb-4'>上传</h2>
+            <h2 className='font-bold mb-4'>{t('file-uploader.upload')}</h2>
             <Card
               className='border-dashed border-2 text-center flex flex-col items-center justify-center min-h-[200px] p-2'
               onDrop={handleDrop}
@@ -144,7 +166,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
                     ></div>
                   </div>
                   <p className='text-xs text-gray-500 mt-1 text-center'>
-                    上传中 {uploadProgress}%
+                    {t('file-uploader.uploading')} {uploadProgress}%
                   </p>
                 </div>
               ) : (
@@ -158,16 +180,16 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
                   />
                   <Upload className='h-10 w-10 text-gray-400 mb-4' />
                   <div className='mb-2'>
-                    拖动文件或者
+                    {t('file-uploader.drag-file-or-click-to-upload')}
                     <button
                       className='text-blue-600 hover:underline'
                       onClick={() => fileInputRef.current?.click()}
                     >
-                      点击上传
+                      {t('file-uploader.click-to-upload')}
                     </button>
                   </div>
                   <p className='text-gray-500'>
-                    提示：您还可以将图片拖动或粘贴到卡片中的任意位置
+                    {t('file-uploader.tips')}
                   </p>
                 </>
               )}
@@ -187,12 +209,12 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
               className='w-full py-6 text-lg'
               onClick={resetState}
             >
-              替换图片
+              {t('file-uploader.replace-image')}
             </Button>
         </div>
       )}
     </div>
   )
 }
-
+export { agiImgUrlRegexp }
 export default ImageUploader

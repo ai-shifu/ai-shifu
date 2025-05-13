@@ -36,6 +36,7 @@ from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.user.models import User
 from flaskr.framework import extensible
+from ...service.lesson.const import STATUS_PUBLISH
 
 
 def get_current_lesson(
@@ -712,7 +713,11 @@ class ModelSetting:
         return {"model_name": self.model_name, "model_args": self.model_args}
 
 
-def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
+def get_model_setting(
+    app: Flask, script_info: AILessonScript, status: list[int] = None
+) -> ModelSetting:
+    if status is None:
+        status = [STATUS_PUBLISH]
     if script_info.script_model and script_info.script_model.strip():
         return ModelSetting(
             script_info.script_model, {"temperature": script_info.script_temprature}
@@ -720,7 +725,7 @@ def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
     ai_lesson = (
         AILesson.query.filter(
             AILesson.lesson_id == script_info.lesson_id,
-            AILesson.status == 1,
+            AILesson.status.in_(status),
         )
         .order_by(AILesson.id.desc())
         .first()
@@ -737,7 +742,7 @@ def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
     ai_course = (
         AICourse.query.filter(
             AICourse.course_id == ai_lesson.course_id,
-            AICourse.status == 1,
+            AICourse.status.in_(status),
         )
         .order_by(AICourse.id.desc())
         .first()

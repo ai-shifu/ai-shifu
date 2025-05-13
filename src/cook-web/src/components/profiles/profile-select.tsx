@@ -10,20 +10,23 @@ import ProfileSave from './profile-save'
 import api from '@/api'
 import useProfiles from './useProfiles'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-
+import { useTranslation } from 'react-i18next';
 interface ProfileSelectProps {
+  value?: string
   parentId?: string
   onSelect?: (profile: Profile) => void
 }
 
 const ProfileSelect: React.FC<ProfileSelectProps> = ({
+  value,
   parentId,
   onSelect = () => {}
 }) => {
+  const { t } = useTranslation();
   const [saveOpen, setSaveOpen] = useState<boolean>(false)
   const [editingProfile, setEditingProfile] = useState<Profile | undefined>()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
+  const [searchTerm, setSearchTerm] = useState(value || '')
   const [refreshFlag, setRefreshFlag] = useState(0)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteProfileId, setDeleteProfileId] = useState<string | null>(null)
@@ -69,7 +72,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
     <div className='space-y-4 text-xs'>
       <div className='relative'>
         <Input
-          placeholder='搜索变量...'
+          placeholder={t('profiles-manage.search-variable')}
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           className='w-full'
@@ -90,7 +93,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
           {!!systemProfiles?.length && (
             <div>
               <h4 className='mb-2 text-sm font-medium text-muted-foreground'>
-                系统变量
+                {t('profiles.system-variable')}
               </h4>
               <div className='space-y-1'>
                 {systemProfiles?.map(profile => (
@@ -113,7 +116,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                     </div>
                     <div className='flex items-center'>
                       <span className='text-xs text-muted-foreground mr-2'>
-                        {profile.profile_type === 'text' ? '字符串' : '枚举'}
+                        {profile.profile_type === 'text' ? t('profiles-manage.text') : t('profiles-manage.enum')}
                       </span>
                     </div>
                   </div>
@@ -124,7 +127,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
           {!!customProfiles?.length && (
             <div>
               <h4 className='mb-2 text-sm font-medium text-muted-foreground'>
-                自定义变量
+                {t('profiles.custom-variable')}
               </h4>
               <div className='space-y-1'>
                 {customProfiles?.map(profile => (
@@ -144,7 +147,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                           profile.profile_type === 'text' &&
                           profile.defaultValue && (
                             <span className='text-xs text-muted-foreground ml-2 bg-muted px-1.5 py-0.5 rounded'>
-                              默认值: {profile.defaultValue}
+                              {t('profiles.default-value')}: {profile.defaultValue}
                             </span>
                           )}
                       </div>
@@ -156,7 +159,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                     </div>
                     <div className='flex items-center'>
                       <span className='text-xs text-muted-foreground mr-2'>
-                        {profile.profile_type === 'text' ? '字符串' : '枚举'}
+                        {profile.profile_type === 'text' ? t('profiles-manage.text') : t('profiles-manage.enum')}
                       </span>
 
                       {hoveredId === profile.profile_id ? (
@@ -199,7 +202,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
 
           {!systemProfiles?.length && !customProfiles?.length && (
             <div className='py-6 text-center text-muted-foreground'>
-              未找到变量
+              {t('profiles.no-variable-found')}
             </div>
           )}
         </div>
@@ -210,7 +213,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
         onClick={() => handleSaveProfile(false)}
       >
         <Plus className='h-4 w-4' />
-        添加新变量
+        {t('profiles.add-new-variable')}
       </Button>
       <ProfileSave
         parentId={parentId}
@@ -223,14 +226,14 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认删除</AlertDialogTitle>
+            <AlertDialogTitle>{t('profiles.confirm-delete')}</AlertDialogTitle>
             <AlertDialogDescription>
-              您的操作将会造成当前内容的丢失，是否确认？
+              {t('profiles.confirm-delete-description')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete}>确认</AlertDialogAction>
+            <AlertDialogCancel>{t('profiles.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete}>{t('profiles.confirm')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

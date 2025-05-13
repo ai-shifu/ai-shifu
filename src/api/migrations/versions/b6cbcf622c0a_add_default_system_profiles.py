@@ -8,7 +8,6 @@ Create Date: 2025-04-25 06:00:44.318139
 
 from alembic import op
 import sqlalchemy as sa
-
 from flaskr.service.profile.profile_manage import save_profile_item, add_profile_i18n
 from flaskr.service.profile.models import (
     PROFILE_TYPE_INPUT_TEXT,
@@ -16,7 +15,6 @@ from flaskr.service.profile.models import (
     PROFILE_CONF_TYPE_PROFILE,
     PROFILE_SHOW_TYPE_HIDDEN,
 )
-from flask import Flask
 
 # revision identifiers, used by Alembic.
 revision = "b6cbcf622c0a"
@@ -26,6 +24,12 @@ depends_on = None
 
 
 def upgrade():
+    with op.batch_alter_table("profile_item", schema=None) as batch_op:
+        batch_op.drop_column("profile_color")
+        batch_op.drop_column("profile_check_prompt")
+        batch_op.drop_column("profile_check_model")
+        batch_op.drop_column("profile_check_model_args")
+
     from flask import current_app as app
 
     with app.app_context():
@@ -217,4 +221,31 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    with op.batch_alter_table("profile_item", schema=None) as batch_op:
+        batch_op.add_column(
+            sa.Column(
+                "profile_color",
+                sa.String(length=255),
+                nullable=False,
+                comment="Profile color",
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "profile_check_prompt",
+                sa.Text(),
+                nullable=False,
+                comment="Profile check prompt",
+            )
+        )
+        batch_op.add_column(
+            sa.Column("profile_check_model", sa.String(length=255), nullable=False)
+        )
+        batch_op.add_column(
+            sa.Column(
+                "profile_check_model_args",
+                sa.Text(),
+                nullable=False,
+                comment="Profile check model args",
+            )
+        )
