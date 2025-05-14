@@ -196,16 +196,15 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
         # Update the order status
         origin_record.status = BUY_STATUS_TIMEOUT
         db.session.commit()
-        # Check if there are any coupons in the order. If there are, make them failure
-        active_id=query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
+
         # Check if there are discount coupons in the order. If there are, rollback the discount coupons
         from .discount import timeout_discount_code_rollback
 
         timeout_discount_code_rollback(
             app, origin_record.user_id, origin_record.record_id
         )
-        return True, active_id
-    return False, None
+        return True
+    return False
 
 
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
@@ -224,9 +223,17 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .first()
         )
         if origin_record:
-            order_timeout_make_new_order,find_active_id = is_order_has_timeout(app, origin_record)
+            order_timeout_make_new_order = is_order_has_timeout(
+                app, origin_record
+            )
+            if order_timeout_make_new_order:
+                # Check if there are any coupons in the order. If there are, make them failure
+                find_active_id = query_to_failure_active(
+                    app, origin_record.user_id, origin_record.record_id
+                )
         else:
             order_timeout_make_new_order = True
+            find_active_id = None
 
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             return query_buy_record(app, origin_record.record_id)
@@ -688,6 +695,7 @@ def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
         buy_record = AICourseBuyRecord.query.filter(
             AICourseBuyRecord.course_id == course_id,
             AICourseBuyRecord.user_id == user_id,
+            AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
         ).first()
         if buy_record:
             return buy_record
