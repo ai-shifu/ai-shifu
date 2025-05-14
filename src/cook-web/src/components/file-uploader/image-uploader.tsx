@@ -89,8 +89,10 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
     } catch (error) {
       console.error('Error uploading image:', error)
       toast({
-        title: t('file-uploader.failed-to-upload-image'),
-        description: t('file-uploader.check-image-url')
+
+        // title: t('file-uploader.failed-to-upload-image'),
+        title: t('file-uploader.check-image-url'),
+        variant: 'destructive'
       })
       return
     }
@@ -103,8 +105,9 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       } catch (error) {
         console.error('Error uploading image:', error)
         toast({
-          title: t('file-uploader.failed-to-upload-image'),
-          description: t('file-uploader.check-image-url')
+          // title: t('file-uploader.failed-to-upload-image'),
+          title: t('file-uploader.check-image-url'),
+          variant: 'destructive'
         })
       }
       return
