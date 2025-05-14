@@ -693,6 +693,7 @@ def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
         buy_record = AICourseBuyRecord.query.filter(
             AICourseBuyRecord.course_id == course_id,
             AICourseBuyRecord.user_id == user_id,
+            AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
         ).first()
         if buy_record:
             return buy_record
