@@ -185,12 +185,10 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
     if pay_order_expire_time is None:
         return False
     pay_order_expire_time = int(pay_order_expire_time)
-
     bj_time = pytz.timezone("Asia/Shanghai")
     aware_created = bj_time.localize(origin_record.created)
     created_timestamp = int(aware_created.timestamp())
     current_timestamp = int(datetime.datetime.now().timestamp())
-
     if current_timestamp > (created_timestamp + pay_order_expire_time):
         # Order timeout
         # Update the order status
@@ -222,9 +220,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .first()
         )
         if origin_record:
-            order_timeout_make_new_order = is_order_has_timeout(
-                app, origin_record
-            )
+            order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
             if order_timeout_make_new_order:
                 # Check if there are any coupons in the order. If there are, make them failure
                 find_active_id = query_to_failure_active(
@@ -233,12 +229,9 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             order_timeout_make_new_order = True
             find_active_id = None
-
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             return query_buy_record(app, origin_record.record_id)
-
         order_id = str(get_uuid(app))
-
         if order_timeout_make_new_order:
             buy_record = AICourseBuyRecord()
             buy_record.user_id = user_id
@@ -248,14 +241,11 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record.record_id = order_id
             buy_record.discount_value = decimal.Decimal(0.00)
             buy_record.pay_value = course_info.course_price
-
         else:
             buy_record = origin_record
             order_id = origin_record.record_id
-
         if find_active_id:
             active_id = find_active_id
-
         active_records = query_and_join_active(
             app, course_id, user_id, order_id, active_id
         )
