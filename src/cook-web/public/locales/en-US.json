@@ -108,6 +108,7 @@
     "click-to-upload": "Click to Upload",
     "drag-file-or-click-to-upload": "Drag File or Click to Upload",
     "failed-to-upload-image": "Failed to Upload Image",
+    "check-image-url": "Please check if the image URL is correct",
     "paste-or-input-image-url": "Paste or Input Image URL",
     "replace-image": "Replace Image",
     "run": "Run",

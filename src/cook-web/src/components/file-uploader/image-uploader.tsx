@@ -84,6 +84,18 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   const handleUrlUpload = async () => {
     if (!inputUrl) return
+    try {
+      new URL(inputUrl)
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      toast({
+
+        // title: t('file-uploader.failed-to-upload-image'),
+        title: t('file-uploader.check-image-url'),
+        variant: 'destructive'
+      })
+      return
+    }
     if (!agiImgUrlRegexp.test(inputUrl)) {
       try {
         const response = await fetch(inputUrl)
@@ -93,7 +105,9 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       } catch (error) {
         console.error('Error uploading image:', error)
         toast({
-          title: t('file-uploader.failed-to-upload-image')
+          // title: t('file-uploader.failed-to-upload-image'),
+          title: t('file-uploader.check-image-url'),
+          variant: 'destructive'
         })
       }
       return

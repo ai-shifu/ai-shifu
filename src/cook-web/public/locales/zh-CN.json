@@ -108,6 +108,7 @@
     "click-to-upload": "点击上传",
     "drag-file-or-click-to-upload": "拖拽文件或者",
     "failed-to-upload-image": "上传失败",
+    "check-image-url": "请检查图片地址是否正确",
     "paste-or-input-image-url": "粘贴或输入图片URL",
     "replace-image": "替换图片",
     "run": "运行",
