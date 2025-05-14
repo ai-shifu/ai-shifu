@@ -645,12 +645,12 @@ def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
 
     if not ai_lesson:
         return FollowUpInfo(
-            model="",
-            prompt="",
-            with_history=0,
-            count_limit=0,
+            ask_model="",
+            ask_prompt="",
+            ask_history_count=0,
+            ask_limit_count=0,
             model_args={},
-            mode=ASK_MODE_DISABLE,
+            ask_mode=ASK_MODE_DISABLE,
         )
     if ai_lesson.ask_mode != ASK_MODE_DEFAULT:
         ask_model = ai_lesson.ask_model

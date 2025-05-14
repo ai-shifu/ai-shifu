@@ -79,6 +79,7 @@ def query_to_failure_active(app, user_id, order_id):
             synchronize_session="fetch",
         )
         db.session.commit()
+        return ActiveUserRecord.active_id
 
 
 # query active and join active

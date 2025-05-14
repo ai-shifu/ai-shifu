@@ -197,15 +197,15 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
         origin_record.status = BUY_STATUS_TIMEOUT
         db.session.commit()
         # Check if there are any coupons in the order. If there are, make them failure
-        query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
+        active_id=query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
         # Check if there are discount coupons in the order. If there are, rollback the discount coupons
         from .discount import timeout_discount_code_rollback
 
         timeout_discount_code_rollback(
             app, origin_record.user_id, origin_record.record_id
         )
-        return True
-    return False
+        return True, active_id
+    return False, None
 
 
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
@@ -224,7 +224,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .first()
         )
         if origin_record:
-            order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
+            order_timeout_make_new_order,find_active_id = is_order_has_timeout(app, origin_record)
         else:
             order_timeout_make_new_order = True
 
@@ -242,9 +242,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record.record_id = order_id
             buy_record.discount_value = decimal.Decimal(0.00)
             buy_record.pay_value = course_info.course_price
+
         else:
             buy_record = origin_record
             order_id = origin_record.record_id
+
+        if find_active_id:
+            active_id = find_active_id
 
         active_records = query_and_join_active(
             app, course_id, user_id, order_id, active_id

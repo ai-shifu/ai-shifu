@@ -137,7 +137,7 @@ export class Request {
           // todo It should be changed to i18n
           fail('您当前没有权限访问此内容，请联系管理员获取权限');
         }
-        if (res.code == 9999) {
+        if (res.code != 0) {
           throw new ErrorWithCode(res.message , res.code);
         }
 
