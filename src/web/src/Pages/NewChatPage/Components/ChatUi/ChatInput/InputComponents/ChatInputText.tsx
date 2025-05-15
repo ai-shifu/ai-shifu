@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
-import { Input } from '@chatui/core';
+import { TextArea } from 'antd-mobile';
 import { useTranslation } from 'react-i18next';
 import {
   INTERACTION_TYPE,
@@ -17,10 +17,22 @@ const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_OUTPUT_TYPE.CHECKCODE,
 };
 
-export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
+interface ChatInputProps {
+  onClick?: (outputType: string, isValid: boolean, value: string) => void;
+  type?: string;
+  disabled?: boolean;
+  props?: {
+    content?: {
+      content?: string;
+    };
+  };
+}
+
+export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: ChatInputProps) => {
   const {t}= useTranslation();
   const [input, setInput] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
+  const [isComposing, setIsComposing] = useState(false);
 
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -36,40 +48,47 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
 
   useEffect(() => {
     if (!disabled) {
-      const elem = document.querySelector(`.${styles.inputField}`)
-
+      const elem = document.querySelector(`.${styles.inputField}`) as HTMLTextAreaElement;
       if (elem) {
         elem.focus();
       }
     }
   }, [disabled]);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isComposing) {
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        return;
+      } else {
+        e.preventDefault();
+        onSendClick();
+      }
+    }
+  };
+
   return (
     <div className={styles.inputTextWrapper}>
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
-          <Input
+          <TextArea
+            rows={1}
             autoSize={{ minRows: 1, maxRows: 5 }}
-            type="text"
             value={input}
             onChange={(v) => {
-              let newValue = v;
-              if (newValue.endsWith('\n')) {
-                newValue = newValue.slice(0, -1);
-              }
-              setInput(newValue);
+              setInput(v);
             }}
             placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
             className={styles.inputField}
             disabled={disabled}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSendClick();
-              }
-            }}
-          >
-          </Input>
+            onKeyDown={handleKeyDown}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
+            enterKeyHint="send"
+          />
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
         </div>
         {contextHolder}
