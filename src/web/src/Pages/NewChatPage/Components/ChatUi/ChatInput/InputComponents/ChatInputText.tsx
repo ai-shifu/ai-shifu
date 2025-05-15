@@ -44,6 +44,11 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
 
     onClick?.(outputType, true,input.trim());
     setInput('');
+
+    // 重置高度
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '24px';
+    }
   };
 
   useEffect(() => {
@@ -101,6 +106,11 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
             enterKeyHint="send"
             autoComplete="off"
             spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            data-gramm="false"
+            contentEditable="true"
+            suppressContentEditableWarning={true}
             style={{
               resize: 'none',
               minHeight: '24px',
@@ -112,6 +122,12 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
               borderRadius: '4px',
               width: '100%',
               outline: 'none',
+              WebkitUserSelect: 'text',
+              WebkitTouchCallout: 'default',
+              WebkitTextSizeAdjust: '100%',
+              WebkitAppearance: 'none',
+              touchAction: 'manipulation',
+              caretColor: 'auto',
             }}
           />
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
