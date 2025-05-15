@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { message } from 'antd';
-import { Input } from '@chatui/core';
+import { TextArea } from 'antd-mobile';
 import { useTranslation } from 'react-i18next';
 import {
   INTERACTION_TYPE,
@@ -56,17 +56,14 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   }, [disabled]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    // 如果正在输入中文，不处理任何键盘事件
     if (isComposing) {
       return;
     }
 
     if (e.key === 'Enter') {
       if (e.shiftKey) {
-        // Shift + Enter 允许换行
         return;
       } else {
-        // 普通 Enter 发送消息
         e.preventDefault();
         onSendClick();
       }
@@ -77,11 +74,9 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     <div className={styles.inputTextWrapper}>
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
-          <Input
-            multiline
+          <TextArea
             rows={1}
-            maxRows={5}
-            type="text"
+            autoSize={{ minRows: 1, maxRows: 5 }}
             value={input}
             onChange={(v) => {
               setInput(v);
@@ -92,8 +87,8 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
             onKeyDown={handleKeyDown}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
-          >
-          </Input>
+            enterKeyHint="send"
+          />
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
         </div>
         {contextHolder}
