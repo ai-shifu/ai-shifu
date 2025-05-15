@@ -19,7 +19,6 @@
   resize: none;
   min-height: 24px;
   max-height: 120px;
-  overflow-y: auto;
   line-height: 1.5;
   padding: 8px 40px 8px 12px;
 
@@ -27,9 +26,11 @@
   border-radius: 20px;
   width: 100%;
   outline: none;
+  user-select: text;
   -webkit-user-select: text;
   -webkit-touch-callout: default;
   -webkit-text-size-adjust: 100%;
+  appearance: none;
   -webkit-appearance: none;
   touch-action: manipulation;
   caret-color: auto;
