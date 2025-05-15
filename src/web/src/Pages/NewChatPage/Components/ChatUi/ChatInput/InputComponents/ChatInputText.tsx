@@ -60,6 +60,12 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     const currentValue = textarea.value;
     const currentPlaceholder = textarea.placeholder;
 
+    // 临时移除 disabled 状态以便计算高度
+    const wasDisabled = textarea.disabled;
+    if (wasDisabled) {
+      textarea.disabled = false;
+    }
+
     // 如果当前没有输入值，临时设置值为placeholder来计算高度
     if (!currentValue) {
       textarea.value = currentPlaceholder;
@@ -74,12 +80,19 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
       textarea.value = '';
       textarea.placeholder = currentPlaceholder;
     }
+
+    // 恢复 disabled 状态
+    if (wasDisabled) {
+      textarea.disabled = true;
+    }
   };
 
   useEffect(() => {
-    if (!disabled && textareaRef.current) {
-      textareaRef.current.focus();
-      // 初始化时计算高度
+    if (textareaRef.current) {
+      if (!disabled) {
+        textareaRef.current.focus();
+      }
+      // 不管是否禁用，都需要计算高度
       adjustHeight();
     }
   }, [disabled]);
@@ -89,10 +102,14 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     adjustHeight();
   }, [placeholder]);
 
+  // 当输入值改变时重新计算高度
+  useEffect(() => {
+    adjustHeight();
+  }, [input]);
+
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
-    adjustHeight();
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
