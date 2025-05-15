@@ -47,8 +47,11 @@ jobs:
 
       - name: Set Tag Version
         run: |
-          echo "TAG_VERSION=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
-
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "TAG_VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+          else
+            echo "TAG_VERSION=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          fi
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
