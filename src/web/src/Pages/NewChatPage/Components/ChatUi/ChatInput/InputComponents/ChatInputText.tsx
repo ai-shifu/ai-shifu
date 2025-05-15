@@ -32,6 +32,7 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   const {t}= useTranslation();
   const [input, setInput] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
+  const [isComposing, setIsComposing] = useState(false);
 
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -54,6 +55,24 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     }
   }, [disabled]);
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 如果正在输入中文，不处理任何键盘事件
+    if (isComposing) {
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        // Shift + Enter 允许换行
+        return;
+      } else {
+        // 普通 Enter 发送消息
+        e.preventDefault();
+        onSendClick();
+      }
+    }
+  };
+
   return (
     <div className={styles.inputTextWrapper}>
       <div className={styles.inputForm}>
@@ -70,12 +89,9 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
             placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
             className={styles.inputField}
             disabled={disabled}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSendClick();
-              }
-            }}
+            onKeyDown={handleKeyDown}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
           >
           </Input>
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
