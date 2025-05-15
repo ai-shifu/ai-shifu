@@ -17,7 +17,18 @@ const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_OUTPUT_TYPE.CHECKCODE,
 };
 
-export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
+interface ChatInputProps {
+  onClick?: (outputType: string, isValid: boolean, value: string) => void;
+  type?: string;
+  disabled?: boolean;
+  props?: {
+    content?: {
+      content?: string;
+    };
+  };
+}
+
+export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: ChatInputProps) => {
   const {t}= useTranslation();
   const [input, setInput] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
@@ -36,8 +47,7 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
 
   useEffect(() => {
     if (!disabled) {
-      const elem = document.querySelector(`.${styles.inputField}`)
-
+      const elem = document.querySelector(`.${styles.inputField}`) as HTMLTextAreaElement;
       if (elem) {
         elem.focus();
       }
@@ -49,15 +59,13 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
           <Input
-            autoSize={{ minRows: 1, maxRows: 5 }}
+            multiline
+            rows={1}
+            maxRows={5}
             type="text"
             value={input}
             onChange={(v) => {
-              let newValue = v;
-              if (newValue.endsWith('\n')) {
-                newValue = newValue.slice(0, -1);
-              }
-              setInput(newValue);
+              setInput(v);
             }}
             placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
             className={styles.inputField}
