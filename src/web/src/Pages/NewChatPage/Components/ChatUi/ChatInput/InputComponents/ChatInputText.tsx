@@ -33,6 +33,7 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   const [messageApi, contextHolder] = message.useMessage();
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const placeholder = props?.content?.content || t('chat.chatInputPlaceholder');
 
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -51,20 +52,42 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     }
   };
 
-  useEffect(() => {
-    if (!disabled && textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  }, [disabled]);
-
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
+    // 保存当前值和placeholder
+    const currentValue = textarea.value;
+    const currentPlaceholder = textarea.placeholder;
+
+    // 如果当前没有输入值，临时设置值为placeholder来计算高度
+    if (!currentValue) {
+      textarea.value = currentPlaceholder;
+    }
+
     textarea.style.height = 'auto';
     const newHeight = Math.min(textarea.scrollHeight-20, 120);
     textarea.style.height = `${newHeight}px`;
+
+    // 恢复原始状态
+    if (!currentValue) {
+      textarea.value = '';
+      textarea.placeholder = currentPlaceholder;
+    }
   };
+
+  useEffect(() => {
+    if (!disabled && textareaRef.current) {
+      textareaRef.current.focus();
+      // 初始化时计算高度
+      adjustHeight();
+    }
+  }, [disabled]);
+
+  // 当 placeholder 改变时重新计算高度
+  useEffect(() => {
+    adjustHeight();
+  }, [placeholder]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -96,7 +119,7 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
             rows={1}
             value={input}
             onChange={handleInput}
-            placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
+            placeholder={placeholder}
             className={styles.inputField}
             disabled={disabled}
             onKeyDown={handleKeyDown}
