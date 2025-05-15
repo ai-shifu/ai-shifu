@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { message } from 'antd';
-import { Input } from '@chatui/core';
 import { useTranslation } from 'react-i18next';
 import {
   INTERACTION_TYPE,
@@ -17,10 +16,23 @@ const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_OUTPUT_TYPE.CHECKCODE,
 };
 
-export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
+interface ChatInputProps {
+  onClick?: (outputType: string, isValid: boolean, value: string) => void;
+  type?: string;
+  disabled?: boolean;
+  props?: {
+    content?: {
+      content?: string;
+    };
+  };
+}
+
+export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: ChatInputProps) => {
   const {t}= useTranslation();
   const [input, setInput] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
+  const [isComposing, setIsComposing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -35,41 +47,73 @@ export const ChatInputText = ({ onClick, type, disabled = false,props={} }) => {
   };
 
   useEffect(() => {
-    if (!disabled) {
-      const elem = document.querySelector(`.${styles.inputField}`)
-
-      if (elem) {
-        elem.focus();
-      }
+    if (!disabled && textareaRef.current) {
+      textareaRef.current.focus();
     }
   }, [disabled]);
+
+  // 自动调整高度
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    const newHeight = Math.min(textarea.scrollHeight, 120); // 最大高度120px
+    textarea.style.height = `${newHeight}px`;
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    adjustHeight();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (isComposing) {
+      return;
+    }
+
+    if (e.key === 'Enter') {
+      if (e.shiftKey) {
+        return;
+      } else {
+        e.preventDefault();
+        onSendClick();
+      }
+    }
+  };
 
   return (
     <div className={styles.inputTextWrapper}>
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
-          <Input
-            autoSize={{ minRows: 1, maxRows: 5 }}
-            type="text"
+          <textarea
+            ref={textareaRef}
+            rows={1}
             value={input}
-            onChange={(v) => {
-              let newValue = v;
-              if (newValue.endsWith('\n')) {
-                newValue = newValue.slice(0, -1);
-              }
-              setInput(newValue);
-            }}
+            onChange={handleInput}
             placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
             className={styles.inputField}
             disabled={disabled}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                onSendClick();
-              }
+            onKeyDown={handleKeyDown}
+            onCompositionStart={() => setIsComposing(true)}
+            onCompositionEnd={() => setIsComposing(false)}
+            enterKeyHint="send"
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              resize: 'none',
+              minHeight: '24px',
+              maxHeight: '120px',
+              overflowY: 'auto',
+              lineHeight: '1.5',
+              padding: '8px 12px',
+              border: '1px solid #d9d9d9',
+              borderRadius: '4px',
+              width: '100%',
+              outline: 'none',
             }}
-          >
-          </Input>
+          />
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
         </div>
         {contextHolder}
