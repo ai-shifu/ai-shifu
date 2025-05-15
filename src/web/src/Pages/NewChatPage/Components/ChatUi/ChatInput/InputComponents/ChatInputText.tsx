@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { message } from 'antd';
-import { TextArea } from 'antd-mobile';
 import { useTranslation } from 'react-i18next';
 import {
   INTERACTION_TYPE,
@@ -33,6 +32,7 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   const [input, setInput] = useState('');
   const [messageApi, contextHolder] = message.useMessage();
   const [isComposing, setIsComposing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -47,13 +47,26 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   };
 
   useEffect(() => {
-    if (!disabled) {
-      const elem = document.querySelector(`.${styles.inputField}`) as HTMLTextAreaElement;
-      if (elem) {
-        elem.focus();
-      }
+    if (!disabled && textareaRef.current) {
+      textareaRef.current.focus();
     }
   }, [disabled]);
+
+  // 自动调整高度
+  const adjustHeight = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    const newHeight = Math.min(textarea.scrollHeight, 120); // 最大高度120px
+    textarea.style.height = `${newHeight}px`;
+  };
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setInput(value);
+    adjustHeight();
+  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (isComposing) {
@@ -74,13 +87,11 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     <div className={styles.inputTextWrapper}>
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
-          <TextArea
+          <textarea
+            ref={textareaRef}
             rows={1}
-            autoSize={{ minRows: 1, maxRows: 5 }}
             value={input}
-            onChange={(v) => {
-              setInput(v);
-            }}
+            onChange={handleInput}
             placeholder={props?.content?.content || t('chat.chatInputPlaceholder')}
             className={styles.inputField}
             disabled={disabled}
@@ -88,6 +99,20 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
             enterKeyHint="send"
+            autoComplete="off"
+            spellCheck={false}
+            style={{
+              resize: 'none',
+              minHeight: '24px',
+              maxHeight: '120px',
+              overflowY: 'auto',
+              lineHeight: '1.5',
+              padding: '8px 12px',
+              border: '1px solid #d9d9d9',
+              borderRadius: '4px',
+              width: '100%',
+              outline: 'none',
+            }}
           />
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
         </div>
