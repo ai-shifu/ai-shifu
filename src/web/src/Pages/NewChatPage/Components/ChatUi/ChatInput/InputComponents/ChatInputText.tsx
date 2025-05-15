@@ -57,13 +57,12 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
     }
   }, [disabled]);
 
-  // 自动调整高度
   const adjustHeight = () => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
     textarea.style.height = 'auto';
-    const newHeight = Math.min(textarea.scrollHeight, 120); // 最大高度120px
+    const newHeight = Math.min(textarea.scrollHeight-20, 120);
     textarea.style.height = `${newHeight}px`;
   };
 
@@ -111,24 +110,6 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
             data-gramm="false"
             contentEditable="true"
             suppressContentEditableWarning={true}
-            style={{
-              resize: 'none',
-              minHeight: '24px',
-              maxHeight: '120px',
-              overflowY: 'auto',
-              lineHeight: '1.5',
-              padding: '8px 12px',
-              border: '1px solid #d9d9d9',
-              borderRadius: '4px',
-              width: '100%',
-              outline: 'none',
-              WebkitUserSelect: 'text',
-              WebkitTouchCallout: 'default',
-              WebkitTextSizeAdjust: '100%',
-              WebkitAppearance: 'none',
-              touchAction: 'manipulation',
-              caretColor: 'auto',
-            }}
           />
           <img src={require('@Assets/newchat/light/icon-send.png')} alt="" className={styles.sendIcon} onClick={onSendClick} />
         </div>
