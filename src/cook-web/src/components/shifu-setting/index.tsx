@@ -34,32 +34,32 @@ import {
 import { useTranslation } from 'react-i18next'
 import api from "@/api";
 import { getSiteHost } from "@/config/runtime-config";
-import { useScenario } from "@/store";
+import { useShifu } from "@/store";
 
-interface Scenario {
-    scenario_description: string;
-    scenario_id: string;
-    scenario_keywords: string[];
-    scenario_model: string;
-    scenario_name: string;
-    scenario_preview_url: string;
-    scenario_price: number;
-    scenario_teacher_avatar: string;
-    scenario_url: string;
+interface Shifu {
+    shifu_description: string;
+    shifu_id: string;
+    shifu_keywords: string[];
+    shifu_model: string;
+    shifu_name: string;
+    shifu_preview_url: string;
+    shifu_price: number;
+    shifu_avatar: string;
+    shifu_url: string;
 }
 
 
-export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioId: string, onSave: () => void }) {
+export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: string, onSave: () => void }) {
 
     const [open, setOpen] = useState(false);
     const { t } = useTranslation();
     const [keywords, setKeywords] = useState(["AIGC"]);
-    const [courseImage, setCourseImage] = useState<File | null>(null);
+    const [shifuImage, setShifuImage] = useState<File | null>(null);
     const [imageError, setImageError] = useState("");
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedImageUrl, setUploadedImageUrl] = useState("");
-    const { models } = useScenario();
+    const { models } = useShifu();
     const [copying, setCopying] = useState({
         previewUrl: false,
         url: false
@@ -68,23 +68,23 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
     // Initialize the form with react-hook-form and zod resolver
 
     // Define the validation schema using Zod
-    const courseSchema = z.object({
+    const shifuSchema = z.object({
         previewUrl: z.string(),
         url: z.string(),
         name: z.string()
-            .min(1, t('course-setting.course-name-cannot-be-empty'))
-            .max(50, t('course-setting.course-name-cannot-exceed-50-characters')),
+            .min(1, t('shifu-setting.shifu-name-cannot-be-empty'))
+            .max(50, t('shifu-setting.shifu-name-cannot-exceed-50-characters')),
         description: z.string()
-            .min(1, t('course-setting.course-description-cannot-be-empty'))
-            .max(300, t('course-setting.course-description-cannot-exceed-300-characters')),
-        model: z.string().min(1, t('course-setting.please-select-model')),
+            .min(1, t('shifu-setting.shifu-description-cannot-be-empty'))
+            .max(300, t('shifu-setting.shifu-description-cannot-exceed-300-characters')),
+        model: z.string().min(1, t('shifu-setting.please-select-model')),
         price: z.string()
-            .min(1, t('course-setting.price-cannot-be-empty'))
-            .regex(/^\d+(\.\d{1,2})?$/, t('course-setting.price-must-be-valid-number-format')),
+            .min(1, t('shifu-setting.shifu-price-cannot-be-empty'))
+            .regex(/^\d+(\.\d{1,2})?$/, t('shifu-setting.shifu-price-must-be-valid-number-format')),
     });
 
     const form = useForm({
-        resolver: zodResolver(courseSchema),
+        resolver: zodResolver(shifuSchema),
         defaultValues: {
             previewUrl: "",
             url: "",
@@ -125,19 +125,19 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
         if (file) {
             // Validate file size
             if (file.size > 2 * 1024 * 1024) {
-                setImageError(t('course-setting.file-size-cannot-exceed-2mb'));
-                setCourseImage(null);
+                setImageError(t('shifu-setting.file-size-cannot-exceed-2mb'));
+                setShifuImage(null);
                 return;
             }
 
             // Validate file type
             if (!['image/jpeg', 'image/png'].includes(file.type)) {
-                setImageError(t('course-setting.only-support-jpg-and-png-format'));
-                setCourseImage(null);
+                setImageError(t('shifu-setting.only-support-jpg-and-png-format'));
+                setShifuImage(null);
                 return;
             }
 
-            setCourseImage(file);
+            setShifuImage(file);
             setImageError("");
 
             // Upload the file
@@ -148,7 +148,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                 // Use the uploadFile function from file.ts
                 const response = await uploadFile(
                     file,
-                        `${SITE_HOST}/api/scenario/upfile`,
+                        `${SITE_HOST}/api/shifu/upfile`,
                     undefined,
                     undefined,
                     (progress) => {
@@ -168,7 +168,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
 
             } catch (error) {
                 console.error("Upload error:", error);
-                setImageError(t('course-setting.upload-failed-please-try-again'));
+                setImageError(t('shifu-setting.upload-failed-please-try-again'));
             } finally {
                 setIsUploading(false);
             }
@@ -179,14 +179,14 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
     const onSubmit = async (data) => {
         // Combine form data with keywords and image
 
-        await api.saveScenarioDetail({
-            "scenario_description": data.description,
-            "scenario_id": scenarioId,
-            "scenario_keywords": keywords,
-            "scenario_model": data.model,
-            "scenario_name": data.name,
-            "scenario_price": Number(data.price),
-            "scenario_teacher_avatar": uploadedImageUrl
+        await api.saveShifuDetail({
+            "shifu_description": data.description,
+            "shifu_id": shifuId,
+            "shifu_keywords": keywords,
+            "shifu_model": data.model,
+            "shifu_name": data.name,
+            "shifu_price": Number(data.price),
+            "shifu_avatar": uploadedImageUrl
         })
 
         if (onSave) {
@@ -196,21 +196,21 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
         setOpen(false);
     };
     const init = async () => {
-        const result = await api.getScenarioDetail({
-            scenario_id: scenarioId
-        }) as Scenario;
+        const result = await api.getShifuDetail({
+            shifu_id: shifuId
+        }) as Shifu;
 
         if (result) {
             form.reset({
-                name: result.scenario_name,
-                description: result.scenario_description,
-                price: result.scenario_price + '',
-                model: result.scenario_model,
-                previewUrl: result.scenario_preview_url,
-                url: result.scenario_url,
+                name: result.shifu_name,
+                description: result.shifu_description,
+                price: result.shifu_price + '',
+                model: result.shifu_model,
+                previewUrl: result.shifu_preview_url,
+                url: result.shifu_url,
             })
-            setKeywords(result.scenario_keywords)
-            setUploadedImageUrl(result.scenario_teacher_avatar || "")
+            setKeywords(result.shifu_keywords)
+            setUploadedImageUrl(result.shifu_avatar || "")
         }
     }
     useEffect(() => {
@@ -218,7 +218,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
             return;
         }
         init()
-    }, [scenarioId, open])
+    }, [shifuId, open])
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -226,7 +226,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
             </DialogTrigger>
             <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl">
                 <DialogHeader>
-                    <DialogTitle className="text-lg font-medium">{t('course-setting.title')}</DialogTitle>
+                    <DialogTitle className="text-lg font-medium">{t('shifu-setting.title')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -236,7 +236,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="previewUrl"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-2 space-y-0">
-                                        <FormLabel className="text-right text-sm">{t('course-setting.preview-url')}</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('shifu-setting.preview-url')}</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
                                                 <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap ">
@@ -263,7 +263,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="url"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-2 space-y-0">
-                                        <FormLabel className="text-right text-sm">{t('course-setting.learning-url')}</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('shifu-setting.learning-url')}</FormLabel>
                                         <div className="col-span-3 flex items-center space-x-2">
                                             <FormControl>
                                                 <a href={field.value} target="_blank" className="px-1 w-full overflow-hidden text-ellipsis whitespace-nowrap">
@@ -291,10 +291,10 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-start gap-4 space-y-0">
-                                        <FormLabel className="text-right text-sm pt-2">{t('course-setting.course-name')}</FormLabel>
+                                        <FormLabel className="text-right text-sm pt-2">{t('shifu-setting.shifu-name')}</FormLabel>
                                         <div className="col-span-3">
                                             <FormControl>
-                                                <Input {...field} maxLength={50} placeholder={t('course-setting.limit-50-characters')} />
+                                                <Input {...field} maxLength={50} placeholder={t('shifu-setting.limit-50-characters')} />
                                             </FormControl>
                                             <p className="text-xs text-gray-500 mt-1">
                                                 {field.value.length}/50
@@ -309,13 +309,13 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="description"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-start gap-4">
-                                        <FormLabel className="text-right text-sm pt-2">{t('course-setting.course-description')}</FormLabel>
+                                        <FormLabel className="text-right text-sm pt-2">{t('shifu-setting.shifu-description')}</FormLabel>
                                         <div className="col-span-3">
                                             <FormControl>
                                                 <Textarea
                                                     {...field}
                                                     maxLength={300}
-                                                    placeholder={t('course-setting.limit-300-characters')}
+                                                    placeholder={t('shifu-setting.limit-300-characters')}
                                                     rows={4}
                                                 />
                                             </FormControl>
@@ -328,7 +328,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 )}
                             />
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <label className="text-right text-sm pt-2">{t('course-setting.keywords')}</label>
+                                <label className="text-right text-sm pt-2">{t('shifu-setting.keywords')}</label>
                                 <div className="col-span-3">
                                     <div className="flex flex-wrap gap-2 mb-2">
                                         {keywords.map((keyword, index) => (
@@ -351,7 +351,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     <div className="flex gap-2">
                                         <Input
                                             id="keywordInput"
-                                            placeholder={t('course-setting.input-keywords')}
+                                            placeholder={t('shifu-setting.input-keywords')}
                                             className="flex-grow h-8"
                                         />
                                         <Button
@@ -361,20 +361,20 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                             variant="outline"
                                             size="sm"
                                         >
-                                            {t('course-setting.add-keyword')}
+                                            {t('shifu-setting.add-keyword')}
                                         </Button>
                                     </div>
                                 </div>
                             </div>
                             <div className="grid grid-cols-4 items-start gap-4">
-                                <label className="text-right text-sm pt-2">{t('course-setting.course-avatar')}</label>
+                                <label className="text-right text-sm pt-2">{t('shifu-setting.shifu-avatar')}</label>
                                 <div className="col-span-3">
                                     {uploadedImageUrl ? (
                                         <div className="mb-2">
                                             <div className="relative w-24 l h-24 bg-gray-100 rounded-lg overflow-hidden">
                                                 <img
                                                     src={uploadedImageUrl}
-                                                    alt={t('course-setting.course-avatar')}
+                                                    alt={t('shifu-setting.shifu-avatar')}
                                                     className="w-full h-full object-cover"
                                                 />
                                                 <button
@@ -392,7 +392,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                             onClick={() => document.getElementById("imageUpload")?.click()}
                                         >
                                             <Plus className="h-8 w-8 mb-2 text-gray-400" />
-                                            <p className="text-sm text-center">{t('course-setting.upload')}</p>
+                                            <p className="text-sm text-center">{t('shifu-setting.upload')}</p>
                                         </div>
                                     )}
 
@@ -405,7 +405,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     />
 
                                     <p className="text-xs text-gray-500 mt-1">
-                                        {t('course-setting.support-jpg-png-format-file-less-than-2mb')}
+                                        {t('shifu-setting.support-jpg-png-format-file-less-than-2mb')}
                                     </p>
 
                                     {isUploading && (
@@ -417,7 +417,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                                 ></div>
                                             </div>
                                             <p className="text-xs text-gray-500 mt-1 text-center">
-                                                {t('course-setting.uploading')} {uploadProgress}%
+                                                {t('shifu-setting.uploading')} {uploadProgress}%
                                             </p>
                                         </div>
                                     )}
@@ -426,9 +426,9 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                         <p className="text-red-500 text-xs mt-1">{imageError}</p>
                                     )}
 
-                                    {courseImage && !isUploading && !uploadedImageUrl && (
+                                    {shifuImage && !isUploading && !uploadedImageUrl && (
                                         <p className="text-green-500 text-xs mt-1">
-                                            {t('course-setting.selected')}: {courseImage?.name}
+                                            {t('shifu-setting.selected')}: {shifuImage?.name}
                                         </p>
                                     )}
                                 </div>
@@ -438,7 +438,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="model"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-4">
-                                        <FormLabel className="text-right text-sm">{t('course-setting.select-model')}</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('shifu-setting.select-model')}</FormLabel>
                                         <div className="col-span-3">
                                             <Select
                                                 onValueChange={field.onChange}
@@ -446,7 +446,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                             >
                                                 <FormControl>
                                                     <SelectTrigger>
-                                                        <SelectValue placeholder={t('course-setting.select-model')} />
+                                                        <SelectValue placeholder={t('shifu-setting.select-model')} />
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
@@ -467,10 +467,10 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                 name="price"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-4">
-                                        <FormLabel className="text-right text-sm">{t('course-setting.price')}</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('shifu-setting.price')}</FormLabel>
                                         <div className="col-span-3">
                                             <FormControl>
-                                                <Input {...field} placeholder={t('course-setting.number')} />
+                                                <Input {...field} placeholder={t('shifu-setting.number')} />
                                             </FormControl>
                                             <FormMessage />
                                         </div>
@@ -481,7 +481,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                         </div>
                         <DialogFooter className="sm:justify-end pt-4">
                             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                                {t('course-setting.cancel')}
+                                {t('shifu-setting.cancel')}
                             </Button>
                             <Button
                                 type="submit"
@@ -490,7 +490,7 @@ export default function CourseCreationDialog({ scenarioId, onSave }: { scenarioI
                                     onSubmit(form.getValues())
                                 }}
                             >
-                                {t('course-setting.save')}
+                                {t('shifu-setting.save')}
                             </Button>
                         </DialogFooter>
                     </form>

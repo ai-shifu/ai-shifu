@@ -1,6 +1,6 @@
 from ...dao import redis_client as redis, db
 from datetime import datetime
-from .dtos import ScenarioDto, ScenarioDetailDto
+from .dtos import ShifuDto, ShifuDetailDto
 from ..lesson.models import AICourse, AILesson, AILessonScript
 from ...util.uuid import generate_id
 from .models import FavoriteScenario, AiCourseAuth
@@ -22,7 +22,7 @@ import uuid
 import json
 
 
-def get_raw_scenario_list(
+def get_raw_shifu_list(
     app, user_id: str, page_index: int, page_size: int
 ) -> PageNationDTO:
     try:
@@ -49,8 +49,8 @@ def get_raw_scenario_list(
         )
         infos = [f"{c.course_id} + {c.course_name} + {c.status}\r\n" for c in courses]
         app.logger.info(f"{infos}")
-        scenario_dtos = [
-            ScenarioDto(
+        shifu_dtos = [
+            ShifuDto(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
@@ -60,13 +60,13 @@ def get_raw_scenario_list(
             )
             for course in courses
         ]
-        return PageNationDTO(page_index, page_size, total, scenario_dtos)
+        return PageNationDTO(page_index, page_size, total, shifu_dtos)
     except Exception as e:
-        app.logger.error(f"get raw scenario list failed: {e}")
+        app.logger.error(f"get raw shifu list failed: {e}")
         return PageNationDTO(0, 0, 0, [])
 
 
-def get_favorite_scenario_list(
+def get_favorite_shifu_list(
     app, user_id: str, page_index: int, page_size: int
 ) -> PageNationDTO:
     try:
@@ -83,15 +83,15 @@ def get_favorite_scenario_list(
             .limit(page_size)
             .all()
         )
-        course_ids = [
+        shifu_ids = [
             favorite_scenario.scenario_id for favorite_scenario in favorite_scenarios
         ]
         courses = AICourse.query.filter(
-            AICourse.course_id.in_(course_ids),
+            AICourse.course_id.in_(shifu_ids),
             AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
         ).all()
-        scenario_dtos = [
-            ScenarioDto(
+        shifu_dtos = [
+            ShifuDto(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
@@ -101,164 +101,172 @@ def get_favorite_scenario_list(
             )
             for course in courses
         ]
-        return PageNationDTO(page_index, page_size, total, scenario_dtos)
+        return PageNationDTO(page_index, page_size, total, shifu_dtos)
     except Exception as e:
-        app.logger.error(f"get favorite scenario list failed: {e}")
+        app.logger.error(f"get favorite shifu list failed: {e}")
         return PageNationDTO(0, 0, 0, [])
 
 
-def get_scenario_list(
+def get_shifu_list(
     app, user_id: str, page_index: int, page_size: int, is_favorite: bool
 ) -> PageNationDTO:
     if is_favorite:
-        return get_favorite_scenario_list(app, user_id, page_index, page_size)
+        return get_favorite_shifu_list(app, user_id, page_index, page_size)
     else:
-        return get_raw_scenario_list(app, user_id, page_index, page_size)
+        return get_raw_shifu_list(app, user_id, page_index, page_size)
 
 
-def create_scenario(
+def create_shifu(
     app,
     user_id: str,
-    scenario_name: str,
-    scenario_description: str,
-    scenario_image: str,
-    scenario_keywords: list[str] = None,
+    shifu_name: str,
+    shifu_description: str,
+    shifu_image: str,
+    shifu_keywords: list[str] = None,
 ):
     with app.app_context():
-        course_id = generate_id(app)
-        if not scenario_name:
-            raise_error("SCENARIO.SCENARIO_NAME_REQUIRED")
-        if len(scenario_name) > 20:
-            raise_error("SCENARIO.SCENARIO_NAME_TOO_LONG")
-        if len(scenario_description) > 500:
-            raise_error("SCENARIO.SCENARIO_DESCRIPTION_TOO_LONG")
-        existing_course = AICourse.query.filter_by(course_name=scenario_name).first()
-        if existing_course:
-            raise_error("SCENARIO.SCENARIO_NAME_ALREADY_EXISTS")
+        shifu_id = generate_id(app)
+        if not shifu_name:
+            raise_error("SHIFU.SHIFU_NAME_REQUIRED")
+        if len(shifu_name) > 20:
+            raise_error("SHIFU.SHIFU_NAME_TOO_LONG")
+        if len(shifu_description) > 500:
+            raise_error("SHIFU.SHIFU_DESCRIPTION_TOO_LONG")
+        existing_shifu = AICourse.query.filter_by(course_name=shifu_name).first()
+        if existing_shifu:
+            raise_error("SHIFU.SHIFU_NAME_ALREADY_EXISTS")
         course = AICourse(
-            course_id=course_id,
-            course_name=scenario_name,
-            course_desc=scenario_description,
-            course_teacher_avator=scenario_image,
+            course_id=shifu_id,
+            course_name=shifu_name,
+            course_desc=shifu_description,
+            course_teacher_avator=shifu_image,
             created_user_id=user_id,
             updated_user_id=user_id,
             status=STATUS_DRAFT,
-            course_keywords=scenario_keywords,
+            course_keywords=shifu_keywords,
         )
-        check_text_with_risk_control(app, course_id, user_id, course.get_str_to_check())
+        check_text_with_risk_control(app, shifu_id, user_id, course.get_str_to_check())
         db.session.add(course)
         db.session.commit()
-        return ScenarioDto(
-            scenario_id=course_id,
-            scenario_name=scenario_name,
-            scenario_description=scenario_description,
-            scenario_image=scenario_image,
-            scenario_state=STATUS_DRAFT,
+        return ShifuDto(
+            shifu_id=shifu_id,
+            shifu_name=shifu_name,
+            shifu_description=shifu_description,
+            shifu_avatar=shifu_image,
+            shifu_state=STATUS_DRAFT,
             is_favorite=False,
         )
 
 
-def get_scenario_info(app, user_id: str, scenario_id: str):
+def get_shifu_info(app, user_id: str, shifu_id: str):
     with app.app_context():
-        scenario = (
+        shifu = (
             AICourse.query.filter(
-                AICourse.course_id == scenario_id,
+                AICourse.course_id == shifu_id,
                 AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             )
             .order_by(AICourse.id.desc())
             .first()
         )
-        if scenario:
-            return ScenarioDto(
-                scenario_id=scenario.course_id,
-                scenario_name=scenario.course_name,
-                scenario_description=scenario.course_desc,
-                scenario_image=scenario.course_teacher_avator,
-                scenario_state=scenario.status,
-                is_favorite=False,
+        if shifu:
+            return ShifuDetailDto(
+                shifu_id=shifu.course_id,
+                shifu_name=shifu.course_name,
+                shifu_description=shifu.course_desc,
+                shifu_avatar=shifu.course_teacher_avator,
+                shifu_keywords=(
+                    shifu.course_keywords.split(",") if shifu.course_keywords else []
+                ),
+                shifu_model=shifu.course_default_model,
+                shifu_price=shifu.course_price,
+                shifu_url=get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + shifu.course_id,
+                shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + shifu.course_id
+                + "?preview=true",
             )
-        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+        raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
-# mark favorite scenario
-def mark_favorite_scenario(app, user_id: str, scenario_id: str):
+# mark favorite shifu
+def mark_favorite_shifu(app, user_id: str, shifu_id: str):
     with app.app_context():
-        existing_favorite_scenario = FavoriteScenario.query.filter_by(
-            scenario_id=scenario_id, user_id=user_id
+        existing_favorite_shifu = FavoriteScenario.query.filter_by(
+            scenario_id=shifu_id, user_id=user_id
         ).first()
-        if existing_favorite_scenario:
-            existing_favorite_scenario.status = 1
+        if existing_favorite_shifu:
+            existing_favorite_shifu.status = 1
             db.session.commit()
             return True
-        favorite_scenario = FavoriteScenario(
-            scenario_id=scenario_id, user_id=user_id, status=1
+        favorite_shifu = FavoriteScenario(
+            scenario_id=shifu_id, user_id=user_id, status=1
         )
-        db.session.add(favorite_scenario)
+        db.session.add(favorite_shifu)
         db.session.commit()
         return True
 
 
-# unmark favorite scenario
-def unmark_favorite_scenario(app, user_id: str, scenario_id: str):
+# unmark favorite shifu
+def unmark_favorite_shifu(app, user_id: str, shifu_id: str):
     with app.app_context():
-        favorite_scenario = FavoriteScenario.query.filter_by(
-            scenario_id=scenario_id, user_id=user_id
+        favorite_shifu = FavoriteScenario.query.filter_by(
+            scenario_id=shifu_id, user_id=user_id
         ).first()
-        if favorite_scenario:
-            favorite_scenario.status = 0
+        if favorite_shifu:
+            favorite_shifu.status = 0
             db.session.commit()
             return True
         return False
 
 
-def mark_or_unmark_favorite_scenario(
-    app, user_id: str, scenario_id: str, is_favorite: bool
-):
+def mark_or_unmark_favorite_shifu(app, user_id: str, shifu_id: str, is_favorite: bool):
     if is_favorite:
-        return mark_favorite_scenario(app, user_id, scenario_id)
+        return mark_favorite_shifu(app, user_id, shifu_id)
     else:
-        return unmark_favorite_scenario(app, user_id, scenario_id)
+        return unmark_favorite_shifu(app, user_id, shifu_id)
 
 
-def check_scenario_exist(app, scenario_id: str):
+def check_shifu_exist(app, shifu_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter(
-            AICourse.course_id == scenario_id,
+        shifu = AICourse.query.filter(
+            AICourse.course_id == shifu_id,
             AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
         ).first()
-        if scenario:
+        if shifu:
             return
-        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+        raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
-def check_scenario_can_publish(app, scenario_id: str):
+def check_shifu_can_publish(app, shifu_id: str):
     with app.app_context():
-        scenario = AICourse.query.filter(
-            AICourse.course_id == scenario_id,
+        shifu = AICourse.query.filter(
+            AICourse.course_id == shifu_id,
             AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
         ).first()
-        if scenario:
+        if shifu:
             return
-        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+        raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
-def publish_scenario(app, user_id, scenario_id: str):
+def publish_shifu(app, user_id, shifu_id: str):
     with app.app_context():
-        scenario = (
+        shifu = (
             AICourse.query.filter(
-                AICourse.course_id == scenario_id,
+                AICourse.course_id == shifu_id,
                 AICourse.status.in_([STATUS_DRAFT, STATUS_PUBLISH]),
             )
             .order_by(AICourse.id.desc())
             .first()
         )
-        if scenario:
-            check_scenario_can_publish(app, scenario_id)
-            scenario.status = STATUS_PUBLISH
-            scenario.updated_user_id = user_id
-            scenario.updated_at = datetime.now()
+        if shifu:
+            check_shifu_can_publish(app, shifu_id)
+            shifu.status = STATUS_PUBLISH
+            shifu.updated_user_id = user_id
+            shifu.updated_at = datetime.now()
             # deal with draft lessons
-            to_publish_lessons = get_existing_outlines_for_publish(app, scenario_id)
+            to_publish_lessons = get_existing_outlines_for_publish(app, shifu_id)
             for to_publish_lesson in to_publish_lessons:
                 if to_publish_lesson.status == STATUS_TO_DELETE:
                     to_publish_lesson.status = STATUS_DELETE
@@ -350,19 +358,19 @@ def publish_scenario(app, user_id, scenario_id: str):
                     block_script.updated = datetime.now()
                     db.session.add(block_script)
             db.session.commit()
-            return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id
-        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+            return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id
+        raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
-def preview_scenario(app, user_id, scenario_id: str, variables: dict, skip: bool):
+def preview_shifu(app, user_id, shifu_id: str, variables: dict, skip: bool):
     with app.app_context():
-        scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
-        if scenario:
-            check_scenario_can_publish(app, scenario_id)
+        shifu = AICourse.query.filter(AICourse.course_id == shifu_id).first()
+        if shifu:
+            check_shifu_can_publish(app, shifu_id)
             return (
                 get_config("WEB_URL", "UNCONFIGURED")
                 + "/c/"
-                + scenario.course_id
+                + shifu.course_id
                 + "?preview=true"
             )
 
@@ -439,108 +447,106 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
         return url
 
 
-def get_scenario_detail(app, user_id: str, scenario_id: str):
+def get_shifu_detail(app, user_id: str, shifu_id: str):
     with app.app_context():
-        scenario = (
+        shifu = (
             AICourse.query.filter(
-                AICourse.course_id == scenario_id,
+                AICourse.course_id == shifu_id,
                 AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
             )
             .order_by(AICourse.id.desc())
             .first()
         )
-        if scenario:
-            keywords = (
-                scenario.course_keywords.split(",") if scenario.course_keywords else []
-            )
-            return ScenarioDetailDto(
-                scenario.course_id,
-                scenario.course_name,
-                scenario.course_desc,
-                scenario.course_teacher_avator,
+        if shifu:
+            keywords = shifu.course_keywords.split(",") if shifu.course_keywords else []
+            return ShifuDetailDto(
+                shifu.course_id,
+                shifu.course_name,
+                shifu.course_desc,
+                shifu.course_teacher_avator,
                 keywords,
-                scenario.course_default_model,
-                str(scenario.course_price),
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
+                shifu.course_default_model,
+                str(shifu.course_price),
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
             )
-        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+        raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
-# save scenario detail
+# save shifu detail
 # @author: yfge
 # @date: 2025-04-14
-# save the scenario detail
-def save_scenario_detail(
+# save the shifu detail
+def save_shifu_detail(
     app,
     user_id: str,
-    scenario_id: str,
-    scenario_name: str,
-    scenario_description: str,
-    scenario_teacher_avatar: str,
-    scenario_keywords: list[str],
-    scenario_model: str,
-    scenario_price: float,
+    shifu_id: str,
+    shifu_name: str,
+    shifu_description: str,
+    shifu_avatar: str,
+    shifu_keywords: list[str],
+    shifu_model: str,
+    shifu_price: float,
 ):
     with app.app_context():
-        # query scenario
-        # the first query is to get the scenario latest record
-        scenario = (
-            AICourse.query.filter_by(course_id=scenario_id)
+        # query shifu
+        # the first query is to get the shifu latest record
+        shifu = (
+            AICourse.query.filter_by(course_id=shifu_id)
             .order_by(AICourse.id.desc())
             .first()
         )
-        if scenario:
-            old_check_str = scenario.get_str_to_check()
-            new_scenario = scenario.clone()
-            new_scenario.course_name = scenario_name
-            new_scenario.course_desc = scenario_description
-            new_scenario.course_teacher_avator = scenario_teacher_avatar
-            new_scenario.course_keywords = ",".join(scenario_keywords)
-            new_scenario.course_default_model = scenario_model
-            new_scenario.course_price = scenario_price
-            new_scenario.updated_user_id = user_id
-            new_scenario.updated_at = datetime.now()
-            new_check_str = new_scenario.get_str_to_check()
+        if shifu:
+            old_check_str = shifu.get_str_to_check()
+            new_shifu = shifu.clone()
+            new_shifu.course_name = shifu_name
+            new_shifu.course_desc = shifu_description
+            new_shifu.course_teacher_avator = shifu_avatar
+            new_shifu.course_keywords = ",".join(shifu_keywords)
+            new_shifu.course_default_model = shifu_model
+            new_shifu.course_price = shifu_price
+            new_shifu.updated_user_id = user_id
+            new_shifu.updated_at = datetime.now()
+            new_check_str = new_shifu.get_str_to_check()
             if old_check_str != new_check_str:
-                check_text_with_risk_control(app, scenario_id, user_id, new_check_str)
-            if not scenario.eq(new_scenario):
-                new_scenario.status = STATUS_DRAFT
-                if scenario.status == STATUS_DRAFT:
-                    # if scenario is draft, history it
-                    # if scenario is publish,so DO NOTHING
-                    scenario.status = STATUS_HISTORY
-                db.session.add(new_scenario)
+                check_text_with_risk_control(app, shifu_id, user_id, new_check_str)
+            if not shifu.eq(new_shifu):
+                new_shifu.status = STATUS_DRAFT
+                if shifu.status == STATUS_DRAFT:
+                    # if shifu is draft, history it
+                    # if shifu is publish,so DO NOTHING
+                    shifu.status = STATUS_HISTORY
+                db.session.add(new_shifu)
             db.session.commit()
-            return ScenarioDetailDto(
-                scenario.course_id,
-                scenario.course_name,
-                scenario.course_desc,
-                scenario.course_teacher_avator,
-                scenario.course_keywords,
-                scenario.course_default_model,
-                str(scenario.course_price),
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + scenario.course_id,
+            return ShifuDetailDto(
+                shifu.course_id,
+                shifu.course_name,
+                shifu.course_desc,
+                shifu.course_teacher_avator,
+                shifu.course_keywords,
+                shifu.course_default_model,
+                str(shifu.course_price),
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
+                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
             )
-        raise_error("SCENARIO.SCENARIO_NOT_FOUND")
+        raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
-def scenario_permission_verification(
+def shifu_permission_verification(
     app,
     user_id: str,
-    scenario_id: str,
+    shifu_id: str,
     auth_type: str,
 ):
     with app.app_context():
         cache_key = (
             get_config("REDIS_KEY_PREFIX", "ai-shifu:")
-            + "scenario_permission:"
+            + "shifu_permission:"
             + user_id
             + ":"
-            + scenario_id
+            + shifu_id
         )
-        cache_key_expire = int(get_config("SCENARIO_PERMISSION_CACHE_EXPIRE", "1"))
+        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE", "1"))
         cache_result = redis.get(cache_key)
         if cache_result is not None:
             try:
@@ -549,10 +555,10 @@ def scenario_permission_verification(
             except (json.JSONDecodeError, TypeError):
                 redis.delete(cache_key)
         # If it is not in the cache, query the database
-        scenario = AICourse.query.filter(
-            AICourse.course_id == scenario_id, AICourse.created_user_id == user_id
+        shifu = AICourse.query.filter(
+            AICourse.course_id == shifu_id, AICourse.created_user_id == user_id
         ).first()
-        if scenario:
+        if shifu:
             # The creator has all the permissions
             # Cache all permissions
             all_auth_types = ["view", "edit", "publish"]
@@ -561,7 +567,7 @@ def scenario_permission_verification(
         else:
             # Collaborators need to verify specific permissions
             auth = AiCourseAuth.query.filter(
-                AiCourseAuth.course_id == scenario_id, AiCourseAuth.user_id == user_id
+                AiCourseAuth.course_id == shifu_id, AiCourseAuth.user_id == user_id
             ).first()
             if auth:
                 try:

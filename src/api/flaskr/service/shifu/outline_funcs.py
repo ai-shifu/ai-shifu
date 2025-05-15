@@ -28,11 +28,11 @@ from flaskr.service.check_risk.funcs import check_text_with_risk_control
 # get chapter list
 # @author: yfge
 # @date: 2025-04-14
-# get chapter list will return the chapter list of the scenario
-# is used for the scenario outline page in the cook-web
-def get_chapter_list(app, user_id: str, scenario_id: str):
+# get chapter list will return the chapter list of the shifu
+# is used for the shifu outline page in the cook-web
+def get_chapter_list(app, user_id: str, shifu_id: str):
     with app.app_context():
-        outlines = get_existing_outlines(app, scenario_id)
+        outlines = get_existing_outlines(app, shifu_id)
         chapters = [o for o in outlines if len(o.lesson_no) == 2]
         return [
             ChapterDto(
@@ -48,21 +48,21 @@ def get_chapter_list(app, user_id: str, scenario_id: str):
 # create chapter
 # @author: yfge
 # @date: 2025-04-14
-# create chapter will create a new chapter under the scenario
+# create chapter will create a new chapter under the shifu
 # and change the lesson_no of the outlines under the chapter
 def create_chapter(
     app,
     user_id: str,
-    scenario_id: str,
+    shifu_id: str,
     chapter_name: str,
     chapter_description: str,
     chapter_index: int = 0,
     chapter_type: int = LESSON_TYPE_TRIAL,
 ):
     with app.app_context():
-        outlines = get_existing_outlines(app, scenario_id)
+        outlines = get_existing_outlines(app, shifu_id)
         if next((o for o in outlines if o.lesson_name == chapter_name), None):
-            raise_error("SCENARIO.CHAPTER_ALREADY_EXISTS")
+            raise_error("SHIFU.CHAPTER_ALREADY_EXISTS")
         existing_chapters = [o for o in outlines if len(o.lesson_no) == 2]
         existing_chapter_count = len(existing_chapters)
         chapter_no = f"{existing_chapter_count + 1:02d}"
@@ -75,7 +75,7 @@ def create_chapter(
             lesson_no=chapter_no,
             lesson_name=chapter_name,
             lesson_desc=chapter_description,
-            course_id=scenario_id,
+            course_id=shifu_id,
             created_user_id=user_id,
             updated_user_id=user_id,
             status=STATUS_DRAFT,
@@ -166,7 +166,7 @@ def modify_chapter(
                 AILesson.lesson_name == chapter_name,
             ).count()
             if existing_chapter_count > 0:
-                raise_error("SCENARIO.OTHER_SAME_CHAPTER_ALREADY_EXISTS")
+                raise_error("SHIFU.OTHER_SAME_CHAPTER_ALREADY_EXISTS")
             old_check_str = chapter.get_str_to_check()
             new_check_str = new_chapter.get_str_to_check()
             if old_check_str != new_check_str:
@@ -178,7 +178,7 @@ def modify_chapter(
                 chapter.lesson_desc,
                 chapter.lesson_type,
             )
-        raise_error("SCENARIO.CHAPTER_NOT_FOUND")
+        raise_error("SHIFU.CHAPTER_NOT_FOUND")
 
 
 # delete chapter
@@ -233,7 +233,7 @@ def delete_chapter(app, user_id: str, chapter_id: str):
                 change_block_status_to_history(block, user_id, time)
             db.session.commit()
             return True
-        raise_error("SCENARIO.CHAPTER_NOT_FOUND")
+        raise_error("SHIFU.CHAPTER_NOT_FOUND")
 
 
 # update chapter order
@@ -241,11 +241,11 @@ def delete_chapter(app, user_id: str, chapter_id: str):
 # @date: 2025-04-14
 # update chapter order will also update the lesson_no of the outlines under the chapter
 def update_chapter_order(
-    app, user_id: str, scenario_id: str, chapter_ids: list
+    app, user_id: str, shifu_id: str, chapter_ids: list
 ) -> list[ChapterDto]:
     with app.app_context():
         time = datetime.now()
-        outlines = get_original_outline_tree(app, scenario_id)
+        outlines = get_original_outline_tree(app, shifu_id)
 
         q = queue.Queue()
         root = OutlineTreeNode(None)
@@ -282,7 +282,7 @@ def update_chapter_order(
             reorder_outline_tree_and_save(app, root, user_id, time)
             db.session.commit()
         else:
-            raise_error("SCENARIO.CHAPTER_IDS_NOT_FOUND")
+            raise_error("SHIFU.CHAPTER_IDS_NOT_FOUND")
 
         return [SimpleOutlineDto(node) for node in outlines]
 
@@ -290,11 +290,11 @@ def update_chapter_order(
 # get outline tree
 # @author: yfge
 # @date: 2025-04-14
-# get outline tree will return the outline tree of the scenario
-# is used for the scenario outline page in the cook-web
-def get_outline_tree(app, user_id: str, scenario_id: str):
+# get outline tree will return the outline tree of the shifu
+# is used for the shifu outline page in the cook-web
+def get_outline_tree(app, user_id: str, shifu_id: str):
     with app.app_context():
 
-        outlines = get_original_outline_tree(app, scenario_id)
+        outlines = get_original_outline_tree(app, shifu_id)
         outline_tree_dto = [SimpleOutlineDto(node) for node in outlines]
         return outline_tree_dto

@@ -43,7 +43,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
     try {
       const response = await uploadFile(
         file,
-        `${siteHost}/api/scenario/upfile`,
+        `${siteHost}/api/shifu/upfile`,
         undefined,
         undefined,
         progress => {

@@ -1,5 +1,5 @@
-from flaskr.service.scenario.dtos import BlockDto, OutlineEditDto
-from flaskr.service.scenario.adapter import (
+from flaskr.service.shifu.dtos import BlockDto, OutlineEditDto
+from flaskr.service.shifu.adapter import (
     convert_dict_to_block_dto,
     update_block_model,
     generate_block_dto,
@@ -8,7 +8,7 @@ from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import save_profile_item_defination
 from flaskr.service.profile.models import ProfileItem
 from flaskr.service.common.models import raise_error
-from flaskr.service.scenario.utils import get_existing_blocks, get_original_outline_tree
+from flaskr.service.shifu.utils import get_existing_blocks, get_original_outline_tree
 from flaskr.util import generate_id
 from flaskr.dao import db
 from datetime import datetime
@@ -31,7 +31,7 @@ def get_block_list(app, user_id: str, outline_id: str):
             AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
         ).first()
         if not lesson:
-            raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+            raise_error("SHIFU.OUTLINE_NOT_FOUND")
         tree = get_original_outline_tree(app, lesson.course_id)
 
         q = queue.Queue()
@@ -97,7 +97,7 @@ def delete_block(app, user_id: str, outline_id: str, block_id: str):
                 AILessonScript.script_id == block_id,
             ).first()
         if not block:
-            raise_error("SCENARIO.BLOCK_NOT_FOUND")
+            raise_error("SHIFU.BLOCK_NOT_FOUND")
         change_block_status_to_history(block, user_id, datetime.now())
         db.session.commit()
         return True
@@ -112,7 +112,7 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
             AILessonScript.script_id == block_id,
         ).first()
         if not block:
-            raise_error("SCENARIO.BLOCK_NOT_FOUND")
+            raise_error("SHIFU.BLOCK_NOT_FOUND")
         return generate_block_dto(block)
 
 
@@ -127,7 +127,7 @@ def save_block_list_internal(
             AILesson.lesson_id == outline_id,
         ).first()
         if not outline:
-            raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+            raise_error("SHIFU.OUTLINE_NOT_FOUND")
 
         # pass the top outline
         if len(outline.lesson_no) == 2:
@@ -306,7 +306,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             .first()
         )
         if not outline:
-            raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+            raise_error("SHIFU.OUTLINE_NOT_FOUND")
         block_dto = convert_dict_to_block_dto({"type": "block", "properties": block})
         # add 1 to the block index / 1 is the index of the block in the outline
         block_index = block_index + 1
@@ -353,7 +353,7 @@ def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]
             AILesson.status == 1,
         ).first()
         if not lesson:
-            raise_error("SCENARIO.LESSON_NOT_FOUND")
+            raise_error("SHIFU.LESSON_NOT_FOUND")
         for block in block_list:
             block_model = AILessonScript.query.filter(
                 AILessonScript.lesson_id == outline_id,
@@ -399,5 +399,5 @@ def get_system_block_by_outline_id(app, outline_id: str):
                 .first()
             )
             if not outline:
-                raise_error("SCENARIO.OUTLINE_NOT_FOUND")
+                raise_error("SHIFU.OUTLINE_NOT_FOUND")
         return block

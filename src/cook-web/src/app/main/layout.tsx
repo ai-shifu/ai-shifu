@@ -22,7 +22,7 @@ const MainInterface = ({
 }>) => {
   const { t } = useTranslation();
   const menuItems: { type?: string, icon?: React.ReactNode, label?: string, href?: string, id?: string }[] = [
-    { icon: <DocumentIcon className="w-4 h-4" />, label: t('common.scenario'), href: "/main" },
+    { icon: <DocumentIcon className="w-4 h-4" />, label: t('common.shifu'), href: "/main" },
   ];
 
 

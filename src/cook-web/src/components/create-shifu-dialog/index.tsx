@@ -23,38 +23,38 @@ import { useTranslation } from 'react-i18next';
 
 
 interface FormSchema {
-    scenario_name: string;
-    scenario_description: string;
-    scenario_image: string;
+    shifu_name: string;
+    shifu_description: string;
+    shifu_image: string;
 }
-interface CreateScenarioDialogProps {
+interface CreateShifuDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSubmit: (values: FormSchema) => Promise<void>;
 }
-export const CreateScenarioDialog = ({
+export const CreateShifuDialog = ({
     open,
     onOpenChange,
     onSubmit
-}: CreateScenarioDialogProps) => {
+}: CreateShifuDialogProps) => {
     const { t } = useTranslation();
 
     const formSchema = z.object({
-            scenario_name: z.string()
-                .min(1, t('create-scenario-dialog.scenario-name-cannot-be-empty'))
-                .max(20, t('create-scenario-dialog.scenario-name-cannot-exceed-20-characters')),
-            scenario_description: z.string()
-                .max(500, t('create-scenario-dialog.scenario-description-cannot-exceed-500-characters'))
+        shifu_name: z.string()
+            .min(1, t('create-shifu-dialog.shifu-name-cannot-be-empty'))
+            .max(20, t('create-shifu-dialog.shifu-name-cannot-exceed-20-characters')),
+        shifu_description: z.string()
+            .max(500, t('create-shifu-dialog.shifu-description-cannot-exceed-500-characters'))
             .optional(),
-        scenario_image: z.string().default(""),
+        shifu_image: z.string().default(""),
     });
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            scenario_name: "",
-            scenario_description: "",
-            scenario_image: "",
+            shifu_name: "",
+            shifu_description: "",
+            shifu_image: "",
         },
     });
 
@@ -74,22 +74,22 @@ export const CreateScenarioDialog = ({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{t('create-scenario-dialog.create-blank-scenario')}</DialogTitle>
+                    <DialogTitle>{t('create-shifu-dialog.create-blank-shifu')}</DialogTitle>
                 </DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
-                            name="scenario_name"
+                            name="shifu_name"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel
                                         style={{
                                             color: "#000000"
                                         }}
-                                    >{t('create-scenario-dialog.scenario-name')}</FormLabel>
+                                    >{t('create-shifu-dialog.shifu-name')}</FormLabel>
                                     <FormControl>
-                                        <Input autoComplete='off' placeholder={t('create-scenario-dialog.please-input-scenario-name')} {...field} />
+                                        <Input autoComplete='off' placeholder={t('create-shifu-dialog.please-input-shifu-name')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -97,16 +97,16 @@ export const CreateScenarioDialog = ({
                         />
                         <FormField
                             control={form.control}
-                            name="scenario_description"
+                            name="shifu_description"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel
                                         style={{
                                             color: "#000000"
                                         }}
-                                    >{t('create-scenario-dialog.scenario-description')}</FormLabel>
+                                    >{t('create-shifu-dialog.shifu-description')}</FormLabel>
                                     <FormControl>
-                                        <Textarea autoComplete='off' placeholder={t('create-scenario-dialog.please-input-scenario-description')} {...field} />
+                                        <Textarea autoComplete='off' placeholder={t('create-shifu-dialog.please-input-shifu-description')} {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -114,7 +114,7 @@ export const CreateScenarioDialog = ({
                         />
                         <div className="flex justify-end">
                             <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? t('create-scenario-dialog.creating') : t('create-scenario-dialog.create')}
+                                {form.formState.isSubmitting ? t('create-shifu-dialog.creating') : t('create-shifu-dialog.create')}
                             </Button>
                         </div>
                     </form>

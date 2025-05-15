@@ -59,12 +59,12 @@ class OutlineTreeNode:
 # get the existing outlines for cook
 # @author: yfge
 # @date: 2025-04-14
-def get_existing_outlines(app: Flask, scenario_id: str, parent_id: str = None):
+def get_existing_outlines(app: Flask, shifu_id: str, parent_id: str = None):
     # with no context, so we need to use the fun n other module
     subquery = (
         db.session.query(db.func.max(AILesson.id))
         .filter(
-            AILesson.course_id == scenario_id,
+            AILesson.course_id == shifu_id,
         )
         .group_by(AILesson.lesson_id)
     )
@@ -85,12 +85,12 @@ def get_existing_outlines(app: Flask, scenario_id: str, parent_id: str = None):
 # get the existing outlines for cook for publish
 # @author: yfge
 # @date: 2025-04-14
-def get_existing_outlines_for_publish(app: Flask, scenario_id: str):
+def get_existing_outlines_for_publish(app: Flask, shifu_id: str):
     # with no context, so we need to use the fun in other module
     subquery = (
         db.session.query(db.func.max(AILesson.id))
         .filter(
-            AILesson.course_id == scenario_id,
+            AILesson.course_id == shifu_id,
         )
         .group_by(AILesson.lesson_id)
     )
@@ -196,8 +196,8 @@ def change_block_status_to_history(
         db.session.add(new_block)
 
 
-def get_original_outline_tree(app: Flask, scenario_id: str) -> list["OutlineTreeNode"]:
-    outlines = get_existing_outlines(app, scenario_id)
+def get_original_outline_tree(app: Flask, shifu_id: str) -> list["OutlineTreeNode"]:
+    outlines = get_existing_outlines(app, shifu_id)
     sorted_outlines = sorted(outlines, key=lambda x: (len(x.lesson_no), x.lesson_no))
     outline_tree = []
 

@@ -13,7 +13,7 @@
     "start-debug": "Start Debug",
     "stop-output": "Stop Output",
     "system-prompt": "System Prompt",
-    "update-to-scenario": "Update to Scenario",
+    "update-to-shifu": "Update to Shifu",
     "user-prompt": "User Prompt",
     "variable": "Variable"
   },
@@ -41,7 +41,7 @@
     "all": "All",
     "cancel": "Cancel",
     "confirm": "Confirm",
-    "create-blank-scenario": "Create Blank Scenario",
+    "create-blank-shifu": "Create New Shifu",
     "create-failed": "Create Failed",
     "create-success": "Create Success",
     "create-success-description": "Create Success Description",
@@ -49,27 +49,27 @@
     "follow": "Follow",
     "home": "Home",
     "logout": "Logout",
-    "no-more-scenarios": "No More Scenarios",
-    "no-scenarios": "No Scenarios",
+    "no-more-shifus": "No More Shifus",
+    "no-shifus": "No Shifus",
     "please-input-bilibili-url": "Please Input Bilibili URL",
     "please-input-valid-bilibili-url": "Please Input Valid Bilibili URL",
     "please-set": "Please Set",
     "run": "Run",
-    "scenario": "Scenario",
+    "shifu": "Shifu",
     "unknown-error": "Unknown Error",
     "use-image": "Use Image",
     "use-resource": "Use Resource"
   },
-  "course-setting": {
+  "shifu-setting": {
     "add-keyword": "Add Keyword",
     "cancel": "Cancel",
-    "course-avatar": "Course Avatar",
-    "course-description": "Course Description",
-    "course-description-cannot-be-empty": "Course Description Cannot Be Empty",
-    "course-description-cannot-exceed-300-characters": "Course Description Cannot Exceed 300 Characters",
-    "course-name": "Course Name",
-    "course-name-cannot-be-empty": "Course Name Cannot Be Empty",
-    "course-name-cannot-exceed-50-characters": "Course Name Cannot Exceed 50 Characters",
+    "shifu-avatar": "Shifu Avatar",
+    "shifu-description": "Shifu Description",
+    "shifu-description-cannot-be-empty": "Shifu Description Cannot Be Empty",
+    "shifu-description-cannot-exceed-300-characters": "Shifu Description Cannot Exceed 300 Characters",
+    "shifu-name": "Shifu Name",
+    "shifu-name-cannot-be-empty": "Shifu Name Cannot Be Empty",
+    "shifu-name-cannot-exceed-50-characters": "Shifu Name Cannot Exceed 50 Characters",
     "file-size-cannot-exceed-2mb": "File Size Cannot Exceed 2MB",
     "input-keywords": "Input Keywords",
     "keywords": "Keywords",
@@ -92,17 +92,17 @@
     "upload-failed-please-try-again": "Upload Failed Please Try Again",
     "uploading": "Uploading"
   },
-  "create-scenario-dialog": {
+  "create-shifu-dialog": {
     "create": "Create",
-    "create-blank-scenario": "Create Blank Scenario",
+    "create-blank-shifu": "Create New Shifu",
     "creating": "Creating",
-    "please-input-scenario-description": "Please Input Scenario Description",
-    "please-input-scenario-name": "Please Input Scenario Name",
-    "scenario-description": "Scenario Description",
-    "scenario-description-cannot-exceed-500-characters": "Scenario Description Cannot Exceed 500 Characters",
-    "scenario-name": "Scenario Name",
-    "scenario-name-cannot-be-empty": "Scenario Name Cannot Be Empty",
-    "scenario-name-cannot-exceed-20-characters": "Scenario Name Cannot Exceed 20 Characters"
+    "please-input-shifu-description": "Please Input Shifu Description",
+    "please-input-shifu-name": "Please Input Shifu Name",
+    "shifu-description": "Shifu Description",
+    "shifu-description-cannot-exceed-500-characters": "Shifu Description Cannot Exceed 500 Characters",
+    "shifu-name": "Shifu Name",
+    "shifu-name-cannot-be-empty": "Shifu Name Cannot Be Empty",
+    "shifu-name-cannot-exceed-20-characters": "Shifu Name Cannot Exceed 20 Characters"
   },
   "file-uploader": {
     "click-to-upload": "Click to Upload",
@@ -322,7 +322,7 @@
   "render-ui": {
     "button": "Button",
     "button-button-key": "Button Key",
-    "button-button-name": "Button Name",
+    "button-button-name": "Continue",
     "button-key": "Button Key",
     "button-name": "Button Name",
     "button-name-empty": "Button Name Empty",
@@ -353,7 +353,7 @@
     "textinput-temprature-empty": "Text Input Temprature Empty",
     "user-operation": "User Operation"
   },
-  "scenario": {
+  "shifu": {
     "debug": "Debug",
     "new_chapter": "New Chapter"
   },

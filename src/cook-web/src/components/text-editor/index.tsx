@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { useScenario } from '@/store';
+import { useShifu } from '@/store';
 import React, { useState, useRef, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -29,7 +29,7 @@ const processContent = (content: string) => {
 };
 
 export default function TextEditor(props: TextEditorProps) {
-  const { profileItemDefinations } = useScenario();
+  const { profileItemDefinations } = useShifu();
   const { t } = useTranslation();
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Variable[]>([]);
