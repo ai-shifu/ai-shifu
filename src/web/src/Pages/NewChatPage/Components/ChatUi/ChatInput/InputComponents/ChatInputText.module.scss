@@ -21,7 +21,8 @@
   max-height: 120px;
   overflow-y: auto;
   line-height: 1.5;
-  padding: 8px 12px;
+  padding: 8px 40px 8px 12px;
+
   border: 1px solid #d9d9d9;
   border-radius: 20px;
   width: 100%;
@@ -37,14 +38,14 @@
 
   @media (max-width: 768px) {
     font-size: 16px;
-    padding: 10px 14px;
+    padding:10px 40px 10px 12px;
     line-height: 1.4;
     -webkit-text-size-adjust: none;
   }
 
   @supports (-webkit-touch-callout: none) {
     font-size: 16px;
-    padding: 10px 14px;
+    padding: 10px 40px 10px 12px;
   }
 
   &:disabled {
