@@ -133,7 +133,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
         user_verify_code = UserVerifyCode(
             phone=str(phone),
             verify_code=random_string,
-            verify_code_type=1, # 1: SMS, 2: Email
+            verify_code_type=1,  # 1: SMS, 2: Email
             verify_code_used=0,
             user_ip=str(ip),
         )
@@ -204,11 +204,10 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
         body = f"Your verification code is: {random_string}"
         msg.attach(MIMEText(body, "plain"))
 
-
         user_verify_code = UserVerifyCode(
             mail=str(email),
             verify_code=random_string,
-            verify_code_type=2, # 1: SMS, 2: Email
+            verify_code_type=2,  # 1: SMS, 2: Email
             verify_code_used=0,
             user_ip=str(ip),
         )

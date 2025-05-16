@@ -191,8 +191,15 @@ class UserVerifyCode(db.Model):
     phone = Column(String(36), nullable=False, default="", comment="User phone")
     mail = Column(String(36), nullable=False, default="", comment="User mail")
     verify_code = Column(String(10), nullable=False, default="", comment="Verify code")
-    verify_code_type = Column(Integer, nullable=False, default=0, comment="Verify code type")
-    verify_code_used = Column(Integer, nullable=False, default=0, comment="whether the verification code is used")
+    verify_code_type = Column(
+        Integer, nullable=False, default=0, comment="Verify code type"
+    )
+    verify_code_used = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="whether the verification code is used",
+    )
     user_ip = Column(String(100), nullable=False, default="", comment="user ip")
 
     created = Column(
