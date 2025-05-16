@@ -487,7 +487,8 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                                 app.logger.error(
                                     "user:{} not found".format(buy_record.user_id)
                                 )
-                            user_info.user_state = USER_STATE_PAID
+                            else:
+                                user_info.user_state = USER_STATE_PAID
                         except Exception as e:
                             app.logger.error("update user state error:{}".format(e))
                         buy_record.status = BUY_STATUS_SUCCESS
@@ -546,6 +547,7 @@ def success_buy_record(app: Flask, record_id: str):
             user_info = User.query.filter(User.user_id == buy_record.user_id).first()
             if not user_info:
                 app.logger.error("user:{} not found".format(buy_record.user_id))
+            else:
                 user_info.user_state = USER_STATE_PAID
             buy_record.status = BUY_STATUS_SUCCESS
             lessons = AILesson.query.filter(
