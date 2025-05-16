@@ -134,7 +134,6 @@ class PingxxOrder(db.Model):
     pingxx_id = Column(String(36), nullable=False, default="", comment="Pingxx ID")
     channel = Column(String(36), nullable=False, default="", comment="Payment channel")
     amount = Column(BIGINT, nullable=False, default="0.00", comment="Payment amount")
-    extra = Column(Text, nullable=False, comment="Extra information")
     currency = Column(String(36), nullable=False, default="CNY", comment="Currency")
     subject = Column(String(255), nullable=False, default="", comment="Payment subject")
     body = Column(String(255), nullable=False, default="", comment="Payment body")
