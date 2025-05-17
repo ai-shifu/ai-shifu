@@ -10,9 +10,10 @@ from email.mime.multipart import MIMEMultipart
 from flaskr.i18n import _
 
 from ..common.models import raise_error
-from ...dao import redis_client as redis
+from ...dao import redis_client as redis, db
 from captcha.image import ImageCaptcha
 from flaskr.api.sms.aliyun import send_sms_code_ali
+from .models import UserVerifyCode
 from io import BytesIO
 
 
@@ -129,6 +130,15 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
         redis.set(
             phone_limit_key, int(time.time()), ex=int(app.config["SMS_CODE_INTERVAL"])
         )
+        user_verify_code = UserVerifyCode(
+            phone=str(phone),
+            verify_code=random_string,
+            verify_code_type=1,  # 1: SMS, 2: Email
+            verify_code_used=0,
+            user_ip=str(ip),
+        )
+        db.session.add(user_verify_code)
+        db.session.commit()
 
         send_sms_code_ali(app, phone, random_string)
         return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
@@ -193,6 +203,16 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
 
         body = f"Your verification code is: {random_string}"
         msg.attach(MIMEText(body, "plain"))
+
+        user_verify_code = UserVerifyCode(
+            mail=str(email),
+            verify_code=random_string,
+            verify_code_type=2,  # 1: SMS, 2: Email
+            verify_code_used=0,
+            user_ip=str(ip),
+        )
+        db.session.add(user_verify_code)
+        db.session.commit()
 
         try:
             # Connect to the SMTP server
