@@ -96,7 +96,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     if (!agiImgUrlRegexp.test(inputUrl)) {
       try {
         const response = await fetch(inputUrl, {
-          mode: 'no-cors',
           headers: {
             'content-type': 'image/*',
           }
