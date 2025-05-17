@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: GitHub Community Support
+    url: https://github.com/ai-shifu/ai-shifu/discussions
+    about: General discussions and request help from the community
+  - name: AI Shifu Platform
+    url: https://ai-shifu.cn
+    about: the official website of AI Shifu

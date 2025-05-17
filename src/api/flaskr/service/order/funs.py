@@ -207,6 +207,7 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
         order_timeout_make_new_order = False
+        find_active_id = None
         course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         if not course_info:
             raise_error("LESSON.COURSE_NOT_FOUND")

@@ -1,0 +1,52 @@
+name: "🌐 Translation issue"
+description: Report issues or suggestions related to translations
+title: "[Translation] "
+labels:
+  - translation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping us improve translations! Please fill in the following information.
+  - type: input
+    attributes:
+      label: AI Shifu version
+      description: input the git commit hash or the version number of the AI Shifu
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language involved
+      description: Please select the language involved
+      options:
+        - Chinese
+        - English
+    validations:
+      required: true
+  - type: textarea
+    id: original-text
+    attributes:
+      label: Original text
+      description: Please provide the original text that needs to be translated or modified
+      placeholder: Paste the original text here...
+    validations:
+      required: true
+  - type: textarea
+    id: suggested-translation
+    attributes:
+      label: Suggested translation
+      description: Please provide the suggested translation (if any)
+      placeholder: Paste the suggested translation here...
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Please provide any relevant context information to help understand the translation request
+      placeholder: Provide context information here...
+  - type: textarea
+    id: additional-notes
+    attributes:
+      label: Additional notes
+      description: Any other information you would like to add
+      placeholder: Add additional notes here...
