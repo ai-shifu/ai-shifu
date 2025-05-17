@@ -4,30 +4,30 @@ const TOKEN_KEY = 'token';
 const USERINFO_KEY = 'userinfo';
 const TOKEN_FAKED_KEY = 'token_faked';
 
-const createStore = (key) => {
+const createStore = <T>(key: string) => {
   return {
-    get: () => {
+    get: (): T | undefined => {
       return store.get(key);
     },
-    set: (v) => {
+    set: (v: T): void => {
       store.set(key, v);
     },
-    remove: () => {
+    remove: (): void => {
       store.remove(key);
     }
   };
 };
 
-const createBoolStore = (key) => {
+const createBoolStore = (key: string) => {
   return {
-    get: () => {
+    get: (): boolean => {
       return !!parseInt(store.get(key));
     },
-    set: (v) => {
+    set: (v: boolean): void => {
       const val = v ? 1 : 0;
       store.set(key, val);
     },
-    remove: () => {
+    remove: (): void => {
       store.remove(key);
     }
   };
@@ -38,15 +38,15 @@ export const userInfoStore = createStore(USERINFO_KEY);
 const tokenFakedStore = createBoolStore(TOKEN_FAKED_KEY);
 
 export const tokenTool = {
-  get: () => ({
+  get: (): { token: string | undefined; faked: boolean } => ({
     token: tokenStore.get(),
     faked: tokenFakedStore.get(),
   }),
-  set: ({ token, faked }) => {
+  set: ({ token, faked }: { token: string; faked: boolean }): void => {
     tokenStore.set(token);
     tokenFakedStore.set(faked);
   },
-  remove: () => {
+  remove: (): void => {
     tokenStore.remove();
     tokenFakedStore.remove();
   }
