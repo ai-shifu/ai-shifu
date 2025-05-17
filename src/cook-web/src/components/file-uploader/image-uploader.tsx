@@ -114,10 +114,8 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       // return
 
       try {
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
+        const img = document.createElement('img')
         img.src = inputUrl
-
         img.onload = () => {
           const canvas = document.createElement('canvas')
           canvas.width = img.width
