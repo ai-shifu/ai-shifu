@@ -1,8 +1,18 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback, forwardRef } from 'react';
 import styles from './IconButton.module.scss';
-import { useEffect, useCallback } from 'react';
 
-export const IconButton = ({
+export interface IconButtonProps {
+  icon?: string;
+  hoverIcon?: string;
+  activeIcon?: string;
+  selectedIcon?: string;
+  width?: number;
+  borderRadius?: number;
+  selected?: boolean;
+  onClick?: () => void;
+}
+
+export const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(({ 
   icon = '',
   hoverIcon = '',
   activeIcon = '',
@@ -11,10 +21,10 @@ export const IconButton = ({
   borderRadius = 10,
   selected = false,
   onClick = () => {},
-}) => {
-  const [isHover, setIsHover] = useState(false);
-  const [isActive, setIsActive] = useState(false);
-  const topRef = useRef();
+}, ref) => {
+  const [isHover, setIsHover] = useState<boolean>(false);
+  const [isActive, setIsActive] = useState<boolean>(false);
+  const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onMouseEnter = () => {
@@ -78,6 +88,6 @@ export const IconButton = ({
       <img src={genImageSrc()} alt="" className={styles.innerIcon} />
     </div>
   );
-};
+});
 
 export default IconButton;

@@ -4,7 +4,11 @@ import classNames from 'classnames';
 import { ConfigProvider } from 'antd';
 import { forwardRef, memo } from 'react';
 
-export const LineButton = forwardRef((props, ref) => {
+export interface LineButtonProps extends React.ComponentProps<typeof Button> {
+  width?: number | string;
+  height?: number | string;
+}
+export const LineButton = forwardRef<HTMLButtonElement, LineButtonProps>((props, ref) => {
   return (
     <ConfigProvider
       theme={{
