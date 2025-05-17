@@ -10,7 +10,7 @@ import Goto from './goto'
 import GotoView from './view/goto'
 import TextInput from './textinput'
 import TextInputView from './view/textinput'
-import { useScenario } from '@/store';
+import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
@@ -39,7 +39,7 @@ const ViewBlockMap = {
 }
 
 export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
-    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentScenario } = useScenario();
+    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
     const onPropertiesChange = async (properties) => {
@@ -58,7 +58,7 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
             return;
         }
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentScenario?.id || '')
+            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
         }
     }
     useEffect(() => {
@@ -93,7 +93,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
         actions,
         blockUITypes,
         blockUIProperties,
-    } = useScenario();
+    } = useShifu();
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')

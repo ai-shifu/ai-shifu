@@ -2,29 +2,29 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
-import { useScenario } from '@/store';
+import { useShifu } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/use-alert';
 import api from '@/api'
 import { ChevronLeft, CircleAlert, CircleCheck, TrendingUp } from 'lucide-react';
 import Preivew from '@/components/preview';
-import CourseSetting from '@/components/course-setting';
+import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
 const Header = () => {
     const { t } = useTranslation();
     const alert = useAlert();
     const router = useRouter();
     const [publishing, setPublishing] = useState(false);
-    const { isSaving, lastSaveTime, currentScenario, error, actions } = useScenario();
-    const onCourseSave = async () => {
-        if (currentScenario) {
-            await actions.loadScenario(currentScenario.id);
+    const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
+    const onShifuSave = async () => {
+        if (currentShifu) {
+            await actions.loadShifu(currentShifu.shifu_id);
         }
     }
     const publish = async () => {
         // TODO: publish
         // actions.publishScenario();
-        await actions.saveBlocks(currentScenario?.id || '');
+        await actions.saveBlocks(currentShifu?.shifu_id || '');
         alert.showAlert({
             confirmText: t('header.confirm'),
             cancelText: t('header.cancel'),
@@ -32,8 +32,8 @@ const Header = () => {
             description: t('header.confirm-publish-description'),
             async onConfirm() {
                 setPublishing(true)
-                const reuslt = await api.publishScenario({
-                    scenario_id: currentScenario?.id || ''
+                const reuslt = await api.publishShifu({
+                    shifu_id: currentShifu?.shifu_id || ''
                 });
                 setPublishing(false)
                 alert.showAlert({
@@ -64,10 +64,10 @@ const Header = () => {
 
                 <div className="flex items-center">
                     {
-                        currentScenario?.image ? (
+                        currentShifu?.shifu_avatar ? (
                             <div className="bg-blue-100 flex items-center justify-center h-10 w-10 rounded-md p-1 mr-2 overflow-hidden">
                                 <img
-                                    src={currentScenario?.image}
+                                    src={currentShifu?.shifu_avatar}
                                     alt="Profile"
                                     className="rounded"
                                 />
@@ -78,7 +78,7 @@ const Header = () => {
                     <div className='flex flex-col'>
                         <div className="flex items-center">
                             <span className="font-medium text-sm">
-                                {currentScenario?.name}
+                                {currentShifu?.shifu_name}
                             </span>
 
                             <span className='ml-1'>
@@ -121,7 +121,7 @@ const Header = () => {
             </div>
 
             <div className='flex flex-row items-center'>
-                <CourseSetting scenarioId={currentScenario?.id || ""} onSave={onCourseSave} />
+                <ShifuSetting shifuId={currentShifu?.shifu_id || ""} onSave={onShifuSave} />
                 <Preivew />
                 <Button size="sm" className="h-8 ml-1 bg-purple-600 hover:bg-purple-700 text-xs font-normal"
                     onClick={publish}

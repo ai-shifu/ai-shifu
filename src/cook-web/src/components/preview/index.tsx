@@ -11,7 +11,7 @@ import { Button } from '@/components/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { PlayIcon } from 'lucide-react';
-import { useScenario } from '@/store';
+import { useShifu } from '@/store';
 import api from '@/api';
 import { useAlert } from '@/components/ui/use-alert'
 import { useTranslation } from 'react-i18next';
@@ -20,7 +20,7 @@ const PreviewSettingsModal = () => {
     const { t } = useTranslation();
     const { showAlert } = useAlert();
     const [open, setOpen] = useState(false);
-    const { profileItemDefinations, currentScenario, actions } = useScenario();
+    const { profileItemDefinations, currentShifu, actions } = useShifu();
 
     const [autoSkipEmptyFields, setAutoSkipEmptyFields] = useState(false);
     const [formValues, setFormValues] = useState({});
@@ -29,10 +29,10 @@ const PreviewSettingsModal = () => {
         setFormValues(prev => ({ ...prev, [key]: value }));
     };
     const handleStartPreview = async () => {
-        await actions.saveBlocks(currentScenario?.id || '');
+        await actions.saveBlocks(currentShifu?.shifu_id || '');
         // Handle the start preview action
-        const reuslt = await api.previewScenario({
-            "scenario_id": currentScenario?.id || '',
+        const reuslt = await api.previewShifu({
+            "shifu_id": currentShifu?.shifu_id || '',
             "skip": autoSkipEmptyFields,
             "variables": formValues
         });

@@ -1,90 +1,90 @@
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.common.aidtos import AIDto, SystemPromptDto
-from flaskr.service.scenario.utils import OutlineTreeNode
+from flaskr.service.shifu.utils import OutlineTreeNode
 
 
 @register_schema_to_swagger
-class ScenarioDto:
-    scenario_id: str
-    scenario_name: str
-    scenario_description: str
-    scenario_image: str
-    scenario_state: int
+class ShifuDto:
+    shifu_id: str
+    shifu_name: str
+    shifu_description: str
+    shifu_avatar: str
+    shifu_state: int
     is_favorite: bool
 
     def __init__(
         self,
-        scenario_id: str,
-        scenario_name: str,
-        scenario_description: str,
-        scenario_image: str,
-        scenario_state: int,
+        shifu_id: str,
+        shifu_name: str,
+        shifu_description: str,
+        shifu_avatar: str,
+        shifu_state: int,
         is_favorite: bool,
         **kwargs
     ):
-        self.scenario_id = scenario_id
-        self.scenario_name = scenario_name
-        self.scenario_description = scenario_description
-        self.scenario_image = scenario_image
-        self.scenario_state = scenario_state
+        self.shifu_id = shifu_id
+        self.shifu_name = shifu_name
+        self.shifu_description = shifu_description
+        self.shifu_avatar = shifu_avatar
+        self.shifu_state = shifu_state
         self.is_favorite = is_favorite
 
     def __json__(self):
         return {
-            "id": self.scenario_id,
-            "name": self.scenario_name,
-            "description": self.scenario_description,
-            "image": self.scenario_image,
-            "state": self.scenario_state,
+            "shifu_id": self.shifu_id,
+            "shifu_name": self.shifu_name,
+            "shifu_description": self.shifu_description,
+            "shifu_avatar": self.shifu_avatar,
+            "state": self.shifu_state,
             "is_favorite": self.is_favorite,
         }
 
 
 @register_schema_to_swagger
-class ScenarioDetailDto:
-    scenario_id: str
-    scenario_name: str
-    scenario_description: str
-    scenario_teacher_avatar: str
-    scenario_keywords: list[str]
-    scenario_model: str
-    scenario_price: float
-    scenario_preview_url: str
-    scenario_url: str
+class ShifuDetailDto:
+    shifu_id: str
+    shifu_name: str
+    shifu_description: str
+    shifu_avatar: str
+    shifu_keywords: list[str]
+    shifu_model: str
+    shifu_price: float
+    shifu_preview_url: str
+    shifu_url: str
 
     def __init__(
         self,
-        scenario_id: str,
-        scenario_name: str,
-        scenario_description: str,
-        scenario_teacher_avatar: str,
-        scenario_keywords: list[str],
-        scenario_model: str,
-        scenario_price: float,
-        scenario_preview_url: str,
-        scenario_url: str,
+        shifu_id: str,
+        shifu_name: str,
+        shifu_description: str,
+        shifu_avatar: str,
+        shifu_keywords: list[str],
+        shifu_model: str,
+        shifu_price: float,
+        shifu_preview_url: str,
+        shifu_url: str,
     ):
-        self.scenario_id = scenario_id
-        self.scenario_name = scenario_name
-        self.scenario_description = scenario_description
-        self.scenario_teacher_avatar = scenario_teacher_avatar
-        self.scenario_keywords = scenario_keywords
-        self.scenario_model = scenario_model
-        self.scenario_price = scenario_price
-        self.scenario_preview_url = scenario_preview_url
-        self.scenario_url = scenario_url
+        self.shifu_id = shifu_id
+        self.shifu_name = shifu_name
+        self.shifu_description = shifu_description
+        self.shifu_avatar = shifu_avatar
+        self.shifu_keywords = shifu_keywords
+        self.shifu_model = shifu_model
+        self.shifu_price = shifu_price
+        self.shifu_preview_url = shifu_preview_url
+        self.shifu_url = shifu_url
 
     def __json__(self):
         return {
-            "scenario_id": self.scenario_id,
-            "scenario_name": self.scenario_name,
-            "scenario_description": self.scenario_description,
-            "scenario_teacher_avatar": self.scenario_teacher_avatar,
-            "scenario_keywords": self.scenario_keywords,
-            "scenario_model": self.scenario_model,
-            "scenario_price": self.scenario_price,
-            "scenario_preview_url": self.scenario_preview_url,
-            "scenario_url": self.scenario_url,
+            "shifu_id": self.shifu_id,
+            "shifu_name": self.shifu_name,
+            "shifu_description": self.shifu_description,
+            "shifu_avatar": self.shifu_avatar,
+            "shifu_keywords": self.shifu_keywords,
+            "shifu_model": self.shifu_model,
+            "shifu_price": self.shifu_price,
+            "shifu_preview_url": self.shifu_preview_url,
+            "shifu_url": self.shifu_url,
         }
 
 

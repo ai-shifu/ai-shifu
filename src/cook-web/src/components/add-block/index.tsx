@@ -3,7 +3,7 @@ import React from 'react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu'
 import { Plus } from 'lucide-react'
 import { useContentTypes } from '../render-block'
-import { BlockType } from '@/types/scenario'
+import { BlockType } from '@/types/shifu'
 
 export default function AddBlock({ onAdd }: { onAdd: (type: BlockType) => void }) {
     const contentTypes = useContentTypes()

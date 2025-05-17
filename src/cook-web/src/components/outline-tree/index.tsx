@@ -1,11 +1,11 @@
 "use client"
 import { SortableTree, SimpleTreeItemWrapper, TreeItemComponentProps, TreeItems } from '../dnd-kit-sortable-tree';
 import React, { useState } from 'react';
-import { Outline } from '@/types/scenario';
+import { Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
 import { Plus, Trash2, Edit } from 'lucide-react';
 import { InlineInput } from '../inline-input';
-import { useScenario } from '@/store/useScenario';
+import { useShifu } from '@/store/useShifu';
 import Loading from '../loading';
 import ChapterSetting from '../chapter-setting';
 import { ItemChangedReason } from '../dnd-kit-sortable-tree/types';
@@ -20,7 +20,7 @@ interface ICataTreeProps {
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
     const { items, onChange, } = props;
-    const { actions } = useScenario();
+    const { actions } = useShifu();
     const onItemsChanged = async (data: TreeItems<Outline>, reason: ItemChangedReason<Outline>) => {
         if (reason.type == 'dropped') {
             const parentId = reason.draggedItem.parentId;
@@ -67,7 +67,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     HTMLDivElement,
     TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-    const { focusId, actions, cataData, currentNode, currentScenario } = useScenario();
+    const { focusId, actions, cataData, currentNode, currentShifu } = useShifu();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const { t } = useTranslation();
     const onNodeChange = async (value: string) => {
@@ -116,7 +116,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         }
 
         await actions.setCurrentNode(props.item);
-        await actions.loadBlocks(props.item.id || "", currentScenario?.id || "");
+        await actions.loadBlocks(props.item.id || "", currentShifu?.shifu_id || "");
     }
 
     const handleConfirmDelete = async () => {

@@ -1,13 +1,13 @@
-'use client';
 
-import { Scenario, ScenarioContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties } from "../types/scenario";
+
+import { Shifu, ShifuContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties } from "../types/shifu";
 import api from "@/api";
 import { useContentTypes } from "@/components/render-block";
 import { useUITypes } from "@/components/render-ui";
 import { debounce } from "lodash";
 import { createContext, ReactNode, useContext, useState, useCallback } from "react";
 
-const ScenarioContext = createContext<ScenarioContextType | undefined>(undefined);
+const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
 const buildBlockListWithAllInfo = (blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>) => {
     const list = blocks.map((block: Block, index) => {
@@ -34,8 +34,8 @@ const buildBlockListWithAllInfo = (blocks: Block[], blockContentTypes: Record<st
     return list;
 }
 
-export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-    const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
+export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    const [currentShifu, setCurrentShifu] = useState<Shifu | null>(null);
     const [chapters, setChapters] = useState<Outline[]>([]);
     const [isSaving, setIsSaving] = useState(false);
     const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
@@ -58,21 +58,26 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     const UITypes = useUITypes();
     const ContentTypes = useContentTypes();
 
-    const loadScenario = async (scenarioId: string) => {
+    const loadShifu = async (shifuId: string) => {
         try {
             setIsLoading(true);
             setError(null);
-            const scenario = await api.getScenarioInfo({
-                scenario_id: scenarioId
+            const shifu = await api.getShifuInfo({
+                shifu_id: shifuId
             });
-            setCurrentScenario(scenario);
+            setCurrentShifu(shifu);
+
         } catch (error) {
             console.error(error);
-            setError("Failed to load scenario");
+            setError("Failed to load shifu");
         } finally {
             setIsLoading(false);
         }
     };
+
+    // useEffect(() => {
+    //     console.log(currentShifu);
+    // }, [currentShifu]);
 
     const recursiveCataData = (cataTree: Outline[]): any => {
         const result: any = {};
@@ -142,12 +147,12 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                 if (outline.depth == 0) {
                     await api.deleteChapter({
                         chapter_id: outline.id,
-                        scenario_id: currentScenario?.id || ''
+                        shifu_id: currentShifu?.shifu_id || ''
                     })
                 } else if (outline.depth == 1) {
                     await api.deleteUnit({
                         unit_id: outline.id,
-                        scenario_id: currentScenario?.id || ''
+                        shifu_id: currentShifu?.shifu_id || ''
                     })
                 }
             } else {
@@ -164,7 +169,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                 }
                 await api.deleteChapter({
                     chapter_id: outline.id,
-                    scenario_id: currentScenario?.id || ''
+                    shifu_id: currentShifu?.shifu_id || ''
                 })
             }
             setLastSaveTime(new Date());
@@ -176,13 +181,13 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
     }
 
-    const loadChapters = async (scenarioId: string) => {
+    const loadChapters = async (shifuId: string) => {
         try {
             setIsLoading(true);
             setError(null);
-            const scenarioInfo = await api.getScenarioInfo({ scenario_id: scenarioId });
-            setCurrentScenario(scenarioInfo);
-            const chaptersData = await api.getScenarioOutlineTree({ scenario_id: scenarioId });
+            const shifuInfo = await api.getShifuInfo({ shifu_id: shifuId });
+            setCurrentShifu(shifuInfo);
+            const chaptersData = await api.getShifuOutlineTree({ shifu_id: shifuId });
 
             const list = chaptersData.map((chapter: any) => {
                 return {
@@ -199,12 +204,12 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                         ...list[0].children[0],
                         depth: 1,
                     });
-                    await loadBlocks(list[0].children[0].id, scenarioId);
+                    await loadBlocks(list[0].children[0].id, shifuId);
                 }
             }
             setChapters(list);
             buildOutlineTree(list);
-            loadProfileItemDefinations(scenarioId);
+            loadProfileItemDefinations(shifuId);
         } catch (error) {
             console.error(error);
             setError("Failed to load chapters");
@@ -272,11 +277,11 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         return list;
     }
 
-    const loadBlocks = async (outlineId: string, scenarioId: string) => {
+    const loadBlocks = async (outlineId: string, shifuId: string) => {
         try {
             setIsLoading(true);
             setError(null);
-            const blocksData = await api.getBlocks({ outline_id: outlineId, scenario_id: scenarioId });
+            const blocksData = await api.getBlocks({ outline_id: outlineId, shifu_id: shifuId });
             const list = blocksData.filter(p => p.type == 'block') as Block[];
             setBlocks(list);
             initBlockContentTypes(list);
@@ -292,20 +297,20 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             setIsLoading(false);
         }
     }
-    const saveBlocks = async (scenario_id: string) => {
+    const saveBlocks = async (shifu_id: string) => {
         if (isLoading) {
             return;
         }
         const list = buildBlockList(blocks);
         try {
             setError(null);
-            await api.saveBlocks({ outline_id: currentNode!.id, blocks: list, scenario_id: scenario_id });
+            await api.saveBlocks({ outline_id: currentNode!.id, blocks: list, shifu_id: shifu_id });
         } catch (error) {
             console.error(error);
             setError("Failed to save blocks");
         }
     }
-    const addBlock = async (index: number, blockType: string = 'ai', scenario_id: string) => {
+    const addBlock = async (index: number, blockType: string = 'ai', shifu_id: string) => {
         setIsSaving(true);
         setError(null);
         try {
@@ -327,7 +332,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                 },
                 "block_index": index,
                 "outline_id": currentNode!.id,
-                "scenario_id": scenario_id,
+                "shifu_id": shifu_id,
             });
 
             blocks.splice(index, 0, block);
@@ -395,7 +400,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         setFocusId(id);
     }
 
-    const saveCurrentBlocks = useCallback(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => {
+    const saveCurrentBlocks = useCallback(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => {
         if (isLoading) {
             return;
         }
@@ -404,7 +409,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
             setError(null);
             const blockList = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties);
-            await api.saveBlocks({ outline_id: outline, blocks: blockList, scenario_id: scenario_id });
+            await api.saveBlocks({ outline_id: outline, blocks: blockList, shifu_id: shifu_id || '' });
             setIsSaving(false);
             setLastSaveTime(new Date());
         } catch (error: any) {
@@ -416,9 +421,9 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         }
     }, []);
 
-    const autoSaveBlocks = useCallback(debounce((outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => {
-        return saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, scenario_id);
-    }, 3000), [saveCurrentBlocks]) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
+    const autoSaveBlocks = useCallback(debounce((outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => {
+        return saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id);
+    }, 3000), [saveCurrentBlocks]) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => Promise<void>;
 
 
     const addSiblingOutline = async (item: Outline, name = '') => {
@@ -462,7 +467,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                     "chapter_description": data.name,
                     "chapter_index": index,
                     "chapter_name": data.name,
-                    "scenario_id": currentScenario?.id
+                    "shifu_id": currentShifu?.shifu_id
                 });
                 replaceOutline('new_chapter', {
                     id: newChapter.chapter_id,
@@ -478,7 +483,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                     "chapter_index": index,
                     "chapter_description": data.name,
                     "chapter_name": data.name,
-                    "scenario_id": currentScenario?.id
+                    "shifu_id": currentShifu?.shifu_id
                 })
 
                 const currentChapter = chapters.find(chapter => chapter.id === data.id);
@@ -519,7 +524,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                     "chapter_id": data.parent_id,
                     "unit_description": data.name,
                     "unit_name": data.name,
-                    "scenario_id": currentScenario?.id
+                    "shifu_id": currentShifu?.shifu_id
                 });
 
                 replaceOutline('new_chapter', {
@@ -536,7 +541,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                     "unit_index": index,
                     "unit_description": data.name,
                     "unit_name": data.name,
-                    "scenario_id": currentScenario?.id
+                    "shifu_id": currentShifu?.shifu_id
                 })
                 replaceOutline(data.id, {
                     id: data.id,
@@ -573,7 +578,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
                 "chapter_id": data.parent_id,
                 "unit_description": data.name,
                 "unit_name": data.name,
-                "scenario_id": currentScenario?.id
+                "shifu_id": currentShifu?.shifu_id
             });
 
             replaceOutline('new_chapter', {
@@ -641,9 +646,9 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         })
     }
 
-    const loadProfileItemDefinations = async (scenarioId: string) => {
+    const loadProfileItemDefinations = async (shifuId: string) => {
         const list = await api.getProfileItemDefinitions({
-            parent_id: scenarioId,
+            parent_id: shifuId,
             type: "all"
         })
         setProfileItemDefinations(list);
@@ -704,7 +709,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         try {
             await api.updateChapterOrder({
                 "chapter_ids": chapter_ids,
-                "scenario_id": currentScenario?.id
+                "shifu_id": currentShifu?.shifu_id
             });
             setLastSaveTime(new Date());
         } catch (error) {
@@ -717,15 +722,15 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
     const removeBlock = async (id: string) => {
         const list = blocks.filter((block) => block.properties.block_id !== id);
         setBlocks(list);
-        autoSaveBlocks(currentNode!.id, list, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, currentScenario?.id || '');
+        autoSaveBlocks(currentNode!.id, list, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, currentShifu?.shifu_id || '');
     }
     const loadModels = async () => {
         const list = await api.getModelList({});
         setModels(list);
     }
 
-    const value: ScenarioContextType = {
-        currentScenario,
+    const value: ShifuContextType = {
+        currentShifu,
         chapters,
         isLoading,
         isSaving,
@@ -747,7 +752,7 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
             setFocusId,
             addChapter,
             setChapters,
-            loadScenario,
+            loadShifu,
             loadChapters,
             createChapter,
             setFocusValue,
@@ -776,13 +781,13 @@ export const ScenarioProvider: React.FC<{ children: ReactNode }> = ({ children }
         },
     };
 
-    return <ScenarioContext.Provider value={value}>{children}</ScenarioContext.Provider>;
+    return <ShifuContext.Provider value={value}>{children}</ShifuContext.Provider>;
 };
 
-export const useScenario = (): ScenarioContextType => {
-    const context = useContext(ScenarioContext);
+export const useShifu = (): ShifuContextType => {
+    const context = useContext(ShifuContext);
     if (context === undefined) {
-        throw new Error("useScenario must be used within a ScenarioProvider");
+        throw new Error("useShifu must be used within a ShifuProvider");
     }
     return context;
 };

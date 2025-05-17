@@ -8,18 +8,18 @@ from flaskr.util.uuid import generate_id
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from datetime import datetime
-from flaskr.service.scenario.dtos import UnitDto, OutlineDto
+from flaskr.service.shifu.dtos import UnitDto, OutlineDto
 from flaskr.service.lesson.const import (
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
     LESSON_TYPE_BRANCH_HIDDEN,
     SCRIPT_TYPE_SYSTEM,
 )
-from flaskr.service.scenario.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
+from flaskr.service.shifu.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
 from sqlalchemy.sql import func, cast
 from sqlalchemy import String
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
-from flaskr.service.scenario.utils import (
+from flaskr.service.shifu.utils import (
     get_existing_outlines,
     change_outline_status_to_history,
     get_original_outline_tree,
@@ -30,9 +30,9 @@ from flaskr.service.scenario.utils import (
 import queue
 
 
-def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
+def get_unit_list(app, user_id: str, shifu_id: str, chapter_id: str):
     with app.app_context():
-        existing_outlines = get_existing_outlines(app, scenario_id)
+        existing_outlines = get_existing_outlines(app, shifu_id)
         chapter = next(
             (
                 outline
@@ -59,7 +59,7 @@ def get_unit_list(app, user_id: str, scenario_id: str, chapter_id: str):
 def create_unit(
     app,
     user_id: str,
-    scenario_id: str,
+    shifu_id: str,
     parent_id: str,
     unit_name: str,
     unit_description: str,
@@ -71,7 +71,7 @@ def create_unit(
     with app.app_context():
         if len(unit_name) > 20:
             raise_error("SCENARIO.UNIT_NAME_TOO_LONG")
-        existing_outlines = get_existing_outlines(app, scenario_id)
+        existing_outlines = get_existing_outlines(app, shifu_id)
         chapter = next(
             (
                 outline
@@ -85,12 +85,12 @@ def create_unit(
 
         if chapter:
             app.logger.info(
-                f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_index: {unit_index}"
+                f"create unit, user_id: {user_id}, shifu_id: {shifu_id}, parent_id: {parent_id}, unit_index: {unit_index}"
             )
             unit_id = generate_id(app)
             unit_no = chapter.lesson_no + f"{unit_index + 1:02d}"
             app.logger.info(
-                f"create unit, user_id: {user_id}, scenario_id: {scenario_id}, parent_id: {parent_id}, unit_no: {unit_no} unit_index: {unit_index}"
+                f"create unit, user_id: {user_id}, shifu_id: {shifu_id}, parent_id: {parent_id}, unit_no: {unit_no} unit_index: {unit_index}"
             )
 
             type = LESSON_TYPE_TRIAL
@@ -107,7 +107,7 @@ def create_unit(
                 lesson_no=unit_no,
                 lesson_name=unit_name,
                 lesson_desc=unit_description,
-                course_id=scenario_id,
+                course_id=shifu_id,
                 created_user_id=user_id,
                 updated_user_id=user_id,
                 status=STATUS_DRAFT,
@@ -117,7 +117,7 @@ def create_unit(
             )
             check_text_with_risk_control(app, unit_id, user_id, unit.get_str_to_check())
             AILesson.query.filter(
-                AILesson.course_id == scenario_id,
+                AILesson.course_id == shifu_id,
                 AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
                 AILesson.parent_id == parent_id,
                 AILesson.lesson_index >= unit_index,

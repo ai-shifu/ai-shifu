@@ -2,7 +2,7 @@ from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
 from flaskr.service.study.utils import get_model_setting
 from flaskr.service.study.utils import extract_variables
-from flaskr.service.scenario.block_funcs import (
+from flaskr.service.shifu.block_funcs import (
     get_block_by_id,
     get_system_block_by_outline_id,
 )

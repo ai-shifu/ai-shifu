@@ -5,11 +5,11 @@ import type { DropTargetMonitor } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { Button } from '@/components/ui/button';
 import { ChevronsRight, Plus, Variable, GripVertical } from 'lucide-react';
-import { useScenario, useAuth } from '@/store';
+import { useShifu, useAuth } from '@/store';
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header';
-import { BlockType } from '@/types/scenario';
+import { BlockType } from '@/types/shifu';
 import RenderBlockContent from '../render-block';
 import RenderBlockUI from '../render-ui';
 import AIDebugDialog from '@/components/ai-debug';
@@ -100,7 +100,7 @@ const DraggableBlock = ({ id, index, moveBlock, children }: DraggableBlockProps)
     );
 };
 
-const ScriptEditor = ({ id }: { id: string }) => {
+const ShifuEdit = ({ id }: { id: string }) => {
     const { t } = useTranslation();
     const { profile } = useAuth();
     useEffect(() => {
@@ -118,8 +118,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
         blockUITypes,
         currentNode,
         isLoading,
-        currentScenario
-    } = useScenario();
+        currentShifu
+    } = useShifu();
     const [menuPosition, setMenuPosition] = useState<{
         blockId?: string;
         visible?: boolean;
@@ -182,8 +182,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
         setMenuPosition({ blockId: "", visible: false });
     }
 
-    const onAddBlock = (index: number, type: BlockType, scenario_id: string) => {
-        actions.addBlock(index, type, scenario_id)
+    const onAddBlock = (index: number, type: BlockType, shifuId: string) => {
+        actions.addBlock(index, type, shifuId)
     }
 
     useEffect(() => {
@@ -209,7 +209,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         </ol>
                         <Button variant="outline" className='my-2 h-8 sticky bottom-0 left-4 ' size="sm" onClick={onAddChapter}>
                             <Plus />
-                            {t('scenario.new_chapter')}
+                            {t('shifu.new_chapter')}
                         </Button>
                     </div>
 
@@ -242,7 +242,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                                                 newBlocks.splice(dragIndex, 1);
                                                 newBlocks.splice(hoverIndex, 0, dragBlock);
                                                 actions.setBlocks(newBlocks);
-                                                actions.autoSaveBlocks(currentNode!.id, newBlocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, currentScenario?.id || '')
+                                                actions.autoSaveBlocks(currentNode!.id, newBlocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, currentShifu?.shifu_id || '')
                                             }}
                                         >
                                             <div id={block.properties.block_id} className="relative flex flex-col gap-2 ">
@@ -302,7 +302,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='start' side='bottom' alignOffset={-5}>
                                 <DropdownMenuItem onClick={onDebugBlock.bind(null, menuPosition.blockId || "")}>
-                                    <Variable />{t('scenario.debug')}
+                                    <Variable />{t('shifu.debug')}
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
@@ -313,4 +313,4 @@ const ScriptEditor = ({ id }: { id: string }) => {
     );
 };
 
-export default ScriptEditor;
+export default ShifuEdit;

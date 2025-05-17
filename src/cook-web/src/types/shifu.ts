@@ -1,11 +1,11 @@
 
 export type BlockType = 'ai' | 'systemprompt' | 'solidcontent';
 
-export interface Scenario {
-    id: string;
-    name?: string;
-    description?: string;
-    image?: string;
+export interface Shifu {
+    shifu_id: string;
+    shifu_name?: string;
+    shifu_description?: string;
+    shifu_avatar?: string;
     state?: number;
     is_favorite?: boolean;
 }
@@ -47,8 +47,8 @@ export interface ProfileItem {
 }
 
 
-export interface ScenarioState {
-    currentScenario: Scenario | null;
+export interface ShifuState {
+    currentShifu: Shifu | null;
     chapters: Outline[];
     isLoading: boolean;
     isSaving: boolean;
@@ -68,10 +68,10 @@ export interface ScenarioState {
     models: string[];
 }
 
-export interface ScenarioActions {
+export interface ShifuActions {
     addChapter: (chapter: Outline) => void;
-    loadScenario: (scenarioId: string) => Promise<void>;
-    loadChapters: (scenarioId: string) => Promise<void>;
+    loadShifu: (shifuId: string) => Promise<void>;
+    loadChapters: (shifuId: string) => Promise<void>;
     // saveChapter: (chapter: Outline) => Promise<void>;
     createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
     setChapters: (chapters: Outline[]) => void;
@@ -84,8 +84,8 @@ export interface ScenarioActions {
     replaceOutline: (id: string, outline: Outline) => Promise<void>;
     createUnit: (chapter: Outline) => Promise<void>;
     createSiblingUnit: (chapter: Outline) => Promise<void>;
-    loadBlocks: (outlineId: string, scenario_id: string) => void;
-    addBlock: (index: number, type: BlockType, scenario_id: string) => void;
+    loadBlocks: (outlineId: string, shifuId: string) => void;
+    addBlock: (index: number, type: BlockType, shifuId: string) => void;
     setBlockContentPropertiesById: (id: string, properties: AIBlockProperties | SolidContentBlockProperties, reset?: boolean) => void;
     setBlockContentTypesById: (id: string, type: string) => void;
     setBlockUIPropertiesById: (id: string, properties: any, reset?: boolean) => void;
@@ -93,16 +93,16 @@ export interface ScenarioActions {
     updateChapterOrder: (chapterIds: string[]) => Promise<void>
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;
-    saveBlocks: (scenario_id: string) => Promise<void>;
-    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
-    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
-    removeBlock: (id: string, scenario_id: string) => Promise<void>;
+    saveBlocks: (shifuId: string) => Promise<void>;
+    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<void>;
+    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<void>;
+    removeBlock: (id: string, shifuId: string) => Promise<void>;
     setCurrentNode: (node: Outline) => void;
     loadModels: () => void;
 }
 
-export interface ScenarioContextType extends ScenarioState {
-    actions: ScenarioActions;
+export interface ShifuContextType extends ShifuState {
+    actions: ShifuActions;
 }
 
 

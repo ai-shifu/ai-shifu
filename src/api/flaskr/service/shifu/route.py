@@ -1,17 +1,17 @@
 from flask import Flask, request, current_app
 from .funcs import (
-    get_scenario_list,
-    create_scenario,
-    mark_or_unmark_favorite_scenario,
-    publish_scenario,
-    preview_scenario,
-    get_scenario_info,
-    save_scenario_detail,
-    get_scenario_detail,
+    get_shifu_list,
+    create_shifu,
+    mark_or_unmark_favorite_shifu,
+    publish_shifu,
+    preview_shifu,
+    get_shifu_info,
+    save_shifu_detail,
+    get_shifu_detail,
     upload_file,
-    scenario_permission_verification,
+    shifu_permission_verification,
 )
-from .chapter_funcs import (
+from .outline_funcs import (
     get_chapter_list,
     create_chapter,
     modify_chapter,
@@ -38,16 +38,16 @@ from functools import wraps
 from enum import Enum
 
 
-class ScenarioPermission(Enum):
+class ShifuPermission(Enum):
     VIEW = "view"
     EDIT = "edit"
     PUBLISH = "publish"
 
 
-# Scene permission verification decorator
-# @ScenarioTokenValidation(ScenarioPermission.xxx)
-class ScenarioTokenValidation:
-    def __init__(self, permission: ScenarioPermission = ScenarioPermission.VIEW):
+# Shifu permission verification decorator
+# @ShifuTokenValidation(ShifuPermission.xxx)
+class ShifuTokenValidation:
+    def __init__(self, permission: ShifuPermission = ShifuPermission.VIEW):
         self.permission = permission
 
     def __call__(self, f):
@@ -61,22 +61,22 @@ class ScenarioTokenValidation:
             if not token and request.method.upper() == "POST" and request.is_json:
                 token = request.get_json().get("token", None)
 
-            scenario_id = request.args.get("scenario_id", None)
-            if not scenario_id and request.method.upper() == "POST" and request.is_json:
-                scenario_id = request.get_json().get("scenario_id", None)
+            shifu_id = request.args.get("shifu_id", None)
+            if not shifu_id and request.method.upper() == "POST" and request.is_json:
+                shifu_id = request.get_json().get("shifu_id", None)
 
             if not token:
                 raise_param_error("token is required")
-            if not scenario_id or not str(scenario_id).strip():
-                raise_param_error("scenario_id is required")
+            if not shifu_id or not str(shifu_id).strip():
+                raise_param_error("shifu_id is required")
 
             user_id = request.user.user_id
             app = current_app._get_current_object()
-            has_permission = scenario_permission_verification(
-                app, user_id, scenario_id, self.permission.value
+            has_permission = shifu_permission_verification(
+                app, user_id, shifu_id, self.permission.value
             )
             if not has_permission:
-                raise_error("SCENARIO.NO_PERMISSION")
+                raise_error("SHIFU.NO_PERMISSION")
 
             return f(*args, **kwargs)
 
@@ -84,17 +84,16 @@ class ScenarioTokenValidation:
 
 
 @inject
-def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
-    app.logger.info(f"register scenario routes {path_prefix}")
+def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
+    app.logger.info(f"register shifu routes {path_prefix}")
 
-    @app.route(path_prefix + "/scenarios", methods=["GET"])
-    def get_scenario_list_api():
+    @app.route(path_prefix + "/shifu-list", methods=["GET"])
+    def get_shifu_list_api():
         """
-        get scenario list
+        get shifu list
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - name: page_index
               type: integer
@@ -107,7 +106,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               required: true
         responses:
             200:
-                description: get scenario list success
+                description: get shifu list success
                 content:
                     application/json:
                         schema:
@@ -137,20 +136,19 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         if page_index < 0 or page_size < 1:
             raise_param_error("page_index or page_size is less than 0")
         app.logger.info(
-            f"get scenario list, user_id: {user_id}, page_index: {page_index}, page_size: {page_size}, is_favorite: {is_favorite}"
+            f"get shifu list, user_id: {user_id}, page_index: {page_index}, page_size: {page_size}, is_favorite: {is_favorite}"
         )
         return make_common_response(
-            get_scenario_list(app, user_id, page_index, page_size, is_favorite)
+            get_shifu_list(app, user_id, page_index, page_size, is_favorite)
         )
 
-    @app.route(path_prefix + "/create-scenario", methods=["POST"])
-    def create_scenario_api():
+    @app.route(path_prefix + "/create-shifu", methods=["POST"])
+    def create_shifu_api():
         """
-        create scenario
+        create shifu
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -158,18 +156,18 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_name:
+                    shifu_name:
                         type: string
-                        description: scenario name
-                    scenario_description:
+                        description: shifu name
+                    shifu_description:
                         type: string
-                        description: scenario description
-                    scenario_image:
+                        description: shifu description
+                    shifu_image:
                         type: string
-                        description: scenario image
+                        description: shifu image
         responses:
             200:
-                description: create scenario success
+                description: create shifu success
                 content:
                     application/json:
                         schema:
@@ -182,36 +180,33 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/ScenarioDto"
+                                    $ref: "#/components/schemas/ShifuDto"
         """
         user_id = request.user.user_id
-        scenario_name = request.get_json().get("scenario_name")
-        if not scenario_name:
-            raise_param_error("scenario_name is required")
-        scenario_description = request.get_json().get("scenario_description")
-        scenario_image = request.get_json().get("scenario_image")
+        shifu_name = request.get_json().get("shifu_name")
+        if not shifu_name:
+            raise_param_error("shifu_name is required")
+        shifu_description = request.get_json().get("shifu_description")
+        shifu_image = request.get_json().get("shifu_image")
         return make_common_response(
-            create_scenario(
-                app, user_id, scenario_name, scenario_description, scenario_image
-            )
+            create_shifu(app, user_id, shifu_name, shifu_description, shifu_image)
         )
 
-    @app.route(path_prefix + "/scenario-info", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
-    def get_scenario_info_api():
+    @app.route(path_prefix + "/shifu-info", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def get_shifu_info_api():
         """
-        get scenario info
+        get shifu info
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
-            - name: scenario_id
+            - name: shifu_id
               type: string
               required: true
         responses:
             200:
-                description: get scenario info success
+                description: get shifu info success
                 content:
                     application/json:
                         schema:
@@ -224,28 +219,27 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/ScenarioDto"
+                                    $ref: "#/components/schemas/ShifuDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.args.get("scenario_id")
-        return make_common_response(get_scenario_info(app, user_id, scenario_id))
+        shifu_id = request.args.get("shifu_id")
+        return make_common_response(get_shifu_info(app, user_id, shifu_id))
 
-    @app.route(path_prefix + "/scenario-detail", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
-    def get_scenario_detail_api():
+    @app.route(path_prefix + "/shifu-detail", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def get_shifu_detail_api():
         """
-        get scenario detail
+        get shifu detail
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
-            - name: scenario_id
+            - name: shifu_id
               type: string
               required: true
         responses:
             200:
-                description: get scenario detail success
+                description: get shifu detail success
                 content:
                     application/json:
                         schema:
@@ -258,21 +252,20 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/ScenarioDetailDto"
+                                    $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.args.get("scenario_id")
-        return make_common_response(get_scenario_detail(app, user_id, scenario_id))
+        shifu_id = request.args.get("shifu_id")
+        return make_common_response(get_shifu_detail(app, user_id, shifu_id))
 
-    @app.route(path_prefix + "/save-scenario-detail", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
-    def save_scenario_detail_api():
+    @app.route(path_prefix + "/save-shifu-detail", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.EDIT)
+    def save_shifu_detail_api():
         """
-        save scenario detail
+        save shifu detail
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - name: body
               in: body
@@ -281,32 +274,32 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
-                    scenario_name:
+                        description: shifu id
+                    shifu_name:
                         type: string
-                        description: scenario name
-                    scenario_description:
+                        description: shifu name
+                    shifu_description:
                         type: string
-                        description: scenario description
-                    scenario_teacher_avatar:
+                        description: shifu description
+                    shifu_avatar:
                         type: string
-                        description: scenario teacher avatar
-                    scenario_keywords:
+                        description: shifu avatar
+                    shifu_keywords:
                         type: array
                         items:
                             type: string
-                        description: scenario keywords
-                    scenario_model:
+                        description: shifu keywords
+                    shifu_model:
                         type: string
-                        description: scenario model
-                    scenario_price:
+                        description: shifu model
+                    shifu_price:
                         type: number
-                        description: scenario price
+                        description: shifu price
         responses:
             200:
-                description: save scenario detail success
+                description: save shifu detail success
                 content:
                     application/json:
                         schema:
@@ -319,38 +312,37 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/ScenarioDetailDto"
+                                    $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
-        scenario_name = request.get_json().get("scenario_name")
-        scenario_description = request.get_json().get("scenario_description")
-        scenario_teacher_avatar = request.get_json().get("scenario_teacher_avatar")
-        scenario_keywords = request.get_json().get("scenario_keywords")
-        scenario_model = request.get_json().get("scenario_model")
-        scenario_price = request.get_json().get("scenario_price")
+        shifu_id = request.get_json().get("shifu_id")
+        shifu_name = request.get_json().get("shifu_name")
+        shifu_description = request.get_json().get("shifu_description")
+        shifu_avatar = request.get_json().get("shifu_avatar")
+        shifu_keywords = request.get_json().get("shifu_keywords")
+        shifu_model = request.get_json().get("shifu_model")
+        shifu_price = request.get_json().get("shifu_price")
         return make_common_response(
-            save_scenario_detail(
+            save_shifu_detail(
                 app,
                 user_id,
-                scenario_id,
-                scenario_name,
-                scenario_description,
-                scenario_teacher_avatar,
-                scenario_keywords,
-                scenario_model,
-                scenario_price,
+                shifu_id,
+                shifu_name,
+                shifu_description,
+                shifu_avatar,
+                shifu_keywords,
+                shifu_model,
+                shifu_price,
             )
         )
 
-    @app.route(path_prefix + "/mark-favorite-scenario", methods=["POST"])
-    def mark_favorite_scenario_api():
+    @app.route(path_prefix + "/mark-favorite-shifu", methods=["POST"])
+    def mark_favorite_shifu_api():
         """
-        mark favorite scenario
+        mark favorite shifu
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -358,15 +350,15 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
+                        description: shifu id
                     is_favorite:
                         type: boolean
                         description: is favorite
         responses:
             200:
-                description: mark favorite scenario success
+                description: mark favorite shifu success
                 content:
                     application/json:
                         schema:
@@ -382,7 +374,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: is favorite
         """
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
+        shifu_id = request.get_json().get("shifu_id")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
             is_favorite = True if is_favorite.lower() == "true" else False
@@ -391,18 +383,17 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         else:
             raise_param_error("is_favorite is not a boolean")
         return make_common_response(
-            mark_or_unmark_favorite_scenario(app, user_id, scenario_id, is_favorite)
+            mark_or_unmark_favorite_shifu(app, user_id, shifu_id, is_favorite)
         )
 
-    @app.route(path_prefix + "/publish-scenario", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.PUBLISH)
-    def publish_scenario_api():
+    @app.route(path_prefix + "/publish-shifu", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.PUBLISH)
+    def publish_shifu_api():
         """
-        publish scenario
+        publish shifu
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -410,13 +401,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
+                        description: shifu id
 
         responses:
             200:
-                description: publish scenario success
+                description: publish shifu success
                 content:
                     application/json:
                         schema:
@@ -432,18 +423,17 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: publish url
         """
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
-        return make_common_response(publish_scenario(app, user_id, scenario_id))
+        shifu_id = request.get_json().get("shifu_id")
+        return make_common_response(publish_shifu(app, user_id, shifu_id))
 
-    @app.route(path_prefix + "/preview-scenario", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
-    def preview_scenario_api():
+    @app.route(path_prefix + "/preview-shifu", methods=["POST"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def preview_shifu_api():
         """
-        preview scenario
+        preview shifu
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -451,9 +441,9 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
+                        description: shifu id
                     variables:
                         type: object
                         description: variables
@@ -462,7 +452,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                         description: skip
         responses:
             200:
-                description: preview scenario success
+                description: preview shifu success
                 content:
                     application/json:
                         schema:
@@ -478,42 +468,40 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: preview url
         """
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
+        shifu_id = request.get_json().get("shifu_id")
         variables = request.get_json().get("variables")
         skip = request.get_json().get("skip", False)
         return make_common_response(
-            preview_scenario(app, user_id, scenario_id, variables, skip)
+            preview_shifu(app, user_id, shifu_id, variables, skip)
         )
 
     @app.route(path_prefix + "/chapters", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_chapter_list_api():
         """
         get chapter list
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
-            - name: scenario_id
+            - name: shifu_id
               type: string
               required: true
         """
         user_id = request.user.user_id
-        scenario_id = request.args.get("scenario_id")
-        if not scenario_id:
-            raise_param_error("scenario_id is required")
-        return make_common_response(get_chapter_list(app, user_id, scenario_id))
+        shifu_id = request.args.get("shifu_id")
+        if not shifu_id:
+            raise_param_error("shifu_id is required")
+        return make_common_response(get_chapter_list(app, user_id, shifu_id))
 
     @app.route(path_prefix + "/create-chapter", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def create_chapter_api():
         """
         create chapter
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -521,9 +509,9 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
+                        description: shifu id
                     chapter_name:
                         type: string
                         description: chapter name
@@ -555,9 +543,9 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
             f"create chapter, user_id: {request.user.user_id} {request.get_json()}"
         )
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
-        if not scenario_id:
-            raise_param_error("scenario_id is required")
+        shifu_id = request.get_json().get("shifu_id")
+        if not shifu_id:
+            raise_param_error("shifu_id is required")
         chapter_name = request.get_json().get("chapter_name")
         if not chapter_name:
             raise_param_error("chapter_name is required")
@@ -570,7 +558,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
             create_chapter(
                 app,
                 user_id,
-                scenario_id,
+                shifu_id,
                 chapter_name,
                 chapter_description,
                 chapter_index,
@@ -579,14 +567,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         )
 
     @app.route(path_prefix + "/modify-chapter", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def modify_chapter_api():
         """
         modify chapter
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -648,14 +635,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         )
 
     @app.route(path_prefix + "/delete-chapter", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def delete_chapter_api():
         """
         delete chapter
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -690,15 +676,14 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(delete_unit(app, user_id, chapter_id))
 
     @app.route(path_prefix + "/update-chapter-order", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def update_chapter_order_api():
         """
         update chapter order
         reset the chapter order to the order of the chapter ids
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -706,9 +691,9 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
+                        description: shifu id
                     chapter_ids:
                         type: array
                         items:
@@ -733,27 +718,26 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                         $ref: "#/components/schemas/ChapterDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
-        if not scenario_id:
-            raise_param_error("scenario_id is required")
+        shifu_id = request.get_json().get("shifu_id")
+        if not shifu_id:
+            raise_param_error("shifu_id is required")
         chapter_ids = request.get_json().get("chapter_ids")
         if not chapter_ids:
             raise_param_error("chapter_ids is required")
         return make_common_response(
-            update_chapter_order(app, user_id, scenario_id, chapter_ids)
+            update_chapter_order(app, user_id, shifu_id, chapter_ids)
         )
 
     @app.route(path_prefix + "/units", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_unit_list_api():
         """
         get unit list
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
-            - name: scenario_id
+            - name: shifu_id
               type: string
               required: true
             - name: chapter_id
@@ -778,21 +762,18 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                         $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.args.get("scenario_id")
+        shifu_id = request.args.get("shifu_id")
         chapter_id = request.args.get("chapter_id")
-        return make_common_response(
-            get_unit_list(app, user_id, scenario_id, chapter_id)
-        )
+        return make_common_response(get_unit_list(app, user_id, shifu_id, chapter_id))
 
     @app.route(path_prefix + "/create-unit", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def create_unit_api():
         """
         create unit
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -800,9 +781,9 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
               schema:
                 type: object
                 properties:
-                    scenario_id:
+                    shifu_id:
                         type: string
-                        description: scenario id
+                        description: shifu id
                     parent_id:
                         type: string
                         description: chapter id
@@ -842,7 +823,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.get_json().get("scenario_id")
+        shifu_id = request.get_json().get("shifu_id")
         parent_id = request.get_json().get("parent_id")
         unit_name = request.get_json().get("unit_name")
         unit_description = request.get_json().get("unit_description", "")
@@ -854,7 +835,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
             create_unit(
                 app,
                 user_id,
-                scenario_id,
+                shifu_id,
                 parent_id,
                 unit_name,
                 unit_description,
@@ -866,14 +847,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         )
 
     @app.route(path_prefix + "/modify-unit", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def modify_unit_api():
         """
         modify unit
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -942,14 +922,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         )
 
     @app.route(path_prefix + "/unit-info", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_unit_info_api():
         """
         get unit info
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - name: unit_id
               type: string
@@ -976,14 +955,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(get_unit_by_id(app, user_id, unit_id))
 
     @app.route(path_prefix + "/delete-unit", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def delete_unit_api():
         """
         delete unit
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -1016,16 +994,15 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(delete_unit(app, user_id, unit_id))
 
     @app.route(path_prefix + "/outline-tree", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_outline_tree_api():
         """
         get outline tree
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
-            - name: scenario_id
+            - name: shifu_id
               type: string
               required: true
         responses:
@@ -1047,18 +1024,17 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                         $ref: "#/components/schemas/SimpleOutlineDto"
         """
         user_id = request.user.user_id
-        scenario_id = request.args.get("scenario_id")
-        return make_common_response(get_outline_tree(app, user_id, scenario_id))
+        shifu_id = request.args.get("shifu_id")
+        return make_common_response(get_outline_tree(app, user_id, shifu_id))
 
     @app.route(path_prefix + "/blocks", methods=["GET"])
-    @ScenarioTokenValidation(ScenarioPermission.VIEW)
+    @ShifuTokenValidation(ShifuPermission.VIEW)
     def get_block_list_api():
         """
         get block list
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - name: outline_id
               type: string
@@ -1086,14 +1062,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(get_block_list(app, user_id, outline_id))
 
     @app.route(path_prefix + "/save-blocks", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def save_blocks_api():
         """
         save blocks
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -1132,14 +1107,13 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         return make_common_response(save_block_list(app, user_id, outline_id, blocks))
 
     @app.route(path_prefix + "/add-block", methods=["POST"])
-    @ScenarioTokenValidation(ScenarioPermission.EDIT)
+    @ShifuTokenValidation(ShifuPermission.EDIT)
     def add_block_api():
         """
         add block
         ---
         tags:
-            - scenario
-            - cook
+            - shifu
         parameters:
             - in: body
               name: body
@@ -1188,7 +1162,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
         upfile to oss
         ---
         tags:
-            - scenario
+            - shifu
         parameters:
             - in: formData
               name: file
@@ -1210,7 +1184,7 @@ def register_scenario_routes(app: Flask, path_prefix="/api/scenario"):
                                     description: return msg
                                 data:
                                     type: string
-                                    description: scenario file url
+                                    description: shifu file url
         """
         file = request.files.get("file", None)
         resource_id = request.values.get("resource_id", None)
