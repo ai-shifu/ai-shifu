@@ -12,7 +12,7 @@ export interface IconButtonProps {
   onClick?: () => void;
 }
 
-export const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(({ 
+export const IconButton = forwardRef<HTMLDivElement, IconButtonProps>(({
   icon = '',
   hoverIcon = '',
   activeIcon = '',
