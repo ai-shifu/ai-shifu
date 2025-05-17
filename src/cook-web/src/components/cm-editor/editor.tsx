@@ -1,12 +1,8 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import CodeMirror from '@uiw/react-codemirror'
-import {
-  autocompletion,
-  type CompletionContext,
-  type CompletionResult
-} from '@codemirror/autocomplete'
+import { autocompletion } from '@codemirror/autocomplete'
 import { EditorView } from '@codemirror/view'
 import CustomDialog from './components/custom-dialog'
 import EditorContext from './editor-context'
@@ -15,6 +11,15 @@ import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
 import { SelectedOption, IEditorContext } from './type'
+
+import './index.css'
+
+import {
+  profilePlaceholders,
+  imgPlaceholders,
+  videoPlaceholders,
+  createSlashCommands
+} from './util'
 import { useTranslation } from 'react-i18next'
 
 type EditorProps = {
@@ -37,7 +42,7 @@ const Editor: React.FC<EditorProps> = ({
     SelectedOption.Empty
   )
   const [profileList, setProfileList] = useState<string[]>(profiles)
-
+  const [selectContentInfo, setSelectContentInfo] = useState<any>()
   const editorViewRef = useRef<EditorView | null>(null)
 
   const editorContextValue: IEditorContext = {
@@ -46,7 +51,7 @@ const Editor: React.FC<EditorProps> = ({
     dialogOpen,
     setDialogOpen,
     profileList,
-    setProfileList,
+    setProfileList
   }
 
   const onSelectedOption = useCallback((selectedOption: SelectedOption) => {
@@ -54,87 +59,92 @@ const Editor: React.FC<EditorProps> = ({
     setSelectedOption(selectedOption)
   }, [])
 
-  const insertText = useCallback((text: string) => {
-    if (!editorViewRef.current) return
+  const insertText = useCallback(
+    (text: string) => {
+      if (!editorViewRef.current) return
 
-    const { state, dispatch } = editorViewRef.current
-    const changes = {
-      from: state.selection.main.from,
-      insert: text
-    }
+      const { state, dispatch } = editorViewRef.current
+      const from = state.selection.main.from
+
+      dispatch({
+        changes: { from, insert: text },
+        selection: { anchor: from + text.length }
+      })
+    },
+    [editorViewRef]
+  )
+
+  const deleteSelectedContent = useCallback(() => {
+    if (
+      !selectContentInfo ||
+      !editorViewRef.current ||
+      selectContentInfo.from === -1
+    )
+      return
+
+    const { from, to } = selectContentInfo
+    const { dispatch } = editorViewRef.current
 
     dispatch({
-      changes,
-      selection: { anchor: changes.from + text.length }
+      changes: { from, to, insert: '' }
     })
-  }, [])
+  }, [selectContentInfo, editorViewRef])
 
 
   const handleSelectProfile = useCallback(
     (profile: Profile) => {
       const textToInsert = `{${profile.profile_key}}`
-      insertText(textToInsert)
-      setDialogOpen(false)
-    },
-    [insertText, selectedOption]
-  )
+      if (selectContentInfo?.type === SelectedOption.Profile) {
+        deleteSelectedContent()
+        if (!editorViewRef.current) return
 
-  const handleSelectResource = useCallback(
-    (resourceUrl: string) => {
-      const textToInsert = ` ${resourceUrl} `
-      insertText(textToInsert)
-      setDialogOpen(false)
-    },
-    [insertText, selectedOption]
-  )
-
-  function createSlashCommands (
-    onSelectOption: (selectedOption: SelectedOption) => void
-  ) {
-    return (context: CompletionContext): CompletionResult | null => {
-      const word = context.matchBefore(/\/(\w*)$/)
-      if (!word) return null
-
-      const handleSelect = (
-        view: EditorView,
-        _: any,
-        from: number,
-        to: number,
-        selectedOption: SelectedOption
-      ) => {
-        view.dispatch({
-          changes: { from, to, insert: '' }
+        const { dispatch } = editorViewRef.current
+        dispatch({
+          changes: { from: selectContentInfo.from, insert: textToInsert }
         })
-        onSelectOption(selectedOption)
+      } else {
+        insertText(textToInsert)
       }
+      setDialogOpen(false)
+    },
+    [insertText, selectedOption]
+  )
 
-      return {
-        from: word.from,
-        to: word.to,
-        options: [
-          {
-            label: t('cm-editor.variable'),
-            apply: (view, _, from, to) => {
-              handleSelect(view, _, from, to, SelectedOption.Profile)
-            }
-          },
-          {
-            label: t('cm-editor.image'),
-            apply: (view, _, from, to) => {
-              handleSelect(view, _, from, to, SelectedOption.Image)
-            }
-          },
-          {
-            label: t('cm-editor.video'),
-            apply: (view, _, from, to) => {
-              handleSelect(view, _, from, to, SelectedOption.Video)
-            }
-          }
-        ],
-        filter: false
+  const handleSelectImage = useCallback(
+    (resourceUrl: string) => {
+      const textToInsert = resourceUrl
+      if (selectContentInfo?.type === SelectedOption.Image) {
+        deleteSelectedContent()
+        if (!editorViewRef.current) return
+        const { dispatch } = editorViewRef.current
+        dispatch({
+          changes: { from: selectContentInfo.from, insert: textToInsert }
+        })
+      } else {
+        insertText(textToInsert)
       }
-    }
-  }
+      setDialogOpen(false)
+    },
+    [insertText, selectedOption]
+  )
+
+  const handleSelectVideo = useCallback(
+    (resourceUrl: string) => {
+      const textToInsert = resourceUrl
+      if (selectContentInfo?.type === SelectedOption.Video) {
+        deleteSelectedContent()
+        if (!editorViewRef.current) return
+        const { dispatch } = editorViewRef.current
+        dispatch({
+          changes: { from: selectContentInfo.from, insert: textToInsert }
+        })
+      } else {
+        insertText(textToInsert)
+      }
+      setDialogOpen(false)
+    },
+    [insertText, selectedOption]
+  )
 
   const slashCommandsExtension = useCallback(() => {
     return autocompletion({
@@ -146,6 +156,36 @@ const Editor: React.FC<EditorProps> = ({
     editorViewRef.current = view
   }, [])
 
+  const handleTagClick = useCallback(
+    (event: any) => {
+      const { type, content, from, to } = event.detail
+      setSelectContentInfo({
+        type,
+        content,
+        from,
+        to
+      })
+      setSelectedOption(type)
+      setDialogOpen(true)
+    },
+    [setSelectedOption, setDialogOpen]
+  )
+
+  useEffect(() => {
+    if (!dialogOpen) {
+      setSelectedOption(SelectedOption.Empty)
+      setSelectContentInfo(null)
+    }
+  }, [dialogOpen])
+
+  useEffect(() => {
+    window.addEventListener('globalTagClick', handleTagClick)
+
+    return () => {
+      window.removeEventListener('globalTagClick', handleTagClick)
+    }
+  }, [handleTagClick])
+
   return (
     <>
       <EditorContext.Provider value={editorContextValue}>
@@ -155,6 +195,9 @@ const Editor: React.FC<EditorProps> = ({
               extensions={[
                 EditorView.lineWrapping,
                 slashCommandsExtension(),
+                profilePlaceholders,
+                imgPlaceholders,
+                videoPlaceholders,
                 EditorView.updateListener.of(update => {
                   handleEditorUpdate(update.view)
                 })
@@ -177,18 +220,27 @@ const Editor: React.FC<EditorProps> = ({
             />
             <CustomDialog>
               {selectedOption === SelectedOption.Profile && (
-                <ProfileInject onSelect={handleSelectProfile} />
+                <ProfileInject
+                  value={selectContentInfo?.content}
+                  onSelect={handleSelectProfile}
+                />
               )}
               {selectedOption === SelectedOption.Image && (
-                <ImageInject onSelect={handleSelectResource} />
+                <ImageInject
+                  value={selectContentInfo?.content}
+                  onSelect={handleSelectImage}
+                />
               )}
               {selectedOption === SelectedOption.Video && (
-                <VideoInject onSelect={handleSelectResource} />
+                <VideoInject
+                  value={selectContentInfo?.content}
+                  onSelect={handleSelectVideo}
+                />
               )}
             </CustomDialog>
           </>
         ) : (
-          <div className='w-full p-2 rounded cursor-pointer font-mono'>
+          <div className='w-full p-2 rounded cursor-pointer font-mono break-words'>
             {content}
           </div>
         )}

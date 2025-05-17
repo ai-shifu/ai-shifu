@@ -8,26 +8,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { uploadFile } from '@/lib/file'
-import { getSiteHost } from "@/config/runtime-config";
-import { useTranslation } from 'react-i18next';
+import { getSiteHost } from '@/config/runtime-config'
+import { useToast } from '@/hooks/use-toast'
+import { useTranslation } from 'react-i18next'
 
 type ImageUploaderProps = {
   value?: string
   onChange?: (value: string) => void
 }
 
-const ImageUploader:React.FC<ImageUploaderProps> = ({
-  value,
-  onChange,
-}) => {
-  const { t } = useTranslation();
-  const [imageUrl, setImageUrl] = useState<string>(value ||'')
+const agiImgUrlRegexp =
+  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/g
+
+const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
+  const { t } = useTranslation()
+  const [imageUrl, setImageUrl] = useState<string>(value || '')
   const [inputUrl, setInputUrl] = useState<string>('')
   const [isUploading, setIsUploading] = useState<boolean>(false)
   const [fileName, setFileName] = useState<string>('')
   const [uploadProgress, setUploadProgress] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const siteHost = getSiteHost()
+  const { toast } = useToast()
 
   const resetState = () => {
     setImageUrl('')
@@ -52,7 +54,9 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       )
 
       if (!response.ok) {
-        throw new Error(`${t('file-uploader.upload-failed')}: ${response.statusText}`)
+        throw new Error(
+          `${t('file-uploader.upload-failed')}: ${response.statusText}`
+        )
       }
 
       const res = await response.json()
@@ -78,6 +82,39 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   const handleUrlUpload = async () => {
     if (!inputUrl) return
+    try {
+      new URL(inputUrl)
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      toast({
+        // title: t('file-uploader.failed-to-upload-image'),
+        title: t('file-uploader.check-image-url'),
+        variant: 'destructive'
+      })
+      return
+    }
+    if (!agiImgUrlRegexp.test(inputUrl)) {
+      try {
+        const response = await fetch(inputUrl, {
+          mode: 'cors',
+          headers: {
+            'Content-Type': 'image/*',
+            Origin: window.location.origin
+          }
+        })
+        const blob = await response.blob()
+        const file = new File([blob], 'image.jpg', { type: blob.type })
+        await uploadImage(file)
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        toast({
+          // title: t('file-uploader.failed-to-upload-image'),
+          title: t('file-uploader.check-image-url'),
+          variant: 'destructive'
+        })
+      }
+      return
+    }
     const urlParts = inputUrl.split('/')
     setFileName(urlParts[urlParts.length - 1])
     setImageUrl(inputUrl)
@@ -105,7 +142,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   useEffect(() => {
     onChange?.(imageUrl)
-  },[imageUrl])
+  }, [imageUrl])
 
   return (
     <div className='space-y-6'>
@@ -168,9 +205,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
                       {t('file-uploader.click-to-upload')}
                     </button>
                   </div>
-                  <p className='text-gray-500'>
-                    {t('file-uploader.tips')}
-                  </p>
+                  <p className='text-gray-500'>{t('file-uploader.tips')}</p>
                 </>
               )}
             </Card>
@@ -185,16 +220,16 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
           />
           <div className=' mb-6'>{fileName}</div>
           <Button
-              variant='outline'
-              className='w-full py-6 text-lg'
-              onClick={resetState}
-            >
-              {t('file-uploader.replace-image')}
-            </Button>
+            variant='outline'
+            className='w-full py-6 text-lg'
+            onClick={resetState}
+          >
+            {t('file-uploader.replace-image')}
+          </Button>
         </div>
       )}
     </div>
   )
 }
-
+export { agiImgUrlRegexp }
 export default ImageUploader

@@ -6,9 +6,11 @@ import type { Profile } from '@/components/profiles/type'
 import { useScenario } from '@/store'
 
 type ProfileInjectProps = {
+  value?: string
   onSelect: (profile: Profile) => void
 }
 const ProfileInject: React.FC<ProfileInjectProps> = ({
+  value,
   onSelect = () => {}
 }) => {
   const { currentScenario } = useScenario()
@@ -16,6 +18,6 @@ const ProfileInject: React.FC<ProfileInjectProps> = ({
     onSelect?.(profile)
   }, [])
 
-  return <ProfileSelect parentId={currentScenario?.id as unknown as string} onSelect={handleSelect} />
+  return <ProfileSelect value={value} parentId={currentScenario?.id as unknown as string} onSelect={handleSelect} />
 }
 export default ProfileInject

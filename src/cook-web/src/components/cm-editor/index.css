@@ -1,0 +1,42 @@
+.tag-profile,
+.tag-image,
+.tag-video {
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0 6px;
+
+    &:hover {
+        background-color: #9333ea6b;
+
+        .tag-icon {
+            visibility: visible;
+        }
+
+    }
+}
+
+.tag-icon {
+    margin-left: 10px;
+    visibility: hidden;
+}
+
+/* label */
+.cm-tooltip.cm-tooltip-autocomplete {
+    border: 1px solid #e5e5e5;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    box-sizing: border-box;
+    width: 150px;
+    padding: 5px;
+}
+
+.cm-tooltip-autocomplete ul li{
+    width: 138px;
+}
+
+.cm-tooltip-autocomplete ul li:hover {
+    background-color: #f9fafb;
+    cursor: pointer;
+    width: 140px;
+}
