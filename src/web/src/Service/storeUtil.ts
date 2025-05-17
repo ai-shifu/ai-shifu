@@ -4,7 +4,7 @@ const TOKEN_KEY = 'token';
 const USERINFO_KEY = 'userinfo';
 const TOKEN_FAKED_KEY = 'token_faked';
 
-const createStore = <T>(key: string) => {
+const createStore = <T,>(key: string) => {
   return {
     get: (): T | undefined => {
       return store.get(key);
