@@ -8,6 +8,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { removeParamFromUrl } from 'Utils/urlUtils';
 import i18n from '../i18n';
 import { UserStoreState } from '../types/store';
+import { UserInfo } from '../types';
 import { useEnvStore } from './envStore';
 
 export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
