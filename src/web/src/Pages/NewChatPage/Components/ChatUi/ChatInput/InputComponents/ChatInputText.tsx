@@ -110,7 +110,7 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isComposing || (e.nativeEvent as any).isComposing) {
+    if (isComposing || e.isComposing) {
       return;
     }
 
