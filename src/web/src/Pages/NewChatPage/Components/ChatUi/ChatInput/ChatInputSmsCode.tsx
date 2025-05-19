@@ -30,8 +30,8 @@ export const ChatInputSmsCode = ({ onClick, type, props }) => {
             onChange={v => setInput(v)}
             placeholder=""
             className={styles.inputField}
-            onKeyDown={(e) => {
-              if ((e.nativeEvent as any).isComposing) {
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.nativeEvent.isComposing) {
                 return;
               }
               if (e.key === 'Enter' && !e.shiftKey) {
