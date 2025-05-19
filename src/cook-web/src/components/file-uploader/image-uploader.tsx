@@ -18,7 +18,7 @@ type ImageUploaderProps = {
 }
 
 const agiImgUrlRegexp =
-  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/g
+  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/i
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { t } = useTranslation()
