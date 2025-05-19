@@ -17,7 +17,6 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
         ---
         tags:
             - llm
-            - scenario
             - cook
         responses:
             200:
@@ -38,7 +37,6 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
         ---
         tags:
             - llm
-            - scenario
             - cook
         parameters:
             - in: query
@@ -80,7 +78,6 @@ def register_llm_routes(app: Flask, path_prefix="/api/llm"):
         ---
         tags:
             - llm
-            - scenario
             - cook
         parameters:
             - in: body

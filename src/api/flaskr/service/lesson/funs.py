@@ -384,7 +384,7 @@ def update_lesson_info(
             kwargs["app_secret"] = app_secret
         while True:
             if file_name:
-                with open(file_name, "r") as json_file:
+                with open(file_name, "r", encoding="UTF-8") as json_file:
                     json_data = json_file.read()
                     resp = json.loads(json_data)
             else:

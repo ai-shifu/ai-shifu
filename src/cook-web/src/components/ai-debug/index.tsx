@@ -6,7 +6,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import {
     XMarkIcon,
 } from "@heroicons/react/24/outline";
-import { useScenario } from "@/store";
+import { useShifu } from "@/store";
 import CMEditor from '@/components/cm-editor';
 import ModelList from '@/components/model-list';
 import api from '@/api';
@@ -59,7 +59,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
         blocks,
         actions
         // profileItemDefinations
-    } = useScenario();
+    } = useShifu();
     const [systemPrompt, setSystemPrompt] = useState('');
     const [userPrompt, setUserPrompt] = useState('');
     const [systemPromptOpen, setSystemPromptOpen] = useState(false);
@@ -298,7 +298,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     className="px-2 h-6 text-primary cursor-pointer"
                                     onClick={updateBlock}
                                 >
-                                    {t('ai-debug.update-to-scenario')}
+                                    {t('ai-debug.update-to-shifu')}
                                 </Button>
                             </div>
                         </CollapsibleContent>

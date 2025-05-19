@@ -1,5 +1,5 @@
 "use client"
-import { useScenario } from '@/store';
+import { useShifu } from '@/store';
 import AI from './ai'
 import SolidContent from './solid-content'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -15,7 +15,7 @@ const BlockMap = {
 
 export const RenderBlockContent = ({ id, type, properties }) => {
     const { t } = useTranslation();
-    const { actions, blocks, blockContentTypes, blockContentState, currentNode, blockUITypes, blockContentProperties, blockUIProperties, currentScenario } = useScenario();
+    const { actions, blocks, blockContentTypes, blockContentState, currentNode, blockUITypes, blockContentProperties, blockUIProperties, currentShifu } = useShifu();
     const [error, setError] = useState('')
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const ContentTypes = useContentTypes()
@@ -38,7 +38,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
             return;
         }
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, p, blockUITypes, blockUIProperties, currentScenario?.id || '')
+            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, p, blockUITypes, blockUIProperties, currentShifu?.shifu_id || '')
         }
     }
 
@@ -62,7 +62,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
             return;
         }
         setIsEdit(false)
-        await actions.saveBlocks(currentScenario?.id || '');
+        await actions.saveBlocks(currentShifu?.shifu_id || '');
     }
     const onRemove = async () => {
         setShowDeleteDialog(true)
@@ -70,7 +70,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
 
     const handleConfirmDelete = async () => {
         if (!currentNode?.id) return;
-        await actions.removeBlock(id, currentScenario?.id || '');
+        await actions.removeBlock(id, currentShifu?.shifu_id || '');
         setShowDeleteDialog(false)
     }
 
