@@ -31,6 +31,9 @@ export const ChatInputSmsCode = ({ onClick, type, props }) => {
             placeholder=""
             className={styles.inputField}
             onKeyDown={(e) => {
+              if ((e.nativeEvent as any).isComposing) {
+                return;
+              }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onSendClick();
