@@ -94,17 +94,42 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       return
     }
     if (!agiImgUrlRegexp.test(inputUrl)) {
+      // try {
+      //   const response = await fetch(inputUrl, {
+      //     headers: {
+      //       'content-type': 'image/*',
+      //     }
+      //   })
+      //   const blob = await response.blob()
+      //   const file = new File([blob], 'image.jpg', { type: blob.type })
+      //   await uploadImage(file)
+      // } catch (error) {
+      //   console.error('Error uploading image:', error)
+      //   toast({
+      //     // title: t('file-uploader.failed-to-upload-image'),
+      //     title: t('file-uploader.check-image-url'),
+      //     variant: 'destructive'
+      //   })
+      // }
+      // return
+
       try {
-        const response = await fetch(inputUrl, {
-          mode: 'cors',
-          headers: {
-            'Content-Type': 'image/*',
-            Origin: window.location.origin
-          }
-        })
-        const blob = await response.blob()
-        const file = new File([blob], 'image.jpg', { type: blob.type })
-        await uploadImage(file)
+        const img = document.createElement('img')
+        img.src = inputUrl
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = img.width
+          canvas.height = img.height
+          const ctx = canvas.getContext('2d')
+          ctx?.drawImage(img, 0, 0)
+
+          canvas.toBlob(blob => {
+            if (blob) {
+              const file = new File([blob], 'image.jpg', { type: blob.type })
+              uploadImage(file)
+            }
+          }, 'image/jpeg')
+        }
       } catch (error) {
         console.error('Error uploading image:', error)
         toast({
