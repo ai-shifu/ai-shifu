@@ -47,7 +47,6 @@ async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
   let startIndex = 0;
 
   for (; ;) {
-    // eslint-disable-next-line prefer-const
     const result = re.exec(chunk);
     if (!result) {
       if (readerDone) {
@@ -64,7 +63,6 @@ async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
     startIndex = re.lastIndex;
   }
   if (startIndex < chunk.length) {
-    // last line didn't end in a newline char
     yield chunk.substr(startIndex);
   }
 }

@@ -3,7 +3,7 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ChevronUpIcon, HeartIcon, LogOut } from "lucide-react";
 import Social from "../social";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import api from '@/api'
 import { setToken } from "@/local/local";
 import { useTranslation } from 'react-i18next';
@@ -39,15 +39,15 @@ const UserProfileCard = () => {
         return 'en-US';
     }
 
-    const init = async () => {
+    const init = useCallback(async () => {
         const res = await api.getUserInfo({});
         setProfile(res);
         const normalizedLang = normalizeLanguage(res.language);
         setLanguage(normalizedLang);
-    }
+    }, [])
     useEffect(() => {
         init();
-    }, [])
+    }, [init])
 
     useEffect(() => {
         if (language !== i18n.language) {

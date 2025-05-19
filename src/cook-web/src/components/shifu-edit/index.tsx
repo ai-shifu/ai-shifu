@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect, MouseEventHandler } from 'react';
+import React, { useState, useEffect, MouseEventHandler, useRef } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import type { DropTargetMonitor } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -120,6 +120,8 @@ const ShifuEdit = ({ id }: { id: string }) => {
         isLoading,
         currentShifu
     } = useShifu();
+    const actionsRef = useRef(actions);
+    actionsRef.current = actions;
     const [menuPosition, setMenuPosition] = useState<{
         blockId?: string;
         visible?: boolean;
@@ -186,10 +188,11 @@ const ShifuEdit = ({ id }: { id: string }) => {
         actions.addBlock(index, type, shifuId)
     }
 
+
     useEffect(() => {
-        actions.loadModels();
+        actionsRef.current.loadModels();
         if (id) {
-            actions.loadChapters(id);
+            actionsRef.current.loadChapters(id);
         }
     }, [id]);
 

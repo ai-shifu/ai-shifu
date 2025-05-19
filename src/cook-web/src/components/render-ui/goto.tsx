@@ -7,6 +7,7 @@ import { Outline } from '@/types/shifu'
 import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
+import { useCallback } from 'react';
 interface ColorSetting {
     color: string;
     text_color: string;
@@ -69,7 +70,7 @@ export default function Goto(props: GotoProps) {
         });
     }
 
-    const loadProfileItemDefinations = async (preserveSelection: boolean = false) => {
+    const loadProfileItemDefinations = useCallback(async (preserveSelection: boolean = false) => {
         const list = await api.getProfileItemDefinitions({
             parent_id: currentShifu?.shifu_id
         })
@@ -82,7 +83,7 @@ export default function Goto(props: GotoProps) {
                 await loadProfileItem(initialSelected.profile_id, initialSelected.profile_key);
             }
         }
-    }
+    }, [currentShifu?.shifu_id, properties.goto_settings?.profile_key])
 
     const loadProfileItem = async (id: string, name: string) => {
         const list = await api.getProfileItemOptionList({
@@ -103,7 +104,7 @@ export default function Goto(props: GotoProps) {
 
     useEffect(() => {
         loadProfileItemDefinations();
-    }, [])
+    }, [loadProfileItemDefinations])
 
     const handleValueChange = async (value: string) => {
         const selectedItem = profileItemDefinations.find((item) => item.profile_id === value);

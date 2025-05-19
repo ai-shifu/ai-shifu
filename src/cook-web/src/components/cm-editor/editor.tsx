@@ -76,7 +76,7 @@ const Editor: React.FC<EditorProps> = ({
       insertText(textToInsert)
       setDialogOpen(false)
     },
-    [insertText, selectedOption]
+    [insertText]
   )
 
   const handleSelectResource = useCallback(
@@ -85,12 +85,12 @@ const Editor: React.FC<EditorProps> = ({
       insertText(textToInsert)
       setDialogOpen(false)
     },
-    [insertText, selectedOption]
+    [insertText]
   )
 
-  function createSlashCommands (
+  const createSlashCommands = useCallback((
     onSelectOption: (selectedOption: SelectedOption) => void
-  ) {
+  ) => {
     return (context: CompletionContext): CompletionResult | null => {
       const word = context.matchBefore(/\/(\w*)$/)
       if (!word) return null
@@ -134,13 +134,13 @@ const Editor: React.FC<EditorProps> = ({
         filter: false
       }
     }
-  }
+  }, [t])
 
   const slashCommandsExtension = useCallback(() => {
     return autocompletion({
       override: [createSlashCommands(onSelectedOption)]
     })
-  }, [onSelectedOption])
+  }, [onSelectedOption,createSlashCommands])
 
   const handleEditorUpdate = useCallback((view: EditorView) => {
     editorViewRef.current = view

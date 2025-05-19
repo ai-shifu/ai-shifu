@@ -16,6 +16,7 @@ import { getToken } from "@/local/local";
 import { v4 as uuidv4 } from 'uuid';
 import Loading from "../loading";
 import { useTranslation } from 'react-i18next';
+import { useCallback } from "react";
 
 async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
     const utf8Decoder = new TextDecoder("utf-8");
@@ -74,7 +75,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     const abortRefs = useRef<AbortController[]>([]);
 
     const [variables, setVariables] = useState({});
-    const init = async () => {
+    const init = useCallback(async () => {
         const block = blocks.find((item) => item.properties.block_id === blockId);
         if (block) {
             const sysPrompt = await api.getSystemPrompt({
@@ -94,7 +95,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                 }]);
             }
         }
-    }
+    }, [blockId,blockContentProperties,blocks]);
     const abort = async () => {
         abortRefs.current.forEach((controller) => {
             if (controller) {
@@ -229,7 +230,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
 
     useEffect(() => {
         init();
-    }, [])
+    }, [init]);
     return (
         <Dialog open={open} onOpenChange={onOpenChangeHandle} >
             <DialogContent className="flex flex-col sm:max-w-[600px] md:max-w-[800px] max-h-[90vh] overflow-y-auto text-sm">

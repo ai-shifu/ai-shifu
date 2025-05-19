@@ -230,4 +230,10 @@ function show(description: string, duration = 20000) {
 
 export { useToast, toast, fail, show };
 
-export default { useToast, toast, fail, show };
+const ToastHelper = {
+  useToast,
+  toast,
+  fail,
+  show
+}
+export default ToastHelper;

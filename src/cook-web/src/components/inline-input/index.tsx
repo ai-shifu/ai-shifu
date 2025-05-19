@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { debounce } from 'lodash';
 import { Input } from '../ui/input';
 import { cn } from '@/lib/utils';
@@ -37,17 +37,22 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
       return;
     }
     setIsEditing(false);
-    debouncedOnChange(inputValue);
+    debouncedChange(inputValue);
   };
 
   const debouncedOnChange = useCallback(
-    debounce((value: string) => {
+    (value: string) => {
       if (value === "") {
         return;
       }
       onChange(value || t('inline-input.unnamed'));
-    }, 300),
+    },
     [onChange, t]
+  );
+
+  const debouncedChange = useMemo(
+    () => debounce(debouncedOnChange, 300),
+    [debouncedOnChange]
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,14 +62,14 @@ export const InlineInput: React.FC<InlineInputProps> = ({ isEdit = false, value,
 
   useEffect(() => {
     return () => {
-      debouncedOnChange.cancel();
+      debouncedChange.cancel();
     };
-  }, [debouncedOnChange]);
+  }, [debouncedChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       setIsEditing(false);
-      debouncedOnChange(inputValue);
+      debouncedChange(inputValue);
     }
   };
 

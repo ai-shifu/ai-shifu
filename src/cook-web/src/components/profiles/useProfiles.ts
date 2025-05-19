@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Profile } from './type'
 import api from '@/api'
 
@@ -13,12 +13,12 @@ const useProfiles = ({
   refreshFlag
 }: useProfileParams) => {
   const [profiles, setProfiles] = useState<Profile[]>()
-  const fetchList = async () => {
+  const fetchList = useCallback(async () => {
     const list = await api.getProfileList({
         parent_id: parentId
       })
     setProfiles(list as unknown as Profile[])
-  }
+  }, [parentId])
 
   const getProfilesByType = (profiles: Profile[] | undefined) => {
     const filteredProfiles = profiles?.filter(
@@ -33,7 +33,7 @@ const useProfiles = ({
 
   useEffect(() => {
     fetchList()
-  }, [parentId, refreshFlag])
+  }, [parentId, refreshFlag, fetchList])
 
   return getProfilesByType(profiles)
 }

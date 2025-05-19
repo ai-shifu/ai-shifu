@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Copy, Check, SlidersVertical, Plus } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -195,7 +195,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
         // Here you would typically make an API call to save the data
         setOpen(false);
     };
-    const init = async () => {
+    const init =  useCallback(async () => {
         const result = await api.getShifuDetail({
             shifu_id: shifuId
         }) as Shifu;
@@ -212,13 +212,14 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
             setKeywords(result.shifu_keywords)
             setUploadedImageUrl(result.shifu_avatar || "")
         }
-    }
+    }, [shifuId, form])
     useEffect(() => {
         if (!open) {
             return;
         }
         init()
-    }, [shifuId, open])
+    }, [shifuId, open,init])
+
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
@@ -372,7 +373,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                                     {uploadedImageUrl ? (
                                         <div className="mb-2">
                                             <div className="relative w-24 l h-24 bg-gray-100 rounded-lg overflow-hidden">
-                                                <img
+                                                <img //eslint-disable-line
                                                     src={uploadedImageUrl}
                                                     alt={t('shifu-setting.shifu-avatar')}
                                                     className="w-full h-full object-cover"

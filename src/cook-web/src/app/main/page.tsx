@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect,useCallback} from 'react';
 import { PlusIcon, StarIcon as StarOutlineIcon, RectangleStackIcon as RectangleStackOutlineIcon } from '@heroicons/react/24/outline';
 import { TrophyIcon, RectangleStackIcon, StarIcon } from '@heroicons/react/24/solid';
 import api from "@/api";
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
+
 interface ShifuCardProps {
     id: string;
     image: string | undefined;
@@ -32,7 +33,7 @@ const ShifuCard = ({ id, image, title, description, isFavorite }: ShifuCardProps
                     <div className='flex flex-row items-center mb-2'>
                         <div className="p-2 h-10 w-10 rounded-lg bg-purple-50 mr-4 flex items-center justify-center shrink-0">
                             {
-                                image && <img src={image} alt="recipe" className="w-full h-full object-cover rounded-lg" />
+                                image && <img src={image} alt="recipe" className="w-full h-full object-cover rounded-lg" /> //eslint-disable-line
                             }
                             {
                                 !image && <TrophyIcon className="w-6 h-6 text-purple-600" />
@@ -68,7 +69,7 @@ const ScriptManagementPage = () => {
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
-    const fetchShifus = async () => {
+    const fetchShifus =  useCallback( async () => {
         if (loading || !hasMore) return;
 
         setLoading(true);
@@ -89,7 +90,8 @@ const ScriptManagementPage = () => {
         } catch (error) {
             console.error("Failed to fetch shifus:", error);
         }
-    };
+    },[activeTab,hasMore,loading])
+
     const onCreateShifu = async (values: any) => {
         try {
             await api.createShifu(values);
@@ -119,6 +121,7 @@ const ScriptManagementPage = () => {
         currentPage.current = 1;
     }, [activeTab]);
 
+
     useEffect(() => {
         const container = containerRef.current;
         if (!container) return;
@@ -134,7 +137,7 @@ const ScriptManagementPage = () => {
 
         observer.observe(container);
         return () => observer.disconnect();
-    }, [hasMore]);
+    }, [hasMore,fetchShifus]);
 
 
     return (

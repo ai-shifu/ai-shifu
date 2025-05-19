@@ -66,7 +66,7 @@ const Header = () => {
                     {
                         currentShifu?.shifu_avatar ? (
                             <div className="bg-blue-100 flex items-center justify-center h-10 w-10 rounded-md p-1 mr-2 overflow-hidden">
-                                <img
+                                <img //eslint-disable-line
                                     src={currentShifu?.shifu_avatar}
                                     alt="Profile"
                                     className="rounded"

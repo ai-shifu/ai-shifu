@@ -5,7 +5,7 @@ import api from "@/api";
 import { useContentTypes } from "@/components/render-block";
 import { useUITypes } from "@/components/render-ui";
 import { debounce } from "lodash";
-import { createContext, ReactNode, useContext, useState, useCallback } from "react";
+import { createContext, ReactNode, useContext, useState, useCallback, useMemo } from "react";
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -419,12 +419,31 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             setIsSaving(false);
             setLastSaveTime(new Date());
         }
-    }, []);
+    }, [isLoading]);
 
-    const autoSaveBlocks = useCallback(debounce((outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => {
-        return saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id);
-    }, 3000), [saveCurrentBlocks]) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => Promise<void>;
+    const debouncedSaveBlocks = useMemo(
+        () => debounce((outline: string, blocks: Block[],
+            blockContentTypes: Record<string, any>,
+            blockContentProperties: Record<string, any>,
+            blockUITypes: Record<string, any>,
+            blockUIProperties: Record<string, any>,
+            shifu_id: string) => {
+            return saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id);
+        }, 3000),
+        [saveCurrentBlocks]
+    );
 
+    const autoSaveBlocks = useCallback(
+        (outline: string, blocks: Block[],
+            blockContentTypes: Record<string, any>,
+            blockContentProperties: Record<string, any>,
+            blockUITypes: Record<string, any>,
+            blockUIProperties: Record<string, any>,
+            shifu_id: string) => {
+            return debouncedSaveBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id);
+        },
+        [debouncedSaveBlocks]
+    ) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, scenario_id: string) => Promise<void>;
 
     const addSiblingOutline = async (item: Outline, name = '') => {
         const id = 'new_chapter'

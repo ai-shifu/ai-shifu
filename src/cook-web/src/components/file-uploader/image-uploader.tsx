@@ -105,7 +105,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   useEffect(() => {
     onChange?.(imageUrl)
-  },[imageUrl])
+  },[imageUrl, onChange])
 
   return (
     <div className='space-y-6'>
@@ -178,7 +178,7 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
         </>
       ) : (
         <div className='flex flex-col items-center'>
-          <img
+          <img //eslint-disable-line
             src={imageUrl || '/placeholder.svg'}
             alt='Uploaded image'
             className='max-w-full max-h-[400px] object-contain mb-4'

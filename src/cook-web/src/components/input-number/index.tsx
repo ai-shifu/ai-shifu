@@ -15,7 +15,7 @@ export default function InputNumber({ value, min, max, step, onChange, className
     }
     useEffect(() => {
         onChange(number);
-    }, [number])
+    }, [number, onChange])
 
     return (
         <div className={cn("flex items-center space-x-2", className)}>

@@ -204,7 +204,65 @@ export function SortableTree<
   );
 
   const announcements: Announcements = useMemo(
-    () => ({
+    () => {
+      function getMovementAnnouncement(
+        eventName: string,
+        activeId: UniqueIdentifier,
+        overId?: UniqueIdentifier
+      ) {
+        if (overId && projected) {
+          if (eventName !== 'onDragEnd') {
+            if (
+              currentPosition &&
+              projected.parentId === currentPosition.parentId &&
+              overId === currentPosition.overId
+            ) {
+              return;
+            } else {
+              setCurrentPosition({
+                parentId: projected.parentId,
+                overId,
+              });
+            }
+          }
+
+          const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items);
+          const overIndex = clonedItems.findIndex(({ id }) => id === overId);
+          const activeIndex = clonedItems.findIndex(({ id }) => id === activeId);
+          const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
+
+          const previousItem = sortedItems[overIndex - 1];
+
+          let announcement;
+          const movedVerb = eventName === 'onDragEnd' ? 'dropped' : 'moved';
+          const nestedVerb = eventName === 'onDragEnd' ? 'dropped' : 'nested';
+
+          if (!previousItem) {
+            const nextItem = sortedItems[overIndex + 1];
+            announcement = `${activeId} was ${movedVerb} before ${nextItem.id}.`;
+          } else {
+            if (projected?.depth > previousItem?.depth) {
+              announcement = `${activeId} was ${nestedVerb} under ${previousItem.id}.`;
+            } else {
+              let previousSibling: FlattenedItem<TreeItemData> | undefined =
+                previousItem;
+              while (previousSibling && projected?.depth < previousSibling?.depth) {
+                const parentId: UniqueIdentifier | null = previousSibling.parentId;
+                previousSibling = sortedItems.find(({ id }) => id === parentId);
+              }
+
+              if (previousSibling) {
+                announcement = `${activeId} was ${movedVerb} after ${previousSibling.id}.`;
+              }
+            }
+          }
+
+          return announcement;
+        }
+
+        return;
+      }
+        return {
       onDragStart({ active }) {
         return `Picked up ${active.id}.`;
       },
@@ -219,10 +277,9 @@ export function SortableTree<
       },
       onDragCancel({ active }) {
         return `Moving was cancelled. ${active.id} was dropped in its original position.`;
-      },
-    }),
-    []
-  );
+      }
+    }
+  }, [currentPosition, projected, items])
 
   const strategyCallback = useCallback(() => {
     return !!projected;
@@ -359,63 +416,7 @@ export function SortableTree<
     document.body.style.setProperty('cursor', '');
   }
 
-  function getMovementAnnouncement(
-    eventName: string,
-    activeId: UniqueIdentifier,
-    overId?: UniqueIdentifier
-  ) {
-    if (overId && projected) {
-      if (eventName !== 'onDragEnd') {
-        if (
-          currentPosition &&
-          projected.parentId === currentPosition.parentId &&
-          overId === currentPosition.overId
-        ) {
-          return;
-        } else {
-          setCurrentPosition({
-            parentId: projected.parentId,
-            overId,
-          });
-        }
-      }
 
-      const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items);
-      const overIndex = clonedItems.findIndex(({ id }) => id === overId);
-      const activeIndex = clonedItems.findIndex(({ id }) => id === activeId);
-      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
-
-      const previousItem = sortedItems[overIndex - 1];
-
-      let announcement;
-      const movedVerb = eventName === 'onDragEnd' ? 'dropped' : 'moved';
-      const nestedVerb = eventName === 'onDragEnd' ? 'dropped' : 'nested';
-
-      if (!previousItem) {
-        const nextItem = sortedItems[overIndex + 1];
-        announcement = `${activeId} was ${movedVerb} before ${nextItem.id}.`;
-      } else {
-        if (projected?.depth > previousItem?.depth) {
-          announcement = `${activeId} was ${nestedVerb} under ${previousItem.id}.`;
-        } else {
-          let previousSibling: FlattenedItem<TreeItemData> | undefined =
-            previousItem;
-          while (previousSibling && projected?.depth < previousSibling?.depth) {
-            const parentId: UniqueIdentifier | null = previousSibling.parentId;
-            previousSibling = sortedItems.find(({ id }) => id === parentId);
-          }
-
-          if (previousSibling) {
-            announcement = `${activeId} was ${movedVerb} after ${previousSibling.id}.`;
-          }
-        }
-      }
-
-      return announcement;
-    }
-
-    return;
-  }
 }
 
 const adjustTranslate: Modifier = ({ transform }) => {
