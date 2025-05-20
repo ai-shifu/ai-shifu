@@ -21,7 +21,3 @@ Please include a summary of the change and which issue is fixed. Please also inc
 - [x] I understand that this PR may be closed in case there was no previous discussion or issues. (This doesn't apply to typos!)
 - [x] I've added a test for each change that was introduced, and I tried as much as possible to make a single atomic change.
 - [x] I've updated the documentation accordingly.
-- [x] I've ran the following commands to run pre-commit checks and front-end linting:
-    * `pre-commit run --all-files`(api)
-    * `cd src/web && npm run lint`(frontend)
-    * `cd src/cook-web && npm run lint`(cook-web)

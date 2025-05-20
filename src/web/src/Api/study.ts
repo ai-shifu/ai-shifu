@@ -10,8 +10,8 @@ export const runScript = (course_id, lesson_id, input, input_type, script_id, on
   if (baseURL === "" || baseURL === "/") {
     baseURL = window.location.origin;
   }
-  const preview_mode = useSystemStore.getState().privewMode;
-  const source = new SSE(`${baseURL}/api/study/run?token=${tokenStore.get()}`, {
+  const preview_mode = useSystemStore.getState().previewMode;
+  const source = new SSE(`${baseURL}/api/study/run?preview_mode=${preview_mode}&token=${tokenStore.get()}`, {
     headers: { "Content-Type": "application/json", "X-Request-ID": v4().replace(/-/g, '') },
     payload: JSON.stringify({
       course_id, lesson_id, input, input_type, script_id, preview_mode,

@@ -1,12 +1,12 @@
 import request from "../Service/Request";
-export const getLessonTree = async (courseId) => {
+export const getLessonTree = async (courseId: string, previewMode: boolean) => {
   if (courseId === "" || courseId === null || courseId === undefined ) {
     return request({
       url: `/api/study/get_lesson_tree`,
     });
   }
   return request({
-    url: `/api/study/get_lesson_tree?course_id=${courseId}`,
+    url: `/api/study/get_lesson_tree?course_id=${courseId}&preview_mode=${previewMode}`,
     method: "GET",
   });
 };

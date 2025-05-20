@@ -8,6 +8,8 @@ from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
     LESSON_TYPE_TRIAL,
+    STATUS_PUBLISH,
+    STATUS_DRAFT,
 )
 from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
@@ -19,6 +21,9 @@ from ...service.order.consts import (
     ATTEND_STATUS_LOCKED,
     get_attend_status_values,
 )
+
+
+
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
     init_trial_lesson,
@@ -60,6 +65,10 @@ def run_script_inner(
     with app.app_context():
         script_info = None
         try:
+            ai_course_status = [STATUS_PUBLISH]
+            if preview_mode:
+                ai_course_status.append(STATUS_DRAFT)
+
             attend_status_values = get_attend_status_values()
             user_info = User.query.filter(User.user_id == user_id).first()
             if not lesson_id:
@@ -67,11 +76,11 @@ def run_script_inner(
                 if course_id:
                     course_info = AICourse.query.filter(
                         AICourse.course_id == course_id,
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     ).first()
                 else:
                     course_info = AICourse.query.filter(
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     ).first()
                     if course_info is None:
                         raise_error("LESSON.HAS_NOT_LESSON")
@@ -111,7 +120,7 @@ def run_script_inner(
                 course_info = (
                     AICourse.query.filter(
                         AICourse.course_id == course_id,
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     )
                     .order_by(AICourse.id.desc())
                     .first()

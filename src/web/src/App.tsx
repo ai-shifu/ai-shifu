@@ -96,7 +96,8 @@ const App = () => {
     updateWechatCode,
     setShowVip,
     updateLanguage,
-    updatePrivewMode,
+    updatePreviewMode,
+    updateSkip,
   } = useSystemStore() as SystemStoreState;
 
   const browserLanguage = selectDefaultLanguage(
@@ -173,17 +174,20 @@ const App = () => {
     fetchCourseInfo();
   }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
   useEffect(() => {
-    if (params.previewMode) {
-      updatePrivewMode(params.previewMode === 'true');
+    if (params.preview) {
+      updatePreviewMode(params.preview.toLowerCase() === 'true');
     }
-  }, [params.previewMode, updatePrivewMode]);
+    if (params.skip) {
+      updateSkip(params.skip.toLowerCase() === 'true');
+    }
+  }, [params.preview, updatePreviewMode, updateSkip, params.skip]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
         try {
-          const resp = await getCourseInfo(courseId);
+          const resp = await getCourseInfo(courseId, params.preview.toLowerCase() === 'true');
           if (resp.data) {
             setShowVip(resp.data.course_price > 0);
             updateCourseName(resp.data.course_name);

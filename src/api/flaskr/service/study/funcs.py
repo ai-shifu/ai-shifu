@@ -24,6 +24,7 @@ from ...service.lesson.const import (
     LESSON_TYPE_NORMAL,
     LESSON_TYPE_TRIAL,
     STATUS_PUBLISH,
+    STATUS_DRAFT,
 )
 from ...dao import db
 
@@ -41,17 +42,20 @@ from flaskr.service.user.models import User
 
 
 def get_lesson_tree_to_study_inner(
-    app: Flask, user_id: str, course_id: str = None
+    app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
 ) -> AICourseDTO:
     with app.app_context():
 
         app.logger.info("user_id:" + user_id)
         attend_status_values = get_attend_status_values()
         if course_id:
+            ai_course_status = [STATUS_PUBLISH]
+            if preview_mode:
+                ai_course_status.append(STATUS_DRAFT)
             course_info = (
                 AICourse.query.filter(
                     AICourse.course_id == course_id,
-                    AICourse.status.in_([STATUS_PUBLISH]),
+                    AICourse.status.in_(ai_course_status),
                 )
                 .order_by(AICourse.id.desc())
                 .first()
@@ -304,14 +308,14 @@ def get_lesson_tree_to_study_inner(
 
 @extensible
 def get_lesson_tree_to_study(
-    app: Flask, user_id: str, course_id: str = None
+    app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
 ) -> AICourseDTO:
     return run_with_redis(
         app,
         app.config.get("REDIS_KEY_PREFIX") + ":get_lesson_tree_to_study:" + user_id,
         5,
         get_lesson_tree_to_study_inner,
-        [app, user_id, course_id],
+        [app, user_id, course_id, preview_mode],
     )
 
 
