@@ -83,7 +83,7 @@ export const useChatComponentsScroll = ({
     if (isStreaming) {
       return;
     }
-    
+
     const inner = chatRef.current?.querySelector(
       `.${containerStyle} .PullToRefresh-inner`
     );
