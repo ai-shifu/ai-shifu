@@ -18,7 +18,7 @@ type ImageUploaderProps = {
 }
 
 const agiImgUrlRegexp =
-  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/g
+  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/ig
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { t } = useTranslation()
@@ -45,7 +45,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     try {
       const response = await uploadFile(
         file,
-        `${siteHost}/api/scenario/upfile`,
+        `${siteHost}/api/shifu/upfile`,
         undefined,
         undefined,
         progress => {

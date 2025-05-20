@@ -1,13 +1,13 @@
 "use client"
 import { AuthProvider } from '@/store'
 import React from 'react'
-import ScenarioEdit from '../scenario-edit'
+import ShifuEdit from '../shifu-edit'
 
-export default function ScenarioRoot({ id }: { id: string }) {
+export default function ShifuRoot({ id }: { id: string }) {
 
     return (
         <AuthProvider >
-            <ScenarioEdit id={id} />
+            <ShifuEdit id={id} />
         </AuthProvider>
     )
 }

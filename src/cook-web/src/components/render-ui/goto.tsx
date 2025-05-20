@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 
 import OutlineSelector from '@/components/outline-selector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
-import { useScenario } from '@/store'
-import { Outline } from '@/types/scenario'
+import { useShifu } from '@/store'
+import { Outline } from '@/types/shifu'
 import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
@@ -38,7 +38,7 @@ interface GotoProps {
 export default function Goto(props: GotoProps) {
     const { properties } = props
     const { t } = useTranslation();
-    const { chapters, currentScenario } = useScenario();
+    const { chapters, currentShifu } = useShifu();
 
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItemDefination[]>([]);
     const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
@@ -71,7 +71,7 @@ export default function Goto(props: GotoProps) {
 
     const loadProfileItemDefinations = async (preserveSelection: boolean = false) => {
         const list = await api.getProfileItemDefinitions({
-            parent_id: currentScenario?.id
+            parent_id: currentShifu?.shifu_id
         })
         setProfileItemDefinations(list)
 

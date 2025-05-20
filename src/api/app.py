@@ -62,9 +62,9 @@ def create_app() -> Flask:
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
     from flaskr.framework.plugin.plugin_manager import plugin_manager
 
-    load_plugins_from_dir(app, "flaskr/service/")
+    load_plugins_from_dir(app, os.path.join("flaskr", "service"))
     try:
-        load_plugins_from_dir(app, "flaskr/plugins", plugin_manager)
+        load_plugins_from_dir(app, os.path.join("flaskr", "plugins"), plugin_manager)
     except Exception as e:
         app.logger.warning(f"load plugins error: {e}")
 

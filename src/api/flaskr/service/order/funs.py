@@ -185,19 +185,15 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
     if pay_order_expire_time is None:
         return False
     pay_order_expire_time = int(pay_order_expire_time)
-
     bj_time = pytz.timezone("Asia/Shanghai")
     aware_created = bj_time.localize(origin_record.created)
     created_timestamp = int(aware_created.timestamp())
     current_timestamp = int(datetime.datetime.now().timestamp())
-
     if current_timestamp > (created_timestamp + pay_order_expire_time):
         # Order timeout
         # Update the order status
         origin_record.status = BUY_STATUS_TIMEOUT
         db.session.commit()
-        # Check if there are any coupons in the order. If there are, make them failure
-        query_to_failure_active(app, origin_record.user_id, origin_record.record_id)
         # Check if there are discount coupons in the order. If there are, rollback the discount coupons
         from .discount import timeout_discount_code_rollback
 
@@ -211,6 +207,7 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
 def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = None):
     with app.app_context():
         order_timeout_make_new_order = False
+        find_active_id = None
         course_info = AICourse.query.filter(AICourse.course_id == course_id).first()
         if not course_info:
             raise_error("LESSON.COURSE_NOT_FOUND")
@@ -225,14 +222,17 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         )
         if origin_record:
             order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
+            if order_timeout_make_new_order:
+                # Check if there are any coupons in the order. If there are, make them failure
+                find_active_id = query_to_failure_active(
+                    app, origin_record.user_id, origin_record.record_id
+                )
         else:
             order_timeout_make_new_order = True
-
+            find_active_id = None
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             return query_buy_record(app, origin_record.record_id)
-
         order_id = str(get_uuid(app))
-
         if order_timeout_make_new_order:
             buy_record = AICourseBuyRecord()
             buy_record.user_id = user_id
@@ -245,7 +245,8 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         else:
             buy_record = origin_record
             order_id = origin_record.record_id
-
+        if find_active_id:
+            active_id = find_active_id
         active_records = query_and_join_active(
             app, course_id, user_id, order_id, active_id
         )
@@ -486,7 +487,8 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                                 app.logger.error(
                                     "user:{} not found".format(buy_record.user_id)
                                 )
-                            user_info.user_state = USER_STATE_PAID
+                            else:
+                                user_info.user_state = USER_STATE_PAID
                         except Exception as e:
                             app.logger.error("update user state error:{}".format(e))
                         buy_record.status = BUY_STATUS_SUCCESS
@@ -545,6 +547,7 @@ def success_buy_record(app: Flask, record_id: str):
             user_info = User.query.filter(User.user_id == buy_record.user_id).first()
             if not user_info:
                 app.logger.error("user:{} not found".format(buy_record.user_id))
+            else:
                 user_info.user_state = USER_STATE_PAID
             buy_record.status = BUY_STATUS_SUCCESS
             lessons = AILesson.query.filter(
@@ -684,6 +687,7 @@ def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
         buy_record = AICourseBuyRecord.query.filter(
             AICourseBuyRecord.course_id == course_id,
             AICourseBuyRecord.user_id == user_id,
+            AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
         ).first()
         if buy_record:
             return buy_record

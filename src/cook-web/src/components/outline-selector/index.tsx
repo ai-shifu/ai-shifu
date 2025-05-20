@@ -1,9 +1,9 @@
 "use client"
 import { SortableTree, SimpleTreeItemWrapper, TreeItemComponentProps, TreeItems } from '../dnd-kit-sortable-tree';
 import React, { useState } from 'react';
-import { Outline } from '@/types/scenario';
+import { Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
-import { useScenario } from '@/store/useScenario';
+import { useShifu } from '@/store/useShifu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -56,7 +56,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     HTMLDivElement,
     TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-    const { cataData } = useScenario();
+    const { cataData } = useShifu();
 
     const onSelect = () => {
         props.onSelect?.(props.item!);

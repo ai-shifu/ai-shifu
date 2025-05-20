@@ -1,5 +1,5 @@
 'use client'
-import { useScenario } from '@/store'
+import { useShifu } from '@/store'
 import AI from './ai'
 import SolidContent from './solid-content'
 import { useState } from 'react'
@@ -26,15 +26,14 @@ export const RenderBlockContent = ({
     actions,
     blocks,
     blockContentTypes,
-    blockContentState,
     currentNode,
     blockUITypes,
     blockContentProperties,
     blockUIProperties,
-    currentScenario
-  } = useScenario()
+    currentShifu
+  } = useShifu()
   const [error, setError] = useState('')
-  const ContentTypes = useContentTypes()
+  // const ContentTypes = useContentTypes()
 
   const onPropertiesChange = async properties => {
     await actions.setBlockContentPropertiesById(id, properties)
@@ -61,20 +60,20 @@ export const RenderBlockContent = ({
         p,
         blockUITypes,
         blockUIProperties,
-        currentScenario?.id || ''
+        currentShifu?.shifu_id || ''
       )
     }
   }
 
-  const onContentTypeChange = (id: string, type: string) => {
-    const opt = ContentTypes.find(p => p.type === type)
-    actions.setBlockContentTypesById(id, type)
-    actions.setBlockContentPropertiesById(
-      id,
-      opt?.properties || ({} as any),
-      true
-    )
-  }
+  // const onContentTypeChange = (id: string, type: string) => {
+  //   const opt = ContentTypes.find(p => p.type === type)
+  //   actions.setBlockContentTypesById(id, type)
+  //   actions.setBlockContentPropertiesById(
+  //     id,
+  //     opt?.properties || ({} as any),
+  //     true
+  //   )
+  // }
 
   const onSave = async () => {
     setError('')
@@ -86,7 +85,7 @@ export const RenderBlockContent = ({
       setError(t('render-block.solid-content-empty'))
       return
     }
-    await actions.saveBlocks(currentScenario?.id || '')
+    await actions.saveBlocks(currentShifu?.shifu_id || '')
   }
 
   const isEdit = true
