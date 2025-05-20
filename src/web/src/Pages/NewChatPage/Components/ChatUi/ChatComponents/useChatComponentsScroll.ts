@@ -10,6 +10,7 @@ export const useChatComponentsScroll = ({
   messages,
   deleteMsg,
   appendMsg,
+  isStreaming,
 }) => {
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -79,6 +80,10 @@ export const useChatComponentsScroll = ({
   }, [chatRef, scrollTo]);
 
   const scrollToBottom = useCallback(() => {
+    if (isStreaming) {
+      return;
+    }
+    
     const inner = chatRef.current?.querySelector(
       `.${containerStyle} .PullToRefresh-inner`
     );
@@ -88,7 +93,7 @@ export const useChatComponentsScroll = ({
     }
 
     scrollTo(inner.clientHeight);
-  }, [chatRef, containerStyle, scrollTo]);
+  }, [chatRef, containerStyle, isStreaming, scrollTo]);
 
   return {
     autoScroll,

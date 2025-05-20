@@ -235,6 +235,7 @@ export const ChatComponents = forwardRef(
         messages,
         appendMsg,
         deleteMsg,
+        isStreaming,
       });
     const lastMsgRef = useRef(null);
     const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
