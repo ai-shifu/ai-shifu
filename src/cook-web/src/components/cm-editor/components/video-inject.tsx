@@ -4,16 +4,26 @@ import { Input } from '@/components/ui/input'
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 type VideoInjectProps = {
-  value?: string
-  onSelect: (resourceUrl: string) => void
+  value?: {
+    resourceTitle?: string
+    resourceUrl?: string
+  }
+  onSelect: ({
+    resourceUrl,
+    resourceTitle
+  }: {
+    resourceUrl: string
+    resourceTitle: string
+  }) => void
 }
 
 const biliVideoUrlRegexp =
-  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+)/ig
+  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+)/gi
 
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
-  const { t } = useTranslation();
-  const [inputUrl, setInputUrl] = useState<string>(value || '')
+  const { t } = useTranslation()
+  const [title, setTitle] = useState(value?.resourceTitle || '视频占位')
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '')
   const [embedUrl, setEmbedUrl] = useState('')
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const lastUrlRef = useRef('')
@@ -49,10 +59,13 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
     if (inputUrl) {
       try {
         const returnUrlObj = new URL(inputUrl)
-        onSelect(returnUrlObj.origin + returnUrlObj.pathname)
+        onSelect({
+          resourceUrl: returnUrlObj.origin + returnUrlObj.pathname,
+          resourceTitle: title
+        })
       } catch (error) {
         console.log('error', error)
-        onSelect(inputUrl)
+        onSelect({ resourceUrl: inputUrl, resourceTitle: title })
       }
     }
   }
@@ -80,29 +93,46 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
         <Button className='h-8' onClick={handleRun}>
           {t('common.run')}
         </Button>
-        {embedUrl && <Button className='h-8' onClick={handleSelect}>{t('common.use-resource')}</Button>}
+        {embedUrl && (
+          <Button className='h-8' onClick={handleSelect}>
+            {t('common.use-resource')}
+          </Button>
+        )}
       </div>
       {!!errorTips && <div>{errorTips}</div>}
 
       {embedUrl && (
-        <div
-          style={{ position: 'relative', paddingTop: '56.25%', marginTop: 16 }}
-        >
-          <iframe
-            ref={iframeRef}
-            src={embedUrl}
-            style={{
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              position: 'absolute',
-              border: 0
-            }}
-            allowFullScreen
-            allow='autoplay; encrypted-media'
-            title='bilibili-video'
+        <div className='space-y-4'>
+          <Input
+            value={title}
+            aria-placeholder='请输入视频名称'
+            onChange={e => setTitle(e.target.value)}
+            placeholder={t('common.video-title')}
+            className='mt-4'
           />
+          <div
+            style={{
+              position: 'relative',
+              paddingTop: '56.25%',
+              marginTop: 16
+            }}
+          >
+            <iframe
+              ref={iframeRef}
+              src={embedUrl}
+              style={{
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                position: 'absolute',
+                border: 0
+              }}
+              allowFullScreen
+              allow='autoplay; encrypted-media'
+              title='bilibili-video'
+            />
+          </div>
         </div>
       )}
     </div>

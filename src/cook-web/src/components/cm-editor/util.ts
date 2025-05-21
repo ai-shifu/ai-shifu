@@ -17,7 +17,6 @@ import { agiImgUrlRegexp } from '@/components/file-uploader/image-uploader'
 import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject'
 import { getI18n } from 'react-i18next'
 
-
 const profileRegexp = /(\{\w+\})/g
 
 class PlaceholderWidget extends WidgetType {
@@ -122,12 +121,14 @@ const imageUrlMatcher = new MatchDecorator({
     })
 })
 
+const biliVideoContextRegexp =
+  /<span\s+data-tag="video"[^>]*data-url="([^"]+)"[^>]*data-title="([^"]+)"[^>]*>([^<]+)<\/span>/g
 const biliUrlMatcher = new MatchDecorator({
-  regexp: biliVideoUrlRegexp,
+  regexp: biliVideoContextRegexp,
   decoration: (match, view) =>
     Decoration.replace({
       widget: new PlaceholderWidget(
-        match[1],
+        match?.[3],
         'tag-video',
         SelectedOption.Video,
         view

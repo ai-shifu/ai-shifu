@@ -38,7 +38,7 @@ const Editor: React.FC<EditorProps> = ({
   onBlur
 }) => {
   console.log('content', content)
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
     SelectedOption.Empty
@@ -92,7 +92,6 @@ const Editor: React.FC<EditorProps> = ({
     })
   }, [selectContentInfo, editorViewRef])
 
-
   const handleSelectProfile = useCallback(
     (profile: Profile) => {
       const textToInsert = `{${profile.profile_key}}`
@@ -131,8 +130,9 @@ const Editor: React.FC<EditorProps> = ({
   )
 
   const handleSelectVideo = useCallback(
-    (resourceUrl: string) => {
-      const textToInsert = resourceUrl
+    ({ resourceUrl, resourceTitle }: { resourceUrl: string, resourceTitle: string }) => {
+      // const textToInsert = resourceUrl
+      const textToInsert = `<span data-tag="video" data-url="${resourceUrl}" data-title="${resourceTitle}">${resourceTitle}</span>`
       if (selectContentInfo?.type === SelectedOption.Video) {
         deleteSelectedContent()
         if (!editorViewRef.current) return
