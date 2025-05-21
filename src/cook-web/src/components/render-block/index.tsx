@@ -65,16 +65,6 @@ export const RenderBlockContent = ({
     }
   }
 
-  // const onContentTypeChange = (id: string, type: string) => {
-  //   const opt = ContentTypes.find(p => p.type === type)
-  //   actions.setBlockContentTypesById(id, type)
-  //   actions.setBlockContentPropertiesById(
-  //     id,
-  //     opt?.properties || ({} as any),
-  //     true
-  //   )
-  // }
-
   const onSave = async () => {
     setError('')
     const block = blocks.find(item => item.properties.block_id == id)
@@ -92,38 +82,6 @@ export const RenderBlockContent = ({
   const Ele = BlockMap[type]
   return (
     <div className='bg-[#F5F5F4]'>
-      {/* {
-                isEdit && (
-                    <div className='rounded-t-md p-2 flex flex-row items-center py-1 justify-between'>
-                        <Select
-                            value={blockContentTypes[id]}
-                            onValueChange={onContentTypeChange.bind(null, id)}
-                        >
-                            <SelectTrigger className="h-8 w-[120px]">
-                                <SelectValue placeholder={t('render-block.select-content-type')} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectGroup>
-                                    {
-                                        ContentTypes.map((item) => {
-                                            return (
-                                                <SelectItem key={item.type} value={item.type}>{item.name}</SelectItem>
-                                            )
-                                        })
-                                    }
-                                </SelectGroup>
-                            </SelectContent>
-                        </Select>
-                        <div className='flex flex-row items-center'>
-                            <div className='flex flex-row items-center px-2' onClick={onRemove}>
-                                <Trash2 className='h-5 w-5 cursor-pointer' />
-                            </div>
-                            <div className='h-4 border-r border-[#D8D8D8] mx-1'></div>
-                        </div>
-                    </div>
-                )
-            } */}
-
       <div>
         <Ele
           isEdit={isEdit}

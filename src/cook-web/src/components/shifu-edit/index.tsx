@@ -1,22 +1,16 @@
 'use client'
-import React, { useState, useEffect, MouseEventHandler } from 'react'
+import React, { useState, useEffect } from 'react'
 import { DndProvider, useDrag, useDrop } from 'react-dnd'
 import type { DropTargetMonitor } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { Button } from '@/components/ui/button'
-import {
-  //   ChevronsRight,
-  Plus,
-  Variable,
-  GripVertical,
-  Trash2
-} from 'lucide-react'
+import { Plus, Variable, GripVertical, Trash2 } from 'lucide-react'
 import { useShifu, useAuth } from '@/store'
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header'
 import { BlockType } from '@/types/shifu'
-import RenderBlockContent from '../render-block'
+import RenderBlockContent, { useContentTypes } from '@/components/render-block'
 import RenderBlockUI from '../render-ui'
 import AIDebugDialog from '@/components/ai-debug'
 
@@ -41,21 +35,26 @@ interface DragItem {
 
 interface DraggableBlockProps {
   id: string
+  type: BlockType
   index: number
   moveBlock: (dragIndex: number, hoverIndex: number) => void
-  onMouseEnter?: (e: React.MouseEvent<HTMLDivElement>) => void
-  onMouseLeave?: (e: React.MouseEvent<HTMLDivElement>) => void
+  onClickDebug?: (id: string) => void
+  onClickRemove?: (id: string) => void
+  onClickChangeType?: (id: string, type: BlockType) => void
   children: React.ReactNode
 }
 
 const DraggableBlock = ({
   id,
+  type,
   index,
   moveBlock,
-  onMouseEnter,
-  onMouseLeave,
+  onClickDebug,
+  onClickRemove,
+  onClickChangeType,
   children
 }: DraggableBlockProps) => {
+  const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
 
   const [{ handlerId }, drop] = useDrop<
@@ -112,6 +111,16 @@ const DraggableBlock = ({
     })
   })
 
+  const [showMenu, setShowMenu] = useState(false)
+
+  const handleMouseEnter = () => {
+    setShowMenu(true)
+  }
+
+  const handleMouseLeave = () => {
+    setShowMenu(false)
+  }
+
   const dragRef = React.useRef<HTMLDivElement>(null)
   drop(ref)
   drag(dragRef)
@@ -125,11 +134,37 @@ const DraggableBlock = ({
     >
       <div ref={dragRef}>
         <div
-          onMouseEnter={onMouseEnter}
-          onMouseLeave={onMouseLeave}
-          className='absolute top-0 left-0 h-10 cursor-move group-hover:opacity-100 opacity-0'
+          onMouseLeave={handleMouseLeave}
+          className='absolute top-0 left-0 w-10 h-10 cursor-move group-hover:opacity-100 opacity-0'
         >
-          <GripVertical className='h-4 w-4 shrink-0' />
+          <GripVertical
+            onMouseEnter={handleMouseEnter}
+            className='h-4 w-4 shrink-0'
+          />
+          <div
+            className='fixed bg-white hover:bg-gray-100 cursor-pointer rounded-sm w-100'
+            style={{
+              zIndex: 50,
+              display: `${showMenu ? 'block' : 'none'}`
+            }}
+          >
+            <div className='flex h-50'>{type === 'ai' ? 'AI' : '固定'}模块</div>
+            <div
+              className='flex h-50'
+              onClick={() => onClickChangeType?.(id, type === 'ai' ? 'solidcontent' : 'ai')}
+            >
+              <Variable />
+              设置成{type === 'ai' ? '固定' : 'AI'}模块
+            </div>
+            <div className='flex h-50' onClick={() => onClickDebug?.(id)}>
+              <Variable />
+              {t('scenario.debug')}
+            </div>
+            <div className='flex h-50' onClick={() => onClickRemove?.(id)}>
+              <Trash2 className='h-5 w-5 cursor-pointer' />
+              删除
+            </div>
+          </div>
         </div>
         {children}
       </div>
@@ -140,6 +175,7 @@ const DraggableBlock = ({
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
   const { profile } = useAuth()
+  const ContentTypes = useContentTypes()
   useEffect(() => {
     if (profile) {
       i18n.changeLanguage(profile.language)
@@ -157,21 +193,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
     isLoading,
     currentShifu
   } = useShifu()
-  const [menuPosition, setMenuPosition] = useState<{
-    blockId?: string
-    visible?: boolean
-    x?: number
-    y?: number
-  }>({
-    visible: false,
-    x: 0,
-    y: 0
-  })
+
   const [debugBlockInfo, setDebugBlockInfo] = useState({
     blockId: '',
     visible: false
   })
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  const [removeBlockInfo, setRemoveBlockInfo] = useState({
+    blockId: '',
+    visible: false
+  })
 
   const onAddChapter = () => {
     actions.addChapter({
@@ -189,52 +220,38 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }, 800)
   }
 
-  const onShowMenu = (
-    id: string,
-    type: string,
-    e: React.MouseEvent<HTMLDivElement>
-  ) => {
-    console.log(id, type, e)
-    if (type !== 'ai') {
-      return
-    }
-    const target = e.currentTarget as HTMLElement
-    const rect = target.getBoundingClientRect()
-    // const width = target.offsetWidth
-    const x = rect.left - 40
-    const y = rect.top
-    if (menuPosition.x == x && menuPosition.y == y) {
-      return
-    }
-    setMenuPosition({ blockId: id, visible: true, x, y })
-  }
-
-  const onHideMenu: MouseEventHandler<HTMLDivElement> = () => {
-    setMenuPosition({ visible: false })
-  }
-
   const onDebugBlock = (id: string) => {
     setDebugBlockInfo({ blockId: id, visible: true })
   }
 
   const onDebugBlockClose = () => {
     setDebugBlockInfo({ blockId: '', visible: false })
-    setMenuPosition({ blockId: '', visible: false })
   }
 
-  const onRemove = async () => {
-    setShowDeleteDialog(true)
+  const onRemove = async (id: string) => {
+    setRemoveBlockInfo({ blockId: id, visible: true })
   }
 
   const handleConfirmDelete = async (id: string | undefined) => {
-    if (!currentNode?.id) return
     if (!id) return
     await actions.removeBlock(id, currentShifu?.shifu_id || '')
-    setShowDeleteDialog(false)
+    setRemoveBlockInfo({ blockId: '', visible: false })
   }
 
   const onAddBlock = (index: number, type: BlockType, shifu_id: string) => {
     actions.addBlock(index, type, shifu_id)
+  }
+
+  const onChangeBlockType = (id: string, type: BlockType) => {
+    const opt = ContentTypes.find(p => p.type === type)
+    actions.setBlockContentTypesById(id, type)
+    actions.setBlockContentPropertiesById(
+      id,
+      opt?.properties || ({} as any),
+      true
+    )
+    console.log('onChangeBlockType opt', id, type, opt)
+    actions.saveBlocks(currentShifu?.shifu_id || '')
   }
 
   useEffect(() => {
@@ -270,12 +287,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </div>
         </div>
 
-        <div
-          className='flex-1 flex flex-col gap-4 p-8 pl-1 ml-0 overflow-auto relative bg-white text-sm'
-          onScroll={() => {
-            setMenuPosition({ visible: false })
-          }}
-        >
+        <div className='flex-1 flex flex-col gap-4 p-8 pl-1 ml-0 overflow-auto relative bg-white text-sm'>
           {isLoading ? (
             <div className='h-40 flex items-center justify-center'>
               <Loading />
@@ -287,6 +299,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   <DraggableBlock
                     key={block.properties.block_id}
                     id={block.properties.block_id}
+                    type={blockContentTypes[block.properties.block_id] as BlockType}
                     index={index}
                     moveBlock={(dragIndex: number, hoverIndex: number) => {
                       const dragBlock = blocks[dragIndex]
@@ -304,24 +317,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         currentShifu?.shifu_id || ''
                       )
                     }}
-                    onMouseEnter={onHideMenu}
-                    onMouseLeave={onHideMenu}
+                    onClickChangeType={onChangeBlockType}
+                    onClickDebug={onDebugBlock}
+                    onClickRemove={onRemove}
                   >
                     <div
                       id={block.properties.block_id}
                       className='relative flex flex-col gap-2 '
                     >
-                      <div
-                        className=' '
-                        onMouseOver={e =>
-                          onShowMenu(
-                            block.properties.block_id,
-                            block?.properties?.block_content?.type,
-                            e
-                          )
-                        }
-                        onMouseLeave={onHideMenu}
-                      >
+                      <div className=' '>
                         <RenderBlockContent
                           id={block.properties.block_id}
                           type={blockContentTypes[block.properties.block_id]}
@@ -333,7 +337,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       <RenderBlockUI block={block} />
                       <div>
                         <AddBlock
-                          onAdd={onAddBlock.bind(null, index + 1, 'ai', id)}
+                          onAdd={(type: BlockType) => {
+                            onAddBlock(index + 1, type, id)
+                          }}
                         />
                       </div>
                     </div>
@@ -357,30 +363,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
         />
       )}
 
-      <div
-        className='fixed bg-white hover:bg-gray-100 cursor-pointer rounded-sm w-100'
-        style={{
-          top: menuPosition.y + 'px',
-          left: menuPosition.x + 'px',
-          zIndex: 50
+      <AlertDialog
+        open={removeBlockInfo.visible}
+        onOpenChange={(visible: boolean) => {
+          setRemoveBlockInfo({
+            ...removeBlockInfo,
+            visible
+          })
         }}
       >
-        <div className='flex h-50'>AI模块</div>
-        <div className='flex h-50' onClick={onDebugBlock.bind(null, menuPosition.blockId || '')}>
-          <Variable />
-          设置成固定模块
-        </div>
-        <div className='flex h-50' onClick={onDebugBlock.bind(null, menuPosition.blockId || '')}>
-          <Variable />
-          {t('scenario.debug')}
-        </div>
-        <div className='flex h-50' onClick={onRemove}>
-          <Trash2 className='h-5 w-5 cursor-pointer' />
-          删除
-        </div>
-      </div>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -393,7 +384,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
           <AlertDialogFooter>
             <AlertDialogCancel>{t('render-block.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => handleConfirmDelete(menuPosition.blockId)}
+              onClick={() => handleConfirmDelete(removeBlockInfo.blockId)}
             >
               {t('render-block.confirm')}
             </AlertDialogAction>
