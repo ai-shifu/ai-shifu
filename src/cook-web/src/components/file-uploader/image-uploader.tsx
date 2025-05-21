@@ -11,32 +11,42 @@ import { uploadFile } from '@/lib/file'
 import { getSiteHost } from '@/config/runtime-config'
 import { useToast } from '@/hooks/use-toast'
 import { useTranslation } from 'react-i18next'
-
+type ImageResource = {
+  resourceUrl?: string
+  resourceTitle?: string
+  resourceScale?: number
+}
 type ImageUploaderProps = {
-  value?: string
-  onChange?: (value: string) => void
+  value?: ImageResource
+  onChange?: (resource: ImageResource) => void
 }
 
 const agiImgUrlRegexp =
-  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/ig
+  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/gi
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { t } = useTranslation()
-  const [imageUrl, setImageUrl] = useState<string>(value || '')
-  const [inputUrl, setInputUrl] = useState<string>('')
+  const [resourceUrl, setResourceUrl] = useState<string>('')
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '')
   const [isUploading, setIsUploading] = useState<boolean>(false)
-  const [fileName, setFileName] = useState<string>('')
+  const [resourceTitle, setResourceTitle] = useState<string>(
+    value?.resourceTitle || ''
+  )
+  const [resourceScale, setResourceScale] = useState<number>(
+    value?.resourceScale || 100
+  )
   const [uploadProgress, setUploadProgress] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const resourceInputRef = useRef<HTMLInputElement>(null)
   const siteHost = getSiteHost()
   const { toast } = useToast()
 
   const resetState = () => {
-    setImageUrl('')
+    setResourceUrl('')
     setInputUrl('')
-    setFileName('')
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    setResourceTitle('')
+    setResourceScale(100)
+    if (resourceInputRef.current) {
+      resourceInputRef.current.value = ''
     }
   }
 
@@ -68,8 +78,8 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
         throw new Error(t('file-uploader.upload-failed'))
       }
 
-      setImageUrl(res.data)
-      setFileName(file.name)
+      setResourceUrl(res.data)
+      setResourceTitle(file.name)
       const img = new Image()
       img.src = res.data
     } catch (error) {
@@ -116,8 +126,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       return
     }
     const urlParts = inputUrl.split('/')
-    setFileName(urlParts[urlParts.length - 1])
-    setImageUrl(inputUrl)
+    setResourceTitle(urlParts[urlParts.length - 1])
+    setResourceScale(100)
+    setResourceUrl(inputUrl)
     setIsUploading(false)
   }
 
@@ -130,9 +141,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      uploadImage(file)
+    const resource = e.dataTransfer.files?.[0]
+    if (resource) {
+      uploadImage(resource)
     }
   }
 
@@ -141,12 +152,16 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   }
 
   useEffect(() => {
-    onChange?.(imageUrl)
-  }, [imageUrl])
+    onChange?.({
+      resourceUrl,
+      resourceTitle,
+      resourceScale
+    })
+  }, [resourceUrl])
 
   return (
     <div className='space-y-6'>
-      {!imageUrl ? (
+      {!resourceUrl ? (
         <>
           <div className='text-xs'>
             <h2 className='font-bold mb-4'>{t('file-uploader.url')}</h2>
@@ -190,7 +205,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                 <>
                   <input
                     type='file'
-                    ref={fileInputRef}
+                    ref={resourceInputRef}
                     onChange={handleFileChange}
                     className='hidden'
                     accept='image/*'
@@ -200,7 +215,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                     {t('file-uploader.drag-file-or-click-to-upload')}
                     <button
                       className='text-blue-600 hover:underline'
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => resourceInputRef.current?.click()}
                     >
                       {t('file-uploader.click-to-upload')}
                     </button>
@@ -214,11 +229,36 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       ) : (
         <div className='flex flex-col items-center'>
           <img
-            src={imageUrl || '/placeholder.svg'}
+            src={resourceUrl || '/placeholder.svg'}
             alt='Uploaded image'
             className='max-w-full max-h-[400px] object-contain mb-4'
           />
-          <div className=' mb-6'>{fileName}</div>
+
+          <div className='flex'>
+            <div className='text-sm mb-2'>
+              {t('file-uploader.image-title')}
+            </div>
+            <Input
+              value={resourceTitle}
+              onChange={e => setResourceTitle(e.target.value)}
+              placeholder={t('file-uploader.image-title-placeholder')}
+            />
+          </div>
+
+          <div className='flex'>
+            <div className='text-sm mb-2'>
+              {t('file-uploader.image-scale')}
+            </div>
+            <Input
+              type='number'
+              min='0.1'
+              step='0.1'
+              value={resourceScale}
+              onChange={e => setResourceScale(Number(e.target.value))}
+              placeholder='1'
+            />
+          </div>
+
           <Button
             variant='outline'
             className='w-full py-6 text-lg'

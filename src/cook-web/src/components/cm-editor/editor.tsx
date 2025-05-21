@@ -94,7 +94,7 @@ const Editor: React.FC<EditorProps> = ({
 
   const handleSelectProfile = useCallback(
     (profile: Profile) => {
-      const textToInsert = `{${profile.profile_key}}`
+      const textToInsert = `<span data-tag="profile">{${profile.profile_key}}</span>`
       if (selectContentInfo?.type === SelectedOption.Profile) {
         deleteSelectedContent()
         if (!editorViewRef.current) return
@@ -112,8 +112,17 @@ const Editor: React.FC<EditorProps> = ({
   )
 
   const handleSelectImage = useCallback(
-    (resourceUrl: string) => {
-      const textToInsert = resourceUrl
+    ({
+      resourceUrl,
+      resourceTitle,
+      resourceScale
+    }: {
+      resourceUrl?: string
+      resourceTitle?: string,
+      resourceScale?: number
+    }) => {
+      // const textToInsert = resourceUrl
+      const textToInsert = `<span data-tag="image" data-url="${resourceUrl}" data-title="${resourceTitle}" data-scale="${resourceScale}">${resourceTitle}</span>`
       if (selectContentInfo?.type === SelectedOption.Image) {
         deleteSelectedContent()
         if (!editorViewRef.current) return
@@ -130,7 +139,13 @@ const Editor: React.FC<EditorProps> = ({
   )
 
   const handleSelectVideo = useCallback(
-    ({ resourceUrl, resourceTitle }: { resourceUrl: string, resourceTitle: string }) => {
+    ({
+      resourceUrl,
+      resourceTitle
+    }: {
+      resourceUrl: string
+      resourceTitle: string
+    }) => {
       // const textToInsert = resourceUrl
       const textToInsert = `<span data-tag="video" data-url="${resourceUrl}" data-title="${resourceTitle}">${resourceTitle}</span>`
       if (selectContentInfo?.type === SelectedOption.Video) {
