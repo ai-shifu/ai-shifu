@@ -140,7 +140,7 @@ def update_block_model(
                 block_model.script_temprature = block_dto.block_content.temprature
         elif isinstance(block_dto.block_content, SolidContentDto):
             block_model.script_type = SCRIPT_TYPE_FIX
-            block_model.script_prompt = block_dto.block_content.content
+            block_model.script_prompt = block_dto.block_content.prompt
         elif isinstance(block_dto.block_content, SystemPromptDto):
             block_model.script_type = SCRIPT_TYPE_SYSTEM
             block_model.script_prompt = block_dto.block_content.prompt
@@ -298,7 +298,8 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
 
     if block.script_type == SCRIPT_TYPE_FIX:
         ret.block_content = SolidContentDto(
-            block.script_prompt, get_profiles(block.script_profile)
+            prompt=block.script_prompt,
+            profiles=get_profiles(block.script_profile),
         )
         ret.block_type = "solid"
     elif block.script_type == SCRIPT_TYPE_PROMPT:

@@ -198,16 +198,17 @@ class OutlineDto:
 
 @register_schema_to_swagger
 class SolidContentDto:
-    content: str
+    prompt: str
+    profiles: list[str]
 
-    def __init__(self, content: str = None, profiles: list[str] = None):
-        self.content = content
+    def __init__(self, prompt: str = None, profiles: list[str] = None):
+        self.prompt = prompt
         self.profiles = profiles
 
     def __json__(self):
         return {
             "properties": {
-                "content": self.content,
+                "prompt": self.prompt,
                 "profiles": self.profiles,
             },
             "type": __class__.__name__.replace("Dto", "").lower(),
