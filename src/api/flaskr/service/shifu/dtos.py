@@ -203,7 +203,7 @@ class SolidContentDto:
 
     def __init__(self, prompt: str = None, profiles: list[str] = None):
         self.prompt = prompt
-        self.profiles = profiles
+        self.profiles = profiles if profiles is not None else []
 
     def __json__(self):
         return {
