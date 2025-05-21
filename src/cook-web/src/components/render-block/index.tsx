@@ -48,7 +48,6 @@ export const RenderBlockContent = ({ id, type, properties }) => {
         if (opt) {
             opt.properties.prompt = properties.prompt
         }
-        console.log('opt', opt)
         actions.setBlockContentTypesById(id, type)
         actions.setBlockContentPropertiesById(id, opt?.properties || {} as any, true)
     }

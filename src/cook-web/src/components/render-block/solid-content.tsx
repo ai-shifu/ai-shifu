@@ -19,11 +19,6 @@ interface SolideContnet {
 
 export default function SolidContent(props: SolideContnet) {
     console.log(props.properties)
-    if (props.properties.prompt) {
-        delete props.properties.model;
-        delete props.properties.temprature;
-        delete props.properties.other_conf;
-    }
 
     return (
         <CMEditor
