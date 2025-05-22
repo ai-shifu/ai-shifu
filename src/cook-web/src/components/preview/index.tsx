@@ -31,7 +31,7 @@ const PreviewSettingsModal = () => {
     const handleStartPreview = async () => {
         await actions.saveBlocks(currentShifu?.shifu_id || '');
         // Handle the start preview action
-        const reuslt = await api.previewShifu({
+        const result = await api.previewShifu({
             "shifu_id": currentShifu?.shifu_id || '',
             "skip": autoSkipEmptyFields,
             "variables": formValues
@@ -43,11 +43,11 @@ const PreviewSettingsModal = () => {
             cancelText: '关闭',
             description: (
                 <div className="flex flex-col space-y-2">
-                    预览链接：<a href={reuslt} target='_blank'>{reuslt}</a>
+                    预览链接：<a href={result} target='_blank'>{result}</a>
                 </div>
             ),
             onConfirm: () => {
-                window.open(reuslt?.result, '_blank');
+                window.open(result, '_blank');
             }
         })
     }
