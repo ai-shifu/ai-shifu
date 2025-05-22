@@ -5,6 +5,8 @@ from pymilvus import MilvusClient
 from sqlalchemy import event
 import sqlparse
 import logging
+import traceback
+import os
 
 
 def init_db(app: Flask):
@@ -47,6 +49,17 @@ def init_db(app: Flask):
             def before_cursor_execute(
                 conn, cursor, statement, parameters, context, executemany
             ):
+                # 获取调用栈信息
+                stack = traceback.extract_stack()
+                # 过滤掉 SQLAlchemy 相关的调用栈
+                project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+                caller_info = "Unknown location"
+
+                for frame in reversed(stack[:-2]):  # 跳过当前函数和装饰器
+                    if project_root in frame.filename and "site-packages" not in frame.filename:
+                        caller_info = f"File: {os.path.relpath(frame.filename, project_root)}, Line: {frame.lineno}, Function: {frame.name}"
+                        break
+
                 # Format the SQL statement
                 formatted_sql = sqlparse.format(
                     statement, reindent=True, keyword_case="upper", strip_comments=True
@@ -63,7 +76,7 @@ def init_db(app: Flask):
                 else:
                     raw_sql = formatted_sql
 
-                app.logger.info(f"\n{raw_sql}\n")
+                app.logger.info(f"\nLocation: {caller_info}\n{raw_sql}\n")
 
         # Set the event listener in the application context
         with app.app_context():

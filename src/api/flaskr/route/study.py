@@ -245,7 +245,8 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         if not script_id:
             raise_param_error("script_id is not found")
         user_id = request.user.user_id
-        return make_common_response(get_script_info(app, user_id, script_id))
+        preview_mode = request.args.get("preview_mode", "False").lower() == "true"
+        return make_common_response(get_script_info(app, user_id, script_id, preview_mode))
 
     @app.route(path_prefix + "/reset-study-progress", methods=["POST"])
     def reset_study_progress():
@@ -284,9 +285,10 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         lesson_id = request.get_json().get("lesson_id")
         if not lesson_id:
             raise_param_error("lesson_id is not found")
+        preview_mode = request.get_json().get("preview_mode", False)
         user_id = request.user.user_id
         return make_common_response(
-            reset_user_study_info_by_lesson(app, user_id, lesson_id)
+            reset_user_study_info_by_lesson(app, user_id, lesson_id, preview_mode)
         )
 
     @app.route(path_prefix + "/script-content-operation", methods=["POST"])
