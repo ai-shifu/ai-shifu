@@ -368,10 +368,8 @@ export const ChatComponents = forwardRef(
                 );
                 lastMsg.content = lastMsg.content + currText;
                 updateMsg(lastMsg.id, lastMsg);
-                console.log('lastMsg', lastMsg.content);
                 lastMsgRef.current = lastMsg;
               } else {
-                console.log('appendMsg', response.content);
                 const id = genUuid();
                 lastMsg = createMessage({
                   id: id,

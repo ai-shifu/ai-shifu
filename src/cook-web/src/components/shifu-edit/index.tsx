@@ -153,7 +153,6 @@ const ShifuEdit = ({ id }: { id: string }) => {
 
 
     const onShowMenu = (id: string, type: string, e: React.MouseEvent<HTMLDivElement>) => {
-        console.log(id, type, e);
         if (type !== 'ai') {
             return;
         }
