@@ -65,6 +65,10 @@ export const useChatComponentsScroll = ({
   }, [chatRef, containerStyle, stopAutoScroll]);
 
   const scrollToLesson = useCallback((lessonId) => {
+    if (isStreaming) {
+      return;
+    }
+
     if (!chatRef.current) {
       return;
     }
@@ -77,7 +81,7 @@ export const useChatComponentsScroll = ({
     }
 
     scrollTo(lessonNode.offsetTop, true);
-  }, [chatRef, scrollTo]);
+  }, [chatRef, isStreaming, scrollTo]);
 
   const scrollToBottom = useCallback(() => {
     if (isStreaming) {
