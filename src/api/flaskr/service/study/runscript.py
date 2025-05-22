@@ -23,7 +23,6 @@ from ...service.order.consts import (
 )
 
 
-
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
     init_trial_lesson,
