@@ -716,7 +716,9 @@ def update_course_info(
 
 
 @extensible
-def get_course_info(app: Flask, course_id: str, preview_mode: bool = False) -> AICourseDTO:
+def get_course_info(
+    app: Flask, course_id: str, preview_mode: bool = False
+) -> AICourseDTO:
     with app.app_context():
         if course_id is None or course_id == "":
             course = (
