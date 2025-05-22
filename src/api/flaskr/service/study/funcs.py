@@ -320,8 +320,10 @@ def get_lesson_tree_to_study(
 
 
 @extensible
-def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
+def get_study_record(app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False) -> StudyRecordDTO:
     with app.app_context():
+        if preview_mode:
+            return StudyRecordDTO([])
         lesson_info = (
             AILesson.query.filter(
                 AILesson.lesson_id == lesson_id,
