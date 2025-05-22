@@ -3,8 +3,8 @@ import { inWechat } from 'constants/uiConstants';
 
 const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i);
 
-const copyTextOld = async (text) => {
-  return new Promise((resolve) => {
+const copyTextOld = async (text: string): Promise<void> => {
+  return new Promise<void>((resolve) => {
     const textArea = document.createElement("textArea");
     textArea.value = text;
     textArea.style.width = 0;
@@ -20,11 +20,11 @@ const copyTextOld = async (text) => {
   });
 };
 
-const copyTextNew = async (text) => {
+const copyTextNew = async (text: string): Promise<void> => {
   return navigator.clipboard.writeText(text);
 };
 
-export const copyText = async (text) => {
+export const copyText = async (text: string): Promise<void> => {
   if (isMobile) {
     if (inWechat()) {
       if (navigator.clipboard && isSafari) {
@@ -44,13 +44,13 @@ export const copyText = async (text) => {
   }
 };
 
-export const snakeToCamel = (str) => {
+export const snakeToCamel = (str: string): string => {
     return str.replace(/(_\w)/g, function(match) {
         return match[1].toUpperCase();
     });
 }
 
-export const camelToSnake = (str) => {
+export const camelToSnake = (str: string): string => {
   return str.replace(/[A-Z]/g, function(match) {
       return '_' + match.toLowerCase();
   });
