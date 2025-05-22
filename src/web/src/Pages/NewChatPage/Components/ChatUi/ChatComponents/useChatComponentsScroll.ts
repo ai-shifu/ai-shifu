@@ -10,7 +10,7 @@ export const useChatComponentsScroll = ({
   messages,
   deleteMsg,
   appendMsg,
-  isStreaming,
+  isStreaming = false,
 }) => {
   const [autoScroll, setAutoScroll] = useState(true);
 
