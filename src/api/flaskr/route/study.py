@@ -127,7 +127,9 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         if not course_id:
             course_id = None
         user_id = request.user.user_id
-        return make_common_response(get_lesson_tree_to_study(app, user_id, course_id, preview_mode))
+        return make_common_response(
+            get_lesson_tree_to_study(app, user_id, course_id, preview_mode)
+        )
 
     @app.route(path_prefix + "/get_lesson_study_record", methods=["GET"])
     def get_lesson_study_record():
