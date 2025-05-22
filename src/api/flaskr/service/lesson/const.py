@@ -19,7 +19,7 @@ CONTENT_TYPES = {"文本": CONTENT_TYPE_TEXT, "图片": CONTENT_TYPE_IMAGE}
 
 UI_TYPE_BUTTON = 301
 UI_TYPE_INPUT = 302
-UI_TYPE_CONTINUED = 303
+UI_TYPE_EMPTY = 303
 UI_TYPE_TO_PAY = 304
 UI_TYPE_SELECTION = 305
 UI_TYPE_PHONE = 306
@@ -36,7 +36,7 @@ UI_TYPES = {
     "输入 验证码": UI_TYPE_CHECKCODE,
     "弹出 登录注册框": UI_TYPE_LOGIN,
     "显示 登录注册框": UI_TYPE_LOGIN,
-    "无": UI_TYPE_CONTINUED,
+    "无": UI_TYPE_EMPTY,
     "跳转按钮": UI_TYPE_BRANCH,
 }
 
@@ -49,7 +49,7 @@ UI_TYPE_VALUES = {
     UI_TYPE_PHONE: "输入 手机号",
     UI_TYPE_CHECKCODE: "输入 验证码",
     UI_TYPE_LOGIN: "弹出 登录注册框",
-    UI_TYPE_CONTINUED: "无",
+    UI_TYPE_EMPTY: "无",
     UI_TYPE_BRANCH: "跳转按钮",
 }
 

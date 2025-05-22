@@ -129,6 +129,8 @@ const App = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
   const currChannel = params.channel || '';
+  const isPreviewMode = params.preview ? params.preview.toLowerCase() === 'true' : false;
+  const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -162,8 +164,6 @@ const App = () => {
     enableWxcode,
   ]);
 
-
-
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
@@ -173,21 +173,18 @@ const App = () => {
     };
     fetchCourseInfo();
   }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
+
   useEffect(() => {
-    if (params.preview) {
-      updatePreviewMode(params.preview.toLowerCase() === 'true');
-    }
-    if (params.skip) {
-      updateSkip(params.skip.toLowerCase() === 'true');
-    }
-  }, [params.preview, updatePreviewMode, updateSkip, params.skip]);
+    updatePreviewMode(isPreviewMode);
+    updateSkip(isSkipMode);
+  }, [isPreviewMode, isSkipMode, updatePreviewMode, updateSkip]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
         try {
-          const resp = await getCourseInfo(courseId, params.preview.toLowerCase() === 'true');
+          const resp = await getCourseInfo(courseId, isPreviewMode);
           if (resp.data) {
             setShowVip(resp.data.course_price > 0);
             updateCourseName(resp.data.course_name);
@@ -219,7 +216,7 @@ const App = () => {
       }
     };
     fetchCourseInfo();
-  }, [courseId, envDataInitialized, setShowVip, updateCourseName]);
+  }, [courseId, envDataInitialized, setShowVip, updateCourseName, isPreviewMode]);
 
   useEffect(() => {
     if (!envDataInitialized) return;

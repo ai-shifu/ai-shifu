@@ -2,7 +2,6 @@ import CMEditor from '@/components/cm-editor';
 
 
 interface SolideContnetProps {
-    content: string;
     profiles: string[];
     prompt?: string;
     model?: string;
@@ -19,21 +18,15 @@ interface SolideContnet {
 }
 
 export default function SolidContent(props: SolideContnet) {
-    if (props.properties.prompt) {
-        props.properties.content = props.properties.prompt;
-        delete props.properties.prompt;
-        delete props.properties.model;
-        delete props.properties.temprature;
-        delete props.properties.other_conf;
-    }
+    console.log(props.properties)
 
     return (
         <CMEditor
-            content={props.properties.content}
+            content={props.properties.prompt}
             profiles={props.properties.profiles}
             isEdit={props.isEdit}
             onChange={(value, isEdit) => {
-                props.onChange({ ...props.properties, content: value })
+                props.onChange({ ...props.properties, prompt: value })
                 if (props.onEditChange) {
                     props.onEditChange(isEdit)
                 }

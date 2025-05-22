@@ -198,16 +198,17 @@ class OutlineDto:
 
 @register_schema_to_swagger
 class SolidContentDto:
-    content: str
+    prompt: str
+    profiles: list[str]
 
-    def __init__(self, content: str = None, profiles: list[str] = None):
-        self.content = content
-        self.profiles = profiles
+    def __init__(self, prompt: str = None, profiles: list[str] = None):
+        self.prompt = prompt
+        self.profiles = profiles if profiles is not None else []
 
     def __json__(self):
         return {
             "properties": {
-                "content": self.content,
+                "prompt": self.prompt,
                 "profiles": self.profiles,
             },
             "type": __class__.__name__.replace("Dto", "").lower(),
@@ -350,13 +351,17 @@ class PaymentDto(ButtonDto):
 
 
 @register_schema_to_swagger
-class ContinueDto(ButtonDto):
-    # type continue
-    button_name: str
-    button_key: str
+class EmptyDto:
+    # type continue & empty
 
-    def __init__(self, button_name: str = None, button_key: str = None):
-        super().__init__(button_name, button_key)
+    def __init__(self):
+        pass
+
+    def __json__(self):
+        return {
+            "properties": {},
+            "type": __class__.__name__.replace("Dto", "").lower(),
+        }
 
 
 @register_schema_to_swagger

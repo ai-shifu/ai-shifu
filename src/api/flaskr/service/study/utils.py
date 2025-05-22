@@ -13,7 +13,7 @@ from ...service.lesson.const import (
     LESSON_TYPE_NORMAL,
     SCRIPT_TYPE_SYSTEM,
     UI_TYPE_BUTTON,
-    UI_TYPE_CONTINUED,
+    UI_TYPE_EMPTY,
 )
 from ...service.lesson.models import AICourse, AILesson, AILessonScript
 from ...service.order.consts import (
@@ -802,7 +802,7 @@ def check_script_is_last_script(
         )
         if (
             last_script.script_id == script_info.script_id
-            and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_CONTINUED]
+            and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_EMPTY]
         ):
             return True
     return False
