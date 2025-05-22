@@ -332,8 +332,10 @@ export const ChatComponents = forwardRef(
         let isEnd = false;
         let teach_avator = null;
         let lastLessonId = messageLessonId;
+        let lastActiveMsg = null;
 
         runScript(chatId, lessonId, val, type, scriptId, async (response) => {
+
           if (response.type === RESP_EVENT_TYPE.TEACHER_AVATOR) {
             teach_avator = response.content;
           }
@@ -366,8 +368,10 @@ export const ChatComponents = forwardRef(
                 );
                 lastMsg.content = lastMsg.content + currText;
                 updateMsg(lastMsg.id, lastMsg);
+                console.log('lastMsg', lastMsg.content);
                 lastMsgRef.current = lastMsg;
               } else {
+                console.log('appendMsg', response.content);
                 const id = genUuid();
                 lastMsg = createMessage({
                   id: id,
@@ -389,6 +393,10 @@ export const ChatComponents = forwardRef(
                   lastMsg.logid = response.log_id;
                 }
                 updateMsg(lastMsg.id, lastMsg);
+                // lastMsg = null;
+                lastActiveMsg = lastMsg;
+                lastMsg = null;
+                lastMsgRef.current = null;
               }
               lastMsgRef.current = null;
               if (isEnd) {
@@ -396,12 +404,13 @@ export const ChatComponents = forwardRef(
                 return;
               }
             } else if (response.type === RESP_EVENT_TYPE.ACTIVE) {
-              if (lastMsg) {
-                lastMsg.ext = {
-                  ...lastMsg.ext,
+              if (lastActiveMsg) {
+                lastActiveMsg.ext = {
+                  ...lastActiveMsg.ext,
                   active: convertKeysToCamelCase(response.content),
                 };
-                updateMsg(lastMsg.id, lastMsg);
+                updateMsg(lastActiveMsg.id, lastActiveMsg);
+                lastActiveMsg = null;
               }
             } else if (
               response.type === RESP_EVENT_TYPE.INPUT ||

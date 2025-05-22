@@ -123,7 +123,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                 description: 参数错误
         """
         course_id = request.args.get("course_id")
-        preview_mode = request.args.get("preview_mode", False)
+        preview_mode = request.args.get("preview_mode", "False").lower() == "true"
         if not course_id:
             course_id = None
         user_id = request.user.user_id

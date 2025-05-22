@@ -332,6 +332,7 @@
     "confirm": "Confirm",
     "confirm-change": "Confirm Change",
     "confirm-change-description": "Your operation will cause the current content to be lost, whether to confirm?",
+    "empty": "Empty",
     "expand": "Expand",
     "goto": "Goto",
     "goto-button-key": "Goto Key",

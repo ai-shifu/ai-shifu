@@ -20,6 +20,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false)
     const ContentTypes = useContentTypes()
 
+
     const onPropertiesChange = async (properties) => {
         await actions.setBlockContentPropertiesById(id, properties)
         const p = {
@@ -33,7 +34,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
         if (type == 'ai' && properties.prompt == '') {
             setError(t('render-block.ai-content-empty'))
             return;
-        } else if (type == 'solidcontent' && properties.content == '') {
+        } else if (type == 'solidcontent' && properties.prompt == '') {
             setError(t('render-block.solid-content-empty'))
             return;
         }
@@ -44,6 +45,9 @@ export const RenderBlockContent = ({ id, type, properties }) => {
 
     const onContentTypeChange = (id: string, type: string) => {
         const opt = ContentTypes.find(p => p.type === type);
+        if (opt) {
+            opt.properties.prompt = properties.prompt
+        }
         actions.setBlockContentTypesById(id, type)
         actions.setBlockContentPropertiesById(id, opt?.properties || {} as any, true)
     }
@@ -52,12 +56,11 @@ export const RenderBlockContent = ({ id, type, properties }) => {
     }
     const onSave = async () => {
         setError('')
-        // check if the block is empty
         const block = blocks.find((item) => item.properties.block_id == id);
         if (type == 'ai' && block && properties.prompt == '') {
             setError(t('render-block.ai-content-empty'))
             return;
-        } else if (type == 'solidcontent' && block && properties.content == '') {
+        } else if (type == 'solidcontent' && block && properties.prompt == '') {
             setError(t('render-block.solid-content-empty'))
             return;
         }
@@ -83,7 +86,7 @@ export const RenderBlockContent = ({ id, type, properties }) => {
                     <div className='rounded-t-md p-2 flex flex-row items-center py-1 justify-between'>
                         <Select
                             value={blockContentTypes[id]}
-                            onValueChange={onContentTypeChange.bind(null, id)}
+                            onValueChange={(value) => onContentTypeChange(id, value)}
                         >
                             <SelectTrigger className="h-8 w-[120px]">
                                 <SelectValue placeholder={t('render-block.select-content-type')} />
@@ -167,7 +170,7 @@ export const useContentTypes = () =>
             type: 'solidcontent',
             name: t('render-block.solid-content'),
             properties: {
-                "content": "",
+                "prompt": "",
                 "profiles": [],
             }
             }
