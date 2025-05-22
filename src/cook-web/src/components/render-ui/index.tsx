@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog'
 import { useTranslation } from 'react-i18next';
-
+import Empty from './empty'
 const EditBlockMap = {
     button: Button,
     option: Option,
@@ -27,6 +27,7 @@ const EditBlockMap = {
     textinput: TextInput,
     login: (props) => <Button {...props} mode="login" />,
     payment: (props) => <Button {...props} mode="payment" />,
+    empty: Empty,
 }
 
 const ViewBlockMap = {
@@ -299,6 +300,11 @@ export const useUITypes = () => {
             return ""
         }
 
+    },
+    {
+        type: 'empty',
+        name: t('render-ui.empty'),
+        properties: {},
     },
     /**commit temp  for current version
     {

@@ -7,7 +7,7 @@
     "companyAddress": "北京朝阳区望京东煌大厦19层163室",
     "settings": "设置",
     "ok": "确定",
-    "networkError": "无法连接到服务器请检查网络设置",
+    "networkError": "无法连接到服务器，请检查网络设置",
     "backToHome": "返回首页",
     "redirectInSeconds": "将在 {{seconds}} 秒后返回首页",
     "shortcut": {
@@ -34,7 +34,7 @@
   "user": {
     "loginMainButton": "登录/注册",
     "confirmLogoutTitle": "确认退出登录？",
-    "confirmLogoutContent": "确认退出登录么？",
+    "confirmLogoutContent": "确认退出登录吗？",
     "defaultUserName": "默认名称",
     "notLogin": "未登录",
     "login": "登录",
@@ -95,7 +95,7 @@
     "gongan": "京公网安备11010502055644号",
     "feedbackTitle": "提交反馈",
     "userAgreement": "服务协议",
-    "privacyPolicy": "隐私协议",
+    "privacyPolicy": "隐私政策",
     "contactUs": "联系我们",
     "shortcut": "快捷键"
   },
@@ -121,7 +121,7 @@
     "feedbackContent": "反馈内容",
     "feedbackPlaceholder": "请输入反馈内容",
     "feedbackSubmit": "提交",
-    "feedbackSuccess": "反馈成功,感谢你的反馈。",
+    "feedbackSuccess": "反馈成功，感谢你的反馈。",
     "feedbackFail": "反馈失败",
     "feedbackContentEmpty": "反馈内容不能为空",
     "feedbackContactEmpty": "联系方式不能为空"

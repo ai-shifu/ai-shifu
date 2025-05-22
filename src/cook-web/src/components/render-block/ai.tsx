@@ -20,7 +20,6 @@ interface AIBlock {
 }
 
 export default function AI(props: AIBlock) {
-
     return (
         <CMEditor
             content={props.properties.prompt}
