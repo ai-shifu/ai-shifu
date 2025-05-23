@@ -128,7 +128,9 @@ def get_profile_array(profile: str) -> list:
     return re.findall(r"\[(.*?)\]", profile)
 
 
-def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id, preview_mode: bool = False):
+def get_lesson_and_attend_info(
+    app: Flask, parent_no, course_id, user_id, preview_mode: bool = False
+):
     status = [STATUS_PUBLISH]
     if preview_mode:
         status.append(STATUS_DRAFT)
@@ -160,7 +162,7 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id, previe
         lessons = []
         print("=====preview_mode:", preview_mode)
         if preview_mode:
-            lessons = [lesson for lesson in lessons if lesson.status in [1,2]]
+            lessons = [lesson for lesson in lessons if lesson.status in [1, 2]]
         else:
             lessons = [lesson for lesson in lessons if lesson.status == 1]
         lesson_type = lessons[0].lesson_type
@@ -387,7 +389,9 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
                 ).first()
         app.logger.info("to get branch script")
         db.session.flush()
-        script_info, attend_infos, is_first = get_script(app, current.attend_id, next, preview_mode)
+        script_info, attend_infos, is_first = get_script(
+            app, current.attend_id, next, preview_mode
+        )
         if script_info:
             return script_info, [], is_first
         else:
@@ -790,7 +794,10 @@ def get_model_setting(
 
 @extensible
 def check_script_is_last_script(
-    app: Flask, script_info: AILessonScript, lesson_info: AILesson, preview_mode: bool = False
+    app: Flask,
+    script_info: AILessonScript,
+    lesson_info: AILesson,
+    preview_mode: bool = False,
 ) -> bool:
     status = [STATUS_PUBLISH]
     if preview_mode:
