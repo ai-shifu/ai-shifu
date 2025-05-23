@@ -42,10 +42,12 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   }
 
   useEffect(() => {
-    if (skip && !disabled) {
+    console.log(type);
+
+    if (skip && !disabled && (type === INTERACTION_TYPE.NEXT_CHAPTER || type === INTERACTION_TYPE.CONTINUE )) {
       onBtnClick();
     }
-  }, [skip, disabled]);
+  }, [skip, disabled, type]);
 
   const { inMacOs } = useUiLayoutStore(
     useShallow((state) => ({ inMacOs: state.inMacOs }))
