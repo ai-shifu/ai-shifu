@@ -213,7 +213,6 @@ const Editor: React.FC<EditorProps> = ({
               placeholder={t('cm-editor.input-slash-to-insert-content')}
               value={content}
               theme='light'
-              height='10em'
               onChange={(value: string) => {
                 onChange?.(value, isEdit || false)
               }}
