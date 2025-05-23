@@ -20,6 +20,8 @@ interface ChatInputProps {
   onClick?: (outputType: string, isValid: boolean, value: string) => void;
   type?: string;
   disabled?: boolean;
+  initialValue?: string;
+  onInputChange?: (value: string) => void;
   props?: {
     content?: {
       content?: string;
@@ -27,10 +29,14 @@ interface ChatInputProps {
   };
 }
 
-export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: ChatInputProps) => {
+export const ChatInputText = ({ onClick, initialValue, onInputChange, type, disabled = false, props = {} }: ChatInputProps) => {
   const { t } = useTranslation();
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialValue || '');
   const [messageApi, contextHolder] = message.useMessage();
+
+  useEffect(() => {
+    setInput(initialValue || '');
+  }, [initialValue]);
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const placeholder = props?.content?.content || t('chat.chatInputPlaceholder');
@@ -107,6 +113,7 @@ export const ChatInputText = ({ onClick, type, disabled = false, props = {} }: C
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
     setInput(value);
+    onInputChange?.(value);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

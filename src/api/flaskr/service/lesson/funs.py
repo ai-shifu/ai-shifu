@@ -9,7 +9,7 @@ from .const import (
     LESSON_TYPE_NORMAL,
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPES,
-    UI_TYPE_CONTINUED,
+    UI_TYPE_EMPTY,
     UI_TYPE_SELECTION,
     UI_TYPES,
     STATUS_PUBLISH,
@@ -483,7 +483,7 @@ def update_lesson_info(
                 scripDb["script_check_prompt"] = ""
                 scripDb["script_check_flag"] = ""
                 scripDb["script_index"] = script_index
-                scripDb["script_ui_type"] = UI_TYPE_CONTINUED
+                scripDb["script_ui_type"] = UI_TYPE_EMPTY
                 scripDb["script_type"] = SCRIPT_TYPE_FIX
                 scripDb["script_content_type"] = CONTENT_TYPE_TEXT
                 scripDb["script_model"] = ""

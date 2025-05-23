@@ -74,7 +74,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                 <SlidersHorizontal className='cursor-pointer h-4 w-4 text-gray-500' />
             </DialogTrigger>
             <DialogContent
-                className="sm:max-w-lg bg-gray-100"
+                className="sm:max-w-lg lg:max-w-[70vw] bg-gray-100"
                 onPointerDown={(e) => {
                     e.stopPropagation();
                 }}
@@ -116,7 +116,15 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                                     placeholder={t('chapter-setting.please-input')}
                                     value={systemPrompt}
                                     onChange={(e) => setSystemPrompt(e.target.value)}
-                                    className="h-24 bg-white"
+                                    className="min-h-24 bg-white resize-none"
+                                    style={{
+                                        height: 'auto'
+                                    }}
+                                    onInput={(e) => {
+                                        const target = e.target as HTMLTextAreaElement;
+                                        target.style.height = 'auto';
+                                        target.style.height = target.scrollHeight + 'px';
+                                    }}
                                 />
                             </div>
 

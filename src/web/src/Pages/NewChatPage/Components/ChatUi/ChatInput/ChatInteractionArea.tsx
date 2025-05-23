@@ -25,11 +25,15 @@ export const ChatInteractionArea = ({
   const elemRef = useRef();
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
+  const [askContent, setAskContent] = useState('');
+  const [inputValue, setInputValue] = useState('');
 
   const onSendFunc = (type, display, val) => {
     if (disabled) {
       return;
     }
+    setInputValue('');
+    setAskContent('');
     onSend?.(type, display, val, props.scriptId);
   };
 
@@ -42,6 +46,8 @@ export const ChatInteractionArea = ({
           type={type}
           props={props}
           onClick={onSendFunc}
+          initialValue={inputValue}
+          onInputChange={setInputValue}
         />
       );
     }
@@ -65,6 +71,8 @@ export const ChatInteractionArea = ({
   const onSendAsk = (type, display, val) => {
     setInputVisible(false);
     onSendFunc?.(INTERACTION_TYPE.ASK, true, val);
+    setInputValue('');
+    setAskContent('');
   };
 
   useEffect(() => {
@@ -99,6 +107,8 @@ export const ChatInteractionArea = ({
                 type="text"
                 props={{ content: t('chat.askContent') }}
                 visible={isInputVisible}
+                initialValue={askContent}
+                onInputChange={setAskContent}
               />
             )}
           </div>
