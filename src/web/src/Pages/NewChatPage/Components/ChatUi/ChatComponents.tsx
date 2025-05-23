@@ -235,6 +235,7 @@ export const ChatComponents = forwardRef(
         messages,
         appendMsg,
         deleteMsg,
+        isStreaming,
       });
     const lastMsgRef = useRef(null);
     const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
@@ -514,18 +515,20 @@ export const ChatComponents = forwardRef(
     );
 
     const onImageLoaded = useCallback(() => {
-      if (!autoScroll) {
+      if (!autoScroll || isStreaming) {
         return;
       }
       scrollToBottom();
-    }, [autoScroll, scrollToBottom]);
+    }, [autoScroll, isStreaming, scrollToBottom]);
 
     useEffect(() => {
       if (!loadedData) {
         return;
       }
 
-      scrollToBottom();
+      if (!isStreaming) {
+        scrollToBottom();
+      }
 
       if (!initRecords || initRecords.length === 0) {
         nextStep({
@@ -536,7 +539,7 @@ export const ChatComponents = forwardRef(
         });
       }
       setLoadedData(false);
-    }, [chatId, initRecords, lessonId, loadedData, nextStep, scrollToBottom]);
+    }, [chatId, initRecords, isStreaming, lessonId, loadedData, nextStep, scrollToBottom]);
 
     const resetAndLoadData = useCallback(async () => {
       if (!chapterId) {
@@ -727,12 +730,15 @@ export const ChatComponents = forwardRef(
 
         setTyping(true);
         setInputDisabled(true);
-        scrollToBottom();
+        if (!isStreaming) {
+          scrollToBottom();
+        }
         nextStep({ chatId, lessonId, type, val, scriptId });
       },
       [
         appendMsg,
         chatId,
+        isStreaming,
         lessonId,
         nextStep,
         scrollToBottom,
@@ -908,7 +914,9 @@ export const ChatComponents = forwardRef(
           return;
         }
 
-        scrollToLesson(lessonId);
+        if (!isStreaming) {
+          scrollToLesson(lessonId);
+        }
         updateSelectedLesson(lessonId);
       };
 
@@ -923,7 +931,7 @@ export const ChatComponents = forwardRef(
           onGoToNavigationNode
         );
       };
-    }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
+    }, [isStreaming, loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
         const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);

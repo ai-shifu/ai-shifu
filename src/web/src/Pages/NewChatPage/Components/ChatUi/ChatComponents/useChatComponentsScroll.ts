@@ -10,6 +10,7 @@ export const useChatComponentsScroll = ({
   messages,
   deleteMsg,
   appendMsg,
+  isStreaming = false,
 }) => {
   const [autoScroll, setAutoScroll] = useState(true);
 
@@ -29,6 +30,9 @@ export const useChatComponentsScroll = ({
   }, [appendMsg, messages]);
 
   const onMessageListScroll = useCallback((e) => {
+    if (isStreaming) {
+      return;
+    }
 
     const scrollWrapper = e.target;
     const inner = scrollWrapper.children[0];
@@ -46,9 +50,13 @@ export const useChatComponentsScroll = ({
     } else {
       startAutoScroll();
     }
-  }, [startAutoScroll, stopAutoScroll]);
+  }, [isStreaming, startAutoScroll, stopAutoScroll]);
 
   const scrollTo = useCallback((height, stopScroll = false) => {
+    if (isStreaming) {
+      return;
+    }
+
     if (stopScroll) {
       stopAutoScroll();
     }
@@ -61,9 +69,13 @@ export const useChatComponentsScroll = ({
       return;
     }
     smoothScroll({ el: wrapper, to: height });
-  }, [chatRef, containerStyle, stopAutoScroll]);
+  }, [chatRef, containerStyle, isStreaming, stopAutoScroll]);
 
   const scrollToLesson = useCallback((lessonId) => {
+    if (isStreaming) {
+      return;
+    }
+
     if (!chatRef.current) {
       return;
     }
@@ -76,9 +88,13 @@ export const useChatComponentsScroll = ({
     }
 
     scrollTo(lessonNode.offsetTop, true);
-  }, [chatRef, scrollTo]);
+  }, [chatRef, isStreaming, scrollTo]);
 
   const scrollToBottom = useCallback(() => {
+    if (isStreaming) {
+      return;
+    }
+
     const inner = chatRef.current?.querySelector(
       `.${containerStyle} .PullToRefresh-inner`
     );
@@ -88,7 +104,7 @@ export const useChatComponentsScroll = ({
     }
 
     scrollTo(inner.clientHeight);
-  }, [chatRef, containerStyle, scrollTo]);
+  }, [chatRef, containerStyle, isStreaming, scrollTo]);
 
   return {
     autoScroll,
