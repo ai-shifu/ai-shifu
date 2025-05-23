@@ -85,6 +85,7 @@ const createMessage = ({
     content,
     interaction_type,
     isComplete: false,
+    hasTime: false,
     logid,
     type,
     position,
