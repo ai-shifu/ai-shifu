@@ -107,7 +107,7 @@ const profileMatcher = new MatchDecorator({
       )
     })
 })
-const agiImgContextRegexp = 
+const agiImgContextRegexp =
 /<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi;
 const imageUrlMatcher = new MatchDecorator({
   regexp: agiImgContextRegexp,
