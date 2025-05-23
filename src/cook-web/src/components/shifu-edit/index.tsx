@@ -54,7 +54,7 @@ const DraggableBlock = ({
   onClickChangeType,
   children
 }: DraggableBlockProps) => {
-  const { t } = useTranslation()
+  // const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
 
   const [{ handlerId }, drop] = useDrop<
@@ -130,39 +130,60 @@ const DraggableBlock = ({
       ref={ref}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       data-handler-id={handlerId}
-      className='relative group pl-7'
+      className='group pl-7'
     >
-      <div ref={dragRef}>
+      <div ref={dragRef} className='relative'>
         <div
           onMouseLeave={handleMouseLeave}
-          className='absolute top-0 left-0 w-10 h-10 cursor-move group-hover:opacity-100 opacity-0'
+          className='cursor-move group-hover:opacity-100 opacity-0'
+          style={{
+            zIndex: 100,
+            position: 'absolute',
+            top: '0',
+            left: '-34px'
+          }}
         >
           <GripVertical
+            className='h-8 w-8 block'
             onMouseEnter={handleMouseEnter}
-            className='h-4 w-4 shrink-0'
           />
           <div
-            className='fixed bg-white hover:bg-gray-100 cursor-pointer rounded-sm w-100'
+            className='bg-white shadow-md rounded-lg w-48 p-2 transition-all'
             style={{
-              zIndex: 50,
-              display: `${showMenu ? 'block' : 'none'}`
+              position: 'absolute',
+              left: '0',
+              zIndex: 51,
+              display: `${showMenu ? 'block' : 'none'}`,
+              border: '1px solid #f3f4f6'
             }}
           >
-            <div className='flex h-50'>{type === 'ai' ? 'AI' : '固定'}模块</div>
-            <div
-              className='flex h-50'
-              onClick={() => onClickChangeType?.(id, type === 'ai' ? 'solidcontent' : 'ai')}
-            >
-              <Variable />
-              设置成{type === 'ai' ? '固定' : 'AI'}模块
-            </div>
-            <div className='flex h-50' onClick={() => onClickDebug?.(id)}>
-              <Variable />
-              {t('scenario.debug')}
-            </div>
-            <div className='flex h-50' onClick={() => onClickRemove?.(id)}>
-              <Trash2 className='h-5 w-5 cursor-pointer' />
-              删除
+            <div className='flex flex-col gap-2 text-sm'>
+              <div className='px-3 py-1.5 text-gray-500'>
+                {type === 'ai' ? 'AI' : '固定'}模块
+              </div>
+              <div
+                className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
+                onClick={() =>
+                  onClickChangeType?.(id, type === 'ai' ? 'solidcontent' : 'ai')
+                }
+              >
+                <Variable className='h-4 w-4' />
+                设为{type === 'ai' ? '固定模块' : 'AI模块'}
+              </div>
+              <div
+                className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
+                onClick={() => onClickDebug?.(id)}
+              >
+                <Variable className='h-4 w-4' />
+                调试
+              </div>
+              <div
+                className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer'
+                onClick={() => onClickRemove?.(id)}
+              >
+                <Trash2 className='h-4 w-4' />
+                删除
+              </div>
             </div>
           </div>
         </div>
@@ -262,11 +283,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [id])
 
   return (
-    <div className='flex flex-col h-screen bg-gray-50 overflow-hidden '>
+    <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
-      <div className='flex-1 container mx-auto flex flex-row  overflow-hidden px-10'>
-        <div className='p-2 flex flex-col overflow-hidden h-full'>
-          <div className='flex-1 h-full overflow-auto pr-4 w-[240px]'>
+      <div className='flex-1 container mx-auto px-10' style={{
+        height: 'calc(100vh - 50px)',
+        background: '#fff',
+        overflowY: 'auto'
+      }}>
+        <div style={{
+          position: 'fixed',
+          borderRadius: '8px',
+          overflow: 'hidden',
+          marginTop: '2rem',
+        }}>
+          <div className='bg-[#F5F5F4] p-2 flex-1 h-full overflow-auto pr-4 w-[240px]'>
             <ol className=' text-sm'>
               <OutlineTree
                 items={chapters}
@@ -287,7 +317,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </div>
         </div>
 
-        <div className='flex-1 flex flex-col gap-4 p-8 pl-1 ml-0 overflow-auto relative bg-white text-sm'>
+        <div className='flex-1 flex flex-col gap-4 p-8 pl-1 ml-0 overflow-auto relative text-sm'
+        style={{
+          paddingLeft: '240px',
+        }}>
           {isLoading ? (
             <div className='h-40 flex items-center justify-center'>
               <Loading />
@@ -299,7 +332,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   <DraggableBlock
                     key={block.properties.block_id}
                     id={block.properties.block_id}
-                    type={blockContentTypes[block.properties.block_id] as BlockType}
+                    type={
+                      blockContentTypes[block.properties.block_id] as BlockType
+                    }
                     index={index}
                     moveBlock={(dragIndex: number, hoverIndex: number) => {
                       const dragBlock = blocks[dragIndex]

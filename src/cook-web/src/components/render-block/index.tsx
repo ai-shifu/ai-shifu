@@ -33,7 +33,6 @@ export const RenderBlockContent = ({
     currentShifu
   } = useShifu()
   const [error, setError] = useState('')
-  // const ContentTypes = useContentTypes()
 
   const onPropertiesChange = async properties => {
     await actions.setBlockContentPropertiesById(id, properties)
