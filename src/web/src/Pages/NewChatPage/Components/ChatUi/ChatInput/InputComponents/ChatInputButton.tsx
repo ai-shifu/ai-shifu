@@ -42,8 +42,6 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
   }
 
   useEffect(() => {
-    console.log(type);
-
     if (skip && !disabled && (type === INTERACTION_TYPE.NEXT_CHAPTER || type === INTERACTION_TYPE.CONTINUE )) {
       onBtnClick();
     }
