@@ -240,7 +240,7 @@ const Editor: React.FC<EditorProps> = ({
             </CustomDialog>
           </>
         ) : (
-          <div className='w-full p-2 rounded cursor-pointer font-mono break-words'>
+          <div className='w-full p-2 rounded cursor-pointer font-mono break-words whitespace-pre-wrap'>
             {content}
           </div>
         )}
