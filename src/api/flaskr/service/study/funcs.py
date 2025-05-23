@@ -87,20 +87,20 @@ def get_lesson_tree_to_study_inner(
         # online_lessons = [i for i in lessons if i.status == 1]
         online_lessons = []
         if preview_mode:
-            online_lessons = [i for i in lessons if i.status in [1,2]]
+            online_lessons = [i for i in lessons if i.status in [1, 2]]
         else:
             online_lessons = [i for i in lessons if i.status == 1]
         online_lessons = sorted(
             online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
         )
         # old_lessons = [i for i in lessons if i.status != 1]
-        old_lessons= []
+        old_lessons = []
         if preview_mode:
             old_lessons = [i for i in lessons if i.status not in [1, 2]]
         else:
             old_lessons = [i for i in lessons if i.status != 1]
         old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
-        print("=====old_lessons:", old_lessons,len(old_lessons))
+        print("=====old_lessons:", old_lessons, len(old_lessons))
 
         lesson_map = {i.lesson_id: i for i in online_lessons}
 
@@ -528,7 +528,9 @@ def get_lesson_study_progress(
 
 # get script info
 @extensible
-def get_script_info(app: Flask, user_id: str, script_id: str, preview_mode: bool = False) -> ScriptInfoDTO:
+def get_script_info(
+    app: Flask, user_id: str, script_id: str, preview_mode: bool = False
+) -> ScriptInfoDTO:
     with app.app_context():
         ai_course_status = [STATUS_PUBLISH]
         if preview_mode:
@@ -562,7 +564,9 @@ def get_script_info(app: Flask, user_id: str, script_id: str, preview_mode: bool
 
 # reset user study info by lesson
 @extensible
-def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False):
+def reset_user_study_info_by_lesson(
+    app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False
+):
     ai_course_status = [STATUS_PUBLISH]
     if preview_mode:
         ai_course_status.append(STATUS_DRAFT)
@@ -614,7 +618,9 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str, pr
         for attend_info in attend_infos:
             attend_info.status = ATTEND_STATUS_RESET
         # insert the new attend info for the lessons that are available
-        for lesson in [lesson for lesson in lessons if lesson.status in ai_course_status]:
+        for lesson in [
+            lesson for lesson in lessons if lesson.status in ai_course_status
+        ]:
             attend_info = AICourseLessonAttend(
                 user_id=user_id,
                 lesson_id=lesson.lesson_id,

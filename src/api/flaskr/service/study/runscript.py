@@ -278,7 +278,10 @@ def run_script_inner(
                             is_first_add = False
                             next = 0
                         script_info, attend_updates, _ = get_script(
-                            app, attend_id=attend.attend_id, next=next, preview_mode=preview_mode
+                            app,
+                            attend_id=attend.attend_id,
+                            next=next,
+                            preview_mode=preview_mode,
                         )
                         next = 1
                         if len(attend_updates) > 0:
@@ -347,7 +350,7 @@ def run_script_inner(
                         for script_dto in script_dtos:
                             yield make_script_dto_to_stream(script_dto)
                     else:
-                        res = update_lesson_status(app, attend.attend_id,preview_mode)
+                        res = update_lesson_status(app, attend.attend_id, preview_mode)
                         if res:
                             for attend_update in res:
                                 if isinstance(attend_update, AILessonAttendDTO):

@@ -246,7 +246,9 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
             raise_param_error("script_id is not found")
         user_id = request.user.user_id
         preview_mode = request.args.get("preview_mode", "False").lower() == "true"
-        return make_common_response(get_script_info(app, user_id, script_id, preview_mode))
+        return make_common_response(
+            get_script_info(app, user_id, script_id, preview_mode)
+        )
 
     @app.route(path_prefix + "/reset-study-progress", methods=["POST"])
     def reset_study_progress():

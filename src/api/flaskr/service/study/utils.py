@@ -75,10 +75,11 @@ def check_phone_number(app, user_info: User, input):
 
 
 def get_lesson_system(app: Flask, lesson_id: str) -> str:
+    status = [STATUS_PUBLISH,STATUS_DRAFT]
     # 缓存逻辑
     lesson_ids = [lesson_id]
     lesson = (
-        AILesson.query.filter(AILesson.lesson_id == lesson_id, AILesson.status == 1)
+        AILesson.query.filter(AILesson.lesson_id == lesson_id, AILesson.status.in_(status))
         .order_by(AILesson.id.desc())
         .first()
     )
@@ -91,7 +92,7 @@ def get_lesson_system(app: Flask, lesson_id: str) -> str:
             AILesson.query.filter(
                 AILesson.lesson_no == parent_no,
                 AILesson.course_id == lesson.course_id,
-                AILesson.status == 1,
+                AILesson.status.in_(status),
             )
             .order_by(AILesson.id.desc())
             .first()
@@ -103,7 +104,7 @@ def get_lesson_system(app: Flask, lesson_id: str) -> str:
         AILessonScript.query.filter(
             AILessonScript.lesson_id.in_(lesson_ids),
             AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
-            AILessonScript.status == 1,
+            AILessonScript.status.in_(status),
         )
         .order_by(AILessonScript.id.desc())
         .all()
@@ -128,7 +129,9 @@ def get_profile_array(profile: str) -> list:
     return re.findall(r"\[(.*?)\]", profile)
 
 
-def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id, preview_mode: bool = False):
+def get_lesson_and_attend_info(
+    app: Flask, parent_no, course_id, user_id, preview_mode: bool = False
+):
     status = [STATUS_PUBLISH]
     if preview_mode:
         status.append(STATUS_DRAFT)
@@ -160,7 +163,7 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id, previe
         lessons = []
         print("=====preview_mode:", preview_mode)
         if preview_mode:
-            lessons = [lesson for lesson in lessons if lesson.status in [1,2]]
+            lessons = [lesson for lesson in lessons if lesson.status in [1, 2]]
         else:
             lessons = [lesson for lesson in lessons if lesson.status == 1]
         lesson_type = lessons[0].lesson_type
@@ -387,7 +390,9 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
                 ).first()
         app.logger.info("to get branch script")
         db.session.flush()
-        script_info, attend_infos, is_first = get_script(app, current.attend_id, next, preview_mode)
+        script_info, attend_infos, is_first = get_script(
+            app, current.attend_id, next, preview_mode
+        )
         if script_info:
             return script_info, [], is_first
         else:
@@ -740,7 +745,7 @@ def get_model_setting(
     app: Flask, script_info: AILessonScript, status: list[int] = None
 ) -> ModelSetting:
     if status is None:
-        status = [STATUS_PUBLISH]
+        status = [STATUS_PUBLISH,STATUS_DRAFT]
     if script_info.script_model and script_info.script_model.strip():
         return ModelSetting(
             script_info.script_model, {"temperature": script_info.script_temprature}
@@ -790,7 +795,10 @@ def get_model_setting(
 
 @extensible
 def check_script_is_last_script(
-    app: Flask, script_info: AILessonScript, lesson_info: AILesson, preview_mode: bool = False
+    app: Flask,
+    script_info: AILessonScript,
+    lesson_info: AILesson,
+    preview_mode: bool = False,
 ) -> bool:
     status = [STATUS_PUBLISH]
     if preview_mode:

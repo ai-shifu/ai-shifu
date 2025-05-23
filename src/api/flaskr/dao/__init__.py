@@ -52,11 +52,16 @@ def init_db(app: Flask):
                 # 获取调用栈信息
                 stack = traceback.extract_stack()
                 # 过滤掉 SQLAlchemy 相关的调用栈
-                project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../"))
+                project_root = os.path.abspath(
+                    os.path.join(os.path.dirname(__file__), "../../../")
+                )
                 caller_info = "Unknown location"
 
                 for frame in reversed(stack[:-2]):  # 跳过当前函数和装饰器
-                    if project_root in frame.filename and "site-packages" not in frame.filename:
+                    if (
+                        project_root in frame.filename
+                        and "site-packages" not in frame.filename
+                    ):
                         caller_info = f"File: {os.path.relpath(frame.filename, project_root)}, Line: {frame.lineno}, Function: {frame.name}"
                         break
 
