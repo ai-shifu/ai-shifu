@@ -106,6 +106,7 @@ class PlaceholderWidget extends WidgetType {
       const [from, to] = this.getPosition() ?? [-1, -1]
       const event = new CustomEvent('globalTagClick', {
         detail: {
+          view: this.view,
           type: this.type,
           dataset: this.dataset,
           content:

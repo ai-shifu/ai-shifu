@@ -195,9 +195,14 @@ const Editor: React.FC<EditorProps> = ({
   }, [dialogOpen])
 
   useEffect(() => {
-    window.addEventListener('globalTagClick', handleTagClick)
+    const handleWrap = (e: any) => {
+      if (e.detail.view === editorViewRef.current) {
+        handleTagClick(e);
+      }
+    }
+    window.addEventListener('globalTagClick', handleWrap)
     return () => {
-      window.removeEventListener('globalTagClick', handleTagClick)
+      window.removeEventListener('globalTagClick', handleWrap)
     }
   }, [])
 
