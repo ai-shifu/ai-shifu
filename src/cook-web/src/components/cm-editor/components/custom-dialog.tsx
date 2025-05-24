@@ -15,14 +15,14 @@ const CustomDialog: React.FC<CustomDialogProps> = ({ children }) => {
     <Dialog.Root open={dialogOpen} onOpenChange={setDialogOpen} modal>
       <Dialog.Portal>
         <Dialog.Overlay
-          className='fixed inset-0 bg-black/50'
+          className='fixed inset-0 bg-black/50 z-[999]'
           onClick={e => {
             e.preventDefault()
             e.stopPropagation()
           }}
         />
         <Dialog.Content
-          className='fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 shadow-lg min-w-[400px]'
+          className='fixed z-[1000] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg p-6 shadow-lg min-w-[400px]'
           onPointerDownOutside={e => {
             e.preventDefault()
           }}
