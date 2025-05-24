@@ -54,6 +54,9 @@ const api = {
   getSystemPrompt: 'GET /llm/get-system-prompt',
   debugPrompt: 'GET /llm/debug-prompt',
 
+  getVideoInfo:'POST /shifu/get-video-info',
+  upfileByUrl:'POST /shifu/url-upfile',
+
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',

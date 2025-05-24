@@ -4,20 +4,27 @@
     cursor: pointer;
     border-radius: 3px;
     padding: 0 6px;
+    background-color: #9090f854;
 
     &:hover {
-        background-color: #9333ea6b;
+        border: 1px solid #ddd;
 
-        .tag-icon {
+        /* .tag-icon {
             visibility: visible;
-        }
+        } */
 
     }
+}
+.tag-image{
+    background-color: #c6e9bb70;
+}
+.tag-video{
+    background-color: #0d71f138;
 }
 
 .tag-icon {
     margin-left: 10px;
-    visibility: hidden;
+    /* visibility: hidden; */
 }
 
 /* label */
