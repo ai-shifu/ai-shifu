@@ -104,6 +104,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       return
     }
     if (!agiImgUrlRegexp.test(inputUrl)) {
+      setIsUploading(true)
       const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
         console.error('Error uploading image:', err)
         toast({
@@ -113,13 +114,11 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       })
       setResourceUrl(url)
       setResourceTitle('')
+      setResourceScale(100)
+      setIsUploading(false)
       return
     }
-    const urlParts = inputUrl.split('/')
-    setResourceTitle(urlParts[urlParts.length - 1])
-    setResourceScale(100)
     setResourceUrl(inputUrl)
-    setIsUploading(false)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
