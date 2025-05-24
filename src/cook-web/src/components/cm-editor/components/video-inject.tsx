@@ -20,7 +20,7 @@ type VideoInjectProps = {
 }
 
 const biliVideoUrlRegexp =
-  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+)/gi
+  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+\/?)/gi
 
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   const { t } = useTranslation()

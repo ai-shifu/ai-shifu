@@ -176,7 +176,6 @@ const Editor: React.FC<EditorProps> = ({
   const handleTagClick = useCallback((event: any) => {
     event.stopPropagation()
     const { type, from, to, dataset } = event.detail
-    debugger
     const value = parseContentInfo(type, dataset)
     setSelectContentInfo({
       type,
@@ -195,18 +194,10 @@ const Editor: React.FC<EditorProps> = ({
     }
   }, [dialogOpen])
 
-  const handlerRef = useRef(handleTagClick)
-
   useEffect(() => {
-    handlerRef.current = handleTagClick
-  }, [handleTagClick])
-
-  useEffect(() => {
-    const stableHandler = (event: any) => handlerRef.current(event)
-    window.addEventListener('globalTagClick', stableHandler)
-
+    window.addEventListener('globalTagClick', handleTagClick)
     return () => {
-      window.removeEventListener('globalTagClick', stableHandler)
+      window.removeEventListener('globalTagClick', handleTagClick)
     }
   }, [])
 
@@ -246,19 +237,19 @@ const Editor: React.FC<EditorProps> = ({
             <CustomDialog>
               {selectedOption === SelectedOption.Profile && (
                 <ProfileInject
-                  value={selectContentInfo?.content}
+                  value={selectContentInfo?.value}
                   onSelect={handleSelectProfile}
                 />
               )}
               {selectedOption === SelectedOption.Image && (
                 <ImageInject
-                  value={selectContentInfo?.content}
+                  value={selectContentInfo?.value}
                   onSelect={handleSelectImage}
                 />
               )}
               {selectedOption === SelectedOption.Video && (
                 <VideoInject
-                  value={selectContentInfo?.content}
+                  value={selectContentInfo?.value}
                   onSelect={handleSelectVideo}
                 />
               )}
