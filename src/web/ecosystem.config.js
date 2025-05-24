@@ -1,5 +1,4 @@
 require('dotenv').config();
-console.log('all env', process.env);
 module.exports = {
   apps: [
     {

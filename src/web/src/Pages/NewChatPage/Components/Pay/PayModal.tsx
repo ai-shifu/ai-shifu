@@ -24,6 +24,7 @@ import MainButton from 'Components/MainButton';
 import { useUserStore } from 'stores/useUserStore';
 import { shifu } from 'Service/Shifu';
 import { getCourseInfo } from 'Api/course';
+import { useSystemStore } from 'stores/useSystemStore';
 
 const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
 const MAX_TIMEOUT = 1000 * 60 * 3;
@@ -67,6 +68,10 @@ export const PayModal = ({
 
   const { hasLogin } = useUserStore(
     useShallow((state) => ({ hasLogin: state.hasLogin }))
+  );
+
+  const { previewMode } = useSystemStore(
+    useShallow((state) => ({ previewMode: state.previewMode }))
   );
 
   const initOrderUniform = useCallback(
@@ -168,11 +173,11 @@ export const PayModal = ({
     setCouponCode('');
     setOriginalPrice('');
 
-    const resp = await getCourseInfo(courseId);
+    const resp = await getCourseInfo(courseId, previewMode);
     setPrice(resp.data.course_price);
 
     setIsLoading(false);
-  }, [courseId]);
+  }, [courseId, previewMode]);
 
   const onQrcodeRefresh = useCallback(() => {
     loadPayInfo();

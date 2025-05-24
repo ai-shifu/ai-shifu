@@ -13,6 +13,7 @@ from .const import (
     UI_TYPE_SELECTION,
     UI_TYPES,
     STATUS_PUBLISH,
+    STATUS_DRAFT,
 )
 from flask import Flask
 from ...dao import db
@@ -715,7 +716,9 @@ def update_course_info(
 
 
 @extensible
-def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
+def get_course_info(
+    app: Flask, course_id: str, preview_mode: bool = False
+) -> AICourseDTO:
     with app.app_context():
         if course_id is None or course_id == "":
             course = (
@@ -726,10 +729,13 @@ def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
             if course is None:
                 raise_error("LESSON.HAS_NOT_LESSON")
         else:
+            ai_course_status = [STATUS_PUBLISH]
+            if preview_mode:
+                ai_course_status.append(STATUS_DRAFT)
             course = (
                 AICourse.query.filter(
                     AICourse.course_id == course_id,
-                    AICourse.status.in_([STATUS_PUBLISH]),
+                    AICourse.status.in_(ai_course_status),
                 )
                 .order_by(AICourse.id.desc())
                 .first()

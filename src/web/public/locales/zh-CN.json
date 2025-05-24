@@ -134,7 +134,9 @@
     "copySuccess": "已复制到剪切板",
     "askContent": "对刚学的内容有什么问题？",
     "ask": "追问",
-    "loginSuccess": "已经登录成功了"
+    "loginSuccess": "已经登录成功了",
+    "stopAutoSkip": "停止自动跳过",
+    "startAutoSkip": "开启自动跳过"
   },
   "lesson": {
     "reset": {

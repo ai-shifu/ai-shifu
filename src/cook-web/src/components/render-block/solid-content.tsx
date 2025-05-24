@@ -18,8 +18,6 @@ interface SolideContnet {
 }
 
 export default function SolidContent(props: SolideContnet) {
-    console.log(props.properties)
-
     return (
         <CMEditor
             content={props.properties.prompt}
