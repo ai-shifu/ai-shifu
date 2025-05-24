@@ -55,7 +55,7 @@ const api = {
   debugPrompt: 'GET /llm/debug-prompt',
 
   getVideoInfo:'POST /shifu/get-video-info',
-  upfileByUrl:'POST /shifu/upfile-by-url',
+  upfileByUrl:'POST /shifu/url-upfile',
 
   // profile
 

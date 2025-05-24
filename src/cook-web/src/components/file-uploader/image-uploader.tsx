@@ -11,6 +11,8 @@ import { uploadFile } from '@/lib/file'
 import { getSiteHost } from '@/config/runtime-config'
 import { useToast } from '@/hooks/use-toast'
 import { useTranslation } from 'react-i18next'
+import api from '@/api'
+
 type ImageResource = {
   resourceUrl?: string
   resourceTitle?: string
@@ -50,6 +52,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     }
   }
 
+  // 修改uploadImage函数中加载图片后的处理
   const uploadImage = async (file: File) => {
     setIsUploading(true)
     try {
@@ -80,8 +83,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
 
       setResourceUrl(res.data)
       setResourceTitle(file.name)
-      const img = new Image()
-      img.src = res.data
     } catch (error) {
       console.error('Error uploading image:', error)
       alert(t('file-uploader.failed-to-upload-image'))
@@ -97,32 +98,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     } catch (error) {
       console.error('Error uploading image:', error)
       toast({
-        // title: t('file-uploader.failed-to-upload-image'),
         title: t('file-uploader.check-image-url'),
         variant: 'destructive'
       })
       return
     }
     if (!agiImgUrlRegexp.test(inputUrl)) {
-      try {
-        const response = await fetch(inputUrl, {
-          mode: 'cors',
-          headers: {
-            'Content-Type': 'image/*',
-            Origin: window.location.origin
-          }
-        })
-        const blob = await response.blob()
-        const file = new File([blob], 'image.jpg', { type: blob.type })
-        await uploadImage(file)
-      } catch (error) {
-        console.error('Error uploading image:', error)
+      const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
+        console.error('Error uploading image:', err)
         toast({
-          // title: t('file-uploader.failed-to-upload-image'),
           title: t('file-uploader.check-image-url'),
           variant: 'destructive'
         })
-      }
+      })
+      setResourceUrl(url)
+      setResourceTitle('')
       return
     }
     const urlParts = inputUrl.split('/')
@@ -233,35 +223,36 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
             alt='Uploaded image'
             className='max-w-full max-h-[400px] object-contain mb-4'
           />
-
-          <div className='flex'>
-            <div className='text-sm mb-2'>
-              {t('file-uploader.image-title')}
-            </div>
+          <div className='flex items-center w-full mb-2'>{resourceUrl}</div>
+          <div className='flex items-center w-full mb-2'>
+            <div className='text-sm w-20'>{t('file-uploader.image-title')}</div>
             <Input
+              className='flex-1'
               value={resourceTitle}
               onChange={e => setResourceTitle(e.target.value)}
               placeholder={t('file-uploader.image-title-placeholder')}
             />
           </div>
 
-          <div className='flex'>
-            <div className='text-sm mb-2'>
-              {t('file-uploader.image-scale')}
+          <div className='flex items-center w-full mb-2'>
+            <div className='text-sm w-20'>{t('file-uploader.image-scale')}</div>
+            <div className='flex items-center gap-1'>
+              <Input
+                type='number'
+                min={1}
+                max={100}
+                step={10}
+                value={resourceScale}
+                onChange={e => setResourceScale(Number(e.target.value))}
+                placeholder='1'
+              />
+              <span className='text-gray-500'>%</span>
             </div>
-            <Input
-              type='number'
-              min='0.1'
-              step='0.1'
-              value={resourceScale}
-              onChange={e => setResourceScale(Number(e.target.value))}
-              placeholder='1'
-            />
           </div>
 
           <Button
             variant='outline'
-            className='w-full py-6 text-lg'
+            className='w-full py-2'
             onClick={resetState}
           >
             {t('file-uploader.replace-image')}
