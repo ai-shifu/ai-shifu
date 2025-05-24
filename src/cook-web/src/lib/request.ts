@@ -91,7 +91,7 @@ export class Request {
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
         const siteHost = getSiteHost();
-        this.baseUrl = siteHost || 'http://localhost/api';
+        this.baseUrl = siteHost || 'http://localhost:8081';
 
       }
       fullUrl = this.baseUrl ? this.baseUrl + url : url;
