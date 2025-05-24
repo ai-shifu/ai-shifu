@@ -226,11 +226,11 @@ const Editor: React.FC<EditorProps> = ({
                 highlightActiveLineGutter: false,
                 foldGutter: false
               }}
-              className='border rounded-md'
+              className='rounded-md'
               placeholder={t('cm-editor.input-slash-to-insert-content')}
               value={content}
               theme='light'
-              minHeight='100px'
+              minHeight='2rem'
               onChange={(value: string) => {
                 onChange?.(value, isEdit || false)
               }}
