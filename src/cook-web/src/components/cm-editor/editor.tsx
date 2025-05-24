@@ -38,7 +38,6 @@ const Editor: React.FC<EditorProps> = ({
   onChange,
   onBlur
 }) => {
-  console.log('content', content)
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
@@ -119,7 +118,7 @@ const Editor: React.FC<EditorProps> = ({
       resourceScale
     }: {
       resourceUrl?: string
-      resourceTitle?: string,
+      resourceTitle?: string
       resourceScale?: number
     }) => {
       // const textToInsert = resourceUrl
@@ -174,21 +173,20 @@ const Editor: React.FC<EditorProps> = ({
     editorViewRef.current = view
   }, [])
 
-  const handleTagClick = useCallback(
-    (event: any) => {
-      const { type, from, to, dataset } = event.detail
-      const value = parseContentInfo(type, dataset)
-      setSelectContentInfo({
-        type,
-        value,
-        from,
-        to
-      })
-      setSelectedOption(type)
-      setDialogOpen(true)
-    },
-    [setSelectedOption, setDialogOpen]
-  )
+  const handleTagClick = useCallback((event: any) => {
+    event.stopPropagation()
+    const { type, from, to, dataset } = event.detail
+    debugger
+    const value = parseContentInfo(type, dataset)
+    setSelectContentInfo({
+      type,
+      value,
+      from,
+      to
+    })
+    setSelectedOption(type)
+    setDialogOpen(true)
+  }, [])
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -197,13 +195,20 @@ const Editor: React.FC<EditorProps> = ({
     }
   }, [dialogOpen])
 
+  const handlerRef = useRef(handleTagClick)
+
   useEffect(() => {
-    window.addEventListener('globalTagClick', handleTagClick)
+    handlerRef.current = handleTagClick
+  }, [handleTagClick])
+
+  useEffect(() => {
+    const stableHandler = (event: any) => handlerRef.current(event)
+    window.addEventListener('globalTagClick', stableHandler)
 
     return () => {
-      window.removeEventListener('globalTagClick', handleTagClick)
+      window.removeEventListener('globalTagClick', stableHandler)
     }
-  }, [handleTagClick])
+  }, [])
 
   return (
     <>
