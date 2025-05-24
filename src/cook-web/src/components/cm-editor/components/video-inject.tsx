@@ -3,6 +3,8 @@ import Button from '@/components/button'
 import { Input } from '@/components/ui/input'
 import React, { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
+import api from '@/api'
+
 type VideoInjectProps = {
   value?: {
     resourceTitle?: string
@@ -50,6 +52,13 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
       checkVideoPlayback()
       return
     }
+
+    api.getVideoInfo({ url: inputUrl }).then(res => {
+      setTitle(res.title)
+    }).catch(err => {
+      console.log('err', err)
+      setErrorTips(t('common.please-input-valid-bilibili-url'))
+    })
 
     setEmbedUrl(newEmbedUrl)
     lastUrlRef.current = newEmbedUrl
