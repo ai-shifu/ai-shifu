@@ -161,13 +161,16 @@ def get_lesson_and_attend_info(
     ).all()
 
     if len(attend_infos) != len(lessons):
-        # lessons = [lesson for lesson in lessons if lesson.status == 1]
-        lessons = []
+        filtered_lessons = []
         if preview_mode:
-            lessons = [lesson for lesson in lessons if lesson.status in [1, 2]]
+            filtered_lessons = [lesson for lesson in lessons if lesson.status in [1, 2]]
         else:
-            lessons = [lesson for lesson in lessons if lesson.status == 1]
-        lesson_type = lessons[0].lesson_type
+            filtered_lessons = [lesson for lesson in lessons if lesson.status == 1]
+
+        if not filtered_lessons:
+            return []
+
+        lesson_type = filtered_lessons[0].lesson_type
         add_attend = False
         if lesson_type == LESSON_TYPE_TRIAL:
             add_attend = True
@@ -179,7 +182,7 @@ def get_lesson_and_attend_info(
                 raise_error("COURSE.COURSE_NOT_PURCHASED")
         if add_attend:
             app.logger.info("add attend to fix attend info")
-            for lesson in lessons:
+            for lesson in filtered_lessons:
                 attends = [
                     attend
                     for attend in attend_infos

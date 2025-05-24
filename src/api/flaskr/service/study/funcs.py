@@ -84,7 +84,6 @@ def get_lesson_tree_to_study_inner(
             .all()
         )
 
-        # online_lessons = [i for i in lessons if i.status == 1]
         online_lessons = []
         if preview_mode:
             online_lessons = [i for i in lessons if i.status in [1, 2]]
@@ -93,7 +92,6 @@ def get_lesson_tree_to_study_inner(
         online_lessons = sorted(
             online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
         )
-        # old_lessons = [i for i in lessons if i.status != 1]
         old_lessons = []
         if preview_mode:
             old_lessons = [i for i in lessons if i.status not in [1, 2]]

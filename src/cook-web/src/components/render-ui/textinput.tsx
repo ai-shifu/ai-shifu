@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
+import { TextareaAutosize } from '@/components/ui/textarea-autosize'
 import InputNumber from '@/components/input-number'
 import ModelList from '@/components/model-list'
 import { Button } from '../ui/button'
@@ -104,7 +104,10 @@ export default function TextInput(props: ButtonProps) {
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('textinput.prompt')}
                 </label>
-                <Textarea value={tempProperties.prompt.properties.prompt} onChange={onValueChange} className="w-full"></Textarea>
+                <TextareaAutosize
+                    value={tempProperties.prompt.properties.prompt}
+                    onChange={onValueChange}
+                />
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>

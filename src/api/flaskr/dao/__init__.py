@@ -49,15 +49,13 @@ def init_db(app: Flask):
             def before_cursor_execute(
                 conn, cursor, statement, parameters, context, executemany
             ):
-                # 获取调用栈信息
                 stack = traceback.extract_stack()
-                # 过滤掉 SQLAlchemy 相关的调用栈
                 project_root = os.path.abspath(
                     os.path.join(os.path.dirname(__file__), "../../../")
                 )
                 caller_info = "Unknown location"
 
-                for frame in reversed(stack[:-2]):  # 跳过当前函数和装饰器
+                for frame in reversed(stack[:-2]):
                     if (
                         project_root in frame.filename
                         and "site-packages" not in frame.filename
