@@ -75,11 +75,13 @@ def check_phone_number(app, user_info: User, input):
 
 
 def get_lesson_system(app: Flask, lesson_id: str) -> str:
-    status = [STATUS_PUBLISH,STATUS_DRAFT]
+    status = [STATUS_PUBLISH, STATUS_DRAFT]
     # 缓存逻辑
     lesson_ids = [lesson_id]
     lesson = (
-        AILesson.query.filter(AILesson.lesson_id == lesson_id, AILesson.status.in_(status))
+        AILesson.query.filter(
+            AILesson.lesson_id == lesson_id, AILesson.status.in_(status)
+        )
         .order_by(AILesson.id.desc())
         .first()
     )
@@ -744,7 +746,7 @@ def get_model_setting(
     app: Flask, script_info: AILessonScript, status: list[int] = None
 ) -> ModelSetting:
     if status is None:
-        status = [STATUS_PUBLISH,STATUS_DRAFT]
+        status = [STATUS_PUBLISH, STATUS_DRAFT]
     if script_info.script_model and script_info.script_model.strip():
         return ModelSetting(
             script_info.script_model, {"temperature": script_info.script_temprature}
