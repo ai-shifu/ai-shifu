@@ -51,6 +51,7 @@
     "react-i18next": "^15.5.1",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^15.6.1",
+    "react-textarea-autosize": "^8.5.9",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
