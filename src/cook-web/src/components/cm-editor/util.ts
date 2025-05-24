@@ -17,11 +17,39 @@ import { agiImgUrlRegexp } from '@/components/file-uploader/image-uploader'
 import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject'
 import { getI18n } from 'react-i18next'
 
-const profileRegexp = /<span\s+data-tag="profile"[^>]*>\{(\w+)\}<\/span>/gi;
+const profileRegexp = /<span\s+data-tag="profile"[^>]*>\{(\w+)\}<\/span>/gi
+const biliVideoContextRegexp =
+  /<span\s+data-tag="video"[^>]*data-url="([^"]+)"[^>]*data-title="([^"]+)"[^>]*>([^<]+)<\/span>/gi
+const agiImgContextRegexp =
+  /<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi
+
+// get value from content
+const parseContentInfo = (
+  type: SelectedOption,
+  dataset: { title: string; url: string; scale: string }
+) => {
+  switch (type) {
+    case SelectedOption.Profile:
+      return dataset.title
+    case SelectedOption.Image:
+      return {
+        resourceUrl: dataset.url,
+        resourceTitle: dataset.title,
+        resourceScale: dataset.scale
+      }
+
+    case SelectedOption.Video:
+      return {
+        resourceUrl: dataset.url,
+        resourceTitle: dataset.title
+      }
+  }
+}
 
 class PlaceholderWidget extends WidgetType {
   constructor (
     private text: string,
+    private dataset: any,
     private styleClass: string,
     private type: SelectedOption,
     private view: EditorView
@@ -58,6 +86,9 @@ class PlaceholderWidget extends WidgetType {
     container.className = this.styleClass
     const span = document.createElement('span')
     span.textContent = this.text
+    span.dataset['tag'] = this.dataset.tag || ''
+    span.dataset['url'] = this.dataset.url || ''
+    span.dataset['title'] = this.dataset.title || ''
     const icon = document.createElement('span')
     icon.className = 'tag-icon'
     icon.innerHTML = '✕'
@@ -75,6 +106,7 @@ class PlaceholderWidget extends WidgetType {
       const event = new CustomEvent('globalTagClick', {
         detail: {
           type: this.type,
+          dataset: this.dataset,
           content:
             this.type === SelectedOption.Profile
               ? span.textContent?.replace(/[{}]/g, '')
@@ -101,20 +133,29 @@ const profileMatcher = new MatchDecorator({
     Decoration.replace({
       widget: new PlaceholderWidget(
         match[1],
+        {
+          tag: 'profile',
+          title: match[1]
+        },
         'tag-profile',
         SelectedOption.Profile,
         view
       )
     })
 })
-const agiImgContextRegexp =
-/<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi;
+
 const imageUrlMatcher = new MatchDecorator({
   regexp: agiImgContextRegexp,
   decoration: (match, view) =>
     Decoration.replace({
       widget: new PlaceholderWidget(
         match?.[4],
+        {
+          tag: 'image',
+          url: match?.[1],
+          title: match?.[2],
+          scale: match?.[3]
+        },
         'tag-image',
         SelectedOption.Image,
         view
@@ -122,14 +163,17 @@ const imageUrlMatcher = new MatchDecorator({
     })
 })
 
-const biliVideoContextRegexp =
-  /<span\s+data-tag="video"[^>]*data-url="([^"]+)"[^>]*data-title="([^"]+)"[^>]*>([^<]+)<\/span>/gi;
 const biliUrlMatcher = new MatchDecorator({
   regexp: biliVideoContextRegexp,
   decoration: (match, view) =>
     Decoration.replace({
       widget: new PlaceholderWidget(
         match?.[3],
+        {
+          tag: 'video',
+          url: match?.[1],
+          title: match?.[2]
+        },
         'tag-video',
         SelectedOption.Video,
         view
@@ -250,5 +294,6 @@ export {
   profilePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
-  createSlashCommands
+  createSlashCommands,
+  parseContentInfo
 }

@@ -18,7 +18,8 @@ import {
   profilePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
-  createSlashCommands
+  createSlashCommands,
+  parseContentInfo
 } from './util'
 import { useTranslation } from 'react-i18next'
 
@@ -175,10 +176,11 @@ const Editor: React.FC<EditorProps> = ({
 
   const handleTagClick = useCallback(
     (event: any) => {
-      const { type, content, from, to } = event.detail
+      const { type, from, to, dataset } = event.detail
+      const value = parseContentInfo(type, dataset)
       setSelectContentInfo({
         type,
-        content,
+        value,
         from,
         to
       })
