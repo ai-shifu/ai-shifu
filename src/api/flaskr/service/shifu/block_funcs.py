@@ -1,4 +1,4 @@
-from flaskr.service.shifu.dtos import BlockDto, OutlineEditDto
+from flaskr.service.shifu.dtos import BlockDto, OutlineEditDto, SaveBlockListResultDto
 from flaskr.service.shifu.adapter import (
     convert_dict_to_block_dto,
     update_block_model,
@@ -119,7 +119,7 @@ def get_block(app, user_id: str, outline_id: str, block_id: str):
 # save block list
 def save_block_list_internal(
     app, user_id: str, outline_id: str, block_list: list[BlockDto]
-):
+) -> SaveBlockListResultDto:
     with app.app_context():
         time = datetime.now()
         app.logger.info(f"save_block_list: {outline_id}")
@@ -131,7 +131,7 @@ def save_block_list_internal(
 
         # pass the top outline
         if len(outline.lesson_no) == 2:
-            return []
+            return SaveBlockListResultDto([], {})
         outline_id = outline.lesson_id
 
         tree = get_original_outline_tree(app, outline.course_id)
@@ -162,6 +162,7 @@ def save_block_list_internal(
         block_models = []
         save_block_ids = []
         profile_items = []
+        error_messages = {}
         for block in block_list:
             type = block.get("type")
             app.logger.info(f"block type : {type} , {block}")
@@ -198,8 +199,15 @@ def save_block_list_internal(
                         status=STATUS_DRAFT,
                     )
                     app.logger.info(f"new block : {block_model.script_id}")
-                    profile = update_block_model(block_model, block_dto)
-                    if profile:
+                    update_block_result = update_block_model(block_model, block_dto)
+                    profile = None
+                    if update_block_result.error_message:
+                        error_messages[block_model.script_id] = (
+                            update_block_result.error_message
+                        )
+                        continue
+                    if update_block_result.data:
+                        profile = update_block_result.data
                         profile_item = save_profile_item_defination(
                             app, user_id, outline.course_id, profile
                         )
@@ -225,7 +233,15 @@ def save_block_list_internal(
                     # update origin block
                     new_block = block_model.clone()
                     old_check_str = block_model.get_str_to_check()
-                    profile = update_block_model(new_block, block_dto)
+                    update_block_result = update_block_model(new_block, block_dto)
+                    profile = None
+                    if update_block_result.error_message:
+                        error_messages[new_block.script_id] = (
+                            update_block_result.error_message
+                        )
+                        continue
+                    else:
+                        profile = update_block_result.data
                     new_block.script_index = block_index
                     if profile:
                         profile_item = save_profile_item_defination(
@@ -266,10 +282,13 @@ def save_block_list_internal(
                 app.logger.info("delete block : {}".format(block.script_id))
                 change_block_status_to_history(block, user_id, time)
         db.session.commit()
-        return [
-            generate_block_dto(block_model, profile_items)
-            for block_model in block_models
-        ]
+        return SaveBlockListResultDto(
+            [
+                generate_block_dto(block_model, profile_items)
+                for block_model in block_models
+            ],
+            error_messages,
+        )
 
 
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
@@ -290,7 +309,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
     else:
 
         app.logger.error("lockfail")
-        return []
+        return SaveBlockListResultDto([], {})
     return
 
 
@@ -322,7 +341,9 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             updated_user_id=user_id,
             status=STATUS_DRAFT,
         )
-        update_block_model(block_model, block_dto)
+        update_block_result = update_block_model(block_model, block_dto)
+        if update_block_result.error_message:
+            raise_error(update_block_result.error_message)
         check_str = block_model.get_str_to_check()
         check_text_with_risk_control(app, block_model.script_id, user_id, check_str)
         block_model.lesson_id = outline_id

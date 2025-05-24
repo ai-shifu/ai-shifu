@@ -14,6 +14,7 @@ from flaskr.service.shifu.dtos import (
     GotoDtoItem,
     GotoSettings,
     EmptyDto,
+    BlockUpdateResultDto,
 )
 from sqlalchemy import func
 
@@ -105,16 +106,14 @@ def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
 
 
 def check_button_dto(button_dto: ButtonDto):
-    if not button_dto.button_name:
-        raise_error("SHIFU.BUTTON_NAME_REQUIRED")
-    if not button_dto.button_key:
-        raise_error("SHIFU.BUTTON_KEY_REQUIRED")
+    # The button title is allowed to be empty
+    pass
 
 
 # update block model
 def update_block_model(
     block_model: AILessonScript, block_dto: BlockDto
-) -> TextProfileDto | SelectProfileDto | None:
+) -> BlockUpdateResultDto:
     block_model.script_name = block_dto.block_name
     block_model.script_desc = block_dto.block_desc
     block_model.script_media_url = ""
@@ -159,10 +158,12 @@ def update_block_model(
             ):
                 block_model.script_temprature = block_dto.block_content.temprature
         else:
-            raise_error("SHIFU.INVALID_BLOCK_CONTENT_TYPE")
+            return BlockUpdateResultDto(None, "SHIFU.INVALID_BLOCK_CONTENT_TYPE")
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, LoginDto):
-            check_button_dto(block_dto.block_ui)
+            error_message = check_button_dto(block_dto.block_ui)
+            if error_message:
+                return BlockUpdateResultDto(None, error_message)
             block_model.script_ui_type = UI_TYPE_LOGIN
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
@@ -175,7 +176,9 @@ def update_block_model(
             block_model.script_ui_content = block_dto.block_ui.input_key
             block_model.script_ui_content = block_dto.block_ui.input_name
         elif isinstance(block_dto.block_ui, PaymentDto):
-            check_button_dto(block_dto.block_ui)
+            error_message = check_button_dto(block_dto.block_ui)
+            if error_message:
+                return BlockUpdateResultDto(None, error_message)
             block_model.script_ui_type = UI_TYPE_TO_PAY
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
@@ -201,23 +204,25 @@ def update_block_model(
                 }
             )
         elif isinstance(block_dto.block_ui, ButtonDto):
-            check_button_dto(block_dto.block_ui)
+            error_message = check_button_dto(block_dto.block_ui)
+            if error_message:
+                return BlockUpdateResultDto(None, error_message)
             block_model.script_ui_type = UI_TYPE_BUTTON
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
 
         elif isinstance(block_dto.block_ui, OptionDto):
             if not block_dto.block_ui.option_key:
-                raise_error("SHIFU.OPTION_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.OPTION_KEY_REQUIRED")
             if not block_dto.block_ui.option_name:
-                raise_error("SHIFU.OPTION_NAME_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.OPTION_NAME_REQUIRED")
             if not block_dto.block_ui.profile_key:
-                raise_error("SHIFU.PROFILE_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.PROFILE_KEY_REQUIRED")
             for btn in block_dto.block_ui.buttons:
                 if not btn.button_name:
-                    raise_error("SHIFU.BUTTON_NAME_REQUIRED")
+                    return BlockUpdateResultDto(None, "SHIFU.BUTTON_NAME_REQUIRED")
                 if not btn.button_key:
-                    raise_error("SHIFU.BUTTON_KEY_REQUIRED")
+                    return BlockUpdateResultDto(None, "SHIFU.BUTTON_KEY_REQUIRED")
             block_model.script_ui_type = UI_TYPE_SELECTION
             block_model.script_ui_content = block_dto.block_ui.option_key
             block_model.script_ui_content = block_dto.block_ui.option_name
@@ -234,23 +239,25 @@ def update_block_model(
                     ],
                 }
             )
-            return SelectProfileDto(
-                block_dto.block_ui.option_key,
-                block_dto.block_ui.option_name,
-                [
-                    ProfileValueDto(btn.button_name, btn.button_key)
-                    for btn in block_dto.block_ui.buttons
-                ],
+            return BlockUpdateResultDto(
+                SelectProfileDto(
+                    block_dto.block_ui.option_key,
+                    block_dto.block_ui.option_name,
+                    [
+                        ProfileValueDto(btn.button_name, btn.button_key)
+                        for btn in block_dto.block_ui.buttons
+                    ],
+                )
             )
         elif isinstance(block_dto.block_ui, TextInputDto):
             if not block_dto.block_ui.prompt:
-                raise_error("SHIFU.PROMPT_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
             if not block_dto.block_ui.input_key:
-                raise_error("SHIFU.INPUT_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.INPUT_KEY_REQUIRED")
             if not block_dto.block_ui.input_name:
-                raise_error("SHIFU.INPUT_NAME_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.INPUT_NAME_REQUIRED")
             if not block_dto.block_ui.input_placeholder:
-                raise_error("SHIFU.INPUT_PLACEHOLDER_REQUIRED")
+                return BlockUpdateResultDto(None, "SHIFU.INPUT_PLACEHOLDER_REQUIRED")
             from flask import current_app as app
 
             app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
@@ -270,19 +277,21 @@ def update_block_model(
             block_model.script_ui_profile = (
                 "[" + "][".join(block_dto.block_ui.prompt.profiles) + "]"
             )
-            return TextProfileDto(
-                block_dto.block_ui.input_key,
-                block_dto.block_ui.input_name,
-                block_dto.block_ui.prompt,
-                block_dto.block_ui.input_placeholder,
+            return BlockUpdateResultDto(
+                TextProfileDto(
+                    block_dto.block_ui.input_key,
+                    block_dto.block_ui.input_name,
+                    block_dto.block_ui.prompt,
+                    block_dto.block_ui.input_placeholder,
+                )
             )
         elif isinstance(block_dto.block_ui, EmptyDto):
             block_model.script_ui_type = UI_TYPE_EMPTY
         else:
-            raise_error("SHIFU.INVALID_BLOCK_UI_TYPE")
+            return BlockUpdateResultDto(None, "SHIFU.INVALID_BLOCK_UI_TYPE")
     else:
         block_model.script_ui_type = UI_TYPE_EMPTY
-    return None
+    return BlockUpdateResultDto(None)
 
 
 def get_profiles(profiles: str):

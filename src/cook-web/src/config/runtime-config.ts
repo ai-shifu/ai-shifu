@@ -3,7 +3,7 @@ export interface RuntimeConfig {
 }
 
 const defaultConfig: RuntimeConfig = {
-  siteHost: 'http://localhost',
+  siteHost: 'http://localhost:8081',
 };
 
 let globalConfig: RuntimeConfig = { ...defaultConfig };

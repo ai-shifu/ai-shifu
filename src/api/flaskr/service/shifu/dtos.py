@@ -1,6 +1,7 @@
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.common.aidtos import AIDto, SystemPromptDto
 from flaskr.service.shifu.utils import OutlineTreeNode
+from flaskr.service.profile.dtos import TextProfileDto, SelectProfileDto
 
 
 @register_schema_to_swagger
@@ -613,3 +614,49 @@ class OutlineEditDto:
             },
             "type": "outline",
         }
+
+
+@register_schema_to_swagger
+class BlockUpdateResultDto:
+    data: TextProfileDto | SelectProfileDto | None
+    error_message: str | None
+
+    def __init__(
+        self,
+        data: TextProfileDto | SelectProfileDto | None,
+        error_message: str | None = None,
+    ):
+        self.data = data
+        self.error_message = error_message
+
+    def __json__(self):
+        return {
+            "data": self.data,
+            "error_message": self.error_message,
+        }
+
+    def __str__(self):
+        return str(self.__json__())
+
+
+@register_schema_to_swagger
+class SaveBlockListResultDto:
+    blocks: list[BlockDto]
+    error_messages: dict[str, str]
+
+    def __init__(
+        self,
+        blocks: list[BlockDto],
+        error_messages: dict[str, str],
+    ):
+        self.blocks = blocks
+        self.error_messages = error_messages
+
+    def __json__(self):
+        return {
+            "blocks": self.blocks,
+            "error_messages": self.error_messages,
+        }
+
+    def __str__(self):
+        return str(self.__json__())
