@@ -19,7 +19,6 @@ try {
 
   fs.writeFileSync(tsconfigPath, JSON.stringify(tsconfig, null, 2));
 
-  console.log('Building without type checking...');
 
   execSync('NODE_ENV=production npx craco build', { stdio: 'inherit' });
 

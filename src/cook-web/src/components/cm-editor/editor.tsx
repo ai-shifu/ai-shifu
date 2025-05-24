@@ -35,7 +35,6 @@ const Editor: React.FC<EditorProps> = ({
   profiles = [],
   onChange
 }) => {
-  console.log('content', content)
   const { t } = useTranslation();
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
