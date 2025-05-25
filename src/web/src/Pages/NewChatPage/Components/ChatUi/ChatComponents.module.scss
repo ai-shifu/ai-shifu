@@ -85,6 +85,12 @@
       padding-inline-start: 1em;
       margin: 0;
 
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      margin-bottom: 1em;
+
       :global(li) {
         margin-top: 0.5em;
 
