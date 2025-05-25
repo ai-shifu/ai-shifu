@@ -18,7 +18,8 @@ import {
   profilePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
-  createSlashCommands
+  createSlashCommands,
+  parseContentInfo
 } from './util'
 import { useTranslation } from 'react-i18next'
 
@@ -27,15 +28,17 @@ type EditorProps = {
   isEdit?: boolean
   profiles?: string[]
   onChange?: (value: string, isEdit: boolean) => void
+  onBlur?: () => void
 }
 
 const Editor: React.FC<EditorProps> = ({
   content = '',
   isEdit,
   profiles = [],
-  onChange
+  onChange,
+  onBlur
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
     SelectedOption.Empty
@@ -89,10 +92,9 @@ const Editor: React.FC<EditorProps> = ({
     })
   }, [selectContentInfo, editorViewRef])
 
-
   const handleSelectProfile = useCallback(
     (profile: Profile) => {
-      const textToInsert = `{${profile.profile_key}}`
+      const textToInsert = `<span data-tag="profile">{${profile.profile_key}}</span>`
       if (selectContentInfo?.type === SelectedOption.Profile) {
         deleteSelectedContent()
         if (!editorViewRef.current) return
@@ -110,8 +112,17 @@ const Editor: React.FC<EditorProps> = ({
   )
 
   const handleSelectImage = useCallback(
-    (resourceUrl: string) => {
-      const textToInsert = resourceUrl
+    ({
+      resourceUrl,
+      resourceTitle,
+      resourceScale
+    }: {
+      resourceUrl?: string
+      resourceTitle?: string
+      resourceScale?: number
+    }) => {
+      // const textToInsert = resourceUrl
+      const textToInsert = `<span data-tag="image" data-url="${resourceUrl}" data-title="${resourceTitle}" data-scale="${resourceScale}">${resourceTitle}</span>`
       if (selectContentInfo?.type === SelectedOption.Image) {
         deleteSelectedContent()
         if (!editorViewRef.current) return
@@ -128,8 +139,15 @@ const Editor: React.FC<EditorProps> = ({
   )
 
   const handleSelectVideo = useCallback(
-    (resourceUrl: string) => {
-      const textToInsert = resourceUrl
+    ({
+      resourceUrl,
+      resourceTitle
+    }: {
+      resourceUrl: string
+      resourceTitle: string
+    }) => {
+      // const textToInsert = resourceUrl
+      const textToInsert = `<span data-tag="video" data-url="${resourceUrl}" data-title="${resourceTitle}">${resourceTitle}</span>`
       if (selectContentInfo?.type === SelectedOption.Video) {
         deleteSelectedContent()
         if (!editorViewRef.current) return
@@ -155,20 +173,19 @@ const Editor: React.FC<EditorProps> = ({
     editorViewRef.current = view
   }, [])
 
-  const handleTagClick = useCallback(
-    (event: any) => {
-      const { type, content, from, to } = event.detail
-      setSelectContentInfo({
-        type,
-        content,
-        from,
-        to
-      })
-      setSelectedOption(type)
-      setDialogOpen(true)
-    },
-    [setSelectedOption, setDialogOpen]
-  )
+  const handleTagClick = useCallback((event: any) => {
+    event.stopPropagation()
+    const { type, from, to, dataset } = event.detail
+    const value = parseContentInfo(type, dataset)
+    setSelectContentInfo({
+      type,
+      value,
+      from,
+      to
+    })
+    setSelectedOption(type)
+    setDialogOpen(true)
+  }, [])
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -178,12 +195,16 @@ const Editor: React.FC<EditorProps> = ({
   }, [dialogOpen])
 
   useEffect(() => {
-    window.addEventListener('globalTagClick', handleTagClick)
-
-    return () => {
-      window.removeEventListener('globalTagClick', handleTagClick)
+    const handleWrap = (e: any) => {
+      if (e.detail.view === editorViewRef.current) {
+        handleTagClick(e);
+      }
     }
-  }, [handleTagClick])
+    window.addEventListener('globalTagClick', handleWrap)
+    return () => {
+      window.removeEventListener('globalTagClick', handleWrap)
+    }
+  }, [])
 
   return (
     <>
@@ -208,30 +229,32 @@ const Editor: React.FC<EditorProps> = ({
                 highlightActiveLineGutter: false,
                 foldGutter: false
               }}
-              className='border rounded-md'
+              className='rounded-md'
               placeholder={t('cm-editor.input-slash-to-insert-content')}
               value={content}
               theme='light'
+              minHeight='2rem'
               onChange={(value: string) => {
                 onChange?.(value, isEdit || false)
               }}
+              onBlur={onBlur}
             />
             <CustomDialog>
               {selectedOption === SelectedOption.Profile && (
                 <ProfileInject
-                  value={selectContentInfo?.content}
+                  value={selectContentInfo?.value}
                   onSelect={handleSelectProfile}
                 />
               )}
               {selectedOption === SelectedOption.Image && (
                 <ImageInject
-                  value={selectContentInfo?.content}
+                  value={selectContentInfo?.value}
                   onSelect={handleSelectImage}
                 />
               )}
               {selectedOption === SelectedOption.Video && (
                 <VideoInject
-                  value={selectContentInfo?.content}
+                  value={selectContentInfo?.value}
                   onSelect={handleSelectVideo}
                 />
               )}
