@@ -74,11 +74,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             setIsLoading(false);
         }
     };
-
-    // useEffect(() => {
-    //     console.log(currentShifu);
-    // }, [currentShifu]);
-
     const recursiveCataData = (cataTree: Outline[]): any => {
         const result: any = {};
         const processItem = (item: any, parentId = "", depth = 0) => {

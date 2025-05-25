@@ -33,7 +33,7 @@
   },
   "cm-editor": {
     "image": "图片",
-    "input-slash-to-insert-content": "输入“/”快速插入内容",
+    "input-slash-to-insert-content": "输入\"/\"快速插入内容",
     "variable": "变量",
     "video": "视频"
   },
@@ -278,7 +278,11 @@
     "preview": "预览",
     "preview-settings": "预览设置",
     "start-preview": "开始预览",
-    "variable-appear": "出现变量:"
+    "variable-appear": "出现变量:",
+    "title": "预览",
+    "view": "去查看",
+    "close": "关闭",
+    "link": "预览链接"
   },
   "profiles": {
     "add": "添加",
@@ -326,10 +330,8 @@
   "render-ui": {
     "button": "按钮",
     "button-button-key": "继续",
-    "button-button-name": "继续",
     "button-key": "按钮key",
     "button-name": "按钮名称",
-    "button-name-empty": "按钮名称不能为空",
     "cancel": "取消",
     "collapse": "收起",
     "confirm": "确认",
@@ -342,17 +344,14 @@
     "goto-button-name": "来吧",
     "goto-value": "跳转值",
     "login": "登录",
-    "login-button-name-empty": "登录按钮名称不能为空",
     "option": "选择",
     "option-button-empty": "值或标题不能为空",
     "option-buttons-empty": "选择不能为空",
     "option-name-empty": "变量名称不能为空",
     "payment": "支付",
-    "payment-button-name-empty": "支付按钮名称不能为空",
     "select-placeholder": "请选择",
     "textinput": "文本输入",
     "textinput-key-empty": "变量名不能为空",
-    "textinput-model-empty": "模型不能为空",
     "textinput-placeholder-empty": "提示不能为空",
     "textinput-prompt-empty": "提示词不能为空",
     "textinput-temprature-empty": "温度不能为空",

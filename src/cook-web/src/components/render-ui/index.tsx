@@ -192,18 +192,12 @@ export default RenderBlockUI
 export const useUITypes = () => {
     const { t } = useTranslation();
     return [
-        {
-            type: 'button',
-            name: t('render-ui.button'),
-            properties: {
-            "button_name": t('render-ui.button-button-name'),
+    {
+        type: 'button',
+        name: t('render-ui.button'),
+        properties: {
+            "button_name": "",
             "button_key": t('render-ui.button-button-key')
-        },
-        validate: (properties): string => {
-            if (!properties.button_name) {
-                return t('render-ui.button-name-empty')
-            }
-            return ""
         }
     },
     {
@@ -294,9 +288,6 @@ export const useUITypes = () => {
             if (typeof properties?.prompt?.properties?.temprature == 'undefined') {
                 return t('render-ui.textinput-temprature-empty')
             }
-            if (!properties?.prompt?.properties?.model) {
-                return t('render-ui.textinput-model-empty')
-            }
             return ""
         }
 
@@ -349,12 +340,6 @@ export const useUITypes = () => {
         properties: {
             "button_name": "",
             "button_key": ""
-        },
-        validate: (properties): string => {
-            if (!properties.button_name) {
-                return t('render-ui.login-button-name-empty')
-            }
-            return ""
         }
     },
     {
@@ -363,12 +348,6 @@ export const useUITypes = () => {
         properties: {
             "button_name": "",
             "button_key": ""
-        },
-        validate: (properties): string => {
-            if (!properties.button_name) {
-                return t('render-ui.payment-button-name-empty')
-            }
-            return ""
         }
     },
     ]

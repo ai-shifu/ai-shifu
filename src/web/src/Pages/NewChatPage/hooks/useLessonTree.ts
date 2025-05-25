@@ -4,6 +4,7 @@ import { produce } from 'immer';
 import { LESSON_STATUS_VALUE } from 'constants/courseConstants';
 import { useTracking, EVENT_NAMES } from 'common/hooks/useTracking';
 import { useEnvStore } from 'stores/envStore';
+import { useSystemStore } from 'stores/useSystemStore';
 import { useCallback } from "react";
 export const checkChapterCanLearning = ({ status, status_value }) => {
   return status_value === LESSON_STATUS_VALUE.LEARNING || status_value === LESSON_STATUS_VALUE.COMPLETED || status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING;
@@ -45,7 +46,7 @@ export const useLessonTree = () => {
 
   const loadTreeInner = useCallback(async () => {
     setSelectedLessonId(null);
-    const resp = await getLessonTree(useEnvStore.getState().courseId);
+    const resp = await getLessonTree(useEnvStore.getState().courseId, useSystemStore.getState().previewMode);
 
     const treeData = resp.data;
     if (!treeData) {
