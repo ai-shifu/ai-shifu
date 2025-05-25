@@ -146,7 +146,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       resourceTitle,
       resourceScale
     })
-  }, [resourceUrl])
+  }, [resourceUrl, resourceTitle, resourceScale])
 
   return (
     <div className='space-y-6'>
