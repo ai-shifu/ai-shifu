@@ -13,7 +13,7 @@ export interface TextareaAutosizeProps
 const TextareaAutosize = React.forwardRef<
   React.ElementRef<typeof TextareaAutosizeLib>,
   TextareaAutosizeProps
->(({ className, minRows = 3, maxRows = 10, ...props }, ref) => {
+>(({ className, minRows = 3, maxRows, ...props }, ref) => {
   return (
     <TextareaAutosizeLib
       className={cn(
