@@ -345,7 +345,6 @@
     "select-placeholder": "Select Placeholder",
     "textinput": "Text Input",
     "textinput-key-empty": "Text Input Key Empty",
-    "textinput-model-empty": "Text Input Model Empty",
     "textinput-placeholder-empty": "Text Input Placeholder Empty",
     "textinput-prompt-empty": "Text Input Prompt Empty",
     "textinput-temprature-empty": "Text Input Temprature Empty",

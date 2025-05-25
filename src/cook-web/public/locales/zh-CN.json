@@ -345,7 +345,6 @@
     "select-placeholder": "请选择",
     "textinput": "文本输入",
     "textinput-key-empty": "变量名不能为空",
-    "textinput-model-empty": "模型不能为空",
     "textinput-placeholder-empty": "提示不能为空",
     "textinput-prompt-empty": "提示词不能为空",
     "textinput-temprature-empty": "温度不能为空",

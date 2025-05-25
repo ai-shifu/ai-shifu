@@ -288,9 +288,6 @@ export const useUITypes = () => {
             if (typeof properties?.prompt?.properties?.temprature == 'undefined') {
                 return t('render-ui.textinput-temprature-empty')
             }
-            if (!properties?.prompt?.properties?.model) {
-                return t('render-ui.textinput-model-empty')
-            }
             return ""
         }
 
