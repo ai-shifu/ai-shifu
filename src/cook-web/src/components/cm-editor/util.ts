@@ -13,7 +13,6 @@ import {
 } from '@codemirror/view'
 import { SelectedOption } from './type'
 import './index.css'
-import { agiImgUrlRegexp } from '@/components/file-uploader/image-uploader'
 import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject'
 import { getI18n } from 'react-i18next'
 
@@ -291,7 +290,6 @@ function createSlashCommands (
 
 export {
   biliVideoUrlRegexp,
-  agiImgUrlRegexp,
   profileRegexp,
   profilePlaceholders,
   imgPlaceholders,

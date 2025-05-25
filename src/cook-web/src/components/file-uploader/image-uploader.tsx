@@ -24,7 +24,7 @@ type ImageUploaderProps = {
 }
 
 const agiImgUrlRegexp =
-  /(https?:\/\/(?:avtar\.agiclass\.cn)\S+(?:\.(?:png|jpg|jpeg|gif|bmp))?)/gi
+  /^https?:\/\/(?:avtar\.agiclass\.cn)\/[a-f0-9]{32}(?:\/?|\.[a-z]{3,4})?$/i
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { t } = useTranslation()
@@ -103,7 +103,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       })
       return
     }
-    if (!agiImgUrlRegexp.test(inputUrl)) {
+    if (agiImgUrlRegexp.test(inputUrl)) {
+      setResourceUrl(inputUrl)
+    } else {
       setIsUploading(true)
       const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
         console.error('Error uploading image:', err)
@@ -118,7 +120,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       setIsUploading(false)
       return
     }
-    setResourceUrl(inputUrl)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -147,6 +148,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       resourceScale
     })
   }, [resourceUrl, resourceTitle, resourceScale])
+
+  useEffect(() => {
+    handleUrlUpload()
+  }, [])
 
   return (
     <div className='space-y-6'>
@@ -261,5 +266,4 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     </div>
   )
 }
-export { agiImgUrlRegexp }
 export default ImageUploader
