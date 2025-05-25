@@ -356,7 +356,12 @@
   },
   "shifu": {
     "debug": "Debug",
-    "new_chapter": "New Chapter"
+    "new_chapter": "New Chapter",
+    "delete": "Delete",
+    "ai-block": "AI Block",
+    "regular-block": "Regular Block",
+    "setting-ai-block": "Setting as AI Block",
+    "setting-regular-block": "Setting as regular Block"
   },
   "social": {
     "about-us": "About Us",

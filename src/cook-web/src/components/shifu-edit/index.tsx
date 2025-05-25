@@ -61,7 +61,7 @@ const DraggableBlock = ({
   onClickChangeType,
   children
 }: DraggableBlockProps) => {
-  // const { t } = useTranslation()
+  const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
 
   const [{ handlerId }, drop] = useDrop<
@@ -183,7 +183,7 @@ const DraggableBlock = ({
           >
             <div className='flex flex-col gap-2 text-sm'>
               <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                {type === 'ai' ? 'AI' : '固定'}模块
+                {type === 'ai' ? t('shifu.ai-block') : t('shifu.regular-block')}
               </div>
               <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
@@ -192,21 +192,21 @@ const DraggableBlock = ({
                 }
               >
                 <Settings2 className='h-4 w-4' />
-                设为{type === 'ai' ? '固定模块' : 'AI模块'}
+                {type === 'ai' ? t('shifu.setting-regular-block') : t('shifu.setting-ai-block')}
               </div>
               <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                 onClick={() => onClickDebug?.(id)}
               >
                 <BugPlay className='h-4 w-4' />
-                调试
+                {t('shifu.debug')}
               </div>
               <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer'
                 onClick={() => onClickRemove?.(id)}
               >
                 <Trash2 className='h-4 w-4' />
-                删除
+                {t('shifu.delete')}
               </div>
             </div>
           </div>

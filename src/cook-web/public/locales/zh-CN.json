@@ -359,7 +359,12 @@
   },
   "shifu": {
     "debug": "调试",
-    "new_chapter": "新章节"
+    "new_chapter": "新章节",
+    "delete": "删除",
+    "ai-block": "AI模块",
+    "regular-block": "固定模块",
+    "setting-ai-block": "设为AI模块",
+    "setting-regular-block": "设为固定模块"
   },
   "social": {
     "about-us": "关于我们",
