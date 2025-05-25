@@ -10,7 +10,7 @@ describe('<MediaObject />', () => {
     const picUrl = '//img.alicdn.com/tfs/TB1KwnKPqL7gK0jSZFBXXXZZpXa-221-57.svg';
     const { container } = render(<MediaObject
       title={title}
-      picUrl={picUrl} 
+      picUrl={picUrl}
     />);
     expect(container.querySelectorAll('img').length).toBe(1);
   });
@@ -20,7 +20,7 @@ describe('<MediaObject />', () => {
     const picUrl = '//img.alicdn.com/tfs/TB1KwnKPqL7gK0jSZFBXXXZZpXa-221-57.svg';
     const { container } = render(<MediaObject
       title={title}
-      picUrl={picUrl} 
+      picUrl={picUrl}
       picSize="sm"
     />);
     expect(container.querySelector('.MediaObject-pic')).toHaveClass('MediaObject-pic--sm');
@@ -32,7 +32,7 @@ describe('<MediaObject />', () => {
     const picUrl = '//img.alicdn.com/tfs/TB1KwnKPqL7gK0jSZFBXXXZZpXa-221-57.svg';
     const { container } = render(<MediaObject
       title={title}
-      picUrl={picUrl} 
+      picUrl={picUrl}
       meta={meta}
     />);
     expect(container.querySelectorAll('a').length).toBe(1);

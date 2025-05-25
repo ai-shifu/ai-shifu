@@ -15,7 +15,7 @@ describe('<Message />', () => {
       _id={0}
       type="text"
       content={content}
-      renderMessageContent={(msg) => <p>{msg.content}</p>} 
+      renderMessageContent={(msg) => <p>{msg.content}</p>}
       user={{
         avatar,
       }}
@@ -31,7 +31,7 @@ describe('<Message />', () => {
         _id={0}
         type="text"
         content={content}
-        renderMessageContent={(msg) => <p>{msg.content}</p>} 
+        renderMessageContent={(msg) => <p>{msg.content}</p>}
         hasTime={true}
         createdAt={1577851200000}
         user={{

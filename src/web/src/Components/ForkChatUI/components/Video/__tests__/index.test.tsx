@@ -34,7 +34,7 @@ describe('<Video />', () => {
       duration={20}
       onClick={onClick}
     />);
-    
+
     fireEvent(container.querySelectorAll('.Video-playBtn')[0], new MouseEvent('click', {
       bubbles: true,
       cancelable: true,

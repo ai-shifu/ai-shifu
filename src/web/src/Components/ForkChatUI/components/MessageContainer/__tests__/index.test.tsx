@@ -19,7 +19,7 @@ describe('<MessageContainer />', () => {
   //   const text = 'click to load more';
   //   const { getByText } = render(<MessageContainer
   //     messages={messages}
-  //     renderMessageContent={(msg) => <p>{msg.content}</p>} 
+  //     renderMessageContent={(msg) => <p>{msg.content}</p>}
   //     loadMoreText={text}
   //   />);
   //   expect(getByText(text)).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe('<MessageContainer />', () => {
     const text = 'Test Before MessageList';
     const { container, getByText } = render(<MessageContainer
       messages={messages}
-      renderMessageContent={(msg) => <p>{msg.content}</p>} 
+      renderMessageContent={(msg) => <p>{msg.content}</p>}
       renderBeforeMessageList={() => <p>{text}</p>}
     />);
     expect(getByText(text)).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe('<MessageContainer />', () => {
   //   const onScroll = jest.fn();
   //   const { container } = render(<MessageContainer
   //     messages={messages}
-  //     renderMessageContent={(msg) => <p>{msg.content}</p>} 
+  //     renderMessageContent={(msg) => <p>{msg.content}</p>}
   //     renderBeforeMessageList={() => <p>{text}</p>}
   //     onScroll={onScroll}
   //   />);

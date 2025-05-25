@@ -132,7 +132,7 @@ export const MessageContainer = React.forwardRef<MessageContainerHandle, Message
       if (!wrapper || !lastMessage || lastMessage.position === 'pop') {
         return;
       }
-    
+
       if (lastMessage.position === 'left') {
         // 左侧消息(AI 系统回复)，不进行自动滚屏而是判断判断提示是否有更多内容
         // PS: 初始化阶段，最外层的 `scrollToEnd` 会把消息列表滚动到底部
