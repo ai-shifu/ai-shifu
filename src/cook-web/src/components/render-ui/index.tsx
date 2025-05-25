@@ -118,7 +118,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
 
     return (
         <>
-            <div className='bg-[#F5F5F4] rounded-md p-2 space-y-1'>
+            <div className='bg-[#F8F8F8] rounded-md p-2 space-y-1'>
                 <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => setExpand(!expand)}>
                     <div className='flex flex-row items-center space-x-1'>
                         <span>
