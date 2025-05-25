@@ -114,7 +114,7 @@ export const useContentTypes = () => {
       type: 'solidcontent',
       name: t('render-block.solid-content'),
       properties: {
-        content: '',
+        prompt: '',
         profiles: []
       }
     }
