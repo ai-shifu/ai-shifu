@@ -33,7 +33,7 @@
   },
   "cm-editor": {
     "image": "图片",
-    "input-slash-to-insert-content": "输入“/”快速插入内容",
+    "input-slash-to-insert-content": "输入\"/\"快速插入内容",
     "variable": "变量",
     "video": "视频"
   },
@@ -275,7 +275,11 @@
     "preview": "预览",
     "preview-settings": "预览设置",
     "start-preview": "开始预览",
-    "variable-appear": "出现变量:"
+    "variable-appear": "出现变量:",
+    "title": "预览",
+    "view": "去查看",
+    "close": "关闭",
+    "link": "预览链接"
   },
   "profiles": {
     "add": "添加",
@@ -345,7 +349,6 @@
     "select-placeholder": "请选择",
     "textinput": "文本输入",
     "textinput-key-empty": "变量名不能为空",
-    "textinput-model-empty": "模型不能为空",
     "textinput-placeholder-empty": "提示不能为空",
     "textinput-prompt-empty": "提示词不能为空",
     "textinput-temprature-empty": "温度不能为空",

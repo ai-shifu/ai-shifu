@@ -275,7 +275,11 @@
     "preview": "Preview",
     "preview-settings": "Preview Settings",
     "start-preview": "Start Preview",
-    "variable-appear": "Variable Appear"
+    "variable-appear": "Variable Appear",
+    "title": "Preview",
+    "view": "View",
+    "close": "Close",
+    "link": "Preview Link"
   },
   "profiles": {
     "add": "Add",
@@ -345,7 +349,6 @@
     "select-placeholder": "Select Placeholder",
     "textinput": "Text Input",
     "textinput-key-empty": "Text Input Key Empty",
-    "textinput-model-empty": "Text Input Model Empty",
     "textinput-placeholder-empty": "Text Input Placeholder Empty",
     "textinput-prompt-empty": "Text Input Prompt Empty",
     "textinput-temprature-empty": "Text Input Temprature Empty",

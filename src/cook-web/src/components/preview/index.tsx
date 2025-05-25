@@ -33,12 +33,12 @@ const PreviewSettingsModal = () => {
         });
         setOpen(false);
         showAlert({
-            title: '预览',
-            confirmText: '去查看',
-            cancelText: '关闭',
+            title: t('preview.title'),
+            confirmText: t('preview.view'),
+            cancelText: t('preview.close'),
             description: (
                 <div className="flex flex-col space-y-2">
-                    预览链接：<a href={result} target='_blank'>{result}</a>
+                    {t('preview.link')}：<a href={result} target='_blank'>{result}</a>
                 </div>
             ),
             onConfirm: () => {
