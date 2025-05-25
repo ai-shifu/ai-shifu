@@ -10,7 +10,7 @@ import {
   Trash2,
   SquarePen,
   BugPlay,
-  Settings2,
+  Settings2
 } from 'lucide-react'
 import { useShifu, useAuth } from '@/store'
 import OutlineTree from '@/components/outline-tree'
@@ -289,13 +289,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const onChangeBlockType = (id: string, type: BlockType) => {
     const opt = ContentTypes.find(p => p.type === type)
+    const mergeOpt = {
+      ...opt,
+      properties: {
+        ...opt?.properties,
+        prompt: blockContentProperties?.[id]?.prompt,
+        profiles: blockContentProperties?.[id]?.profiles
+      }
+    }
     actions.setBlockContentTypesById(id, type)
     actions.setBlockContentPropertiesById(
       id,
-      opt?.properties || ({} as any),
+      mergeOpt?.properties || ({} as any),
       true
     )
-    console.log('onChangeBlockType opt', id, type, opt)
     actions.saveBlocks(currentShifu?.shifu_id || '')
   }
 
