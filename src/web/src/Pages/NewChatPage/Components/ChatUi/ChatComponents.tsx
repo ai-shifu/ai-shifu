@@ -228,7 +228,7 @@ export const ChatComponents = forwardRef(
     const { messages, appendMsg, setTyping, updateMsg, resetList, deleteMsg } =
       useMessages([]);
 
-    const { autoScroll, onMessageListScroll, scrollToLesson, scrollToBottom } =
+    const { autoScroll, onMessageListScroll, scrollToLesson, scrollToBottom, scrollLastMessageToTop } =
       useChatComponentsScroll({
         chatRef,
         containerStyle: styles.chatComponents,
@@ -720,6 +720,15 @@ export const ChatComponents = forwardRef(
               userInfo,
             });
             await appendMsg(message);
+            scrollLastMessageToTop();
+
+            const message2 = createMessage({
+              role: USER_ROLE.TEACHER,
+              content: 'hahahaahahah',
+              type: CHAT_MESSAGE_TYPE.TEXT,
+            });
+            await appendMsg(message2);
+            return
           }
         }
 
