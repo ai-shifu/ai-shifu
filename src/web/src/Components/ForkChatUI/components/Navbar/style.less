@@ -1,0 +1,43 @@
+.Navbar {
+  position: relative;
+  z-index: @zindex-navbar;
+  display: flex;
+  align-items: center;
+  padding: @navbar-padding;
+  padding-top: var(--safe-top);
+  border-bottom: 1px solid @navbar-border-color;
+  background: @navbar-bg;
+
+  &-main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: @navbar-height;
+  }
+  &-left,
+  &-right {
+    width: 58px;
+  }
+  &-right {
+    text-align: right;
+    white-space: nowrap;
+  }
+  &-title {
+    margin: 0;
+    color: @navbar-color;
+    font-size: @navbar-font-size;
+    font-weight: 500;
+    text-align: center;
+  }
+  &-logo {
+    width: auto;
+    height: @navbar-logo-height;
+  }
+  .IconBtn {
+    color: var(--gray-1);
+  }
+  .IconBtn + .IconBtn {
+    margin-left: 9px;
+  }
+}

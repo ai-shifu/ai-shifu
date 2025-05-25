@@ -1,5 +1,7 @@
 import '@chatui/core/dist/index.css';
-import Chat, { useMessages } from '@chatui/core';
+import { useMessages } from '@chatui/core';
+import Chat from '../../../../Components/ForkChatUI'
+
 import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled } from '@ant-design/icons';
 import {
   useEffect,

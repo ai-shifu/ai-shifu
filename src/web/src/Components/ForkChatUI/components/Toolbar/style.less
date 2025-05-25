@@ -1,0 +1,69 @@
+.Toolbar {
+  padding: var(--gutter);
+  padding-top: 0;
+}
+
+.Toolbar-item {
+  display: inline-block;
+  width: 25%;
+  margin-top: var(--gutter);
+  text-align: center;
+}
+
+.Toolbar-btn {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  width: 76px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--gray-2);
+  vertical-align: top;
+
+  &:hover {
+    background: transparent;
+  }
+  &:active {
+    .Toolbar-btnIcon {
+      background: @btn-hover-bg;
+    }
+  }
+}
+
+@media (hover: hover) {
+  .Toolbar-btn {
+    &:hover {
+      .Toolbar-btnIcon {
+        background: @btn-hover-bg;
+      }
+    }
+  }
+}
+
+@toolbar-icon-size: 30px;
+
+.Toolbar-btnIcon {
+  display: inline-block;
+  padding: 12px;
+  border-radius: 12px;
+  background: var(--white);
+  transition: 0.3s;
+
+  .Icon {
+    font-size: @toolbar-icon-size;
+    vertical-align: top;
+  }
+}
+
+.Toolbar-img {
+  width: @toolbar-icon-size;
+  height: @toolbar-icon-size;
+  vertical-align: top;
+}
+
+.Toolbar-btnText {
+  display: block;
+  margin-top: 6px;
+  font-size: 14px;
+}

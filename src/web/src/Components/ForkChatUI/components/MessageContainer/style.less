@@ -1,0 +1,24 @@
+.MessageContainer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+
+  & > .PullToRefresh {
+    flex: 1;
+
+    & > .PullToRefresh-inner {
+      box-sizing: border-box;
+      padding-bottom: 54px;
+    }
+  }
+  &:focus {
+    outline: 0;
+  }
+}
+
+.MessageList {
+  padding: @message-list-padding;
+  font-size: 15px;
+}
