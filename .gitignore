@@ -175,7 +175,6 @@ src/cook/test*
 src/cook/codesifu-demo.db
 src/cook/auth_config.yml
 src/cook-web/.next/
-src/cook-web/public/
 src/cook-web/next-env.d.ts
 
 # Docker data directories
