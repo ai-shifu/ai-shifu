@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ai-shifu/chatui':
-        specifier: github:ai-shifu/chatui#a780496
-        version: git+https://git@github.com:ai-shifu/chatui.git#a780496(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: https://github.com/ai-shifu/chatui.git#main
+        version: https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@ant-design/icons':
         specifier: ^5.5.1
         version: 5.5.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -355,8 +355,8 @@ packages:
       vue:
         optional: true
 
-  '@ai-shifu/chatui@git+https://git@github.com:ai-shifu/chatui.git#a780496':
-    resolution: {commit: a780496, repo: git@github.com:ai-shifu/chatui.git, type: git}
+  '@ai-shifu/chatui@https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc':
+    resolution: {tarball: https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc}
     version: 2.4.2
     peerDependencies:
       react: '>=16.8.0'
@@ -8233,7 +8233,7 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@ai-shifu/chatui@git+https://git@github.com:ai-shifu/chatui.git#a780496(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+  '@ai-shifu/chatui@https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@ant-design/icons': 6.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@babel/runtime': 7.26.0
