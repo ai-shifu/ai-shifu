@@ -19,7 +19,10 @@
   },
   "button": {
     "button-name": "按钮文案",
-    "complete": "完成"
+    "complete": "完成",
+    "placeholder-edit": "默认是「继续」",
+    "placeholder-login": "默认是「登录」",
+    "placeholder-payment": "默认是「去付款」"
   },
   "chapter-setting": {
     "chapter-type": "章节类型",

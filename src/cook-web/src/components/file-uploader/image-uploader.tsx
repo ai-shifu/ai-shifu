@@ -80,9 +80,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       if (!response.ok) {
         throw new Error(t('file-uploader.upload-failed'))
       }
-
       setResourceUrl(res.data)
       setResourceTitle(file.name)
+      setResourceScale(100)
     } catch (error) {
       console.error('Error uploading image:', error)
       alert(t('file-uploader.failed-to-upload-image'))
