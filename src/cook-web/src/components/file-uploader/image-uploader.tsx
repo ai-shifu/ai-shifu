@@ -22,9 +22,8 @@ type ImageUploaderProps = {
   value?: ImageResource
   onChange?: (resource: ImageResource) => void
 }
-
-const agiImgUrlRegexp =
-  /^https?:\/\/(?:avtar\.agiclass\.cn)\/[a-f0-9]{32}(?:\/?|\.[a-z]{3,4})?$/i
+// FIXME: from config
+const agiImgUrlRegexp = /^https?:\/\/(?:resource\.ai-shifu\.cn)\/[a-f0-9]{32}(?:\/?|\.[a-z]{3,4})?$/i
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { t } = useTranslation()
