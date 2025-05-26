@@ -15,6 +15,20 @@ export default function Button(props: ButtonProps) {
     const { properties, mode = 'edit' } = props
     const [tempValue, setTempValue] = useState(properties.button_name)
     const { t } = useTranslation();
+
+    // Get the placeholder for input component based on the mode
+    const getPlaceholder = () => {
+        switch (mode) {
+            case 'login':
+                return t('button.placeholder-login')
+            case 'payment':
+                return t('button.placeholder-payment')
+            case 'edit':
+            default:
+                return t('button.placeholder-edit')
+        }
+    }
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value
         setTempValue(value)
@@ -45,6 +59,7 @@ export default function Button(props: ButtonProps) {
                     className='h-8 w-40'
                     value={tempValue}
                     onChange={handleInputChange}
+                    placeholder={getPlaceholder()}
                 />
             </div>
 
