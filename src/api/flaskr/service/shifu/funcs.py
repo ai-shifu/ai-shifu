@@ -20,6 +20,11 @@ from .utils import get_existing_outlines_for_publish, get_existing_blocks_for_pu
 import oss2
 import uuid
 import json
+import requests
+from io import BytesIO
+from urllib.parse import urlparse
+import re
+import time
 
 
 def get_raw_shifu_list(
@@ -388,6 +393,69 @@ def get_content_type(filename):
     raise_error("FILE.FILE_TYPE_NOT_SUPPORT")
 
 
+def _warm_up_cdn(app, url: str, ALI_API_ID: str, ALI_API_SECRET: str):
+    """CDN预热函数"""
+    try:
+        from aliyunsdkcore.client import AcsClient
+        from aliyunsdkcdn.request.v20180510.PushObjectCacheRequest import PushObjectCacheRequest
+        from aliyunsdkcdn.request.v20180510.DescribeRefreshTasksRequest import DescribeRefreshTasksRequest
+        import json
+        import oss2
+
+        # 从URL中提取文件ID
+        file_id = url.split('/')[-1]
+
+        # 提交CDN预热请求
+        client = AcsClient(ALI_API_ID, ALI_API_SECRET, region_id="cn-beijing")
+        request = PushObjectCacheRequest()
+        request.set_accept_format('json')
+        object_path = url.strip() + "\n"
+        request.set_ObjectPath(object_path)
+
+        app.logger.info(f"开始CDN预热，URL: {object_path}")
+        response = client.do_action_with_exception(request)
+        response_data = json.loads(response)
+        push_task_id = response_data.get('PushTaskId')
+        app.logger.info(f"CDN预热任务已提交，TaskId: {push_task_id}")
+
+        # 等待预热任务完成
+        max_retries = 10  # 最大重试次数
+        retry_count = 0
+        while retry_count < max_retries:
+            status_request = DescribeRefreshTasksRequest()
+            status_request.set_accept_format('json')
+            status_request.TaskId = push_task_id
+
+            status_response = client.do_action_with_exception(status_request)
+            status_data = json.loads(status_response)
+
+            # 检查任务状态
+            tasks = status_data.get('Tasks', {}).get('CDNTask', [])
+            if tasks:
+                task = tasks[0]
+                status = task.get('Status')
+                if status == 'Complete':
+                    app.logger.info("CDN预热任务已完成")
+                    return True
+                elif status == 'Failed':
+                    app.logger.warning(f"CDN预热任务失败: {task.get('Description')}")
+                    return False
+
+            retry_count += 1
+            if retry_count < max_retries:
+                app.logger.info(f"CDN预热任务进行中，重试次数: {retry_count}")
+                time.sleep(1)  # 等待1秒后重试
+
+        app.logger.warning("CDN预热任务超时")
+        return False
+
+    except Exception as e:
+        app.logger.warning(f"CDN预热失败: {str(e)}")
+        app.logger.warning(f"预热URL: {url}")
+        app.logger.warning(f"ObjectPath: {object_path if 'object_path' in locals() else 'Not set'}")
+        return False
+
+
 def upload_file(app, user_id: str, resource_id: str, file) -> str:
     endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
     ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID", None)
@@ -430,23 +498,114 @@ def upload_file(app, user_id: str, resource_id: str, file) -> str:
             resource.name = file.filename
             resource.updated_by = user_id
             db.session.commit()
-            return url
-        resource = Resource(
-            resource_id=file_id,
-            name=file.filename,
-            type=0,
-            oss_bucket=BUCKET_NAME,
-            oss_name=BUCKET_NAME,
-            url=url,
-            status=0,
-            is_deleted=0,
-            created_by=user_id,
-            updated_by=user_id,
-        )
-        db.session.add(resource)
-        db.session.commit()
+        else:
+            resource = Resource(
+                resource_id=file_id,
+                name=file.filename,
+                type=0,
+                oss_bucket=BUCKET_NAME,
+                oss_name=BUCKET_NAME,
+                url=url,
+                status=0,
+                is_deleted=0,
+                created_by=user_id,
+                updated_by=user_id,
+            )
+            db.session.add(resource)
+            db.session.commit()
+
+        # 等待CDN预热完成
+        if not _warm_up_cdn(app, url, ALI_API_ID, ALI_API_SECRET):
+            app.logger.warning("CDN预热未完成，但继续返回URL")
 
         return url
+
+
+def upload_url(app, user_id: str, url: str) -> str:
+    with app.app_context():
+        endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
+        ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID", None)
+        ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET", None)
+        FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_COURSES_URL", None)
+        BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_COURSES_BUCKET", None)
+
+        if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
+            raise_error_with_args(
+                "API.ALIBABA_CLOUD_NOT_CONFIGURED",
+                config_var="ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET",
+            )
+
+        try:
+            parsed_url = urlparse(url)
+            clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                "Accept": "image/webp,image/apng,image/*,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Referer": url,
+                "Connection": "keep-alive",
+            }
+
+            app.logger.info(f"Downloading image from URL: {clean_url}")
+            response = requests.get(clean_url, headers=headers, timeout=10)
+            response.raise_for_status()
+
+            content_type = response.headers.get("Content-Type", "")
+            if not content_type.startswith("image/"):
+                app.logger.error(f"Invalid content type: {content_type}")
+                raise_error("FILE.FILE_TYPE_NOT_SUPPORT")
+
+            file_content = BytesIO(response.content)
+
+            filename = parsed_url.path.split("/")[-1]
+            if "." not in filename:
+                ext = content_type.split("/")[-1]
+                if ext in ["jpeg", "png", "gif"]:
+                    filename = f"{filename}.{ext}"
+                else:
+                    filename = f"{filename}.jpg"
+
+            content_type = get_content_type(filename)
+            file_id = str(uuid.uuid4()).replace("-", "")
+
+            auth = oss2.Auth(ALI_API_ID, ALI_API_SECRET)
+            bucket = oss2.Bucket(auth, endpoint, BUCKET_NAME)
+
+            app.logger.info(f"Uploading image to OSS with file_id: {file_id}")
+            bucket.put_object(
+                file_id,
+                file_content,
+                headers={"Content-Type": content_type},
+            )
+
+            url = FILE_BASE_URL + "/" + file_id
+
+            resource = Resource(
+                resource_id=file_id,
+                name=filename,
+                type=0,
+                oss_bucket=BUCKET_NAME,
+                oss_name=BUCKET_NAME,
+                url=url,
+                status=0,
+                is_deleted=0,
+                created_by=user_id,
+                updated_by=user_id,
+            )
+            db.session.add(resource)
+            db.session.commit()
+
+            # 使用统一的CDN预热函数
+            _warm_up_cdn(app, url, ALI_API_ID, ALI_API_SECRET)
+            return url
+
+        except requests.RequestException as e:
+            app.logger.error(f"Failed to download image from URL: {url}, error: {str(e)}")
+            raise_error("FILE.FILE_DOWNLOAD_FAILED")
+        except Exception as e:
+            app.logger.error(f"Failed to upload image to OSS: {url}, error: {str(e)}")
+            raise_error("FILE.FILE_UPLOAD_FAILED")
 
 
 def get_shifu_detail(app, user_id: str, shifu_id: str):
@@ -582,3 +741,54 @@ def shifu_permission_verification(
                     return False
             else:
                 return False
+
+
+def get_video_info(app, user_id: str, url: str) -> dict:
+    """
+    Obtain video information
+    """
+    with app.app_context():
+        try:
+            parsed_url = urlparse(url)
+            domain = parsed_url.netloc
+
+            if "bilibili.com" in domain:
+                bv_pattern = r"/video/(BV\w+)"
+                match = re.search(bv_pattern, url)
+                if not match:
+                    raise_error("FILE.VIDEO_INVALID_BILIBILI_LINK")
+
+                bv_id = match.group(1)
+                api_url = f"https://api.bilibili.com/x/web-interface/view?bvid={bv_id}"
+
+                headers = {
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+                    "Accept": "application/json, text/plain, */*",
+                    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                    "Referer": "https://www.bilibili.com",
+                    "Origin": "https://www.bilibili.com",
+                    "Connection": "keep-alive",
+                }
+
+                response = requests.get(api_url, headers=headers)
+                if response.status_code == 200:
+                    data = response.json()
+                    if data["code"] == 0:
+                        video_data = data["data"]
+                        return {
+                            "success": True,
+                            "title": video_data["title"],
+                            "cover": video_data["pic"],
+                            "bvid": bv_id,
+                            "author": video_data["owner"]["name"],
+                            "duration": video_data["duration"],
+                        }
+                    else:
+                        raise_error("FILE.VIDEO_BILIBILI_API_ERROR")
+                else:
+                    raise_error("FILE.VIDEO_BILIBILI_API_REQUEST_FAILED")
+            else:
+                raise_error("FILE.VIDEO_UNSUPPORTED_VIDEO_SITE")
+
+        except Exception:
+            raise_error("FILE.VIDEO_GET_INFO_ERROR")
