@@ -165,6 +165,7 @@ def register_course_handler(app: Flask, path_prefix: str) -> Flask:
                                     $ref: '#/components/schemas/AICourseDTO'
         """
         course_id = request.args.get("course_id", None)
-        return make_common_response(get_course_info(app, course_id))
+        preview_mode = request.args.get("preview_mode", "False").lower() == "true"
+        return make_common_response(get_course_info(app, course_id, preview_mode))
 
     return app

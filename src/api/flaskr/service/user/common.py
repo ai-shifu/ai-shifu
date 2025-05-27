@@ -578,23 +578,21 @@ def init_first_course(app: Flask, user_id: str):
     """
     Check if there is only one user and one course. If so, update the creator of the course
     """
-    with app.app_context():
-        # Check the number of users
-        user_count = User.query.count()
-        if user_count != 1:
-            return
+    # Check the number of users
+    user_count = User.query.filter(User.user_state != USER_STATE_UNTEGISTERED).count()
+    if user_count != 1:
+        return
 
-        # Check the number of courses
-        course_count = AICourse.query.count()
-        if course_count != 1:
-            return
+    # Check the number of courses
+    course_count = AICourse.query.count()
+    if course_count != 1:
+        return
 
-        # Get the only course
-        course = AICourse.query.first()
-        if course:
-            # The creator of the updated course
-            course.created_user_id = user_id
-            db.session.commit()
+    # Get the only course
+    course = AICourse.query.first()
+    # The creator of the updated course
+    course.created_user_id = user_id
+    db.session.flush()
 
 
 def set_user_password(

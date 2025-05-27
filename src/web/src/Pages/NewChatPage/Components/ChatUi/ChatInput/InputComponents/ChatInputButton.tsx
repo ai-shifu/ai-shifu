@@ -4,14 +4,19 @@ import {
 } from 'constants/courseConstants';
 import styles from './ChatInputButton.module.scss';
 import MainButton from 'Components/MainButton';
-import { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { registerInteractionType } from '../interactionRegistry';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiLayoutStore } from 'stores/useUiLayoutStore';
+import { useSystemStore } from 'stores/useSystemStore';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SHORTCUT_IDS, genHotKeyIdentifier } from 'Service/shortcut';
 
 export const ChatInputButton = ({ type, props, onClick, disabled }) => {
+  const { skip } = useSystemStore(
+    useShallow((state) => ({ skip: state.skip }))
+  );
+
   const onBtnClick = () => {
     if (type === INTERACTION_TYPE.NEXT_CHAPTER) {
       onClick?.(INTERACTION_OUTPUT_TYPE.NEXT_CHAPTER, false, {
@@ -35,6 +40,12 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
 
     onClick?.(INTERACTION_OUTPUT_TYPE.CONTINUE, props.display !== undefined ? props.display : false, props.value);
   }
+
+  useEffect(() => {
+    if (skip && !disabled && (type === INTERACTION_TYPE.NEXT_CHAPTER || type === INTERACTION_TYPE.CONTINUE )) {
+      onBtnClick();
+    }
+  }, [skip, disabled, type]);
 
   const { inMacOs } = useUiLayoutStore(
     useShallow((state) => ({ inMacOs: state.inMacOs }))

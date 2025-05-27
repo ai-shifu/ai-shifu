@@ -65,13 +65,10 @@
       }
 
       &>p {
-        margin-bottom: 1.5em;
-
+        margin-bottom: 1em;
         &:last-child {
           margin-bottom: 0;
         }
-
-        margin-bottom: 1em;
       }
 
       :global(.ant-image) {
@@ -84,6 +81,11 @@
       white-space: normal;
       padding-inline-start: 1em;
       margin: 0;
+
+      margin-bottom: 1em;
+      &:last-child {
+        margin-bottom: 0;
+      }
 
       :global(li) {
         margin-top: 0.5em;

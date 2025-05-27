@@ -8,6 +8,8 @@ from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
     LESSON_TYPE_TRIAL,
+    STATUS_PUBLISH,
+    STATUS_DRAFT,
 )
 from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
@@ -19,6 +21,8 @@ from ...service.order.consts import (
     ATTEND_STATUS_LOCKED,
     get_attend_status_values,
 )
+
+
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
     init_trial_lesson,
@@ -60,6 +64,10 @@ def run_script_inner(
     with app.app_context():
         script_info = None
         try:
+            ai_course_status = [STATUS_PUBLISH]
+            if preview_mode:
+                ai_course_status.append(STATUS_DRAFT)
+
             attend_status_values = get_attend_status_values()
             user_info = User.query.filter(User.user_id == user_id).first()
             if not lesson_id:
@@ -67,11 +75,11 @@ def run_script_inner(
                 if course_id:
                     course_info = AICourse.query.filter(
                         AICourse.course_id == course_id,
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     ).first()
                 else:
                     course_info = AICourse.query.filter(
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     ).first()
                     if course_info is None:
                         raise_error("LESSON.HAS_NOT_LESSON")
@@ -93,7 +101,7 @@ def run_script_inner(
                 lesson_info = (
                     AILesson.query.filter(
                         AILesson.lesson_id == lesson_id,
-                        AILesson.status == 1,
+                        AILesson.status.in_(ai_course_status),
                     )
                     .order_by(AILesson.id.desc())
                     .first()
@@ -111,7 +119,7 @@ def run_script_inner(
                 course_info = (
                     AICourse.query.filter(
                         AICourse.course_id == course_id,
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     )
                     .order_by(AICourse.id.desc())
                     .first()
@@ -157,7 +165,7 @@ def run_script_inner(
                     lessons = AILesson.query.filter(
                         AILesson.lesson_no.like(parent_no + "__"),
                         AILesson.course_id == course_id,
-                        AILesson.status == 1,
+                        AILesson.status.in_(ai_course_status),
                     ).all()
                     app.logger.info(
                         "study lesson no :{}".format(
@@ -215,7 +223,7 @@ def run_script_inner(
             is_first_add = False
             # get the script info and the attend updates
             script_info, attend_updates, is_first_add = get_script(
-                app, attend_id=attend.attend_id, next=next
+                app, attend_id=attend.attend_id, next=next, preview_mode=preview_mode
             )
             auto_next_lesson_id = None
             next_chapter_no = None
@@ -270,7 +278,10 @@ def run_script_inner(
                             is_first_add = False
                             next = 0
                         script_info, attend_updates, _ = get_script(
-                            app, attend_id=attend.attend_id, next=next
+                            app,
+                            attend_id=attend.attend_id,
+                            next=next,
+                            preview_mode=preview_mode,
                         )
                         next = 1
                         if len(attend_updates) > 0:
@@ -324,7 +335,7 @@ def run_script_inner(
                         else:
                             break
                     if script_info and not check_script_is_last_script(
-                        app, script_info, lesson_info
+                        app, script_info, lesson_info, preview_mode
                     ):
                         # check if the script_info is last script,and ui is button or continue button
                         script_dtos = handle_ui(
@@ -339,7 +350,7 @@ def run_script_inner(
                         for script_dto in script_dtos:
                             yield make_script_dto_to_stream(script_dto)
                     else:
-                        res = update_lesson_status(app, attend.attend_id)
+                        res = update_lesson_status(app, attend.attend_id, preview_mode)
                         if res:
                             for attend_update in res:
                                 if isinstance(attend_update, AILessonAttendDTO):
@@ -395,7 +406,7 @@ def run_script_inner(
                     db.session.commit()
                     return
             else:
-                res = update_lesson_status(app, attend.attend_id)
+                res = update_lesson_status(app, attend.attend_id, preview_mode)
                 if res and len(res) > 0:
                     for attend_update in res:
                         if isinstance(attend_update, AILessonAttendDTO):

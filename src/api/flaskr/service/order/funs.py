@@ -221,7 +221,8 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .first()
         )
         if origin_record:
-            order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
+            if origin_record.status != BUY_STATUS_SUCCESS:
+                order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
             if order_timeout_make_new_order:
                 # Check if there are any coupons in the order. If there are, make them failure
                 find_active_id = query_to_failure_active(

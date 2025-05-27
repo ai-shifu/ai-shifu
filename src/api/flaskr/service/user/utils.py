@@ -10,9 +10,10 @@ from email.mime.multipart import MIMEMultipart
 from flaskr.i18n import _
 
 from ..common.models import raise_error
-from ...dao import redis_client as redis
+from ...dao import redis_client as redis, db
 from captcha.image import ImageCaptcha
 from flaskr.api.sms.aliyun import send_sms_code_ali
+from .models import UserVerifyCode
 from io import BytesIO
 
 
@@ -130,7 +131,18 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
             phone_limit_key, int(time.time()), ex=int(app.config["SMS_CODE_INTERVAL"])
         )
 
-        send_sms_code_ali(app, phone, random_string)
+        user_verify_code = create_and_commit_user_verify_code(
+            mail=None,
+            phone=phone,
+            verify_code=random_string,
+            verify_code_type=1,  # 1: SMS, 2: Email
+            ip=ip,
+        )
+
+        send_res = send_sms_code_ali(app, phone, random_string)
+        if send_res:
+            user_verify_code.verify_code_send = 1
+            db.session.commit()
         return {"expire_in": app.config["PHONE_CODE_EXPIRE_TIME"]}
 
 
@@ -194,6 +206,14 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
         body = f"Your verification code is: {random_string}"
         msg.attach(MIMEText(body, "plain"))
 
+        user_verify_code = create_and_commit_user_verify_code(
+            mail=email,
+            phone=None,
+            verify_code=random_string,
+            verify_code_type=2,  # 1: SMS, 2: Email
+            ip=ip,
+        )
+
         try:
             # Connect to the SMTP server
             server = smtplib.SMTP(app.config["SMTP_SERVER"], app.config["SMTP_PORT"])
@@ -205,7 +225,30 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             server.quit()
 
             app.logger.info(f"Verification code sent to {email}")
+            user_verify_code.verify_code_send = 1
+            db.session.commit()
         except Exception as e:
             app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
             raise_error("USER.EMAIL_SEND_FAILED")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
+
+
+def create_and_commit_user_verify_code(
+    mail: str,
+    phone: str,
+    verify_code: str,
+    verify_code_type: int,
+    ip: str,
+):
+    user_verify_code = UserVerifyCode(
+        phone=phone,
+        mail=mail,
+        verify_code=verify_code,
+        verify_code_type=verify_code_type,  # 1: SMS, 2: Email
+        verify_code_used=0,
+        verify_code_send=0,
+        user_ip=ip,
+    )
+    db.session.add(user_verify_code)
+    db.session.commit()
+    return user_verify_code

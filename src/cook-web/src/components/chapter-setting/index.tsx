@@ -3,9 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { SlidersHorizontal } from 'lucide-react';
+import { TextareaAutosize } from '@/components/ui/textarea-autosize';
 import api from '@/api';
 import Loading from '../loading';
 
@@ -74,7 +74,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                 <SlidersHorizontal className='cursor-pointer h-4 w-4 text-gray-500' />
             </DialogTrigger>
             <DialogContent
-                className="sm:max-w-lg bg-gray-100"
+                className="sm:max-w-lg lg:max-w-[70vw] bg-gray-100"
                 onPointerDown={(e) => {
                     e.stopPropagation();
                 }}
@@ -112,11 +112,11 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
 
                             <div className="flex space-x-4">
                                 <div className="w-24 text-sm mt-2">{t('chapter-setting.system-prompt')}</div>
-                                <Textarea
+                                <TextareaAutosize
                                     placeholder={t('chapter-setting.please-input')}
                                     value={systemPrompt}
                                     onChange={(e) => setSystemPrompt(e.target.value)}
-                                    className="h-24 bg-white"
+                                    className="min-h-24 bg-white"
                                 />
                             </div>
 

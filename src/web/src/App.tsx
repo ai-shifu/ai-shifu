@@ -96,7 +96,8 @@ const App = () => {
     updateWechatCode,
     setShowVip,
     updateLanguage,
-    updatePrivewMode,
+    updatePreviewMode,
+    updateSkip,
   } = useSystemStore() as SystemStoreState;
 
   const browserLanguage = selectDefaultLanguage(
@@ -128,6 +129,8 @@ const App = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
   const currChannel = params.channel || '';
+  const isPreviewMode = params.preview ? params.preview.toLowerCase() === 'true' : false;
+  const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -161,8 +164,6 @@ const App = () => {
     enableWxcode,
   ]);
 
-
-
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
@@ -172,18 +173,18 @@ const App = () => {
     };
     fetchCourseInfo();
   }, [envDataInitialized, updateCourseId, courseId, params.courseId]);
+
   useEffect(() => {
-    if (params.previewMode) {
-      updatePrivewMode(params.previewMode === 'true');
-    }
-  }, [params.previewMode, updatePrivewMode]);
+    updatePreviewMode(isPreviewMode);
+    updateSkip(isSkipMode);
+  }, [isPreviewMode, isSkipMode, updatePreviewMode, updateSkip]);
 
   useEffect(() => {
     const fetchCourseInfo = async () => {
       if (!envDataInitialized) return;
       if (courseId) {
         try {
-          const resp = await getCourseInfo(courseId);
+          const resp = await getCourseInfo(courseId, isPreviewMode);
           if (resp.data) {
             setShowVip(resp.data.course_price > 0);
             updateCourseName(resp.data.course_name);
@@ -215,7 +216,7 @@ const App = () => {
       }
     };
     fetchCourseInfo();
-  }, [courseId, envDataInitialized, setShowVip, updateCourseName]);
+  }, [courseId, envDataInitialized, setShowVip, updateCourseName, isPreviewMode]);
 
   useEffect(() => {
     if (!envDataInitialized) return;

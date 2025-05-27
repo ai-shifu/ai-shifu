@@ -1,6 +1,7 @@
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.service.common.aidtos import AIDto, SystemPromptDto
 from flaskr.service.shifu.utils import OutlineTreeNode
+from flaskr.service.profile.dtos import TextProfileDto, SelectProfileDto
 
 
 @register_schema_to_swagger
@@ -198,16 +199,17 @@ class OutlineDto:
 
 @register_schema_to_swagger
 class SolidContentDto:
-    content: str
+    prompt: str
+    profiles: list[str]
 
-    def __init__(self, content: str = None, profiles: list[str] = None):
-        self.content = content
-        self.profiles = profiles
+    def __init__(self, prompt: str = None, profiles: list[str] = None):
+        self.prompt = prompt
+        self.profiles = profiles if profiles is not None else []
 
     def __json__(self):
         return {
             "properties": {
-                "content": self.content,
+                "prompt": self.prompt,
                 "profiles": self.profiles,
             },
             "type": __class__.__name__.replace("Dto", "").lower(),
@@ -350,13 +352,17 @@ class PaymentDto(ButtonDto):
 
 
 @register_schema_to_swagger
-class ContinueDto(ButtonDto):
-    # type continue
-    button_name: str
-    button_key: str
+class EmptyDto:
+    # type continue & empty
 
-    def __init__(self, button_name: str = None, button_key: str = None):
-        super().__init__(button_name, button_key)
+    def __init__(self):
+        pass
+
+    def __json__(self):
+        return {
+            "properties": {},
+            "type": __class__.__name__.replace("Dto", "").lower(),
+        }
 
 
 @register_schema_to_swagger
@@ -608,3 +614,49 @@ class OutlineEditDto:
             },
             "type": "outline",
         }
+
+
+@register_schema_to_swagger
+class BlockUpdateResultDto:
+    data: TextProfileDto | SelectProfileDto | None
+    error_message: str | None
+
+    def __init__(
+        self,
+        data: TextProfileDto | SelectProfileDto | None,
+        error_message: str | None = None,
+    ):
+        self.data = data
+        self.error_message = error_message
+
+    def __json__(self):
+        return {
+            "data": self.data,
+            "error_message": self.error_message,
+        }
+
+    def __str__(self):
+        return str(self.__json__())
+
+
+@register_schema_to_swagger
+class SaveBlockListResultDto:
+    blocks: list[BlockDto]
+    error_messages: dict[str, str]
+
+    def __init__(
+        self,
+        blocks: list[BlockDto],
+        error_messages: dict[str, str],
+    ):
+        self.blocks = blocks
+        self.error_messages = error_messages
+
+    def __json__(self):
+        return {
+            "blocks": self.blocks,
+            "error_messages": self.error_messages,
+        }
+
+    def __str__(self):
+        return str(self.__json__())

@@ -5,13 +5,14 @@ import { v4 } from "uuid";
 import { getStringEnv } from 'Utils/envUtils';
 import { useSystemStore } from '../stores/useSystemStore';
 
+
 export const runScript = (course_id, lesson_id, input, input_type, script_id, onMessage) => {
   let baseURL  = getStringEnv('baseURL');
   if (baseURL === "" || baseURL === "/") {
     baseURL = window.location.origin;
   }
-  const preview_mode = useSystemStore.getState().privewMode;
-  const source = new SSE(`${baseURL}/api/study/run?token=${tokenStore.get()}`, {
+  const preview_mode = useSystemStore.getState().previewMode;
+  const source = new SSE(`${baseURL}/api/study/run?preview_mode=${preview_mode}&token=${tokenStore.get()}`, {
     headers: { "Content-Type": "application/json", "X-Request-ID": v4().replace(/-/g, '') },
     payload: JSON.stringify({
       course_id, lesson_id, input, input_type, script_id, preview_mode,
@@ -48,7 +49,7 @@ export const runScript = (course_id, lesson_id, input, input_type, script_id, on
  */
 export const getLessonStudyRecord = async (lessonId) => {
   return request({
-    url: "/api/study/get_lesson_study_record?lesson_id=" + lessonId,
+    url: "/api/study/get_lesson_study_record?lesson_id=" + lessonId + "&preview_mode=" + useSystemStore.getState().previewMode,
     method: "get",
   });
 };

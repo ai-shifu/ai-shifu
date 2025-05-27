@@ -8,6 +8,7 @@ from flaskr.service.study.const import INPUT_TYPE_CONTINUE
 from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
+from flaskr.i18n import _
 
 
 @register_ui_handler(UI_TYPE_TO_PAY)
@@ -22,13 +23,17 @@ def handle_input_to_pay(
 ) -> ScriptDTO:
     order = init_buy_record(app, user_info.user_id, attend.course_id)
     if order.status != BUY_STATUS_SUCCESS:
-        btn = [{"label": script_info.script_ui_content, "value": order.order_id}]
+        title = script_info.script_ui_content
+        if not title:
+            title = _("COMMON.CHECKOUT")
+        btn = [{"label": title, "value": order.order_id}]
         return ScriptDTO("order", {"buttons": btn}, script_info.script_id)
     else:
+        title = _("COMMON.CONTINUE")
         btn = [
             {
-                "label": script_info.script_ui_content,
-                "value": script_info.script_ui_content,
+                "label": title,
+                "value": title,
                 "type": INPUT_TYPE_CONTINUE,
             }
         ]

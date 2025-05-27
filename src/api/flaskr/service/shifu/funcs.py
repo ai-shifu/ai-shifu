@@ -372,6 +372,8 @@ def preview_shifu(app, user_id, shifu_id: str, variables: dict, skip: bool):
                 + "/c/"
                 + shifu.course_id
                 + "?preview=true"
+                + "&skip="
+                + str(skip).lower()
             )
 
 
