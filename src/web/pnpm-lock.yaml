@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@ai-shifu/chatui':
-        specifier: https://github.com/ai-shifu/chatui.git#main
-        version: https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: https://github.com/ai-shifu/chatui.git#no-scroll
+        version: '@chatui/core@https://codeload.github.com/ai-shifu/chatui/tar.gz/4787796194ed831f3bb4605866b62c0d7ba57531(react-dom@18.3.1(react@18.3.1))(react@18.3.1)'
       '@ant-design/icons':
         specifier: ^5.5.1
         version: 5.5.1(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -354,13 +354,6 @@ packages:
     peerDependenciesMeta:
       vue:
         optional: true
-
-  '@ai-shifu/chatui@https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc':
-    resolution: {tarball: https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc}
-    version: 2.4.2
-    peerDependencies:
-      react: '>=16.8.0'
-      react-dom: '>=16.8.0'
 
   '@alloc/quick-lru@5.2.0':
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
@@ -1203,6 +1196,13 @@ packages:
 
   '@bcoe/v8-coverage@0.2.3':
     resolution: {integrity: sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==}
+
+  '@chatui/core@https://codeload.github.com/ai-shifu/chatui/tar.gz/4787796194ed831f3bb4605866b62c0d7ba57531':
+    resolution: {tarball: https://codeload.github.com/ai-shifu/chatui/tar.gz/4787796194ed831f3bb4605866b62c0d7ba57531}
+    version: 2.4.2
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
 
   '@craco/craco@7.1.0':
     resolution: {integrity: sha512-oRAcPIKYrfPXp9rSzlsDNeOaVtDiKhoyqSXUoqiK24jCkHr4T8m/a2f74yXIzCbIheoUWDOIfWZyRgFgT+cpqA==}
@@ -8233,18 +8233,6 @@ snapshots:
     transitivePeerDependencies:
       - zod
 
-  '@ai-shifu/chatui@https://codeload.github.com/ai-shifu/chatui/tar.gz/a7804961287c38f147a05fe43a6cc1ff18f05abc(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
-    dependencies:
-      '@ant-design/icons': 6.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      '@babel/runtime': 7.26.0
-      '@babel/runtime-corejs3': 7.25.9
-      clsx: 1.2.1
-      core-js: 3.40.0
-      dompurify: 2.5.7
-      intersection-observer: 0.12.2
-      react: 18.3.1
-      react-dom: 18.3.1(react@18.3.1)
-
   '@alloc/quick-lru@5.2.0': {}
 
   '@ampproject/remapping@2.3.0':
@@ -9317,6 +9305,18 @@ snapshots:
       '@babel/helper-validator-identifier': 7.25.9
 
   '@bcoe/v8-coverage@0.2.3': {}
+
+  '@chatui/core@https://codeload.github.com/ai-shifu/chatui/tar.gz/4787796194ed831f3bb4605866b62c0d7ba57531(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@ant-design/icons': 6.0.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@babel/runtime': 7.26.0
+      '@babel/runtime-corejs3': 7.25.9
+      clsx: 1.2.1
+      core-js: 3.40.0
+      dompurify: 2.5.7
+      intersection-observer: 0.12.2
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   '@craco/craco@7.1.0(@types/node@22.14.0)(postcss@8.4.47)(react-scripts@5.0.1(@babel/plugin-syntax-flow@7.25.9(@babel/core@7.25.9))(@babel/plugin-transform-react-jsx@7.25.9(@babel/core@7.25.9))(@types/babel__core@7.20.5)(esbuild@0.25.2)(eslint@8.57.1)(react@18.3.1)(sass@1.80.4)(ts-node@10.9.2(@types/node@22.14.0)(typescript@4.9.5))(type-fest@4.39.1)(typescript@4.9.5)(webpack-cli@6.0.1(webpack-dev-server@4.15.2)(webpack@5.99.5)))(typescript@4.9.5)':
     dependencies:
