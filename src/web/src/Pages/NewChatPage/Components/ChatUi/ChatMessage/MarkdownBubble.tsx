@@ -57,10 +57,11 @@ export const MarkdownBubble = (props) => {
               );
             },
             img(imgProps) {
+              console.log(imgProps);
               return (
                 <Image
                   {...imgProps}
-                  width={'100%'}
+                  width={imgProps.style?.width || '100%'}
                   preview={!props.isStreaming}
                   style={{ borderRadius: '5px' }}
                   onLoad={onImageLoaded}

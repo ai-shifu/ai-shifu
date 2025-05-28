@@ -127,7 +127,8 @@ def html_2_markdown(content):
     def image_repl(match):
         title = match.group("title")
         url = match.group("url")
-        return f"![{title}]({url})"
+        scale = match.group("scale")
+        return f"<img src='{url}' alt='{title}' style='width: {scale}%;' />"
 
     content = re.sub(
         r'<span\s+data-tag="video"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*>[^<]*</span>',
@@ -140,7 +141,7 @@ def html_2_markdown(content):
         content,
     )
     content = re.sub(
-        r'<span\s+data-tag="image"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*>[^<]*</span>',
+        r'<span\s+data-tag="image"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*data-scale="(?P<scale>[^"]+)"[^>]*>[^<]*</span>',
         image_repl,
         content,
     )
@@ -162,7 +163,8 @@ def markdown_2_html(content):
     def image_repl(match):
         title = match.group("title")
         url = match.group("url")
-        return f'<span data-tag="image" data-url="{url}" data-title="{title}" data-scale="100">{title}</span>'
+        scale = match.group("scale")
+        return f'<span data-tag="image" data-url="{url}" data-title="{title}" data-scale="{scale}">{title}</span>'
 
     content = re.sub(
         r'(?s)<iframe[^>]*src="[^"]*bvid=(?P<bvid>BV\w+)[^"]*"[^>]*></iframe>',
@@ -177,7 +179,7 @@ def markdown_2_html(content):
     )
 
     content = re.sub(
-        r"!\[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\)",
+        r'<img[^>]*?src=[\'"](?P<url>[^\'"]+)[\'"][^>]*?alt=[\'"](?P<title>[^\'"]+)[\'"][^>]*?style=[\'"][^>]*?width:\s*(?P<scale>[^%;\s]+)[%;][^>]*?(?:/>|>)',
         image_repl,
         content,
     )
