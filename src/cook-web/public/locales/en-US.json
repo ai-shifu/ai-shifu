@@ -119,7 +119,10 @@
     "upload": "Upload",
     "upload-failed": "Upload Failed",
     "uploading": "Uploading",
-    "url": "URL"
+    "url": "URL",
+    "image-title": "Image Title",
+    "image-title-placeholder": "Please Input Image Title",
+    "image-scale": "Image Scale"
   },
   "goto": {
     "button-name": "Button Name",
