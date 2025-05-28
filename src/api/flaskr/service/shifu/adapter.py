@@ -116,7 +116,7 @@ def html_2_markdown(content):
         bvid_match = re.search(r"BV\w+", url)
         if bvid_match:
             bvid = bvid_match.group(0)
-            return f'<iframe src="//player.bilibili.com/player.html?isOutside=true&bvid={bvid}&p=1&high_quality=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>'  # noqa: E501 E261
+            return f'<iframe src="https://player.bilibili.com/player.html?isOutside=true&bvid={bvid}&p=1&high_quality=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>'  # noqa: E501 E261
         return url
 
     def profile_repl(match):
