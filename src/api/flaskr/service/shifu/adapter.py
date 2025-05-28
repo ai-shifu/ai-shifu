@@ -116,16 +116,13 @@ def html_2_markdown(content):
         bvid_match = re.search(r"BV\w+", url)
         if bvid_match:
             bvid = bvid_match.group(0)
-            return f"""<iframe src="//player.bilibili.com/player.html?isOutside=true&bvid={bvid}&p=1&high_quality=1"
-              scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"
-              style="width: 100%; height: 100%;">
-            </iframe>"""
+            return f'<iframe src="//player.bilibili.com/player.html?isOutside=true&bvid={bvid}&p=1&high_quality=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>'  # noqa: E501 E261
         return url
 
     def profile_repl(match):
         var = match.group("var")
         var = var.strip("{}")
-        return f"{{{{{var}}}}}"
+        return f"{{{var}}}"
 
     def image_repl(match):
         title = match.group("title")
@@ -168,19 +165,19 @@ def markdown_2_html(content):
         return f'<span data-tag="image" data-url="{url}" data-title="{title}" data-scale="100">{title}</span>'
 
     content = re.sub(
-        r'<iframe[^>]*src="[^"]*bvid=(?P<bvid>BV\w+)[^"]*"[^>]*></iframe>',
+        r'(?s)<iframe[^>]*src="[^"]*bvid=(?P<bvid>BV\w+)[^"]*"[^>]*></iframe>',
         iframe_repl,
         content,
     )
 
     content = re.sub(
-        r"{{(?P<var>[^}]+)}}",
+        r"{(?P<var>[^}]+)}",
         profile_repl,
         content,
     )
 
     content = re.sub(
-        r"!\[图片:(?P<title>[^\]]+)\]\((?P<url>[^)]+)\)",
+        r"!\[(?P<title>[^\]]+)\]\((?P<url>[^)]+)\)",
         image_repl,
         content,
     )
