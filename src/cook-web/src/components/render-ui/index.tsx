@@ -107,10 +107,10 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
         if (type === blockUITypes[block.properties.block_id]) {
             return;
         }
-        
+
         const currentType = blockUITypes[block.properties.block_id];
         const needsConfirmationTypes = ['button', 'option', 'goto', 'textinput'];
-        
+
         if (needsConfirmationTypes.includes(currentType) && hasUnsavedChanges) {
             setPendingType(type);
             setShowConfirmDialog(true);
