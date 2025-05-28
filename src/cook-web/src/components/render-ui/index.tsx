@@ -39,7 +39,7 @@ const ViewBlockMap = {
     textinput: TextInputView,
 }
 
-export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
+export const BlockUI = ({ id, type, properties, mode = 'edit', onFormChange = () => {}, onFormSave = () => {} }) => {
     const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
@@ -58,8 +58,10 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
             setError(err);
             return;
         }
+        onFormChange(); // 通知表单已修改
         if (currentNode) {
             actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
+            onFormSave(); // 通知表单已保存
         }
     }
     useEffect(() => {
@@ -98,14 +100,26 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
     const { t } = useTranslation();
     const UITypes = useUITypes()
     const onUITypeChange = (id: string, type: string) => {
         if (type === blockUITypes[block.properties.block_id]) {
             return;
         }
-        setPendingType(type);
-        setShowConfirmDialog(true);
+        
+        const currentType = blockUITypes[block.properties.block_id];
+        const needsConfirmationTypes = ['button', 'option', 'goto', 'textinput'];
+        
+        if (needsConfirmationTypes.includes(currentType) && hasUnsavedChanges) {
+            setPendingType(type);
+            setShowConfirmDialog(true);
+        } else {
+            setExpand(true);
+            const opt = UITypes.find(p => p.type === type);
+            actions.setBlockUITypesById(block.properties.block_id, type)
+            actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        }
     }
 
     const handleConfirmChange = () => {
@@ -114,6 +128,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
         actions.setBlockUITypesById(block.properties.block_id, pendingType)
         actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
         setShowConfirmDialog(false);
+        setHasUnsavedChanges(false); // 重置未保存状态
     }
 
     return (
@@ -163,6 +178,8 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
                                 mode={mode}
+                                onFormChange={() => setHasUnsavedChanges(true)}
+                                onFormSave={() => setHasUnsavedChanges(false)}
                             />
                         )
                     }
