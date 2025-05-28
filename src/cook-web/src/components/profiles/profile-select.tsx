@@ -240,13 +240,13 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogOverlay
-          className='fixed inset-0 bg-black/50 z-[1000]'
+          className='fixed inset-0 bg-black/50 z-[50]'
           onClick={e => {
             e.preventDefault()
             e.stopPropagation()
           }}
         />
-        <AlertDialogContent className='z-[1001]'>
+        <AlertDialogContent className='z-[51]'>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('profiles.confirm-delete')}</AlertDialogTitle>
             <AlertDialogDescription>

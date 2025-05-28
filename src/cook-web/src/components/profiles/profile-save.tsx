@@ -151,13 +151,13 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
         }}
       >
         <DialogOverlay
-          className='fixed inset-0 bg-black/50 z-[1000]'
+          className='fixed inset-0 bg-black/50 z-[100]'
           onClick={e => {
             e.preventDefault()
             e.stopPropagation()
           }}
         />
-        <DialogContent className='z-[1001] sm:max-w-[500px]'>
+        <DialogContent className='z-[101] sm:max-w-[500px]'>
           <DialogHeader>
             <DialogTitle>{isEditing ? t('profiles.edit-variable') : t('profiles.add-new-variable')}</DialogTitle>
             <DialogDescription>
