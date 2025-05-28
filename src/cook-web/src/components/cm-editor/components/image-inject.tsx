@@ -21,7 +21,10 @@ const ImageInject: React.FC<ImageInjectProps> = ({ value, onSelect }) => {
   })
   const { t } = useTranslation()
   const handleSelect = () => {
-    onSelect(resource)
+    onSelect({
+      ...resource,
+      resourceTitle: resource.resourceTitle || '图片名称'
+    })
   }
   const handleImageChange = (resource: ImageResource) => {
     setResource(resource)
