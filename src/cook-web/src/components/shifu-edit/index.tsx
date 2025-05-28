@@ -194,13 +194,13 @@ const DraggableBlock = ({
                 <Settings2 className='h-4 w-4' />
                 {type === 'ai' ? t('shifu.setting-regular-block') : t('shifu.setting-ai-block')}
               </div>
-              <div
+              {type === 'ai' && <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                 onClick={() => onClickDebug?.(id)}
               >
                 <BugPlay className='h-4 w-4' />
                 {t('shifu.debug')}
-              </div>
+              </div>}
               <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer'
                 onClick={() => onClickRemove?.(id)}
