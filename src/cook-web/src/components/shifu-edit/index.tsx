@@ -348,7 +348,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
               onClick={onAddChapter}
             >
               <Plus />
-              {t('scenario.new_chapter')}
+              {t('shifu.new_chapter')}
             </Button>
           </div>
         </div>
