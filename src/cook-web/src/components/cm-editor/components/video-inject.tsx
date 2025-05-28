@@ -115,9 +115,10 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
           <Input
             value={title}
             aria-placeholder='请输入视频名称'
-            onChange={e => setTitle(e.target.value)}
+            onChange={e => setTitle(e.target.value.slice(0, 100))}
             placeholder={t('common.video-title')}
             className='mt-4'
+            maxLength={100}
           />
           <div
             style={{

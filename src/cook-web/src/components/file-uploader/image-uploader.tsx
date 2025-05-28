@@ -234,8 +234,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
             <Input
               className='flex-1'
               value={resourceTitle}
-              onChange={e => setResourceTitle(e.target.value)}
+              onChange={e => setResourceTitle(e.target.value.slice(0, 100))}
               placeholder={t('file-uploader.image-title-placeholder')}
+              maxLength={100}
             />
           </div>
 
