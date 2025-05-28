@@ -53,7 +53,7 @@ def _get_lesson_tree_to_study_common(
     attend_infos: list,
     updated_attend: bool,
     attend_status_values: dict,
-    paid: bool
+    paid: bool,
 ) -> AICourseDTO:
     with app.app_context():
         is_first_chapter = False
@@ -258,12 +258,13 @@ def _get_lesson_tree_to_study_common(
         )
         return ret
 
+
 def get_preview_mode_lesson_tree_to_study_inner(
     app: Flask, user_id: str, course_id: str = None
 ) -> AICourseDTO:
     with app.app_context():
-        preview_mode=True
-        ai_course_status = [STATUS_DRAFT,STATUS_PUBLISH]
+        preview_mode = True
+        ai_course_status = [STATUS_DRAFT, STATUS_PUBLISH]
         app.logger.info("user_id:" + user_id)
         attend_status_values = get_attend_status_values()
         if course_id:
@@ -356,8 +357,9 @@ def get_preview_mode_lesson_tree_to_study_inner(
             attend_infos,
             updated_attend,
             attend_status_values,
-            paid
+            paid,
         )
+
 
 def get_lesson_tree_to_study_inner(
     app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
@@ -430,7 +432,7 @@ def get_lesson_tree_to_study_inner(
             attend_infos,
             updated_attend,
             attend_status_values,
-            paid
+            paid,
         )
 
 
