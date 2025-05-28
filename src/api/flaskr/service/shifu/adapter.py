@@ -110,6 +110,84 @@ def check_button_dto(button_dto: ButtonDto):
     pass
 
 
+def html_2_markdown(content):
+    def video_repl(match):
+        url = match.group("url")
+        bvid_match = re.search(r"BV\w+", url)
+        if bvid_match:
+            bvid = bvid_match.group(0)
+            return f'<iframe src="//player.bilibili.com/player.html?isOutside=true&bvid={bvid}&p=1" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>'
+        return url
+
+    def profile_repl(match):
+        var = match.group("var")
+        var = var.strip("{}")
+        return f"{{{{{var}}}}}"
+
+    def image_repl(match):
+        title = match.group("title")
+        url = match.group("url")
+        return f"![{title}]({url})"
+
+    content = re.sub(
+        r'<span\s+data-tag="video"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*>[^<]*</span>',
+        video_repl,
+        content,
+    )
+    content = re.sub(
+        r'<span\s+data-tag="profile"[^>]*>(?P<var>\{[^}]+\})</span>',
+        profile_repl,
+        content,
+    )
+    content = re.sub(
+        r'<span\s+data-tag="image"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*>[^<]*</span>',
+        image_repl,
+        content,
+    )
+
+    return content
+
+
+def markdown_2_html(content):
+    import re
+
+    def iframe_repl(match):
+        bvid = match.group("bvid")
+        return f'<span data-tag="video" data-url="https://www.bilibili.com/video/{bvid}/" data-title="视频占位">视频占位</span>'
+
+    def profile_repl(match):
+        var = match.group("var")
+        return f'<span data-tag="profile">{{{var}}}</span>'
+
+    def image_repl(match):
+        title = match.group("title")
+        url = match.group("url")
+        return f'<span data-tag="image" data-url="{url}" data-title="{title}" data-scale="100">{title}</span>'
+
+    content = re.sub(
+        r'<iframe[^>]*src="[^"]*bvid=(?P<bvid>BV\w+)[^"]*"[^>]*></iframe>',
+        iframe_repl,
+        content,
+    )
+
+    content = re.sub(
+        r"{{(?P<var>[^}]+)}}",
+        profile_repl,
+        content,
+    )
+
+    content = re.sub(
+        r"!\[图片:(?P<title>[^\]]+)\]\((?P<url>[^)]+)\)",
+        image_repl,
+        content,
+    )
+
+    from flask import current_app as app
+
+    app.logger.info(f"content: {content}")
+    return content
+
+
 # update block model
 def update_block_model(
     block_model: AILessonScript, block_dto: BlockDto
@@ -128,7 +206,7 @@ def update_block_model(
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
             block_model.script_type = SCRIPT_TYPE_PROMPT
-            block_model.script_prompt = block_dto.block_content.prompt
+            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
             if block_dto.block_content.profiles:
                 block_model.script_profile = (
                     "[" + "][".join(block_dto.block_content.profiles) + "]"
@@ -142,10 +220,10 @@ def update_block_model(
                 block_model.script_temprature = block_dto.block_content.temprature
         elif isinstance(block_dto.block_content, SolidContentDto):
             block_model.script_type = SCRIPT_TYPE_FIX
-            block_model.script_prompt = block_dto.block_content.prompt
+            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
         elif isinstance(block_dto.block_content, SystemPromptDto):
             block_model.script_type = SCRIPT_TYPE_SYSTEM
-            block_model.script_prompt = block_dto.block_content.prompt
+            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
             if block_dto.block_content.profiles:
                 block_model.script_profile = (
                     "[" + "][".join(block_dto.block_content.profiles) + "]"
@@ -312,13 +390,13 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
 
     if block.script_type == SCRIPT_TYPE_FIX:
         ret.block_content = SolidContentDto(
-            prompt=block.script_prompt,
+            prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
         )
         ret.block_type = "solid"
     elif block.script_type == SCRIPT_TYPE_PROMPT:
         ret.block_content = AIDto(
-            prompt=block.script_prompt,
+            prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
             model=block.script_model,
             temprature=block.script_temprature,
@@ -327,7 +405,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         ret.block_type = "ai"
     elif block.script_type == SCRIPT_TYPE_SYSTEM:
         ret.block_content = SystemPromptDto(
-            prompt=block.script_prompt,
+            prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
             model=block.script_model,
             temprature=block.script_temprature,
