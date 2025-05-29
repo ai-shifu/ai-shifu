@@ -13,6 +13,7 @@ alibabacloud_tea_util==0.3.13
 alibabacloud_tea_xml==0.0.2
 aliyun-python-sdk-core==2.15.1
 aliyun-python-sdk-kms==2.16.3
+anthropic==0.22.0
 annotated-types==0.7.0
 anyio==4.4.0
 attrs==23.2.0

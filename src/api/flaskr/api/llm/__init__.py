@@ -2,6 +2,7 @@ from typing import Generator
 from .ernie import get_ernie_response, get_erine_models, chat_ernie
 from .glm import get_zhipu_models, invoke_glm
 import openai
+import anthropic
 from flask import Flask
 from langfuse.client import StatefulSpanClient
 from langfuse.model import ModelUsage
@@ -163,19 +164,6 @@ if get_config("GLM_API_KEY"):
     glm_enabled = True
 else:
     current_app.logger.warning("GLM_API_KEY not configured")
-if (
-    openai_enabled
-    or deepseek_enabled
-    or qwen_enabled
-    or ernie_enabled
-    or glm_enabled
-    or ark_enabled
-):
-    pass
-else:
-    current_app.logger.warning("No LLM Configured")
-
-
 # silicon
 silicon_enabled = False
 SILICON_MODELS = []
@@ -193,6 +181,27 @@ else:
     current_app.logger.warning("SILICON_API_KEY not configured")
     silicon_client = None
 
+# anthropic
+anthropic_enabled = False
+ANTHROPIC_MODELS = []
+ANTHROPIC_PREFIX = "anthropic/"
+if get_config("ANTHROPIC_API_KEY"):
+    anthropic_enabled = True
+    current_app.logger.info("ANTHROPIC CONFIGURED")
+    anthropic_client = anthropic.Anthropic(
+        api_key=get_config("ANTHROPIC_API_KEY")
+    )
+    ANTHROPIC_MODELS = [
+        ANTHROPIC_PREFIX + "claude-opus-4-20250514",
+        ANTHROPIC_PREFIX + "claude-sonnet-4-20250514",
+        ANTHROPIC_PREFIX + "claude-opus-4-0",
+        ANTHROPIC_PREFIX + "claude-sonnet-4-0",
+    ]
+    current_app.logger.info(f"anthropic models: {ANTHROPIC_MODELS}")
+else:
+    current_app.logger.warning("ANTHROPIC_API_KEY not configured")
+    anthropic_client = None
+
 ERNIE_MODELS = get_erine_models(Flask(__name__))
 GLM_MODELS = get_zhipu_models(Flask(__name__))
 DEEP_SEEK_MODELS = ["deepseek-chat"]
@@ -203,6 +212,20 @@ if get_config("DIFY_API_KEY") and get_config("DIFY_URL"):
     DIFY_MODELS = ["dify"]
 else:
     current_app.logger.warning("DIFY_API_KEY and DIFY_URL not configured")
+
+if (
+    openai_enabled
+    or deepseek_enabled
+    or qwen_enabled
+    or ernie_enabled
+    or glm_enabled
+    or ark_enabled
+    or silicon_enabled
+    or anthropic_enabled
+):
+    pass
+else:
+    current_app.logger.warning("No LLM Configured")
 
 
 class LLMStreamaUsage:
@@ -233,6 +256,7 @@ def get_openai_client_and_model(model: str):
         or model in SILICON_MODELS
         or model in ERNIE_V2_MODELS
         or model in ARK_MODELS
+        or model in ANTHROPIC_MODELS
     ):
         if model in OPENAI_MODELS or model.startswith("gpt"):
             client = openai_client
@@ -285,6 +309,15 @@ def get_openai_client_and_model(model: str):
                     "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
                     model=model,
                     config_var="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+                )
+        elif model in ANTHROPIC_MODELS:
+            client = anthropic_client
+            model = model.replace(ANTHROPIC_PREFIX, "")
+            if not client:
+                raise_error_with_args(
+                    "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                    model=model,
+                    config_var="ANTHROPIC_API_KEY",
                 )
     return client, model
 
@@ -430,6 +463,47 @@ def invoke_llm(
                     None,
                     None,
                 )
+    elif model in ANTHROPIC_MODELS:
+        if not anthropic_enabled:
+            raise_error_with_args(
+                "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                model=model,
+                config_var="ANTHROPIC_API_KEY",
+            )
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": message})
+        if json:
+            kwargs["response_format"] = {"type": "json"}
+        kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
+        kwargs["max_tokens"] = kwargs.get("max_tokens", 4096)
+        
+        with anthropic_client.messages.stream(
+            model=model.replace(ANTHROPIC_PREFIX, ""),
+            messages=messages,
+            **kwargs
+        ) as stream:
+            for text in stream.text_stream:
+                if start_completion_time is None:
+                    start_completion_time = datetime.now()
+                response_text += text
+                yield LLMStreamResponse(
+                    stream.get_final_message().id if hasattr(stream, 'get_final_message') else 'anthropic-stream',
+                    False,
+                    False,
+                    text,
+                    None,
+                    None,
+                )
+            final_message = stream.get_final_message()
+            if hasattr(final_message, 'usage'):
+                usage = ModelUsage(
+                    unit="TOKENS",
+                    input=final_message.usage.input_tokens,
+                    output=final_message.usage.output_tokens,
+                    total=final_message.usage.input_tokens + final_message.usage.output_tokens,
+                )
     else:
         raise_error_with_args(
             "LLM.MODEL_NOT_SUPPORTED",
@@ -568,6 +642,42 @@ def chat_llm(
                     None,
                     None,
                 )
+    elif model in ANTHROPIC_MODELS:
+        if not anthropic_enabled:
+            raise_error_with_args(
+                "LLM.SPECIFIED_LLM_NOT_CONFIGURED",
+                model=model,
+                config_var="ANTHROPIC_API_KEY",
+            )
+        if kwargs.get("temperature", None) is not None:
+            kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
+        kwargs["max_tokens"] = kwargs.get("max_tokens", 4096)
+        
+        with anthropic_client.messages.stream(
+            model=model.replace(ANTHROPIC_PREFIX, ""),
+            messages=messages,
+            **kwargs
+        ) as stream:
+            for text in stream.text_stream:
+                if start_completion_time is None:
+                    start_completion_time = datetime.now()
+                response_text += text
+                yield LLMStreamResponse(
+                    stream.get_final_message().id if hasattr(stream, 'get_final_message') else 'anthropic-stream',
+                    False,
+                    False,
+                    text,
+                    None,
+                    None,
+                )
+            final_message = stream.get_final_message()
+            if hasattr(final_message, 'usage'):
+                usage = ModelUsage(
+                    unit="TOKENS",
+                    input=final_message.usage.input_tokens,
+                    output=final_message.usage.output_tokens,
+                    total=final_message.usage.input_tokens + final_message.usage.output_tokens,
+                )
     else:
         raise_error_with_args(
             "LLM.MODEL_NOT_SUPPORTED",
@@ -597,5 +707,6 @@ def get_current_models(app: Flask) -> list[str]:
             + SILICON_MODELS
             + ERNIE_V2_MODELS
             + ARK_MODELS
+            + ANTHROPIC_MODELS
         )
     )
