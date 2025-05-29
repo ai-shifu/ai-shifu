@@ -191,6 +191,7 @@ def run_script_inner(
     script_id: str = None,
     log_id: str = None,
     preview_mode: bool = False,
+    preview_script_id: str = None,
 ) -> Generator[str, None, None]:
     """
     Core function for running course scripts
@@ -205,14 +206,14 @@ def run_script_inner(
             attend_status_values = get_attend_status_values()
             user_info = User.query.filter(User.user_id == user_id).first()
 
-            # In the preview mode, if script_id is provided, obtain the script information directly
-            if preview_mode and script_id and lesson_id and course_id:
+            # In the preview mode, if preview_script_id is provided, obtain the script information directly
+            if preview_mode and preview_script_id and lesson_id and course_id:
                 yield from handle_preview_script(
                     app,
                     user_id,
                     course_id,
                     lesson_id,
-                    script_id,
+                    preview_script_id,
                     input,
                     input_type,
                 )
