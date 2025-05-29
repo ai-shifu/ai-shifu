@@ -58,9 +58,7 @@ export const BlockUI = ({ id, type, properties, mode = 'edit', onFormChange = ()
             setError(err);
             return;
         }
-        
         onFormSave(); // 重置未保存状态
-        
         if (currentNode) {
             actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
         }
