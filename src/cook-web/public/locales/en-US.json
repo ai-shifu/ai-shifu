@@ -387,6 +387,7 @@
     "input-placeholder": "Placeholder",
     "model": "Model",
     "prompt": "Prompt",
+    "prompt-placeholder": "Please enter a prompt to extract and constrain the variable.",
     "temperature": "Temperature"
   }
 }
