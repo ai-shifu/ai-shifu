@@ -29,6 +29,7 @@ interface ButtonProps {
         }[]
     }
     onChange: (properties: any) => void
+    onInputChange?: () => void
 }
 
 export default function Option(props: ButtonProps) {
@@ -48,6 +49,7 @@ export default function Option(props: ButtonProps) {
 
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setTempValue(e.target.value);
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onButtonValueChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +65,7 @@ export default function Option(props: ButtonProps) {
             }
             return button;
         }));
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onButtonTextChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -78,6 +81,7 @@ export default function Option(props: ButtonProps) {
             }
             return button;
         }));
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onAdd = (index: number) => {
@@ -93,6 +97,7 @@ export default function Option(props: ButtonProps) {
             newButton,
             ...tempButtons.slice(index + 1)
         ]);
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onDelete = (index: number) => {
@@ -101,6 +106,7 @@ export default function Option(props: ButtonProps) {
             setShowDeleteDialog(true);
         } else {
             setTempButtons(tempButtons.filter((_: any, i: number) => i !== index));
+            props.onInputChange?.(); // Notify parent that input has changed
         }
     }
 
@@ -109,6 +115,7 @@ export default function Option(props: ButtonProps) {
             setTempButtons(tempButtons.filter((_: any, i: number) => i !== deleteIndex));
             setShowDeleteDialog(false);
             setDeleteIndex(null);
+            props.onInputChange?.(); // Notify parent that input has changed
         }
     }
 

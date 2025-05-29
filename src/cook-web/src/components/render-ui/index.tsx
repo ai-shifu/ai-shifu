@@ -39,7 +39,7 @@ const ViewBlockMap = {
     textinput: TextInputView,
 }
 
-export const BlockUI = ({ id, type, properties, mode = 'edit', onFormChange = () => {}, onFormSave = () => {} }) => {
+export const BlockUI = ({ id, type, properties, mode = 'edit', onFormChange = () => {}, onFormSave = () => {}, onInputChange = () => {} }) => {
     const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
@@ -58,10 +58,11 @@ export const BlockUI = ({ id, type, properties, mode = 'edit', onFormChange = ()
             setError(err);
             return;
         }
-        onFormChange(); // 通知表单已修改
+        
+        onFormSave(); // 重置未保存状态
+        
         if (currentNode) {
             actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
-            onFormSave(); // 通知表单已保存
         }
     }
     useEffect(() => {
@@ -80,6 +81,7 @@ export const BlockUI = ({ id, type, properties, mode = 'edit', onFormChange = ()
                 id={id}
                 properties={properties}
                 onChange={onPropertiesChange}
+                onInputChange={onInputChange}
             />
             {
                 error && (
@@ -180,6 +182,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
                                 mode={mode}
                                 onFormChange={() => setHasUnsavedChanges(true)}
                                 onFormSave={() => setHasUnsavedChanges(false)}
+                                onInputChange={() => setHasUnsavedChanges(true)}
                             />
                         )
                     }

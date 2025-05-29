@@ -22,6 +22,7 @@ interface ButtonProps {
         "input_placeholder": string
     }
     onChange: (properties: any) => void
+    onInputChange?: () => void
 }
 
 export default function TextInput(props: ButtonProps) {
@@ -39,6 +40,7 @@ export default function TextInput(props: ButtonProps) {
                 }
             }
         });
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onModelChange = (value: string) => {
@@ -52,6 +54,7 @@ export default function TextInput(props: ButtonProps) {
                 }
             }
         });
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onTemperatureChange = (value: number) => {
@@ -65,6 +68,7 @@ export default function TextInput(props: ButtonProps) {
                 }
             }
         });
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -72,6 +76,7 @@ export default function TextInput(props: ButtonProps) {
             ...tempProperties,
             input_key: e.target.value,
         });
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const onInputPlaceholderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,6 +85,7 @@ export default function TextInput(props: ButtonProps) {
             input_name: e.target.value,
             input_placeholder: e.target.value
         });
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const handleConfirm = () => {

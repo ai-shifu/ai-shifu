@@ -8,6 +8,7 @@ interface ButtonProps {
         "button_key": string,
     }
     onChange: (properties: any) => void
+    onInputChange?: () => void
     mode?: 'edit' | 'login' | 'payment'
 }
 
@@ -32,6 +33,7 @@ export default function Button(props: ButtonProps) {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value
         setTempValue(value)
+        props.onInputChange?.(); // Notify parent that input has changed
         if (mode === 'login' || mode === 'payment') {
             props.onChange({
                 ...properties,
