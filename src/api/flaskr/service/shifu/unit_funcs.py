@@ -16,8 +16,6 @@ from flaskr.service.lesson.const import (
     SCRIPT_TYPE_SYSTEM,
 )
 from flaskr.service.shifu.const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
-from sqlalchemy.sql import func, cast
-from sqlalchemy import String
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.shifu.utils import (
     get_existing_outlines,

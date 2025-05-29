@@ -61,38 +61,29 @@ def run_script_inner(
     log_id: str = None,
     preview_mode: bool = False,
 ) -> Generator[str, None, None]:
+    """
+    Core function for running course scripts
+    """
     with app.app_context():
+        ai_course_status = [STATUS_PUBLISH]
+        if preview_mode:
+            ai_course_status = [STATUS_DRAFT, STATUS_PUBLISH]
+
         script_info = None
         try:
-            ai_course_status = [STATUS_PUBLISH]
-            if preview_mode:
-                ai_course_status.append(STATUS_DRAFT)
-
             attend_status_values = get_attend_status_values()
             user_info = User.query.filter(User.user_id == user_id).first()
             if not lesson_id:
                 app.logger.info("lesson_id is None")
                 if course_id:
-                    subquery = (
-                        db.session.query(db.func.max(AICourse.id))
-                        .filter(
-                            AICourse.course_id == course_id,
-                            AICourse.status.in_(ai_course_status),
-                        )
-                        .group_by(AICourse.course_id)
-                    )
                     course_info = AICourse.query.filter(
-                        AICourse.id.in_(subquery),
-                        AICourse.status.in_(ai_course_status),
+                        AICourse.course_id == course_id,
+                        AICourse.status == 1,
                     ).first()
                 else:
-                    course_info = (
-                        AICourse.query.filter(
-                            AICourse.status.in_(ai_course_status),
-                        )
-                        .order_by(AICourse.id.desc())
-                        .first()
-                    )
+                    course_info = AICourse.query.filter(
+                        AICourse.status == 1,
+                    ).first()
                     if course_info is None:
                         raise_error("LESSON.HAS_NOT_LESSON")
                 if not course_info:
@@ -101,20 +92,11 @@ def run_script_inner(
                     "teacher_avator", course_info.course_teacher_avator, ""
                 )
                 course_id = course_info.course_id
-                lessons = init_trial_lesson(app, user_id, course_id, preview_mode)
+                lessons = init_trial_lesson(app, user_id, course_id)
                 attend = get_current_lesson(app, lessons)
                 lesson_id = attend.lesson_id
-                subquery = (
-                    db.session.query(db.func.max(AILesson.id))
-                    .filter(
-                        AILesson.lesson_id == lesson_id,
-                        AILesson.status.in_(ai_course_status),
-                    )
-                    .group_by(AILesson.lesson_id)
-                )
                 lesson_info = AILesson.query.filter(
-                    AILesson.id.in_(subquery),
-                    AILesson.status.in_(ai_course_status),
+                    AILesson.lesson_id == lesson_id,
                 ).first()
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
@@ -123,14 +105,18 @@ def run_script_inner(
                     db.session.query(db.func.max(AILesson.id))
                     .filter(
                         AILesson.lesson_id == lesson_id,
-                        AILesson.status.in_(ai_course_status),
                     )
                     .group_by(AILesson.lesson_id)
                 )
-                lesson_info = AILesson.query.filter(
-                    AILesson.id.in_(subquery),
-                    AILesson.status.in_(ai_course_status),
-                ).first()
+
+                lesson_info = (
+                    AILesson.query.filter(
+                        AILesson.id.in_(subquery),
+                        AILesson.status.in_(ai_course_status),
+                    )
+                    .order_by(AILesson.id.desc())
+                    .first()
+                )
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
                 course_id = lesson_info.course_id
@@ -141,18 +127,14 @@ def run_script_inner(
                 )
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-                subquery = (
-                    db.session.query(db.func.max(AICourse.id))
-                    .filter(
+                course_info = (
+                    AICourse.query.filter(
                         AICourse.course_id == course_id,
                         AICourse.status.in_(ai_course_status),
                     )
-                    .group_by(AICourse.course_id)
+                    .order_by(AICourse.id.desc())
+                    .first()
                 )
-                course_info = AICourse.query.filter(
-                    AICourse.id.in_(subquery),
-                    AICourse.status.in_(ai_course_status),
-                ).first()
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
                 # return the teacher avator

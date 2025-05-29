@@ -406,8 +406,29 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
             return get_script(app, attend_id, next, preview_mode)
     elif next > 0:
         attend_info.script_index = attend_info.script_index + next
+
+    subquery = []
+    if preview_mode:
+        subquery = (
+            db.session.query(db.func.max(AILessonScript.id))
+            .filter(
+                AILessonScript.lesson_id == (attend_info.lesson_id),
+            )
+            .group_by(AILessonScript.script_id)
+        )
+    else:
+        subquery = (
+            db.session.query(db.func.max(AILessonScript.id))
+            .filter(
+                AILessonScript.lesson_id == (attend_info.lesson_id),
+                AILessonScript.status == STATUS_PUBLISH,
+            )
+            .group_by(AILessonScript.script_id)
+        )
+
     script_info = (
         AILessonScript.query.filter(
+            AILessonScript.id.in_(subquery),
             AILessonScript.lesson_id == attend_info.lesson_id,
             AILessonScript.status.in_(status),
             AILessonScript.script_index == attend_info.script_index,

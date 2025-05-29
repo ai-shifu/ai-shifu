@@ -304,27 +304,25 @@ def get_preview_mode_lesson_tree_to_study_inner(
             AILesson.status.in_(ai_course_status),
         ).all()
 
-        if preview_mode:
-            lessons = [
-                lesson
-                for lesson in lessons
-                if lesson.status == STATUS_DRAFT
-                or (
-                    lesson.status == STATUS_PUBLISH
-                    and not any(
-                        l.lesson_id == lesson.lesson_id and l.status == STATUS_DRAFT
-                        for l in lessons
-                    )
-                )
-            ]
 
-        online_lessons = []
-        if preview_mode:
-            online_lessons = [
-                i for i in lessons if i.status in [STATUS_PUBLISH, STATUS_DRAFT]
-            ]
-        else:
-            online_lessons = [i for i in lessons if i.status == STATUS_PUBLISH]
+        lessons = [
+            lesson
+            for lesson in lessons
+            if lesson.status == STATUS_DRAFT
+            or (
+                lesson.status == STATUS_PUBLISH
+                and not any(
+                    lesson_item.lesson_id == lesson.lesson_id
+                    and lesson_item.status == STATUS_DRAFT
+                    for lesson_item in lessons
+                )
+            )
+        ]
+
+        online_lessons = [
+            i for i in lessons if i.status in [STATUS_PUBLISH, STATUS_DRAFT]
+        ]
+
         online_lessons = sorted(
             online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
         )
@@ -365,7 +363,6 @@ def get_lesson_tree_to_study_inner(
     app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
 ) -> AICourseDTO:
     with app.app_context():
-        ai_course_status = [STATUS_PUBLISH]
         if preview_mode:
             re = get_preview_mode_lesson_tree_to_study_inner(app, user_id, course_id)
             return re
@@ -653,7 +650,7 @@ def get_script_info(
     with app.app_context():
         ai_course_status = [STATUS_PUBLISH]
         if preview_mode:
-            ai_course_status.append(STATUS_DRAFT)
+            ai_course_status = [STATUS_DRAFT]
         script_info = (
             AILessonScript.query.filter(
                 AILessonScript.script_id == script_id,
