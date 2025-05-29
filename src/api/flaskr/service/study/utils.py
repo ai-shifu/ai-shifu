@@ -418,16 +418,16 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
             .group_by(AILessonScript.script_id)
         )
         script_info = (
-        AILessonScript.query.filter(
-            AILessonScript.id.in_(subquery),
-            AILessonScript.lesson_id == attend_info.lesson_id,
-            AILessonScript.status.in_(status),
-            AILessonScript.script_index == attend_info.script_index,
-            AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            AILessonScript.query.filter(
+                AILessonScript.id.in_(subquery),
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.status.in_(status),
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
         )
-        .order_by(AILessonScript.id.desc())
-        .first()
-    )
     else:
         script_info = (
             AILessonScript.query.filter(
