@@ -844,11 +844,11 @@ def check_script_is_last_script(
         subquery = []
         if preview_mode:
             subquery = (
-                        db.session.query(db.func.max(AILessonScript.id))
-                        .filter(
-                            AILessonScript.lesson_id == last_lesson.lesson_id,
-                        )
-                        .group_by(AILessonScript.script_id)
+                db.session.query(db.func.max(AILessonScript.id))
+                .filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                )
+                .group_by(AILessonScript.script_id)
             )
         else:
             subquery = (
