@@ -188,9 +188,7 @@ ANTHROPIC_PREFIX = "anthropic/"
 if get_config("ANTHROPIC_API_KEY"):
     anthropic_enabled = True
     current_app.logger.info("ANTHROPIC CONFIGURED")
-    anthropic_client = anthropic.Anthropic(
-        api_key=get_config("ANTHROPIC_API_KEY")
-    )
+    anthropic_client = anthropic.Anthropic(api_key=get_config("ANTHROPIC_API_KEY"))
     ANTHROPIC_MODELS = [
         ANTHROPIC_PREFIX + "claude-opus-4-20250514",
         ANTHROPIC_PREFIX + "claude-sonnet-4-20250514",
@@ -478,18 +476,20 @@ def invoke_llm(
             kwargs["response_format"] = {"type": "json"}
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         kwargs["max_tokens"] = kwargs.get("max_tokens", 4096)
-        
+
         with anthropic_client.messages.stream(
-            model=model.replace(ANTHROPIC_PREFIX, ""),
-            messages=messages,
-            **kwargs
+            model=model.replace(ANTHROPIC_PREFIX, ""), messages=messages, **kwargs
         ) as stream:
             for text in stream.text_stream:
                 if start_completion_time is None:
                     start_completion_time = datetime.now()
                 response_text += text
                 yield LLMStreamResponse(
-                    stream.get_final_message().id if hasattr(stream, 'get_final_message') else 'anthropic-stream',
+                    (
+                        stream.get_final_message().id
+                        if hasattr(stream, "get_final_message")
+                        else "anthropic-stream"
+                    ),
                     False,
                     False,
                     text,
@@ -497,12 +497,13 @@ def invoke_llm(
                     None,
                 )
             final_message = stream.get_final_message()
-            if hasattr(final_message, 'usage'):
+            if hasattr(final_message, "usage"):
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=final_message.usage.input_tokens,
                     output=final_message.usage.output_tokens,
-                    total=final_message.usage.input_tokens + final_message.usage.output_tokens,
+                    total=final_message.usage.input_tokens
+                    + final_message.usage.output_tokens,
                 )
     else:
         raise_error_with_args(
@@ -652,18 +653,20 @@ def chat_llm(
         if kwargs.get("temperature", None) is not None:
             kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
         kwargs["max_tokens"] = kwargs.get("max_tokens", 4096)
-        
+
         with anthropic_client.messages.stream(
-            model=model.replace(ANTHROPIC_PREFIX, ""),
-            messages=messages,
-            **kwargs
+            model=model.replace(ANTHROPIC_PREFIX, ""), messages=messages, **kwargs
         ) as stream:
             for text in stream.text_stream:
                 if start_completion_time is None:
                     start_completion_time = datetime.now()
                 response_text += text
                 yield LLMStreamResponse(
-                    stream.get_final_message().id if hasattr(stream, 'get_final_message') else 'anthropic-stream',
+                    (
+                        stream.get_final_message().id
+                        if hasattr(stream, "get_final_message")
+                        else "anthropic-stream"
+                    ),
                     False,
                     False,
                     text,
@@ -671,12 +674,13 @@ def chat_llm(
                     None,
                 )
             final_message = stream.get_final_message()
-            if hasattr(final_message, 'usage'):
+            if hasattr(final_message, "usage"):
                 usage = ModelUsage(
                     unit="TOKENS",
                     input=final_message.usage.input_tokens,
                     output=final_message.usage.output_tokens,
-                    total=final_message.usage.input_tokens + final_message.usage.output_tokens,
+                    total=final_message.usage.input_tokens
+                    + final_message.usage.output_tokens,
                 )
     else:
         raise_error_with_args(
