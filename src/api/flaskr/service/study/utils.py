@@ -842,6 +842,7 @@ def check_script_is_last_script(
     )
     if last_lesson.lesson_id == script_info.lesson_id:
         subquery = []
+        last_script = None
         if preview_mode:
             subquery = (
                         db.session.query(db.func.max(AILessonScript.id))
@@ -850,24 +851,24 @@ def check_script_is_last_script(
                         )
                         .group_by(AILessonScript.script_id)
             )
-        else:
-            subquery = (
-                db.session.query(db.func.max(AILessonScript.id))
-                .filter(
+            last_script = (
+                AILessonScript.query.filter(
+                    AILessonScript.id.in_(subquery),
                     AILessonScript.lesson_id == last_lesson.lesson_id,
                     AILessonScript.status.in_(status),
                 )
-                .group_by(AILessonScript.script_id)
+                .order_by(AILessonScript.script_index.desc())
+                .first()
             )
-        last_script = (
-            AILessonScript.query.filter(
-                AILessonScript.id.in_(subquery),
-                AILessonScript.lesson_id == last_lesson.lesson_id,
-                AILessonScript.status.in_(status),
+        else:
+            last_script = (
+                AILessonScript.query.filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                    AILessonScript.status.in_(status),
+                )
+                .order_by(AILessonScript.script_index.desc())
+                .first()
             )
-            .order_by(AILessonScript.script_index.desc())
-            .first()
-        )
         if (
             last_script.script_id == script_info.script_id
             and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_EMPTY]
