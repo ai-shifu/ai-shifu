@@ -304,7 +304,6 @@ def get_preview_mode_lesson_tree_to_study_inner(
             AILesson.status.in_(ai_course_status),
         ).all()
 
-
         lessons = [
             lesson
             for lesson in lessons
