@@ -841,8 +841,27 @@ def check_script_is_last_script(
         .first()
     )
     if last_lesson.lesson_id == script_info.lesson_id:
+        subquery = []
+        if preview_mode:
+            subquery = (
+                        db.session.query(db.func.max(AILessonScript.id))
+                        .filter(
+                            AILessonScript.lesson_id == last_lesson.lesson_id,
+                        )
+                        .group_by(AILessonScript.script_id)
+            )
+        else:
+            subquery = (
+                db.session.query(db.func.max(AILessonScript.id))
+                .filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                    AILessonScript.status.in_(status),
+                )
+                .group_by(AILessonScript.script_id)
+            )
         last_script = (
             AILessonScript.query.filter(
+                AILessonScript.id.in_(subquery),
                 AILessonScript.lesson_id == last_lesson.lesson_id,
                 AILessonScript.status.in_(status),
             )
