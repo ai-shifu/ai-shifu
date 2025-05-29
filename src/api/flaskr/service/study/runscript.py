@@ -82,9 +82,7 @@ def handle_preview_script(
     if not course_info:
         raise_error("LESSON.COURSE_NOT_FOUND")
 
-    yield make_script_dto(
-        "teacher_avator", course_info.course_teacher_avator, ""
-    )
+    yield make_script_dto("teacher_avator", course_info.course_teacher_avator, "")
 
     # Create a temporary attend record
     attend = AICourseLessonAttendDTO(
@@ -150,9 +148,7 @@ def handle_preview_script(
         return
 
     # Handle UI
-    if not check_script_is_last_script(
-        app, script_info, lesson_info, True
-    ):
+    if not check_script_is_last_script(app, script_info, lesson_info, True):
         script_dtos = handle_ui(
             app,
             user_info,
