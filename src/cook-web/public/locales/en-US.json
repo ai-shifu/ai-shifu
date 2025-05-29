@@ -51,6 +51,7 @@
     "favorites": "Favorites",
     "follow": "Follow",
     "home": "Home",
+    "image-name": "Image Name",
     "logout": "Logout",
     "no-more-shifus": "No More Shifus",
     "no-shifus": "No Shifus",
@@ -61,7 +62,9 @@
     "shifu": "Shifu",
     "unknown-error": "Unknown Error",
     "use-image": "Use Image",
-    "use-resource": "Use Resource"
+    "use-resource": "Use Resource",
+    "video-title": "Video Title",
+    "video-title-placeholder": "Please Input Video Title"
   },
   "shifu-setting": {
     "add-keyword": "Add Keyword",

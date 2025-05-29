@@ -81,7 +81,6 @@ class PlaceholderWidget extends WidgetType {
   }
 
   toDOM () {
-    console.log('PlaceholderWidget toDOM called:', this.text)
     const container = document.createElement('span')
     container.className = this.styleClass
     const span = document.createElement('span')

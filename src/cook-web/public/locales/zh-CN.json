@@ -51,6 +51,7 @@
     "favorites": "收藏",
     "follow": "关注",
     "home": "首页",
+    "image-name": "图片名称",
     "logout": "退出",
     "no-more-shifus": "没有更多师傅了",
     "no-shifus": "暂无师傅",
@@ -61,7 +62,9 @@
     "shifu": "师傅",
     "unknown-error": "未知错误",
     "use-image": "使用图片",
-    "use-resource": "使用资源"
+    "use-resource": "使用资源",
+    "video-title": "视频名称",
+    "video-title-placeholder": "请输入视频名称"
   },
   "shifu-setting": {
     "add-keyword": "添加关键词",

@@ -108,6 +108,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       setResourceUrl(inputUrl)
     } else {
       setIsUploading(true)
+      try{
       const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
         console.error('Error uploading image:', err)
         toast({
@@ -118,7 +119,15 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       setResourceUrl(url)
       setResourceTitle('')
       setResourceScale(100)
-      setIsUploading(false)
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        toast({
+          title: t('file-uploader.check-image-url'),
+          variant: 'destructive'
+        })
+      } finally {
+        setIsUploading(false)
+      }
       return
     }
   }
@@ -249,8 +258,13 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                 max={100}
                 step={10}
                 value={resourceScale}
-                onChange={e => setResourceScale(Number(e.target.value))}
-                placeholder='1'
+                onChange={e => {
+                  const value = Number(e.target.value)
+                  if (!isNaN(value) && value >= 1 && value <= 100) {
+                    setResourceScale(value)
+                  }
+                }}
+                placeholder='100'
               />
               <span className='text-gray-500'>%</span>
             </div>

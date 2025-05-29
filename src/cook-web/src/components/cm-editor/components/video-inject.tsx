@@ -24,7 +24,7 @@ const biliVideoUrlRegexp =
 
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   const { t } = useTranslation()
-  const [title, setTitle] = useState(value?.resourceTitle || '视频占位')
+  const [title, setTitle] = useState(value?.resourceTitle || t('common.video-title'))
   const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '')
   const [embedUrl, setEmbedUrl] = useState('')
   const iframeRef = useRef<HTMLIFrameElement>(null)
@@ -114,7 +114,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
         <div className='space-y-4'>
           <Input
             value={title}
-            aria-placeholder='请输入视频名称'
+            aria-placeholder={t('common.video-title-placeholder')}
             onChange={e => setTitle(e.target.value.slice(0, 100))}
             placeholder={t('common.video-title')}
             className='mt-4'

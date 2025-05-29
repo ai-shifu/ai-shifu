@@ -14,16 +14,16 @@ type ImageInjectProps = {
 }
 
 const ImageInject: React.FC<ImageInjectProps> = ({ value, onSelect }) => {
-  const [resource, setResource] = useState<ImageResource>(value || {
-    resourceUrl: '',
-    resourceTitle: '',
-    resourceScale: 100
+  const [resource, setResource] = useState<ImageResource>({
+    resourceUrl: value?.resourceUrl || '',
+    resourceTitle: value?.resourceTitle || '',
+    resourceScale: value?.resourceScale || 100
   })
   const { t } = useTranslation()
   const handleSelect = () => {
     onSelect({
       ...resource,
-      resourceTitle: resource.resourceTitle || '图片名称'
+      resourceTitle: resource.resourceTitle || t('common.image-name')
     })
   }
   const handleImageChange = (resource: ImageResource) => {
@@ -31,7 +31,7 @@ const ImageInject: React.FC<ImageInjectProps> = ({ value, onSelect }) => {
   }
   return (
     <div>
-      <ImageUploader value={value} onChange={handleImageChange} />
+      <ImageUploader value={resource} onChange={handleImageChange} />
       <div className='flex py-4 justify-end'>
         <Button className='h-8' onClick={handleSelect} disabled={!resource?.resourceUrl}>
           {t('common.use-image')}

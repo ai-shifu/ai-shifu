@@ -279,8 +279,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handleConfirmDelete = async (id: string | undefined) => {
     if (!id) return
-    await actions.removeBlock(id, currentShifu?.shifu_id || '')
-    setRemoveBlockInfo({ blockId: '', visible: false })
+    try {
+      await actions.removeBlock(id, currentShifu?.shifu_id || '')
+      setRemoveBlockInfo({ blockId: '', visible: false })
+    } catch (error) {
+      console.log(error)
+    }
   }
 
   const onAddBlock = (index: number, type: BlockType, shifu_id: string) => {

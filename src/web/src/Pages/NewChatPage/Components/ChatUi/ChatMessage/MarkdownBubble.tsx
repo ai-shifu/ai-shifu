@@ -57,7 +57,6 @@ export const MarkdownBubble = (props) => {
               );
             },
             img(imgProps) {
-              console.log(imgProps);
               return (
                 <Image
                   {...imgProps}
