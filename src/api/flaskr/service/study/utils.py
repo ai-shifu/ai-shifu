@@ -466,11 +466,14 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
     return script_info, attend_infos, is_first
 
 
-def get_script_by_id(app: Flask, script_id: str) -> AILessonScript:
+def get_script_by_id(app: Flask, script_id: str, preview_mode: bool = False) -> AILessonScript:
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     return (
         AILessonScript.query.filter(
             AILessonScript.script_id == script_id,
-            AILessonScript.status == 1,
+            AILessonScript.status.in_(status),
         )
         .order_by(AILessonScript.id.desc())
         .first()
