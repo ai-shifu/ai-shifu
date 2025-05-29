@@ -408,6 +408,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
         attend_info.script_index = attend_info.script_index + next
 
     subquery = []
+    script_info = None
     if preview_mode:
         subquery = (
             db.session.query(db.func.max(AILessonScript.id))
@@ -416,17 +417,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
             )
             .group_by(AILessonScript.script_id)
         )
-    else:
-        subquery = (
-            db.session.query(db.func.max(AILessonScript.id))
-            .filter(
-                AILessonScript.lesson_id == (attend_info.lesson_id),
-                AILessonScript.status == STATUS_PUBLISH,
-            )
-            .group_by(AILessonScript.script_id)
-        )
-
-    script_info = (
+        script_info = (
         AILessonScript.query.filter(
             AILessonScript.id.in_(subquery),
             AILessonScript.lesson_id == attend_info.lesson_id,
@@ -437,6 +428,17 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
         .order_by(AILessonScript.id.desc())
         .first()
     )
+    else:
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.status.in_(status),
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
     if not script_info:
         app.logger.info("no script found")
         app.logger.info(attend_info.lesson_id)

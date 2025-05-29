@@ -101,22 +101,29 @@ def run_script_inner(
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
             else:
-                subquery = (
-                    db.session.query(db.func.max(AILesson.id))
-                    .filter(
-                        AILesson.lesson_id == lesson_id,
+                lesson_info = None
+                if preview_mode:
+                    subquery = (
+                        db.session.query(db.func.max(AILesson.id))
+                        .filter(
+                            AILesson.lesson_id == lesson_id,
+                        )
+                        .group_by(AILesson.lesson_id)
                     )
-                    .group_by(AILesson.lesson_id)
-                )
 
-                lesson_info = (
-                    AILesson.query.filter(
-                        AILesson.id.in_(subquery),
-                        AILesson.status.in_(ai_course_status),
+                    lesson_info = (
+                        AILesson.query.filter(
+                            AILesson.id.in_(subquery),
+                            AILesson.status.in_(ai_course_status),
+                        )
+                        .order_by(AILesson.id.desc())
+                        .first()
                     )
-                    .order_by(AILesson.id.desc())
-                    .first()
-                )
+                else:
+                    lesson_info = AILesson.query.filter(
+                        AILesson.lesson_id == lesson_id,
+                        AILesson.status.in_(ai_course_status),
+                    ).first()
                 if not lesson_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
                 course_id = lesson_info.course_id

@@ -289,20 +289,24 @@ def get_preview_mode_lesson_tree_to_study_inner(
         paid = False
         if buy_record:
             paid = buy_record.status == BUY_STATUS_SUCCESS
-
-        subquery = (
-            db.session.query(db.func.max(AILesson.id))
-            .filter(
-                AILesson.course_id == course_id,
-                AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
+        lessons = None
+        if preview_mode:
+            subquery = (
+                db.session.query(db.func.max(AILesson.id))
+                .filter(
+                    AILesson.course_id == course_id,
+                    AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
+                )
+                .group_by(AILesson.lesson_id)
             )
-            .group_by(AILesson.lesson_id)
-        )
-
-        lessons = AILesson.query.filter(
-            AILesson.id.in_(subquery),
-            AILesson.status.in_(ai_course_status),
-        ).all()
+            lessons = AILesson.query.filter(
+                AILesson.id.in_(subquery),
+                AILesson.status.in_(ai_course_status),
+            ).all()
+        else:
+            lessons = AILesson.query.filter(
+                AILesson.status.in_(ai_course_status),
+            ).all()
 
         lessons = [
             lesson
