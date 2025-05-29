@@ -387,6 +387,7 @@
     "input-placeholder": "输入框提示",
     "model": "指定模型",
     "prompt": "提示词",
+    "prompt-placeholder": "请输入对变量进行提取和约束的提示词",
     "temperature": "设定温度"
   }
 }
