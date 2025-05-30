@@ -11,6 +11,8 @@ import ChapterSetting from '../chapter-setting';
 import { ItemChangedReason } from '../dnd-kit-sortable-tree/types';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { useTranslation } from 'react-i18next';
+import { useAlert } from '@/components/ui/use-alert';
+
 interface ICataTreeProps {
     currentNode?: Outline;
     items: TreeItems<Outline>;
@@ -20,7 +22,7 @@ interface ICataTreeProps {
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
     const { items, onChange, } = props;
-    const { actions } = useShifu();
+    const { actions, focusId } = useShifu();
     const onItemsChanged = async (data: TreeItems<Outline>, reason: ItemChangedReason<Outline>) => {
         if (reason.type == 'dropped') {
             const parentId = reason.draggedItem.parentId;
@@ -40,7 +42,7 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
 
     return (
         <SortableTree
-            disableSorting={false}
+            disableSorting={!!focusId}
             items={items}
             indentationWidth={20}
             onItemsChanged={onItemsChanged}
@@ -70,7 +72,20 @@ const MinimalTreeItemComponent = React.forwardRef<
     const { focusId, actions, cataData, currentNode, currentShifu } = useShifu();
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const { t } = useTranslation();
+    const alert = useAlert();
     const onNodeChange = async (value: string) => {
+        if (!value || value.trim() === '') {
+            alert.showAlert({
+                title: t('outline-tree.name-required'),
+                description: '',
+                confirmText: t('common.confirm'),
+                onConfirm() {
+                    actions.removeOutline(props.item);
+                    actions.setFocusId("");
+                }
+            });
+            return;
+        }
         if (props.item.depth == 0) {
             await actions.createChapter({
                 parent_id: props.item.parentId,
@@ -122,6 +137,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     const handleConfirmDelete = async () => {
         await actions.removeOutline(props.item);
         setShowDeleteDialog(false);
+        actions.setFocusId("");
     }
 
     return (
