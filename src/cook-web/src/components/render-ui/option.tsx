@@ -129,12 +129,14 @@ export default function Option(props: ButtonProps) {
             };
             setTempButtons([defaultButton]);
         }
-        props.onChange({
+
+        const updatedProperties = {
             ...properties,
             option_name: tempValue,
             option_key: tempValue,
             buttons: tempButtons
-        });
+        };
+        props.onChange(updatedProperties);
     }
 
     return (

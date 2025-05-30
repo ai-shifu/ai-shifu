@@ -45,14 +45,12 @@ export default function Button(props: ButtonProps) {
             button_name: tempValue,
             button_key: tempValue
         })
-        // 确认后保持 changed 为 true，因为内容确实已经改变
         if (!changed) {
             setChanged(true)
             onChanged?.(true)
         }
     }, [changed, onChanged, properties, props, tempValue])
 
-    // Get the placeholder for input component based on the mode
     const getPlaceholder = () => {
         switch (mode) {
             case 'login':

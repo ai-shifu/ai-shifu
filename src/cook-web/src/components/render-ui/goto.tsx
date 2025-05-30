@@ -91,7 +91,6 @@ export default function Goto(props: GotoProps) {
         const list = await api.getProfileItemOptionList({
             parent_id: id
         })
-        // 更新临时变量
         setTempGotoSettings({
             profile_key: name,
             items: list.map((item) => {
@@ -109,7 +108,6 @@ export default function Goto(props: GotoProps) {
     }, [])
 
     const handleValueChange = async (value: string) => {
-        console.log("in");
         if (!changed) {
             setChanged(true);
             onChanged?.(true);
