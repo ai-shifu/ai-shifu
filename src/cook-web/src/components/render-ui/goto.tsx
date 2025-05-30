@@ -33,6 +33,7 @@ interface GotoProps {
         "button_key": string
     }
     onChange: (properties: any) => void
+    onInputChange?: () => void
 }
 
 export default function Goto(props: GotoProps) {
@@ -60,6 +61,7 @@ export default function Goto(props: GotoProps) {
                 return item
             })
         });
+        props.onInputChange?.(); // Notify parent that input has changed
     }
 
     const handleConfirm = () => {
@@ -110,6 +112,7 @@ export default function Goto(props: GotoProps) {
         if (selectedItem) {
             setSelectedProfile(selectedItem);
             await loadProfileItem(value, selectedItem.profile_key);
+            props.onInputChange?.(); // Notify parent that input has changed
         }
     }
 
