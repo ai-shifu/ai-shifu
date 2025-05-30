@@ -406,16 +406,39 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
             return get_script(app, attend_id, next, preview_mode)
     elif next > 0:
         attend_info.script_index = attend_info.script_index + next
-    script_info = (
-        AILessonScript.query.filter(
-            AILessonScript.lesson_id == attend_info.lesson_id,
-            AILessonScript.status.in_(status),
-            AILessonScript.script_index == attend_info.script_index,
-            AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+
+    subquery = []
+    script_info = None
+    if preview_mode:
+        subquery = (
+            db.session.query(db.func.max(AILessonScript.id))
+            .filter(
+                AILessonScript.lesson_id == (attend_info.lesson_id),
+            )
+            .group_by(AILessonScript.script_id)
         )
-        .order_by(AILessonScript.id.desc())
-        .first()
-    )
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.id.in_(subquery),
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.status.in_(status),
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
+    else:
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.status.in_(status),
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
     if not script_info:
         app.logger.info("no script found")
         app.logger.info(attend_info.lesson_id)
@@ -443,11 +466,16 @@ def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = F
     return script_info, attend_infos, is_first
 
 
-def get_script_by_id(app: Flask, script_id: str) -> AILessonScript:
+def get_script_by_id(
+    app: Flask, script_id: str, preview_mode: bool = False
+) -> AILessonScript:
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     return (
         AILessonScript.query.filter(
             AILessonScript.script_id == script_id,
-            AILessonScript.status == 1,
+            AILessonScript.status.in_(status),
         )
         .order_by(AILessonScript.id.desc())
         .first()
@@ -820,14 +848,34 @@ def check_script_is_last_script(
         .first()
     )
     if last_lesson.lesson_id == script_info.lesson_id:
-        last_script = (
-            AILessonScript.query.filter(
-                AILessonScript.lesson_id == last_lesson.lesson_id,
-                AILessonScript.status.in_(status),
+        subquery = []
+        last_script = None
+        if preview_mode:
+            subquery = (
+                db.session.query(db.func.max(AILessonScript.id))
+                .filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                )
+                .group_by(AILessonScript.script_id)
             )
-            .order_by(AILessonScript.script_index.desc())
-            .first()
-        )
+            last_script = (
+                AILessonScript.query.filter(
+                    AILessonScript.id.in_(subquery),
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                    AILessonScript.status.in_(status),
+                )
+                .order_by(AILessonScript.script_index.desc())
+                .first()
+            )
+        else:
+            last_script = (
+                AILessonScript.query.filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                    AILessonScript.status.in_(status),
+                )
+                .order_by(AILessonScript.script_index.desc())
+                .first()
+            )
         if (
             last_script.script_id == script_info.script_id
             and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_EMPTY]

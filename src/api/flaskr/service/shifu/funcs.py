@@ -274,6 +274,7 @@ def publish_shifu(app, user_id, shifu_id: str):
             to_publish_lessons = get_existing_outlines_for_publish(app, shifu_id)
             for to_publish_lesson in to_publish_lessons:
                 if to_publish_lesson.status == STATUS_TO_DELETE:
+                    # delete the lesson
                     to_publish_lesson.status = STATUS_DELETE
                     AILesson.query.filter(
                         AILesson.lesson_id == to_publish_lesson.lesson_id,
@@ -286,7 +287,8 @@ def publish_shifu(app, user_id, shifu_id: str):
                         }
                     )
                 elif to_publish_lesson.status == STATUS_PUBLISH:
-                    to_publish_lesson.status = STATUS_PUBLISH
+                    # change the lesson status to history
+                    # these logic would be removed in the future
                     AILesson.query.filter(
                         AILesson.lesson_id == to_publish_lesson.lesson_id,
                         AILesson.status.in_([STATUS_PUBLISH]),
@@ -300,11 +302,17 @@ def publish_shifu(app, user_id, shifu_id: str):
                     )
 
                 elif to_publish_lesson.status == STATUS_DRAFT:
-                    to_publish_lesson.status = STATUS_PUBLISH
+                    # create a new lesson to publish
+                    new_lesson = to_publish_lesson.clone()
+                    new_lesson.status = STATUS_PUBLISH
+                    new_lesson.updated_user_id = user_id
+                    new_lesson.updated = datetime.now()
+                    db.session.add(new_lesson)
+                    # change the lesson status to history
                     AILesson.query.filter(
                         AILesson.lesson_id == to_publish_lesson.lesson_id,
                         AILesson.status.in_([STATUS_PUBLISH]),
-                        AILesson.id != to_publish_lesson.id,
+                        AILesson.id < to_publish_lesson.id,
                     ).update(
                         {
                             "status": STATUS_HISTORY,
@@ -312,14 +320,13 @@ def publish_shifu(app, user_id, shifu_id: str):
                             "updated": datetime.now(),
                         }
                     )
-                to_publish_lesson.updated_user_id = user_id
-                to_publish_lesson.updated = datetime.now()
-                db.session.add(to_publish_lesson)
+
             lesson_ids = [lesson.lesson_id for lesson in to_publish_lessons]
             block_scripts = get_existing_blocks_for_publish(app, lesson_ids)
             if block_scripts:
                 for block_script in block_scripts:
                     if block_script.status == STATUS_TO_DELETE:
+                        # delete the block script
                         block_script.status = STATUS_DELETE
                         AILessonScript.query.filter(
                             AILessonScript.script_id == block_script.script_id,
@@ -333,11 +340,17 @@ def publish_shifu(app, user_id, shifu_id: str):
                         )
 
                     elif block_script.status == STATUS_DRAFT:
-                        block_script.status = STATUS_PUBLISH
+                        # create a new block script to publish
+                        new_block_script = block_script.clone()
+                        new_block_script.status = STATUS_PUBLISH
+                        new_block_script.updated_user_id = user_id
+                        new_block_script.updated = datetime.now()
+                        db.session.add(new_block_script)
+                        # change the block status to history
                         AILessonScript.query.filter(
                             AILessonScript.script_id == block_script.script_id,
                             AILessonScript.status.in_([STATUS_PUBLISH]),
-                            AILessonScript.id != block_script.id,
+                            AILessonScript.id < block_script.id,
                         ).update(
                             {
                                 "status": STATUS_HISTORY,
@@ -347,6 +360,8 @@ def publish_shifu(app, user_id, shifu_id: str):
                         )
 
                     elif block_script.status == STATUS_PUBLISH:
+                        # if the block is publish, then we need to change the status to history
+                        # these logic would be removed in the future
                         block_script.status = STATUS_PUBLISH
                         AILessonScript.query.filter(
                             AILessonScript.script_id == block_script.script_id,

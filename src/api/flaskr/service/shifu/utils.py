@@ -158,6 +158,11 @@ def get_existing_blocks_for_publish(app: Flask, outline_ids: list[str]):
 def change_outline_status_to_history(
     outline_info: AILesson, user_id: str, time: datetime
 ):
+    from flask import current_app as app
+
+    app.logger.info(
+        f"change_outline_status_to_history: {outline_info.id} {outline_info.status}"
+    )
     if outline_info.status != STATUS_PUBLISH:
         # if the outline is not publish, then we need to change the status to history
         outline_info.status = STATUS_HISTORY
@@ -169,6 +174,20 @@ def change_outline_status_to_history(
         new_outline.updated_user_id = user_id
         new_outline.updated = time
         db.session.add(new_outline)
+
+
+# mark the outline to delete
+# @author: yfge
+# @date: 2025-05-27
+def mark_outline_to_delete(outline_info: AILesson, user_id: str, time: datetime):
+    from flask import current_app as app
+
+    app.logger.info(f"mark_outline_to_delete: {outline_info.id} {outline_info.status}")
+    delete_outline = outline_info.clone()
+    delete_outline.status = STATUS_TO_DELETE
+    delete_outline.updated_user_id = user_id
+    delete_outline.updated = time
+    db.session.add(delete_outline)
 
 
 # change the block status to history
@@ -194,6 +213,20 @@ def change_block_status_to_history(
         new_block.updated_user_id = user_id
         new_block.updated = time
         db.session.add(new_block)
+
+
+# mark the block to delete
+# @author: yfge
+# @date: 2025-05-27
+def mark_block_to_delete(block_info: AILessonScript, user_id: str, time: datetime):
+    from flask import current_app as app
+
+    app.logger.info(f"mark_block_to_delete: {block_info.id} {block_info.status}")
+    delete_block = block_info.clone()
+    delete_block.status = STATUS_TO_DELETE
+    delete_block.updated_user_id = user_id
+    delete_block.updated = time
+    db.session.add(delete_block)
 
 
 def get_original_outline_tree(app: Flask, shifu_id: str) -> list["OutlineTreeNode"]:
