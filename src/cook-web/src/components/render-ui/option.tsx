@@ -29,10 +29,12 @@ interface ButtonProps {
         }[]
     }
     onChange: (properties: any) => void
+    onChanged?: (changed: boolean) => void
 }
 
 export default function Option(props: ButtonProps) {
-    const { properties } = props;
+    const { properties, onChanged } = props;
+    const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const { option_name, buttons } = properties;
     const [tempValue, setTempValue] = useState(option_name);
@@ -47,6 +49,10 @@ export default function Option(props: ButtonProps) {
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!changed) {
+            setChanged(true);
+            onChanged?.(true);
+        }
         setTempValue(e.target.value);
     }
 
@@ -123,12 +129,14 @@ export default function Option(props: ButtonProps) {
             };
             setTempButtons([defaultButton]);
         }
-        props.onChange({
+
+        const updatedProperties = {
             ...properties,
             option_name: tempValue,
             option_key: tempValue,
             buttons: tempButtons
-        });
+        };
+        props.onChange(updatedProperties);
     }
 
     return (

@@ -39,10 +39,21 @@ const ViewBlockMap = {
     textinput: TextInputView,
 }
 
-export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
+export const BlockUI = ({ id, type, properties, mode = 'edit', onChanged }: {
+    id: any,
+    type: any,
+    properties: any,
+    mode?: string,
+    onChanged?: (changed: boolean) => void
+}) => {
     const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
+
+    const handleChanged = (changed: boolean) => {
+        onChanged?.(changed);
+    }
+
     const onPropertiesChange = async (properties) => {
         const p = {
             ...blockUIProperties,
@@ -58,10 +69,12 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
             setError(err);
             return;
         }
+        actions.setBlockUIPropertiesById(id, properties);
         if (currentNode) {
             actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
         }
     }
+
     useEffect(() => {
         setError('');
     }, [type]);
@@ -78,6 +91,7 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
                 id={id}
                 properties={properties}
                 onChange={onPropertiesChange}
+                onChanged={handleChanged}
             />
             {
                 error && (
@@ -85,7 +99,6 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
                 )
             }
         </>
-
     )
 }
 
@@ -98,6 +111,7 @@ export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block:
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
+    const [isChanged, setIsChanged] = useState(false)
     const { t } = useTranslation();
     const UITypes = useUITypes()
 
@@ -106,20 +120,35 @@ export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block:
         onExpandChange?.(newExpand)
     }
 
+    const handleTypeChange = (type: string) => {
+        handleExpandChange(true);
+        const opt = UITypes.find(p => p.type === type);
+        actions.setBlockUITypesById(block.properties.block_id, type)
+        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        setIsChanged(false);
+    }
+
     const onUITypeChange = (id: string, type: string) => {
         if (type === blockUITypes[block.properties.block_id]) {
             return;
         }
-        setPendingType(type);
-        setShowConfirmDialog(true);
+        if (isChanged) {
+            setPendingType(type);
+            setShowConfirmDialog(true);
+        } else {
+            handleTypeChange(type);
+        }
     }
 
     const handleConfirmChange = () => {
-        handleExpandChange(true);
-        const opt = UITypes.find(p => p.type === pendingType);
-        actions.setBlockUITypesById(block.properties.block_id, pendingType)
-        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        handleTypeChange(pendingType);
         setShowConfirmDialog(false);
+    }
+
+    const handleBlockChanged = (changed: boolean) => {
+        if (changed !== isChanged) {
+            setIsChanged(changed);
+        }
     }
 
     return (
@@ -169,6 +198,7 @@ export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block:
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
                                 mode={mode}
+                                onChanged={handleBlockChanged}
                             />
                         )
                     }

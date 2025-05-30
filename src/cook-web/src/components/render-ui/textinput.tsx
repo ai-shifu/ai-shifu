@@ -22,13 +22,20 @@ interface ButtonProps {
         "input_placeholder": string
     }
     onChange: (properties: any) => void
+    onChanged?: (changed: boolean) => void
 }
 
 export default function TextInput(props: ButtonProps) {
-    const { properties } = props;
+    const { properties, onChanged } = props;
     const [tempProperties, setTempProperties] = useState(properties);
+    const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const onValueChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        if (!changed) {
+            setChanged(true);
+            onChanged?.(true);
+
+        }
         setTempProperties({
             ...tempProperties,
             prompt: {
