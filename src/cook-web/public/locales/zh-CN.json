@@ -365,7 +365,7 @@
   },
   "shifu": {
     "debug": "调试",
-    "new_chapter": "新章节",
+    "new_chapter": "添加章",
     "delete": "删除",
     "ai-block": "AI模块",
     "regular-block": "固定模块",

@@ -195,15 +195,19 @@ const DraggableBlock = ({
                 }
               >
                 <Settings2 className='h-4 w-4' />
-                {type === 'ai' ? t('shifu.setting-regular-block') : t('shifu.setting-ai-block')}
+                {type === 'ai'
+                  ? t('shifu.setting-regular-block')
+                  : t('shifu.setting-ai-block')}
               </div>
-              {type === 'ai' && <div
-                className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
-                onClick={() => onClickDebug?.(id)}
-              >
-                <BugPlay className='h-4 w-4' />
-                {t('shifu.debug')}
-              </div>}
+              {type === 'ai' && (
+                <div
+                  className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
+                  onClick={() => onClickDebug?.(id)}
+                >
+                  <BugPlay className='h-4 w-4' />
+                  {t('shifu.debug')}
+                </div>
+              )}
               <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer'
                 onClick={() => onClickRemove?.(id)}
@@ -224,7 +228,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
   const { profile } = useAuth()
   const ContentTypes = useContentTypes()
-  const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({})
+  const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
+    {}
+  )
 
   useEffect(() => {
     if (profile) {
@@ -338,10 +344,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
             borderRadius: '8px',
             overflow: 'hidden',
             marginTop: '2rem',
+            top: 30,
+            bottom: 0,
             zIndex: 1
           }}
         >
-          <div className='p-2 flex-1 h-full overflow-auto pr-4 w-[240px]'>
+          <div className='p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]'>
             <ol className=' text-sm'>
               <OutlineTree
                 items={chapters}
@@ -352,7 +360,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
             </ol>
             <Button
               variant='outline'
-              className='my-2 h-8 sticky bottom-0 left-4 '
+              className='my-2 h-8 sticky bottom-0 left-4 w-full'
               size='sm'
               onClick={onAddChapter}
             >
@@ -363,87 +371,91 @@ const ScriptEditor = ({ id }: { id: string }) => {
         </div>
 
         <div
-          className='flex-1 flex flex-col gap-4 p-8 pl-1 ml-0 overflow-auto relative text-sm bg-white'
+          className='flex-1 overflow-auto relative text-sm'
           style={{
             paddingLeft: '240px'
           }}
         >
-          {isLoading ? (
-            <div className='h-40 flex items-center justify-center'>
-              <Loading />
-            </div>
-          ) : (
-            <>
-              <DndProvider backend={HTML5Backend}>
-                {blocks.map((block, index) => (
-                  <DraggableBlock
-                    key={block.properties.block_id}
-                    id={block.properties.block_id}
-                    type={
-                      blockContentTypes[block.properties.block_id] as BlockType
-                    }
-                    index={index}
-                    moveBlock={(dragIndex: number, hoverIndex: number) => {
-                      const dragBlock = blocks[dragIndex]
-                      const newBlocks = [...blocks]
-                      newBlocks.splice(dragIndex, 1)
-                      newBlocks.splice(hoverIndex, 0, dragBlock)
-                      actions.setBlocks(newBlocks)
-                      actions.autoSaveBlocks(
-                        currentNode!.id,
-                        newBlocks,
-                        blockContentTypes,
-                        blockContentProperties,
-                        blockUITypes,
-                        blockUIProperties,
-                        currentShifu?.shifu_id || ''
-                      )
-                    }}
-                    onClickChangeType={onChangeBlockType}
-                    onClickDebug={onDebugBlock}
-                    onClickRemove={onRemove}
-                    disabled={expandedBlocks[block.properties.block_id]}
-                  >
-                    <div
+          <div className='bg-white p-8 pl-1 ml-0 gap-4 flex flex-col'>
+            {isLoading ? (
+              <div className='h-40 flex items-center justify-center'>
+                <Loading />
+              </div>
+            ) : (
+              <>
+                <DndProvider backend={HTML5Backend}>
+                  {blocks.map((block, index) => (
+                    <DraggableBlock
+                      key={block.properties.block_id}
                       id={block.properties.block_id}
-                      className='relative flex flex-col gap-2 '
+                      type={
+                        blockContentTypes[
+                          block.properties.block_id
+                        ] as BlockType
+                      }
+                      index={index}
+                      moveBlock={(dragIndex: number, hoverIndex: number) => {
+                        const dragBlock = blocks[dragIndex]
+                        const newBlocks = [...blocks]
+                        newBlocks.splice(dragIndex, 1)
+                        newBlocks.splice(hoverIndex, 0, dragBlock)
+                        actions.setBlocks(newBlocks)
+                        actions.autoSaveBlocks(
+                          currentNode!.id,
+                          newBlocks,
+                          blockContentTypes,
+                          blockContentProperties,
+                          blockUITypes,
+                          blockUIProperties,
+                          currentShifu?.shifu_id || ''
+                        )
+                      }}
+                      onClickChangeType={onChangeBlockType}
+                      onClickDebug={onDebugBlock}
+                      onClickRemove={onRemove}
+                      disabled={expandedBlocks[block.properties.block_id]}
                     >
-                      <div className=' '>
-                        <RenderBlockContent
-                          id={block.properties.block_id}
-                          type={blockContentTypes[block.properties.block_id]}
-                          properties={
-                            blockContentProperties[block.properties.block_id]
-                          }
-                        />
-                      </div>
-                      <RenderBlockUI
-                        block={block}
-                        onExpandChange={(expanded) => {
-                          setExpandedBlocks(prev => ({
-                            ...prev,
-                            [block.properties.block_id]: expanded
-                          }))
-                        }}
-                      />
-                      <div>
-                        <AddBlock
-                          onAdd={(type: BlockType) => {
-                            onAddBlock(index + 1, type, id)
+                      <div
+                        id={block.properties.block_id}
+                        className='relative flex flex-col gap-2 '
+                      >
+                        <div className=' '>
+                          <RenderBlockContent
+                            id={block.properties.block_id}
+                            type={blockContentTypes[block.properties.block_id]}
+                            properties={
+                              blockContentProperties[block.properties.block_id]
+                            }
+                          />
+                        </div>
+                        <RenderBlockUI
+                          block={block}
+                          onExpandChange={expanded => {
+                            setExpandedBlocks(prev => ({
+                              ...prev,
+                              [block.properties.block_id]: expanded
+                            }))
                           }}
                         />
+                        <div>
+                          <AddBlock
+                            onAdd={(type: BlockType) => {
+                              onAddBlock(index + 1, type, id)
+                            }}
+                          />
+                        </div>
                       </div>
-                    </div>
-                  </DraggableBlock>
-                ))}
-              </DndProvider>
-              {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
-                <div className='flex flex-row items-center justify-start h-6 pl-8'>
-                  <AddBlock onAdd={onAddBlock.bind(null, 0, 'ai', id)} />
-                </div>
-              )}
-            </>
-          )}
+                    </DraggableBlock>
+                  ))}
+                </DndProvider>
+                {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
+                  <div className='flex flex-row items-center justify-start h-6 pl-8'>
+                    <AddBlock onAdd={onAddBlock.bind(null, 0, 'ai', id)} />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
       {debugBlockInfo.visible && (
