@@ -1,5 +1,5 @@
 import { SSE } from 'sse.js';
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from "axios";
 import { message } from "antd";
 import { tokenTool } from "./storeUtil";
 import { v4 } from "uuid";
@@ -18,7 +18,7 @@ export const SendMsg = (
   token: string,
   chatId: string,
   text: string,
-  onMessage?: (response: any) => void
+  onMessage?: (response: unknown) => void
 ): SSE => {
   var source = new SSE(getStringEnv('baseURL')+"/chat/chat-assistant?token="+token, {
     headers: { "Content-Type": "application/json" },
@@ -59,16 +59,19 @@ const axiosrequest: AxiosInstance = axios.create({
 });
 
 // 创建请求拦截器
-axiosrequest.interceptors.request.use(async(config: any)=>{
+axiosrequest.interceptors.request.use(async(config: AxiosRequestConfig)=>{
   config.baseURL = getStringEnv('baseURL');
-  config.headers.token = tokenTool.get().token;
-  config.headers["X-Request-ID"] = v4().replace(/-/g, '');
+  if (!config.headers) {
+    config.headers = {};
+  }
+  (config.headers as Record<string, unknown>)["token"] = tokenTool.get().token;
+  (config.headers as Record<string, unknown>)["X-Request-ID"] = v4().replace(/-/g, '');
   return config;
 });
 
 // 创建响应拦截器
 axiosrequest.interceptors.response.use(
-  (response: any) => {
+  (response: AxiosResponse<ApiResponse>) => {
     if(response.data.code !== 0) {
       if (![1001].includes(response.data.code)) {
         message.error({content:response.data.message});
@@ -78,7 +81,7 @@ axiosrequest.interceptors.response.use(
       return Promise.reject(response.data);
     }
     return response.data;
-  }, (error: any) => {
+  }, (error: AxiosError) => {
     const { t } = useTranslation();
     const apiError = new CustomEvent("apiError", {detail:error});
     document.dispatchEvent(apiError);

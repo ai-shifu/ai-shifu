@@ -8,6 +8,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { removeParamFromUrl } from 'Utils/urlUtils';
 import i18n from '../i18n';
 import { UserStoreState } from '../types/store';
+import { UserInfo } from '../types';
 import { useEnvStore } from './envStore';
 
 export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
@@ -15,7 +16,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
     hasCheckLogin: false,
     hasLogin: false,
     userInfo: null,
-    login: async ({ mobile, smsCode }) => {
+    login: async ({ mobile, smsCode }: { mobile: string; smsCode: string }) => {
       const courseId = useEnvStore.getState().courseId;
       const res = await verifySmsCode({ mobile, sms_code: smsCode, course_id: courseId });
       const { userInfo, token } = res.data;
@@ -92,7 +93,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       state.checkLoginForce();
     },
 
-    logout: async (reload = true) => {
+    logout: async (reload: boolean = true) => {
       const res = await registerTmp({ temp_id: genUuid() });
       const token = res.data.token;
       await tokenTool.set({ token, faked: true });
@@ -112,7 +113,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
     },
 
     // 更新用户信息
-    updateUserInfo: (userInfo) => {
+    updateUserInfo: (userInfo: Partial<UserInfo>) => {
       set((state) => {
         return {
           userInfo: {
@@ -135,6 +136,6 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
 
     },
 
-    updateHasCheckLogin: (hasCheckLogin) => set(() => ({ hasCheckLogin })),
+    updateHasCheckLogin: (hasCheckLogin: boolean) => set(() => ({ hasCheckLogin })),
   }))
 );
