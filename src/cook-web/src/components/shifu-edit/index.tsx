@@ -141,7 +141,7 @@ const DraggableBlock = ({
       ref={ref}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       data-handler-id={handlerId}
-      className='group pl-7'
+      className='group'
     >
       <div
         ref={dragRef}
@@ -232,6 +232,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
     {}
   )
+  const [foldOutlineTree, setFoldOutlineTree] = useState(false)
 
   useEffect(() => {
     if (profile) {
@@ -340,52 +341,59 @@ const ScriptEditor = ({ id }: { id: string }) => {
         }}
       >
         <div
+          className='my-2'
           style={{
             position: 'fixed',
             borderRadius: '8px',
             overflow: 'hidden',
-            marginTop: '2rem',
             display: 'flex',
             flexDirection: 'column',
-            top: 30,
+            top: 48,
             bottom: 0,
             zIndex: 1
           }}
         >
-          <div className='p-3 flex items-center justify-between gap-3'>
-            <div className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'>
+          <div className='px-3 flex items-center justify-between gap-3'>
+            <div
+              onClick={() => setFoldOutlineTree(!foldOutlineTree)}
+              className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
+            >
               <ListCollapse className='h-5 w-5' />
             </div>
-            <Button
-              variant='outline'
-              className='my-2 h-8 bottom-0 left-4 flex-1'
-              size='sm'
-              onClick={onAddChapter}
-            >
-              <Plus />
-              {t('shifu.new_chapter')}
-            </Button>
+            {!foldOutlineTree && (
+              <Button
+                variant='outline'
+                className='h-8 bottom-0 left-4 flex-1'
+                size='sm'
+                onClick={onAddChapter}
+              >
+                <Plus />
+                {t('shifu.new_chapter')}
+              </Button>
+            )}
           </div>
 
-          <div className='p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]'>
-            <ol className=' text-sm'>
-              <OutlineTree
-                items={chapters}
-                onChange={newChapters => {
-                  actions.setChapters([...newChapters])
-                }}
-              />
-            </ol>
-          </div>
+          {!foldOutlineTree && (
+            <div className='p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]'>
+              <ol className=' text-sm'>
+                <OutlineTree
+                  items={chapters}
+                  onChange={newChapters => {
+                    actions.setChapters([...newChapters])
+                  }}
+                />
+              </ol>
+            </div>
+          )}
         </div>
 
         <div
           className='flex-1 overflow-auto relative text-sm'
           style={{
-            paddingLeft: '240px'
+            paddingLeft: foldOutlineTree ? 80 : 260
           }}
         >
-          <div className='bg-white p-8 pl-1 ml-0 gap-4 flex flex-col'>
+          <div className='my-2 bg-white p-8 gap-4 flex flex-col rounded shadow-md'>
             {isLoading ? (
               <div className='h-40 flex items-center justify-center'>
                 <Loading />
