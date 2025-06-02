@@ -8,7 +8,7 @@ import {
 import React, { useState } from 'react'
 import { Outline } from '@/types/shifu'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, Edit, Save } from 'lucide-react'
+import { Plus, Trash2, Edit, Save, Settings, MoreVertical } from 'lucide-react'
 import { InlineInput } from '../inline-input'
 import { useShifu } from '@/store/useShifu'
 import Loading from '../loading'
@@ -24,6 +24,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '../ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator
+} from '../ui/dropdown-menu'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 interface ICataTreeProps {
   currentNode?: Outline
@@ -156,7 +164,7 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
           onClick={onSelect}
         >
-          <span className='flex flex-row items-center w-40 whitespace-nowrap overflow-hidden text-ellipsis'>
+          <span className='flex flex-row items-center whitespace-nowrap overflow-hidden text-ellipsis'>
             <InlineInput
               isEdit={focusId === props.item.id}
               value={cataData[props.item.id!]?.name || ''}
@@ -176,60 +184,103 @@ const MinimalTreeItemComponent = React.forwardRef<
           {(props.item?.depth || 0 > 0) && (
             <div className='items-center space-x-2 hidden group-hover:flex'>
               {props.item.id !== 'new_chapter' ? (
-                <>
-                  <Edit
-                    className='cursor-pointer h-4 w-4 text-gray-500'
-                    onClick={editNode}
-                  />
-                  <div
-                    onClick={e => {
-                      e.stopPropagation()
-                    }}
-                  >
-                    <ChapterSetting unitId={props.item.id} />
-                  </div>
-                </>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-8 w-8 relative'
+                    >
+                      <MoreVertical className='h-4 w-4' />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className='w-[160px]'>
+                    <DropdownMenuItem onClick={editNode}>
+                      <Edit className='mr-2 h-4 w-4' />
+                      <span>{t('outline-tree.edit')}</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={e => {
+                        e.stopPropagation()
+                      }}
+                    >
+                      <Settings className='mr-2 h-4 w-4' />
+                      <ChapterSetting unitId={props.item.id} />
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={removeNode}
+                      className='text-destructive'
+                    >
+                      <Trash2 className='mr-2 h-4 w-4' />
+                      <span>{t('outline-tree.delete')}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               ) : (
                 <>
                   <Save className='cursor-pointer h-4 w-4 text-gray-500' />
+                  <Trash2 className='mr-2 h-4 w-4' onClick={removeNode} />
                 </>
               )}
-              <Trash2
-                className='cursor-pointer h-4 w-4 text-gray-500'
-                onClick={removeNode}
-              />
             </div>
           )}
           {(props.item?.depth || 0) <= 0 && (
-            <div className='items-center space-x-2 hidden group-hover:flex'>
+            <div className='items-center space-x-2 hidden flex group-hover:flex'>
               {props.item.id !== 'new_chapter' ? (
                 <>
-                  <Edit
-                    className='cursor-pointer h-4 w-4 text-gray-500'
-                    onClick={editNode}
-                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant='outline' size='icon' className='h-8 w-8 relative'>
+                        <MoreVertical className='h-4 w-4' />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      side='bottom'
+                      align='start'
+                      className='w-[160px]'
+                      style={{
+                        marginTop: '4px',
+                        marginLeft: '0px'
+                      }}
+                    >
+                      <DropdownMenuItem onClick={editNode}>
+                        <Edit className='mr-2 h-4 w-4' />
+                        <span>{t('outline-tree.edit')}</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={removeNode}
+                        className='text-destructive'
+                      >
+                        <Trash2 className='mr-2 h-4 w-4' />
+                        <span>{t('outline-tree.delete')}</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   {cataData[props.item.id!]?.status == 'saving' && (
                     <Loading className='h-4 w-4' />
                   )}
                   {cataData[props.item.id!]?.status !== 'saving' && (
-                    <Plus
-                      className='cursor-pointer h-4 w-4 text-gray-500'
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-8 w-8'
                       onClick={e => {
                         e.stopPropagation()
                         onAddNodeClick?.(props.item)
                       }}
-                    />
+                    >
+                      <Plus className='h-4 w-4' />
+                    </Button>
                   )}
                 </>
               ) : (
                 <>
                   <Save className='cursor-pointer h-4 w-4 text-gray-500' />
+                  <Trash2 className='mr-2 h-4 w-4' onClick={removeNode} />
                 </>
               )}
-              <Trash2
-                className='cursor-pointer h-4 w-4 text-gray-500'
-                onClick={removeNode}
-              />
             </div>
           )}
         </div>
