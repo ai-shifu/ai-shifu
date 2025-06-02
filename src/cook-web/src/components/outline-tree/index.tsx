@@ -182,19 +182,24 @@ const MinimalTreeItemComponent = React.forwardRef<
             </div>
           )}
           {(props.item?.depth || 0 > 0) && (
-            <div className='items-center space-x-2 hidden group-hover:flex'>
+            <div className='items-center space-x-2 group-hover:flex'>
               {props.item.id !== 'new_chapter' ? (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant='ghost'
                       size='icon'
-                      className='h-8 w-8 relative'
+                      className='h-8 w-8'
                     >
                       <MoreVertical className='h-4 w-4' />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className='w-[160px]'>
+                  <DropdownMenuContent
+                    align='start'
+                    side='bottom'
+                    alignOffset={-5}
+                    className='w-[160px]'
+                  >
                     <DropdownMenuItem onClick={editNode}>
                       <Edit className='mr-2 h-4 w-4' />
                       <span>{t('outline-tree.edit')}</span>
@@ -226,23 +231,24 @@ const MinimalTreeItemComponent = React.forwardRef<
             </div>
           )}
           {(props.item?.depth || 0) <= 0 && (
-            <div className='items-center space-x-2 hidden flex group-hover:flex'>
+            <div className='items-center space-x-2 flex group-hover:flex'>
               {props.item.id !== 'new_chapter' ? (
                 <>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant='outline' size='icon' className='h-8 w-8 relative'>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-8 w-8'
+                      >
                         <MoreVertical className='h-4 w-4' />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent
-                      side='bottom'
                       align='start'
+                      side='bottom'
+                      alignOffset={-5}
                       className='w-[160px]'
-                      style={{
-                        marginTop: '4px',
-                        marginLeft: '0px'
-                      }}
                     >
                       <DropdownMenuItem onClick={editNode}>
                         <Edit className='mr-2 h-4 w-4' />
