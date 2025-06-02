@@ -10,7 +10,8 @@ import {
   Trash2,
   SquarePen,
   BugPlay,
-  Settings2
+  Settings2,
+  ListCollapse
 } from 'lucide-react'
 import { useShifu, useAuth } from '@/store'
 import OutlineTree from '@/components/outline-tree'
@@ -344,11 +345,28 @@ const ScriptEditor = ({ id }: { id: string }) => {
             borderRadius: '8px',
             overflow: 'hidden',
             marginTop: '2rem',
+            display: 'flex',
+            flexDirection: 'column',
             top: 30,
             bottom: 0,
             zIndex: 1
           }}
         >
+          <div className='p-3 flex items-center justify-between gap-3'>
+            <div className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'>
+              <ListCollapse className='h-5 w-5' />
+            </div>
+            <Button
+              variant='outline'
+              className='my-2 h-8 bottom-0 left-4 flex-1'
+              size='sm'
+              onClick={onAddChapter}
+            >
+              <Plus />
+              {t('shifu.new_chapter')}
+            </Button>
+          </div>
+
           <div className='p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]'>
             <ol className=' text-sm'>
               <OutlineTree
@@ -358,15 +376,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 }}
               />
             </ol>
-            <Button
-              variant='outline'
-              className='my-2 h-8 sticky bottom-0 left-4 w-full'
-              size='sm'
-              onClick={onAddChapter}
-            >
-              <Plus />
-              {t('shifu.new_chapter')}
-            </Button>
           </div>
         </div>
 
