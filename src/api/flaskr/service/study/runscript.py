@@ -257,12 +257,10 @@ def run_script_inner(
                         .group_by(AILesson.lesson_id)
                     )
 
-                    lesson_info = (
-                        AILesson.query.filter(
-                            AILesson.id.in_(subquery),
-                            AILesson.status.in_(ai_course_status),
-                        ).first()
-                    )
+                    lesson_info = AILesson.query.filter(
+                        AILesson.id.in_(subquery),
+                        AILesson.status.in_(ai_course_status),
+                    ).first()
                 else:
                     lesson_info = AILesson.query.filter(
                         AILesson.lesson_id == lesson_id,
