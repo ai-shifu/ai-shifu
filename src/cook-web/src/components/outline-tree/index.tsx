@@ -8,7 +8,7 @@ import {
 import React, { useState } from 'react'
 import { Outline } from '@/types/shifu'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, Edit, Save, Settings, MoreVertical } from 'lucide-react'
+import { Plus, Trash2, Edit, Settings, MoreVertical } from 'lucide-react'
 import { InlineInput } from '../inline-input'
 import { useShifu } from '@/store/useShifu'
 import Loading from '../loading'
@@ -33,6 +33,8 @@ import {
 } from '../ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
+import { useAlert } from '@/components/ui/use-alert'
+
 interface ICataTreeProps {
   currentNode?: Outline
   items: TreeItems<Outline>
@@ -42,7 +44,7 @@ interface ICataTreeProps {
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
   const { items, onChange } = props
-  const { actions } = useShifu()
+  const { actions, focusId } = useShifu()
   const onItemsChanged = async (
     data: TreeItems<Outline>,
     reason: ItemChangedReason<Outline>
@@ -64,7 +66,7 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
 
   return (
     <SortableTree
-      disableSorting={false}
+      disableSorting={!!focusId}
       items={items}
       indentationWidth={20}
       onItemsChanged={onItemsChanged}
@@ -89,8 +91,22 @@ const MinimalTreeItemComponent = React.forwardRef<
 >((props, ref) => {
   const { focusId, actions, cataData, currentNode, currentShifu } = useShifu()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
   const { t } = useTranslation()
+  const alert = useAlert()
   const onNodeChange = async (value: string) => {
+    if (!value || value.trim() === '') {
+      alert.showAlert({
+        title: t('outline-tree.name-required'),
+        description: '',
+        confirmText: t('common.confirm'),
+        onConfirm () {
+          actions.removeOutline(props.item)
+          actions.setFocusId('')
+        }
+      })
+      return
+    }
     if (props.item.depth == 0) {
       await actions.createChapter({
         parent_id: props.item.parentId,
@@ -182,15 +198,18 @@ const MinimalTreeItemComponent = React.forwardRef<
             </div>
           )}
           {(props.item?.depth || 0 > 0) && (
-            <div className='items-center space-x-2 group-hover:flex'>
+            <div
+              className={cn(
+                'items-center space-x-2 flex',
+                !dropdownOpen
+                  ? 'group-hover:opacity-100 opacity-0 transition-opacity'
+                  : 'opacity-100'
+              )}
+            >
               {props.item.id !== 'new_chapter' ? (
-                <DropdownMenu>
+                <DropdownMenu onOpenChange={setDropdownOpen}>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-8 w-8'
-                    >
+                    <Button variant='ghost' size='icon' className='h-8 w-8'>
                       <MoreVertical className='h-4 w-4' />
                     </Button>
                   </DropdownMenuTrigger>
@@ -224,23 +243,25 @@ const MinimalTreeItemComponent = React.forwardRef<
                 </DropdownMenu>
               ) : (
                 <>
-                  <Save className='cursor-pointer h-4 w-4 text-gray-500' />
                   <Trash2 className='mr-2 h-4 w-4' onClick={removeNode} />
                 </>
               )}
             </div>
           )}
           {(props.item?.depth || 0) <= 0 && (
-            <div className='items-center space-x-2 flex group-hover:flex'>
+            <div
+              className={cn(
+                'items-center space-x-2 flex',
+                !dropdownOpen
+                  ? 'group-hover:opacity-100 opacity-0 transition-opacity'
+                  : 'opacity-100'
+              )}
+            >
               {props.item.id !== 'new_chapter' ? (
                 <>
-                  <DropdownMenu>
+                  <DropdownMenu onOpenChange={setDropdownOpen}>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-8 w-8'
-                      >
+                      <Button variant='ghost' size='icon' className='h-8 w-8'>
                         <MoreVertical className='h-4 w-4' />
                       </Button>
                     </DropdownMenuTrigger>
@@ -283,7 +304,6 @@ const MinimalTreeItemComponent = React.forwardRef<
                 </>
               ) : (
                 <>
-                  <Save className='cursor-pointer h-4 w-4 text-gray-500' />
                   <Trash2 className='mr-2 h-4 w-4' onClick={removeNode} />
                 </>
               )}

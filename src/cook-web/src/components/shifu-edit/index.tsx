@@ -466,7 +466,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   ))}
                 </DndProvider>
                 {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
-                  <div className='flex flex-row items-center justify-start h-6 pl-8'>
+                  <div className='flex flex-row items-center justify-start h-6'>
                     <AddBlock onAdd={onAddBlock.bind(null, 0, 'ai', id)} />
                   </div>
                 )}
