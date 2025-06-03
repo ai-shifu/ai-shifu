@@ -41,10 +41,12 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   }
 
   const handleRun = () => {
+    setErrorTips('')
     if (!isValidBilibiliUrl(inputUrl)) {
       setErrorTips(t('common.please-input-valid-bilibili-url'))
       return
     }
+
 
     const newEmbedUrl = generateEmbedUrl(inputUrl)
 
