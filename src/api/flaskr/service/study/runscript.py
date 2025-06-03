@@ -224,11 +224,11 @@ def run_script_inner(
                 if course_id:
                     course_info = AICourse.query.filter(
                         AICourse.course_id == course_id,
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     ).first()
                 else:
                     course_info = AICourse.query.filter(
-                        AICourse.status == 1,
+                        AICourse.status.in_(ai_course_status),
                     ).first()
                     if course_info is None:
                         raise_error("LESSON.HAS_NOT_LESSON")
@@ -261,9 +261,7 @@ def run_script_inner(
                         AILesson.query.filter(
                             AILesson.id.in_(subquery),
                             AILesson.status.in_(ai_course_status),
-                        )
-                        .order_by(AILesson.id.desc())
-                        .first()
+                        ).first()
                     )
                 else:
                     lesson_info = AILesson.query.filter(
