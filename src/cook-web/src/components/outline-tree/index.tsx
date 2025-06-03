@@ -101,7 +101,7 @@ const MinimalTreeItemComponent = React.forwardRef<
       })
     } else if (props.item.depth == 1) {
       await actions.createUnit({
-        parent_id: props.item.parentId, // cataData[props.item.id!]?.parent_id,
+        parent_id: props.item.parentId,
         id: props.item.id,
         name: value,
         children: [],

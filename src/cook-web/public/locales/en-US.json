@@ -273,10 +273,11 @@
     "select-chapter": "Select Outline"
   },
   "outline-tree": {
-    "cancel": "Cancel",
-    "confirm": "Confirm",
+    "name-required": "Chapter name cannot be empty",
     "confirm-delete": "Confirm Delete",
-    "confirm-delete-description": "Your operation will cause the current content to be lost, whether to confirm?"
+    "confirm-delete-description": "This action cannot be undone. Are you sure you want to delete?",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
   },
   "preview": {
     "auto-skip": "Auto Skip",
