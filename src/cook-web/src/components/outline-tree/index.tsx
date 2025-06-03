@@ -8,11 +8,16 @@ import {
 import React, { useState } from 'react'
 import { Outline } from '@/types/shifu'
 import { cn } from '@/lib/utils'
-import { Plus, Trash2, Edit, Settings, MoreVertical } from 'lucide-react'
+import {
+  Plus,
+  Trash2,
+  Edit,
+  SlidersHorizontal,
+  MoreVertical
+} from 'lucide-react'
 import { InlineInput } from '../inline-input'
 import { useShifu } from '@/store/useShifu'
 import Loading from '../loading'
-import ChapterSetting from '../chapter-setting'
 import { ItemChangedReason } from '../dnd-kit-sortable-tree/types'
 import {
   AlertDialog,
@@ -34,6 +39,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useTranslation } from 'react-i18next'
 import { useAlert } from '@/components/ui/use-alert'
+import ChapterSettingsDialog from '../chapter-setting'
 
 interface ICataTreeProps {
   currentNode?: Outline
@@ -92,6 +98,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const { focusId, actions, cataData, currentNode, currentShifu } = useShifu()
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false)
   const { t } = useTranslation()
   const alert = useAlert()
   const onNodeChange = async (value: string) => {
@@ -226,10 +233,11 @@ const MinimalTreeItemComponent = React.forwardRef<
                     <DropdownMenuItem
                       onClick={e => {
                         e.stopPropagation()
+                        setSettingsDialogOpen(true)
                       }}
                     >
-                      <Settings className='mr-2 h-4 w-4' />
-                      <ChapterSetting unitId={props.item.id} />
+                      <SlidersHorizontal className='mr-2 h-4 w-4' />
+                      <span>{t('outline-tree.setting')}</span>
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -311,7 +319,11 @@ const MinimalTreeItemComponent = React.forwardRef<
           )}
         </div>
       </SimpleTreeItemWrapper>
-
+      <ChapterSettingsDialog
+        unitId={props.item.id}
+        open={settingsDialogOpen}
+        onOpenChange={setSettingsDialogOpen}
+      />
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

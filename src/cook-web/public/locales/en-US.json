@@ -277,7 +277,10 @@
     "confirm-delete": "Confirm Delete",
     "confirm-delete-description": "This action cannot be undone. Are you sure you want to delete?",
     "cancel": "Cancel",
-    "confirm": "Confirm"
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "delete": "Delete",
+    "setting": "Setting"
   },
   "preview": {
     "auto-skip": "Auto Skip",
