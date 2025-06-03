@@ -277,7 +277,10 @@
     "confirm-delete": "确认删除",
     "confirm-delete-description": "删除后将无法恢复，是否确认删除？",
     "cancel": "取消",
-    "confirm": "确认"
+    "confirm": "确认",
+    "edit": "编辑",
+    "delete": "删除",
+    "setting": "设置"
   },
   "preview": {
     "auto-skip": "自动跳过",
@@ -366,7 +369,7 @@
   },
   "shifu": {
     "debug": "调试",
-    "new_chapter": "新章节",
+    "new_chapter": "添加章",
     "delete": "删除",
     "ai-block": "AI模块",
     "regular-block": "固定模块",

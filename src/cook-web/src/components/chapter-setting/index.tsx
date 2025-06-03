@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { SlidersHorizontal } from 'lucide-react';
 import { TextareaAutosize } from '@/components/ui/textarea-autosize';
 import api from '@/api';
 import Loading from '../loading';
@@ -12,17 +11,15 @@ import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
 
-const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpenChange?: (open: boolean) => void }) => {
+const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string; open: boolean; onOpenChange?: (open: boolean) => void; }) => {
     const { currentShifu } = useShifu();
     const { t } = useTranslation();
-    const [open, setOpen] = useState(false);
     const [chapterType, setChapterType] = useState("normal");
     const [systemPrompt, setSystemPrompt] = useState("");
     const [hideChapter, setHideChapter] = useState(true);
     const [loading, setLoading] = useState(false);
 
     const init = useCallback(async () => {
-        setOpen(true);
         setLoading(true);
         const result = await api.getUnitInfo({
             unit_id: unitId,
@@ -42,7 +39,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
             "unit_type": chapterType,
             "shifu_id": currentShifu?.shifu_id
         })
-        setOpen(false);
+        onOpenChange?.(false);
     }
 
     useEffect(() => {
@@ -66,13 +63,9 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                     document.activeElement?.getAttribute('role') === 'checkbox') {
                     return;
                 }
-                setOpen(newOpen);
                 onOpenChange?.(newOpen);
             }}
         >
-            <DialogTrigger asChild>
-                <SlidersHorizontal className='cursor-pointer h-4 w-4 text-gray-500' />
-            </DialogTrigger>
             <DialogContent
                 className="sm:max-w-lg lg:max-w-[70vw] bg-gray-100"
                 onPointerDown={(e) => {
@@ -136,7 +129,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                     )
                 }
                 <div className="flex justify-end space-x-2 pt-4">
-                    <Button variant="outline" onClick={() => setOpen(false)}>
+                    <Button variant="outline" onClick={()=> onOpenChange?.(false)}>
                         {t('common.cancel')}
                     </Button>
                     <Button disabled={loading} onClick={onConfirm}>
