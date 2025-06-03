@@ -1,5 +1,5 @@
-import '@chatui/core/dist/index.css';
-import Chat, { useMessages } from '@chatui/core';
+import '@ai-shifu/chatui/dist/index.css';
+import Chat, { useMessages } from '@ai-shifu/chatui';
 import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled } from '@ant-design/icons';
 import {
   useEffect,
@@ -511,12 +511,6 @@ export const ChatComponents = forwardRef(
       ]
     );
 
-    const onImageLoaded = useCallback(() => {
-      if (!autoScroll) {
-        return;
-      }
-      scrollToBottom();
-    }, [autoScroll, scrollToBottom]);
 
     useEffect(() => {
       if (!loadedData) {
@@ -815,7 +809,6 @@ export const ChatComponents = forwardRef(
                 content={content}
                 isStreaming={isStreaming}
                 mobileStyle={mobileStyle}
-                onImageLoaded={onImageLoaded}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
               {((msg.isComplete || msg.logid) && msg.position == 'left') && renderMessageContentOperation(msg)}
@@ -824,7 +817,7 @@ export const ChatComponents = forwardRef(
         }
         return <></>;
       },
-      [isStreaming, mobileStyle, onImageLoaded, renderMessageContentOperation]
+      [isStreaming, mobileStyle, renderMessageContentOperation]
     );
 
     const onChatInputSend = useCallback(
