@@ -39,10 +39,21 @@ const ViewBlockMap = {
     textinput: TextInputView,
 }
 
-export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
+export const BlockUI = ({ id, type, properties, mode = 'edit', onChanged }: {
+    id: any,
+    type: any,
+    properties: any,
+    mode?: string,
+    onChanged?: (changed: boolean) => void
+}) => {
     const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
+
+    const handleChanged = (changed: boolean) => {
+        onChanged?.(changed);
+    }
+
     const onPropertiesChange = async (properties) => {
         const p = {
             ...blockUIProperties,
@@ -58,10 +69,12 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
             setError(err);
             return;
         }
+        actions.setBlockUIPropertiesById(id, properties);
         if (currentNode) {
             actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
         }
     }
+
     useEffect(() => {
         setError('');
     }, [type]);
@@ -78,6 +91,7 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
                 id={id}
                 properties={properties}
                 onChange={onPropertiesChange}
+                onChanged={handleChanged}
             />
             {
                 error && (
@@ -85,11 +99,10 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
                 )
             }
         </>
-
     )
 }
 
-export const RenderBlockUI = ({ block, mode = 'edit' }) => {
+export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) => {
     const {
         actions,
         blockUITypes,
@@ -98,28 +111,50 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
+    const [isChanged, setIsChanged] = useState(false)
     const { t } = useTranslation();
     const UITypes = useUITypes()
+
+    const handleExpandChange = (newExpand: boolean) => {
+        setExpand(newExpand)
+        onExpandChange?.(newExpand)
+    }
+
+    const handleTypeChange = (type: string) => {
+        handleExpandChange(true);
+        const opt = UITypes.find(p => p.type === type);
+        actions.setBlockUITypesById(block.properties.block_id, type)
+        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        setIsChanged(false);
+    }
+
     const onUITypeChange = (id: string, type: string) => {
         if (type === blockUITypes[block.properties.block_id]) {
             return;
         }
-        setPendingType(type);
-        setShowConfirmDialog(true);
+        if (isChanged) {
+            setPendingType(type);
+            setShowConfirmDialog(true);
+        } else {
+            handleTypeChange(type);
+        }
     }
 
     const handleConfirmChange = () => {
-        setExpand(true);
-        const opt = UITypes.find(p => p.type === pendingType);
-        actions.setBlockUITypesById(block.properties.block_id, pendingType)
-        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        handleTypeChange(pendingType);
         setShowConfirmDialog(false);
+    }
+
+    const handleBlockChanged = (changed: boolean) => {
+        if (changed !== isChanged) {
+            setIsChanged(changed);
+        }
     }
 
     return (
         <>
-            <div className='bg-[#F5F5F4] rounded-md p-2 space-y-1'>
-                <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => setExpand(!expand)}>
+            <div className='bg-[#F8F8F8] rounded-md p-2 space-y-1'>
+                <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => handleExpandChange(!expand)}>
                     <div className='flex flex-row items-center space-x-1'>
                         <span>
                             {t('render-ui.user-operation')}
@@ -142,7 +177,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
                         </Select>
                     </div>
 
-                    <div className='flex flex-row items-center space-x-1 cursor-pointer' onClick={() => setExpand(!expand)}>
+                    <div className='flex flex-row items-center space-x-1 cursor-pointer' onClick={() => handleExpandChange(!expand)}>
                         <ChevronDown className={cn(
                             "h-5 w-5 transition-transform duration-200 ease-in-out",
                             expand ? 'rotate-180' : ''
@@ -163,6 +198,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
                                 mode={mode}
+                                onChanged={handleBlockChanged}
                             />
                         )
                     }

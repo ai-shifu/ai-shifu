@@ -10,7 +10,8 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
+  DialogTitle,
+  DialogOverlay
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -149,7 +150,14 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
           onOpenChange?.(!open)
         }}
       >
-        <DialogContent className='sm:max-w-[500px]'>
+        <DialogOverlay
+          className='fixed inset-0 bg-black/50 z-[100]'
+          onClick={e => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+        />
+        <DialogContent className='z-[101] sm:max-w-[500px]'>
           <DialogHeader>
             <DialogTitle>{isEditing ? t('profiles.edit-variable') : t('profiles.add-new-variable')}</DialogTitle>
             <DialogDescription>

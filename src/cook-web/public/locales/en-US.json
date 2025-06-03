@@ -51,6 +51,7 @@
     "favorites": "Favorites",
     "follow": "Follow",
     "home": "Home",
+    "image-name": "Image Name",
     "logout": "Logout",
     "no-more-shifus": "No More Shifus",
     "no-shifus": "No Shifus",
@@ -61,7 +62,9 @@
     "shifu": "Shifu",
     "unknown-error": "Unknown Error",
     "use-image": "Use Image",
-    "use-resource": "Use Resource"
+    "use-resource": "Use Resource",
+    "video-title": "Video Title",
+    "video-title-placeholder": "Please Input Video Title"
   },
   "shifu-setting": {
     "add-keyword": "Add Keyword",
@@ -119,7 +122,10 @@
     "upload": "Upload",
     "upload-failed": "Upload Failed",
     "uploading": "Uploading",
-    "url": "URL"
+    "url": "URL",
+    "image-title": "Image Title",
+    "image-title-placeholder": "Please Input Image Title",
+    "image-scale": "Image Scale"
   },
   "goto": {
     "button-name": "Button Name",
@@ -267,10 +273,11 @@
     "select-chapter": "Select Outline"
   },
   "outline-tree": {
-    "cancel": "Cancel",
-    "confirm": "Confirm",
+    "name-required": "Chapter name cannot be empty",
     "confirm-delete": "Confirm Delete",
-    "confirm-delete-description": "Your operation will cause the current content to be lost, whether to confirm?"
+    "confirm-delete-description": "This action cannot be undone. Are you sure you want to delete?",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
   },
   "preview": {
     "auto-skip": "Auto Skip",
@@ -359,7 +366,12 @@
   },
   "shifu": {
     "debug": "Debug",
-    "new_chapter": "New Chapter"
+    "new_chapter": "New Chapter",
+    "delete": "Delete",
+    "ai-block": "AI Block",
+    "regular-block": "Regular Block",
+    "setting-ai-block": "Setting as AI Block",
+    "setting-regular-block": "Setting as regular Block"
   },
   "social": {
     "about-us": "About Us",

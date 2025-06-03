@@ -22,13 +22,20 @@ interface ButtonProps {
         "input_placeholder": string
     }
     onChange: (properties: any) => void
+    onChanged?: (changed: boolean) => void
 }
 
 export default function TextInput(props: ButtonProps) {
-    const { properties } = props;
+    const { properties, onChanged } = props;
     const [tempProperties, setTempProperties] = useState(properties);
+    const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const onValueChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        if (!changed) {
+            setChanged(true);
+            onChanged?.(true);
+
+        }
         setTempProperties({
             ...tempProperties,
             prompt: {
@@ -107,6 +114,7 @@ export default function TextInput(props: ButtonProps) {
                 <TextareaAutosize
                     value={tempProperties.prompt.properties.prompt}
                     onChange={onValueChange}
+                    maxRows={20}
                 />
             </div>
             <div className='flex flex-row items-center space-x-1'>

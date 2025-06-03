@@ -9,6 +9,8 @@ from .funcs import (
     save_shifu_detail,
     get_shifu_detail,
     upload_file,
+    upload_url,
+    get_video_info,
     shifu_permission_verification,
 )
 from .outline_funcs import (
@@ -1194,5 +1196,85 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if not file:
             raise_param_error("file")
         return make_common_response(upload_file(app, user_id, resource_id, file))
+
+    @app.route(path_prefix + "/url-upfile", methods=["POST"])
+    def upload_url_api():
+        """
+        upload url to oss
+        ---
+        tags:
+            - shifu
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    url:
+                        type: string
+                        description: url
+        responses:
+            200:
+                description: upload success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: uploaded file url
+        """
+        user_id = request.user.user_id
+        url = request.get_json().get("url")
+        if not url:
+            raise_param_error("url is required")
+        return make_common_response(upload_url(app, user_id, url))
+
+    @app.route(path_prefix + "/get-video-info", methods=["POST"])
+    def get_video_info_api():
+        """
+        get video info
+        ---
+        tags:
+            - shifu
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    url:
+                        type: string
+                        description: url
+        responses:
+            200:
+                description: get video info success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    description: video metadata
+        """
+        user_id = request.user.user_id
+        url = request.get_json().get("url")
+        if not url:
+            raise_param_error("url is required")
+        return make_common_response(get_video_info(app, user_id, url))
 
     return app
