@@ -1,15 +1,10 @@
-import { Shifu, ShifuContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties, SaveBlockListResult } from "../types/shifu";
+import { Shifu, ShifuContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties, SaveBlockListResult, ApiResponse } from "../types/shifu";
 import api from "@/api";
 import { useContentTypes } from "@/components/render-block";
 import { useUITypes } from "@/components/render-ui";
 import { debounce } from "lodash";
 import { createContext, ReactNode, useContext, useState, useCallback } from "react";
 
-interface ApiResponse<T> {
-    code: number;
-    message: string;
-    data: T;
-}
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -402,17 +397,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
     const saveCurrentBlocks = useCallback(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string): Promise<ApiResponse<SaveBlockListResult> | null> => {
         if (isLoading) {
-            console.log('[SaveCurrentBlocks] 正在加载中，跳过保存');
             return null;
         }
         setIsSaving(true);
         setError(null);
         try {
-            console.log('[SaveCurrentBlocks] 开始保存...', {
-                outline,
-                blocksCount: blocks.length,
-                shifu_id
-            });
 
             setError(null);
             const blockList = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties);
@@ -424,18 +413,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             }
 
             const blockErrorMessages = result?.error_messages;
-
-
-            const errorCount = blockErrorMessages ? Object.keys(blockErrorMessages).length : 0;
-            console.log("errorCount", errorCount);
+            const errorCount = blockErrorMessages && typeof blockErrorMessages === 'object'
+                ? Object.keys(blockErrorMessages).length
+                : 0;
 
             // 处理每个 block 的错误信息
             if (errorCount > 0) {
-                console.log('[SaveCurrentBlocks] 发现错误信息:', blockErrorMessages);
-
                 // 为每个有错误的 block 更新其错误状态
                 Object.entries(blockErrorMessages).forEach(([blockId, errorMessage]) => {
-                    console.log(`[SaveCurrentBlocks] 处理 block ${blockId} 的错误:`, errorMessage);
                     setBlockError(blockId, errorMessage as string);
                 });
             } else {
@@ -444,7 +429,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             return result;
         } catch (error: any) {
-            console.error('[SaveCurrentBlocks] 保存失败:', error);
             setError(error.message || '保存失败');
             throw error;
         } finally {
