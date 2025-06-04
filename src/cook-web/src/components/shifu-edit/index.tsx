@@ -74,12 +74,12 @@ const DraggableBlock = ({
     { handlerId: string | symbol | null }
   >({
     accept: 'BLOCK',
-    collect (monitor) {
+    collect(monitor) {
       return {
         handlerId: monitor.getHandlerId()
       }
     },
-    hover (item: DragItem, monitor: DropTargetMonitor) {
+    hover(item: DragItem, monitor: DropTargetMonitor) {
       if (!ref.current || disabled) {
         return
       }
@@ -217,7 +217,11 @@ const DraggableBlock = ({
           </div>
         </div>
         {error && (
-          <div className=" text-red-500 text-sm">
+          <div
+            className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm"
+            role="alert"
+            aria-live="polite"
+          >
             {error}
           </div>
         )}
