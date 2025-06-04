@@ -8,40 +8,56 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { uploadFile } from '@/lib/file'
-import { getSiteHost } from "@/config/runtime-config";
+import { getSiteHost } from '@/config/runtime-config'
+import { useToast } from '@/hooks/use-toast'
+import { useTranslation } from 'react-i18next'
+import api from '@/api'
 
-type ImageUploaderProps = {
-  value?: string
-  onChange?: (value: string) => void
+type ImageResource = {
+  resourceUrl?: string
+  resourceTitle?: string
+  resourceScale?: number
 }
+type ImageUploaderProps = {
+  value?: ImageResource
+  onChange?: (resource: ImageResource) => void
+}
+// FIXME: from config
+const agiImgUrlRegexp = /^https?:\/\/(?:resource\.ai-shifu\.cn)\/[a-f0-9]{32}(?:\/?|\.[a-z]{3,4})?$/i
 
-const ImageUploader:React.FC<ImageUploaderProps> = ({
-  value,
-  onChange,
-}) => {
-  const [imageUrl, setImageUrl] = useState<string>(value ||'')
-  const [inputUrl, setInputUrl] = useState<string>('')
+const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
+  const { t } = useTranslation()
+  const [resourceUrl, setResourceUrl] = useState<string>('')
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '')
   const [isUploading, setIsUploading] = useState<boolean>(false)
-  const [fileName, setFileName] = useState<string>('')
+  const [resourceTitle, setResourceTitle] = useState<string>(
+    value?.resourceTitle || ''
+  )
+  const [resourceScale, setResourceScale] = useState<number>(
+    value?.resourceScale || 100
+  )
   const [uploadProgress, setUploadProgress] = useState(0)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const resourceInputRef = useRef<HTMLInputElement>(null)
   const siteHost = getSiteHost()
+  const { toast } = useToast()
 
   const resetState = () => {
-    setImageUrl('')
+    setResourceUrl('')
     setInputUrl('')
-    setFileName('')
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    setResourceTitle('')
+    setResourceScale(100)
+    if (resourceInputRef.current) {
+      resourceInputRef.current.value = ''
     }
   }
 
+  // 修改uploadImage函数中加载图片后的处理
   const uploadImage = async (file: File) => {
     setIsUploading(true)
     try {
       const response = await uploadFile(
         file,
-        `${siteHost}/api/scenario/upfile`,
+        `${siteHost}/api/shifu/upfile`,
         undefined,
         undefined,
         progress => {
@@ -50,7 +66,9 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       )
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`)
+        throw new Error(
+          `${t('file-uploader.upload-failed')}: ${response.statusText}`
+        )
       }
 
       const res = await response.json()
@@ -59,16 +77,16 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       }
 
       if (!response.ok) {
-        throw new Error('Upload failed')
+        throw new Error(t('file-uploader.upload-failed'))
       }
-
-      setImageUrl(res.data)
-      setFileName(file.name)
+      setResourceUrl(res.data)
+      setResourceTitle(file.name)
+      setResourceScale(100)
       const img = new Image()
       img.src = res.data
     } catch (error) {
       console.error('Error uploading image:', error)
-      alert('Failed to upload image')
+      alert(t('file-uploader.failed-to-upload-image'))
     } finally {
       setIsUploading(false)
     }
@@ -76,10 +94,42 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   const handleUrlUpload = async () => {
     if (!inputUrl) return
-    const urlParts = inputUrl.split('/')
-    setFileName(urlParts[urlParts.length - 1])
-    setImageUrl(inputUrl)
-    setIsUploading(false)
+    try {
+      new URL(inputUrl)
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      toast({
+        title: t('file-uploader.check-image-url'),
+        variant: 'destructive'
+      })
+      return
+    }
+    if (agiImgUrlRegexp.test(inputUrl)) {
+      setResourceUrl(inputUrl)
+    } else {
+      setIsUploading(true)
+      try{
+      const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
+        console.error('Error uploading image:', err)
+        toast({
+          title: t('file-uploader.check-image-url'),
+          variant: 'destructive'
+        })
+      })
+      setResourceUrl(url)
+      setResourceTitle('')
+      setResourceScale(100)
+      } catch (error) {
+        console.error('Error uploading image:', error)
+        toast({
+          title: t('file-uploader.check-image-url'),
+          variant: 'destructive'
+        })
+      } finally {
+        setIsUploading(false)
+      }
+      return
+    }
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -91,9 +141,9 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault()
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      uploadImage(file)
+    const resource = e.dataTransfer.files?.[0]
+    if (resource) {
+      uploadImage(resource)
     }
   }
 
@@ -102,18 +152,26 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
   }
 
   useEffect(() => {
-    onChange?.(imageUrl)
-  },[imageUrl])
+    onChange?.({
+      resourceUrl,
+      resourceTitle,
+      resourceScale
+    })
+  }, [resourceUrl, resourceTitle, resourceScale])
+
+  useEffect(() => {
+    handleUrlUpload()
+  }, [])
 
   return (
     <div className='space-y-6'>
-      {!imageUrl ? (
+      {!resourceUrl ? (
         <>
           <div className='text-xs'>
-            <h2 className='font-bold mb-4'>URL</h2>
+            <h2 className='font-bold mb-4'>{t('file-uploader.url')}</h2>
             <div className='flex gap-2'>
               <Input
-                placeholder='粘贴或输入图片 URL'
+                placeholder={t('file-uploader.paste-or-input-image-url')}
                 value={inputUrl}
                 onChange={e => setInputUrl(e.target.value)}
                 className='flex-1'
@@ -123,13 +181,13 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
                 disabled={isUploading || !inputUrl}
                 className='w-24 h-8'
               >
-                运行
+                {t('file-uploader.run')}
               </Button>
             </div>
           </div>
 
           <div>
-            <h2 className='font-bold mb-4'>上传</h2>
+            <h2 className='font-bold mb-4'>{t('file-uploader.upload')}</h2>
             <Card
               className='border-dashed border-2 text-center flex flex-col items-center justify-center min-h-[200px] p-2'
               onDrop={handleDrop}
@@ -144,31 +202,29 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
                     ></div>
                   </div>
                   <p className='text-xs text-gray-500 mt-1 text-center'>
-                    上传中 {uploadProgress}%
+                    {t('file-uploader.uploading')} {uploadProgress}%
                   </p>
                 </div>
               ) : (
                 <>
                   <input
                     type='file'
-                    ref={fileInputRef}
+                    ref={resourceInputRef}
                     onChange={handleFileChange}
                     className='hidden'
                     accept='image/*'
                   />
                   <Upload className='h-10 w-10 text-gray-400 mb-4' />
                   <div className='mb-2'>
-                    拖动文件或者
+                    {t('file-uploader.drag-file-or-click-to-upload')}
                     <button
                       className='text-blue-600 hover:underline'
-                      onClick={() => fileInputRef.current?.click()}
+                      onClick={() => resourceInputRef.current?.click()}
                     >
-                      点击上传
+                      {t('file-uploader.click-to-upload')}
                     </button>
                   </div>
-                  <p className='text-gray-500'>
-                    提示：您还可以将图片拖动或粘贴到卡片中的任意位置
-                  </p>
+                  <p className='text-gray-500'>{t('file-uploader.tips')}</p>
                 </>
               )}
             </Card>
@@ -177,22 +233,53 @@ const ImageUploader:React.FC<ImageUploaderProps> = ({
       ) : (
         <div className='flex flex-col items-center'>
           <img
-            src={imageUrl || '/placeholder.svg'}
+            src={resourceUrl || '/placeholder.svg'}
             alt='Uploaded image'
             className='max-w-full max-h-[400px] object-contain mb-4'
           />
-          <div className=' mb-6'>{fileName}</div>
+          <div className='flex items-center w-full mb-2'>{resourceUrl}</div>
+          <div className='flex items-center w-full mb-2'>
+            <div className='text-sm w-20'>{t('file-uploader.image-title')}</div>
+            <Input
+              className='flex-1'
+              value={resourceTitle}
+              onChange={e => setResourceTitle(e.target.value.slice(0, 100))}
+              placeholder={t('file-uploader.image-title-placeholder')}
+              maxLength={100}
+            />
+          </div>
+
+          <div className='flex items-center w-full mb-2'>
+            <div className='text-sm w-20'>{t('file-uploader.image-scale')}</div>
+            <div className='flex items-center gap-1'>
+              <Input
+                type='number'
+                min={1}
+                max={100}
+                step={10}
+                value={resourceScale}
+                onChange={e => {
+                  const value = Number(e.target.value)
+                  if (!isNaN(value) && value >= 1 && value <= 100) {
+                    setResourceScale(value)
+                  }
+                }}
+                placeholder='100'
+              />
+              <span className='text-gray-500'>%</span>
+            </div>
+          </div>
+
           <Button
-              variant='outline'
-              className='w-full py-6 text-lg'
-              onClick={resetState}
-            >
-              替换图片
-            </Button>
+            variant='outline'
+            className='w-full py-2'
+            onClick={resetState}
+          >
+            {t('file-uploader.replace-image')}
+          </Button>
         </div>
       )}
     </div>
   )
 }
-
 export default ImageUploader

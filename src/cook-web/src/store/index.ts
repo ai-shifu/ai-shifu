@@ -1,3 +1,3 @@
 
-export * from "./useScenario";
+export * from "./useShifu";
 export * from "./useAuth";

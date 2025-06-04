@@ -35,10 +35,11 @@ def add_risk_control_result(
 
 def check_text_with_risk_control(app: Flask, check_id, user_id, text):
     log_id = check_id + datetime.now().strftime("%Y%m%d%H%M%S")
+
     res = check_text(app, log_id, text, user_id)
     add_risk_control_result(
         app,
-        log_id,
+        check_id,
         user_id,
         text,
         res.provider,

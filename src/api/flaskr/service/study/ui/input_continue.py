@@ -1,6 +1,6 @@
 from flask import Flask
 
-from flaskr.service.lesson.const import UI_TYPE_CONTINUED
+from flaskr.service.lesson.const import UI_TYPE_EMPTY
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.plugin import register_ui_handler
@@ -10,7 +10,7 @@ from flaskr.service.user.models import User
 from flaskr.i18n import _
 
 
-@register_ui_handler(UI_TYPE_CONTINUED)
+@register_ui_handler(UI_TYPE_EMPTY)
 def handle_input_continue(
     app: Flask,
     user_info: User,

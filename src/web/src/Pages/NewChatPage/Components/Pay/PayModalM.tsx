@@ -43,7 +43,7 @@ const CompletedSection = memo(() => {
       <div className={styles.completeWrapper}>
         <img className={styles.paySuccessBg} src={paySuccessBg} alt="" />
       </div>
-      <PayModalFooter />
+      <PayModalFooter className={styles.payModalFooter} />
     </div>
   );
 });
@@ -289,6 +289,7 @@ export const PayModalM = ({
                               : t('groupon.grouponModify')}
                           </MainButtonM>
                         </div>
+                        <PayModalFooter className={styles.payModalFooter} />
                       </>
                     ) : (
                       <div className={styles.loginButtonWrapper}>

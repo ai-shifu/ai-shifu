@@ -29,17 +29,17 @@ export const useChatComponentsScroll = ({
   }, [appendMsg, messages]);
 
   const onMessageListScroll = useCallback((e) => {
-
     const scrollWrapper = e.target;
     const inner = scrollWrapper.children[0];
+    const currentScrollTop = Math.max(0, scrollWrapper.scrollTop);
 
     if (!scrollWrapper || !inner) {
       return;
     }
 
     if (
-      scrollWrapper.scrollTop >= 0 &&
-      scrollWrapper.scrollTop + scrollWrapper.clientHeight <
+      currentScrollTop >= 0 &&
+      currentScrollTop + scrollWrapper.clientHeight <
       inner.clientHeight - SCROLL_BOTTOM_THROTTLE
     ) {
       stopAutoScroll();

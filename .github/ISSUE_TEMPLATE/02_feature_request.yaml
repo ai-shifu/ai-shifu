@@ -1,0 +1,47 @@
+name: "🚀 Feature request"
+description: Suggest a new feature or improvement
+title: "[Enhancement] "
+labels:
+  - enhancement
+body:
+  - type: checkboxes
+    attributes:
+      label: Self Checks
+      description: "To make sure we get to you in time, please check the following :)"
+      options:
+        - label: This is only for feature request, if you would like to ask a question, please head to [Discussions](https://github.com/ai-shifu/ai-shifu/discussions/categories/general).
+          required: true
+        - label: I have searched for existing issues [search for existing issues](https://github.com/ai-shifu/ai-shifu/issues), including closed ones.
+          required: true
+        - label: I confirm that I am using English to submit this report.
+          required: true
+        - label: "[FOR CHINESE USERS] 请务必使用英文提交 Issue,否则会被关闭。谢谢！:)"
+          required: true
+        - label: "Please do not modify this template :) and fill in all the required fields."
+          required: true
+  - type: markdown
+    attributes:
+      value: |
+        **Please review [our guide on interacting with the issue tracker](https://github.com/ai-shifu/ai-shifu/issues/453) before opening a new issue.**
+  - type: dropdown
+    attributes:
+      label: AI-Shifu product
+      description: Please select the product you are using
+      options:
+        - AI-Shifu web
+        - AI-Shifu cook
+
+  - type: textarea
+    attributes:
+      label: Summary
+      description: |
+        A clear and concise description of what new feature or behavior you would like to see. If applicable, please describe the current behavior as well.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Example
+      description: Provide an example of how the user experience would change or how the new feature would be used.
+    validations:
+      required: false

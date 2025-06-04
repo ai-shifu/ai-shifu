@@ -4,16 +4,16 @@ import React, { useState, useRef, useEffect } from 'react';
 import { PlusIcon, StarIcon as StarOutlineIcon, RectangleStackIcon as RectangleStackOutlineIcon } from '@heroicons/react/24/outline';
 import { TrophyIcon, RectangleStackIcon, StarIcon } from '@heroicons/react/24/solid';
 import api from "@/api";
-import { Scenario } from '@/types/scenario';
+import { Shifu } from '@/types/shifu';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { CreateScenarioDialog } from "@/components/create-scenario-dialog";
+import { CreateShifuDialog } from "@/components/create-shifu-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
-
-interface ScriptCardProps {
+import { useTranslation } from 'react-i18next';
+interface ShifuCardProps {
     id: string;
     image: string | undefined;
     title: string;
@@ -21,11 +21,11 @@ interface ScriptCardProps {
     isFavorite: boolean;
 }
 
-const ScriptCard = ({ id, image, title, description, isFavorite }: ScriptCardProps) => {
+const ShifuCard = ({ id, image, title, description, isFavorite }: ShifuCardProps) => {
     const router = useRouter()
     return (
         <Card className="w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1rem)] cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out"
-            onClick={() => router.push(`/scenario/${id}`)}
+            onClick={() => router.push(`/shifu/${id}`)}
         >
             <CardContent className="p-4 cursor-pointer" >
                 <div className='flex flex-row items-center justify-between'>
@@ -56,64 +56,65 @@ const ScriptCard = ({ id, image, title, description, isFavorite }: ScriptCardPro
 }
 
 const ScriptManagementPage = () => {
+
     const { toast } = useToast();
+    const { t } = useTranslation();
     const [activeTab, setActiveTab] = useState("all");
-    const [scenarios, setScenarios] = useState<Scenario[]>([]);
+    const [shifus, setShifus] = useState<Shifu[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
-    const [showCreateScenarioModal, setShowCreateScenarioModal] = useState(false);
+    const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
     const pageSize = 30;
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
-    const fetchScenarios = async () => {
+    const fetchShifus = async () => {
         if (loading || !hasMore) return;
 
         setLoading(true);
         try {
 
-            const { items } = await api.getScenarioList({
+            const { items } = await api.getShifuList({
                 page_index: currentPage.current,
                 page_size: pageSize,
                 is_favorite: activeTab === "favorites",
             });
-            console.log(items)
             if (items.length < pageSize) {
                 setHasMore(false);
             }
 
-            setScenarios(prev => [...prev, ...items]);
+            setShifus(prev => [...prev, ...items]);
             currentPage.current += 1;
             setLoading(false);
         } catch (error) {
-            console.error("Failed to fetch scenarios:", error);
+            console.error("Failed to fetch shifus:", error);
         }
     };
-    const onCreateScenario = async (values: any) => {
+    const onCreateShifu = async (values: any) => {
         try {
-            await api.createScenario(values);
+            await api.createShifu(values);
             toast({
-                title: "创建成功",
-                description: "新剧本已创建",
+                title: t('common.create-success'),
+                description: t('common.create-success-description'),
             });
-            setScenarios([]);
+            setShifus([]);
             setHasMore(true);
             currentPage.current = 1;
-            fetchScenarios();
-            setShowCreateScenarioModal(false);
+            fetchShifus();
+            setShowCreateShifuModal(false);
         } catch (error) {
             toast({
-                title: "创建失败",
-                description: error instanceof Error ? error.message : "未知错误",
+                title: t('common.create-failed'),
+                description: error instanceof Error ? error.message : t('common.unknown-error'),
                 variant: "destructive",
             });
         }
     }
 
-    const handleCreateScenarioModal = () => setShowCreateScenarioModal(true);
+    const handleCreateShifuModal = () => setShowCreateShifuModal(true);
 
     useEffect(() => {
-        setScenarios([]);
+        setShifus([]);
         setHasMore(true);
         currentPage.current = 1;
     }, [activeTab]);
@@ -125,7 +126,7 @@ const ScriptManagementPage = () => {
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting && hasMore) {
-                    fetchScenarios();
+                    fetchShifus();
                 }
             },
             { threshold: 0.1 }
@@ -140,17 +141,17 @@ const ScriptManagementPage = () => {
         <div className="h-full bg-gray-50 p-0">
             <div className="max-w-7xl mx-auto h-full overflow-hidden flex flex-col">
                 <div className="flex justify-between items-center mb-5">
-                    <h1 className="text-2xl font-semibold text-gray-900">剧本</h1>
+                    <h1 className="text-2xl font-semibold text-gray-900">{t('common.shifu')}</h1>
                 </div>
                 <div className="flex space-x-3 mb-5">
-                    <Button size='sm' variant="outline" onClick={handleCreateScenarioModal}>
+                    <Button size='sm' variant="outline" onClick={handleCreateShifuModal}>
                         <PlusIcon className="w-5 h-5 mr-1" />
-                        新建空白剧本
+                        {t('common.create-blank-shifu')}
                     </Button>
-                    <CreateScenarioDialog
-                        open={showCreateScenarioModal}
-                        onOpenChange={setShowCreateScenarioModal}
-                        onSubmit={onCreateScenario}
+                    <CreateShifuDialog
+                        open={showCreateShifuModal}
+                        onOpenChange={setShowCreateShifuModal}
+                        onSubmit={onCreateShifu}
                     />
                 </div>
                 <Tabs defaultValue="all" className="mb-0" onValueChange={setActiveTab}>
@@ -166,7 +167,7 @@ const ScriptManagementPage = () => {
                                     <RectangleStackOutlineIcon className="w-5 h-5 mr-1" />
                                 )
                             }
-                            全部
+                            {t('common.all')}
                         </TabsTrigger>
                         <TabsTrigger value="favorites">
                             {
@@ -179,7 +180,7 @@ const ScriptManagementPage = () => {
                                     <StarOutlineIcon className="w-5 h-5 mr-1" />
                                 )
                             }
-                            收藏
+                            {t('common.favorites')}
                         </TabsTrigger>
                     </TabsList>
                     <TabsContent value="all" className=' flex-1 overflow-auto'>
@@ -191,14 +192,14 @@ const ScriptManagementPage = () => {
                 </Tabs>
                 <div className='flex-1 overflow-auto'>
                     <div className="flex flex-wrap gap-4">
-                        {scenarios.map((scenario) => (
-                            <ScriptCard
-                                id={scenario.id + ""}
-                                key={scenario.id}
-                                image={scenario.image}
-                                title={scenario.name || ""}
-                                description={scenario.description || ""}
-                                isFavorite={scenario.is_favorite || false}
+                        {shifus.map((shifu) => (
+                            <ShifuCard
+                                id={shifu.shifu_id + ""}
+                                key={shifu.shifu_id}
+                                image={shifu.shifu_avatar}
+                                title={shifu.shifu_name || ""}
+                                description={shifu.shifu_description || ""}
+                                isFavorite={shifu.is_favorite || false}
                             />
                         ))}
                     </div>
@@ -209,12 +210,12 @@ const ScriptManagementPage = () => {
                         {loading && (
                             <Loading />
                         )}
-                        {!hasMore && scenarios.length > 0 && (
-                            <p className="text-gray-500 text-sm">没有更多剧本了</p>
+                        {!hasMore && shifus.length > 0 && (
+                            <p className="text-gray-500 text-sm">{t('common.no-more-shifus')}</p>
                         )}
                         {
-                            !loading && !hasMore && scenarios.length == 0 && (
-                                <p className="text-gray-500 text-sm">暂无剧本</p>
+                            !loading && !hasMore && shifus.length == 0 && (
+                                <p className="text-gray-500 text-sm">{t('common.no-shifus')}</p>
                             )
                         }
                     </div>

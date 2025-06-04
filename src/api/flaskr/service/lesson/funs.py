@@ -9,10 +9,11 @@ from .const import (
     LESSON_TYPE_NORMAL,
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPES,
-    UI_TYPE_CONTINUED,
+    UI_TYPE_EMPTY,
     UI_TYPE_SELECTION,
     UI_TYPES,
     STATUS_PUBLISH,
+    STATUS_DRAFT,
 )
 from flask import Flask
 from ...dao import db
@@ -304,7 +305,7 @@ def update_lesson_info(
     index: int = None,
     lesson_type: int = LESSON_TYPE_NORMAL,
     app_id: str = None,
-    app_secrect: str = None,
+    app_secret: str = None,
     course_id: str = None,
     file_name: str = None,
 ):
@@ -380,11 +381,11 @@ def update_lesson_info(
         kwargs = {}
         if app_id is not None:
             kwargs["app_id"] = app_id
-        if app_secrect is not None:
-            kwargs["app_secrect"] = app_secrect
+        if app_secret is not None:
+            kwargs["app_secret"] = app_secret
         while True:
             if file_name:
-                with open(file_name, "r") as json_file:
+                with open(file_name, "r", encoding="UTF-8") as json_file:
                     json_data = json_file.read()
                     resp = json.loads(json_data)
             else:
@@ -483,7 +484,7 @@ def update_lesson_info(
                 scripDb["script_check_prompt"] = ""
                 scripDb["script_check_flag"] = ""
                 scripDb["script_index"] = script_index
-                scripDb["script_ui_type"] = UI_TYPE_CONTINUED
+                scripDb["script_ui_type"] = UI_TYPE_EMPTY
                 scripDb["script_type"] = SCRIPT_TYPE_FIX
                 scripDb["script_content_type"] = CONTENT_TYPE_TEXT
                 scripDb["script_model"] = ""
@@ -715,7 +716,9 @@ def update_course_info(
 
 
 @extensible
-def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
+def get_course_info(
+    app: Flask, course_id: str, preview_mode: bool = False
+) -> AICourseDTO:
     with app.app_context():
         if course_id is None or course_id == "":
             course = (
@@ -726,10 +729,13 @@ def get_course_info(app: Flask, course_id: str) -> AICourseDTO:
             if course is None:
                 raise_error("LESSON.HAS_NOT_LESSON")
         else:
+            ai_course_status = [STATUS_PUBLISH]
+            if preview_mode:
+                ai_course_status.append(STATUS_DRAFT)
             course = (
                 AICourse.query.filter(
                     AICourse.course_id == course_id,
-                    AICourse.status.in_([STATUS_PUBLISH]),
+                    AICourse.status.in_(ai_course_status),
                 )
                 .order_by(AICourse.id.desc())
                 .first()

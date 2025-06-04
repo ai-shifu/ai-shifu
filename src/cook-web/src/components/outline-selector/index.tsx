@@ -1,11 +1,12 @@
 "use client"
 import { SortableTree, SimpleTreeItemWrapper, TreeItemComponentProps, TreeItems } from '../dnd-kit-sortable-tree';
 import React, { useState } from 'react';
-import { Outline } from '@/types/scenario';
+import { Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
-import { useScenario } from '@/store/useScenario';
+import { useShifu } from '@/store/useShifu';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 interface ICataTreeProps {
     currentNode?: Outline;
     items: TreeItems<Outline>;
@@ -15,6 +16,7 @@ interface ICataTreeProps {
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
     const { items, onChange, } = props;
+
     const onItemsChanged = (data: TreeItems<Outline>) => {
         onChange?.(data);
     }
@@ -54,7 +56,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     HTMLDivElement,
     TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-    const { cataData } = useScenario();
+    const { cataData } = useShifu();
 
     const onSelect = () => {
         props.onSelect?.(props.item!);
@@ -82,6 +84,7 @@ MinimalTreeItemComponent.displayName = 'MinimalTreeItemComponent';
 
 export default function OutlineSelector({ value, chapters = [], onSelect }: { value: string, chapters: Outline[], onSelect?: (node: Outline) => void }) {
     "use client"
+    const { t } = useTranslation();
     const [nodes, setNodes] = useState(chapters);
     const [open, setOpen] = useState(false);
     const [selectedNode, setSelectedNode] = useState<Outline | null>(null);
@@ -110,7 +113,7 @@ export default function OutlineSelector({ value, chapters = [], onSelect }: { va
         <DropdownMenu open={open} onOpenChange={setOpen}>
             <DropdownMenuTrigger>
                 {
-                    selectedNode ? (selectedNode.no + ":" + selectedNode.name) : "选择章节"
+                    selectedNode ? (selectedNode.no + ":" + selectedNode.name) : t('outline-selector.select-chapter')
                 }
             </DropdownMenuTrigger>
             <DropdownMenuContent align='start'>

@@ -154,6 +154,19 @@ def send_feishu_discount_code(
         send_notify(app, title, msgs)
 
 
+def timeout_discount_code_rollback(app: Flask, user_id, order_id):
+    with app.app_context():
+        discount = DiscountRecord.query.filter(
+            DiscountRecord.user_id == user_id,
+            DiscountRecord.order_id == order_id,
+            DiscountRecord.status == DISCOUNT_STATUS_USED,
+        ).first()
+        if not discount:
+            return
+        discount.status = DISCOUNT_STATUS_ACTIVE
+        db.session.commit()
+
+
 # use discount code
 def use_discount_code(app: Flask, user_id, discount_code, order_id):
     with app.app_context():
@@ -172,11 +185,23 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             raise_error("DISCOUNT.ORDER_DISCOUNT_ALREADY_USED")
         if order_discount:
             return order_discount
-        discountRecord = DiscountRecord.query.filter(
+
+        userDiscountRecord = DiscountRecord.query.filter(
             DiscountRecord.discount_code == discount_code,
             DiscountRecord.status == DISCOUNT_STATUS_ACTIVE,
+            DiscountRecord.user_id == user_id,
         ).first()
+
+        discountRecord = None
         discount = None
+        if userDiscountRecord:
+            discountRecord = userDiscountRecord
+        else:
+            discountRecord = DiscountRecord.query.filter(
+                DiscountRecord.discount_code == discount_code,
+                DiscountRecord.status == DISCOUNT_STATUS_ACTIVE,
+            ).first()
+
         if not discountRecord:
             # query fixcode
             discount = Discount.query.filter(
@@ -241,7 +266,8 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
             buy_record.pay_value = 0
         buy_record.updated = now
         discountRecord.updated = now
-        discount.discount_used = discount.discount_used + 1
+        if not userDiscountRecord:
+            discount.discount_used = discount.discount_used + 1
         db.session.commit()
 
         if buy_record.discount_value >= buy_record.price:

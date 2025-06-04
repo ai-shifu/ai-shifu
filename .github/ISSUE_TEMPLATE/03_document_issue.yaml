@@ -1,0 +1,37 @@
+name: "📚 Document issue"
+description: Report issues or suggestions related to documentation
+title: "[Document] "
+labels:
+  - documentation
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your feedback! Please describe the issue or suggestion as detailed as possible.
+  - type: textarea
+    id: problem-description
+    attributes:
+      label: Problem description
+      description: Please describe the issue or suggestion as detailed as possible
+      placeholder: |
+         For example: In the XXX section, the description of XXX part is not clear...
+    validations:
+      required: true
+  - type: textarea
+    id: expected-content
+    attributes:
+      label: Expected content
+      description: Please describe the content you expect to see
+      placeholder: |
+        For example: Suggest adding detailed instructions for XXX...
+    validations:
+      required: false
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional information
+      description: Please provide any other relevant context information
+      placeholder: |
+        For example: This issue occurred in the XXX version...
+    validations:
+      required: false

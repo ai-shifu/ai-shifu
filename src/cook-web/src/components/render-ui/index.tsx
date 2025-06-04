@@ -1,3 +1,5 @@
+'use client';
+
 import Button from './button'
 import ButtonView from './view/button'
 import Option from './option'
@@ -8,14 +10,14 @@ import Goto from './goto'
 import GotoView from './view/goto'
 import TextInput from './textinput'
 import TextInputView from './view/textinput'
-import { useScenario } from '@/store';
+import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog'
-
-
+import { useTranslation } from 'react-i18next';
+import Empty from './empty'
 const EditBlockMap = {
     button: Button,
     option: Option,
@@ -25,6 +27,7 @@ const EditBlockMap = {
     textinput: TextInput,
     login: (props) => <Button {...props} mode="login" />,
     payment: (props) => <Button {...props} mode="payment" />,
+    empty: Empty,
 }
 
 const ViewBlockMap = {
@@ -36,11 +39,22 @@ const ViewBlockMap = {
     textinput: TextInputView,
 }
 
-export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
-    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties } = useScenario();
+export const BlockUI = ({ id, type, properties, mode = 'edit', onChanged }: {
+    id: any,
+    type: any,
+    properties: any,
+    mode?: string,
+    onChanged?: (changed: boolean) => void
+}) => {
+    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
+    const UITypes = useUITypes()
+
+    const handleChanged = (changed: boolean) => {
+        onChanged?.(changed);
+    }
+
     const onPropertiesChange = async (properties) => {
-        await actions.setBlockUIPropertiesById(id, properties)
         const p = {
             ...blockUIProperties,
             [id]: {
@@ -54,12 +68,13 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
         if (err) {
             setError(err);
             return;
-
         }
+        actions.setBlockUIPropertiesById(id, properties);
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p)
+            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
         }
     }
+
     useEffect(() => {
         setError('');
     }, [type]);
@@ -67,7 +82,6 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
     const componentMap = mode === 'edit' ? EditBlockMap : ViewBlockMap
     const Ele = componentMap[type]
     if (!Ele) {
-        // console.log('type', type)
         return null
     }
 
@@ -77,6 +91,7 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
                 id={id}
                 properties={properties}
                 onChange={onPropertiesChange}
+                onChanged={handleChanged}
             />
             {
                 error && (
@@ -84,47 +99,69 @@ export const BlockUI = ({ id, type, properties, mode = 'edit' }) => {
                 )
             }
         </>
-
     )
 }
 
-export const RenderBlockUI = ({ block, mode = 'edit' }) => {
+export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) => {
     const {
         actions,
         blockUITypes,
         blockUIProperties,
-    } = useScenario();
+    } = useShifu();
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
+    const [isChanged, setIsChanged] = useState(false)
+    const { t } = useTranslation();
+    const UITypes = useUITypes()
+
+    const handleExpandChange = (newExpand: boolean) => {
+        setExpand(newExpand)
+        onExpandChange?.(newExpand)
+    }
+
+    const handleTypeChange = (type: string) => {
+        handleExpandChange(true);
+        const opt = UITypes.find(p => p.type === type);
+        actions.setBlockUITypesById(block.properties.block_id, type)
+        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        setIsChanged(false);
+    }
 
     const onUITypeChange = (id: string, type: string) => {
         if (type === blockUITypes[block.properties.block_id]) {
             return;
         }
-        setPendingType(type);
-        setShowConfirmDialog(true);
+        if (isChanged) {
+            setPendingType(type);
+            setShowConfirmDialog(true);
+        } else {
+            handleTypeChange(type);
+        }
     }
 
     const handleConfirmChange = () => {
-        setExpand(true);
-        const opt = UITypes.find(p => p.type === pendingType);
-        actions.setBlockUITypesById(block.properties.block_id, pendingType)
-        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        handleTypeChange(pendingType);
         setShowConfirmDialog(false);
+    }
+
+    const handleBlockChanged = (changed: boolean) => {
+        if (changed !== isChanged) {
+            setIsChanged(changed);
+        }
     }
 
     return (
         <>
-            <div className='bg-[#F5F5F4] rounded-md p-2 space-y-1'>
-                <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => setExpand(!expand)}>
+            <div className='bg-[#F8F8F8] rounded-md p-2 space-y-1'>
+                <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => handleExpandChange(!expand)}>
                     <div className='flex flex-row items-center space-x-1'>
                         <span>
-                            用户操作：
+                            {t('render-ui.user-operation')}
                         </span>
                         <Select value={blockUITypes[block.properties.block_id]} onValueChange={onUITypeChange.bind(null, block.properties.block_id)}>
                             <SelectTrigger className="h-8 w-[120px]">
-                                <SelectValue placeholder="请选择" />
+                                <SelectValue placeholder={t('render-ui.select-placeholder')} />
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectGroup>
@@ -140,13 +177,13 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
                         </Select>
                     </div>
 
-                    <div className='flex flex-row items-center space-x-1 cursor-pointer' onClick={() => setExpand(!expand)}>
+                    <div className='flex flex-row items-center space-x-1 cursor-pointer' onClick={() => handleExpandChange(!expand)}>
                         <ChevronDown className={cn(
                             "h-5 w-5 transition-transform duration-200 ease-in-out",
                             expand ? 'rotate-180' : ''
                         )} />
                         {
-                            expand ? "收起" : "展开"
+                            expand ? t('render-ui.collapse') : t('render-ui.expand')
                         }
                     </div>
                 </div>
@@ -161,6 +198,7 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
                                 mode={mode}
+                                onChanged={handleBlockChanged}
                             />
                         )
                     }
@@ -170,14 +208,14 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
             <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>确认切换</AlertDialogTitle>
+                        <AlertDialogTitle>{t('render-ui.confirm-change')}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            您的操作将会造成当前内容的丢失，是否确认?
+                            {t('render-ui.confirm-change-description')}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>取消</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmChange}>确认</AlertDialogAction>
+                        <AlertDialogCancel>{t('render-ui.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmChange}>{t('render-ui.confirm')}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
@@ -187,24 +225,20 @@ export const RenderBlockUI = ({ block, mode = 'edit' }) => {
 
 export default RenderBlockUI
 
-export const UITypes = [
+export const useUITypes = () => {
+    const { t } = useTranslation();
+    return [
     {
         type: 'button',
-        name: '按钮',
+        name: t('render-ui.button'),
         properties: {
-            "button_name": "继续",
-            "button_key": "继续"
-        },
-        validate: (properties): string => {
-            if (!properties.button_name) {
-                return "按钮名称不能为空"
-            }
-            return ""
+            "button_name": "",
+            "button_key": t('render-ui.button-button-key')
         }
     },
     {
         type: 'option',
-        name: '按钮组',
+        name: t('render-ui.option'),
         properties: {
             "option_name": "",
             "option_key": "",
@@ -212,8 +246,8 @@ export const UITypes = [
             "buttons": [
                 {
                     "properties": {
-                        "button_name": "全部",
-                        "button_key": "全部"
+                        "button_name": t('render-ui.button-name'),
+                        "button_key": t('render-ui.button-key')
                     },
                     "type": "button"
                 }
@@ -221,15 +255,15 @@ export const UITypes = [
         },
         validate: (properties): string => {
             if (!properties.option_name) {
-                return "变量名称不能为空"
+                return t('render-ui.option-name-empty')
             }
             if (properties.buttons.length === 0) {
-                return "按钮组不能为空"
+                return t('render-ui.option-buttons-empty')
             }
             for (let i = 0; i < properties.buttons.length; i++) {
                 const item = properties.buttons[i];
                 if (!item.properties.button_key || item.properties.button_name == "") {
-                    return "值或标题不能为空"
+                    return t('render-ui.option-button-empty')
                 }
             }
             return ""
@@ -237,30 +271,30 @@ export const UITypes = [
     },
     {
         type: 'goto',
-        name: '跳转',
+        name: t('render-ui.goto'),
         properties: {
             "goto_settings": {
                 "items": [
                     {
-                        "value": "通义灵码",
+                        "value": t('render-ui.goto-value'),
                         "type": "outline",
                         "goto_id": "tblDUfFbHGnM4LQl"
                     },
                     {
-                        "value": "GitHub_Copilot",
+                        "value": t('render-ui.goto-value'),
                         "type": "outline",
                         "goto_id": "tbl9gl38im3rd1HB"
                     }
                 ],
                 "profile_key": "ai_tools"
             },
-            "button_name": "来吧",
-            "button_key": "来吧"
+            "button_name": t('render-ui.goto-button-name'),
+            "button_key": t('render-ui.goto-button-key')
         }
     },
     {
         type: 'textinput',
-        name: '输入框',
+        name: t('render-ui.textinput'),
         properties: {
             "prompt": {
                 "properties": {
@@ -279,23 +313,25 @@ export const UITypes = [
         },
         validate: (properties): string => {
             if (!properties.input_placeholder) {
-                return "提示不能为空"
+                return t('render-ui.textinput-placeholder-empty')
             }
             if (!properties.input_key) {
-                return "变量名不能为空"
+                return t('render-ui.textinput-key-empty')
             }
             if (!properties?.prompt?.properties?.prompt) {
-                return "提示不能为空"
+                return t('render-ui.textinput-prompt-empty')
             }
             if (typeof properties?.prompt?.properties?.temprature == 'undefined') {
-                return "温度不能为空"
-            }
-            if (!properties?.prompt?.properties?.model) {
-                return "模型不能为空"
+                return t('render-ui.textinput-temprature-empty')
             }
             return ""
         }
 
+    },
+    {
+        type: 'empty',
+        name: t('render-ui.empty'),
+        properties: {},
     },
     /**commit temp  for current version
     {
@@ -336,30 +372,19 @@ export const UITypes = [
     }, **/
     {
         type: 'login',
-        name: '登录',
+        name: t('render-ui.login'),
         properties: {
             "button_name": "",
             "button_key": ""
-        },
-        validate: (properties): string => {
-            if (!properties.button_name) {
-                return "按钮名称不能为空"
-            }
-            return ""
         }
     },
     {
         type: 'payment',
-        name: '支付',
+        name: t('render-ui.payment'),
         properties: {
             "button_name": "",
             "button_key": ""
-        },
-        validate: (properties): string => {
-            if (!properties.button_name) {
-                return "按钮名称不能为空"
-            }
-            return ""
         }
     },
-]
+    ]
+}

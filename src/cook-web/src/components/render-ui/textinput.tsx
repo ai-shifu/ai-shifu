@@ -1,10 +1,10 @@
 import React, { useState } from 'react'
 import { Input } from '../ui/input'
-import { Textarea } from '../ui/textarea'
+import { TextareaAutosize } from '@/components/ui/textarea-autosize'
 import InputNumber from '@/components/input-number'
 import ModelList from '@/components/model-list'
 import { Button } from '../ui/button'
-
+import { useTranslation } from 'react-i18next';
 interface ButtonProps {
     properties: {
         "prompt": {
@@ -22,13 +22,20 @@ interface ButtonProps {
         "input_placeholder": string
     }
     onChange: (properties: any) => void
+    onChanged?: (changed: boolean) => void
 }
 
 export default function TextInput(props: ButtonProps) {
-    const { properties } = props;
+    const { properties, onChanged } = props;
     const [tempProperties, setTempProperties] = useState(properties);
-
+    const [changed, setChanged] = useState(false);
+    const { t } = useTranslation();
     const onValueChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        if (!changed) {
+            setChanged(true);
+            onChanged?.(true);
+
+        }
         setTempProperties({
             ...tempProperties,
             prompt: {
@@ -90,31 +97,35 @@ export default function TextInput(props: ButtonProps) {
         <div className='flex flex-col space-y-2 w-full'>
             <div className='flex flex-row items-center space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
-                    输入提示：
+                    {t('textinput.input-placeholder')}
                 </label>
                 <Input value={tempProperties.input_name} onChange={onInputPlaceholderChange} className="w-full" ></Input>
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
-                    变量名：
+                    {t('textinput.input-name')}
                 </label>
                 <Input value={tempProperties.input_key} onChange={onInputChange} className="w-full" ></Input>
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
-                    提示词：
+                    {t('textinput.prompt')}
                 </label>
-                <Textarea value={tempProperties.prompt.properties.prompt} onChange={onValueChange} className="w-full"></Textarea>
+                <TextareaAutosize
+                    value={tempProperties.prompt.properties.prompt}
+                    onChange={onValueChange}
+                    maxRows={20}
+                />
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
-                    指定模型：
+                    {t('textinput.model')}
                 </label>
                 <ModelList value={tempProperties.prompt.properties.model} className="h-8 w-[200px]" onChange={onModelChange} />
             </div>
             <div className='flex flex-row items-center space-x-1 w-[275px]'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
-                    设定温度：
+                    {t('textinput.temperature')}
                 </label>
                 <InputNumber min={0} max={1} step={0.1}
                     value={Number(tempProperties.prompt?.properties?.temprature)}
@@ -128,7 +139,7 @@ export default function TextInput(props: ButtonProps) {
                     className='h-8 w-20'
                     onClick={handleConfirm}
                 >
-                    完成
+                    {t('textinput.complete')}
                 </Button>
             </div>
         </div>

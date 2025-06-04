@@ -7,12 +7,13 @@ from flaskr.util.uuid import generate_id
 from langchain.prompts import PromptTemplate
 from ...service.lesson.const import (
     ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
     LESSON_TYPE_BRANCH_HIDDEN,
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
     SCRIPT_TYPE_SYSTEM,
     UI_TYPE_BUTTON,
-    UI_TYPE_CONTINUED,
+    UI_TYPE_EMPTY,
 )
 from ...service.lesson.models import AICourse, AILesson, AILessonScript
 from ...service.order.consts import (
@@ -36,6 +37,7 @@ from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.user.models import User
 from flaskr.framework import extensible
+from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 
 
 def get_current_lesson(
@@ -73,10 +75,13 @@ def check_phone_number(app, user_info: User, input):
 
 
 def get_lesson_system(app: Flask, lesson_id: str) -> str:
+    status = [STATUS_PUBLISH, STATUS_DRAFT]
     # 缓存逻辑
     lesson_ids = [lesson_id]
     lesson = (
-        AILesson.query.filter(AILesson.lesson_id == lesson_id, AILesson.status == 1)
+        AILesson.query.filter(
+            AILesson.lesson_id == lesson_id, AILesson.status.in_(status)
+        )
         .order_by(AILesson.id.desc())
         .first()
     )
@@ -89,7 +94,7 @@ def get_lesson_system(app: Flask, lesson_id: str) -> str:
             AILesson.query.filter(
                 AILesson.lesson_no == parent_no,
                 AILesson.course_id == lesson.course_id,
-                AILesson.status == 1,
+                AILesson.status.in_(status),
             )
             .order_by(AILesson.id.desc())
             .first()
@@ -101,7 +106,7 @@ def get_lesson_system(app: Flask, lesson_id: str) -> str:
         AILessonScript.query.filter(
             AILessonScript.lesson_id.in_(lesson_ids),
             AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
-            AILessonScript.status == 1,
+            AILessonScript.status.in_(status),
         )
         .order_by(AILessonScript.id.desc())
         .all()
@@ -126,19 +131,23 @@ def get_profile_array(profile: str) -> list:
     return re.findall(r"\[(.*?)\]", profile)
 
 
-def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id):
+def get_lesson_and_attend_info(
+    app: Flask, parent_no, course_id, user_id, preview_mode: bool = False
+):
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     lessons = (
         AILesson.query.filter(
             AILesson.lesson_no.like(parent_no + "%"),
             AILesson.course_id == course_id,
             AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-            AILesson.status == 1,
+            AILesson.status.in_(status),
         )
         .order_by(AILesson.id.desc())
         .all()
     )
     if len(lessons) == 0:
-
         return []
     app.logger.info(
         "lessons:{}".format(
@@ -152,8 +161,16 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id):
     ).all()
 
     if len(attend_infos) != len(lessons):
-        lessons = [lesson for lesson in lessons if lesson.status == 1]
-        lesson_type = lessons[0].lesson_type
+        filtered_lessons = []
+        if preview_mode:
+            filtered_lessons = [lesson for lesson in lessons if lesson.status in [1, 2]]
+        else:
+            filtered_lessons = [lesson for lesson in lessons if lesson.status == 1]
+
+        if not filtered_lessons:
+            return []
+
+        lesson_type = filtered_lessons[0].lesson_type
         add_attend = False
         if lesson_type == LESSON_TYPE_TRIAL:
             add_attend = True
@@ -165,7 +182,7 @@ def get_lesson_and_attend_info(app: Flask, parent_no, course_id, user_id):
                 raise_error("COURSE.COURSE_NOT_PURCHASED")
         if add_attend:
             app.logger.info("add attend to fix attend info")
-            for lesson in lessons:
+            for lesson in filtered_lessons:
                 attends = [
                     attend
                     for attend in attend_infos
@@ -279,8 +296,10 @@ def get_fmt_prompt(
     return prompt
 
 
-def get_script(app: Flask, attend_id: str, next: int = 0):
-
+def get_script(app: Flask, attend_id: str, next: int = 0, preview_mode: bool = False):
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     is_first = False
     attend_info = AICourseLessonAttend.query.filter(
         AICourseLessonAttend.attend_id == attend_id
@@ -297,7 +316,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
         lesson = (
             AILesson.query.filter(
                 AILesson.lesson_id == attend_info.lesson_id,
-                AILesson.status == 1,
+                AILesson.status.in_(status),
             )
             .order_by(AILesson.id.desc())
             .first()
@@ -321,7 +340,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                 AILesson.query.filter(
                     AILesson.lesson_no == lesson.lesson_no[:-2],
                     AILesson.course_id == lesson.course_id,
-                    AILesson.status == 1,
+                    AILesson.status.in_(status),
                 )
                 .order_by(AILesson.id.desc())
                 .first()
@@ -375,26 +394,51 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
                 ).first()
         app.logger.info("to get branch script")
         db.session.flush()
-        script_info, attend_infos, is_first = get_script(app, current.attend_id, next)
+        script_info, attend_infos, is_first = get_script(
+            app, current.attend_id, next, preview_mode
+        )
         if script_info:
             return script_info, [], is_first
         else:
             current.status = ATTEND_STATUS_COMPLETED
             attend_info.status = ATTEND_STATUS_IN_PROGRESS
             db.session.flush()
-            return get_script(app, attend_id, next)
+            return get_script(app, attend_id, next, preview_mode)
     elif next > 0:
         attend_info.script_index = attend_info.script_index + next
-    script_info = (
-        AILessonScript.query.filter(
-            AILessonScript.lesson_id == attend_info.lesson_id,
-            AILessonScript.status == 1,
-            AILessonScript.script_index == attend_info.script_index,
-            AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+
+    subquery = []
+    script_info = None
+    if preview_mode:
+        subquery = (
+            db.session.query(db.func.max(AILessonScript.id))
+            .filter(
+                AILessonScript.lesson_id == (attend_info.lesson_id),
+            )
+            .group_by(AILessonScript.script_id)
         )
-        .order_by(AILessonScript.id.desc())
-        .first()
-    )
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.id.in_(subquery),
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.status.in_(status),
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
+    else:
+        script_info = (
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id == attend_info.lesson_id,
+                AILessonScript.status.in_(status),
+                AILessonScript.script_index == attend_info.script_index,
+                AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+            )
+            .order_by(AILessonScript.id.desc())
+            .first()
+        )
     if not script_info:
         app.logger.info("no script found")
         app.logger.info(attend_info.lesson_id)
@@ -403,7 +447,7 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
             lesson = (
                 AILesson.query.filter(
                     AILesson.lesson_id == attend_info.lesson_id,
-                    AILesson.status == 1,
+                    AILesson.status.in_(status),
                 )
                 .order_by(AILesson.id.desc())
                 .first()
@@ -422,11 +466,16 @@ def get_script(app: Flask, attend_id: str, next: int = 0):
     return script_info, attend_infos, is_first
 
 
-def get_script_by_id(app: Flask, script_id: str) -> AILessonScript:
+def get_script_by_id(
+    app: Flask, script_id: str, preview_mode: bool = False
+) -> AILessonScript:
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     return (
         AILessonScript.query.filter(
             AILessonScript.script_id == script_id,
-            AILessonScript.status == 1,
+            AILessonScript.status.in_(status),
         )
         .order_by(AILessonScript.id.desc())
         .first()
@@ -453,7 +502,10 @@ def make_script_dto_to_stream(dto: ScriptDTO) -> str:
 
 
 @extensible
-def update_lesson_status(app: Flask, attend_id: str):
+def update_lesson_status(app: Flask, attend_id: str, preview_mode: bool = False):
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     attend_status_values = get_attend_status_values()
     res = []
     attend_info = AICourseLessonAttend.query.filter(
@@ -462,7 +514,7 @@ def update_lesson_status(app: Flask, attend_id: str):
     lesson = (
         AILesson.query.filter(
             AILesson.lesson_id == attend_info.lesson_id,
-            AILesson.status == 1,
+            AILesson.status.in_(status),
         )
         .order_by(AILesson.id.desc())
         .first()
@@ -484,7 +536,7 @@ def update_lesson_status(app: Flask, attend_id: str):
         parent_no = parent_no[:2]
     app.logger.info("parent_no:" + parent_no)
     attend_lesson_infos = get_lesson_and_attend_info(
-        app, parent_no, lesson.course_id, attend_info.user_id
+        app, parent_no, lesson.course_id, attend_info.user_id, preview_mode
     )
     if attend_lesson_infos[-1]["attend"].attend_id == attend_id:
         attend_status_values = get_attend_status_values()
@@ -505,7 +557,7 @@ def update_lesson_status(app: Flask, attend_id: str):
         # 找到下一章节进行解锁
         next_no = str(int(parent_no) + 1).zfill(2)
         next_lessons = get_lesson_and_attend_info(
-            app, next_no, lesson.course_id, attend_info.user_id
+            app, next_no, lesson.course_id, attend_info.user_id, preview_mode
         )
 
         app.logger.info("next_no:" + next_no)
@@ -637,6 +689,15 @@ def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
         .first()
     )
 
+    if not ai_lesson:
+        return FollowUpInfo(
+            ask_model="",
+            ask_prompt="",
+            ask_history_count=0,
+            ask_limit_count=0,
+            model_args={},
+            ask_mode=ASK_MODE_DISABLE,
+        )
     if ai_lesson.ask_mode != ASK_MODE_DEFAULT:
         ask_model = ai_lesson.ask_model
         ask_prompt = ai_lesson.ask_prompt
@@ -712,7 +773,11 @@ class ModelSetting:
         return {"model_name": self.model_name, "model_args": self.model_args}
 
 
-def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
+def get_model_setting(
+    app: Flask, script_info: AILessonScript, status: list[int] = None
+) -> ModelSetting:
+    if status is None:
+        status = [STATUS_PUBLISH, STATUS_DRAFT]
     if script_info.script_model and script_info.script_model.strip():
         return ModelSetting(
             script_info.script_model, {"temperature": script_info.script_temprature}
@@ -720,7 +785,7 @@ def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
     ai_lesson = (
         AILesson.query.filter(
             AILesson.lesson_id == script_info.lesson_id,
-            AILesson.status == 1,
+            AILesson.status.in_(status),
         )
         .order_by(AILesson.id.desc())
         .first()
@@ -737,7 +802,7 @@ def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
     ai_course = (
         AICourse.query.filter(
             AICourse.course_id == ai_lesson.course_id,
-            AICourse.status == 1,
+            AICourse.status.in_(status),
         )
         .order_by(AICourse.id.desc())
         .first()
@@ -762,8 +827,14 @@ def get_model_setting(app: Flask, script_info: AILessonScript) -> ModelSetting:
 
 @extensible
 def check_script_is_last_script(
-    app: Flask, script_info: AILessonScript, lesson_info: AILesson
+    app: Flask,
+    script_info: AILessonScript,
+    lesson_info: AILesson,
+    preview_mode: bool = False,
 ) -> bool:
+    status = [STATUS_PUBLISH]
+    if preview_mode:
+        status.append(STATUS_DRAFT)
     parent_lesson_no = lesson_info.lesson_no
     if len(parent_lesson_no) > 2:
         parent_lesson_no = parent_lesson_no[:2]
@@ -771,23 +842,43 @@ def check_script_is_last_script(
         AILesson.query.filter(
             AILesson.lesson_no.like(parent_lesson_no + "__"),
             AILesson.course_id == lesson_info.course_id,
-            AILesson.status == 1,
+            AILesson.status.in_(status),
         )
         .order_by(AILesson.lesson_no.desc(), AILesson.id.desc())
         .first()
     )
     if last_lesson.lesson_id == script_info.lesson_id:
-        last_script = (
-            AILessonScript.query.filter(
-                AILessonScript.lesson_id == last_lesson.lesson_id,
-                AILessonScript.status == 1,
+        subquery = []
+        last_script = None
+        if preview_mode:
+            subquery = (
+                db.session.query(db.func.max(AILessonScript.id))
+                .filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                )
+                .group_by(AILessonScript.script_id)
             )
-            .order_by(AILessonScript.script_index.desc())
-            .first()
-        )
+            last_script = (
+                AILessonScript.query.filter(
+                    AILessonScript.id.in_(subquery),
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                    AILessonScript.status.in_(status),
+                )
+                .order_by(AILessonScript.script_index.desc())
+                .first()
+            )
+        else:
+            last_script = (
+                AILessonScript.query.filter(
+                    AILessonScript.lesson_id == last_lesson.lesson_id,
+                    AILessonScript.status.in_(status),
+                )
+                .order_by(AILessonScript.script_index.desc())
+                .first()
+            )
         if (
             last_script.script_id == script_info.script_id
-            and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_CONTINUED]
+            and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_EMPTY]
         ):
             return True
     return False

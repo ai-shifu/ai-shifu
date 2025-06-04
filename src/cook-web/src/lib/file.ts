@@ -54,7 +54,6 @@ export const uploadFile = async (
       if (token) {
         xhr.setRequestHeader("Authorization", `Bearer ${token}`);
         xhr.setRequestHeader("Token", token);
-        xhr.setRequestHeader("X-API-MODE", "admin");
         xhr.setRequestHeader("X-Request-ID", uuidv4().replace(/-/g, ''));
       }
 

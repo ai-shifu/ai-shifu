@@ -3,6 +3,17 @@ import { getSiteHost } from "@/config/runtime-config";
 import { fail } from '@/hooks/use-toast';
 import { getToken } from "@/local/local";
 import { v4 as uuidv4 } from 'uuid';
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export type RequestConfig = RequestInit & { params?: any; data?: any };
 
@@ -80,7 +91,7 @@ export class Request {
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
         const siteHost = getSiteHost();
-        this.baseUrl = siteHost || 'http://localhost/api';
+        this.baseUrl = siteHost || 'http://localhost:8081';
 
       }
       fullUrl = this.baseUrl ? this.baseUrl + url : url;
@@ -122,6 +133,14 @@ export class Request {
         if (location.pathname != '/login' && (res.code == 1001 || res.code == 1005 || res.code == 1004)) {
             window.location.href = '/login';
         }
+        if (location.pathname.startsWith('/shifu/') && res.code == 9002) {
+          // todo It should be changed to i18n
+          fail('您当前没有权限访问此内容，请联系管理员获取权限');
+        }
+        if (res.code != 0) {
+          throw new ErrorWithCode(res.message , res.code);
+        }
+
         if (res.code == 0) {
           return res.data;
         }
@@ -129,8 +148,6 @@ export class Request {
       }
       return res;
     } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error.message);
       fail(error.message)
       throw error;
     }
@@ -177,7 +194,6 @@ export class Request {
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error);
-      console.log(error.stack);
       throw error;
     }
   }
@@ -237,7 +253,6 @@ export class Request {
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
       console.error('Request failed:', error);
-      console.log(error.stack);
       throw error;
     }
   }
@@ -287,7 +302,6 @@ export class Request {
       return response;
     } catch (error: any) {
       // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.log(url, error);
       console.error('Request failed:', error.message);
       fail(error.message);
       throw error;

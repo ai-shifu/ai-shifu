@@ -201,4 +201,12 @@ def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
             url = IMAGE_BASE_URL + "/" + file_id
             user.user_avatar = url
             db.session.commit()
+
+            from ..shifu.funcs import _warm_up_cdn
+
+            if not _warm_up_cdn(app, url, ALI_API_ID, ALI_API_SECRET, endpoint):
+                app.logger.warning(
+                    "The user avatar URL is inaccessible, but the URL continues to be returned"
+                )
+
             return url

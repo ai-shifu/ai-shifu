@@ -9,6 +9,7 @@ from flaskr.service.lesson.const import (
 )
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
+from flaskr.i18n import _
 
 
 @register_ui_handler(UI_TYPE_LOGIN)
@@ -21,10 +22,13 @@ def handle_require_login(
     trace,
     trace_args,
 ) -> ScriptDTO:
+    title = script_info.script_ui_content
+    if not title:
+        title = _("COMMON.LOGIN")
     btn = [
         {
-            "label": script_info.script_ui_content,
-            "value": script_info.script_ui_content,
+            "label": title,
+            "value": title,
             "type": INPUT_TYPE_REQUIRE_LOGIN,
         }
     ]

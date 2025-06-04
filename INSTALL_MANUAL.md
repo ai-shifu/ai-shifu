@@ -1,12 +1,12 @@
 # INSTALL FROM SOURCE CODE STEP BY STEP
 ## Prerequisites
 ### Concept
-Firstly, look at the source code sturcture:
+Firstly, look at the source code structure:
 ```
 $ ls
 api cook web
 ```
-AI Shifu is composed by backend in api and frontend in web. and the cook is the editor for the course.
+AI Shifu is composed of backend in `api` and frontend in `web`. And `cook` is the editor for the course.
 So, we can
 
 ### Tools
@@ -27,14 +27,14 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 ```
 
 
-### Step 3: Configure environment variables
+### Step 2: Configure environment variables
 
 [More Info](https://github.com/ai-shifu/ai-shifu-docs/blob/main/zh_CN/guides/environment-variables.md)
 ```bash
 cp docker/.env.example .env  # guess this is under the root folder
 ```
 
-### Step 4: Configure .env
+### Step 3: Configure .env
 ```
 ... skip code ...
 ########
@@ -101,7 +101,7 @@ LANGFUSE_PUBLIC_KEY=""
 LANGFUSE_SECRET_KEY=""
 LANGFUSE_HOST=""
 
-# (Optional) Netease YIDUN settings for content detection
+# (Optional) NetEase YIDUN settings for content detection
 NETEASE_YIDUN_SECRET_ID=""
 NETEASE_YIDUN_SECRET_KEY=""
 NETEASE_YIDUN_BUSINESS_ID=""
@@ -113,7 +113,7 @@ LARK_APP_SECRET=""
 ... skip code ...
 
 # Path of log file
-LOGGING_PATH="/var/log/ai-shifu.log"  # make sure you have the permission to write the file
+LOGGING_PATH="/var/log/ai-shifu.log"  # make sure you have the permission to write to the file
 
 # Website access domain name
 WEB_URL=""
@@ -137,10 +137,10 @@ REACT_APP_ERUDA="true"
 
 ```
 
-### Step 5: Run the application
+### Step 4: Run the application
 * Make sure .env is under every folder
 
-#### Step 5.1: Run the api
+#### Step 4.1: Run the api
 ```bash
 cd api
 cp ../.env .env
@@ -150,7 +150,7 @@ flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output
 ```
 
-#### Step 5.2: Run the web
+#### Step 4.2: Run the web
 ```bash
 cd web
 cp ../.env .env
@@ -159,7 +159,7 @@ npm install  # or use pnpm install
 npm run start:dev # or use pnpm run build
 ```
 
-#### Step 5.3: Run the cook
+#### Step 4.3: Run the cook
 1. Copy .env
 ```bash
 cd cook
@@ -186,5 +186,5 @@ mysql -u user -h xxxx -p database_name < ../../docker/init.sql
 streamlit  run Home.py
 ```
 
-## Step 6: Access the application
-Go to the browser and have fun!              
+## Step 5: Access the application
+Go to the browser and have fun!

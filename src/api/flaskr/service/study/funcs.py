@@ -24,6 +24,7 @@ from ...service.lesson.const import (
     LESSON_TYPE_NORMAL,
     LESSON_TYPE_TRIAL,
     STATUS_PUBLISH,
+    STATUS_DRAFT,
 )
 from ...dao import db
 
@@ -40,66 +41,22 @@ from flaskr.util.uuid import generate_id
 from flaskr.service.user.models import User
 
 
-def get_lesson_tree_to_study_inner(
-    app: Flask, user_id: str, course_id: str = None
+def _get_lesson_tree_to_study_common(
+    app: Flask,
+    user_id: str,
+    course_id: str,
+    course_info: AICourse,
+    lessons: list,
+    online_lessons: list,
+    old_lessons: list,
+    lesson_map: dict,
+    attend_infos: list,
+    updated_attend: bool,
+    attend_status_values: dict,
+    paid: bool,
 ) -> AICourseDTO:
     with app.app_context():
-
-        app.logger.info("user_id:" + user_id)
-        attend_status_values = get_attend_status_values()
-        if course_id:
-            course_info = (
-                AICourse.query.filter(
-                    AICourse.course_id == course_id,
-                    AICourse.status.in_([STATUS_PUBLISH]),
-                )
-                .order_by(AICourse.id.desc())
-                .first()
-            )
-            if not course_info:
-                raise_error("LESSON.COURSE_NOT_FOUND")
-        else:
-            course_info = AICourse.query.order_by(AICourse.id.asc()).first()
-            if not course_info:
-                raise_error("LESSON.HAS_NOT_LESSON")
-            course_id = course_info.course_id
-        buy_record = AICourseBuyRecord.query.filter_by(
-            user_id=user_id, course_id=course_id
-        ).first()
-        paid = False
-        if buy_record:
-            paid = buy_record.status == BUY_STATUS_SUCCESS
-
-        lessons = (
-            AILesson.query.filter(
-                AILesson.course_id == course_id,
-                AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-                AILesson.status == 1,
-            )
-            .order_by(AILesson.id.desc())
-            .all()
-        )
-
-        online_lessons = [i for i in lessons if i.status == 1]
-        online_lessons = sorted(
-            online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
-        )
-        old_lessons = [i for i in lessons if i.status != 1]
-        old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
-
-        lesson_map = {i.lesson_id: i for i in online_lessons}
-
-        attend_infos = AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_id,
-            AICourseLessonAttend.course_id == course_id,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-        ).all()
-        updated_attend = False
-
-        app.logger.info("attend_infos:{}".format(len(attend_infos)))
-        # init the attend info for the trial lessons
-
-        is_first_chatpter = False
+        is_first_chapter = False
         is_first_lesson = False
 
         if len(attend_infos) == 0:
@@ -116,8 +73,8 @@ def get_lesson_tree_to_study_inner(
 
                 status = ATTEND_STATUS_LOCKED
 
-                if len(lesson.lesson_no) == 2 and not is_first_chatpter:
-                    is_first_chatpter = True
+                if len(lesson.lesson_no) == 2 and not is_first_chapter:
+                    is_first_chapter = True
                     status = ATTEND_STATUS_NOT_STARTED
                 if len(lesson.lesson_no) == 4 and not is_first_lesson:
                     is_first_lesson = True
@@ -302,26 +259,209 @@ def get_lesson_tree_to_study_inner(
         return ret
 
 
+def get_preview_mode_lesson_tree_to_study_inner(
+    app: Flask, user_id: str, course_id: str = None
+) -> AICourseDTO:
+    with app.app_context():
+        preview_mode = True
+        ai_course_status = [STATUS_DRAFT, STATUS_PUBLISH]
+        app.logger.info("user_id:" + user_id)
+        attend_status_values = get_attend_status_values()
+        if course_id:
+            course_info = (
+                AICourse.query.filter(
+                    AICourse.course_id == course_id,
+                    AICourse.status.in_(ai_course_status),
+                )
+                .order_by(AICourse.id.desc())
+                .first()
+            )
+            if not course_info:
+                raise_error("LESSON.COURSE_NOT_FOUND")
+        else:
+            course_info = AICourse.query.order_by(AICourse.id.asc()).first()
+            if not course_info:
+                raise_error("LESSON.HAS_NOT_LESSON")
+            course_id = course_info.course_id
+        buy_record = AICourseBuyRecord.query.filter_by(
+            user_id=user_id, course_id=course_id
+        ).first()
+        paid = False
+        if buy_record:
+            paid = buy_record.status == BUY_STATUS_SUCCESS
+        lessons = None
+        if preview_mode:
+            subquery = (
+                db.session.query(db.func.max(AILesson.id))
+                .filter(
+                    AILesson.course_id == course_id,
+                    AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
+                )
+                .group_by(AILesson.lesson_id)
+            )
+            lessons = AILesson.query.filter(
+                AILesson.id.in_(subquery),
+                AILesson.status.in_(ai_course_status),
+            ).all()
+        else:
+            lessons = AILesson.query.filter(
+                AILesson.status.in_(ai_course_status),
+            ).all()
+
+        lessons = [
+            lesson
+            for lesson in lessons
+            if lesson.status == STATUS_DRAFT
+            or (
+                lesson.status == STATUS_PUBLISH
+                and not any(
+                    lesson_item.lesson_id == lesson.lesson_id
+                    and lesson_item.status == STATUS_DRAFT
+                    for lesson_item in lessons
+                )
+            )
+        ]
+
+        online_lessons = [
+            i for i in lessons if i.status in [STATUS_PUBLISH, STATUS_DRAFT]
+        ]
+
+        online_lessons = sorted(
+            online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
+        )
+        old_lessons = []
+        if preview_mode:
+            old_lessons = [
+                i for i in lessons if i.status not in [STATUS_PUBLISH, STATUS_DRAFT]
+            ]
+        else:
+            old_lessons = [i for i in lessons if i.status != STATUS_PUBLISH]
+        old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
+        lesson_map = {i.lesson_id: i for i in online_lessons}
+
+        attend_infos = AICourseLessonAttend.query.filter(
+            AICourseLessonAttend.user_id == user_id,
+            AICourseLessonAttend.course_id == course_id,
+            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+        ).all()
+        updated_attend = False
+
+        return _get_lesson_tree_to_study_common(
+            app,
+            user_id,
+            course_id,
+            course_info,
+            lessons,
+            online_lessons,
+            old_lessons,
+            lesson_map,
+            attend_infos,
+            updated_attend,
+            attend_status_values,
+            paid,
+        )
+
+
+def get_lesson_tree_to_study_inner(
+    app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
+) -> AICourseDTO:
+    with app.app_context():
+        if preview_mode:
+            re = get_preview_mode_lesson_tree_to_study_inner(app, user_id, course_id)
+            return re
+        app.logger.info("user_id:" + user_id)
+        attend_status_values = get_attend_status_values()
+        if course_id:
+            course_info = (
+                AICourse.query.filter(
+                    AICourse.course_id == course_id,
+                    AICourse.status.in_([STATUS_PUBLISH]),
+                )
+                .order_by(AICourse.id.desc())
+                .first()
+            )
+            if not course_info:
+                raise_error("LESSON.COURSE_NOT_FOUND")
+        else:
+            course_info = AICourse.query.order_by(AICourse.id.asc()).first()
+            if not course_info:
+                raise_error("LESSON.HAS_NOT_LESSON")
+            course_id = course_info.course_id
+        buy_record = AICourseBuyRecord.query.filter_by(
+            user_id=user_id, course_id=course_id
+        ).first()
+        paid = False
+        if buy_record:
+            paid = buy_record.status == BUY_STATUS_SUCCESS
+
+        lessons = (
+            AILesson.query.filter(
+                AILesson.course_id == course_id,
+                AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
+                AILesson.status == STATUS_PUBLISH,
+            )
+            .order_by(AILesson.id.desc())
+            .all()
+        )
+
+        online_lessons = [i for i in lessons if i.status == STATUS_PUBLISH]
+        online_lessons = sorted(
+            online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
+        )
+        old_lessons = [i for i in lessons if i.status != STATUS_PUBLISH]
+        old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
+
+        lesson_map = {i.lesson_id: i for i in online_lessons}
+
+        attend_infos = AICourseLessonAttend.query.filter(
+            AICourseLessonAttend.user_id == user_id,
+            AICourseLessonAttend.course_id == course_id,
+            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+        ).all()
+        updated_attend = False
+
+        return _get_lesson_tree_to_study_common(
+            app,
+            user_id,
+            course_id,
+            course_info,
+            lessons,
+            online_lessons,
+            old_lessons,
+            lesson_map,
+            attend_infos,
+            updated_attend,
+            attend_status_values,
+            paid,
+        )
+
+
 @extensible
 def get_lesson_tree_to_study(
-    app: Flask, user_id: str, course_id: str = None
+    app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
 ) -> AICourseDTO:
     return run_with_redis(
         app,
-        app.config.get("REDIS_KEY_PRRFIX") + "::get_lesson_tree_to_study:" + user_id,
+        app.config.get("REDIS_KEY_PREFIX") + ":get_lesson_tree_to_study:" + user_id,
         5,
         get_lesson_tree_to_study_inner,
-        [app, user_id, course_id],
+        [app, user_id, course_id, preview_mode],
     )
 
 
 @extensible
-def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO:
+def get_study_record(
+    app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False
+) -> StudyRecordDTO:
     with app.app_context():
+        ai_course_status = [STATUS_PUBLISH]
+        if preview_mode:
+            ai_course_status.append(STATUS_DRAFT)
+
         lesson_info = (
             AILesson.query.filter(
                 AILesson.lesson_id == lesson_id,
-                AILesson.status == 1,
+                AILesson.status.in_(ai_course_status),
             )
             .order_by(AILesson.id.desc())
             .first()
@@ -337,7 +477,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
             lesson_infos = (
                 AILesson.query.filter(
                     AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
-                    AILesson.status == 1,
+                    AILesson.status.in_(ai_course_status),
                     AILesson.course_id == lesson_info.course_id,
                 )
                 .order_by(AILesson.id.desc())
@@ -386,7 +526,7 @@ def get_study_record(app: Flask, user_id: str, lesson_id: str) -> StudyRecordDTO
         last_script = (
             AILessonScript.query.filter(
                 AILessonScript.script_id == last_script_id,
-                AILessonScript.status == 1,
+                AILessonScript.status.in_(ai_course_status),
             )
             .order_by(AILessonScript.id.desc())
             .first()
@@ -507,12 +647,17 @@ def get_lesson_study_progress(
 
 # get script info
 @extensible
-def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
+def get_script_info(
+    app: Flask, user_id: str, script_id: str, preview_mode: bool = False
+) -> ScriptInfoDTO:
     with app.app_context():
+        ai_course_status = [STATUS_PUBLISH]
+        if preview_mode:
+            ai_course_status = [STATUS_DRAFT]
         script_info = (
             AILessonScript.query.filter(
                 AILessonScript.script_id == script_id,
-                AILessonScript.status == 1,
+                AILessonScript.status.in_(ai_course_status),
             )
             .order_by(AILessonScript.id.desc())
             .first()
@@ -522,7 +667,7 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
         lesson = (
             AILesson.query.filter(
                 AILesson.lesson_id == script_info.lesson_id,
-                AILesson.status == 1,
+                AILesson.status.in_(ai_course_status),
             )
             .order_by(AILesson.id.desc())
             .first()
@@ -538,12 +683,17 @@ def get_script_info(app: Flask, user_id: str, script_id: str) -> ScriptInfoDTO:
 
 # reset user study info by lesson
 @extensible
-def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
+def reset_user_study_info_by_lesson(
+    app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False
+):
+    ai_course_status = [STATUS_PUBLISH]
+    if preview_mode:
+        ai_course_status.append(STATUS_DRAFT)
     with app.app_context():
         lesson_info = (
             AILesson.query.filter(
                 AILesson.lesson_id == lesson_id,
-                AILesson.status == 1,
+                AILesson.status.in_(ai_course_status),
             )
             .order_by(AILesson.id.desc())
             .first()
@@ -558,7 +708,7 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         lessons = (
             AILesson.query.filter(
                 AILesson.lesson_no.like(lesson_no + "%"),
-                AILesson.status == 1,
+                AILesson.status.in_(ai_course_status),
                 AILesson.course_id == course_id,
             )
             .order_by(AILesson.id.desc())
@@ -586,7 +736,9 @@ def reset_user_study_info_by_lesson(app: Flask, user_id: str, lesson_id: str):
         for attend_info in attend_infos:
             attend_info.status = ATTEND_STATUS_RESET
         # insert the new attend info for the lessons that are available
-        for lesson in [lesson for lesson in lessons if lesson.status == 1]:
+        for lesson in [
+            lesson for lesson in lessons if lesson.status in ai_course_status
+        ]:
             attend_info = AICourseLessonAttend(
                 user_id=user_id,
                 lesson_id=lesson.lesson_id,

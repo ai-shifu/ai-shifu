@@ -183,3 +183,38 @@ class UserToken(db.Model):
         onupdate=func.now(),
         comment="Update time",
     )
+
+
+class UserVerifyCode(db.Model):
+    __tablename__ = "user_verify_code"
+    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    phone = Column(String(36), nullable=False, default="", comment="User phone")
+    mail = Column(String(36), nullable=False, default="", comment="User mail")
+    verify_code = Column(String(10), nullable=False, default="", comment="Verify code")
+    verify_code_type = Column(
+        Integer, nullable=False, default=0, comment="Verify code type"
+    )
+    verify_code_send = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="verification code send state",
+    )
+    verify_code_used = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="verification code used state",
+    )
+    user_ip = Column(String(100), nullable=False, default="", comment="user ip")
+
+    created = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )

@@ -7,6 +7,9 @@ import { FRAME_LAYOUT_MOBILE } from 'constants/uiConstants';
 import classNames from 'classnames';
 import { memo } from 'react';
 import GlobalInfoButton from './GlobalInfoButton';
+import { useSystemStore } from 'stores/useSystemStore';
+import { useShallow } from 'zustand/react/shallow';
+import { useTranslation } from 'react-i18next';
 
 /**
  * 聊天区的整体画布
@@ -25,6 +28,18 @@ export const ChatUi = ({
   updateSelectedLesson,
 }) => {
   const { frameLayout } = useContext(AppContext);
+  const { skip, updateSkip, previewMode } = useSystemStore(
+    useShallow((state) => ({
+      skip: state.skip,
+      updateSkip: state.updateSkip,
+      previewMode: state.previewMode
+    }))
+  );
+  const { t } = useTranslation();
+
+  const handlePreviewModeClick = () => {
+    updateSkip(!skip);
+  };
 
   return (
     <div
@@ -56,6 +71,16 @@ export const ChatUi = ({
       )}
 
       <GlobalInfoButton className={styles.globalInfoButton} />
+      {previewMode && (
+        <div className={styles.previewMode}>
+          <button
+            className={classNames(styles.previewModeButton, { [styles.active]: skip })}
+            onClick={handlePreviewModeClick}
+          >
+            {skip ? t('chat.stopAutoSkip') : t('chat.startAutoSkip')}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
