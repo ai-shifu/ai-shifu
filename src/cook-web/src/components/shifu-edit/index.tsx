@@ -442,6 +442,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       onClickDebug={onDebugBlock}
                       onClickRemove={onRemove}
                       disabled={expandedBlocks[block.properties.block_id]}
+                      error={blockErrors[block.properties.block_id]}
                     >
                       <div
                         id={block.properties.block_id}
