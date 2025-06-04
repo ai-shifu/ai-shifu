@@ -207,7 +207,29 @@ def save_block_list_internal(
                         error_messages[block_model.script_id] = (
                             update_block_result.error_message
                         )
-                        continue
+                        # Read the original data from the database
+                        original_block = AILessonScript.query.filter(
+                            AILessonScript.script_id == block_model.script_id,
+                            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT])
+                        ).order_by(AILessonScript.id.desc()).first()
+                        if original_block:
+                            block_model = original_block
+                            block_model.script_index = block_index
+                            block_model.updated = time
+                            block_model.updated_user_id = user_id
+                            block_model.status = STATUS_DRAFT
+                            db.session.add(block_model)
+                            block_models.append(block_model)
+                            save_block_ids.append(block_model.script_id)
+                            # Continue to execute the subsequent processes using the original data
+                            profile = None
+                            if original_block.script_ui_profile_id:
+                                profile_item = ProfileItem.query.filter(
+                                    ProfileItem.profile_id == original_block.script_ui_profile_id,
+                                    ProfileItem.status == 1
+                                ).first()
+                                if profile_item:
+                                    profile_items.append(profile_item)
                     if update_block_result.data:
                         profile = update_block_result.data
                         profile_item = save_profile_item_defination(
@@ -241,7 +263,29 @@ def save_block_list_internal(
                         error_messages[new_block.script_id] = (
                             update_block_result.error_message
                         )
-                        continue
+                        # Read the original data from the database
+                        original_block = AILessonScript.query.filter(
+                            AILessonScript.script_id == new_block.script_id,
+                            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT])
+                        ).order_by(AILessonScript.id.desc()).first()
+                        if original_block:
+                            new_block = original_block
+                            new_block.script_index = block_index
+                            new_block.updated = time
+                            new_block.updated_user_id = user_id
+                            new_block.status = STATUS_DRAFT
+                            db.session.add(new_block)
+                            block_models.append(new_block)
+                            save_block_ids.append(new_block.script_id)
+                            # Continue to execute the subsequent processes using the original data
+                            profile = None
+                            if original_block.script_ui_profile_id:
+                                profile_item = ProfileItem.query.filter(
+                                    ProfileItem.profile_id == original_block.script_ui_profile_id,
+                                    ProfileItem.status == 1
+                                ).first()
+                                if profile_item:
+                                    profile_items.append(profile_item)
                     else:
                         profile = update_block_result.data
                     new_block.script_index = block_index

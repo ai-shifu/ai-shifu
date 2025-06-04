@@ -17,6 +17,7 @@ from flaskr.service.shifu.dtos import (
     BlockUpdateResultDto,
 )
 from sqlalchemy import func
+from flaskr.i18n import _
 
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
@@ -51,7 +52,7 @@ import re
 def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     type = block_dict.get("type")
     if type != "block":
-        raise_error("SHIFU.INVALID_BLOCK_TYPE")
+        raise_error(_("SHIFU.INVALID_BLOCK_TYPE"))
     block_info = BlockDto(**block_dict.get("properties"))
     block_info.block_ui = None
     block_info.block_content = None
@@ -68,7 +69,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
         elif type == "systemprompt":
             block_info.block_content = SystemPromptDto(**content.get("properties"))
         else:
-            raise_error("SCENARIO.INVALID_BLOCK_CONTENT_TYPE")
+            raise_error(_("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
     ui = properties.get("block_ui")
     if ui:
         type = ui.get("type")
@@ -91,7 +92,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
         elif type == "empty":
             block_info.block_ui = EmptyDto()
         else:
-            raise_error("SHIFU.INVALID_BLOCK_UI_TYPE")
+            raise_error(_("SHIFU.INVALID_BLOCK_UI_TYPE"))
 
     return block_info
 
@@ -100,7 +101,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
 def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     type = outline_dict.get("type")
     if type != "outline":
-        raise_error("SHIFU.INVALID_OUTLINE_TYPE")
+        raise_error(_("SHIFU.INVALID_OUTLINE_TYPE"))
     outline_info = OutlineEditDto(**outline_dict.get("properties"))
     return outline_info
 
@@ -240,7 +241,7 @@ def update_block_model(
             ):
                 block_model.script_temprature = block_dto.block_content.temprature
         else:
-            return BlockUpdateResultDto(None, "SHIFU.INVALID_BLOCK_CONTENT_TYPE")
+            return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, LoginDto):
             error_message = check_button_dto(block_dto.block_ui)
@@ -295,16 +296,16 @@ def update_block_model(
 
         elif isinstance(block_dto.block_ui, OptionDto):
             if not block_dto.block_ui.option_key:
-                return BlockUpdateResultDto(None, "SHIFU.OPTION_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
             if not block_dto.block_ui.option_name:
-                return BlockUpdateResultDto(None, "SHIFU.OPTION_NAME_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
             if not block_dto.block_ui.profile_key:
-                return BlockUpdateResultDto(None, "SHIFU.PROFILE_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
             for btn in block_dto.block_ui.buttons:
                 if not btn.button_name:
-                    return BlockUpdateResultDto(None, "SHIFU.BUTTON_NAME_REQUIRED")
+                    return BlockUpdateResultDto(None, _("SHIFU.BUTTON_NAME_REQUIRED"))
                 if not btn.button_key:
-                    return BlockUpdateResultDto(None, "SHIFU.BUTTON_KEY_REQUIRED")
+                    return BlockUpdateResultDto(None, _("SHIFU.BUTTON_KEY_REQUIRED"))
             block_model.script_ui_type = UI_TYPE_SELECTION
             block_model.script_ui_content = block_dto.block_ui.option_key
             block_model.script_ui_content = block_dto.block_ui.option_name
@@ -333,13 +334,13 @@ def update_block_model(
             )
         elif isinstance(block_dto.block_ui, TextInputDto):
             if not block_dto.block_ui.prompt:
-                return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
             if not block_dto.block_ui.input_key:
-                return BlockUpdateResultDto(None, "SHIFU.INPUT_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.INPUT_KEY_REQUIRED"))
             if not block_dto.block_ui.input_name:
-                return BlockUpdateResultDto(None, "SHIFU.INPUT_NAME_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.INPUT_NAME_REQUIRED"))
             if not block_dto.block_ui.input_placeholder:
-                return BlockUpdateResultDto(None, "SHIFU.INPUT_PLACEHOLDER_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.INPUT_PLACEHOLDER_REQUIRED"))
             from flask import current_app as app
 
             app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
@@ -370,7 +371,7 @@ def update_block_model(
         elif isinstance(block_dto.block_ui, EmptyDto):
             block_model.script_ui_type = UI_TYPE_EMPTY
         else:
-            return BlockUpdateResultDto(None, "SHIFU.INVALID_BLOCK_UI_TYPE")
+            return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_UI_TYPE"))
     else:
         block_model.script_ui_type = UI_TYPE_EMPTY
     return BlockUpdateResultDto(None)
