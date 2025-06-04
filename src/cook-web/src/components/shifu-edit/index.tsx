@@ -260,7 +260,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
     blockUITypes,
     currentNode,
     isLoading,
-    currentShifu
+    currentShifu,
+    blockErrors
   } = useShifu()
 
   const [debugBlockInfo, setDebugBlockInfo] = useState({
