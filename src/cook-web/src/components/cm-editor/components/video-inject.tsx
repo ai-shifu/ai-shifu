@@ -20,7 +20,7 @@ type VideoInjectProps = {
 }
 
 const biliVideoUrlRegexp =
-  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+\/?)/gi
+  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+\/?)/i
 
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   const { t } = useTranslation()
@@ -41,6 +41,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   }
 
   const handleRun = () => {
+    setErrorTips('')
     if (!isValidBilibiliUrl(inputUrl)) {
       setErrorTips(t('common.please-input-valid-bilibili-url'))
       return

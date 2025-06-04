@@ -49,6 +49,7 @@ interface DraggableBlockProps {
   onClickRemove?: (id: string) => void
   onClickChangeType?: (id: string, type: BlockType) => void
   children: React.ReactNode
+  disabled?: boolean
 }
 
 const DraggableBlock = ({
@@ -59,7 +60,8 @@ const DraggableBlock = ({
   onClickDebug,
   onClickRemove,
   onClickChangeType,
-  children
+  children,
+  disabled = false
 }: DraggableBlockProps) => {
   const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
@@ -76,7 +78,7 @@ const DraggableBlock = ({
       }
     },
     hover (item: DragItem, monitor: DropTargetMonitor) {
-      if (!ref.current) {
+      if (!ref.current || disabled) {
         return
       }
       const dragIndex = item.index
@@ -113,6 +115,7 @@ const DraggableBlock = ({
     item: () => {
       return { id, index }
     },
+    canDrag: !disabled,
     collect: monitor => ({
       isDragging: monitor.isDragging()
     })
@@ -221,6 +224,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
   const { profile } = useAuth()
   const ContentTypes = useContentTypes()
+  const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({})
+
   useEffect(() => {
     if (profile) {
       i18n.changeLanguage(profile.language)
@@ -397,6 +402,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     onClickChangeType={onChangeBlockType}
                     onClickDebug={onDebugBlock}
                     onClickRemove={onRemove}
+                    disabled={expandedBlocks[block.properties.block_id]}
                   >
                     <div
                       id={block.properties.block_id}
@@ -411,7 +417,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           }
                         />
                       </div>
-                      <RenderBlockUI block={block} />
+                      <RenderBlockUI
+                        block={block}
+                        onExpandChange={(expanded) => {
+                          setExpandedBlocks(prev => ({
+                            ...prev,
+                            [block.properties.block_id]: expanded
+                          }))
+                        }}
+                      />
                       <div>
                         <AddBlock
                           onAdd={(type: BlockType) => {

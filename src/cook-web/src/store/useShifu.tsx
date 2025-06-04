@@ -1,5 +1,3 @@
-
-
 import { Shifu, ShifuContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties } from "../types/shifu";
 import api from "@/api";
 import { useContentTypes } from "@/components/render-block";
@@ -717,7 +715,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const removeBlock = async (id: string) => {
         const list = blocks.filter((block) => block.properties.block_id !== id);
         setBlocks(list);
-        autoSaveBlocks(currentNode!.id, list, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, currentShifu?.shifu_id || '');
+        await saveCurrentBlocks(currentNode!.id, list, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, currentShifu?.shifu_id || '');
     }
     const loadModels = async () => {
         const list = await api.getModelList({});

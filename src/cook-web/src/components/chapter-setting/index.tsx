@@ -117,6 +117,7 @@ const ChapterSettingsDialog = ({ unitId, onOpenChange }: { unitId: string; onOpe
                                     value={systemPrompt}
                                     onChange={(e) => setSystemPrompt(e.target.value)}
                                     className="min-h-24 bg-white"
+                                    maxRows={25}
                                 />
                             </div>
 

@@ -74,7 +74,7 @@ export default function AuthPage () {
             />
 
           <div className='absolute top-0 right-0'>
-          <LanguageSelect language={language} onSetLanguage={setLanguage} variant='circle' />
+          <LanguageSelect language={language} onSetLanguage={setLanguage} variant='login' />
         </div>
         </h2>
         </div>

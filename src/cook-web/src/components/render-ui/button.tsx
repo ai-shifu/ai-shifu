@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Input } from '../ui/input'
 import { Button as UIButton } from '../ui/button'
 import { useTranslation } from 'react-i18next';
@@ -9,14 +9,48 @@ interface ButtonProps {
     }
     onChange: (properties: any) => void
     mode?: 'edit' | 'login' | 'payment'
+    onChanged?: (changed: boolean) => void
 }
 
 export default function Button(props: ButtonProps) {
-    const { properties, mode = 'edit' } = props
+    const { properties, mode = 'edit', onChanged } = props
     const [tempValue, setTempValue] = useState(properties.button_name)
+    const [changed, setChanged] = useState(false)
     const { t } = useTranslation();
 
-    // Get the placeholder for input component based on the mode
+    useEffect(() => {
+        setChanged(false)
+        setTempValue(properties.button_name)
+    }, [properties.button_name])
+
+    const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value
+        setTempValue(value)
+        if (!changed) {
+            setChanged(true)
+            onChanged?.(true)
+        }
+        if (mode === 'login' || mode === 'payment') {
+            props.onChange({
+                ...properties,
+                button_name: value,
+                button_key: value
+            })
+        }
+    }, [changed, mode, onChanged, properties, props])
+
+    const handleConfirm = useCallback(() => {
+        props.onChange({
+            ...properties,
+            button_name: tempValue,
+            button_key: tempValue
+        })
+        if (!changed) {
+            setChanged(true)
+            onChanged?.(true)
+        }
+    }, [changed, onChanged, properties, props, tempValue])
+
     const getPlaceholder = () => {
         switch (mode) {
             case 'login':
@@ -27,26 +61,6 @@ export default function Button(props: ButtonProps) {
             default:
                 return t('button.placeholder-edit')
         }
-    }
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value
-        setTempValue(value)
-        if (mode === 'login' || mode === 'payment') {
-            props.onChange({
-                ...properties,
-                button_name: value,
-                button_key: value
-            })
-        }
-    }
-
-    const handleConfirm = () => {
-        props.onChange({
-            ...properties,
-            button_name: tempValue,
-            button_key: tempValue
-        })
     }
 
     return (
