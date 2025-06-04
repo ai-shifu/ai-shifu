@@ -10,6 +10,7 @@ type ProfileInjectProps = {
   onSelect: (profile: Profile) => void
 }
 const ProfileInject: React.FC<ProfileInjectProps> = ({
+  value,
   onSelect = () => {}
 }) => {
   const { currentShifu } = useShifu()
@@ -17,6 +18,6 @@ const ProfileInject: React.FC<ProfileInjectProps> = ({
     onSelect?.(profile)
   }, [])
 
-  return <ProfileSelect parentId={currentShifu?.shifu_id as unknown as string} onSelect={handleSelect} />
+  return <ProfileSelect value={value} parentId={currentShifu?.shifu_id as unknown as string} onSelect={handleSelect} />
 }
 export default ProfileInject

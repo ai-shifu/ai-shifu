@@ -1,4 +1,3 @@
-
 export type BlockType = 'ai' | 'systemprompt' | 'solidcontent';
 
 export interface Shifu {
@@ -63,16 +62,27 @@ export interface ShifuState {
     blockContentProperties: { [x: string]: any };
     blockContentTypes: { [x: string]: string };
     blockContentState: { [x: string]: 'edit' | 'preview' };
+    blockErrors: { [x: string]: string | null };
     profileItemDefinations: ProfileItem[];
     currentNode: Outline | null;
     models: string[];
+}
+
+export interface ApiResponse<T> {
+    code: number;
+    message: string;
+    data: T;
+}
+
+export interface SaveBlockListResult {
+    blocks: Block[];
+    error_messages: Record<string, string>;
 }
 
 export interface ShifuActions {
     addChapter: (chapter: Outline) => void;
     loadShifu: (shifuId: string) => Promise<void>;
     loadChapters: (shifuId: string) => Promise<void>;
-    // saveChapter: (chapter: Outline) => Promise<void>;
     createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
     setChapters: (chapters: Outline[]) => void;
     setFocusId: (id: string) => void;
@@ -94,11 +104,13 @@ export interface ShifuActions {
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;
     saveBlocks: (shifuId: string) => Promise<void>;
-    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<void>;
-    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<void>;
+    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
+    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
     removeBlock: (id: string, shifuId: string) => Promise<void>;
     setCurrentNode: (node: Outline) => void;
     loadModels: () => void;
+    setBlockError: (blockId: string, error: string | null) => void;
+    clearBlockErrors: () => void;
 }
 
 export interface ShifuContextType extends ShifuState {

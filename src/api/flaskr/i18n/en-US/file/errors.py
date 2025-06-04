@@ -1,3 +1,8 @@
 FILE_UPLOAD_ERROR = "File Upload Failed"
 FILE_TYPE_NOT_SUPPORT = "Unsupported File Type"
 FILE_SIZE_EXCEED = "File Size Exceeds Limit"
+VIDEO_INVALID_BILIBILI_LINK = "Invalid Bilibili Link"
+VIDEO_BILIBILI_API_ERROR = "Bilibili API Error"
+VIDEO_BILIBILI_API_REQUEST_FAILED = "Request Bilibili API Failed"
+VIDEO_UNSUPPORTED_VIDEO_SITE = "Unsupported Video Site"
+VIDEO_GET_INFO_ERROR = "Error Getting Video Info"

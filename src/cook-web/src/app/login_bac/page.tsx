@@ -207,11 +207,11 @@ const LoginPage = () => {
                 </Card>
                 <div className="text-xs text-stone-500 text-center">
                     {t("login.click-login-to-represent-you-have-agreed-to")}
-                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500">
+                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500" href="/privacy">
                         {t("login.user-agreement")}
                     </a>
                     {t("login.and")}
-                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500">
+                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500" href="/agreement">
                         {t("login.service-agreement")}
                     </a>
                 </div>

@@ -398,17 +398,17 @@ def get_lesson_tree_to_study_inner(
             AILesson.query.filter(
                 AILesson.course_id == course_id,
                 AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-                AILesson.status == 1,
+                AILesson.status == STATUS_PUBLISH,
             )
             .order_by(AILesson.id.desc())
             .all()
         )
 
-        online_lessons = [i for i in lessons if i.status == 1]
+        online_lessons = [i for i in lessons if i.status == STATUS_PUBLISH]
         online_lessons = sorted(
             online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
         )
-        old_lessons = [i for i in lessons if i.status != 1]
+        old_lessons = [i for i in lessons if i.status != STATUS_PUBLISH]
         old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
 
         lesson_map = {i.lesson_id: i for i in online_lessons}

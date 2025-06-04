@@ -13,7 +13,7 @@ import { browserLanguage } from '@/i18n';
 
 
 type languageProps = {
-     variant?: 'circle' | 'standard'
+  variant?: 'login' | 'standard'
     language?: string
     onSetLanguage?: (value: string) => void
   }
@@ -23,10 +23,11 @@ type languageProps = {
 
 export default function LanguageSelect(props: languageProps) {
     const { t, i18n: i18nInstance } = useTranslation();
-    const triggerClass =
-      props.variant === 'circle'
-          ? 'w-[40px] h-[40px] rounded-full p-0 flex items-center justify-start border-none shadow-none focus:outline-none'
+  const triggerClass =
+      props.variant === 'login'
+      ? 'w-[80px] h-[35px] rounded-lg p-0 flex items-center justify-center border-none shadow-none focus:outline-none'
           : 'flex items-center justify-start space-x-2 px-3 py-2 rounded-lg border-none hover:bg-gray-100 focus:ring-0 focus:ring-offset-0';
+
 
     const  language=props?.language || i18nInstance.language || browserLanguage;
 
@@ -39,7 +40,7 @@ export default function LanguageSelect(props: languageProps) {
     return (
         <Select value={language} onValueChange={handleSetLanguage} >
         <SelectTrigger className={triggerClass}>
-        <GlobeIcon className='w-4 h-4' />
+        <GlobeIcon className='w-4 h-4 mr-1' />
           <SelectValue className='hidden' placeholder={t('langName')} />
         </SelectTrigger>
         <SelectContent>

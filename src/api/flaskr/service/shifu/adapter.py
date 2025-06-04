@@ -17,6 +17,7 @@ from flaskr.service.shifu.dtos import (
     BlockUpdateResultDto,
 )
 from sqlalchemy import func
+from flaskr.i18n import _
 
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
@@ -51,7 +52,7 @@ import re
 def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     type = block_dict.get("type")
     if type != "block":
-        raise_error("SHIFU.INVALID_BLOCK_TYPE")
+        raise_error(_("SHIFU.INVALID_BLOCK_TYPE"))
     block_info = BlockDto(**block_dict.get("properties"))
     block_info.block_ui = None
     block_info.block_content = None
@@ -68,7 +69,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
         elif type == "systemprompt":
             block_info.block_content = SystemPromptDto(**content.get("properties"))
         else:
-            raise_error("SCENARIO.INVALID_BLOCK_CONTENT_TYPE")
+            raise_error(_("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
     ui = properties.get("block_ui")
     if ui:
         type = ui.get("type")
@@ -91,7 +92,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
         elif type == "empty":
             block_info.block_ui = EmptyDto()
         else:
-            raise_error("SHIFU.INVALID_BLOCK_UI_TYPE")
+            raise_error(_("SHIFU.INVALID_BLOCK_UI_TYPE"))
 
     return block_info
 
@@ -100,7 +101,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
 def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     type = outline_dict.get("type")
     if type != "outline":
-        raise_error("SHIFU.INVALID_OUTLINE_TYPE")
+        raise_error(_("SHIFU.INVALID_OUTLINE_TYPE"))
     outline_info = OutlineEditDto(**outline_dict.get("properties"))
     return outline_info
 
@@ -108,6 +109,88 @@ def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
 def check_button_dto(button_dto: ButtonDto):
     # The button title is allowed to be empty
     pass
+
+
+def html_2_markdown(content):
+    def video_repl(match):
+        url = match.group("url")
+        title = match.group("title")
+        bvid_match = re.search(r"BV\w+", url)
+        if bvid_match:
+            bvid = bvid_match.group(0)
+            return f'<iframe src="https://player.bilibili.com/player.html?isOutside=true&bvid={bvid}&p=1&high_quality=1" title="{title}" scrolling="no" border="0" frameborder="no" framespacing="0" allowfullscreen="true"></iframe>'  # noqa: E501 E261
+        return url
+
+    def profile_repl(match):
+        var = match.group("var")
+        var = var.strip("{}")
+        return f"{{{var}}}"
+
+    def image_repl(match):
+        title = match.group("title")
+        url = match.group("url")
+        scale = match.group("scale")
+        return f"<img src='{url}' alt='{title}' style='width: {scale}%;' />"
+
+    content = re.sub(
+        r'<span\s+data-tag="video"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*>[^<]*</span>',
+        video_repl,
+        content,
+    )
+    content = re.sub(
+        r'<span\s+data-tag="profile"[^>]*>(?P<var>\{[^}]+\})</span>',
+        profile_repl,
+        content,
+    )
+    content = re.sub(
+        r'<span\s+data-tag="image"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*data-scale="(?P<scale>[^"]+)"[^>]*>[^<]*</span>',
+        image_repl,
+        content,
+    )
+
+    return content
+
+
+def markdown_2_html(content):
+    import re
+
+    def iframe_repl(match):
+        bvid = match.group("bvid")
+        title = match.group("title")
+        return f'<span data-tag="video" data-url="https://www.bilibili.com/video/{bvid}/" data-title="{title}">{title}</span>'
+
+    def profile_repl(match):
+        var = match.group("var")
+        return f'<span data-tag="profile">{{{var}}}</span>'
+
+    def image_repl(match):
+        title = match.group("title")
+        url = match.group("url")
+        scale = match.group("scale")
+        return f'<span data-tag="image" data-url="{url}" data-title="{title}" data-scale="{scale}">{title}</span>'
+
+    content = re.sub(
+        r'(?s)<iframe[^>]*src="[^"]*bvid=(?P<bvid>BV\w+)[^"]*"[^>]*title="(?P<title>[^"]*)"[^>]*></iframe>',
+        iframe_repl,
+        content,
+    )
+
+    content = re.sub(
+        r"{(?P<var>[^}]+)}",
+        profile_repl,
+        content,
+    )
+
+    content = re.sub(
+        r'<img[^>]*?src=[\'"](?P<url>[^\'"]+)[\'"][^>]*?alt=[\'"](?P<title>[^\'"]+)[\'"][^>]*?style=[\'"][^>]*?width:\s*(?P<scale>[^%;\s]+)[%;][^>]*?(?:/>|>)',
+        image_repl,
+        content,
+    )
+
+    from flask import current_app as app
+
+    app.logger.info(f"content: {content}")
+    return content
 
 
 # update block model
@@ -128,7 +211,7 @@ def update_block_model(
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
             block_model.script_type = SCRIPT_TYPE_PROMPT
-            block_model.script_prompt = block_dto.block_content.prompt
+            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
             if block_dto.block_content.profiles:
                 block_model.script_profile = (
                     "[" + "][".join(block_dto.block_content.profiles) + "]"
@@ -142,10 +225,10 @@ def update_block_model(
                 block_model.script_temprature = block_dto.block_content.temprature
         elif isinstance(block_dto.block_content, SolidContentDto):
             block_model.script_type = SCRIPT_TYPE_FIX
-            block_model.script_prompt = block_dto.block_content.prompt
+            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
         elif isinstance(block_dto.block_content, SystemPromptDto):
             block_model.script_type = SCRIPT_TYPE_SYSTEM
-            block_model.script_prompt = block_dto.block_content.prompt
+            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
             if block_dto.block_content.profiles:
                 block_model.script_profile = (
                     "[" + "][".join(block_dto.block_content.profiles) + "]"
@@ -158,7 +241,7 @@ def update_block_model(
             ):
                 block_model.script_temprature = block_dto.block_content.temprature
         else:
-            return BlockUpdateResultDto(None, "SHIFU.INVALID_BLOCK_CONTENT_TYPE")
+            return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, LoginDto):
             error_message = check_button_dto(block_dto.block_ui)
@@ -213,16 +296,16 @@ def update_block_model(
 
         elif isinstance(block_dto.block_ui, OptionDto):
             if not block_dto.block_ui.option_key:
-                return BlockUpdateResultDto(None, "SHIFU.OPTION_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
             if not block_dto.block_ui.option_name:
-                return BlockUpdateResultDto(None, "SHIFU.OPTION_NAME_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
             if not block_dto.block_ui.profile_key:
-                return BlockUpdateResultDto(None, "SHIFU.PROFILE_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
             for btn in block_dto.block_ui.buttons:
                 if not btn.button_name:
-                    return BlockUpdateResultDto(None, "SHIFU.BUTTON_NAME_REQUIRED")
+                    return BlockUpdateResultDto(None, _("SHIFU.BUTTON_NAME_REQUIRED"))
                 if not btn.button_key:
-                    return BlockUpdateResultDto(None, "SHIFU.BUTTON_KEY_REQUIRED")
+                    return BlockUpdateResultDto(None, _("SHIFU.BUTTON_KEY_REQUIRED"))
             block_model.script_ui_type = UI_TYPE_SELECTION
             block_model.script_ui_content = block_dto.block_ui.option_key
             block_model.script_ui_content = block_dto.block_ui.option_name
@@ -251,13 +334,13 @@ def update_block_model(
             )
         elif isinstance(block_dto.block_ui, TextInputDto):
             if not block_dto.block_ui.prompt:
-                return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
             if not block_dto.block_ui.input_key:
-                return BlockUpdateResultDto(None, "SHIFU.INPUT_KEY_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.INPUT_KEY_REQUIRED"))
             if not block_dto.block_ui.input_name:
-                return BlockUpdateResultDto(None, "SHIFU.INPUT_NAME_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.INPUT_NAME_REQUIRED"))
             if not block_dto.block_ui.input_placeholder:
-                return BlockUpdateResultDto(None, "SHIFU.INPUT_PLACEHOLDER_REQUIRED")
+                return BlockUpdateResultDto(None, _("SHIFU.INPUT_PLACEHOLDER_REQUIRED"))
             from flask import current_app as app
 
             app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
@@ -288,7 +371,7 @@ def update_block_model(
         elif isinstance(block_dto.block_ui, EmptyDto):
             block_model.script_ui_type = UI_TYPE_EMPTY
         else:
-            return BlockUpdateResultDto(None, "SHIFU.INVALID_BLOCK_UI_TYPE")
+            return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_UI_TYPE"))
     else:
         block_model.script_ui_type = UI_TYPE_EMPTY
     return BlockUpdateResultDto(None)
@@ -312,13 +395,13 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
 
     if block.script_type == SCRIPT_TYPE_FIX:
         ret.block_content = SolidContentDto(
-            prompt=block.script_prompt,
+            prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
         )
         ret.block_type = "solid"
     elif block.script_type == SCRIPT_TYPE_PROMPT:
         ret.block_content = AIDto(
-            prompt=block.script_prompt,
+            prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
             model=block.script_model,
             temprature=block.script_temprature,
@@ -327,7 +410,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         ret.block_type = "ai"
     elif block.script_type == SCRIPT_TYPE_SYSTEM:
         ret.block_content = SystemPromptDto(
-            prompt=block.script_prompt,
+            prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
             model=block.script_model,
             temprature=block.script_temprature,
