@@ -115,7 +115,7 @@
     "drag-file-or-click-to-upload": "Drag File or Click to Upload",
     "failed-to-upload-image": "Failed to Upload Image",
     "check-image-url": "Please check if the image URL is correct",
-    "paste-or-input-image-url": "Paste or Input Image URL",
+    "paste-or-input-image-url": "Input Image URL",
     "replace-image": "Replace Image",
     "run": "Run",
     "tips": "Tips",
@@ -388,6 +388,7 @@
     "input-placeholder": "Placeholder",
     "model": "Model",
     "prompt": "Prompt",
+    "prompt-placeholder": "Please enter a prompt to extract and constrain the variable.",
     "temperature": "Temperature"
   }
 }

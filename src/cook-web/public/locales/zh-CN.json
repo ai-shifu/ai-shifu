@@ -115,7 +115,7 @@
     "drag-file-or-click-to-upload": "拖拽文件或者",
     "failed-to-upload-image": "上传失败",
     "check-image-url": "上传失败，请检查图片地址是否正确",
-    "paste-or-input-image-url": "粘贴或输入图片URL",
+    "paste-or-input-image-url": "输入图片URL",
     "replace-image": "替换图片",
     "run": "运行",
     "tips": "提示：您还可以将图片拖动或粘贴到卡片中的任意位置",
@@ -388,6 +388,7 @@
     "input-placeholder": "输入框提示",
     "model": "指定模型",
     "prompt": "提示词",
+    "prompt-placeholder": "请输入对变量进行提取和约束的提示词",
     "temperature": "设定温度"
   }
 }
