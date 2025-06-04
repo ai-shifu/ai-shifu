@@ -114,7 +114,9 @@ export default function TextInput(props: ButtonProps) {
                 <TextareaAutosize
                     value={tempProperties.prompt.properties.prompt}
                     onChange={onValueChange}
+                    placeholder={t('textinput.prompt-placeholder')}
                     maxRows={20}
+
                 />
             </div>
             <div className='flex flex-row items-center space-x-1'>
