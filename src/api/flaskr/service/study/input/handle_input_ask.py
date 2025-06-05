@@ -25,6 +25,7 @@ from flaskr.service.rag.funs import (
     get_kb_list,
     retrieval_fun,
 )
+from flaskr.service.lesson.const import UI_TYPE_ASK
 
 
 @register_input_handler(input_type=INPUT_TYPE_ASK)
@@ -110,7 +111,7 @@ def handle_input_ask(
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
-    # log_script.script_ui_conf = script_info.script_ui_conf
+    log_script.script_ui_type = UI_TYPE_ASK
     db.session.add(log_script)
     span = trace.span(name="user_follow_up", input=input)
     res = check_text_with_llm_response(
@@ -152,6 +153,7 @@ def handle_input_ask(
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = response_text
     log_script.script_role = ROLE_TEACHER
+    log_script.script_ui_type = UI_TYPE_ASK
     db.session.add(log_script)
     span.end(output=response_text)
     trace_args["output"] = trace_args["output"] + "\r\n" + response_text

@@ -98,7 +98,6 @@ body,html {
 }
 .dnd-sortable-tree_simple_wrapper:hover {
   background-color: rgb(229 231 235 / var(--tw-bg-opacity, 1));
-  
 }
 
 .dnd-sortable-tree_simple_handle {
