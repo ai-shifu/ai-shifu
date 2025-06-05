@@ -276,6 +276,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         try {
             setIsLoading(true);
             setError(null);
+            clearBlockErrors();
             const blocksData = await api.getBlocks({ outline_id: outlineId, shifu_id: shifuId });
             const list = blocksData.filter(p => p.type == 'block') as Block[];
             setBlocks(list);

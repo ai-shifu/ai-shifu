@@ -208,10 +208,16 @@ def save_block_list_internal(
                             update_block_result.error_message
                         )
                         # Read the original data from the database
-                        original_block = AILessonScript.query.filter(
-                            AILessonScript.script_id == block_model.script_id,
-                            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT])
-                        ).order_by(AILessonScript.id.desc()).first()
+                        original_block = (
+                            AILessonScript.query.filter(
+                                AILessonScript.script_id == block_model.script_id,
+                                AILessonScript.status.in_(
+                                    [STATUS_PUBLISH, STATUS_DRAFT]
+                                ),
+                            )
+                            .order_by(AILessonScript.id.desc())
+                            .first()
+                        )
                         if original_block:
                             block_model = original_block
                             block_model.script_index = block_index
@@ -225,8 +231,9 @@ def save_block_list_internal(
                             profile = None
                             if original_block.script_ui_profile_id:
                                 profile_item = ProfileItem.query.filter(
-                                    ProfileItem.profile_id == original_block.script_ui_profile_id,
-                                    ProfileItem.status == 1
+                                    ProfileItem.profile_id
+                                    == original_block.script_ui_profile_id,
+                                    ProfileItem.status == 1,
                                 ).first()
                                 if profile_item:
                                     profile_items.append(profile_item)
@@ -264,10 +271,16 @@ def save_block_list_internal(
                             update_block_result.error_message
                         )
                         # Read the original data from the database
-                        original_block = AILessonScript.query.filter(
-                            AILessonScript.script_id == new_block.script_id,
-                            AILessonScript.status.in_([STATUS_PUBLISH, STATUS_DRAFT])
-                        ).order_by(AILessonScript.id.desc()).first()
+                        original_block = (
+                            AILessonScript.query.filter(
+                                AILessonScript.script_id == new_block.script_id,
+                                AILessonScript.status.in_(
+                                    [STATUS_PUBLISH, STATUS_DRAFT]
+                                ),
+                            )
+                            .order_by(AILessonScript.id.desc())
+                            .first()
+                        )
                         if original_block:
                             new_block = original_block
                             new_block.script_index = block_index
@@ -281,8 +294,9 @@ def save_block_list_internal(
                             profile = None
                             if original_block.script_ui_profile_id:
                                 profile_item = ProfileItem.query.filter(
-                                    ProfileItem.profile_id == original_block.script_ui_profile_id,
-                                    ProfileItem.status == 1
+                                    ProfileItem.profile_id
+                                    == original_block.script_ui_profile_id,
+                                    ProfileItem.status == 1,
                                 ).first()
                                 if profile_item:
                                     profile_items.append(profile_item)
