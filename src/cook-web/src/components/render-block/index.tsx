@@ -22,6 +22,12 @@ const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextP
   if (!isSame) {
     return false
   }
+
+  const prevKeys = Object.keys(prevProps.properties || {})
+  const nextKeys = Object.keys(nextProps.properties || {})
+  if (prevKeys.length !== nextKeys.length) {
+    return false
+  }
   for (const key in prevProps.properties) {
     if (prevProps.properties[key] !== nextProps.properties[key]) {
       return false

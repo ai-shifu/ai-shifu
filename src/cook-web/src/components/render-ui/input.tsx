@@ -2,7 +2,7 @@ import React from 'react'
 import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
-interface ButtonProps {
+interface SingleInputProps {
     properties: {
         "input_name": string,
         "input_key": string,
@@ -11,7 +11,7 @@ interface ButtonProps {
     onChange: (properties: any) => void
 }
 
-const SingleInputPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
+const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInputProps) => {
     if (prevProps.properties.input_name !== nextProps.properties.input_name
         || prevProps.properties.input_key !== nextProps.properties.input_key
         || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
@@ -21,7 +21,7 @@ const SingleInputPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) =
     return true
 }
 
-export default memo(function SingleInput(props: ButtonProps) {
+export default memo(function SingleInput(props: SingleInputProps) {
     const { properties } = props
     const { t } = useTranslation();
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {

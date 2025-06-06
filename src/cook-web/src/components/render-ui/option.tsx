@@ -34,8 +34,8 @@ interface ButtonProps {
 
 const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
     if (prevProps.properties.option_name !== nextProps.properties.option_name
-        && prevProps.properties.option_key !== nextProps.properties.option_key
-        && prevProps.properties.buttons.length !== nextProps.properties.buttons.length
+        || prevProps.properties.option_key !== nextProps.properties.option_key
+        || prevProps.properties.buttons.length !== nextProps.properties.buttons.length
     ) {
         return false
     }

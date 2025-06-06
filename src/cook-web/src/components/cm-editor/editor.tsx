@@ -270,7 +270,20 @@ const Editor: React.FC<EditorProps> = memo(function Editor({
     </>
   )
 }, (prevProps, nextProps) => {
-  return prevProps.content === nextProps.content && prevProps.isEdit === nextProps.isEdit && prevProps.profiles === nextProps.profiles && prevProps.onChange === nextProps.onChange && prevProps.onBlur === nextProps.onBlur
+  if (prevProps.content != nextProps.content
+  || prevProps.isEdit != nextProps.isEdit
+  || prevProps.profiles?.length != nextProps.profiles?.length
+  ) {
+    return false
+  }
+  if (prevProps.profiles && prevProps.profiles.length > 0) {
+  for (let i = 0; i < prevProps.profiles.length; i++) {
+    if (nextProps.profiles && !nextProps.profiles.includes(prevProps.profiles[i])) {
+      return false
+      }
+    }
+  }
+  return true
 })
 Editor.displayName = 'Editor'
 

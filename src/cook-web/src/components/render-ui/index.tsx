@@ -44,6 +44,16 @@ const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     if (prevProps.id !== nextProps.id || prevProps.type !== nextProps.type) {
         return false
     }
+    const prevKeys = Object.keys(prevProps.properties || {})
+    const nextKeys = Object.keys(nextProps.properties || {})
+    if (prevKeys.length !== nextKeys.length) {
+        return false
+    }
+    for (let i = 0; i < prevKeys.length; i++) {
+        if (prevKeys[i] !== nextKeys[i]) {
+            return false
+        }
+    }
     for (const key in prevProps.properties) {
         if (prevProps.properties[key] !== nextProps.properties[key]) {
             return false
