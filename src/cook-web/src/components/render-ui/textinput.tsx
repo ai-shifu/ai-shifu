@@ -3,7 +3,7 @@ import { Input } from '../ui/input'
 import { TextareaAutosize } from '@/components/ui/textarea-autosize'
 import InputNumber from '@/components/input-number'
 import ModelList from '@/components/model-list'
-import { Button, ButtonProps } from '../ui/button'
+import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 interface TextInputProps {
@@ -42,7 +42,7 @@ const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProp
         return false
     }
     for (let i = 0; i < prevProps.properties.prompt.properties.profiles.length; i++) {
-        if (prevProps.properties.prompt.properties.profiles[i] !== nextProps.properties.prompt.properties.profiles[i]) {
+        if (!nextProps.properties.prompt.properties.profiles.includes(prevProps.properties.prompt.properties.profiles[i])) {
             return false
         }
     }

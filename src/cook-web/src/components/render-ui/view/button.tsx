@@ -1,13 +1,20 @@
 import React from 'react'
-
+import { memo } from 'react'
 interface ButtonViewProps {
     properties: {
         "button_name": string,
         "button_key": string,
     }
 }
-
-export default function ButtonView(props: ButtonViewProps) {
+const ButtonViewPropsEqual = (prevProps: ButtonViewProps, nextProps: ButtonViewProps) => {
+    if (prevProps.properties.button_name !== nextProps.properties.button_name
+        || prevProps.properties.button_key !== nextProps.properties.button_key
+    ) {
+        return false
+    }
+    return true
+}
+export default memo(function ButtonView(props: ButtonViewProps) {
     const { properties } = props
     return (
         <div className='flex flex-row space-x-1 items-center'>
@@ -19,4 +26,4 @@ export default function ButtonView(props: ButtonViewProps) {
             </button>
         </div>
     )
-}
+},ButtonViewPropsEqual)

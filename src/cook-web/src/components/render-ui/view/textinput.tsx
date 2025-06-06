@@ -1,5 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
 interface TextInputViewProps {
     properties: {
         "prompt": {
@@ -17,8 +18,33 @@ interface TextInputViewProps {
         "input_placeholder": string
     }
 }
+const TextInputViewPropsEqual = (prevProps: TextInputViewProps, nextProps: TextInputViewProps) => {
+    if (prevProps.properties.input_name !== nextProps.properties.input_name
+        || prevProps.properties.input_key !== nextProps.properties.input_key
+        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
+    ) {
+        return false
+    }
+    if (prevProps.properties.prompt.properties.prompt !== nextProps.properties.prompt.properties.prompt
+        || prevProps.properties.prompt.properties.model !== nextProps.properties.prompt.properties.model
+    ) {
+        return false
+    }
+    if (prevProps.properties.prompt.properties.temprature !== nextProps.properties.prompt.properties.temprature) {
+        return false
+    }
+    if (prevProps.properties.prompt.properties.profiles.length !== nextProps.properties.prompt.properties.profiles.length) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.prompt.properties.profiles.length; i++) {
+        if (!nextProps.properties.prompt.properties.profiles.includes(prevProps.properties.prompt.properties.profiles[i])) {
+            return false
+        }
+    }
+    return true
+}
 
-export default function TextInputView(props: TextInputViewProps) {
+export default memo(function TextInputView(props: TextInputViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -65,4 +91,4 @@ export default function TextInputView(props: TextInputViewProps) {
             </div>
         </div>
     )
-}
+},TextInputViewPropsEqual)
