@@ -1,9 +1,10 @@
-import { Shifu, ShifuContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties } from "../types/shifu";
+import { Shifu, ShifuContextType, Outline, Block, ProfileItem, AIBlockProperties, SolidContentBlockProperties, SaveBlockListResult, ApiResponse } from "../types/shifu";
 import api from "@/api";
 import { useContentTypes } from "@/components/render-block";
 import { useUITypes } from "@/components/render-ui";
 import { debounce } from "lodash";
 import { createContext, ReactNode, useContext, useState, useCallback } from "react";
+
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -48,6 +49,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const [blockUIProperties, setBlockUIProperties] = useState<{ [x: string]: any }>({});
     const [blockUITypes, setBlockUITypes] = useState<{ [x: string]: string }>({});
     const [blockContentState, setBlockContentState] = useState<{ [x: string]: 'edit' | 'preview' }>({});
+    const [blockErrors, setBlockErrors] = useState<{ [x: string]: string | null }>({});
     const [currentNode, setCurrentNode] = useState<Outline | null>(null);
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItem[]>([]);
     const [models, setModels] = useState<string[]>([]);
@@ -274,6 +276,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         try {
             setIsLoading(true);
             setError(null);
+            clearBlockErrors();
             const blocksData = await api.getBlocks({ outline_id: outlineId, shifu_id: shifuId });
             const list = blocksData.filter(p => p.type == 'block') as Block[];
             setBlocks(list);
@@ -393,30 +396,49 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setFocusId(id);
     }
 
-    const saveCurrentBlocks = useCallback(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => {
+    const saveCurrentBlocks = useCallback(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string): Promise<ApiResponse<SaveBlockListResult> | null> => {
         if (isLoading) {
-            return;
+            return null;
         }
         setIsSaving(true);
         setError(null);
         try {
+
             setError(null);
             const blockList = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties);
-            await api.saveBlocks({ outline_id: outline, blocks: blockList, shifu_id: shifu_id || '' });
-            setIsSaving(false);
-            setLastSaveTime(new Date());
+            const result = await api.saveBlocks({ outline_id: outline, blocks: blockList, shifu_id: shifu_id || '' });
+
+            if (!result) {
+                setError('common.error.save.failed');
+                return result;
+            }
+
+            const blockErrorMessages = result?.error_messages;
+            const errorCount = blockErrorMessages && typeof blockErrorMessages === 'object'
+                ? Object.keys(blockErrorMessages).length
+                : 0;
+
+            if (errorCount > 0) {
+                Object.entries(blockErrorMessages).forEach(([blockId, errorMessage]) => {
+                    setBlockError(blockId, errorMessage as string);
+                });
+            } else {
+                clearBlockErrors();
+            }
+
+            return result;
         } catch (error: any) {
-            console.error(error);
             setError(error.message);
+            throw error;
         } finally {
             setIsSaving(false);
             setLastSaveTime(new Date());
         }
     }, []);
 
-    const autoSaveBlocks = useCallback(debounce((outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => {
-        return saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id);
-    }, 3000), [saveCurrentBlocks]) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => Promise<void>;
+    const autoSaveBlocks = useCallback(debounce(async (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => {
+        return await saveCurrentBlocks(outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id);
+    }, 3000), [saveCurrentBlocks]) as (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifu_id: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
 
 
     const addSiblingOutline = async (item: Outline, name = '') => {
@@ -722,6 +744,17 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setModels(list);
     }
 
+    const setBlockError = (blockId: string, error: string | null) => {
+        setBlockErrors(prev => ({
+            ...prev,
+            [blockId]: error
+        }));
+    }
+
+    const clearBlockErrors = () => {
+        setBlockErrors({});
+    }
+
     const value: ShifuContextType = {
         currentShifu,
         chapters,
@@ -738,6 +771,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         blockUIProperties,
         blockUITypes,
         blockContentState,
+        blockErrors,
         currentNode,
         profileItemDefinations,
         models,
@@ -770,7 +804,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             saveCurrentBlocks,
             removeBlock,
             setCurrentNode,
-            loadModels
+            loadModels,
+            setBlockError,
+            clearBlockErrors
         },
     };
 
