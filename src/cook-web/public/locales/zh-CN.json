@@ -48,6 +48,7 @@
     "create-failed": "创建失败",
     "create-success": "创建成功",
     "create-success-description": "新师傅已创建",
+    "error.save.failed": "保存失败：服务器响应无效",
     "favorites": "收藏",
     "follow": "关注",
     "home": "首页",

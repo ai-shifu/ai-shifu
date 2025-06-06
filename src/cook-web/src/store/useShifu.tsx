@@ -409,7 +409,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             const result = await api.saveBlocks({ outline_id: outline, blocks: blockList, shifu_id: shifu_id || '' });
 
             if (!result) {
-                setError('保存失败：服务器响应无效');
+                setError('common.error.save.failed');
                 return result;
             }
 
@@ -418,9 +418,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
                 ? Object.keys(blockErrorMessages).length
                 : 0;
 
-            // 处理每个 block 的错误信息
             if (errorCount > 0) {
-                // 为每个有错误的 block 更新其错误状态
                 Object.entries(blockErrorMessages).forEach(([blockId, errorMessage]) => {
                     setBlockError(blockId, errorMessage as string);
                 });
@@ -430,7 +428,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
             return result;
         } catch (error: any) {
-            setError(error.message || '保存失败');
+            setError(error.message);
             throw error;
         } finally {
             setIsSaving(false);

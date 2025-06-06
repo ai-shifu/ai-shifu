@@ -48,6 +48,7 @@
     "create-failed": "Create Failed",
     "create-success": "Create Success",
     "create-success-description": "Create Success Description",
+    "error.save.failed": "Save failed: Invalid server response",
     "favorites": "Favorites",
     "follow": "Follow",
     "home": "Home",
