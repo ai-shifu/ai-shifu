@@ -1,5 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
 interface InputViewProps {
     properties: {
         "input_name": string,
@@ -7,8 +8,17 @@ interface InputViewProps {
         "input_placeholder": string
     }
 }
+const InputViewPropsEqual = (prevProps: InputViewProps, nextProps: InputViewProps) => {
+    if (prevProps.properties.input_name !== nextProps.properties.input_name
+        || prevProps.properties.input_key !== nextProps.properties.input_key
+        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
+    ) {
+        return false
+    }
+    return true
+}
 
-export default function InputView(props: InputViewProps) {
+export default memo(function InputView(props: InputViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -33,4 +43,4 @@ export default function InputView(props: InputViewProps) {
             </div>
         </div>
     )
-}
+},InputViewPropsEqual)
