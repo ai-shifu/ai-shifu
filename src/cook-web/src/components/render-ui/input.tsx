@@ -1,6 +1,7 @@
 import React from 'react'
 import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
 interface ButtonProps {
     properties: {
         "input_name": string,
@@ -10,7 +11,17 @@ interface ButtonProps {
     onChange: (properties: any) => void
 }
 
-export default function SingleInput(props: ButtonProps) {
+const SingleInputPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
+    if (prevProps.properties.input_name !== nextProps.properties.input_name
+        && prevProps.properties.input_key !== nextProps.properties.input_key
+        && prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
+    ) {
+        return false
+    }
+    return true
+}
+
+export default memo(function SingleInput(props: ButtonProps) {
     const { properties } = props
     const { t } = useTranslation();
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -57,4 +68,4 @@ export default function SingleInput(props: ButtonProps) {
 
         </div>
     )
-}
+},SingleInputPropsEqual)

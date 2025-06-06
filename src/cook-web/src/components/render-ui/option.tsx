@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { memo, useState } from 'react'
 import { Input } from '../ui/input'
 import { Plus, Trash } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -32,7 +32,24 @@ interface ButtonProps {
     onChanged?: (changed: boolean) => void
 }
 
-export default function Option(props: ButtonProps) {
+const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
+    if (prevProps.properties.option_name !== nextProps.properties.option_name
+        && prevProps.properties.option_key !== nextProps.properties.option_key
+        && prevProps.properties.buttons.length !== nextProps.properties.buttons.length
+    ) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.buttons.length; i++) {
+        if (prevProps.properties.buttons[i].properties.button_name !== nextProps.properties.buttons[i].properties.button_name
+            && prevProps.properties.buttons[i].properties.button_key !== nextProps.properties.buttons[i].properties.button_key
+        ) {
+            return false
+        }
+    }
+    return true
+}
+
+export default memo(function Option(props: ButtonProps) {
     const { properties, onChanged } = props;
     const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
@@ -231,4 +248,4 @@ export default function Option(props: ButtonProps) {
             </AlertDialog>
         </div>
     )
-}
+},OptionPropsEqual)

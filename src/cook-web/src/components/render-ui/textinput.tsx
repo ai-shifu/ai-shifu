@@ -3,9 +3,10 @@ import { Input } from '../ui/input'
 import { TextareaAutosize } from '@/components/ui/textarea-autosize'
 import InputNumber from '@/components/input-number'
 import ModelList from '@/components/model-list'
-import { Button } from '../ui/button'
+import { Button, ButtonProps } from '../ui/button'
 import { useTranslation } from 'react-i18next';
-interface ButtonProps {
+import { memo } from 'react'
+interface TextInputProps {
     properties: {
         "prompt": {
             "properties": {
@@ -25,7 +26,30 @@ interface ButtonProps {
     onChanged?: (changed: boolean) => void
 }
 
-export default function TextInput(props: ButtonProps) {
+const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProps) => {
+    if (prevProps.properties.input_name !== nextProps.properties.input_name
+        && prevProps.properties.input_key !== nextProps.properties.input_key
+        && prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
+        && prevProps.properties.prompt.properties.prompt !== nextProps.properties.prompt.properties.prompt
+        && prevProps.properties.prompt.properties.model !== nextProps.properties.prompt.properties.model
+    ) {
+        return false
+    }
+    if (prevProps.properties.prompt.properties.temprature !== nextProps.properties.prompt.properties.temprature) {
+        return false
+    }
+    if (prevProps.properties.prompt.properties.profiles.length !== nextProps.properties.prompt.properties.profiles.length) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.prompt.properties.profiles.length; i++) {
+        if (prevProps.properties.prompt.properties.profiles[i] !== nextProps.properties.prompt.properties.profiles[i]) {
+            return false
+        }
+    }
+    return true
+}
+
+export default memo(function TextInput(props: TextInputProps) {
     const { properties, onChanged } = props;
     const [tempProperties, setTempProperties] = useState(properties);
     const [changed, setChanged] = useState(false);
@@ -146,4 +170,4 @@ export default function TextInput(props: ButtonProps) {
             </div>
         </div>
     )
-}
+},TextInputPropsEqual)

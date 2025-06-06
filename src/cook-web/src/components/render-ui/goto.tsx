@@ -7,6 +7,7 @@ import { Outline } from '@/types/shifu'
 import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
 interface ColorSetting {
     color: string;
     text_color: string;
@@ -36,7 +37,25 @@ interface GotoProps {
     onChanged?: (changed: boolean) => void
 }
 
-export default function Goto(props: GotoProps) {
+const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
+    if (prevProps.properties.goto_settings.profile_key !== nextProps.properties.goto_settings.profile_key
+        && prevProps.properties.button_name !== nextProps.properties.button_name
+        && prevProps.properties.button_key !== nextProps.properties.button_key
+    ) {
+        return false
+    }
+    if (prevProps.properties.goto_settings.items.length !== nextProps.properties.goto_settings.items.length) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
+        if (prevProps.properties.goto_settings.items[i].goto_id !== nextProps.properties.goto_settings.items[i].goto_id) {
+            return false
+        }
+    }
+
+    return true
+}
+export default memo(function Goto(props: GotoProps) {
     const { properties, onChanged } = props
     const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
@@ -180,4 +199,4 @@ export default function Goto(props: GotoProps) {
             </div>
         </div>
     )
-}
+},GotoPropsEqual)
