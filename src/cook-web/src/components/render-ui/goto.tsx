@@ -39,8 +39,8 @@ interface GotoProps {
 
 const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
     if (prevProps.properties.goto_settings.profile_key !== nextProps.properties.goto_settings.profile_key
-        && prevProps.properties.button_name !== nextProps.properties.button_name
-        && prevProps.properties.button_key !== nextProps.properties.button_key
+        || prevProps.properties.button_name !== nextProps.properties.button_name
+        || prevProps.properties.button_key !== nextProps.properties.button_key
     ) {
         return false
     }
@@ -48,7 +48,10 @@ const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
         return false
     }
     for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
-        if (prevProps.properties.goto_settings.items[i].goto_id !== nextProps.properties.goto_settings.items[i].goto_id) {
+        if (prevProps.properties.goto_settings.items[i].goto_id !== nextProps.properties.goto_settings.items[i].goto_id
+            || prevProps.properties.goto_settings.items[i].value !== nextProps.properties.goto_settings.items[i].value
+            || prevProps.properties.goto_settings.items[i].type !== nextProps.properties.goto_settings.items[i].type
+        ) {
             return false
         }
     }

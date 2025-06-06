@@ -41,7 +41,7 @@ const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
     }
     for (let i = 0; i < prevProps.properties.buttons.length; i++) {
         if (prevProps.properties.buttons[i].properties.button_name !== nextProps.properties.buttons[i].properties.button_name
-            && prevProps.properties.buttons[i].properties.button_key !== nextProps.properties.buttons[i].properties.button_key
+            || prevProps.properties.buttons[i].properties.button_key !== nextProps.properties.buttons[i].properties.button_key
         ) {
             return false
         }

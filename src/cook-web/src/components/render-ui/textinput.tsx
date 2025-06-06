@@ -28,10 +28,10 @@ interface TextInputProps {
 
 const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProps) => {
     if (prevProps.properties.input_name !== nextProps.properties.input_name
-        && prevProps.properties.input_key !== nextProps.properties.input_key
-        && prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
-        && prevProps.properties.prompt.properties.prompt !== nextProps.properties.prompt.properties.prompt
-        && prevProps.properties.prompt.properties.model !== nextProps.properties.prompt.properties.model
+        || prevProps.properties.input_key !== nextProps.properties.input_key
+        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
+        || prevProps.properties.prompt.properties.prompt !== nextProps.properties.prompt.properties.prompt
+        || prevProps.properties.prompt.properties.model !== nextProps.properties.prompt.properties.model
     ) {
         return false
     }

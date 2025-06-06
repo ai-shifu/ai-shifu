@@ -13,8 +13,8 @@ interface ButtonProps {
 
 const SingleInputPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
     if (prevProps.properties.input_name !== nextProps.properties.input_name
-        && prevProps.properties.input_key !== nextProps.properties.input_key
-        && prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
+        || prevProps.properties.input_key !== nextProps.properties.input_key
+        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
     ) {
         return false
     }
