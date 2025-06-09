@@ -8,6 +8,7 @@ import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
+import _ from 'lodash'
 interface ColorSetting {
     color: string;
     text_color: string;
@@ -38,22 +39,12 @@ interface GotoProps {
 }
 
 const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
-    if (prevProps.properties.goto_settings.profile_key !== nextProps.properties.goto_settings.profile_key
-        || prevProps.properties.button_name !== nextProps.properties.button_name
-        || prevProps.properties.button_key !== nextProps.properties.button_key
+    if (_.isEqual(prevProps.properties, nextProps.properties)
     ) {
         return false
     }
-    if (prevProps.properties.goto_settings.items.length !== nextProps.properties.goto_settings.items.length) {
+    if (!_.isEqual(prevProps.properties.goto_settings.items, nextProps.properties.goto_settings.items)) {
         return false
-    }
-    for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
-        if (prevProps.properties.goto_settings.items[i].goto_id !== nextProps.properties.goto_settings.items[i].goto_id
-            || prevProps.properties.goto_settings.items[i].value !== nextProps.properties.goto_settings.items[i].value
-            || prevProps.properties.goto_settings.items[i].type !== nextProps.properties.goto_settings.items[i].type
-        ) {
-            return false
-        }
     }
 
     return true

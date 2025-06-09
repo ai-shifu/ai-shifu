@@ -2,6 +2,7 @@ import React from 'react'
 import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
+import _ from 'lodash'
 interface SingleInputProps {
     properties: {
         "input_name": string,
@@ -12,10 +13,7 @@ interface SingleInputProps {
 }
 
 const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInputProps) => {
-    if (prevProps.properties.input_name !== nextProps.properties.input_name
-        || prevProps.properties.input_key !== nextProps.properties.input_key
-        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
-    ) {
+    if (_.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     return true

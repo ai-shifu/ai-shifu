@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
+import _ from 'lodash'
 interface TextInputViewProps {
     properties: {
         "prompt": {
@@ -19,27 +20,20 @@ interface TextInputViewProps {
     }
 }
 const TextInputViewPropsEqual = (prevProps: TextInputViewProps, nextProps: TextInputViewProps) => {
-    if (prevProps.properties.input_name !== nextProps.properties.input_name
-        || prevProps.properties.input_key !== nextProps.properties.input_key
-        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
-    ) {
+    if (_.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
-    if (prevProps.properties.prompt.properties.prompt !== nextProps.properties.prompt.properties.prompt
-        || prevProps.properties.prompt.properties.model !== nextProps.properties.prompt.properties.model
-    ) {
+    if (!_.isEqual(prevProps.properties.prompt.properties.prompt, nextProps.properties.prompt.properties.prompt)) {
         return false
     }
-    if (prevProps.properties.prompt.properties.temprature !== nextProps.properties.prompt.properties.temprature) {
+    if (!_.isEqual(prevProps.properties.prompt.properties.temprature, nextProps.properties.prompt.properties.temprature)) {
         return false
     }
-    if (prevProps.properties.prompt.properties.profiles.length !== nextProps.properties.prompt.properties.profiles.length) {
+    if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
         return false
     }
-    for (let i = 0; i < prevProps.properties.prompt.properties.profiles.length; i++) {
-        if (!nextProps.properties.prompt.properties.profiles.includes(prevProps.properties.prompt.properties.profiles[i])) {
-            return false
-        }
+    if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
+        return false
     }
     return true
 }

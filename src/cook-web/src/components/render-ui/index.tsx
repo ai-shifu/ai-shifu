@@ -19,6 +19,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import Empty from './empty'
+import _ from 'lodash'
 const EditBlockMap = {
     button: Button,
     option: Option,
@@ -41,7 +42,7 @@ const ViewBlockMap = {
 }
 
 const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
-    if (prevProps.id !== nextProps.id || prevProps.type !== nextProps.type) {
+    if (_.isEqual(prevProps.id, nextProps.id) && prevProps.type === nextProps.type) {
         return false
     }
     const prevKeys = Object.keys(prevProps.properties || {})
@@ -49,15 +50,8 @@ const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     if (prevKeys.length !== nextKeys.length) {
         return false
     }
-    for (let i = 0; i < prevKeys.length; i++) {
-        if (prevKeys[i] !== nextKeys[i]) {
-            return false
-        }
-    }
-    for (const key in prevProps.properties) {
-        if (prevProps.properties[key] !== nextProps.properties[key]) {
-            return false
-        }
+    if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
     }
     return true
 }

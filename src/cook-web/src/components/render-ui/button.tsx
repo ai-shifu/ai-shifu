@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, memo } from 'react'
 import { Input } from '../ui/input'
 import { Button as UIButton } from '../ui/button'
 import { useTranslation } from 'react-i18next';
+import _ from 'lodash'
 interface ButtonProps {
     properties: {
         "button_name": string,
@@ -13,8 +14,7 @@ interface ButtonProps {
 }
 
 const ButtonPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
-    if (prevProps.properties.button_name !== nextProps.properties.button_name
-        || prevProps.properties.button_key !== nextProps.properties.button_key
+    if (_.isEqual(prevProps.properties, nextProps.properties)
     ) {
         return false
     }

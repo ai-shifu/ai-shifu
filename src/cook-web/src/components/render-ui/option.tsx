@@ -13,7 +13,7 @@ import {
     AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { useTranslation } from 'react-i18next';
-
+import _ from 'lodash'
 
 interface ButtonProps {
     properties: {
@@ -33,16 +33,11 @@ interface ButtonProps {
 }
 
 const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
-    if (prevProps.properties.option_name !== nextProps.properties.option_name
-        || prevProps.properties.option_key !== nextProps.properties.option_key
-        || prevProps.properties.buttons.length !== nextProps.properties.buttons.length
-    ) {
+    if (_.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     for (let i = 0; i < prevProps.properties.buttons.length; i++) {
-        if (prevProps.properties.buttons[i].properties.button_name !== nextProps.properties.buttons[i].properties.button_name
-            || prevProps.properties.buttons[i].properties.button_key !== nextProps.properties.buttons[i].properties.button_key
-        ) {
+        if (!_.isEqual(prevProps.properties.buttons[i], nextProps.properties.buttons[i])) {
             return false
         }
     }

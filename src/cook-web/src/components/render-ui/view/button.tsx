@@ -1,5 +1,6 @@
 import React from 'react'
 import { memo } from 'react'
+import _ from 'lodash'
 interface ButtonViewProps {
     properties: {
         "button_name": string,
@@ -7,9 +8,7 @@ interface ButtonViewProps {
     }
 }
 const ButtonViewPropsEqual = (prevProps: ButtonViewProps, nextProps: ButtonViewProps) => {
-    if (prevProps.properties.button_name !== nextProps.properties.button_name
-        || prevProps.properties.button_key !== nextProps.properties.button_key
-    ) {
+    if (_.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     return true

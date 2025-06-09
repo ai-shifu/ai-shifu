@@ -4,6 +4,7 @@ import AI from './ai'
 import SolidContent from './solid-content'
 import { useState ,memo} from 'react'
 import { useTranslation } from 'react-i18next'
+import _ from 'lodash'
 
 const BlockMap = {
   ai: AI,
@@ -18,7 +19,7 @@ interface IRenderBlockContentProps {
 
 
 const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextProps: IRenderBlockContentProps) => {
-  const isSame = prevProps.id === nextProps.id && prevProps.type === nextProps.type
+  const isSame = _.isEqual(prevProps.id, nextProps.id) && prevProps.type === nextProps.type
   if (!isSame) {
     return false
   }
@@ -28,10 +29,8 @@ const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextP
   if (prevKeys.length !== nextKeys.length) {
     return false
   }
-  for (const key in prevProps.properties) {
-    if (prevProps.properties[key] !== nextProps.properties[key]) {
-      return false
-    }
+  if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+    return false
   }
   return true
 }

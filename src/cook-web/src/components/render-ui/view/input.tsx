@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
+import _ from 'lodash'
 interface InputViewProps {
     properties: {
         "input_name": string,
@@ -9,10 +10,7 @@ interface InputViewProps {
     }
 }
 const InputViewPropsEqual = (prevProps: InputViewProps, nextProps: InputViewProps) => {
-    if (prevProps.properties.input_name !== nextProps.properties.input_name
-        || prevProps.properties.input_key !== nextProps.properties.input_key
-        || prevProps.properties.input_placeholder !== nextProps.properties.input_placeholder
-    ) {
+    if (_.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     return true

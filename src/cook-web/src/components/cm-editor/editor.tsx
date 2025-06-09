@@ -12,7 +12,7 @@ import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
 import { SelectedOption, IEditorContext } from './type'
 import { memo } from 'react'
-
+import _ from 'lodash'
 import './index.css'
 
 import {
@@ -270,16 +270,22 @@ const Editor: React.FC<EditorProps> = memo(function Editor({
     </>
   )
 }, (prevProps, nextProps) => {
-  if (prevProps.content != nextProps.content
-  || prevProps.isEdit != nextProps.isEdit
-  || prevProps.profiles?.length != nextProps.profiles?.length
+  if (_.isEqual(prevProps.content, nextProps.content)
+  && prevProps.isEdit === nextProps.isEdit
+  && _.isEqual(prevProps.profiles, nextProps.profiles)
   ) {
     return false
   }
   if (prevProps.profiles && prevProps.profiles.length > 0) {
-  for (let i = 0; i < prevProps.profiles.length; i++) {
-    if (nextProps.profiles && !nextProps.profiles.includes(prevProps.profiles[i])) {
-      return false
+    for (let i = 0; i < prevProps.profiles.length; i++) {
+      if (nextProps.profiles && !nextProps.profiles.includes(prevProps.profiles[i])) {
+        return false
+      }
+    }
+  } else if (nextProps.profiles && nextProps.profiles.length > 0) {
+    for (let i = 0; i < nextProps.profiles.length; i++) {
+      if (prevProps.profiles && !prevProps.profiles.includes(nextProps.profiles[i])) {
+        return false
       }
     }
   }
