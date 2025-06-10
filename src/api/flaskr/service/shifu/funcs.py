@@ -35,7 +35,9 @@ def get_raw_shifu_list(
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
 
-        created_total = AICourse.query.filter(AICourse.created_user_id == user_id).count()
+        created_total = AICourse.query.filter(
+            AICourse.created_user_id == user_id
+        ).count()
         shared_total = AiCourseAuth.query.filter(
             AiCourseAuth.user_id == user_id,
         ).count()
@@ -50,9 +52,11 @@ def get_raw_shifu_list(
             .group_by(AICourse.course_id)
         )
 
-        shared_course_ids = db.session.query(AiCourseAuth.course_id).filter(
-            AiCourseAuth.user_id == user_id
-        ).subquery()
+        shared_course_ids = (
+            db.session.query(AiCourseAuth.course_id)
+            .filter(AiCourseAuth.user_id == user_id)
+            .subquery()
+        )
 
         shared_subquery = (
             db.session.query(db.func.max(AICourse.id))

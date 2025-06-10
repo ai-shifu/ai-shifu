@@ -134,8 +134,16 @@ def modify_chapter(
 ):
     with app.app_context():
         time = datetime.now()
-        chapter = AILesson.query.filter_by(lesson_id=chapter_id).first()
+        chapter = (
+            AILesson.query.filter(
+                AILesson.lesson_id == chapter_id,
+                AILesson.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .order_by(AILesson.id.desc())
+            .first()
+        )
         if chapter:
+            chapter.status = STATUS_HISTORY
             new_chapter = chapter.clone()
             new_chapter.lesson_name = chapter_name
             new_chapter.lesson_desc = chapter_description

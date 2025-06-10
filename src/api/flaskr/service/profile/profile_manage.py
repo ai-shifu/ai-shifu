@@ -541,20 +541,7 @@ def save_profile_item_defination(
             )
 
             profile_item.profile_raw_prompt = profile.profile_prompt.prompt
-            profile_item.profile_prompt = f"""
-            从用户输入的内容中提取{profile.profile_key}
-            这个{profile.profile_key}的详细定义是：
-
-            {profile.profile_prompt.prompt}
-
-            如果输入中含有{profile.profile_key},
-
-            请根据用户输入的内容，提取出{profile.profile_key},
-            请直接返回JSON `{{{{"result": "ok", "parse_vars": "{profile.profile_key}": "解析出的{profile.profile_key}"}}}}`,
-            如果输入中不含有{profile.profile_key}，请直接返回JSON `{{{{"result": "illegal", "reason":"具体不合法的原因,并提示用户再次输入"}}}}`
-            无论是否合法，都只返回 JSON,不要输出思考过程。
-
-            用户输入是：`{{input}}`"""
+            profile_item.profile_prompt = profile.profile_prompt.prompt
 
             app.logger.info(
                 "save text profile item defination:{}".format(
