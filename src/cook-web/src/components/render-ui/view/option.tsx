@@ -1,5 +1,6 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
 interface OptionViewProps {
     properties: {
         "option_name": string,
@@ -14,8 +15,24 @@ interface OptionViewProps {
         }>
     }
 }
+const OptionViewPropsEqual = (prevProps: OptionViewProps, nextProps: OptionViewProps) => {
+    if (prevProps.properties.option_name !== nextProps.properties.option_name
+        || prevProps.properties.option_key !== nextProps.properties.option_key
+        || prevProps.properties.buttons.length !== nextProps.properties.buttons.length
+    ) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.buttons.length; i++) {
+        if (prevProps.properties.buttons[i].properties.button_name !== nextProps.properties.buttons[i].properties.button_name
+            || prevProps.properties.buttons[i].properties.button_key !== nextProps.properties.buttons[i].properties.button_key
+        ) {
+            return false
+        }
+    }
+    return true
+}
 
-export default function OptionView(props: OptionViewProps) {
+export default memo(function OptionView(props: OptionViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -39,4 +56,4 @@ export default function OptionView(props: OptionViewProps) {
             </div>
         </div>
     )
-}
+},OptionViewPropsEqual)

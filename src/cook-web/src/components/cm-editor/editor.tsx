@@ -11,6 +11,7 @@ import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
 import { SelectedOption, IEditorContext } from './type'
+import { memo } from 'react'
 
 import './index.css'
 
@@ -31,13 +32,13 @@ type EditorProps = {
   onBlur?: () => void
 }
 
-const Editor: React.FC<EditorProps> = ({
+const Editor: React.FC<EditorProps> = memo(function Editor({
   content = '',
   isEdit,
   profiles = [],
   onChange,
   onBlur
-}) => {
+}){
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
@@ -268,5 +269,22 @@ const Editor: React.FC<EditorProps> = ({
       </EditorContext.Provider>
     </>
   )
-}
+}, (prevProps, nextProps) => {
+  if (prevProps.content != nextProps.content
+  || prevProps.isEdit != nextProps.isEdit
+  || prevProps.profiles?.length != nextProps.profiles?.length
+  ) {
+    return false
+  }
+  if (prevProps.profiles && prevProps.profiles.length > 0) {
+  for (let i = 0; i < prevProps.profiles.length; i++) {
+    if (nextProps.profiles && !nextProps.profiles.includes(prevProps.profiles[i])) {
+      return false
+      }
+    }
+  }
+  return true
+})
+Editor.displayName = 'Editor'
+
 export default Editor
