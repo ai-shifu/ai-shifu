@@ -23,6 +23,16 @@ from flaskr.framework.plugin.plugin_manager import extensible_generic
 import json
 from flaskr.service.study.ui.input_text import handle_input_text as handle_input_text_ui
 from flaskr.service.user.models import User
+from flaskr.service.profile.models import ProfileItem
+from flaskr.service.study.utils import ModelSetting
+
+
+def safe_get_temprature(app: Flask, profile_item: ProfileItem):
+    try:
+        return float(profile_item.profile_prompt_model_args)
+    except Exception as e:
+        app.logger.error(f"safe_get_temprature error: {e}")
+        return 0.3
 
 
 @register_input_handler(input_type=INPUT_TYPE_TEXT)
@@ -37,13 +47,38 @@ def handle_input_text(
     trace: Trace,
     trace_args,
 ):
-    model_setting = get_model_setting(app, script_info)
+    model_setting = None
+    prompt_template = script_info.script_check_prompt
+    if (
+        script_info.script_ui_profile_id is not None
+        and script_info.script_ui_profile_id != ""
+    ):
+        profile_item = (
+            ProfileItem.query.filter(
+                ProfileItem.profile_id == script_info.script_ui_profile_id
+            )
+            .order_by(ProfileItem.id.desc())
+            .first()
+        )
+        if (
+            profile_item
+            and profile_item.profile_prompt_model
+            and profile_item.profile_prompt_model.strip()
+        ):
+            model_setting = ModelSetting(
+                profile_item.profile_prompt_model,
+                {"temperature": safe_get_temprature(app, profile_item)},
+            )
+            prompt_template = profile_item.profile_prompt
+
+    if model_setting is None:
+        model_setting = get_model_setting(app, script_info)
     app.logger.info(f"model_setting: {model_setting.__json__()}")
     prompt = get_fmt_prompt(
         app,
         user_info.user_id,
         attend.course_id,
-        script_info.script_check_prompt,
+        prompt_template,
         input,
         script_info.script_profile,
     )
