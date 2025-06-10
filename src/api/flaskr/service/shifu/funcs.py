@@ -34,8 +34,14 @@ def get_raw_shifu_list(
         page_index = max(page_index, 1)
         page_size = max(page_size, 1)
         page_offset = (page_index - 1) * page_size
-        total = AICourse.query.filter(AICourse.created_user_id == user_id).count()
-        subquery = (
+
+        created_total = AICourse.query.filter(AICourse.created_user_id == user_id).count()
+        shared_total = AiCourseAuth.query.filter(
+            AiCourseAuth.user_id == user_id,
+        ).count()
+        total = created_total + shared_total
+
+        created_subquery = (
             db.session.query(db.func.max(AICourse.id))
             .filter(
                 AICourse.created_user_id == user_id,
@@ -44,14 +50,30 @@ def get_raw_shifu_list(
             .group_by(AICourse.course_id)
         )
 
+        shared_course_ids = db.session.query(AiCourseAuth.course_id).filter(
+            AiCourseAuth.user_id == user_id
+        ).subquery()
+
+        shared_subquery = (
+            db.session.query(db.func.max(AICourse.id))
+            .filter(
+                AICourse.course_id.in_(shared_course_ids),
+                AICourse.status.in_([STATUS_PUBLISH, STATUS_DRAFT]),
+            )
+            .group_by(AICourse.course_id)
+        )
+
+        union_subquery = created_subquery.union(shared_subquery).subquery()
+
         courses = (
             db.session.query(AICourse)
-            .filter(AICourse.id.in_(subquery))
+            .filter(AICourse.id.in_(union_subquery))
             .order_by(AICourse.id.desc())
             .offset(page_offset)
             .limit(page_size)
             .all()
         )
+
         infos = [f"{c.course_id} + {c.course_name} + {c.status}\r\n" for c in courses]
         app.logger.info(f"{infos}")
         shifu_dtos = [
