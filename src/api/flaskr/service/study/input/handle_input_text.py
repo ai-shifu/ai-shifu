@@ -17,6 +17,7 @@ from flaskr.service.study.utils import (
     get_fmt_prompt,
     make_script_dto,
     get_model_setting,
+    get_lesson_system,
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
@@ -106,6 +107,14 @@ def handle_input_text(
     except StopIteration:
         app.logger.info("check_text_by_edun is None ,invoke_llm")
 
+    system_prompt_template = get_lesson_system(app, script_info.lesson_id)
+    system_prompt = (
+        None
+        if system_prompt_template is None or system_prompt_template == ""
+        else get_fmt_prompt(
+            app, user_info.user_id, attend.course_id, system_prompt_template
+        )
+    )
     resp = invoke_llm(
         app,
         user_info.user_id,
@@ -113,6 +122,7 @@ def handle_input_text(
         model=model_setting.model_name,
         json=True,
         stream=True,
+        system=system_prompt,
         message=prompt,
         generation_name="user_input_"
         + lesson.lesson_no
