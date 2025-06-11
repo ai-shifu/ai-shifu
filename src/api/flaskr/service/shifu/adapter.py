@@ -195,7 +195,7 @@ def markdown_2_html(content):
 
 # update block model
 def update_block_model(
-    block_model: AILessonScript, block_dto: BlockDto
+    block_model: AILessonScript, block_dto: BlockDto, new_block: bool = False
 ) -> BlockUpdateResultDto:
     block_model.script_name = block_dto.block_name
     block_model.script_desc = block_dto.block_desc
@@ -242,6 +242,11 @@ def update_block_model(
                 block_model.script_temprature = block_dto.block_content.temprature
         else:
             return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
+        if not new_block and (
+            not block_model.script_prompt or not block_model.script_prompt.strip()
+        ):
+            return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
+
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, LoginDto):
             error_message = check_button_dto(block_dto.block_ui)
@@ -352,8 +357,17 @@ def update_block_model(
                 block_model.script_ui_content = block_dto.block_ui.input_name
             if block_dto.block_ui.input_placeholder:
                 block_model.script_ui_content = block_dto.block_ui.input_placeholder
-            if block_dto.block_ui.prompt:
-                block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
+            if (
+                not block_dto.block_ui.prompt
+                or not block_dto.block_ui.prompt.prompt
+                or not block_dto.block_ui.prompt.prompt.strip()
+            ):
+                return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_REQUIRED"))
+            if "json" not in block_dto.block_ui.prompt.prompt.strip().lower():
+                return BlockUpdateResultDto(
+                    None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
+                )
+            block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
             if block_dto.block_ui.prompt.model:
                 block_model.script_model = block_dto.block_ui.prompt.model
 
