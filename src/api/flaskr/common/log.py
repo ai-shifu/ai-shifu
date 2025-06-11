@@ -83,6 +83,35 @@ def init_log(app: Flask) -> Flask:
             user_ip = request.remote_addr
         request.client_ip = user_ip
         thread_local.client_ip = user_ip
+        if request.method == "POST":
+            try:
+                request_body = {}
+                if request.files:
+                    request_body["File Upload"] = "File Upload"
+                elif request.is_json:
+                    request_body["JSON"] = request.get_json()
+                elif request.form:
+                    request_body["Form"] = request.form.to_dict()
+                elif request.args:
+                    request_body["Args"] = request.args.to_dict()
+                elif request.form_data:
+                    request_body["Form Data"] = request.form_data.to_dict()
+                else:
+                    request_body["Raw"] = request.get_data(as_text=True)
+                app.logger.info(f"Request body: {request_body}")
+            except Exception as e:
+                app.logger.error(f"Failed to get request body: {e}")
+        else:
+            app.logger.info(f"Request method: {request.method}")
+
+    @app.after_request
+    def after_request(response):
+        try:
+            response_data = response.get_data(as_text=True)
+            app.logger.info(f"Response: {response_data}")
+        except Exception as e:
+            app.logger.error(f"Error logging response: {str(e)}")
+        return response
 
     host_name = socket.gethostname()
     log_format = (
