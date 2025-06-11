@@ -89,13 +89,13 @@ def init_log(app: Flask) -> Flask:
                 if request.files:
                     request_body["File Upload"] = "File Upload"
                 elif request.is_json:
-                    request_body["JSON"] = request.get_json()
+                    request_body["JSON"] = request.get_json(silent=True)
                 elif request.form:
                     request_body["Form"] = request.form.to_dict()
                 elif request.args:
                     request_body["Args"] = request.args.to_dict()
-                elif request.form_data:
-                    request_body["Form Data"] = request.form_data.to_dict()
+                elif request.form:
+                    request_body["Form"] = request.form.to_dict()
                 else:
                     request_body["Raw"] = request.get_data(as_text=True)
                 app.logger.info(f"Request body: {request_body}")
