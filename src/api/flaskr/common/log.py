@@ -107,6 +107,9 @@ def init_log(app: Flask) -> Flask:
     @app.after_request
     def after_request(response):
         try:
+            if response.direct_passthrough:
+                app.logger.info("Response: <streaming response omitted>")
+                return response
             response_data = response.get_data(as_text=True)
             app.logger.info(f"Response: {response_data}")
         except Exception as e:
