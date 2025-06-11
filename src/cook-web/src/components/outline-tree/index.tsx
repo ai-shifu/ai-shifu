@@ -56,15 +56,17 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
     reason: ItemChangedReason<Outline>
   ) => {
     if (reason.type == 'dropped') {
-      const parentId = reason.draggedItem.parentId
-      if (parentId) {
-        const parent = data.find(item => item.id == parentId)
-        const ids = parent?.children?.map(item => item.id) || []
-        await actions.updateChapterOrder(ids)
+      const moveToParentId = reason?.droppedToParent?.id
+      const moveChapterId = reason?.draggedItem?.id
+      let ids
+      if (moveToParentId) {
+        const parent = data.find(item => item.id == moveToParentId)
+        ids = parent?.children?.map(item => item.id) || []
       } else {
-        const ids = data.map(item => item.id)
-        await actions.updateChapterOrder(ids)
+        ids = data.map(item => item.id)
       }
+      await actions.updateChapterOrder(moveChapterId, moveToParentId, ids)
+
     }
 
     onChange?.(data)
