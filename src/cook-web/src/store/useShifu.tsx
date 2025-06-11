@@ -837,8 +837,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   }
   const updateChapterOrder = async (
     move_chapter_id: string,
-    move_to_parent_id: string,
-    chapter_ids: string[]
+    move_to_parent_id?: string,
+    chapter_ids?: string[]
   ) => {
     setIsSaving(true)
     setError(null)
