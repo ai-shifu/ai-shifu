@@ -107,6 +107,16 @@ def init_log(app: Flask) -> Flask:
     @app.after_request
     def after_request(response):
         try:
+            if response.headers.get(
+                "Content-Type"
+            ) and "text/event-stream" in response.headers.get("Content-Type"):
+                app.logger.info("Response: <SSE streaming response>")
+
+                @response.call_on_close
+                def log_sse_end():
+                    app.logger.info("SSE Response: <streaming ended>")
+
+                return response
             if response.direct_passthrough:
                 app.logger.info("Response: <streaming response omitted>")
                 return response
