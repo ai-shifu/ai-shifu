@@ -28,7 +28,7 @@ interface TextInputProps {
 }
 
 const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     if (!_.isEqual(prevProps.properties.prompt.properties.temprature, nextProps.properties.prompt.properties.temprature)) {
@@ -38,6 +38,8 @@ const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProp
         return false
     }
     if (!_.isEqual(prevProps.properties.prompt.properties.prompt, nextProps.properties.prompt.properties.prompt)) {
+        return false
+    }
     for (let i = 0; i < prevProps.properties.prompt.properties.profiles.length; i++) {
         if (!nextProps.properties.prompt.properties.profiles.includes(prevProps.properties.prompt.properties.profiles[i])) {
             return false

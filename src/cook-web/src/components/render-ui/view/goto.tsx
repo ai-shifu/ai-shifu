@@ -17,13 +17,19 @@ interface GotoViewProps {
     }
 }
 const GotoViewPropsEqual = (prevProps: GotoViewProps, nextProps: GotoViewProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
         if (!_.isEqual(prevProps.properties.goto_settings.items[i], nextProps.properties.goto_settings.items[i])) {
             return false
         }
+    }
+    if (! _.isEqual(prevProps.properties.goto_settings.profile_key, nextProps.properties.goto_settings.profile_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.button_name, nextProps.properties.button_name)) {
+        return false
     }
     return true
 }

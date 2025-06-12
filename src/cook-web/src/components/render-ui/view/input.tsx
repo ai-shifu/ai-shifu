@@ -10,7 +10,13 @@ interface InputViewProps {
     }
 }
 const InputViewPropsEqual = (prevProps: InputViewProps, nextProps: InputViewProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_name, nextProps.properties.input_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_key, nextProps.properties.input_key)) {
         return false
     }
     return true

@@ -13,7 +13,16 @@ interface SingleInputProps {
 }
 
 const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInputProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_name, nextProps.properties.input_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_key, nextProps.properties.input_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_placeholder, nextProps.properties.input_placeholder)) {
         return false
     }
     return true

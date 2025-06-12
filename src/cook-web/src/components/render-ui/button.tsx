@@ -14,8 +14,13 @@ interface ButtonProps {
 }
 
 const ButtonPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)
-    ) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.button_name, nextProps.properties.button_name)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.button_key, nextProps.properties.button_key)) {
         return false
     }
     return true

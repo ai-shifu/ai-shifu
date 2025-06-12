@@ -39,11 +39,13 @@ interface GotoProps {
 }
 
 const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)
-    ) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
     if (!_.isEqual(prevProps.properties.goto_settings.items, nextProps.properties.goto_settings.items)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.goto_settings.profile_key, nextProps.properties.goto_settings.profile_key)) {
         return false
     }
 

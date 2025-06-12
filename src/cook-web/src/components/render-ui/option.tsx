@@ -33,7 +33,16 @@ interface ButtonProps {
 }
 
 const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
-    if (_.isEqual(prevProps.properties, nextProps.properties)) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.option_name, nextProps.properties.option_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.option_key, nextProps.properties.option_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.profile_key, nextProps.properties.profile_key)) {
         return false
     }
     for (let i = 0; i < prevProps.properties.buttons.length; i++) {

@@ -1,6 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
+import _ from 'lodash'
 interface OptionViewProps {
     properties: {
         "option_name": string,
@@ -16,10 +17,16 @@ interface OptionViewProps {
     }
 }
 const OptionViewPropsEqual = (prevProps: OptionViewProps, nextProps: OptionViewProps) => {
-    if (prevProps.properties.option_name !== nextProps.properties.option_name
-        || prevProps.properties.option_key !== nextProps.properties.option_key
-        || prevProps.properties.buttons.length !== nextProps.properties.buttons.length
-    ) {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.option_name, nextProps.properties.option_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.option_key, nextProps.properties.option_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.profile_key, nextProps.properties.profile_key)) {
         return false
     }
     for (let i = 0; i < prevProps.properties.buttons.length; i++) {
