@@ -33,6 +33,7 @@ def check_text_with_llm_response(
     lesson: AILesson,
     script_info: AILessonScript,
     attend: AICourseLessonAttend,
+    fmt_prompt: str,
 ):
     res = check_text(app, log_script.log_id, input, user_id)
     span.event(name="check_text", input=input, output=res)
@@ -51,7 +52,7 @@ def check_text_with_llm_response(
         labels = res.risk_labels
         model_setting = get_model_setting(app, script_info)
         prompt = "你是一名在线老师,要回答学生的相应提问，目前学生的问题有一些不合规不合法的地方，请找一个合适的理由拒绝学生，当前的教学内容为:{},学生的问题为：{},拒绝的理由为：{}".format(
-            script_info.script_prompt, input, ", ".join(labels)
+            fmt_prompt, input, ", ".join(labels)
         )
         res = invoke_llm(
             app,

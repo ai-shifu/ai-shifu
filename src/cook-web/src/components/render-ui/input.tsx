@@ -1,7 +1,9 @@
 import React from 'react'
 import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next';
-interface ButtonProps {
+import { memo } from 'react'
+import _ from 'lodash'
+interface SingleInputProps {
     properties: {
         "input_name": string,
         "input_key": string,
@@ -10,7 +12,23 @@ interface ButtonProps {
     onChange: (properties: any) => void
 }
 
-export default function SingleInput(props: ButtonProps) {
+const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInputProps) => {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_name, nextProps.properties.input_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_key, nextProps.properties.input_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_placeholder, nextProps.properties.input_placeholder)) {
+        return false
+    }
+    return true
+}
+
+export default memo(function SingleInput(props: SingleInputProps) {
     const { properties } = props
     const { t } = useTranslation();
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
@@ -57,4 +75,4 @@ export default function SingleInput(props: ButtonProps) {
 
         </div>
     )
-}
+},SingleInputPropsEqual)

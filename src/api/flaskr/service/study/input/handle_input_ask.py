@@ -114,8 +114,24 @@ def handle_input_ask(
     log_script.script_ui_type = UI_TYPE_ASK
     db.session.add(log_script)
     span = trace.span(name="user_follow_up", input=input)
+    prompt = get_fmt_prompt(
+        app,
+        user_info.user_id,
+        attend.course_id,
+        script_info.script_prompt,
+        input,
+        script_info.script_profile,
+    )
     res = check_text_with_llm_response(
-        app, user_info.user_id, log_script, input, span, lesson, script_info, attend
+        app,
+        user_info.user_id,
+        log_script,
+        input,
+        span,
+        lesson,
+        script_info,
+        attend,
+        prompt,
     )
     try:
         first_value = next(res)

@@ -1,5 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
+import _ from 'lodash'
 interface InputViewProps {
     properties: {
         "input_name": string,
@@ -7,8 +9,20 @@ interface InputViewProps {
         "input_placeholder": string
     }
 }
+const InputViewPropsEqual = (prevProps: InputViewProps, nextProps: InputViewProps) => {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_name, nextProps.properties.input_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.input_key, nextProps.properties.input_key)) {
+        return false
+    }
+    return true
+}
 
-export default function InputView(props: InputViewProps) {
+export default memo(function InputView(props: InputViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -33,4 +47,4 @@ export default function InputView(props: InputViewProps) {
             </div>
         </div>
     )
-}
+},InputViewPropsEqual)
