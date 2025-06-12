@@ -42,11 +42,17 @@ const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
     if (! _.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
+    if (!_.isEqual(prevProps.properties.goto_settings.profile_key, nextProps.properties.goto_settings.profile_key)) {
+        return false
+    }
+
     if (!_.isEqual(prevProps.properties.goto_settings.items, nextProps.properties.goto_settings.items)) {
         return false
     }
-    if (!_.isEqual(prevProps.properties.goto_settings.profile_key, nextProps.properties.goto_settings.profile_key)) {
-        return false
+    for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
+        if (!_.isEqual(prevProps.properties.goto_settings.items[i], nextProps.properties.goto_settings.items[i])) {
+            return false
+        }
     }
 
     return true
