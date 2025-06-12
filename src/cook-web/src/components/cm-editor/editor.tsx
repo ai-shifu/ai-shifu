@@ -271,7 +271,6 @@ const Editor: React.FC<EditorProps> = memo(function Editor({
   )
 }, (prevProps, nextProps) => {
   if (! _.isEqual(prevProps.content, nextProps.content)
-  || prevProps.isEdit !== nextProps.isEdit
   || ! _.isEqual(prevProps.profiles, nextProps.profiles)
   ) {
     return false
