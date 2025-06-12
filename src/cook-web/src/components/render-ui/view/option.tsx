@@ -1,5 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
+import _ from 'lodash'
 interface OptionViewProps {
     properties: {
         "option_name": string,
@@ -14,8 +16,30 @@ interface OptionViewProps {
         }>
     }
 }
+const OptionViewPropsEqual = (prevProps: OptionViewProps, nextProps: OptionViewProps) => {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.option_name, nextProps.properties.option_name)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.option_key, nextProps.properties.option_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.profile_key, nextProps.properties.profile_key)) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.buttons.length; i++) {
+        if (prevProps.properties.buttons[i].properties.button_name !== nextProps.properties.buttons[i].properties.button_name
+            || prevProps.properties.buttons[i].properties.button_key !== nextProps.properties.buttons[i].properties.button_key
+        ) {
+            return false
+        }
+    }
+    return true
+}
 
-export default function OptionView(props: OptionViewProps) {
+export default memo(function OptionView(props: OptionViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -39,4 +63,4 @@ export default function OptionView(props: OptionViewProps) {
             </div>
         </div>
     )
-}
+},OptionViewPropsEqual)

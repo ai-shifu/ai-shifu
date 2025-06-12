@@ -305,17 +305,19 @@ export function SortableTree<
     setOverId(over?.id ?? null)
   }
 
-  function handleDragEnd ({ active, over }: DragEndEvent) {
+  function handleDragEnd ({ active, over, delta }: DragEndEvent) {
     resetState()
 
     if (projected && over) {
-      const { depth, parentId } = projected
+      // const { depth, parentId } = projected
       if (keepGhostInPlace && over.id === active.id) return
       const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items)
       const overIndex = clonedItems.findIndex(({ id }) => id === over.id)
       const activeIndex = clonedItems.findIndex(({ id }) => id === active.id)
       const activeTreeItem = clonedItems[activeIndex]
-      let droppedToParent = !activeTreeItem.parent
+
+      let droppedToParent
+      droppedToParent = !activeTreeItem.parent
         ? null
         : clonedItems.find(({ id }) => id === over.id)
       if (droppedToParent?.parentId) {
@@ -323,13 +325,27 @@ export function SortableTree<
           ({ id }) => id === droppedToParent?.parentId
         )
       }
+      if (
+        delta.y < 0 &&
+        overIndex > 0 &&
+        droppedToParent.id === activeTreeItem.parentId
+      ) {
+        const prevItem = clonedItems[overIndex - 1]
+        droppedToParent = prevItem.parent
+          ? clonedItems.find(({ id }) => id === prevItem.parentId)
+          : prevItem
+      }
+
+      if (droppedToParent?.id === activeTreeItem.id) {
+        droppedToParent = null
+      }
       const draggedFromParent = activeTreeItem.parent
       const sortedItems = arrayMove(clonedItems, activeIndex, overIndex)
-      if(droppedToParent?.id){
+      if (droppedToParent?.id) {
         sortedItems[overIndex] = {
           ...sortedItems[overIndex],
           parentId: droppedToParent.id,
-          parent: droppedToParent,
+          parent: droppedToParent
         }
       }
       const newItems = buildTree(sortedItems)

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, memo } from 'react'
 import { Input } from '../ui/input'
 import { Button as UIButton } from '../ui/button'
 import { useTranslation } from 'react-i18next';
+import _ from 'lodash'
 interface ButtonProps {
     properties: {
         "button_name": string,
@@ -12,7 +13,20 @@ interface ButtonProps {
     onChanged?: (changed: boolean) => void
 }
 
-export default function Button(props: ButtonProps) {
+const ButtonPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.button_name, nextProps.properties.button_name)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.button_key, nextProps.properties.button_key)) {
+        return false
+    }
+    return true
+}
+
+export default memo(function Button(props: ButtonProps) {
     const { properties, mode = 'edit', onChanged } = props
     const [tempValue, setTempValue] = useState(properties.button_name)
     const [changed, setChanged] = useState(false)
@@ -91,4 +105,4 @@ export default function Button(props: ButtonProps) {
             )}
         </div>
     )
-}
+},ButtonPropsEqual)
