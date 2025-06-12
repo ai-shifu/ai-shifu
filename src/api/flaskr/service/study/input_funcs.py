@@ -52,20 +52,20 @@ def check_text_with_llm_response(
         labels = res.risk_labels
         model_setting = get_model_setting(app, script_info)
         prompt = f"""# 角色
-    你是一名在线老师，正在和学生对话
+你是一名在线老师，正在和学生对话
 
-    # 任务
-    学生的发言有不合法不合规的地方，请指出问题，并把教学拉回到正常轨道
+# 任务
+学生的发言有不合法不合规的地方，请指出问题，并把教学拉回到正常轨道
 
-    # 当前教学内容
-    {fmt_prompt}
+# 当前教学内容
+{fmt_prompt}
 
-    # 学生发言
-    {input}
+# 学生发言
+{input}
 
-    # 学生发言违规原因
-    {", ".join(labels)}
-    """
+# 学生发言违规原因
+{", ".join(labels)}
+"""
         res = invoke_llm(
             app,
             user_id,
