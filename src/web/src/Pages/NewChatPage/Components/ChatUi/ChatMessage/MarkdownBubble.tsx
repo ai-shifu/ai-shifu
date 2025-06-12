@@ -2,7 +2,7 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { Bubble } from '@chatui/core';
+import { Bubble } from '@ai-shifu/chatui';
 import { Image } from 'antd';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';

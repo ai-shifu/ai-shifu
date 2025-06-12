@@ -400,7 +400,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             updated_user_id=user_id,
             status=STATUS_DRAFT,
         )
-        update_block_result = update_block_model(block_model, block_dto)
+        update_block_result = update_block_model(block_model, block_dto, new_block=True)
         if update_block_result.error_message:
             raise_error(update_block_result.error_message)
         check_str = block_model.get_str_to_check()

@@ -1,7 +1,7 @@
 import styles from './ChatInputSmsCode.module.scss';
 import { useState } from 'react';
 import { message } from 'antd';
-import { Input } from '@chatui/core';
+import { Input } from '@ai-shifu/chatui';
 import SubButton from 'Components/SubButton';
 import { INTERACTION_OUTPUT_TYPE } from '@constants/courseContants';
 

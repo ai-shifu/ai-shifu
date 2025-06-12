@@ -167,3 +167,32 @@
 .brandcolor {
   color: var(--color-21);
 }
+
+:global(.scroll-more) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 130px;
+  z-index: 10;
+
+  :global(.scroll-more-btn) {
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .8);
+    box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.6);
+    border: 0;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    color: var(--brand-1);
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.scroll-more-icon) {
+    transform: rotate(90deg);
+    font-size: 24px;
+    color: rgba(0, 0, 0, .45);
+  }
+}
