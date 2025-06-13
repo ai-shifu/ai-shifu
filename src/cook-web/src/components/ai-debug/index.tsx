@@ -457,7 +457,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     }}
                                 >
                                     {results.slice(modelIndex * colCount, (modelIndex + 1) * colCount).map((item, i) => (
-                                        <div key={i} className="flex flex-col space-y-2 bg-[#F5F5F4] rounded-md p-3">
+                                        <div key={i} className="flex flex-col space-y-2 bg-[#F5F5F4] rounded-md p-3 whitespace-pre-wrap">
                                             <div className="text-sm text-gray-500"> {model.model}, {model.temprature}</div>
                                             <div>{item}</div>
                                         </div>
