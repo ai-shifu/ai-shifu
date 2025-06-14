@@ -349,7 +349,7 @@ export const useUITypes = () => {
     },
     {
         type: 'empty',
-        name: t('render-ui.empty'),
+        name: t('render-ui.none'),
         properties: {},
     },
     /**commit temp  for current version

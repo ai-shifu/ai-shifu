@@ -11,8 +11,6 @@ import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
 import { SelectedOption, IEditorContext } from './type'
-import { memo } from 'react'
-import _ from 'lodash'
 import './index.css'
 
 import {
@@ -32,13 +30,13 @@ type EditorProps = {
   onBlur?: () => void
 }
 
-const Editor: React.FC<EditorProps> = memo(function Editor({
+const Editor: React.FC<EditorProps> = ({
   content = '',
   isEdit,
   profiles = [],
   onChange,
   onBlur
-}){
+}) => {
   const { t } = useTranslation()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
@@ -269,27 +267,6 @@ const Editor: React.FC<EditorProps> = memo(function Editor({
       </EditorContext.Provider>
     </>
   )
-}, (prevProps, nextProps) => {
-  if (! _.isEqual(prevProps.content, nextProps.content)
-  || ! _.isEqual(prevProps.profiles, nextProps.profiles)
-  ) {
-    return false
-  }
-  if (prevProps.profiles && prevProps.profiles.length > 0) {
-    for (let i = 0; i < prevProps.profiles.length; i++) {
-      if (!nextProps.profiles?.includes(prevProps.profiles[i])) {
-        return false
-      }
-    }
-  } else if (nextProps.profiles && nextProps.profiles.length > 0) {
-    for (let i = 0; i < nextProps.profiles.length; i++) {
-      if (!prevProps.profiles?.includes(nextProps.profiles[i])) {
-        return false
-      }
-    }
-  }
-  return true
-})
-Editor.displayName = 'Editor'
+}
 
 export default Editor

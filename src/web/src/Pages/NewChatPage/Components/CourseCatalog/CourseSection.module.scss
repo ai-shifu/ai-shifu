@@ -13,7 +13,7 @@
   &:last-child {
     .iconWrapper {
       .bottomLine {
-        display: none;
+        background-color: transparent
       }
     }
   }
@@ -53,21 +53,22 @@
       .icon {
         width: 4px;
       }
-
-      .topLine {
-        height: 14px;
-      }
     }
 
     .topLine {
       width: 1px;
       background-color: var(--color-9);
-      height: 8px;
+      flex: 1 1 auto;
     }
 
     .icon {
       padding: 5px 0;
       width: 100%;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
 
       .smallIcon {
         width: 4px;

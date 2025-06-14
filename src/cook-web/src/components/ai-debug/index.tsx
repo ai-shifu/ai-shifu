@@ -68,7 +68,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     const [rowCount, setRowCount] = useState(300);
     const [profiles, setProfiles] = useState([]);
     // const [model, setModel] = useState('');
-    const [models, setModels] = useState<{ model: string, temprature: number }[]>([{ model: 'gpt-4o-mini', temprature: 0.7 }]);
+    const [models, setModels] = useState<{ model: string, temperature: number }[]>([{ model: 'gpt-4o-mini', temperature: 0.7 }]);
     const [results, setResults] = useState<string[]>([]);
     const [runing, setRuning] = useState(false);
     const abortRefs = useRef<AbortController[]>([]);
@@ -90,7 +90,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                 setProfiles(contentProp.profiles);
                 setModels([{
                     model: contentProp.model,
-                    temprature: contentProp.temprature
+                    temperature: contentProp.temperature
                 }]);
             }
         }
@@ -168,7 +168,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
         abortRefs.current = new Array(totalResults).fill(null);
         setRuning(true);
         for (let i = 0; i < models.length; i++) {
-            const { model, temprature } = models[i];
+            const { model, temperature } = models[i];
 
             const promises = Array.from({ length: colCount }, (_, colIndex) =>
                 fetchStream(`${SITE_HOST}/api/llm/debug-prompt`, {
@@ -177,7 +177,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                     "block_other_conf": {},
                     "block_prompt": userPrompt,
                     "block_system_prompt": systemPrompt,
-                    "block_temperature": temprature,
+                    "block_temperature": temperature,
                     "block_variables": variables
                 }, colIndex, i)
             );
@@ -199,11 +199,11 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
         };
         setModels(newModels);
     }
-    const setTemperature = (index: number, temprature: number) => {
+    const setTemperature = (index: number, temperature: number) => {
         const newModels = [...models];
         newModels[index] = {
             ...newModels[index],
-            temprature: temprature
+            temperature: temperature
         };
         setModels(newModels);
     }
@@ -321,16 +321,16 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                         <div className="flex items-center space-x-2">
                                             <Input
                                                 type="text"
-                                                value={model.temprature}
+                                                value={model.temperature}
                                                 onChange={(e) => setTemperature(i, parseFloat(e.target.value))}
                                                 // step="0.1"
                                                 // min="0"
                                                 // max="1"
                                                 className="w-full"
                                             />
-                                            <Button variant="outline" size="icon" disabled={model.temprature <= 0} className="h-8 w-8 shrink-0"
+                                            <Button variant="outline" size="icon" disabled={model.temperature <= 0} className="h-8 w-8 shrink-0"
                                                 onClick={() => {
-                                                    const val = Number(model.temprature);
+                                                    const val = Number(model.temperature);
                                                     if (val <= 0) {
                                                         setTemperature(i, 0);
                                                         return;
@@ -340,9 +340,9 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                             >
                                                 <Minus className="h-4 w-4" />
                                             </Button>
-                                            <Button variant="outline" size="icon" disabled={model.temprature >= 1} className="h-8 w-8 shrink-0"
+                                            <Button variant="outline" size="icon" disabled={model.temperature >= 1} className="h-8 w-8 shrink-0"
                                                 onClick={() => {
-                                                    const val = Number(model.temprature);
+                                                    const val = Number(model.temperature);
                                                     if (val >= 1) {
                                                         setTemperature(i, 1)
                                                         return;
@@ -457,8 +457,8 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                                     }}
                                 >
                                     {results.slice(modelIndex * colCount, (modelIndex + 1) * colCount).map((item, i) => (
-                                        <div key={i} className="flex flex-col space-y-2 bg-[#F5F5F4] rounded-md p-3">
-                                            <div className="text-sm text-gray-500"> {model.model}, {model.temprature}</div>
+                                        <div key={i} className="flex flex-col space-y-2 bg-[#F5F5F4] rounded-md p-3 whitespace-pre-wrap">
+                                            <div className="text-sm text-gray-500"> {model.model}, {model.temperature}</div>
                                             <div>{item}</div>
                                         </div>
                                     ))}
