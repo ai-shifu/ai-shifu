@@ -347,6 +347,12 @@ export function SortableTree<
           parentId: droppedToParent.id,
           parent: droppedToParent
         }
+      }else{
+        sortedItems[overIndex] = {
+         ...sortedItems[overIndex],
+          parentId: null,
+          parent: null
+        }
       }
       const newItems = buildTree(sortedItems)
       const newActiveItem = sortedItems.find(x => x.id === active.id)!
