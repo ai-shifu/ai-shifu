@@ -113,7 +113,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const processItem = (item: any, parentId = '', depth = 0) => {
       result[item.id] = {
         ...cataData[item.id],
-        parend_id: parentId,
+        parent_id: parentId,
         name: item.name,
         depth: depth,
         status: 'edit'
