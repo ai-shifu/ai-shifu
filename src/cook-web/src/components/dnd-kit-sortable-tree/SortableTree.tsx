@@ -328,7 +328,7 @@ export function SortableTree<
       if (
         delta.y < 0 &&
         overIndex > 0 &&
-        droppedToParent.id === activeTreeItem.parentId
+        droppedToParent?.id === activeTreeItem?.parentId
       ) {
         const prevItem = clonedItems[overIndex - 1]
         droppedToParent = prevItem.parent

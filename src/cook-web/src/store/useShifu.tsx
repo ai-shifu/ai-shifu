@@ -844,9 +844,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setError(null)
     try {
       await api.updateChapterOrder({
-        move_chapter_id: move_chapter_id,
-        move_to_parent_id: move_to_parent_id,
-        chapter_ids: chapter_ids,
+        move_chapter_id,
+        move_to_parent_id,
+        chapter_ids,
         shifu_id: currentShifu?.shifu_id
       })
       setLastSaveTime(new Date())
