@@ -113,7 +113,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const processItem = (item: any, parentId = '', depth = 0) => {
       result[item.id] = {
         ...cataData[item.id],
-        parend_id: parentId,
+        parent_id: parentId,
         name: item.name,
         depth: depth,
         status: 'edit'
@@ -837,16 +837,16 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   }
   const updateChapterOrder = async (
     move_chapter_id: string,
-    move_to_parent_id: string,
-    chapter_ids: string[]
+    move_to_parent_id?: string,
+    chapter_ids?: string[]
   ) => {
     setIsSaving(true)
     setError(null)
     try {
       await api.updateChapterOrder({
-        move_chapter_id: move_chapter_id,
-        move_to_parent_id: move_to_parent_id,
-        chapter_ids: chapter_ids,
+        move_chapter_id,
+        move_to_parent_id,
+        chapter_ids,
         shifu_id: currentShifu?.shifu_id
       })
       setLastSaveTime(new Date())
