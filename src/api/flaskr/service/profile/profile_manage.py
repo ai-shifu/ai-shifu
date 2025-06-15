@@ -682,11 +682,6 @@ def get_profile_option_list(app: Flask, parent_id: str, language: str):
     else:
         profile_item_value_i18n_map = {}
         profile_option_list = []
-
-    from objprint import op
-
-    op(profile_item_value_i18n_map)
-    op(language)
     return [
         ProfileValueDto(
             name=profile_item_value_i18n_map.get(

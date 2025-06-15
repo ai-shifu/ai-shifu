@@ -198,8 +198,6 @@ def markdown_2_html(content):
 
 
 # update block model
-# todo 变量信息从上层传进来
-# 数据结构 合法检测 和 格式化
 def update_block_model(
     block_model: AILessonScript, block_dto: BlockDto, new_block: bool = False
 ) -> BlockUpdateResultDto:
@@ -305,26 +303,10 @@ def update_block_model(
             block_model.script_ui_type = UI_TYPE_BUTTON
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
-
-        # todo 要处理老数据 没有 profile_id的情况但是块里是有 id 的
-
         elif isinstance(block_dto.block_ui, OptionDto):
-            # if not block_dto.block_ui.option_key:
-            #     return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
-            # if not block_dto.block_ui.option_name:
-            #     return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
-            # if not block_dto.block_ui.profile_key:
-            #     return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
-            # for btn in block_dto.block_ui.buttons:
-            #     if not btn.button_name:
-            #         return BlockUpdateResultDto(None, _("SHIFU.BUTTON_NAME_REQUIRED"))
-            #     if not btn.button_key:
-            #         return BlockUpdateResultDto(None, _("SHIFU.BUTTON_KEY_REQUIRED"))
             block_model.script_ui_type = UI_TYPE_SELECTION
-            # 选项先判断变量是否为空
             if not block_dto.block_ui.profile_id:
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
-            # 读取变量信息
             from flaskr.service.profile.profile_manage import get_profile_option_info
             from flaskr.i18n import get_current_language
 
@@ -335,17 +317,12 @@ def update_block_model(
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
             if profile_option_info.info.profile_type != PROFILE_TYPE_INPUT_SELECT:
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_TYPE_NOT_MATCH"))
-            # 给块内容赋值变量信息
-            # block_model.script_ui_content = block_dto.block_ui.option_key
-            # block_model.script_ui_content = block_dto.block_ui.option_name
             block_dto.block_ui.profile_key = profile_option_info.info.profile_key
             block_model.script_ui_content = profile_option_info.info.profile_key
             block_model.script_ui_profile = (
                 "[" + profile_option_info.info.profile_key + "]"
             )
-            # block_model.script_ui_profile = "[" + block_dto.block_ui.profile_key + "]"
             block_model.script_ui_profile_id = profile_option_info.info.profile_id
-
             profile_item_value_list = profile_option_info.list
             block_model.script_other_conf = json.dumps(
                 {
@@ -360,7 +337,6 @@ def update_block_model(
                 }
             )
 
-            # 创建按钮列表
             buttons = [
                 ButtonDto(
                     button_name=profile_item_value.name,
@@ -369,9 +345,7 @@ def update_block_model(
                 for profile_item_value in profile_item_value_list
             ]
 
-            # 更新 block_dto.block_ui 的 buttons 属性 传递给上层使用
             block_dto.block_ui.buttons = buttons
-
             return BlockUpdateResultDto(
                 SelectProfileDto(
                     profile_option_info.info.profile_key,
@@ -387,21 +361,12 @@ def update_block_model(
         elif isinstance(block_dto.block_ui, TextInputDto):
             if not block_dto.block_ui.prompt:
                 return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
-            # if not block_dto.block_ui.input_key:
-            #     return BlockUpdateResultDto(None, _("SHIFU.INPUT_KEY_REQUIRED"))
-            # if not block_dto.block_ui.input_name:
-            #     return BlockUpdateResultDto(None, _("SHIFU.INPUT_NAME_REQUIRED"))
-            # if not block_dto.block_ui.input_placeholder:
-            #     return BlockUpdateResultDto(None, _("SHIFU.INPUT_PLACEHOLDER_REQUIRED"))
-
             app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
-
             block_model.script_ui_type = UI_TYPE_INPUT
             if not block_dto.block_ui.profile_ids:
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
             if len(block_dto.block_ui.profile_ids) != 1:
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_IDS_NOT_CORRECT"))
-            # 这里只处理只有一个变量的情况
             profile_id = block_dto.block_ui.profile_ids[0]
             from flaskr.service.profile.profile_manage import get_profile_info
 
@@ -413,13 +378,6 @@ def update_block_model(
             block_dto.block_ui.input_key = input_profile_info.profile_key
             block_dto.block_ui.input_name = input_profile_info.profile_remark
             block_dto.block_ui.input_placeholder = input_profile_info.profile_remark
-
-            # if block_dto.block_ui.input_key:
-            #     block_model.script_ui_content = block_dto.block_ui.input_key
-            # if block_dto.block_ui.input_name:
-            #     block_model.script_ui_content = block_dto.block_ui.input_name
-            # if block_dto.block_ui.input_placeholder:
-            #     block_model.script_ui_content = block_dto.block_ui.input_placeholder
             if (
                 not block_dto.block_ui.prompt
                 or not block_dto.block_ui.prompt.prompt
