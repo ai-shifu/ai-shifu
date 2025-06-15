@@ -144,8 +144,19 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
     const handleTypeChange = (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
+
         actions.setBlockUITypesById(block.properties.block_id, type)
         actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+
+        const newUITypes = {
+            ...blockUITypes,
+            [block.properties.block_id]: type,
+        }
+        const newUIProps = {
+            ...blockUIProperties,
+            [block.properties.block_id]: opt?.properties || {},
+        }
+
         setIsChanged(false);
 
         if (['login', 'payment', 'empty'].includes(type) && currentNode) {
@@ -154,8 +165,8 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
                 blocks,
                 blockContentTypes,
                 blockContentProperties,
-                blockUITypes,
-                blockUIProperties,
+                newUITypes,
+                newUIProps,
                 currentShifu?.shifu_id || ''
             )
         }
