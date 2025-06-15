@@ -11,7 +11,6 @@ import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
 import { SelectedOption, IEditorContext } from './type'
-
 import './index.css'
 
 import {
@@ -269,4 +268,5 @@ const Editor: React.FC<EditorProps> = ({
     </>
   )
 }
+
 export default Editor

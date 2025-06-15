@@ -5,7 +5,9 @@ import InputNumber from '@/components/input-number'
 import ModelList from '@/components/model-list'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
-interface ButtonProps {
+import { memo } from 'react'
+import _ from 'lodash'
+interface TextInputProps {
     properties: {
         "prompt": {
             "properties": {
@@ -25,7 +27,28 @@ interface ButtonProps {
     onChanged?: (changed: boolean) => void
 }
 
-export default function TextInput(props: ButtonProps) {
+const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProps) => {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.temprature, nextProps.properties.prompt.properties.temprature)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.prompt, nextProps.properties.prompt.properties.prompt)) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.prompt.properties.profiles.length; i++) {
+        if (!nextProps.properties.prompt.properties.profiles.includes(prevProps.properties.prompt.properties.profiles[i])) {
+            return false
+        }
+    }
+    return true
+}
+
+export default memo(function TextInput(props: TextInputProps) {
     const { properties, onChanged } = props;
     const [tempProperties, setTempProperties] = useState(properties);
     const [changed, setChanged] = useState(false);
@@ -146,4 +169,4 @@ export default function TextInput(props: ButtonProps) {
             </div>
         </div>
     )
-}
+},TextInputPropsEqual)

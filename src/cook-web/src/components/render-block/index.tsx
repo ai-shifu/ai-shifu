@@ -2,8 +2,9 @@
 import { useShifu } from '@/store'
 import AI from './ai'
 import SolidContent from './solid-content'
-import { useState } from 'react'
+import { useState ,memo} from 'react'
 import { useTranslation } from 'react-i18next'
+import _ from 'lodash'
 
 const BlockMap = {
   ai: AI,
@@ -16,7 +17,24 @@ interface IRenderBlockContentProps {
   properties: any
 }
 
-export const RenderBlockContent = ({
+
+const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextProps: IRenderBlockContentProps) => {
+  const isSame = _.isEqual(prevProps.id, nextProps.id) && prevProps.type === nextProps.type
+  if (!isSame) {
+    return false
+  }
+
+  const prevKeys = Object.keys(prevProps.properties || {})
+  const nextKeys = Object.keys(nextProps.properties || {})
+  if (prevKeys.length !== nextKeys.length) {
+    return false
+  }
+  if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+    return false
+  }
+  return true
+}
+export const RenderBlockContent = memo(({
   id,
   type,
   properties
@@ -92,7 +110,9 @@ export const RenderBlockContent = ({
       {error && <div className='text-red-500 text-sm px-2 pb-2'>{error}</div>}
     </div>
   )
-}
+}, RenderBlockContentPropsEqual)
+
+RenderBlockContent.displayName = 'RenderBlockContent'
 
 export default RenderBlockContent
 

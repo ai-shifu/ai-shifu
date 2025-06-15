@@ -1,5 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
+import _ from 'lodash'
 interface TextInputViewProps {
     properties: {
         "prompt": {
@@ -17,8 +19,26 @@ interface TextInputViewProps {
         "input_placeholder": string
     }
 }
+const TextInputViewPropsEqual = (prevProps: TextInputViewProps, nextProps: TextInputViewProps) => {
+    if (_.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.prompt, nextProps.properties.prompt.properties.prompt)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.temprature, nextProps.properties.prompt.properties.temprature)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
+        return false
+    }
+    return true
+}
 
-export default function TextInputView(props: TextInputViewProps) {
+export default memo(function TextInputView(props: TextInputViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -65,4 +85,4 @@ export default function TextInputView(props: TextInputViewProps) {
             </div>
         </div>
     )
-}
+},TextInputViewPropsEqual)

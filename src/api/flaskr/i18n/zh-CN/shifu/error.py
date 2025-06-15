@@ -26,5 +26,5 @@ SHIFU_CHAPTER_DESCRIPTION_TOO_LONG = "师傅章节描述不能超过500个字符
 SHIFU_CHAPTER_DESCRIPTION_TOO_SHORT = "师傅章节描述不能少于10个字符"
 TEXT_INPUT_PROMPT_REQUIRED = "输入提示不能为空"
 TEXT_INPUT_PROMPT_JSON_REQUIRED = (
-    "输入提示必须包含关键字 'json' 以告诉模型返回 JSON 格式"
+    "用户输入的内容将被解析为 JSON 格式。请确保提示词中包含「JSON」关键字。"
 )

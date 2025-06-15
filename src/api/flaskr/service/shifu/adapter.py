@@ -53,7 +53,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     type = block_dict.get("type")
     if type != "block":
         raise_error(_("SHIFU.INVALID_BLOCK_TYPE"))
-    block_info = BlockDto(**block_dict.get("properties"))
+    block_info = BlockDto(**(block_dict.get("properties") or {}))
     block_info.block_ui = None
     block_info.block_content = None
     properties = block_dict.get("properties", {})
@@ -63,32 +63,36 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     if content:
         type = content.get("type")
         if type == "ai":
-            block_info.block_content = AIDto(**content.get("properties"))
+            block_info.block_content = AIDto(**(content.get("properties") or {}))
         elif type == "solidcontent":
-            block_info.block_content = SolidContentDto(**content.get("properties"))
+            block_info.block_content = SolidContentDto(
+                **(content.get("properties") or {})
+            )
         elif type == "systemprompt":
-            block_info.block_content = SystemPromptDto(**content.get("properties"))
+            block_info.block_content = SystemPromptDto(
+                **(content.get("properties") or {})
+            )
         else:
             raise_error(_("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
     ui = properties.get("block_ui")
     if ui:
         type = ui.get("type")
         if type == "button":
-            block_info.block_ui = ButtonDto(**ui.get("properties"))
+            block_info.block_ui = ButtonDto(**(ui.get("properties") or {}))
         elif type == "login":
-            block_info.block_ui = LoginDto(**ui.get("properties"))
+            block_info.block_ui = LoginDto(**(ui.get("properties") or {}))
         elif type == "phone":
-            block_info.block_ui = PhoneDto(**ui.get("properties"))
+            block_info.block_ui = PhoneDto(**(ui.get("properties") or {}))
         elif type == "code":
-            block_info.block_ui = CodeDto(**ui.get("properties"))
+            block_info.block_ui = CodeDto(**(ui.get("properties") or {}))
         elif type == "payment":
-            block_info.block_ui = PaymentDto(**ui.get("properties"))
+            block_info.block_ui = PaymentDto(**(ui.get("properties") or {}))
         elif type == "goto":
-            block_info.block_ui = GotoDto(**ui.get("properties"))
+            block_info.block_ui = GotoDto(**(ui.get("properties") or {}))
         elif type == "option":
-            block_info.block_ui = OptionDto(**ui.get("properties"))
+            block_info.block_ui = OptionDto(**(ui.get("properties") or {}))
         elif type == "textinput":
-            block_info.block_ui = TextInputDto(**ui.get("properties"))
+            block_info.block_ui = TextInputDto(**(ui.get("properties") or {}))
         elif type == "empty":
             block_info.block_ui = EmptyDto()
         else:
@@ -102,7 +106,7 @@ def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     type = outline_dict.get("type")
     if type != "outline":
         raise_error(_("SHIFU.INVALID_OUTLINE_TYPE"))
-    outline_info = OutlineEditDto(**outline_dict.get("properties"))
+    outline_info = OutlineEditDto(**(outline_dict.get("properties") or {}))
     return outline_info
 
 
