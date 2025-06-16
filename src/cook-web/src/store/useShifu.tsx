@@ -723,6 +723,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         setError(null);
         try {
             await api.updateChapterOrder({
+                "move_to_parent_id": "",
+                "move_chapter_id": currentNode?.id,
                 "chapter_ids": chapter_ids,
                 "shifu_id": currentShifu?.shifu_id
             });

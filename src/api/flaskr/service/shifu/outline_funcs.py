@@ -249,18 +249,97 @@ def delete_chapter(app, user_id: str, chapter_id: str):
 # @date: 2025-04-14
 # update chapter order will also update the lesson_no of the outlines under the chapter
 def update_chapter_order(
-    app, user_id: str, shifu_id: str, chapter_ids: list
+    app,
+    user_id: str,
+    shifu_id: str,
+    chapter_ids: list,
+    move_chapter_id: str,
+    move_to_parent_id: str = None,
 ) -> list[ChapterDto]:
     with app.app_context():
         time = datetime.now()
         outlines = get_original_outline_tree(app, shifu_id)
 
-        q = queue.Queue()
+        # 检查 move_chapter_id 是否存在
+        move_chapter = find_node_by_id(outlines, move_chapter_id)
+        if not move_chapter:
+            raise_error("SHIFU.CHAPTER_NOT_FOUND")
+
+        # 如果提供了 move_to_parent_id，说明是跨章移动
+        if move_to_parent_id:
+            # 获取目标章节
+            target_chapter = find_node_by_id(outlines, move_to_parent_id)
+            if not target_chapter:
+                raise_error("SHIFU.CHAPTER_NOT_FOUND")
+
+            # 获取目标章节下最大的 lesson_index
+            max_index = 0
+            for child in target_chapter.children:
+                if child.outline.lesson_index > max_index:
+                    max_index = child.outline.lesson_index
+
+            # 更新目标章节下所有子节点的 lesson_no
+            update_children_lesson_no(
+                target_chapter,
+                target_chapter.outline.lesson_no,
+                max_index,
+                user_id,
+                time,
+            )
+
+            # 重新计算目标章节下最大的 lesson_index
+            new_max_index = 0
+            for child in target_chapter.children:
+                if child.outline.lesson_index > new_max_index:
+                    new_max_index = child.outline.lesson_index
+
+            # 保存 move_chapter 的原始信息
+            original_parent_id = move_chapter.outline.parent_id
+            original_lesson_no = move_chapter.outline.lesson_no
+            original_lesson_index = move_chapter.outline.lesson_index
+
+            # 更新 move_chapter 的信息
+            move_chapter.outline.parent_id = move_to_parent_id
+            move_chapter.outline.lesson_index = new_max_index + 1
+            move_chapter.outline.lesson_no = f"{target_chapter.outline.lesson_no}{move_chapter.outline.lesson_index:02d}"
+            move_chapter.outline.updated_user_id = user_id
+            move_chapter.outline.updated = time
+            move_chapter.outline.status = STATUS_DRAFT
+
+            # 将原节点状态改为历史，保留原始信息
+            original_outline = move_chapter.outline.clone()
+            original_outline.parent_id = original_parent_id
+            original_outline.lesson_no = original_lesson_no
+            original_outline.lesson_index = original_lesson_index
+            original_outline.status = STATUS_HISTORY
+            original_outline.updated_user_id = user_id
+            original_outline.updated = time
+            db.session.add(original_outline)
+
+            # 创建新节点
+            new_outline = move_chapter.outline.clone()
+            new_outline.status = STATUS_DRAFT
+            db.session.add(new_outline)
+            move_chapter.outline = new_outline
+
+            # 更新移动章节下所有子节点的 lesson_no
+            update_children_lesson_no(
+                move_chapter, move_chapter.outline.lesson_no, 0, user_id, time
+            )
+
+            # 提交数据库修改
+            db.session.commit()
+
+            # 重新获取最新的树结构
+            outlines = get_original_outline_tree(app, shifu_id)
+
+        # 构建树结构
         root = OutlineTreeNode(None)
         for outline in outlines:
             root.add_child(outline)
+        q = queue.Queue()
         q.put(root)
-
+        # 查找需要重排序的节点
         reorder = False
         while not q.empty():
             node = q.get()
@@ -275,7 +354,6 @@ def update_chapter_order(
             ]
             if set(check_in) == set(chapter_ids):
                 app.logger.info(f"chapter_ids: {chapter_ids} {node.lesson_no}")
-
                 node.children = []
                 for id in chapter_ids:
                     node.children.append(
@@ -306,3 +384,54 @@ def get_outline_tree(app, user_id: str, shifu_id: str):
         outlines = get_original_outline_tree(app, shifu_id)
         outline_tree_dto = [SimpleOutlineDto(node) for node in outlines]
         return outline_tree_dto
+
+
+def find_node_by_id(nodes, target_id):
+    """递归查找指定 ID 的节点
+
+    Args:
+        nodes: 节点列表
+        target_id: 目标节点 ID
+
+    Returns:
+        找到的节点，如果没找到返回 None
+    """
+    for node in nodes:
+        if node.outline.lesson_id == target_id:
+            return node
+        if node.children:
+            found = find_node_by_id(node.children, target_id)
+            if found:
+                return found
+    return None
+
+
+def update_children_lesson_no(node, parent_lesson_no, start_index, user_id, time):
+    """更新节点的所有子节点的 lesson_no
+
+    Args:
+        node: 当前节点
+        parent_lesson_no: 父节点的 lesson_no
+        start_index: 起始索引
+        user_id: 用户 ID
+        time: 更新时间
+    """
+    for i, child in enumerate(node.children):
+        new_index = start_index + i + 1
+        child.outline.lesson_index = new_index
+        child.outline.lesson_no = f"{parent_lesson_no}{new_index:02d}"
+        child.outline.updated_user_id = user_id
+        child.outline.updated = time
+        child.outline.status = STATUS_DRAFT
+
+        # 将原节点状态改为历史
+        change_outline_status_to_history(child.outline, user_id, time)
+
+        # 创建新节点
+        new_child_outline = child.outline.clone()
+        new_child_outline.status = STATUS_DRAFT
+        db.session.add(new_child_outline)
+        child.outline = new_child_outline
+
+        # 递归更新子节点
+        update_children_lesson_no(child, child.outline.lesson_no, 0, user_id, time)
