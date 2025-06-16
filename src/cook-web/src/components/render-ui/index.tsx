@@ -123,6 +123,11 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
         actions,
         blockUITypes,
         blockUIProperties,
+        currentNode,
+        blocks,
+        blockContentTypes,
+        blockContentProperties,
+        currentShifu,
     } = useShifu();
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -139,9 +144,32 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
     const handleTypeChange = (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
+
         actions.setBlockUITypesById(block.properties.block_id, type)
         actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+
+        const newUITypes = {
+            ...blockUITypes,
+            [block.properties.block_id]: type,
+        }
+        const newUIProps = {
+            ...blockUIProperties,
+            [block.properties.block_id]: opt?.properties || {},
+        }
+
         setIsChanged(false);
+
+        if (['login', 'payment', 'empty'].includes(type) && currentNode) {
+            actions.autoSaveBlocks(
+                currentNode.id,
+                blocks,
+                blockContentTypes,
+                blockContentProperties,
+                newUITypes,
+                newUIProps,
+                currentShifu?.shifu_id || ''
+            )
+        }
     }
 
     const onUITypeChange = (id: string, type: string) => {
