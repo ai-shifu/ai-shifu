@@ -53,7 +53,7 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     type = block_dict.get("type")
     if type != "block":
         raise_error(_("SHIFU.INVALID_BLOCK_TYPE"))
-    block_info = BlockDto(**block_dict.get("properties"))
+    block_info = BlockDto(**(block_dict.get("properties") or {}))
     block_info.block_ui = None
     block_info.block_content = None
     properties = block_dict.get("properties", {})
@@ -63,32 +63,36 @@ def convert_dict_to_block_dto(block_dict: dict) -> BlockDto:
     if content:
         type = content.get("type")
         if type == "ai":
-            block_info.block_content = AIDto(**content.get("properties"))
+            block_info.block_content = AIDto(**(content.get("properties") or {}))
         elif type == "solidcontent":
-            block_info.block_content = SolidContentDto(**content.get("properties"))
+            block_info.block_content = SolidContentDto(
+                **(content.get("properties") or {})
+            )
         elif type == "systemprompt":
-            block_info.block_content = SystemPromptDto(**content.get("properties"))
+            block_info.block_content = SystemPromptDto(
+                **(content.get("properties") or {})
+            )
         else:
             raise_error(_("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
     ui = properties.get("block_ui")
     if ui:
         type = ui.get("type")
         if type == "button":
-            block_info.block_ui = ButtonDto(**ui.get("properties"))
+            block_info.block_ui = ButtonDto(**(ui.get("properties") or {}))
         elif type == "login":
-            block_info.block_ui = LoginDto(**ui.get("properties"))
+            block_info.block_ui = LoginDto(**(ui.get("properties") or {}))
         elif type == "phone":
-            block_info.block_ui = PhoneDto(**ui.get("properties"))
+            block_info.block_ui = PhoneDto(**(ui.get("properties") or {}))
         elif type == "code":
-            block_info.block_ui = CodeDto(**ui.get("properties"))
+            block_info.block_ui = CodeDto(**(ui.get("properties") or {}))
         elif type == "payment":
-            block_info.block_ui = PaymentDto(**ui.get("properties"))
+            block_info.block_ui = PaymentDto(**(ui.get("properties") or {}))
         elif type == "goto":
-            block_info.block_ui = GotoDto(**ui.get("properties"))
+            block_info.block_ui = GotoDto(**(ui.get("properties") or {}))
         elif type == "option":
-            block_info.block_ui = OptionDto(**ui.get("properties"))
+            block_info.block_ui = OptionDto(**(ui.get("properties") or {}))
         elif type == "textinput":
-            block_info.block_ui = TextInputDto(**ui.get("properties"))
+            block_info.block_ui = TextInputDto(**(ui.get("properties") or {}))
         elif type == "empty":
             block_info.block_ui = EmptyDto()
         else:
@@ -102,7 +106,7 @@ def convert_dict_to_outline_edit_dto(outline_dict: dict) -> OutlineEditDto:
     type = outline_dict.get("type")
     if type != "outline":
         raise_error(_("SHIFU.INVALID_OUTLINE_TYPE"))
-    outline_info = OutlineEditDto(**outline_dict.get("properties"))
+    outline_info = OutlineEditDto(**(outline_dict.get("properties") or {}))
     return outline_info
 
 
@@ -195,7 +199,7 @@ def markdown_2_html(content):
 
 # update block model
 def update_block_model(
-    block_model: AILessonScript, block_dto: BlockDto
+    block_model: AILessonScript, block_dto: BlockDto, new_block: bool = False
 ) -> BlockUpdateResultDto:
     block_model.script_name = block_dto.block_name
     block_model.script_desc = block_dto.block_desc
@@ -242,6 +246,11 @@ def update_block_model(
                 block_model.script_temprature = block_dto.block_content.temprature
         else:
             return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
+        if not new_block and (
+            not block_model.script_prompt or not block_model.script_prompt.strip()
+        ):
+            return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
+
     if block_dto.block_ui:
         if isinstance(block_dto.block_ui, LoginDto):
             error_message = check_button_dto(block_dto.block_ui)
@@ -352,8 +361,17 @@ def update_block_model(
                 block_model.script_ui_content = block_dto.block_ui.input_name
             if block_dto.block_ui.input_placeholder:
                 block_model.script_ui_content = block_dto.block_ui.input_placeholder
-            if block_dto.block_ui.prompt:
-                block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
+            if (
+                not block_dto.block_ui.prompt
+                or not block_dto.block_ui.prompt.prompt
+                or not block_dto.block_ui.prompt.prompt.strip()
+            ):
+                return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_REQUIRED"))
+            if "json" not in block_dto.block_ui.prompt.prompt.strip().lower():
+                return BlockUpdateResultDto(
+                    None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
+                )
+            block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
             if block_dto.block_ui.prompt.model:
                 block_model.script_model = block_dto.block_ui.prompt.model
 

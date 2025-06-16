@@ -1,5 +1,7 @@
 import React from 'react'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
+import _ from 'lodash'
 interface GotoViewProps {
     properties: {
         "goto_settings": {
@@ -14,8 +16,25 @@ interface GotoViewProps {
         "button_key": string
     }
 }
+const GotoViewPropsEqual = (prevProps: GotoViewProps, nextProps: GotoViewProps) => {
+    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
+        if (!_.isEqual(prevProps.properties.goto_settings.items[i], nextProps.properties.goto_settings.items[i])) {
+            return false
+        }
+    }
+    if (! _.isEqual(prevProps.properties.goto_settings.profile_key, nextProps.properties.goto_settings.profile_key)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.properties.button_name, nextProps.properties.button_name)) {
+        return false
+    }
+    return true
+}
 
-export default function GotoView(props: GotoViewProps) {
+export default memo(function GotoView(props: GotoViewProps) {
     const { properties } = props
     const { t } = useTranslation();
     return (
@@ -41,4 +60,4 @@ export default function GotoView(props: GotoViewProps) {
             </div>
         </div>
     )
-}
+},GotoViewPropsEqual)

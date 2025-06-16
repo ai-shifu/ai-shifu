@@ -17,6 +17,7 @@ from flaskr.service.study.utils import (
     get_fmt_prompt,
     make_script_dto,
     get_model_setting,
+    get_lesson_system,
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
@@ -48,7 +49,8 @@ def handle_input_text(
     trace_args,
 ):
     model_setting = None
-    prompt_template = script_info.script_check_prompt
+    check_prompt_template = None
+
     if (
         script_info.script_ui_profile_id is not None
         and script_info.script_ui_profile_id != ""
@@ -69,20 +71,27 @@ def handle_input_text(
                 profile_item.profile_prompt_model,
                 {"temperature": safe_get_temprature(app, profile_item)},
             )
-            prompt_template = profile_item.profile_prompt
+            check_prompt_template = profile_item.profile_prompt
 
     if model_setting is None:
         model_setting = get_model_setting(app, script_info)
+
     app.logger.info(f"model_setting: {model_setting.__json__()}")
-    prompt = get_fmt_prompt(
-        app,
-        user_info.user_id,
-        attend.course_id,
-        prompt_template,
-        input,
-        script_info.script_profile,
-    )
-    # todo 换成通用的
+
+    # get content prompt to generate content if check failed
+    content_prompt_template = script_info.script_prompt
+    if content_prompt_template is not None and content_prompt_template != "":
+        content_prompt = get_fmt_prompt(
+            app,
+            user_info.user_id,
+            attend.course_id,
+            content_prompt_template,
+            input,
+            script_info.script_profile,
+        )
+    else:
+        content_prompt = ""
+
     log_script = generation_attend(app, attend, script_info)
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
@@ -93,12 +102,20 @@ def handle_input_text(
     )
     db.session.add(log_script)
     span = trace.span(name="user_input", input=input)
+
     res = check_text_with_llm_response(
-        app, user_info.user_id, log_script, input, span, lesson, script_info, attend
+        app,
+        user_info.user_id,
+        log_script,
+        input,
+        span,
+        lesson,
+        script_info,
+        attend,
+        content_prompt,
     )
     try:
         first_value = next(res)
-        app.logger.info("check_text_by_edun is not None")
         yield first_value
         yield from res
         db.session.flush()
@@ -106,6 +123,28 @@ def handle_input_text(
     except StopIteration:
         app.logger.info("check_text_by_edun is None ,invoke_llm")
 
+    # get system prompt to generate content
+    system_prompt_template = get_lesson_system(app, script_info.lesson_id)
+    system_prompt = (
+        None
+        if system_prompt_template is None or system_prompt_template == ""
+        else get_fmt_prompt(
+            app, user_info.user_id, attend.course_id, system_prompt_template
+        )
+    )
+
+    # get check prompt to extract profile
+    if check_prompt_template is None or check_prompt_template == "":
+        check_prompt_template = script_info.script_check_prompt
+
+    check_prompt = get_fmt_prompt(
+        app,
+        user_info.user_id,
+        attend.course_id,
+        check_prompt_template,
+        input,
+        script_info.script_profile,
+    )
     resp = invoke_llm(
         app,
         user_info.user_id,
@@ -113,7 +152,8 @@ def handle_input_text(
         model=model_setting.model_name,
         json=True,
         stream=True,
-        message=prompt,
+        system=system_prompt,
+        message=check_prompt,
         generation_name="user_input_"
         + lesson.lesson_no
         + "_"

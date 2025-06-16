@@ -348,13 +348,13 @@
     "confirm": "Confirm",
     "confirm-change": "Confirm Change",
     "confirm-change-description": "Your operation will cause the current content to be lost, whether to confirm?",
-    "empty": "Empty",
     "expand": "Expand",
     "goto": "Goto",
     "goto-button-key": "Goto Key",
     "goto-button-name": "Goto Name",
     "goto-value": "Goto Value",
     "login": "Login",
+    "none": "None",
     "option": "Option",
     "option-button-empty": "Option Button Empty",
     "option-buttons-empty": "Option Buttons Empty",
@@ -374,8 +374,8 @@
     "delete": "Delete",
     "ai-block": "AI Block",
     "regular-block": "Regular Block",
-    "setting-ai-block": "Setting as AI Block",
-    "setting-regular-block": "Setting as regular Block"
+    "setting-ai-block": "Set as AI Block",
+    "setting-regular-block": "Set as Regular Block"
   },
   "social": {
     "about-us": "About Us",

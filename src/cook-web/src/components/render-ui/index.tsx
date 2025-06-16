@@ -17,7 +17,9 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog'
 import { useTranslation } from 'react-i18next';
+import { memo } from 'react'
 import Empty from './empty'
+import _ from 'lodash'
 const EditBlockMap = {
     button: Button,
     option: Option,
@@ -39,13 +41,27 @@ const ViewBlockMap = {
     textinput: TextInputView,
 }
 
-export const BlockUI = ({ id, type, properties, mode = 'edit', onChanged }: {
+const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
+    if (! _.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
+        return false
+    }
+    const prevKeys = Object.keys(prevProps.properties || {})
+    const nextKeys = Object.keys(nextProps.properties || {})
+    if (prevKeys.length !== nextKeys.length) {
+        return false
+    }
+    if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+        return false
+    }
+    return true
+}
+export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edit', onChanged }: {
     id: any,
     type: any,
     properties: any,
     mode?: string,
     onChanged?: (changed: boolean) => void
-}) => {
+}){
     const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
@@ -100,9 +116,9 @@ export const BlockUI = ({ id, type, properties, mode = 'edit', onChanged }: {
             }
         </>
     )
-}
+}, BlockUIPropsEqual)
 
-export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) => {
+export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit', onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) {
     const {
         actions,
         blockUITypes,
@@ -221,7 +237,10 @@ export const RenderBlockUI = ({ block, mode = 'edit', onExpandChange }: { block:
             </AlertDialog>
         </>
     )
-}
+}, (prevProps, nextProps) => {
+    return prevProps.block.properties.block_id === nextProps.block.properties.block_id && prevProps.mode === nextProps.mode && prevProps.onExpandChange === nextProps.onExpandChange
+})
+RenderBlockUI.displayName = 'RenderBlockUI'
 
 export default RenderBlockUI
 
@@ -330,7 +349,7 @@ export const useUITypes = () => {
     },
     {
         type: 'empty',
-        name: t('render-ui.empty'),
+        name: t('render-ui.none'),
         properties: {},
     },
     /**commit temp  for current version

@@ -22,7 +22,7 @@
     "complete": "完成",
     "placeholder-edit": "默认是「继续」",
     "placeholder-login": "默认是「登录」",
-    "placeholder-payment": "默认是「去付款」"
+    "placeholder-payment": "默认是「去支付」"
   },
   "chapter-setting": {
     "chapter-type": "章节类型",
@@ -348,13 +348,13 @@
     "confirm": "确认",
     "confirm-change": "确认切换",
     "confirm-change-description": "您的操作将会造成当前内容的丢失，是否确认?",
-    "empty": "无",
     "expand": "展开",
     "goto": "跳转",
     "goto-button-key": "来吧",
     "goto-button-name": "来吧",
     "goto-value": "跳转值",
     "login": "登录",
+    "none": "无",
     "option": "选择",
     "option-button-empty": "值或标题不能为空",
     "option-buttons-empty": "选择不能为空",

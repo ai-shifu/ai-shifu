@@ -38,7 +38,7 @@ const GlobalInfoButton = ({ className }) => {
   } = useDisclosture();
 
   const onContactUsClick = useCallback(() => {
-    window.open('https://home.ai-shifu.com/#card-egla48c8316hw95');
+    window.open('https://zhentouai.feishu.cn/share/base/form/shrcnwp8SRl1ghzia4fBG08VYkh', '_blank', 'noopener,noreferrer');
     onPopoverClose();
   }, [onPopoverClose]);
 
