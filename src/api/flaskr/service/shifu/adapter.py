@@ -41,7 +41,7 @@ from flaskr.service.profile.dtos import (
     ProfileValueDto,
 )
 from flaskr.service.lesson.models import AILesson
-from flaskr.service.profile.models import ProfileItem
+from flaskr.service.profile.models import ProfileItem, PROFILE_TYPE_INPUT_SELECT
 import json
 from flaskr.service.common import raise_error
 import re
@@ -201,6 +201,8 @@ def markdown_2_html(content):
 def update_block_model(
     block_model: AILessonScript, block_dto: BlockDto, new_block: bool = False
 ) -> BlockUpdateResultDto:
+    from flask import current_app as app
+
     block_model.script_name = block_dto.block_name
     block_model.script_desc = block_dto.block_desc
     block_model.script_media_url = ""
@@ -275,7 +277,6 @@ def update_block_model(
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, GotoDto):
-            from flask import current_app as app
 
             app.logger.info(f"GOTODTO block_dto.block_ui: {block_dto.block_ui}")
             block_model.script_ui_type = UI_TYPE_BRANCH
@@ -302,65 +303,81 @@ def update_block_model(
             block_model.script_ui_type = UI_TYPE_BUTTON
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
-
         elif isinstance(block_dto.block_ui, OptionDto):
-            if not block_dto.block_ui.option_key:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
-            if not block_dto.block_ui.option_name:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
-            if not block_dto.block_ui.profile_key:
-                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
-            for btn in block_dto.block_ui.buttons:
-                if not btn.button_name:
-                    return BlockUpdateResultDto(None, _("SHIFU.BUTTON_NAME_REQUIRED"))
-                if not btn.button_key:
-                    return BlockUpdateResultDto(None, _("SHIFU.BUTTON_KEY_REQUIRED"))
             block_model.script_ui_type = UI_TYPE_SELECTION
-            block_model.script_ui_content = block_dto.block_ui.option_key
-            block_model.script_ui_content = block_dto.block_ui.option_name
-            block_model.script_ui_profile = "[" + block_dto.block_ui.profile_key + "]"
+            if not block_dto.block_ui.profile_id:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
+            from flaskr.service.profile.profile_manage import get_profile_option_info
+            from flaskr.i18n import get_current_language
+
+            profile_option_info = get_profile_option_info(
+                app, block_dto.block_ui.profile_id, get_current_language()
+            )
+            if not profile_option_info:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+            if profile_option_info.info.profile_type != PROFILE_TYPE_INPUT_SELECT:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_TYPE_NOT_MATCH"))
+            block_dto.block_ui.profile_key = profile_option_info.info.profile_key
+            block_model.script_ui_content = profile_option_info.info.profile_key
+            block_model.script_ui_profile = (
+                "[" + profile_option_info.info.profile_key + "]"
+            )
+            block_model.script_ui_profile_id = profile_option_info.info.profile_id
+            profile_item_value_list = profile_option_info.list
             block_model.script_other_conf = json.dumps(
                 {
-                    "var_name": block_dto.block_ui.option_key,
+                    "var_name": profile_option_info.info.profile_key,
                     "btns": [
                         {
-                            "label": btn.button_name,
-                            "value": btn.button_key,
+                            "label": profile_item_value.name,
+                            "value": profile_item_value.value,
                         }
-                        for btn in block_dto.block_ui.buttons
+                        for profile_item_value in profile_item_value_list
                     ],
                 }
             )
+
+            buttons = [
+                ButtonDto(
+                    button_name=profile_item_value.name,
+                    button_key=profile_item_value.value,
+                )
+                for profile_item_value in profile_item_value_list
+            ]
+
+            block_dto.block_ui.buttons = buttons
             return BlockUpdateResultDto(
                 SelectProfileDto(
-                    block_dto.block_ui.option_key,
-                    block_dto.block_ui.option_name,
+                    profile_option_info.info.profile_key,
+                    profile_option_info.info.profile_key,
                     [
-                        ProfileValueDto(btn.button_name, btn.button_key)
-                        for btn in block_dto.block_ui.buttons
+                        ProfileValueDto(
+                            profile_item_value.name, profile_item_value.value
+                        )
+                        for profile_item_value in profile_item_value_list
                     ],
                 )
             )
         elif isinstance(block_dto.block_ui, TextInputDto):
             if not block_dto.block_ui.prompt:
                 return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
-            if not block_dto.block_ui.input_key:
-                return BlockUpdateResultDto(None, _("SHIFU.INPUT_KEY_REQUIRED"))
-            if not block_dto.block_ui.input_name:
-                return BlockUpdateResultDto(None, _("SHIFU.INPUT_NAME_REQUIRED"))
-            if not block_dto.block_ui.input_placeholder:
-                return BlockUpdateResultDto(None, _("SHIFU.INPUT_PLACEHOLDER_REQUIRED"))
-            from flask import current_app as app
-
             app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
-
             block_model.script_ui_type = UI_TYPE_INPUT
-            if block_dto.block_ui.input_key:
-                block_model.script_ui_content = block_dto.block_ui.input_key
-            if block_dto.block_ui.input_name:
-                block_model.script_ui_content = block_dto.block_ui.input_name
-            if block_dto.block_ui.input_placeholder:
-                block_model.script_ui_content = block_dto.block_ui.input_placeholder
+            if not block_dto.block_ui.profile_ids:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
+            if len(block_dto.block_ui.profile_ids) != 1:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_IDS_NOT_CORRECT"))
+            profile_id = block_dto.block_ui.profile_ids[0]
+            from flaskr.service.profile.profile_manage import get_profile_info
+
+            input_profile_info = get_profile_info(app, profile_id)
+            if not input_profile_info:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+            block_model.script_ui_content = input_profile_info.profile_remark
+            block_model.script_ui_profile_id = input_profile_info.profile_id
+            block_dto.block_ui.input_key = input_profile_info.profile_key
+            block_dto.block_ui.input_name = input_profile_info.profile_remark
+            block_dto.block_ui.input_placeholder = input_profile_info.profile_remark
             if (
                 not block_dto.block_ui.prompt
                 or not block_dto.block_ui.prompt.prompt

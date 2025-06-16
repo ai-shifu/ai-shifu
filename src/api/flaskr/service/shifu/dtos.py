@@ -368,6 +368,7 @@ class EmptyDto:
 @register_schema_to_swagger
 class OptionDto:
     # type option
+    profile_id: str
     option_name: str
     option_key: str
     profile_key: str
@@ -375,6 +376,7 @@ class OptionDto:
 
     def __init__(
         self,
+        profile_id: str = None,
         option_name: str = None,
         option_key: str = None,
         profile_key: str = None,
@@ -384,6 +386,8 @@ class OptionDto:
         self.option_name = option_name
         self.option_key = option_key
         self.profile_key = profile_key
+        self.profile_id = profile_id
+        self.buttons = []
         if isinstance(buttons, list):
             self.buttons = [
                 (
@@ -397,6 +401,7 @@ class OptionDto:
     def __json__(self):
         return {
             "properties": {
+                "profile_id": self.profile_id,
                 "option_name": self.option_name,
                 "option_key": self.option_key,
                 "profile_key": self.profile_key,
@@ -437,6 +442,7 @@ class InputDto:
 @register_schema_to_swagger
 class TextInputDto(InputDto):
     # type text input
+    profile_ids: list[str]
     prompt: AIDto
     input_name: str
     input_key: str
@@ -444,6 +450,7 @@ class TextInputDto(InputDto):
 
     def __init__(
         self,
+        profile_ids: list[str] = None,
         input_name: str = None,
         input_key: str = None,
         input_placeholder: str = None,
@@ -451,6 +458,7 @@ class TextInputDto(InputDto):
         **kwargs
     ):
         super().__init__(input_name, input_key, input_placeholder)
+        self.profile_ids = profile_ids
         self.prompt = prompt
         self.input_name = input_name
         self.input_key = input_key
@@ -463,6 +471,7 @@ class TextInputDto(InputDto):
     def __json__(self):
         return {
             "properties": {
+                "profile_ids": self.profile_ids,
                 "prompt": self.prompt,
                 "input_name": self.input_name,
                 "input_key": self.input_key,

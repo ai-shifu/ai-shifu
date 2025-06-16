@@ -239,6 +239,7 @@ def save_block_list_internal(
                                     profile_items.append(profile_item)
                     if update_block_result.data:
                         profile = update_block_result.data
+                        # todo 如果是洗数据的话这里也可以干掉了
                         profile_item = save_profile_item_defination(
                             app, user_id, outline.course_id, profile
                         )
