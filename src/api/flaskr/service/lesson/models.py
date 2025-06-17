@@ -3,6 +3,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 from .const import ASK_MODE_DEFAULT, LESSON_TYPE_TRIAL
+import decimal
 
 
 class AICourse(db.Model):
@@ -101,16 +102,32 @@ class AICourse(db.Model):
         )
 
     def eq(self, other):
+        self_temp = decimal.Decimal(
+            str(self.course_default_temprature if self.course_default_temprature else 0)
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
+        other_temp = decimal.Decimal(
+            str(
+                other.course_default_temprature
+                if other.course_default_temprature
+                else 0
+            )
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
+        self_price = decimal.Decimal(
+            str(self.course_price if self.course_price else 0)
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
+        other_price = decimal.Decimal(
+            str(other.course_price if other.course_price else 0)
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
         return (
             self.course_id == other.course_id
             and self.course_name == other.course_name
             and self.course_desc == other.course_desc
             and self.course_keywords == other.course_keywords
-            and self.course_price == other.course_price
+            and self_price == other_price
             and self.course_feishu_id == other.course_feishu_id
             and self.course_teacher_avator == other.course_teacher_avator
             and self.course_default_model == other.course_default_model
-            and self.course_default_temprature == other.course_default_temprature
+            and self_temp == other_temp
             and self.course_language == other.course_language
             and self.course_name_multi_language == other.course_name_multi_language
             and self.ask_count_limit == other.ask_count_limit
@@ -264,6 +281,16 @@ class AILesson(db.Model):
         )
 
     def eq(self, other):
+        self_temp = decimal.Decimal(
+            str(self.lesson_default_temprature if self.lesson_default_temprature else 0)
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
+        other_temp = decimal.Decimal(
+            str(
+                other.lesson_default_temprature
+                if other.lesson_default_temprature
+                else 0
+            )
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
         return (
             self.lesson_id == other.lesson_id
             and self.lesson_name == other.lesson_name
@@ -276,7 +303,7 @@ class AILesson(db.Model):
             and self.lesson_summary == other.lesson_summary
             and self.lesson_language == other.lesson_language
             and self.lesson_default_model == other.lesson_default_model
-            and self.lesson_default_temprature == other.lesson_default_temprature
+            and self_temp == other_temp
             and self.lesson_name_multi_language == other.lesson_name_multi_language
             and self.ask_count_limit == other.ask_count_limit
             and self.ask_model == other.ask_model
@@ -430,6 +457,13 @@ class AILessonScript(db.Model):
         )
 
     def eq(self, other):
+        self_temp = decimal.Decimal(
+            str(self.script_temprature if self.script_temprature else 0)
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
+        other_temp = decimal.Decimal(
+            str(other.script_temprature if other.script_temprature else 0)
+        ).quantize(decimal.Decimal("0.01"), rounding=decimal.ROUND_DOWN)
+
         return (
             self.script_id == other.script_id
             and self.lesson_id == other.lesson_id
@@ -443,7 +477,7 @@ class AILessonScript(db.Model):
             and self.script_content_type == other.script_content_type
             and self.script_prompt == other.script_prompt
             and self.script_model == other.script_model
-            and self.script_temprature == other.script_temprature
+            and self_temp == other_temp
             and self.script_profile == other.script_profile
             and self.script_media_url == other.script_media_url
             and self.script_ui_type == other.script_ui_type
