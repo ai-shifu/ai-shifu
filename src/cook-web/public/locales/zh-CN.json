@@ -77,6 +77,10 @@
     "shifu-name": "师傅名称",
     "shifu-name-cannot-be-empty": "师傅名称不能为空",
     "shifu-name-cannot-exceed-50-characters": "师傅名称不能超过50个字符",
+    "shifu-temperature": "温度",
+    "shifu-temperature-cannot-be-less-than-0": "温度不能小于0",
+    "shifu-temperature-cannot-exceed-2": "温度不能超过2",
+    "shifu-temperature-must-be-valid-number-format": "温度必须为有效数字格式",
     "file-size-cannot-exceed-2mb": "文件大小不能超过2MB",
     "input-keywords": "输入关键词",
     "keywords": "关键词",
@@ -365,7 +369,7 @@
     "textinput-key-empty": "变量名不能为空",
     "textinput-placeholder-empty": "提示不能为空",
     "textinput-prompt-empty": "提示词不能为空",
-    "textinput-temprature-empty": "温度不能为空",
+    "textinput-temperature-empty": "温度不能为空",
     "user-operation": "用户操作"
   },
   "shifu": {

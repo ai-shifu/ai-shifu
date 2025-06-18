@@ -126,7 +126,7 @@ export const useContentTypes = () => {
         prompt: '',
         profiles: [],
         model: '',
-        temprature: '0.40',
+        temperature: '0.40',
         other_conf: ''
       }
     },

@@ -77,6 +77,10 @@
     "shifu-name": "Shifu Name",
     "shifu-name-cannot-be-empty": "Shifu Name Cannot Be Empty",
     "shifu-name-cannot-exceed-50-characters": "Shifu Name Cannot Exceed 50 Characters",
+    "shifu-temperature": "Temperature",
+    "shifu-temperature-cannot-be-less-than-0": "Temperature Cannot Be Less Than 0",
+    "shifu-temperature-cannot-exceed-2": "Temperature Cannot Exceed 2",
+    "shifu-temperature-must-be-valid-number-format": "Temperature Must Be Valid Number Format",
     "file-size-cannot-exceed-2mb": "File Size Cannot Exceed 2MB",
     "input-keywords": "Input Keywords",
     "keywords": "Keywords",
@@ -365,7 +369,7 @@
     "textinput-key-empty": "Text Input Key Empty",
     "textinput-placeholder-empty": "Text Input Placeholder Empty",
     "textinput-prompt-empty": "Text Input Prompt Empty",
-    "textinput-temprature-empty": "Text Input Temprature Empty",
+    "textinput-temperature-empty": "Text Input Temperature Empty",
     "user-operation": "User Operation"
   },
   "shifu": {

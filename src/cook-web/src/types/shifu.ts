@@ -122,7 +122,7 @@ export interface AIBlockProperties {
     prompt: string,
     profiles?: string[],
     model?: string,
-    temprature?: string,
+    temperature?: string,
     other_conf?: string
 }
 
