@@ -3,6 +3,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 from .const import ASK_MODE_DEFAULT, LESSON_TYPE_TRIAL
+from ...util.compare import compare_decimal
 from decimal import Decimal
 
 
@@ -102,16 +103,19 @@ class AICourse(db.Model):
         )
 
     def eq(self, other):
+
         return (
             self.course_id == other.course_id
             and self.course_name == other.course_name
             and self.course_desc == other.course_desc
             and self.course_keywords == other.course_keywords
-            and self.course_price == other.course_price
+            and compare_decimal(self.course_price, other.course_price)
             and self.course_feishu_id == other.course_feishu_id
             and self.course_teacher_avator == other.course_teacher_avator
             and self.course_default_model == other.course_default_model
-            and self.course_default_temperature == other.course_default_temperature
+            and compare_decimal(
+                self.course_default_temperature, other.course_default_temperature
+            )
             and self.course_language == other.course_language
             and self.course_name_multi_language == other.course_name_multi_language
             and self.ask_count_limit == other.ask_count_limit
@@ -265,6 +269,7 @@ class AILesson(db.Model):
         )
 
     def eq(self, other):
+
         return (
             self.lesson_id == other.lesson_id
             and self.lesson_name == other.lesson_name
@@ -277,7 +282,9 @@ class AILesson(db.Model):
             and self.lesson_summary == other.lesson_summary
             and self.lesson_language == other.lesson_language
             and self.lesson_default_model == other.lesson_default_model
-            and self.lesson_default_temperature == other.lesson_default_temperature
+            and compare_decimal(
+                self.lesson_default_temperature, other.lesson_default_temperature
+            )
             and self.lesson_name_multi_language == other.lesson_name_multi_language
             and self.ask_count_limit == other.ask_count_limit
             and self.ask_model == other.ask_model
@@ -434,6 +441,7 @@ class AILessonScript(db.Model):
         )
 
     def eq(self, other):
+
         return (
             self.script_id == other.script_id
             and self.lesson_id == other.lesson_id
@@ -447,7 +455,7 @@ class AILessonScript(db.Model):
             and self.script_content_type == other.script_content_type
             and self.script_prompt == other.script_prompt
             and self.script_model == other.script_model
-            and self.script_temperature == other.script_temperature
+            and compare_decimal(self.script_temperature, other.script_temperature)
             and self.script_profile == other.script_profile
             and self.script_media_url == other.script_media_url
             and self.script_ui_type == other.script_ui_type
