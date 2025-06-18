@@ -82,7 +82,7 @@ def handle_preview_script(
     if not course_info:
         raise_error("LESSON.COURSE_NOT_FOUND")
 
-    yield make_script_dto("teacher_avator", course_info.course_teacher_avator, "")
+    yield make_script_dto("teacher_avatar", course_info.course_teacher_avatar, "")
 
     # Create a temporary attend record
     attend = AICourseLessonAttendDTO(
@@ -235,7 +235,7 @@ def run_script_inner(
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
                 yield make_script_dto(
-                    "teacher_avator", course_info.course_teacher_avator, ""
+                    "teacher_avatar", course_info.course_teacher_avatar, ""
                 )
                 course_id = course_info.course_id
                 lessons = init_trial_lesson(app, user_id, course_id)
@@ -286,9 +286,9 @@ def run_script_inner(
                 )
                 if not course_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
-                # return the teacher avator
+                # return the teacher avatar
                 yield make_script_dto(
-                    "teacher_avator", course_info.course_teacher_avator, ""
+                    "teacher_avatar", course_info.course_teacher_avatar, ""
                 )
 
                 attend_info = AICourseLessonAttend.query.filter(

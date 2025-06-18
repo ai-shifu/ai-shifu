@@ -252,7 +252,7 @@ def _get_lesson_tree_to_study_common(
         ret = AICourseDTO(
             course_id=course_info.course_id,
             course_name=course_info.course_name,
-            teach_avator=course_info.course_teacher_avator,
+            teacher_avatar=course_info.course_teacher_avatar,
             course_price=course_info.course_price,
             lessons=lessonInfos,
         )
@@ -469,7 +469,7 @@ def get_study_record(
         course_info = AICourse.query.filter_by(course_id=lesson_info.course_id).first()
         if not course_info:
             return None
-        teach_avator = course_info.course_teacher_avator
+        teacher_avatar = course_info.course_teacher_avatar
         lesson_ids = [lesson_id]
         if not lesson_info:
             return None
@@ -521,7 +521,7 @@ def get_study_record(
             for i in attend_scripts
         ]
         user_info = User.query.filter_by(user_id=user_id).first()
-        ret = StudyRecordDTO(items, teach_avator=teach_avator)
+        ret = StudyRecordDTO(items, teacher_avatar=teacher_avatar)
         last_script_id = attend_scripts[-1].script_id
         last_script = (
             AILessonScript.query.filter(

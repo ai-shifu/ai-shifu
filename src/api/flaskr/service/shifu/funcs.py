@@ -85,7 +85,7 @@ def get_raw_shifu_list(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
-                course.course_teacher_avator,
+                course.course_teacher_avatar,
                 course.status,
                 False,
             )
@@ -126,7 +126,7 @@ def get_favorite_shifu_list(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
-                course.course_teacher_avator,
+                course.course_teacher_avatar,
                 course.status,
                 True,
             )
@@ -170,7 +170,7 @@ def create_shifu(
             course_id=shifu_id,
             course_name=shifu_name,
             course_desc=shifu_description,
-            course_teacher_avator=shifu_image,
+            course_teacher_avatar=shifu_image,
             created_user_id=user_id,
             updated_user_id=user_id,
             status=STATUS_DRAFT,
@@ -204,7 +204,7 @@ def get_shifu_info(app, user_id: str, shifu_id: str):
                 shifu_id=shifu.course_id,
                 shifu_name=shifu.course_name,
                 shifu_description=shifu.course_desc,
-                shifu_avatar=shifu.course_teacher_avator,
+                shifu_avatar=shifu.course_teacher_avatar,
                 shifu_keywords=(
                     shifu.course_keywords.split(",") if shifu.course_keywords else []
                 ),
@@ -677,7 +677,7 @@ def get_shifu_detail(app, user_id: str, shifu_id: str):
                 shifu_id=shifu.course_id,
                 shifu_name=shifu.course_name,
                 shifu_description=shifu.course_desc,
-                shifu_avatar=shifu.course_teacher_avator,
+                shifu_avatar=shifu.course_teacher_avatar,
                 shifu_keywords=keywords,
                 shifu_model=shifu.course_default_model,
                 shifu_temperature=shifu.course_default_temperature,
@@ -722,7 +722,7 @@ def save_shifu_detail(
             new_shifu = shifu.clone()
             new_shifu.course_name = shifu_name
             new_shifu.course_desc = shifu_description
-            new_shifu.course_teacher_avator = shifu_avatar
+            new_shifu.course_teacher_avatar = shifu_avatar
             new_shifu.course_keywords = ",".join(shifu_keywords)
             new_shifu.course_default_model = shifu_model
             new_shifu.course_price = shifu_price
@@ -745,7 +745,7 @@ def save_shifu_detail(
                 shifu_id=new_shifu.course_id,
                 shifu_name=new_shifu.course_name,
                 shifu_description=new_shifu.course_desc,
-                shifu_avatar=new_shifu.course_teacher_avator,
+                shifu_avatar=new_shifu.course_teacher_avatar,
                 shifu_keywords=new_shifu.course_keywords,
                 shifu_model=new_shifu.course_default_model,
                 shifu_price=str(new_shifu.course_price),

@@ -139,7 +139,7 @@ class AILessonAttendDTO:
 class AICourseDTO:
     course_id: str
     course_name: str
-    teach_avator: str
+    teacher_avatar: str
     course_price: Decimal
     lessons: list[AILessonAttendDTO]
 
@@ -147,14 +147,14 @@ class AICourseDTO:
         self,
         course_id: str,
         course_name: str,
-        teach_avator: str,
+        teacher_avatar: str,
         course_price: Decimal,
         lessons: List[AILessonAttendDTO],
         updated: bool = False,
     ) -> None:
         self.course_id = course_id
         self.course_name = course_name
-        self.teach_avator = teach_avator
+        self.teacher_avatar = teacher_avatar
         self.lessons = lessons
         self.course_price = course_price
         self.updated = updated
@@ -163,7 +163,7 @@ class AICourseDTO:
         return {
             "course_id": self.course_id,
             "course_name": self.course_name,
-            "teach_avator": self.teach_avator,
+            "teacher_avatar": self.teacher_avatar,
             "lessons": self.lessons,
             "updated": self.updated,
             "course_price": self.course_price,
@@ -245,14 +245,14 @@ class StudyRecordDTO:
     records: List[StudyRecordItemDTO]
     ui: ScriptDTO
     ask_mode: bool
-    teach_avator: str
+    teacher_avatar: str
     ask_ui: ScriptDTO
 
-    def __init__(self, records, ui=None, ask_mode=True, teach_avator=None):
+    def __init__(self, records, ui=None, ask_mode=True, teacher_avatar=None):
         self.records = records
         self.ui = ui
         self.ask_mode = ask_mode
-        self.teach_avator = teach_avator
+        self.teacher_avatar = teacher_avatar
         self.ask_ui = None
 
     def __json__(self):
@@ -260,7 +260,7 @@ class StudyRecordDTO:
             "records": self.records,
             "ui": self.ui,
             "ask_mode": self.ask_mode,
-            "teach_avator": self.teach_avator,
+            "teacher_avatar": self.teacher_avatar,
             "ask_ui": self.ask_ui,
         }
 

@@ -25,7 +25,7 @@ class AICourse(db.Model):
     course_feishu_id = Column(
         String(255), nullable=False, default="", comment="Course feishu ID"
     )
-    course_teacher_avator = Column(
+    course_teacher_avatar = Column(
         String(255), nullable=False, default="", comment="Course teacher avatar"
     )
     course_default_model = Column(
@@ -85,7 +85,7 @@ class AICourse(db.Model):
             course_price=self.course_price,
             course_status=self.course_status,
             course_feishu_id=self.course_feishu_id,
-            course_teacher_avator=self.course_teacher_avator,
+            course_teacher_avatar=self.course_teacher_avatar,
             course_default_model=self.course_default_model,
             course_default_temperature=self.course_default_temperature,
             course_language=self.course_language,
@@ -111,7 +111,7 @@ class AICourse(db.Model):
             and self.course_keywords == other.course_keywords
             and compare_decimal(self.course_price, other.course_price)
             and self.course_feishu_id == other.course_feishu_id
-            and self.course_teacher_avator == other.course_teacher_avator
+            and self.course_teacher_avatar == other.course_teacher_avatar
             and self.course_default_model == other.course_default_model
             and compare_decimal(
                 self.course_default_temperature, other.course_default_temperature
