@@ -349,7 +349,7 @@ export const useUITypes = () => {
                     "profiles": [
                     ],
                     "model": "",
-                    "temprature": "0.40",
+                    "temperature": "0.40",
                     "other_conf": ""
                 },
                 "type": "ai"
@@ -368,8 +368,8 @@ export const useUITypes = () => {
             if (!properties?.prompt?.properties?.prompt) {
                 return t('render-ui.textinput-prompt-empty')
             }
-            if (typeof properties?.prompt?.properties?.temprature == 'undefined') {
-                return t('render-ui.textinput-temprature-empty')
+            if (typeof properties?.prompt?.properties?.temperature == 'undefined') {
+                return t('render-ui.textinput-temperature-empty')
             }
             return ""
         }

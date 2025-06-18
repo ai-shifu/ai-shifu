@@ -5,7 +5,7 @@ interface SolideContnetProps {
     profiles: string[];
     prompt?: string;
     model?: string;
-    temprature?: number;
+    temperature?: number;
     other_conf?: any;
 }
 

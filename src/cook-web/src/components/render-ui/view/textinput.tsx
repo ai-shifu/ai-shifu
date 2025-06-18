@@ -9,7 +9,7 @@ interface TextInputViewProps {
                 "prompt": string,
                 "profiles": string[],
                 "model": string,
-                "temprature": string,
+                "temperature": string,
                 "other_conf": string,
             },
             "type": string
@@ -26,7 +26,7 @@ const TextInputViewPropsEqual = (prevProps: TextInputViewProps, nextProps: TextI
     if (!_.isEqual(prevProps.properties.prompt.properties.prompt, nextProps.properties.prompt.properties.prompt)) {
         return false
     }
-    if (!_.isEqual(prevProps.properties.prompt.properties.temprature, nextProps.properties.prompt.properties.temprature)) {
+    if (!_.isEqual(prevProps.properties.prompt.properties.temperature, nextProps.properties.prompt.properties.temperature)) {
         return false
     }
     if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
@@ -80,7 +80,7 @@ export default memo(function TextInputView(props: TextInputViewProps) {
                     {t('textinput.temperature')}
                 </label>
                 <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
-                    {properties.prompt.properties.temprature}
+                    {properties.prompt.properties.temperature}
                 </div>
             </div>
         </div>

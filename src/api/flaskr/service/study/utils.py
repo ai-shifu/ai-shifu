@@ -780,7 +780,7 @@ def get_model_setting(
         status = [STATUS_PUBLISH, STATUS_DRAFT]
     if script_info.script_model and script_info.script_model.strip():
         return ModelSetting(
-            script_info.script_model, {"temperature": script_info.script_temprature}
+            script_info.script_model, {"temperature": script_info.script_temperature}
         )
     ai_lesson = (
         AILesson.query.filter(
@@ -797,7 +797,7 @@ def get_model_setting(
     ):
         return ModelSetting(
             ai_lesson.lesson_default_model,
-            {"temperature": ai_lesson.lesson_default_temprature},
+            {"temperature": ai_lesson.lesson_default_temperature},
         )
     ai_course = (
         AICourse.query.filter(
@@ -814,7 +814,7 @@ def get_model_setting(
     ):
         return ModelSetting(
             ai_course.course_default_model,
-            {"temperature": ai_course.course_default_temprature},
+            {"temperature": ai_course.course_default_temperature},
         )
     default_model = app.config.get("DEFAULT_LLM_MODEL", "")
     if not default_model or default_model == "":

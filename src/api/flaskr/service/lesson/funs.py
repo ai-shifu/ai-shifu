@@ -282,7 +282,7 @@ DB_SAVE_MAP = {
     "后续交互": "script_ui_type",
     "按钮标题": "script_ui_content",
     "跳转配置": "script_other_conf",
-    "temperature": "script_temprature",
+    "temperature": "script_temperature",
     "ask_count_history": "ask_with_history",
     "ask_count_limit": "ask_count_limit",
     "ask_model": "ask_model",
@@ -489,7 +489,7 @@ def update_lesson_info(
                 scripDb["script_content_type"] = CONTENT_TYPE_TEXT
                 scripDb["script_model"] = ""
                 scripDb["status"] = 1
-                scripDb["script_temprature"] = 0.4
+                scripDb["script_temperature"] = 0.4
                 scripDb["ask_count_limit"] = 5
                 scripDb["ask_mode"] = ASK_MODE_DEFAULT
                 scripDb["ask_prompt"] = ""

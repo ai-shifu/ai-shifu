@@ -365,7 +365,7 @@
     "textinput-key-empty": "变量名不能为空",
     "textinput-placeholder-empty": "提示不能为空",
     "textinput-prompt-empty": "提示词不能为空",
-    "textinput-temprature-empty": "温度不能为空",
+    "textinput-temperature-empty": "温度不能为空",
     "user-operation": "用户操作"
   },
   "shifu": {

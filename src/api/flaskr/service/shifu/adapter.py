@@ -223,10 +223,10 @@ def update_block_model(
             if block_dto.block_content.model and block_dto.block_content.model != "":
                 block_model.script_model = block_dto.block_content.model
             if (
-                block_dto.block_content.temprature
-                and block_dto.block_content.temprature != 0
+                block_dto.block_content.temperature
+                and block_dto.block_content.temperature != 0
             ):
-                block_model.script_temprature = block_dto.block_content.temprature
+                block_model.script_temperature = block_dto.block_content.temperature
         elif isinstance(block_dto.block_content, SolidContentDto):
             block_model.script_type = SCRIPT_TYPE_FIX
             block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
@@ -240,10 +240,10 @@ def update_block_model(
             if block_dto.block_content.model and block_dto.block_content.model != "":
                 block_model.script_model = block_dto.block_content.model
             if (
-                block_dto.block_content.temprature
-                and block_dto.block_content.temprature != 0
+                block_dto.block_content.temperature
+                and block_dto.block_content.temperature != 0
             ):
-                block_model.script_temprature = block_dto.block_content.temprature
+                block_model.script_temperature = block_dto.block_content.temperature
         else:
             return BlockUpdateResultDto(None, _("SHIFU.INVALID_BLOCK_CONTENT_TYPE"))
         if not new_block and (
@@ -422,7 +422,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
             prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
             model=block.script_model,
-            temprature=block.script_temprature,
+            temperature=block.script_temperature,
             other_conf=block.script_other_conf,
         )
         ret.block_type = "ai"
@@ -431,7 +431,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
             prompt=markdown_2_html(block.script_prompt),
             profiles=get_profiles(block.script_profile),
             model=block.script_model,
-            temprature=block.script_temprature,
+            temperature=block.script_temperature,
             other_conf=block.script_other_conf,
         )
         ret.block_type = "system"
@@ -443,7 +443,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
             prompt=block.script_check_prompt,
             profiles=get_profiles(block.script_ui_profile),
             model=block.script_model,
-            temprature=block.script_temprature,
+            temperature=block.script_temperature,
             other_conf=block.script_other_conf,
         )
 
