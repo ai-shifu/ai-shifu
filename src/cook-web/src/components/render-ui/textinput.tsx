@@ -14,7 +14,7 @@ interface TextInputProps {
                 "prompt": string,
                 "profiles": string[],
                 "model": string,
-                "temprature": string,
+                "temperature": string,
                 "other_conf": string,
             },
             "type": string
@@ -31,7 +31,7 @@ const TextInputPropsEqual = (prevProps: TextInputProps, nextProps: TextInputProp
     if (! _.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
-    if (!_.isEqual(prevProps.properties.prompt.properties.temprature, nextProps.properties.prompt.properties.temprature)) {
+    if (!_.isEqual(prevProps.properties.prompt.properties.temperature, nextProps.properties.prompt.properties.temperature)) {
         return false
     }
     if (!_.isEqual(prevProps.properties.prompt.properties.profiles, nextProps.properties.prompt.properties.profiles)) {
@@ -91,7 +91,7 @@ export default memo(function TextInput(props: TextInputProps) {
                 ...tempProperties.prompt,
                 properties: {
                     ...tempProperties.prompt.properties,
-                    temprature: value.toString()
+                    temperature: value.toString()
                 }
             }
         });
@@ -153,7 +153,7 @@ export default memo(function TextInput(props: TextInputProps) {
                     {t('textinput.temperature')}
                 </label>
                 <InputNumber min={0} max={1} step={0.1}
-                    value={Number(tempProperties.prompt?.properties?.temprature)}
+                    value={Number(tempProperties.prompt?.properties?.temperature)}
                     onChange={onTemperatureChange} className="w-full"
                 ></InputNumber>
             </div>

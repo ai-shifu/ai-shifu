@@ -7,7 +7,7 @@ interface AIBlockProps {
     prompt: string;
     profiles: string[];
     model: string;
-    temprature: string;
+    temperature: string;
     other_conf: string;
     content?: string; // Added optional content property
 }

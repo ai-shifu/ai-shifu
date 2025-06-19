@@ -85,7 +85,7 @@ def get_raw_shifu_list(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
-                course.course_teacher_avator,
+                course.course_teacher_avatar,
                 course.status,
                 False,
             )
@@ -126,7 +126,7 @@ def get_favorite_shifu_list(
                 course.course_id,
                 course.course_name,
                 course.course_desc,
-                course.course_teacher_avator,
+                course.course_teacher_avatar,
                 course.status,
                 True,
             )
@@ -170,7 +170,7 @@ def create_shifu(
             course_id=shifu_id,
             course_name=shifu_name,
             course_desc=shifu_description,
-            course_teacher_avator=shifu_image,
+            course_teacher_avatar=shifu_image,
             created_user_id=user_id,
             updated_user_id=user_id,
             status=STATUS_DRAFT,
@@ -204,11 +204,12 @@ def get_shifu_info(app, user_id: str, shifu_id: str):
                 shifu_id=shifu.course_id,
                 shifu_name=shifu.course_name,
                 shifu_description=shifu.course_desc,
-                shifu_avatar=shifu.course_teacher_avator,
+                shifu_avatar=shifu.course_teacher_avatar,
                 shifu_keywords=(
                     shifu.course_keywords.split(",") if shifu.course_keywords else []
                 ),
                 shifu_model=shifu.course_default_model,
+                shifu_temperature=shifu.course_default_temperature,
                 shifu_price=shifu.course_price,
                 shifu_url=get_config("WEB_URL", "UNCONFIGURED")
                 + "/c/"
@@ -673,15 +674,21 @@ def get_shifu_detail(app, user_id: str, shifu_id: str):
         if shifu:
             keywords = shifu.course_keywords.split(",") if shifu.course_keywords else []
             return ShifuDetailDto(
-                shifu.course_id,
-                shifu.course_name,
-                shifu.course_desc,
-                shifu.course_teacher_avator,
-                keywords,
-                shifu.course_default_model,
-                str(shifu.course_price),
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
+                shifu_id=shifu.course_id,
+                shifu_name=shifu.course_name,
+                shifu_description=shifu.course_desc,
+                shifu_avatar=shifu.course_teacher_avatar,
+                shifu_keywords=keywords,
+                shifu_model=shifu.course_default_model,
+                shifu_temperature=shifu.course_default_temperature,
+                shifu_price=shifu.course_price,
+                shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + shifu.course_id
+                + "?preview=true&skip=true",
+                shifu_url=get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + shifu.course_id,
             )
         raise_error("SHIFU.SHIFU_NOT_FOUND")
 
@@ -700,6 +707,7 @@ def save_shifu_detail(
     shifu_keywords: list[str],
     shifu_model: str,
     shifu_price: float,
+    shifu_temperature: float,
 ):
     with app.app_context():
         # query shifu
@@ -714,16 +722,18 @@ def save_shifu_detail(
             new_shifu = shifu.clone()
             new_shifu.course_name = shifu_name
             new_shifu.course_desc = shifu_description
-            new_shifu.course_teacher_avator = shifu_avatar
+            new_shifu.course_teacher_avatar = shifu_avatar
             new_shifu.course_keywords = ",".join(shifu_keywords)
             new_shifu.course_default_model = shifu_model
             new_shifu.course_price = shifu_price
             new_shifu.updated_user_id = user_id
             new_shifu.updated_at = datetime.now()
+            new_shifu.course_default_temperature = shifu_temperature
             new_check_str = new_shifu.get_str_to_check()
             if old_check_str != new_check_str:
                 check_text_with_risk_control(app, shifu_id, user_id, new_check_str)
             if not shifu.eq(new_shifu):
+                app.logger.info("shifu is not equal to new_shifu,save new_shifu")
                 new_shifu.status = STATUS_DRAFT
                 if shifu.status == STATUS_DRAFT:
                     # if shifu is draft, history it
@@ -732,15 +742,21 @@ def save_shifu_detail(
                 db.session.add(new_shifu)
             db.session.commit()
             return ShifuDetailDto(
-                shifu.course_id,
-                shifu.course_name,
-                shifu.course_desc,
-                shifu.course_teacher_avator,
-                shifu.course_keywords,
-                shifu.course_default_model,
-                str(shifu.course_price),
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
-                get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id,
+                shifu_id=new_shifu.course_id,
+                shifu_name=new_shifu.course_name,
+                shifu_description=new_shifu.course_desc,
+                shifu_avatar=new_shifu.course_teacher_avatar,
+                shifu_keywords=new_shifu.course_keywords,
+                shifu_model=new_shifu.course_default_model,
+                shifu_price=str(new_shifu.course_price),
+                shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + new_shifu.course_id
+                + "?preview=true&skip=true",
+                shifu_url=get_config("WEB_URL", "UNCONFIGURED")
+                + "/c/"
+                + new_shifu.course_id,
+                shifu_temperature=new_shifu.course_default_temperature,
             )
         raise_error("SHIFU.SHIFU_NOT_FOUND")
 

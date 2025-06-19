@@ -100,7 +100,7 @@ export interface ShifuActions {
     setBlockContentTypesById: (id: string, type: string) => void;
     setBlockUIPropertiesById: (id: string, properties: any, reset?: boolean) => void;
     setBlockUITypesById: (id: string, type: string) => void;
-    updateChapterOrder: (chapterIds: string[]) => Promise<void>
+    updateChapterOrder: (move_chapter_id: string,move_to_parent_id?: string,chapterIds?: string[]) => Promise<void>
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;
     saveBlocks: (shifuId: string) => Promise<void>;
@@ -122,7 +122,7 @@ export interface AIBlockProperties {
     prompt: string,
     profiles?: string[],
     model?: string,
-    temprature?: string,
+    temperature?: string,
     other_conf?: string
 }
 
