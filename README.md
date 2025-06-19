@@ -61,3 +61,4 @@ Then visit `http://localhost:8080`.
 
 #### Building and configuring from source code directly
 [Install Manual](INSTALL_MANUAL.md)
+
