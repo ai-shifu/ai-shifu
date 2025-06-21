@@ -7,7 +7,9 @@ type useProfileParams = {
   searchTerm?: string
   refreshFlag?: number
 }
-const useProfiles = ({ searchTerm, refreshFlag }: useProfileParams) => {
+
+const useProfiles = (props?: useProfileParams) => {
+  const { searchTerm, refreshFlag } = props || {}
   const { currentShifu } = useShifu()
   const [profiles, setProfiles] = useState<Profile[]>()
   const fetchList = async () => {

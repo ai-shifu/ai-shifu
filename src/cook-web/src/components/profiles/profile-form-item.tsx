@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { X } from 'lucide-react'
 import ProfileSelectModal from './profile-select-modal'
@@ -19,7 +19,7 @@ export default function ProfileFormItem ({
 }: ProfileFormItemProps) {
   const [selectedProfiles, setSelectedProfiles] = useState<Profile[] | []>([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [systemProfiles, customProfiles] = useProfiles({})
+  const [systemProfiles, customProfiles] = useProfiles()
 
   const handleAddProfile = (profile: Profile) => {
     setIsDialogOpen(false)
@@ -29,7 +29,7 @@ export default function ProfileFormItem ({
     ) {
       const currentProfiles = [...selectedProfiles, profile]
       setSelectedProfiles(currentProfiles)
-      onChange?.(currentProfiles?.map(profile => profile.profile_id || ''))
+      onChange?.(currentProfiles.map(profile => profile.profile_id || ''))
     }
   }
 
@@ -37,7 +37,7 @@ export default function ProfileFormItem ({
     const currentProfiles = [...selectedProfiles]
     currentProfiles.splice(index, 1)
     setSelectedProfiles(currentProfiles)
-    onChange?.(currentProfiles?.map(profile => profile.profile_id || ''))
+    onChange?.(currentProfiles.map(profile => profile.profile_id || ''))
   }
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export default function ProfileFormItem ({
       profile => profile.profile_id && value.includes(profile.profile_id)
     )
     setSelectedProfiles(selectedProfiles)
-  }, [])
+  }, [value, JSON.stringify(systemProfiles), JSON.stringify(customProfiles)])
 
   return (
     <div className='py-2 flex items-center justify-between gap-6'>
@@ -55,7 +55,7 @@ export default function ProfileFormItem ({
           {selectedProfiles?.map((profile, index) => (
             <Badge
               key={index}
-              variant='secondary'
+              variant='outline'
               className='flex items-center gap-1'
             >
               {profile.profile_key}
