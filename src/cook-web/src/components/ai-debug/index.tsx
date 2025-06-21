@@ -306,7 +306,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                     <div className="flex flex-col gap-2">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <div className="mb-1 text-sm">{t('ai-debug.select-model')}</div>
+                                <div className="mb-1 text-sm">{t('common.select-model')}</div>
                             </div>
 
                             <div>

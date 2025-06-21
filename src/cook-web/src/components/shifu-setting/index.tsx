@@ -17,13 +17,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import {
     Form,
     FormControl,
     FormField,
@@ -34,7 +27,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import api from "@/api";
 import { getSiteHost } from "@/config/runtime-config";
-import { useShifu } from "@/store";
+import ModelList from "@/components/model-list";
 
 interface Shifu {
     shifu_description: string;
@@ -60,7 +53,6 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadedImageUrl, setUploadedImageUrl] = useState("");
-    const { models } = useShifu();
     const [copying, setCopying] = useState({
         previewUrl: false,
         url: false
@@ -78,7 +70,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
         description: z.string()
             .min(1, t('shifu-setting.shifu-description-cannot-be-empty'))
             .max(300, t('shifu-setting.shifu-description-cannot-exceed-300-characters')),
-        model: z.string().min(1, t('shifu-setting.please-select-model')),
+        model: z.string(),
         price: z.string()
             .min(1, t('shifu-setting.shifu-price-cannot-be-empty'))
             .regex(/^\d+(\.\d{1,2})?$/, t('shifu-setting.shifu-price-must-be-valid-number-format')),
@@ -209,7 +201,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                 name: result.shifu_name,
                 description: result.shifu_description,
                 price: result.shifu_price + '',
-                model: result.shifu_model,
+                model: result.shifu_model || '',
                 previewUrl: result.shifu_preview_url,
                 url: result.shifu_url,
                 temperature: result.shifu_temperature + ''
@@ -443,25 +435,14 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                                 name="model"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-4">
-                                        <FormLabel className="text-right text-sm">{t('shifu-setting.select-model')}</FormLabel>
+                                        <FormLabel className="text-right text-sm">{t('common.select-model')}</FormLabel>
                                         <div className="col-span-3">
-                                            <Select
-                                                onValueChange={field.onChange}
-                                                defaultValue={field.value}
-                                            >
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder={t('shifu-setting.select-model')} />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {
-                                                        models.map((item, i) => {
-                                                            return <SelectItem key={i} value={item}>{item}</SelectItem>
-                                                        })
-                                                    }
-                                                </SelectContent>
-                                            </Select>
+                                            <FormControl>
+                                                <ModelList
+                                                    value={field.value}
+                                                    onChange={field.onChange}
+                                                />
+                                            </FormControl>
                                             <FormMessage />
                                         </div>
                                     </FormItem>
