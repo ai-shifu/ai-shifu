@@ -8,7 +8,6 @@
     "expand": "Expand",
     "input-variable-value": "Input Variable Value",
     "row-count": "Row Count",
-    "select-model": "Select Model",
     "set-temperature": "Set Temperature",
     "start-debug": "Start Debug",
     "stop-output": "Stop Output",
@@ -48,6 +47,8 @@
     "create-failed": "Create Failed",
     "create-success": "Create Success",
     "create-success-description": "Create Success Description",
+    "default": "Default",
+    "select-model": "Select Model",
     "error.save.failed": "Save failed: Invalid server response",
     "favorites": "Favorites",
     "follow": "Follow",
@@ -89,13 +90,11 @@
     "limit-50-characters": "Limit 50 Characters",
     "number": "Number",
     "only-support-jpg-and-png-format": "Only Support JPG and PNG Format",
-    "please-select-model": "Please Select Model",
     "preview-url": "Preview URL",
     "price": "Price",
     "price-cannot-be-empty": "Price Cannot Be Empty",
     "price-must-be-valid-number-format": "Price Must Be Valid Number Format",
     "save": "Save",
-    "select-model": "Select Model",
     "selected": "Selected",
     "support-jpg-png-format-file-less-than-2mb": "Support JPG and PNG Format File Less Than 2MB",
     "title": "Title",
@@ -255,9 +254,6 @@
     "verify-failed": "Verification Failed",
     "want-to-experience-creation": "Want to Experience Creation",
     "your-email": "Your Email"
-  },
-  "model-list": {
-    "select-model": "Select Model"
   },
   "option": {
     "button-key": "Option Key",
