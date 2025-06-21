@@ -27,7 +27,7 @@ export default function ModelList({ value, className, onChange }: { value: strin
                 <SelectValue placeholder={t('common.select-model')} />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem key="default" value={EMPTY_VALUE}>{t('common.default')}</SelectItem>
+                <SelectItem key="default" value={DEFAULT_MODEL_OPTION_VALUE}>{t('common.default')}</SelectItem>
                 {
                     models.map((item, i) => {
                         return <SelectItem key={i} value={item}>{item}</SelectItem>
