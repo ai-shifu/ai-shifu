@@ -13,6 +13,7 @@ import {
 import { Plus } from 'lucide-react'
 import ProfileSelect from './profile-select'
 import type { Profile } from '@/components/profiles/type'
+import { useTranslation } from 'react-i18next'
 
 interface ProfileSelectModalProps {
   isDialogOpen: boolean
@@ -25,6 +26,7 @@ export default function ProfileSelectModal ({
   setIsDialogOpen,
   onAddProfile
 }: ProfileSelectModalProps) {
+  const { t } = useTranslation()
   const handleProfileSelect = (profile: Profile) => {
     onAddProfile(profile)
   }
@@ -33,12 +35,12 @@ export default function ProfileSelectModal ({
       <DialogTrigger asChild>
         <Button variant={'outline'} size='sm' className='h-8'>
           <Plus className='h-4 w-4 mr-1' />
-          添加
+          {t('profile-select-modal.add')}
         </Button>
       </DialogTrigger>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>添加变量</DialogTitle>
+          <DialogTitle>{t('profile-select-modal.add-variable')}</DialogTitle>
         </DialogHeader>
         <div className='space-y-4 pt-4'>
           <ProfileSelect onSelect={handleProfileSelect} />

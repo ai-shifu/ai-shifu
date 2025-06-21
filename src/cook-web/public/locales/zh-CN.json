@@ -321,6 +321,10 @@
     "title": "标题",
     "variable-name": "变量名"
   },
+  "profile-select-modal": {
+    "add-variable": "添加变量",
+    "add": "添加"
+  },
   "profiles-manage": {
     "enum": "选项",
     "search-variable": "搜索变量...",
