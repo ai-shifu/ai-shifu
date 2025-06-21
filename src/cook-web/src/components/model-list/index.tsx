@@ -9,12 +9,12 @@ export default function ModelList({ value, className, onChange }: { value: strin
 
     // Empty string is used to represent using the default model. However, the Select component uses empty string as unselected.
     // So we need to use a special value to represent the empty state in the Select component.
-    const EMPTY_VALUE = '__empty__';
-    const displayValue = value === '' ? EMPTY_VALUE : value;
-
+    const DEFAULT_MODEL_OPTION_VALUE = '__empty__';
+    const displayValue = value === '' ? DEFAULT_MODEL_OPTION_VALUE : value;
+    
     const handleChange = (selectedValue: string) => {
         // If the selected value is the empty value, we need to pass an empty string
-        const outputValue = selectedValue === EMPTY_VALUE ? '' : selectedValue;
+        const outputValue = selectedValue === DEFAULT_MODEL_OPTION_VALUE ? '' : selectedValue;
         onChange(outputValue);
     };
 
