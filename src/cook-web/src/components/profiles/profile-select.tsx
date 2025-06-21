@@ -59,7 +59,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
       setDeleteProfileId(null)
     }
   }
-  
+
   const [systemProfiles, customProfiles] = useProfiles({
     searchTerm,
     refreshFlag
