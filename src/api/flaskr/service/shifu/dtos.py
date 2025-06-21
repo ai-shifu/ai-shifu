@@ -558,8 +558,7 @@ class BlockDto:
     block_index: int
     block_content: AIDto | SolidContentDto
     block_ui: OptionDto | TextInputDto | ButtonDto
-    profile_option_info: "ProfileOptionListDto" = None
-    input_profile_info: "ProfileItem" = None
+    profile_info: "ProfileItem" = None
 
     def __init__(
         self,
@@ -571,7 +570,6 @@ class BlockDto:
         block_index: int = None,
         block_content: AIDto | SolidContentDto | SystemPromptDto = None,
         block_ui: OptionDto | TextInputDto | ButtonDto = None,
-        profile_option_info: "ProfileOptionListDto" = None,
         input_profile_info: "ProfileItem" = None,
         **kwargs
     ):
@@ -583,8 +581,7 @@ class BlockDto:
         self.block_index = block_index
         self.block_content = block_content
         self.block_ui = block_ui
-        self.profile_option_info = profile_option_info
-        self.input_profile_info = input_profile_info
+        self.profile_info = input_profile_info
 
     def __json__(self):
         return {
@@ -597,8 +594,7 @@ class BlockDto:
                 "block_index": self.block_index,
                 "block_content": self.block_content,
                 "block_ui": self.block_ui,
-                "profile_option_info": self.profile_option_info,
-                "input_profile_info": self.input_profile_info,
+                "profile_info": self.profile_info,
             },
             "type": __class__.__name__.replace("Dto", "").lower(),
         }

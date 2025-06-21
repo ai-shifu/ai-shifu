@@ -479,13 +479,13 @@ def get_system_block_by_outline_id(app, outline_id: str):
 def _fetch_profile_info_for_block_dto(app, block_dto):
     """根据 block_dto 的类型获取相应的 profile 信息"""
     if isinstance(block_dto.block_ui, OptionDto) and block_dto.block_ui.profile_id:
-        block_dto.profile_option_info = get_profile_option_info(
-            app, block_dto.block_ui.profile_id, get_current_language()
-        )
+         block_dto.profile_info = get_profile_info(
+                app, block_dto.block_ui.profile_id
+            )
     elif (
         isinstance(block_dto.block_ui, TextInputDto) and block_dto.block_ui.profile_ids
     ):
         if len(block_dto.block_ui.profile_ids) == 1:
-            block_dto.input_profile_info = get_profile_info(
+            block_dto.profile_info = get_profile_info(
                 app, block_dto.block_ui.profile_ids[0]
             )
