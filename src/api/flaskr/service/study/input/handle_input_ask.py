@@ -149,7 +149,7 @@ def handle_input_ask(
         model=follow_up_model,
         json=True,
         stream=True,
-        temperature=script_info.script_temprature,
+        temperature=script_info.script_temperature,
         generation_name="user_follow_ask_"
         + lesson.lesson_no
         + "_"

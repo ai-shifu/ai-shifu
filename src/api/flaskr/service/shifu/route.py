@@ -299,6 +299,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     shifu_price:
                         type: number
                         description: shifu price
+                    shifu_temperature:
+                        type: number
+                        description: shifu temperature
         responses:
             200:
                 description: save shifu detail success
@@ -324,6 +327,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_keywords = request.get_json().get("shifu_keywords")
         shifu_model = request.get_json().get("shifu_model")
         shifu_price = request.get_json().get("shifu_price")
+        shifu_temperature = request.get_json().get("shifu_temperature")
         return make_common_response(
             save_shifu_detail(
                 app,
@@ -335,6 +339,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_keywords,
                 shifu_model,
                 shifu_price,
+                shifu_temperature,
             )
         )
 
@@ -701,6 +706,12 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                         items:
                             type: string
                         description: chapter ids
+                    move_chapter_id:
+                        type: string
+                        description: the chapter id to be moved
+                    move_to_parent_id:
+                        type: string
+                        description: the parent chapter id where the chapter will be moved to
         responses:
             200:
                 description: update chapter order success
@@ -724,10 +735,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if not shifu_id:
             raise_param_error("shifu_id is required")
         chapter_ids = request.get_json().get("chapter_ids")
-        if not chapter_ids:
-            raise_param_error("chapter_ids is required")
+        move_chapter_id = request.get_json().get("move_chapter_id")
+        if not move_chapter_id:
+            raise_param_error("move_chapter_id is required")
+        move_to_parent_id = request.get_json().get("move_to_parent_id")
         return make_common_response(
-            update_chapter_order(app, user_id, shifu_id, chapter_ids)
+            update_chapter_order(
+                app, user_id, shifu_id, chapter_ids, move_chapter_id, move_to_parent_id
+            )
         )
 
     @app.route(path_prefix + "/units", methods=["GET"])

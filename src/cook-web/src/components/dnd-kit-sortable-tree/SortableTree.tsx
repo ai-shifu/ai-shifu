@@ -1,12 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-"use client"
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+'use client'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Announcements,
   closestCenter,
@@ -22,14 +16,14 @@ import {
   PointerSensorOptions,
   UniqueIdentifier,
   useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+  useSensors
+} from '@dnd-kit/core'
+import { CSS } from '@dnd-kit/utilities'
 import {
   arrayMove,
   SortableContext,
-  UseSortableArguments,
-} from '@dnd-kit/sortable';
+  UseSortableArguments
+} from '@dnd-kit/sortable'
 
 import {
   buildTree,
@@ -38,46 +32,46 @@ import {
   getProjection,
   removeChildrenOf,
   removeItem,
-  setProperty,
-} from './utilities';
+  setProperty
+} from './utilities'
 import type {
   FlattenedItem,
   ItemChangedReason,
   SensorContext,
   TreeItemComponentType,
-  TreeItems,
-} from './types';
-import { SortableTreeItem } from './SortableTreeItem';
-import { customListSortingStrategy } from './SortingStrategy';
+  TreeItems
+} from './types'
+import { SortableTreeItem } from './SortableTreeItem'
+import { customListSortingStrategy } from './SortingStrategy'
 
 export type SortableTreeProps<
   TData extends Record<string, any>,
   TElement extends HTMLElement
 > = {
-  items: TreeItems<TData>;
+  items: TreeItems<TData>
   onItemsChanged(
     items: TreeItems<TData>,
     reason: ItemChangedReason<TData>
-  ): void;
-  TreeItemComponent: TreeItemComponentType<TData, TElement>;
-  indentationWidth?: number;
-  indicator?: boolean;
-  pointerSensorOptions?: PointerSensorOptions;
-  disableSorting?: boolean;
-  dropAnimation?: DropAnimation | null;
-  dndContextProps?: React.ComponentProps<typeof DndContext>;
-  sortableProps?: Omit<UseSortableArguments, 'id'>;
-  keepGhostInPlace?: boolean;
-  canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<TData>) => boolean);
-};
+  ): void
+  TreeItemComponent: TreeItemComponentType<TData, TElement>
+  indentationWidth?: number
+  indicator?: boolean
+  pointerSensorOptions?: PointerSensorOptions
+  disableSorting?: boolean
+  dropAnimation?: DropAnimation | null
+  dndContextProps?: React.ComponentProps<typeof DndContext>
+  sortableProps?: Omit<UseSortableArguments, 'id'>
+  keepGhostInPlace?: boolean
+  canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<TData>) => boolean)
+}
 const defaultPointerSensorOptions: PointerSensorOptions = {
   activationConstraint: {
-    distance: 3,
-  },
-};
+    distance: 3
+  }
+}
 
 export const dropAnimationDefaultConfig: DropAnimation = {
-  keyframes({ transform }) {
+  keyframes ({ transform }) {
     return [
       { opacity: 1, transform: CSS.Transform.toString(transform.initial) },
       {
@@ -85,24 +79,24 @@ export const dropAnimationDefaultConfig: DropAnimation = {
         transform: CSS.Transform.toString({
           ...transform.final,
           x: transform.final.x + 5,
-          y: transform.final.y + 5,
-        }),
-      },
-    ];
+          y: transform.final.y + 5
+        })
+      }
+    ]
   },
   easing: 'ease-out',
-  sideEffects({ active }) {
+  sideEffects ({ active }) {
     active.node.animate([{ opacity: 0 }, { opacity: 1 }], {
       duration: defaultDropAnimation.duration,
-      easing: defaultDropAnimation.easing,
-    });
-  },
-};
+      easing: defaultDropAnimation.easing
+    })
+  }
+}
 
 export function SortableTree<
   TreeItemData extends Record<string, any>,
   TElement extends HTMLElement = HTMLDivElement
->({
+> ({
   items,
   indicator,
   indentationWidth = 30,
@@ -117,28 +111,28 @@ export function SortableTree<
   canRootHaveChildren,
   ...rest
 }: SortableTreeProps<TreeItemData, TElement>) {
-  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null);
-  const [overId, setOverId] = useState<UniqueIdentifier | null>(null);
-  const [offsetLeft, setOffsetLeft] = useState(0);
+  const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
+  const [overId, setOverId] = useState<UniqueIdentifier | null>(null)
+  const [offsetLeft, setOffsetLeft] = useState(0)
   const [currentPosition, setCurrentPosition] = useState<{
-    parentId: UniqueIdentifier | null;
-    overId: UniqueIdentifier;
-  } | null>(null);
+    parentId: UniqueIdentifier | null
+    overId: UniqueIdentifier
+  } | null>(null)
 
   const flattenedItems = useMemo(() => {
-    const flattenedTree = flattenTree(items);
+    const flattenedTree = flattenTree(items)
     const collapsedItems = flattenedTree.reduce<UniqueIdentifier[]>(
       (acc, { children, collapsed, id }) =>
         collapsed && children?.length ? [...acc, id] : acc,
       []
-    );
+    )
 
     const result = removeChildrenOf(
       flattenedTree,
       activeId ? [activeId, ...collapsedItems] : collapsedItems
-    );
-    return result;
-  }, [activeId, items]);
+    )
+    return result
+  }, [activeId, items])
   const projected = getProjection(
     flattenedItems,
     activeId,
@@ -147,86 +141,86 @@ export function SortableTree<
     indentationWidth,
     keepGhostInPlace ?? false,
     canRootHaveChildren
-  );
+  )
   const sensorContext: SensorContext<TreeItemData> = useRef({
     items: flattenedItems,
-    offset: offsetLeft,
-  });
+    offset: offsetLeft
+  })
   const sensors = useSensors(
     useSensor(
       PointerSensor,
       pointerSensorOptions ?? defaultPointerSensorOptions
     )
-  );
+  )
 
   const sortedIds = useMemo(
     () => flattenedItems.map(({ id }) => id),
     [flattenedItems]
-  );
+  )
   const activeItem = activeId
     ? flattenedItems.find(({ id }) => id === activeId)
-    : null;
+    : null
 
   useEffect(() => {
     sensorContext.current = {
       items: flattenedItems,
-      offset: offsetLeft,
-    };
-  }, [flattenedItems, offsetLeft]);
+      offset: offsetLeft
+    }
+  }, [flattenedItems, offsetLeft])
 
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
+  const itemsRef = useRef(items)
+  itemsRef.current = items
   const handleRemove = useCallback(
     (id: string) => {
-      const item = findItemDeep(itemsRef.current, id)!;
+      const item = findItemDeep(itemsRef.current, id)!
       onItemsChanged(removeItem(itemsRef.current, id), {
         type: 'removed',
-        item,
-      });
+        item
+      })
     },
     [onItemsChanged]
-  );
+  )
 
   const handleCollapse = useCallback(
-    function handleCollapse(id: string) {
-      const item = findItemDeep(itemsRef.current, id)!;
+    function handleCollapse (id: string) {
+      const item = findItemDeep(itemsRef.current, id)!
       onItemsChanged(
         setProperty(itemsRef.current, id, 'collapsed', ((value: boolean) => {
-          return !value;
+          return !value
         }) as any),
         {
           type: item.collapsed ? 'collapsed' : 'expanded',
-          item: item,
+          item: item
         }
-      );
+      )
     },
     [onItemsChanged]
-  );
+  )
 
   const announcements: Announcements = useMemo(
     () => ({
-      onDragStart({ active }) {
-        return `Picked up ${active.id}.`;
+      onDragStart ({ active }) {
+        return `Picked up ${active.id}.`
       },
-      onDragMove({ active, over }) {
-        return getMovementAnnouncement('onDragMove', active.id, over?.id);
+      onDragMove ({ active, over }) {
+        return getMovementAnnouncement('onDragMove', active.id, over?.id)
       },
-      onDragOver({ active, over }) {
-        return getMovementAnnouncement('onDragOver', active.id, over?.id);
+      onDragOver ({ active, over }) {
+        return getMovementAnnouncement('onDragOver', active.id, over?.id)
       },
-      onDragEnd({ active, over }) {
-        return getMovementAnnouncement('onDragEnd', active.id, over?.id);
+      onDragEnd ({ active, over }) {
+        return getMovementAnnouncement('onDragEnd', active.id, over?.id)
       },
-      onDragCancel({ active }) {
-        return `Moving was cancelled. ${active.id} was dropped in its original position.`;
-      },
+      onDragCancel ({ active }) {
+        return `Moving was cancelled. ${active.id} was dropped in its original position.`
+      }
     }),
     []
-  );
+  )
 
   const strategyCallback = useCallback(() => {
-    return !!projected;
-  }, [projected]);
+    return !!projected
+  }, [projected])
   return (
     <DndContext
       accessibility={{ announcements }}
@@ -248,7 +242,7 @@ export function SortableTree<
             : customListSortingStrategy(strategyCallback)
         }
       >
-        {flattenedItems.map((item) => {
+        {flattenedItems.map(item => {
           return (
             <SortableTreeItem
               {...rest}
@@ -281,55 +275,91 @@ export function SortableTree<
               sortableProps={sortableProps}
               keepGhostInPlace={keepGhostInPlace}
             />
-          );
+          )
         })}
       </SortableContext>
     </DndContext>
-  );
+  )
 
-  function handleDragStart({ active: { id: activeId } }: DragStartEvent) {
-    setActiveId(activeId);
-    setOverId(activeId);
+  function handleDragStart ({ active: { id: activeId } }: DragStartEvent) {
+    setActiveId(activeId)
+    setOverId(activeId)
 
-    const activeItem = flattenedItems.find(({ id }) => id === activeId);
+    const activeItem = flattenedItems.find(({ id }) => id === activeId)
 
     if (activeItem) {
       setCurrentPosition({
         parentId: activeItem.parentId,
-        overId: activeId,
-      });
+        overId: activeId
+      })
     }
 
-    document.body.style.setProperty('cursor', 'grabbing');
+    document.body.style.setProperty('cursor', 'grabbing')
   }
 
-  function handleDragMove({ delta }: DragMoveEvent) {
-    setOffsetLeft(delta.x);
+  function handleDragMove ({ delta }: DragMoveEvent) {
+    setOffsetLeft(delta.x)
   }
 
-  function handleDragOver({ over }: DragOverEvent) {
-    setOverId(over?.id ?? null);
+  function handleDragOver ({ over }: DragOverEvent) {
+    setOverId(over?.id ?? null)
   }
 
-  function handleDragEnd({ active, over }: DragEndEvent) {
-    resetState();
+  function handleDragEnd ({ active, over, delta }: DragEndEvent) {
+    resetState()
 
     if (projected && over) {
-      const { depth, parentId } = projected;
-      if (keepGhostInPlace && over.id === active.id) return;
-      const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items);
-      const overIndex = clonedItems.findIndex(({ id }) => id === over.id);
-      const activeIndex = clonedItems.findIndex(({ id }) => id === active.id);
-      const activeTreeItem = clonedItems[activeIndex];
+      // const { depth, parentId } = projected
+      if (keepGhostInPlace && over.id === active.id) return
+      const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items)
+      const overIndex = clonedItems.findIndex(({ id }) => id === over.id)
+      const activeIndex = clonedItems.findIndex(({ id }) => id === active.id)
+      const activeTreeItem = clonedItems[activeIndex]
 
-      clonedItems[activeIndex] = { ...activeTreeItem, depth, parentId };
-      const draggedFromParent = activeTreeItem.parent;
-      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
-      const newItems = buildTree(sortedItems);
-      const newActiveItem = sortedItems.find((x) => x.id === active.id)!;
-      const currentParent = newActiveItem.parentId
-        ? sortedItems.find((x) => x.id === newActiveItem.parentId)!
-        : null;
+      let droppedToParent
+      droppedToParent = !activeTreeItem.parent
+        ? null
+        : clonedItems.find(({ id }) => id === over.id)
+      if (droppedToParent?.parentId) {
+        droppedToParent = clonedItems.find(
+          ({ id }) => id === droppedToParent?.parentId
+        )
+      }
+      if (
+        delta.y < 0 &&
+        overIndex > 0 &&
+        droppedToParent?.id === activeTreeItem?.parentId
+      ) {
+        const prevItem = clonedItems[overIndex - 1]
+        droppedToParent = prevItem.parent
+          ? clonedItems.find(({ id }) => id === prevItem.parentId)
+          : prevItem
+      }
+
+      if (droppedToParent?.id === activeTreeItem.id) {
+        droppedToParent = null
+      }
+      const draggedFromParent = activeTreeItem.parent
+      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex)
+      if (droppedToParent?.id) {
+        sortedItems[overIndex] = {
+          ...sortedItems[overIndex],
+          parentId: droppedToParent.id,
+          parent: droppedToParent
+        }
+      }else{
+        sortedItems[overIndex] = {
+         ...sortedItems[overIndex],
+          parentId: null,
+          parent: null
+        }
+      }
+      const newItems = buildTree(sortedItems)
+      const newActiveItem = sortedItems.find(x => x.id === active.id)!
+      // const currentParent = newActiveItem.parentId
+      //   ? sortedItems.find((x) => x.id === newActiveItem.parentId)!
+      //   : null;
+
       // removing setTimeout leads to an unwanted scrolling
       // Use case:
       //   There are a lot of items in a tree (so that the scroll exists).
@@ -340,26 +370,26 @@ export function SortableTree<
           type: 'dropped',
           draggedItem: newActiveItem,
           draggedFromParent: draggedFromParent,
-          droppedToParent: currentParent,
+          droppedToParent: droppedToParent || null
         })
-      );
+      )
     }
   }
 
-  function handleDragCancel() {
-    resetState();
+  function handleDragCancel () {
+    resetState()
   }
 
-  function resetState() {
-    setOverId(null);
-    setActiveId(null);
-    setOffsetLeft(0);
-    setCurrentPosition(null);
+  function resetState () {
+    setOverId(null)
+    setActiveId(null)
+    setOffsetLeft(0)
+    setCurrentPosition(null)
 
-    document.body.style.setProperty('cursor', '');
+    document.body.style.setProperty('cursor', '')
   }
 
-  function getMovementAnnouncement(
+  function getMovementAnnouncement (
     eventName: string,
     activeId: UniqueIdentifier,
     overId?: UniqueIdentifier
@@ -371,57 +401,57 @@ export function SortableTree<
           projected.parentId === currentPosition.parentId &&
           overId === currentPosition.overId
         ) {
-          return;
+          return
         } else {
           setCurrentPosition({
             parentId: projected.parentId,
-            overId,
-          });
+            overId
+          })
         }
       }
 
-      const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items);
-      const overIndex = clonedItems.findIndex(({ id }) => id === overId);
-      const activeIndex = clonedItems.findIndex(({ id }) => id === activeId);
-      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex);
+      const clonedItems: FlattenedItem<TreeItemData>[] = flattenTree(items)
+      const overIndex = clonedItems.findIndex(({ id }) => id === overId)
+      const activeIndex = clonedItems.findIndex(({ id }) => id === activeId)
+      const sortedItems = arrayMove(clonedItems, activeIndex, overIndex)
 
-      const previousItem = sortedItems[overIndex - 1];
+      const previousItem = sortedItems[overIndex - 1]
 
-      let announcement;
-      const movedVerb = eventName === 'onDragEnd' ? 'dropped' : 'moved';
-      const nestedVerb = eventName === 'onDragEnd' ? 'dropped' : 'nested';
+      let announcement
+      const movedVerb = eventName === 'onDragEnd' ? 'dropped' : 'moved'
+      const nestedVerb = eventName === 'onDragEnd' ? 'dropped' : 'nested'
 
       if (!previousItem) {
-        const nextItem = sortedItems[overIndex + 1];
-        announcement = `${activeId} was ${movedVerb} before ${nextItem.id}.`;
+        const nextItem = sortedItems[overIndex + 1]
+        announcement = `${activeId} was ${movedVerb} before ${nextItem.id}.`
       } else {
         if (projected?.depth > previousItem?.depth) {
-          announcement = `${activeId} was ${nestedVerb} under ${previousItem.id}.`;
+          announcement = `${activeId} was ${nestedVerb} under ${previousItem.id}.`
         } else {
           let previousSibling: FlattenedItem<TreeItemData> | undefined =
-            previousItem;
+            previousItem
           while (previousSibling && projected?.depth < previousSibling?.depth) {
-            const parentId: UniqueIdentifier | null = previousSibling.parentId;
-            previousSibling = sortedItems.find(({ id }) => id === parentId);
+            const parentId: UniqueIdentifier | null = previousSibling.parentId
+            previousSibling = sortedItems.find(({ id }) => id === parentId)
           }
 
           if (previousSibling) {
-            announcement = `${activeId} was ${movedVerb} after ${previousSibling.id}.`;
+            announcement = `${activeId} was ${movedVerb} after ${previousSibling.id}.`
           }
         }
       }
 
-      return announcement;
+      return announcement
     }
 
-    return;
+    return
   }
 }
 
 const adjustTranslate: Modifier = ({ transform }) => {
   return {
     ...transform,
-    y: transform.y - 25,
-  };
-};
-const modifiersArray = [adjustTranslate];
+    y: transform.y - 25
+  }
+}
+const modifiersArray = [adjustTranslate]

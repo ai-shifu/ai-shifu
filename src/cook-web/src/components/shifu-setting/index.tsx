@@ -46,6 +46,7 @@ interface Shifu {
     shifu_price: number;
     shifu_avatar: string;
     shifu_url: string;
+    shifu_temperature: number;
 }
 
 
@@ -81,6 +82,10 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
         price: z.string()
             .min(1, t('shifu-setting.shifu-price-cannot-be-empty'))
             .regex(/^\d+(\.\d{1,2})?$/, t('shifu-setting.shifu-price-must-be-valid-number-format')),
+        temperature: z.string()
+            .regex(/^\d+(\.\d{1,2})?$/, t('shifu-setting.shifu-temperature-must-be-valid-number-format')),
+        temperature_min: z.number().min(0, t('shifu-setting.shifu-temperature-cannot-be-less-than-0')),
+        temperature_max: z.number().max(2, t('shifu-setting.shifu-temperature-cannot-exceed-2')),
     });
 
     const form = useForm({
@@ -91,7 +96,8 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
             name: "",
             description: "",
             model: "",
-            price: ""
+            price: "",
+            temperature: ""
         },
     });
 
@@ -177,8 +183,6 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
 
     // Handle form submission
     const onSubmit = async (data) => {
-        // Combine form data with keywords and image
-
         await api.saveShifuDetail({
             "shifu_description": data.description,
             "shifu_id": shifuId,
@@ -186,13 +190,13 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
             "shifu_model": data.model,
             "shifu_name": data.name,
             "shifu_price": Number(data.price),
-            "shifu_avatar": uploadedImageUrl
+            "shifu_avatar": uploadedImageUrl,
+            "shifu_temperature": Number(data.temperature)
         })
 
         if (onSave) {
             await onSave()
         }
-        // Here you would typically make an API call to save the data
         setOpen(false);
     };
     const init = async () => {
@@ -208,6 +212,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                 model: result.shifu_model,
                 previewUrl: result.shifu_preview_url,
                 url: result.shifu_url,
+                temperature: result.shifu_temperature + ''
             })
             setKeywords(result.shifu_keywords)
             setUploadedImageUrl(result.shifu_avatar || "")
@@ -464,6 +469,21 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                             />
                             <FormField
                                 control={form.control}
+                                name="temperature"
+                                render={({ field }) => (
+                                    <FormItem className="grid grid-cols-4 items-center gap-4">
+                                        <FormLabel className="text-right text-sm">{t('shifu-setting.shifu-temperature')}</FormLabel>
+                                        <div className="col-span-3">
+                                            <FormControl>
+                                                <Input {...field} placeholder={t('shifu-setting.number')} type="number" min={0} max={2} step={0.1} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
                                 name="price"
                                 render={({ field }) => (
                                     <FormItem className="grid grid-cols-4 items-center gap-4">
@@ -487,6 +507,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                                 type="submit"
                                 className="bg-purple-600 hover:bg-purple-700 text-white"
                                 onClick={() => {
+
                                     onSubmit(form.getValues())
                                 }}
                             >

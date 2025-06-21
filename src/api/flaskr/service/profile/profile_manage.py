@@ -513,7 +513,7 @@ def save_profile_item_defination(
                 profile_color_setting=str(get_next_corlor_setting(scenario_id)),
                 profile_prompt=profile.profile_prompt.prompt,
                 profile_prompt_model=profile.profile_prompt.model,
-                profile_prompt_model_args=str(profile.profile_prompt.temprature),
+                profile_prompt_model_args=str(profile.profile_prompt.temperature),
                 created_by=user_id,
                 updated_by=user_id,
                 updated=datetime.now(),
@@ -526,7 +526,7 @@ def save_profile_item_defination(
             profile_item.profile_prompt = profile.profile_prompt.prompt
             profile_item.profile_prompt_model = profile.profile_prompt.model
             profile_item.profile_prompt_model_args = str(
-                profile.profile_prompt.temprature
+                profile.profile_prompt.temperature
             )
 
             profile_item.profile_raw_prompt = profile.profile_prompt.prompt
