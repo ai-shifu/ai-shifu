@@ -97,6 +97,8 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         language=get_user_language(user),
                         user_avatar=user.user_avatar,
                         has_password=user.password_hash != "",
+                        is_admin=user.is_admin,
+                        is_creator=user.is_creator,
                     )
             else:
                 user_id = jwt.decode(
@@ -126,6 +128,8 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                         language=get_user_language(user),
                         user_avatar=user.user_avatar,
                         has_password=user.password_hash != "",
+                        is_admin=user.is_admin,
+                        is_creator=user.is_creator,
                     )
                 else:
                     raise_error("USER.USER_TOKEN_EXPIRED")
@@ -169,6 +173,8 @@ def update_user_info(
                 language=dbuser.user_language,
                 user_avatar=dbuser.user_avatar,
                 has_password=dbuser.password_hash != "",
+                is_admin=dbuser.is_admin,
+                is_creator=dbuser.is_creator,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -196,6 +202,8 @@ def change_user_passwd(app: Flask, user: UserInfo, oldpwd, newpwd) -> UserInfo:
                     language=get_user_language(user),
                     user_avatar=user.user_avatar,
                     has_password=user.password_hash != "",
+                    is_admin=user.is_admin,
+                    is_creator=user.is_creator,
                 )
             else:
                 raise_error("USER.OLD_PASSWORD_ERROR")
@@ -219,6 +227,8 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
                 language=get_user_language(user),
                 user_avatar=user.user_avatar,
                 has_password=user.password_hash != "",
+                is_admin=user.is_admin,
+                is_creator=user.is_creator,
             )
         else:
             raise_error("USER.USER_NOT_FOUND")
@@ -475,6 +485,8 @@ def verify_sms_code(
                 language=get_user_language(user_info),
                 user_avatar=user_info.user_avatar,
                 has_password=user_info.password_hash != "",
+                is_admin=user_info.is_admin,
+                is_creator=user_info.is_creator,
             ),
             token,
         )
@@ -569,6 +581,8 @@ def verify_mail_code(
                 language=get_user_language(user_info),
                 user_avatar=user_info.user_avatar,
                 has_password=user_info.password_hash != "",
+                is_admin=user_info.is_admin,
+                is_creator=user_info.is_creator,
             ),
             token,
         )
