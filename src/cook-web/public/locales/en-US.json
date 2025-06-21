@@ -49,7 +49,7 @@
     "create-success-description": "Create Success Description",
     "default": "Default",
     "select-model": "Select Model",
-    "error.save.failed": "Save failed: invalid server response",
+    "error.save.failed": "Save failed: Invalid server response",
     "favorites": "Favorites",
     "follow": "Follow",
     "home": "Home",
