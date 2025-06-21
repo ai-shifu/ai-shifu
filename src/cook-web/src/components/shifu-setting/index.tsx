@@ -27,7 +27,6 @@ import {
 import { useTranslation } from 'react-i18next'
 import api from "@/api";
 import { getSiteHost } from "@/config/runtime-config";
-import { useShifu } from "@/store";
 import ModelList from "@/components/model-list";
 
 interface Shifu {
