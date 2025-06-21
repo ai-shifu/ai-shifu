@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text
+from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text, Boolean
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
@@ -43,6 +43,8 @@ class User(db.Model):
     user_language = Column(
         String(30), nullable=True, default="zh-CN", comment="user language"
     )
+    is_admin = Column(Boolean, nullable=False, default=False, comment="is admin")
+    is_creator = Column(Boolean, nullable=False, default=False, comment="is creator")
     extra_data = Column(Text, nullable=True, default="", comment="extra_data")
 
     def __init__(
