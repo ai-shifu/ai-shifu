@@ -372,7 +372,7 @@ def update_block_model(
                     None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
                 )
             block_model.script_check_prompt = block_dto.block_ui.prompt.prompt
-            if block_dto.block_ui.prompt.model:
+            if block_dto.block_ui.prompt.model is not None:
                 block_model.script_model = block_dto.block_ui.prompt.model
 
             block_model.script_ui_profile = (
