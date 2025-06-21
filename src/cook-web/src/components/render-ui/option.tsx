@@ -47,11 +47,11 @@ const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
 }
 
 export default memo(function Option(props: ButtonProps) {
-    const { properties, onChanged } = props;
-    const [changed, setChanged] = useState(false);
+    const { properties } = props;
+    // const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const { profile_id, buttons } = properties;
-    const [tempValue, setTempValue] = useState<string>();
+    const [tempValue, setTempValue] = useState<string>(profile_id);
     const [tempButtons, setTempButtons] = useState(buttons.length === 0 ? [{
         "properties": {
             "button_name": t('option.button-name'),

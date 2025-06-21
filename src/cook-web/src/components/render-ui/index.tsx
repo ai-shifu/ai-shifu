@@ -1,15 +1,15 @@
 'use client';
 
 import Button from './button'
-import ButtonView from './view/button'
+// import ButtonView from './view/button'
 import Option from './option'
-import OptionView from './view/option'
+// import OptionView from './view/option'
 import SingleInput from './input'
-import InputView from './view/input'
+// import InputView from './view/input'
 import Goto from './goto'
-import GotoView from './view/goto'
+// import GotoView from './view/goto'
 import TextInput from './textinput'
-import TextInputView from './view/textinput'
+// import TextInputView from './view/textinput'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
@@ -55,7 +55,7 @@ const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     }
     return true
 }
-export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edit', onChanged }: {
+export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }: {
     id: any,
     type: any,
     properties: any,
@@ -117,7 +117,7 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edi
     )
 }, BlockUIPropsEqual)
 
-export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit', onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) {
+export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) {
     const {
         actions,
         blockUITypes,
@@ -240,7 +240,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
                                 id={block.properties.block_id}
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
-                                mode={mode}
                                 onChanged={handleBlockChanged}
                             />
                         )
@@ -265,7 +264,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
         </>
     )
 }, (prevProps, nextProps) => {
-    return prevProps.block.properties.block_id === nextProps.block.properties.block_id && prevProps.mode === nextProps.mode && prevProps.onExpandChange === nextProps.onExpandChange
+    return prevProps.block.properties.block_id === nextProps.block.properties.block_id && prevProps.onExpandChange === nextProps.onExpandChange
 })
 RenderBlockUI.displayName = 'RenderBlockUI'
 
