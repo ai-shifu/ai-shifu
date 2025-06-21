@@ -9,12 +9,13 @@ export default function ModelList({ value, className, onChange }: { value: strin
     return (
         <Select
             onValueChange={onChange}
-            defaultValue={value}
+            value={value || ''}
         >
             <SelectTrigger className={cn("w-full", className)}>
-                <SelectValue placeholder={t('model-list.select-model')} />
+                <SelectValue />
             </SelectTrigger>
             <SelectContent>
+                <SelectItem value="">{t('common.default')}</SelectItem>
                 {
                     models.map((item, i) => {
                         return <SelectItem key={i} value={item}>{item}</SelectItem>

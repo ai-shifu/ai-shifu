@@ -8,7 +8,6 @@
     "expand": "展开",
     "input-variable-value": "输入变量值：",
     "row-count": "行数：",
-    "select-model": "选择模型：",
     "set-temperature": "设定温度：",
     "start-debug": "开始调试",
     "stop-output": "停止输出",
@@ -48,6 +47,8 @@
     "create-failed": "创建失败",
     "create-success": "创建成功",
     "create-success-description": "新师傅已创建",
+    "default": "默认",
+    "select-model": "选择模型",
     "error.save.failed": "保存失败：服务器响应无效",
     "favorites": "收藏",
     "follow": "关注",
@@ -89,13 +90,11 @@
     "limit-50-characters": "限制50字符以内",
     "number": "数字",
     "only-support-jpg-and-png-format": "只支持jpg和png格式",
-    "please-select-model": "请选择模型",
     "preview-url": "预览地址",
     "price": "价格",
     "price-cannot-be-empty": "价格不能为空",
     "price-must-be-valid-number-format": "价格必须为有效数字格式",
     "save": "保存",
-    "select-model": "选择模型",
     "selected": "已选择",
     "support-jpg-png-format-file-less-than-2mb": "只支持jpg和png格式，文件大小不能超过2MB",
     "title": "课程设置",
@@ -255,9 +254,6 @@
     "verify-failed": "验证失败",
     "want-to-experience-creation": "想要体验创作？",
     "your-email": "您的邮箱"
-  },
-  "model-list": {
-    "select-model": "选择模型"
   },
   "option": {
     "button-key": "按钮key",
