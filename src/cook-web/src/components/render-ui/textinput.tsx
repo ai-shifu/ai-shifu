@@ -42,7 +42,6 @@ const TextInputPropsEqual = (
 
 function TextInput (props: TextInputProps) {
   const { properties, onChanged } = props
-  console.log('TextInput props', properties)
   const [tempProperties, setTempProperties] = useState(properties)
   const [changed, setChanged] = useState(false)
   const { t } = useTranslation()
