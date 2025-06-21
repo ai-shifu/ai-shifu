@@ -7,6 +7,8 @@ import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import _ from 'lodash'
+import { ProfileFormItem } from '@/components/profiles'
+
 interface TextInputProps {
     properties: {
         "prompt": {
@@ -97,10 +99,23 @@ export default memo(function TextInput(props: TextInputProps) {
         });
     }
 
-    const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     setTempProperties({
+    //         ...tempProperties,
+    //         input_key: e.target.value,
+    //     });
+    // }
+
+    const handleProfileChange = (value: string[]) => {
         setTempProperties({
             ...tempProperties,
-            input_key: e.target.value,
+            prompt: {
+               ...tempProperties.prompt,
+                properties: {
+                   ...tempProperties.prompt.properties,
+                    profiles: value
+                }
+            }
         });
     }
 
@@ -128,7 +143,8 @@ export default memo(function TextInput(props: TextInputProps) {
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('textinput.input-name')}
                 </label>
-                <Input value={tempProperties.input_key} onChange={onInputChange} className="w-full" ></Input>
+                <ProfileFormItem value={tempProperties?.prompt?.properties?.profiles} onChange={handleProfileChange} />
+                {/* <Input value={tempProperties.input_key} onChange={onInputChange} className="w-full" ></Input> */}
             </div>
             <div className='flex flex-row items-center space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>

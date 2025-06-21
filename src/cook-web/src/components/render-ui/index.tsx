@@ -287,9 +287,7 @@ export const useUITypes = () => {
         type: 'option',
         name: t('render-ui.option'),
         properties: {
-            "option_name": "",
-            "option_key": "",
-            "profile_key": "Usage_level",
+            "profile_id": "",
             "buttons": [
                 {
                     "properties": {
@@ -301,9 +299,9 @@ export const useUITypes = () => {
             ]
         },
         validate: (properties): string => {
-            if (!properties.option_name) {
-                return t('render-ui.option-name-empty')
-            }
+            // if (!properties.option_name) {
+            //     return t('render-ui.option-name-empty')
+            // }
             if (properties.buttons.length === 0) {
                 return t('render-ui.option-buttons-empty')
             }
@@ -362,9 +360,9 @@ export const useUITypes = () => {
             if (!properties.input_placeholder) {
                 return t('render-ui.textinput-placeholder-empty')
             }
-            if (!properties.input_key) {
-                return t('render-ui.textinput-key-empty')
-            }
+            // if (!properties.profile_id) {
+            //     return t('render-ui.textinput-key-empty')
+            // }
             if (!properties?.prompt?.properties?.prompt) {
                 return t('render-ui.textinput-prompt-empty')
             }
