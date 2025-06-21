@@ -146,16 +146,15 @@ export default memo(function Option(props: ButtonProps) {
 
     const handleProfileChange = (value: string[]) => {
         setTempValue(value?.[0])
-        onChanged?.(true);
     }
 
     return (
-        <div className='flex flex-col space-y-1'>
+        <div className='flex flex-col space-y-1 space-x-1'>
             <div className='flex flex-row items-center'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('option.variable')}
                 </label>
-                <ProfileFormItem value={[profile_id]} onChange={handleProfileChange} />
+                <ProfileFormItem value={[tempValue||'']} onChange={handleProfileChange} />
             </div>
             <div className='flex flex-col space-y-2'>
                 {
@@ -174,7 +173,7 @@ export default memo(function Option(props: ButtonProps) {
                                 };
                                 setTempButtons([newButton]);
                             }}></Input>
-                            <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
+                            <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
                                 {t('option.title')}
                             </label>
                             <Input className='w-40 ml-4' placeholder={t('option.title-placeholder')} value="全部" onChange={(e) => {
@@ -199,7 +198,7 @@ export default memo(function Option(props: ButtonProps) {
                                         {t('option.value')}
                                     </label>
                                     <Input value={button.properties.button_key} className='w-40' onChange={onButtonValueChange.bind(null, index)}></Input>
-                                    <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
+                                    <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
                                         {t('option.title')}
                                     </label>
                                     <Input value={button.properties.button_name} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>

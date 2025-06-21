@@ -43,7 +43,7 @@ export default function ProfileFormItem ({
   useEffect(() => {
     const profiles = [...(systemProfiles || []), ...(customProfiles || [])]
     const selectedProfiles = profiles.filter(
-      profile => profile.profile_id && value.includes(profile.profile_id)
+      profile => profile?.profile_id && value?.includes(profile.profile_id)
     )
     setSelectedProfiles(selectedProfiles)
   }, [value, JSON.stringify(systemProfiles), JSON.stringify(customProfiles)])

@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
-const EditBlockMap = {
+const componentMap = {
     button: Button,
     option: Option,
     goto: Goto,
@@ -32,14 +32,14 @@ const EditBlockMap = {
     empty: Empty,
 }
 
-const ViewBlockMap = {
-    button: ButtonView,
-    option: OptionView,
-    goto: GotoView,
-    phone: InputView,
-    code: InputView,
-    textinput: TextInputView,
-}
+// const ViewBlockMap = {
+//     button: ButtonView,
+//     option: OptionView,
+//     goto: GotoView,
+//     phone: InputView,
+//     code: InputView,
+//     textinput: TextInputView,
+// }
 
 const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     if (! _.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
@@ -95,7 +95,6 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edi
         setError('');
     }, [type]);
 
-    const componentMap = mode === 'edit' ? EditBlockMap : ViewBlockMap
     const Ele = componentMap[type]
     if (!Ele) {
         return null
@@ -360,9 +359,6 @@ export const useUITypes = () => {
             if (!properties.input_placeholder) {
                 return t('render-ui.textinput-placeholder-empty')
             }
-            // if (!properties.profile_id) {
-            //     return t('render-ui.textinput-key-empty')
-            // }
             if (!properties?.prompt?.properties?.prompt) {
                 return t('render-ui.textinput-prompt-empty')
             }
