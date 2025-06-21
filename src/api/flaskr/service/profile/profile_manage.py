@@ -22,6 +22,7 @@ from .dtos import (
     TextProfileDto,
     SelectProfileDto,
     ProfileValueDto,
+    ProfileOptionListDto,
 )
 from flaskr.i18n import _, get_current_language
 
@@ -124,20 +125,8 @@ def get_profile_item_definition_option_list(
     app: Flask, parent_id: str
 ) -> list[ProfileValueDto]:
     with app.app_context():
-        profile_option_list = (
-            ProfileItemValue.query.filter(
-                ProfileItemValue.profile_id == parent_id, ProfileItemValue.status == 1
-            )
-            .order_by(ProfileItemValue.profile_value_index.asc())
-            .all()
-        )
-        return [
-            ProfileValueDto(
-                profile_option.profile_value,
-                profile_option.profile_value,
-            )
-            for profile_option in profile_option_list
-        ]
+        current_language = get_current_language()
+        return get_profile_option_list(app, parent_id, current_language)
 
 
 # quick add profile item
@@ -593,7 +582,6 @@ def save_profile_item_defination(
             app.logger.info(
                 "update select profile item defination:{}".format(profile_item)
             )
-
         app.logger.info("save select profile item defination:{}".format(profile_item))
         profile_item_id_list = []
         profile_item_value_list = ProfileItemValue.query.filter(
@@ -637,3 +625,69 @@ def save_profile_item_defination(
         ).update({"status": 0})
         db.session.flush()
     return profile_item
+
+
+def get_profile_info(app: Flask, profile_id: str):
+    profile_item = ProfileItem.query.filter(
+        ProfileItem.profile_id == profile_id,
+        ProfileItem.status == 1,
+    ).first()
+    if not profile_item:
+        return None
+    return profile_item
+
+
+def get_profile_option_info(app: Flask, profile_id: str, language: str):
+    profile_item = ProfileItem.query.filter(
+        ProfileItem.profile_id == profile_id,
+        ProfileItem.status == 1,
+    ).first()
+    if not profile_item:
+        return None
+    profile_option_list = get_profile_option_list(app, profile_id, language)
+    return ProfileOptionListDto(
+        info=profile_item,
+        list=profile_option_list,
+    )
+
+
+def get_profile_option_list(app: Flask, profile_id: str, language: str):
+    profile_option_list = (
+        ProfileItemValue.query.filter(
+            ProfileItemValue.profile_id == profile_id, ProfileItemValue.status == 1
+        )
+        .order_by(ProfileItemValue.profile_value_index.asc())
+        .all()
+    )
+    if profile_option_list:
+        profile_item_value_i18n_list = ProfileItemI18n.query.filter(
+            ProfileItemI18n.parent_id.in_(
+                [item.profile_item_id for item in profile_option_list]
+            ),
+            ProfileItemI18n.conf_type == PROFILE_CONF_TYPE_ITEM,
+        ).all()
+
+        available_languages = set(
+            item.language for item in profile_item_value_i18n_list
+        )
+
+        if len(available_languages) == 1 and language not in available_languages:
+            language = list(available_languages)[0]
+
+        profile_item_value_i18n_map = {
+            (item.parent_id, item.language): item
+            for item in profile_item_value_i18n_list
+        }
+    else:
+        profile_item_value_i18n_map = {}
+        profile_option_list = []
+    return [
+        ProfileValueDto(
+            name=profile_item_value_i18n_map.get(
+                (profile_option.profile_item_id, language), ProfileItemI18n()
+            ).profile_item_remark
+            or "",
+            value=profile_option.profile_value,
+        )
+        for profile_option in profile_option_list
+    ]

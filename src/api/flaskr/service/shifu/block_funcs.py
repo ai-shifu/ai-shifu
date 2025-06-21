@@ -1,11 +1,20 @@
-from flaskr.service.shifu.dtos import BlockDto, OutlineEditDto, SaveBlockListResultDto
+from flaskr.service.shifu.dtos import (
+    BlockDto,
+    OutlineEditDto,
+    SaveBlockListResultDto,
+    OptionDto,
+    TextInputDto,
+)
 from flaskr.service.shifu.adapter import (
     convert_dict_to_block_dto,
     update_block_model,
     generate_block_dto,
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
-from flaskr.service.profile.profile_manage import save_profile_item_defination
+from flaskr.service.profile.profile_manage import (
+    save_profile_item_defination,
+    get_profile_info,
+)
 from flaskr.service.profile.models import ProfileItem
 from flaskr.service.common.models import raise_error
 from flaskr.service.shifu.utils import (
@@ -201,6 +210,7 @@ def save_block_list_internal(
                         status=STATUS_DRAFT,
                     )
                     app.logger.info(f"new block : {block_model.script_id}")
+                    _fetch_profile_info_for_block_dto(app, block_dto)
                     update_block_result = update_block_model(block_model, block_dto)
                     profile = None
                     if update_block_result.error_message:
@@ -260,10 +270,12 @@ def save_block_list_internal(
                     app.logger.info(f"new block : {block_model.id}")
                     block_models.append(block_model)
                     save_block_ids.append(block_model.script_id)
+
                 else:
                     # update origin block
                     new_block = block_model.clone()
                     old_check_str = block_model.get_str_to_check()
+                    _fetch_profile_info_for_block_dto(app, block_dto)
                     update_block_result = update_block_model(new_block, block_dto)
                     profile = None
                     if update_block_result.error_message:
@@ -400,6 +412,9 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             updated_user_id=user_id,
             status=STATUS_DRAFT,
         )
+
+        _fetch_profile_info_for_block_dto(app, block_dto)
+
         update_block_result = update_block_model(block_model, block_dto, new_block=True)
         if update_block_result.error_message:
             raise_error(update_block_result.error_message)
@@ -481,3 +496,16 @@ def get_system_block_by_outline_id(app, outline_id: str):
             if not outline:
                 raise_error("SHIFU.OUTLINE_NOT_FOUND")
         return block
+
+
+def _fetch_profile_info_for_block_dto(app, block_dto):
+    """根据 block_dto 的类型获取相应的 profile 信息"""
+    if isinstance(block_dto.block_ui, OptionDto) and block_dto.block_ui.profile_id:
+        block_dto.profile_info = get_profile_info(app, block_dto.block_ui.profile_id)
+    elif (
+        isinstance(block_dto.block_ui, TextInputDto) and block_dto.block_ui.profile_ids
+    ):
+        if len(block_dto.block_ui.profile_ids) == 1:
+            block_dto.profile_info = get_profile_info(
+                app, block_dto.block_ui.profile_ids[0]
+            )

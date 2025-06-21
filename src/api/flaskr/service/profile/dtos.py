@@ -1,6 +1,8 @@
 from flaskr.common.swagger import register_schema_to_swagger
 import json
 from flaskr.service.common.aidtos import AIDto
+from .models import ProfileItem
+from typing import List
 
 
 @register_schema_to_swagger
@@ -174,3 +176,18 @@ class SelectProfileDto:
 
     def __str__(self):
         return str(self.__json__())
+
+
+class ProfileOptionListDto:
+    info: ProfileItem
+    list: List[ProfileValueDto]
+
+    def __init__(self, info: ProfileItem, list: List[ProfileValueDto]):
+        self.info = info
+        self.list = list
+
+    def __json__(self):
+        return {
+            "info": self.info,
+            "list": self.list,
+        }
