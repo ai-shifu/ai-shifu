@@ -12,7 +12,7 @@ from flaskr.service.shifu.adapter import (
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import (
-    get_profile_option_info,
+    save_profile_item_defination,
     get_profile_info,
 )
 from flaskr.service.profile.models import ProfileItem
@@ -213,6 +213,7 @@ def save_block_list_internal(
                     app.logger.info(f"new block : {block_model.script_id}")
                     _fetch_profile_info_for_block_dto(app, block_dto)
                     update_block_result = update_block_model(block_model, block_dto)
+                    profile = None
                     if update_block_result.error_message:
                         error_messages[block_model.script_id] = (
                             update_block_result.error_message
@@ -238,6 +239,7 @@ def save_block_list_internal(
                             block_models.append(block_model)
                             save_block_ids.append(block_model.script_id)
                             # Continue to execute the subsequent processes using the original data
+                            profile = None
                             if original_block.script_ui_profile_id:
                                 profile_item = ProfileItem.query.filter(
                                     ProfileItem.profile_id
@@ -246,6 +248,14 @@ def save_block_list_internal(
                                 ).first()
                                 if profile_item:
                                     profile_items.append(profile_item)
+                    if update_block_result.data:
+                        profile = update_block_result.data
+                        profile_item = save_profile_item_defination(
+                            app, user_id, outline.course_id, profile
+                        )
+                        block_model.script_ui_profile_id = profile_item.profile_id
+                        block_model.script_check_prompt = profile_item.profile_prompt
+                        profile_items.append(profile_item)
                     check_text_with_risk_control(
                         app,
                         block_model.script_id,
@@ -268,6 +278,7 @@ def save_block_list_internal(
                     old_check_str = block_model.get_str_to_check()
                     _fetch_profile_info_for_block_dto(app, block_dto)
                     update_block_result = update_block_model(new_block, block_dto)
+                    profile = None
                     if update_block_result.error_message:
                         error_messages[new_block.script_id] = (
                             update_block_result.error_message
@@ -293,6 +304,7 @@ def save_block_list_internal(
                             block_models.append(new_block)
                             save_block_ids.append(new_block.script_id)
                             # Continue to execute the subsequent processes using the original data
+                            profile = None
                             if original_block.script_ui_profile_id:
                                 profile_item = ProfileItem.query.filter(
                                     ProfileItem.profile_id
@@ -301,7 +313,18 @@ def save_block_list_internal(
                                 ).first()
                                 if profile_item:
                                     profile_items.append(profile_item)
+                    else:
+                        profile = update_block_result.data
                     new_block.script_index = block_index
+                    if profile:
+                        profile_item = save_profile_item_defination(
+                            app, user_id, outline.course_id, profile
+                        )
+                        new_block.script_ui_profile_id = profile_item.profile_id
+                        new_block.script_check_prompt = profile_item.profile_prompt
+                        if profile_item.profile_prompt_model:
+                            new_block.script_model = profile_item.profile_prompt_model
+                        profile_items.append(profile_item)
                     if new_block and not new_block.eq(block_model):
                         # update origin block and save to history
                         new_block.status = STATUS_DRAFT
