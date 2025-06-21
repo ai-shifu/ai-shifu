@@ -4,7 +4,6 @@ from flaskr.service.shifu.utils import OutlineTreeNode
 from flaskr.service.profile.dtos import (
     TextProfileDto,
     SelectProfileDto,
-    ProfileOptionListDto,
 )
 from flaskr.service.profile.models import ProfileItem
 

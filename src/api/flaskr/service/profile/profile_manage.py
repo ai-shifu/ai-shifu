@@ -582,7 +582,6 @@ def save_profile_item_defination(
             app.logger.info(
                 "update select profile item defination:{}".format(profile_item)
             )
-
         app.logger.info("save select profile item defination:{}".format(profile_item))
         profile_item_id_list = []
         profile_item_value_list = ProfileItemValue.query.filter(

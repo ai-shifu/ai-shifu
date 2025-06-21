@@ -42,7 +42,7 @@ from flaskr.service.profile.dtos import (
     ProfileValueDto,
 )
 from flaskr.service.lesson.models import AILesson
-from flaskr.service.profile.models import ProfileItem, PROFILE_TYPE_INPUT_SELECT
+from flaskr.service.profile.models import ProfileItem
 import json
 from flaskr.service.common import raise_error
 import re
@@ -309,18 +309,17 @@ def update_block_model(
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
             # if profile_option_info.info.profile_type != PROFILE_TYPE_INPUT_SELECT:
             #     return BlockUpdateResultDto(None, _("SHIFU.PROFILE_TYPE_NOT_MATCH"))
-            if not block_dto.block_ui.option_key:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
-            if not block_dto.block_ui.option_name:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
-            if not block_dto.block_ui.profile_key:
-                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
+            # if not block_dto.block_ui.option_key:
+            #     return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
+            # if not block_dto.block_ui.option_name:
+            #     return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
+            # if not block_dto.block_ui.profile_key:
+            #     return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
             for btn in block_dto.block_ui.buttons:
                 if not btn.button_name:
                     return BlockUpdateResultDto(None, _("SHIFU.BUTTON_NAME_REQUIRED"))
                 if not btn.button_key:
                     return BlockUpdateResultDto(None, _("SHIFU.BUTTON_KEY_REQUIRED"))
-
 
             # block_model.script_ui_content = block_dto.block_ui.option_key
             # block_model.script_ui_content = block_dto.block_ui.option_name
@@ -330,14 +329,14 @@ def update_block_model(
 
             # block_model.script_ui_content = profile_option_info.info.profile_key
             block_model.script_ui_profile_id = profile_option_info.profile_id
+            block_dto.block_ui.profile_id = profile_option_info.profile_id
             # block_model.script_ui_profile = (
             #     "[" + profile_option_info.info.profile_key + "]"
             # )
             # profile_item_value_list = profile_option_info.list
             block_model.script_other_conf = json.dumps(
                 {
-                    # "var_name": profile_option_info.info.profile_key,
-                    "var_name": block_dto.block_ui.option_key,
+                    "var_name": profile_option_info.profile_key,
                     "btns": [
                         {
                             # "label": profile_item_value.name,
@@ -362,8 +361,8 @@ def update_block_model(
             # block_dto.block_ui.buttons = buttons
             return BlockUpdateResultDto(
                 SelectProfileDto(
-                    block_dto.block_ui.option_key,
-                    block_dto.block_ui.option_name,
+                    profile_option_info.profile_key,
+                    profile_option_info.profile_key,
                     [
                         ProfileValueDto(btn.button_name, btn.button_key)
                         for btn in block_dto.block_ui.buttons
