@@ -200,7 +200,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
             <div className='bg-[#F8F8F8] rounded-md p-2 space-y-1'>
                 <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => handleExpandChange(!expand)}>
                     <div className='flex flex-row items-center space-x-1'>
-                        <span>
+                        <span className='w-[70px]'>
                             {t('render-ui.user-operation')}
                         </span>
                         <Select value={blockUITypes[block.properties.block_id]} onValueChange={onUITypeChange.bind(null, block.properties.block_id)}>

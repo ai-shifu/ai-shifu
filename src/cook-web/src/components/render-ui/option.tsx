@@ -163,7 +163,7 @@ export default memo(function Option(props: ButtonProps) {
     return (
         <div className='flex flex-col space-y-1'>
             <div className='flex flex-row items-center'>
-                <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
+                <span className='flex flex-row items-center whitespace-nowrap  w-[70px] shrink-0'>
                     {t('option.variable')}
                 </span>
                 <Input className='h-8 w-[400px]' placeholder={t('option.variable-placeholder')} value={tempValue} onChange={onValueChange}></Input>
@@ -172,7 +172,7 @@ export default memo(function Option(props: ButtonProps) {
                 {
                     tempButtons.length === 0 ? (
                         <div className='flex flex-row items-center'>
-                            <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
+                            <span className='flex flex-row items-center whitespace-nowrap  w-[70px] shrink-0'>
                                 {t('option.value')}
                             </span>
                             <Input className='w-40' placeholder={t('option.variable-placeholder')} value="全部" onChange={(e) => {
@@ -185,7 +185,7 @@ export default memo(function Option(props: ButtonProps) {
                                 };
                                 setTempButtons([newButton]);
                             }}></Input>
-                            <span className='flex flex-row items-center whitespace-nowrap  w-[50px] ml-4'>
+                            <span className='flex flex-row items-center whitespace-nowrap  w-[70px] ml-4'>
                                 {t('option.title')}
                             </span>
                             <Input className='w-40 ml-4' placeholder={t('option.title-placeholder')} value="全部" onChange={(e) => {
@@ -206,11 +206,11 @@ export default memo(function Option(props: ButtonProps) {
                         tempButtons.map((button: any, index: number) => {
                             return (
                                 <div key={index} className='flex flex-row items-center'>
-                                    <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
+                                    <span className='flex flex-row items-center whitespace-nowrap  w-[70px] shrink-0'>
                                         {t('option.value')}
                                     </span>
                                     <Input value={button.properties.button_key} className='w-40' onChange={onButtonValueChange.bind(null, index)}></Input>
-                                    <span className='flex flex-row items-center whitespace-nowrap  w-[50px] ml-4'>
+                                    <span className='flex flex-row items-center whitespace-nowrap  w-[70px] ml-4'>
                                         {t('option.title')}
                                     </span>
                                     <Input value={button.properties.button_name} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
@@ -227,7 +227,7 @@ export default memo(function Option(props: ButtonProps) {
                 }
             </div>
             <div className='flex flex-row items-center'>
-                <span className='flex flex-row items-center whitespace-nowrap  w-[50px] shrink-0'>
+                <span className='flex flex-row items-center whitespace-nowrap  w-[70px] shrink-0'>
                 </span>
                 <Button
                     className='h-8 w-20'
