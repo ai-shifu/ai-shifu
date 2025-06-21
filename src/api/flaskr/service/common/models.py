@@ -85,6 +85,8 @@ ERROR_CODE = {
     # api errors
     "API.ALIBABA_CLOUD_NOT_CONFIGURED": 9001,
     "SCENARIO.NO_PERMISSION": 9002,
+    # Unauthorized
+    "SHIFU.NO_PERMISSION": 401,
 }
 
 
