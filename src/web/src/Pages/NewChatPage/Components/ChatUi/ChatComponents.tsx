@@ -1,6 +1,6 @@
 import '@ai-shifu/chatui/dist/index.css';
 import Chat, { useMessages } from '@ai-shifu/chatui';
-import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled } from '@ant-design/icons';
+import { LikeOutlined, DislikeOutlined, LikeFilled, DislikeFilled, RedoOutlined } from '@ant-design/icons';
 import {
   useEffect,
   forwardRef,
@@ -770,6 +770,11 @@ export const ChatComponents = forwardRef(
           });
         };
 
+        const regenerateClick = async () => {
+          const scriptId = msg.logid;
+          handleSend(INTERACTION_OUTPUT_TYPE.TEXT, false, '', scriptId);
+        };
+
         const currentInteractionType =
           interactionTypes[msg.id] ?? msg.interaction_type;
 
@@ -785,10 +790,11 @@ export const ChatComponents = forwardRef(
             ) : (
               <DislikeOutlined className={styles.brandcolor} onClick={disClick} />
             )}
+            <RedoOutlined className={styles.brandcolor} onClick={regenerateClick} />
           </div>
         );
       },
-      [interactionTypes, setInteractionTypes]
+      [interactionTypes, setInteractionTypes, handleSend]
     );
 
 
