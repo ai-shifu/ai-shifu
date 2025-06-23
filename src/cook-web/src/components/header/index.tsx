@@ -1,5 +1,6 @@
 "use client"
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useShifu } from '@/store';
@@ -66,9 +67,11 @@ const Header = () => {
                     {
                         currentShifu?.shifu_avatar ? (
                             <div className="bg-blue-100 flex items-center justify-center h-10 w-10 rounded-md p-1 mr-2 overflow-hidden">
-                                <img
+                                <Image
                                     src={currentShifu?.shifu_avatar}
                                     alt="Profile"
+                                    width={40}
+                                    height={40}
                                     className="rounded"
                                 />
                             </div>
