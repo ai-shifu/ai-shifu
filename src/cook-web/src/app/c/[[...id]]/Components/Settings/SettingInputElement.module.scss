@@ -1,0 +1,25 @@
+.settingInputElement {
+  padding: 4px 0 10px 0;
+  border-bottom: 1px solid var(--color-9);
+
+  .title {
+    height: var(--font-size-3);
+    line-height: var(--font-size-3);
+    font-size: var(--font-size-5);
+    color: var(--color-9);
+  }
+  .inputWrapper {
+    .inputElement {
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        outline: 0;
+        border: 0;
+        margin-top: 4px;
+        width: 100%;
+
+        color: var(--font-main-color);
+        font-size: var(--font-size-4);
+    }
+  }
+}

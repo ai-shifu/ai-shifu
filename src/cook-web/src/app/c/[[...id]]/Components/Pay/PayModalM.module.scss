@@ -1,0 +1,226 @@
+.payModalContent {
+  color: var(--color-20);
+
+  .payInfoTitle {
+    font-size: var(--font-size-2);
+    text-align: center;
+  }
+
+  .priceWrapper {
+    display: flex;
+    justify-content: center;
+
+    .price {
+      font-size: var(--font-size-1);
+
+      &.disabled {
+        color: var(--color-9);
+      }
+
+      .priceSign {
+        font-size: var(--font-size-1);
+      }
+
+      .priceNumber {
+        font-size: var(--font-size-20);
+        font-weight: bold;
+      }
+    }
+  }
+
+  .originalPriceWrapper {
+    display: flex;
+    justify-content: center;
+
+    .originalPrice {
+      font-size: var(--font-size-5);
+      color: var(--color-disabled-1);
+      text-decoration: line-through;
+    }
+  }
+
+  .priceItemsWrapper {
+    width: 80%;
+    margin: 10px auto;
+    border-radius: 10px;
+    background-color: rgba(var(--color-1-rgb), 0.05);
+    padding: 10px;
+
+    .priceItem {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      font-size: var(--font-size-5);
+
+      &:first-child {
+        margin-top: 0;
+      }
+    }
+  }
+
+  .loginButtonWrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2em 0;
+  }
+
+  .totalDiscountWrapper {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+  }
+
+  .payChannelWrapper {
+    margin-top: 20px;
+
+    .payChannelRow {
+      padding: 18px;
+      display: flex;
+      flex-flow: row nowrap;
+      justify-content: space-between;
+      align-items: center;
+      border-radius: 10px;
+
+      &.selected {
+        background-color: var(--color-4);
+      }
+
+      .payChannelBasic {
+        display: flex;
+        flex-flow: row nowrap;
+        align-items: center;
+
+        .payChannelIcon {
+          width: 24px;
+        }
+
+        .payChannelTitle {
+          margin-left: 13px;
+          color: var(--font-color-main);
+        }
+      }
+
+      .payChannelRadio {
+        --icon-size: 16px;
+      }
+    }
+  }
+
+  .buttonWrapper {
+    margin-top: 40px;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
+    align-items: center;
+
+    .payButton {
+      width: 100%;
+    }
+  }
+
+  .couponCodeWrapper {
+    margin-top: 30px;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: center;
+    align-items: center;
+
+    .couponCodeButton {
+      --adm-font-size-9: var(--font-size-5);
+      color: var(--color-8);
+    }
+  }
+
+  .payModalFooter {
+    margin-top: 5px;
+    padding: 0;
+  }
+
+  .protocol {
+    margin-top: 30px;
+  }
+
+  .virtualProductDesc {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: rgba(var(--color-1-rgb), 0.05);
+    border-radius: 10px;
+    font-size: var(--font-size-5);
+    color: var(--color-8);
+
+    .descTitle {
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+
+    .descPoint {
+      margin-bottom: 8px;
+      line-height: 1.5;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  .payInfoWrapper {
+    margin-top: 30px;
+
+    .payInfo {
+      width: 100%;
+    }
+  }
+}
+
+.couponCodeModal {
+  .couponCodeInputWrapper {
+    margin-top: 100px;
+  }
+  .buttonWrapper {
+    margin-top: 100px;
+
+    .okButton {
+      width: 100%;
+    }
+  }
+}
+
+.completedSection {
+  color: var(--font-color-main);
+  box-sizing: border-box;
+  padding: 0 8px;
+
+  .title {
+    font-size: var(--font-size-2);
+    text-align: center;
+    font-weight: 700;
+    flex: 0 0 auto;
+    margin-bottom: 2em;
+  }
+
+  .completeWrapper {
+    .description {
+      font-size: var(--font-size-3);
+      margin-top: 30px;
+    }
+
+    .qrcodeWrapper2 {
+      text-align: center;
+      color: var(--color-8);
+    }
+
+    .qrcode {
+      width: 183px;
+      display: block;
+      margin: 50px auto 10px auto;
+    }
+    .paySuccessBg{
+      width: 100%;
+      height: auto;
+      margin-top: 20px;
+    }
+
+  }
+}

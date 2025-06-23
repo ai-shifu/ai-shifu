@@ -1,0 +1,15 @@
+.payTotalDiscount {
+  padding: 8px 15px 7px 15px;
+  font-size: var(--font-size-5);
+  background: linear-gradient(103deg, #e8cfa4 0%, #f1b87f 100%);
+  border-radius: 10px;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+
+  .descIcon {
+    margin-left: 5px;
+    position: relative;
+    top: -1px;
+  }
+}

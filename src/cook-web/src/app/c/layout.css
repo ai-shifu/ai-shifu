@@ -1,0 +1,87 @@
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+:root {
+  --main-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  --font-color-main: #06295d;
+  --font-size-1: 32px;
+  --font-weight-1: 500;
+  --font-size-2: 18px;
+  --font-weight-2: 500;
+  --font-size-3: 16px;
+  --font-weight-3: 500;
+  --font-size-4: 14px;
+  --font-weight-4-1: 400;
+  --font-weight-4-2: 500;
+  --font-size-5: 12px;
+  --font-weight-5-1: 400;
+  --font-weight-5-2: 500;
+  --font-size-6: 10px;
+  --font-size-20: 42px;
+  --font-size-28: 28px;
+
+  --font-size-main: 14px;
+  --font-weight-main: 400;
+
+  --font-weight-bold: 700;
+  --font-color-title: #000000;
+  --font-color-2: #1f1f1f;
+
+  /* 主要颜色 */
+  --color-1: #0f63ee;
+  --color-2: #0f63ee;
+  --color-3: #eaf9fe;
+  --color-4: #f8fbfc;
+  --color-5: #ffffff;
+  --color-5-1: rbga(255, 255, 255, 0.8);
+  --color-6: #06295d;
+  --color-7: #38547d;
+  --color-8: #9ba9be;
+  --color-9: #cdd4df;
+  --color-20: #8C4B1D;
+  --color-21:#002FA7;
+  --color-disabled-1: #6C6C6C;
+  --color-1-rgb: 15, 99, 238;
+
+  /* 状态颜色 */
+  --success-color: #00a27a;
+  --warning-color: #fb8b05;
+  --fail-color: #eb4157;
+  --hover-color: rgba(0, 0, 0, 0.06);
+
+  /* pay button */
+  --pay-text-color: #854c2b;
+  --pay-bg-color: #f8e3c3;
+  --pay-border-color: #d8b582;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New",
+    monospace;
+}
+
+.login-form {
+  max-width: 300px;
+}
+
+.login-form-button {
+  width: 100%;
+}
+
+.search-form_container {
+  background-color: #fff;
+  padding: 16px;
+  border-radius: 4px;
+}
+
+
+
+/* 字体定义 */

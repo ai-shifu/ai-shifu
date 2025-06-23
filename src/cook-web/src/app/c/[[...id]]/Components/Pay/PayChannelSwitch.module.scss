@@ -1,0 +1,36 @@
+.channelSwitch {
+  display: flex;
+  flex-flow: row nowrap;
+  box-sizing: border-box;
+  width: 174px;
+  border-radius: 40px;
+  background-color: rgba(var(--color-1-rgb), 0.05);
+  justify-content: space-between;
+  padding: 5px;
+
+  .channelSwitchItem {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--font-color-main);
+    width: 80px;
+    border-radius: 30px;
+    padding: 5px 0;
+
+    &.selected {
+      background-color: var(--color-5);
+    }
+
+    .channelIcon {
+      width: 16px;
+    }
+
+    .channelText {
+      margin-left: 5px;
+      line-height: 16px;
+      height: 16px;
+    }
+  }
+}
