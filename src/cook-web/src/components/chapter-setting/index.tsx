@@ -107,7 +107,7 @@ const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string;
                                 <div className="w-24 text-sm mt-2">{t('chapter-setting.system-prompt')}</div>
                                 <Editor
                                     content={systemPrompt}
-                                    onChange={(value, isEdit) => setSystemPrompt(value)}
+                                    onChange={(value) => setSystemPrompt(value)}
                                     isEdit={true}
                                 />
                             </div>

@@ -53,7 +53,7 @@ export default memo(function TextInput(props: TextInputProps) {
     const [tempProperties, setTempProperties] = useState(properties);
     const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
-    const onValueChange = (value: string, isEdit: boolean) => {
+    const onValueChange = (value: string) => {
         if (!changed) {
             setChanged(true);
             onChanged?.(true);
