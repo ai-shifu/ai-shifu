@@ -130,7 +130,7 @@ export default memo(function TextInput(props: TextInputProps) {
                 </label>
                 <Input value={tempProperties.input_key} onChange={onInputChange} className="w-full" ></Input>
             </div>
-            <div className='flex flex-row items-center space-x-1'>
+            <div className='flex flex-row space-x-1'>
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('textinput.prompt')}
                 </label>
