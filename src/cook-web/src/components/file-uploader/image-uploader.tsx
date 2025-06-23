@@ -1,6 +1,7 @@
 'use client'
 
 import type React from 'react'
+import Image from 'next/image'
 
 import { useState, useRef, useEffect } from 'react'
 import { Upload } from 'lucide-react'
@@ -82,7 +83,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       setResourceUrl(res.data)
       setResourceTitle(file.name)
       setResourceScale(100)
-      const img = new Image()
+      const img = new window.Image()
       img.src = res.data
     } catch (error) {
       console.error('Error uploading image:', error)
@@ -232,9 +233,11 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
         </>
       ) : (
         <div className='flex flex-col items-center'>
-          <img
+          <Image
             src={resourceUrl || '/placeholder.svg'}
             alt='Uploaded image'
+            width={400}
+            height={400}
             className='max-w-full max-h-[400px] object-contain mb-4'
           />
           <div className='flex items-center w-full mb-2'>{resourceUrl}</div>
