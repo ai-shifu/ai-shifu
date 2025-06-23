@@ -1,0 +1,8 @@
+.modalM {
+  --max-width: 100%;
+  --adm-color-weak: var(--color-6);
+
+  :global(.adm-center-popup-wrap) {
+    width: 100%;
+  }
+}

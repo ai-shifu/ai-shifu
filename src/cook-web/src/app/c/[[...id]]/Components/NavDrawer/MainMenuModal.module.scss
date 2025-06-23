@@ -1,0 +1,55 @@
+.mainMenuModalWrapper {
+  &.mobile {
+    left: 12px;
+    transform: none;
+    bottom: 60px;
+  }
+}
+
+.mainMenuModal {
+  font-size: var(--font-size-4);
+  padding: 5px;
+  line-height: 2em;
+
+  :global(.ant-modal-content) {
+    padding: 0;
+  }
+
+  .languageRow {
+    border-top: 1px solid var(--color-8);
+    border-bottom: 1px solid var(--color-8);
+
+    .langDownIcon {
+      font-size: var(--font-size-5);
+    }
+
+    .languageRowLeft {
+      display: flex;
+      flex-flow: row nowrap;
+      align-items: center;
+    }
+  }
+
+  .mainMenuModalRow {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    cursor: pointer;
+    border-radius: 8px;
+    margin-block: 4px;
+    &:hover {
+      background-color: var(--hover-color);
+    }
+
+    &.languageRowInner {
+      justify-content: space-between;
+    }
+
+    .rowIcon {
+      width: 1.2em;
+      margin-right: 0.8em;
+    }
+  }
+}

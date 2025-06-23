@@ -400,5 +400,170 @@
     "prompt": "提示词",
     "prompt-placeholder": "请输入对变量进行提取和约束的提示词",
     "temperature": "设定温度"
+  },
+  "c": {
+    "common": {
+      "collapseExpand": "折叠/展开",
+      "expandCollapse": "展开/折叠",
+      "waitingForCompletion": "敬请期待",
+      "companyName": "北京潺潺山木科技有限公司",
+      "companyAddress": "北京朝阳区望京东煌大厦19层163室",
+      "settings": "设置",
+      "ok": "确定",
+      "networkError": "无法连接到服务器，请检查网络设置",
+      "backToHome": "返回首页",
+      "redirectInSeconds": "将在 {{seconds}} 秒后返回首页",
+      "shortcut": {
+        "title": {
+          "continue": "继续（无需用户输入或选择时）",
+          "ask": "追问",
+          "shortcut": "显示快捷方式"
+        },
+        "key": {
+          "a": "A",
+          "b": "B",
+          "c": "C",
+          "d": "D",
+          "e": "E",
+          "ctrl": "Ctrl",
+          "shift": "Shift",
+          "cmd": "⌘",
+          "/": "/",
+          "space": "空格",
+          "enter": "回车"
+        }
+      }
+    },
+    "user": {
+      "loginMainButton": "登录/注册",
+      "confirmLogoutTitle": "确认退出登录？",
+      "confirmLogoutContent": "确认退出登录吗？",
+      "defaultUserName": "默认名称",
+      "notLogin": "未登录",
+      "login": "登录",
+      "logout": "退出登录",
+      "loginTitle": "登录",
+      "loginFeedback": "提交反馈",
+      "msgHaveRead": "我已阅读并同意",
+      "msgAgreement": "服务协议",
+      "msgAnd": "&",
+      "msgPrivacyPolicy": "隐私政策",
+      "msgToAgree": "请勾选同意协议",
+      "msgLoginProblem": "登录遇到问题",
+      "msgLoginSuccess": "登录成功",
+      "msgToInputPhone": "请输入11位手机号",
+      "mstPhoneReg": "手机号格式不正确",
+      "msgPhonePlaceHolder": "请输入手机号",
+      "msgToInputCode": "请输入4位短信验证码",
+      "msgToInputCode4": "请输入4位验证码",
+      "msgResendCode": "重新发送",
+      "msgToInputPwd": "请输入密码",
+      "msgCheckCode": "图形验证码",
+      "msgToCheckAgreement": "请勾选同意协议",
+      "sex": {
+        "male": "男性",
+        "female": "女性",
+        "secret": "保密"
+      }
+    },
+    "pay": {
+      "payModalTitle": "购买",
+      "payChannel": "支付方式",
+      "payChannelWechat": "微信",
+      "payChannelAlipay": "支付宝",
+      "paySuccess": "支付成功",
+      "protocolDesc": "购买即表示已阅读并同意以下协议",
+      "modelServiceAgreement": "《模型服务协议》",
+      "userPrivacyPolicy": "《用户隐私协议》",
+      "virtualProductDesc": "说明：",
+      "virtualProductPoint1": "1. 购买即表示已阅读并同意{{modelServiceAgreement}}和{{userPrivacyPolicy}}。",
+      "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。"
+    },
+    "groupon": {
+      "grouponTitle": "兑换码",
+      "grouponPlaceholder": "请输入兑换码",
+      "grouponInputMsg": "请输入兑换码",
+      "grouponUse": "其他支付方式",
+      "grouponModify": "修改兑换码 >"
+    },
+    "navigation": {
+      "courseList": "课程名称",
+      "theChapter": "章",
+      "theLesson": "节",
+      "filing": "备案",
+      "skin": "皮肤",
+      "settings": "设置",
+      "memberSetting": "会员管理",
+      "icp": "京ICP备2024076754号-2",
+      "gongan": "京公网安备11010502055644号",
+      "feedbackTitle": "提交反馈",
+      "userAgreement": "服务协议",
+      "privacyPolicy": "隐私政策",
+      "contactUs": "联系我们",
+      "shortcut": "快捷键"
+    },
+    "settings": {
+      "home": "主页",
+      "settingTite": "个人信息",
+      "basicInfo": "基础信息",
+      "nickname": "昵称",
+      "nicknamePersonal": "昵称（同时作为个人基本信息）",
+      "nicknamePlaceholder": "请输入昵称",
+      "sex": "性别",
+      "sexPlaceholder": "请选择性别",
+      "birth": "生日",
+      "birthPlaceholder": "请选择生日",
+      "personalInfo": "个性化设置",
+      "dialogTitle": {
+        "selectSex": "选择性别",
+        "selectBirthday": "选择生日"
+      }
+    },
+    "feedback": {
+      "feedbackTitle": "反馈",
+      "feedbackContent": "反馈内容",
+      "feedbackPlaceholder": "请输入反馈内容",
+      "feedbackSubmit": "提交",
+      "feedbackSuccess": "反馈成功，感谢你的反馈。",
+      "feedbackFail": "反馈失败",
+      "feedbackContentEmpty": "反馈内容不能为空",
+      "feedbackContactEmpty": "联系方式不能为空"
+    },
+    "chat": {
+      "chatInputWarn": "请输入内容",
+      "chatInputPlaceholder": "请输入内容",
+      "chatTips": "内容由 AI 大模型生成，无法确保真实准确，仅供学习参考",
+      "copyText": "复制",
+      "copySuccess": "已复制到剪切板",
+      "askContent": "对刚学的内容有什么问题？",
+      "ask": "追问",
+      "loginSuccess": "已经登录成功了",
+      "stopAutoSkip": "停止自动跳过",
+      "startAutoSkip": "开启自动跳过"
+    },
+    "lesson": {
+      "reset": {
+        "resetTitle": "重修",
+        "resetConfirmTitle": "确认重修",
+        "resetConfirmContent": "重修会清空当前学习数据。确定重修？"
+      },
+      "lessonStatus": {
+        "notStart": "未开始",
+        "prepareLearning": "可学习",
+        "locked": "未解锁",
+        "learning": "正在学",
+        "completed": "已完成"
+      }
+    },
+    "error": {
+      "pageNotFound": "找不到这个师傅了"
+    },
+    "menus": {
+      "navigationMenus": {
+        "basicInfo": "用户信息",
+        "personalInfo": "个性化设置",
+        "language": "语言"
+      }
+    }
   }
 }

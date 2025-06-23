@@ -1,0 +1,39 @@
+.shortcutModal {
+  .shortcutTitle {
+    font-size: 1.2em;
+  }
+
+  .shortcutContent {
+    .shortcutRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-block: 16px;
+
+      .rowKeys {
+        display: flex;
+      }
+    }
+
+    .shortcutKey {
+      border: 1px solid #bbb;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 10px;
+
+      &.singleText {
+        font-size: var(--font-size-4);
+        width: 30px;
+        height: 30px;
+      }
+
+      &.multiText {
+        font-size: var(--font-size-5);
+        width: 50px;
+        height: 30px;
+      }
+    }
+  }
+}

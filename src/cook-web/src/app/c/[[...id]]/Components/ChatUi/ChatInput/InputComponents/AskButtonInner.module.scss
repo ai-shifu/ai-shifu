@@ -1,0 +1,41 @@
+.askButton {
+  width: 76px;
+  height: 76px;
+  position: relative;
+  cursor: pointer;
+
+  &.disabled {
+    cursor: not-allowed;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .askButtonInner {
+    position: absolute;
+    top: 13px;
+    left: 13px;
+    width: calc(100% - 26px);
+    height: calc(100% - 26px);
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    .askButtonText {
+      color: var(--color-5);
+      font-size: 12px;
+
+      &.chinese {
+        letter-spacing: 0.3em;
+        padding-left: 0.3em;
+      }
+    }
+  }
+
+  .glow {
+    filter: drop-shadow(0 0 4px rgba(0, 52, 210, 0.75));
+  }
+}
