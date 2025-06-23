@@ -1,0 +1,10 @@
+.avatarSettingModalWrapper {
+  display: flex;
+  justify-content: center;
+
+  .avatarSettingModal {
+    width: 280px;
+    height: 280px;
+    position: relative;
+  }
+}

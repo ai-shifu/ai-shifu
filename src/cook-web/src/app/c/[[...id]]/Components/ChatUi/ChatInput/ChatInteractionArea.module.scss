@@ -1,0 +1,69 @@
+.chatInputArea {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  padding-top: 10px;
+  transition: opacity 0.8s ease;
+  opacity: 1;
+  // background: rgba(255, 255, 255, 0.8);
+  background: rgba(248, 251, 252, 0.8);
+  backdrop-filter: blur(10px);
+  &.disabled {
+    opacity: 1;
+    // background: #c0c0c0;
+    // color: #999;
+    cursor: not-allowed;
+  }
+
+  .tipText {
+    color: var(--color-8);
+    font-size: var(--font-size-5);
+    display: flex;
+    justify-content: center;
+    padding: 12px;
+    visibility: hidden;
+  }
+}
+
+.controlContainer {
+  position: relative;
+}
+
+.controlWrapper {
+  display: flex;
+  width: 100%;
+  align-items: center;
+
+  .controlWrapperInner {
+    flex: 1 1 auto;
+  }
+
+  .askButton {
+    flex: 0 0 76px;
+    margin-right: 10px;
+  }
+
+  .askButtonContent {
+    align-items: center;
+    display: flex;
+    transition: opacity 0.8s ease;
+    flex-direction: column;
+  }
+
+  .askButtonIcon {
+    margin-bottom: 5px; /* margin between icon and text */
+    margin-top: 12px;
+    width: 16px;
+    height: 16px;
+    align-self: center;
+  }
+
+  .askButtonText {
+    font-size: 12px;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

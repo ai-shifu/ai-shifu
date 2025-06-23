@@ -1,0 +1,18 @@
+.feedbackModal {
+  :global(.ant-modal-body) {
+    color: var(--font-color-main);
+
+    .title {
+      text-align: center;
+      font-size: var(--font-size-2);
+    }
+
+    .formWrapper {
+      margin-top: 30px;
+    }
+
+    .okBtn {
+      margin-top: 30px;
+    }
+  }
+}

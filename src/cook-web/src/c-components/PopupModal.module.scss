@@ -1,0 +1,13 @@
+.popupModalWrapper {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+}
+
+.popupModal {
+  min-width: 100px;
+  padding: 10px;
+  border-radius: 20px;
+  background: var(--color-5);
+  box-shadow: 0px 0px 8px 0px rgba(15, 99, 238, 0.1);
+}

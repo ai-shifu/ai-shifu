@@ -1,0 +1,40 @@
+.SexSettingModal {
+}
+
+.sexWrapper {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--font-color-main);
+
+  .sexItem {
+    width: 64px;
+    height: 82px;
+    border-radius: 10px;
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+
+    &:global(.selected) {
+      background-color: var(--color-2);
+      cursor: default;
+
+      .itemTitle {
+        color: var(--color-4);
+      }
+    }
+
+    .itemIcon {
+      width: 24px;
+      display: block;
+    }
+
+    .itemTitle {
+      margin-top: 10px;
+      font-size: var(--font-size-5);
+    }
+  }
+}

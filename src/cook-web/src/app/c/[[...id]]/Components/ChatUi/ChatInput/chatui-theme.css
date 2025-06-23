@@ -1,0 +1,101 @@
+:root {
+  --brand-1: #1877ff;
+  --brand-2: #4692ff;
+  --brand-3: #bad6ff;
+}
+.ChatApp,
+.MessageContainer,
+.Navbar,
+.Message .Bubble,
+.QuickReplies,
+.ChatFooter {
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.ChatApp {
+  /* 透明背景色 */
+  background-color: rgba(0, 0, 0, 0);
+}
+
+.Navbar {
+  background-color: #fff;
+}
+
+.ChatApp {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ChatApp .MessageContainer {
+  /* 右下角和左下角圆角 */
+  border-radius: 0 0 8px 8px;
+}
+
+.MessageContainer {
+  /* 透明背景色 */
+  background-color: rgba(0, 0, 0, 0);
+  border-radius: 8px;
+  overflow: hidden;
+  /* 白色背景 */
+  background-color: #fff;
+}
+
+.Navbar {
+  border-bottom: 1px solid #e5e6eb;
+}
+
+.ChatFooter .Composer {
+  padding-top: 16px;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+}
+
+.ChatFooter .Composer .Composer-input {
+  min-height: 64px;
+  /* line-height: 48px; */
+  overflow: auto;
+}
+
+.Bubble {
+  background-color: #f7f8fa;
+}
+
+.typing {
+  /* 使用 flex 布局 让所有元素都在同一行 */
+  display: flex;
+}
+.typing::before {
+  content: "正在思考中";
+  /* background-image: url("../../Assets/loading_chat.png"); */
+  /* 不平铺 */
+  background-repeat: no-repeat;
+  /* 设置背景图的位置 */
+  background-position: left;
+  /* padding-left: 20px; */
+}
+
+.copy_btn {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  z-index: 100;
+  border-color: #aaa !important;
+  color: #aaa !important;
+}
+
+.copy_btn:hover {
+  border-color: #fff !important;
+  color: #fff !important;
+}
+
+.markdown-code_block pre {
+  border-radius: 8px;
+}
+li {
+  white-space: initial;
+}
+li p {
+  display: inline-block;
+}

@@ -1,0 +1,10 @@
+.buttonGroupWrapper {
+  padding: 0 10px;
+
+  .ChatButtonGroup {
+    display: flex;
+    flex-flow: row wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+}

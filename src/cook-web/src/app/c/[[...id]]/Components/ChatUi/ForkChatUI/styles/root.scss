@@ -1,0 +1,57 @@
+:root {
+  --brand-1: #your-brand-color-1; // Replace with actual color code
+  --brand-2: #your-brand-color-2; // Replace with actual color code
+  --brand-3: #your-brand-color-3; // Replace with actual color code
+  --black: #000000;
+  --white: #ffffff;
+  --gray-1: #your-gray-color-1; // Replace with actual color code
+  --gray-2: #your-gray-color-2; // Replace with actual color code
+  --gray-3: #your-gray-color-3; // Replace with actual color code
+  --gray-4: #your-gray-color-4; // Replace with actual color code
+  --gray-5: #your-gray-color-5; // Replace with actual color code
+  --gray-6: #your-gray-color-6; // Replace with actual color code
+  --gray-7: #your-gray-color-7; // Replace with actual color code
+  --gray-8: #your-gray-color-8; // Replace with actual color code
+  --light-1: var(--gray-6);
+  --light-2: var(--gray-7);
+  --highlight-1: var(--brand-1);
+  --highlight-2: var(--brand-2);
+  --link-color: var(--blue);
+  --blue: #0000ff;
+  --gray-dark: #your-dark-gray-color; // Replace with actual color code
+  --green: #00ff00;
+  --orange: #ffa500;
+  --red: #ff0000;
+  --yellow: #ffff00;
+  --yellow-light: #your-light-yellow-color; // Replace with actual color code
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-1: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --shadow-2: 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-3: 0 8px 16px rgba(0, 0, 0, 0.3);
+  --safe-top: 0px;
+  --safe-bottom: 0px;
+  --gutter: 16px;
+  --btn-primary-border-color: #your-button-border-color; // Replace with actual color code
+  --btn-primary-bg: #your-button-bg-color; // Replace with actual color code
+  --btn-primary-color: #your-button-text-color; // Replace with actual color code
+}
+
+@supports (top: constant(safe-area-inset-top)) {
+  :root {
+    --safe-top: constant(safe-area-inset-top);
+    --safe-bottom: constant(safe-area-inset-bottom);
+  }
+}
+
+@supports (top: env(safe-area-inset-top)) {
+  :root {
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+  }
+}

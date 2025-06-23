@@ -1,0 +1,69 @@
+.navDrawerWrapper {
+  flex: 0 0 auto;
+  background: var(--color-5);
+
+  .navDrawer {
+    height: 100%;
+    display: flex;
+    flex-flow: column nowrap;
+    position: relative;
+  }
+
+  .bodyWrapper {
+    flex: 1 1 0;
+    position: relative;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .lessonTreeWrapper {
+    height: 100%;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .popUpWindowExpand {
+    transform: translate(-50%);
+    width: 250px;
+    top: auto;
+    bottom: 80px;
+    left: 50%;
+    z-index: 999;
+  }
+
+  .popUpWindowCollapse {
+    width: 250px;
+    top: auto;
+    bottom: 10px;
+    left: 70px;
+    z-index: 999;
+  }
+
+  &.mobile {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 900;
+
+    .navHeader {
+      visibility: hidden;
+    }
+
+    .navDrawer {
+      height: 100%;
+      display: flex;
+      flex-flow: column nowrap;
+      position: relative;
+    }
+
+  }
+}

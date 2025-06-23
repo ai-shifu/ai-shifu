@@ -1,0 +1,75 @@
+.inputTextWrapper {
+  display: flex;
+  justify-content: center;
+  padding: 0 10px;
+}
+
+.inputForm {
+  width: 96%;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.inputField {
+  resize: none;
+  min-height: 24px;
+  max-height: 120px;
+  line-height: 1.5;
+  padding: 8px 40px 8px 12px;
+
+  border: 1px solid #d9d9d9;
+  border-radius: 20px;
+  width: 100%;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+  -webkit-text-size-adjust: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  touch-action: manipulation;
+  caret-color: auto;
+  overflow-y: hidden;
+  font-size: 16px;
+
+  @media (max-width: 768px) {
+    font-size: 16px;
+    padding:10px 40px 10px 12px;
+    line-height: 1.4;
+    -webkit-text-size-adjust: none;
+  }
+
+  @supports (-webkit-touch-callout: none) {
+    font-size: 16px;
+    padding: 10px 40px 10px 12px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+
+  &:focus {
+    border: 1px solid var(--color-1);
+  }
+}
+
+.sendIcon {
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+
+  @media (max-width: 768px) {
+    width: 28px;
+    height: 28px;
+    right: 10px;
+    bottom: 10px;
+  }
+}

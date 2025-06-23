@@ -1,0 +1,226 @@
+.payModal {
+  :global(.ant-modal-content) {
+    padding: 0;
+    border-radius: 20px;
+  }
+
+  .payModalContent {
+    display: flex;
+    flex-flow: row nowrap;
+    height: 588px;
+
+    .introSection {
+      flex: 0 0 auto;
+      width: 430px;
+      height: 100%;
+      background-size: 100% 100%;
+    }
+    .paySection {
+      flex: 1 1 auto;
+      padding-top: 40px;
+      color: var(--color-20);
+
+      .payInfoTitle {
+        font-size: var(--font-size-2);
+        text-align: center;
+      }
+    }
+
+    .priceWrapper {
+      display: flex;
+      justify-content: center;
+
+      .price {
+        font-size: var(--font-size-1);
+
+        &.disabled {
+          color: var(--color-9);
+        }
+
+        .priceSign {
+          font-size: var(--font-size-28);
+        }
+
+        .priceNumber {
+          font-size: var(--font-size-20);
+          font-weight: bold;
+        }
+      }
+    }
+
+    .payChannelWrapper {
+      display: flex;
+      flex-flow: row nowrap;
+      margin: 20px 0 0 0;
+      justify-content: center;
+      align-items: center;
+
+      .payChannelSelect {
+        margin-left: 20px;
+      }
+
+      .payChannelButton {
+        padding: 0 10px;
+        height: 2rem;
+        line-height: 2rem;
+        border: 1px solid var(--color-9);
+        border-radius: 5px;
+      }
+    }
+
+    .discountTipWrapper {
+      padding-top: 10px;
+      display: flex;
+      justify-content: center;
+
+      .discountTip {
+        height: 28px;
+        line-height: 28px;
+        padding: 0 15px;
+        font-size: var(--font-size-5);
+        background: linear-gradient(103deg, #e8cfa4 0%, #f1b87f 100%);
+        border-radius: 10px;
+      }
+    }
+
+    .originalPriceWrapper {
+      display: flex;
+      justify-content: center;
+
+      .originalPrice {
+        font-size: var(--font-size-5);
+        color: var(--color-disabled-1);
+        text-decoration: line-through;
+      }
+    }
+
+    .priceItemsWrapper {
+      width: 175px;
+      margin: 10px auto;
+      border-radius: 10px;
+      background-color: rgba(var(--color-1-rgb), 0.05);
+      padding: 10px;
+
+      .priceItem {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 10px;
+        font-size: var(--font-size-5);
+
+        &:first-child {
+          margin-top: 0;
+        }
+      }
+    }
+
+    .qrcodeWrapper {
+      margin-top: 10px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .loginButtonWrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2em 0;
+    }
+
+    .channelSwitchWrapper {
+      margin-top: 20px;
+      flex-flow: column nowrap;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      .channelDesc {
+        margin-top: 10px;
+        color: var(--color-8);
+        font-size: var(--font-size-5);
+      }
+    }
+
+    .couponCodeWrapper {
+      display: flex;
+      justify-content: center;
+      font-size: var(--font-size-5);
+
+      .couponCodeButton {
+        width: 200px;
+        height: 40px;
+        color: var(--color-8);
+        backdrop-filter: blur(10px);
+        border-radius: 50px;
+        font-size: var(--font-size-5);
+      }
+    }
+
+    .virtualProductDesc {
+      margin: 20px auto 0;
+      width: 80%;
+      padding: 15px;
+      background-color: rgba(var(--color-1-rgb), 0.05);
+      border-radius: 10px;
+      font-size: var(--font-size-5);
+      color: var(--color-8);
+
+      .descTitle {
+        font-weight: bold;
+        margin-bottom: 10px;
+      }
+
+      .descPoint {
+        margin-bottom: 8px;
+        line-height: 1.5;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+
+  }
+}
+
+.completedSection {
+  display: flex;
+  flex-flow: column nowrap;
+  height: 100%;
+  padding: 40px 30px;
+  color: var(--font-color-main);
+  box-sizing: border-box;
+
+  .title {
+      font-size: var(--font-size-2);
+      text-align: center;
+      color: var(--color-20);
+  }
+
+  .completeWrapper {
+    flex: 1 1 0;
+    display: flex;
+    flex-flow: column nowrap;
+    justify-content: space-between;
+  }
+
+  .description {
+    font-size: var(--font-size-3);
+  }
+
+  .qrcode {
+    width: 183px;
+    display: block;
+    margin-bottom: 10px;
+  }
+  .qrcodeWrapper2 {
+    display: block;
+    text-align: center;
+    color: var(--color-8);
+  }
+  .paySuccessBg{
+    width: 100%;
+    height: auto;
+    margin-top: 20px;
+  }
+}

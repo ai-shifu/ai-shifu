@@ -1,0 +1,78 @@
+.navFooter {
+  padding: 15px 0;
+  display: flex;
+  flex-flow: row nowrap;
+  font-size: var(--font-size-5);
+
+  .userSection {
+    padding: 0 18px;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    width: 100%;
+
+    .userAvatar {
+      width: 32px;
+      height: 32px;
+    }
+
+    .userName {
+      margin-left: 8px;
+      color: var(--font-color-2);
+      font-size: var(--font-size-3);
+    }
+  }
+
+  &.collapse {
+    .userSection {
+      padding: 0 14px;
+
+      .userName {
+        display: none;
+      }
+    }
+  }
+}
+
+
+
+.navFooter2 {
+  padding: 25px 30px;
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  background-color: var(--color-5-1);
+  font-size: var(--font-size-5);
+
+  &.collapse {
+    padding-left: 0;
+    padding-right: 0;
+    width: 56px;
+    flex-flow: column nowrap;
+
+    .settingBtn {
+      margin-top: 20px;
+      .btnText {
+        display: none;
+      }
+      user-select: none;
+    }
+  }
+
+  .settingBtn {
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: center;
+    &:hover {
+      cursor: pointer;
+    }
+
+    .icon {
+      width: 16px;
+    }
+
+    .btnText {
+      margin-top: 8px;
+    }
+  }
+}
