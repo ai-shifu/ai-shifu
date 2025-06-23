@@ -156,12 +156,14 @@
 }
 
 .messageContentOperation {
-  display:flex;
+  display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
-  justify-content:space-around;
-  width: 50px;
-  margin-left: 5px;
+  justify-content: space-between;
+  align-items: center;
+  width: 90px;
+  margin-left: 8px;
+  gap: 8px;
 }
 
 .brandcolor {
