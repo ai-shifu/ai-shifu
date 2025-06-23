@@ -1,0 +1,52 @@
+{
+  "name": "ai-shifu",
+  "version": "0.3.0-beta",
+  "description": "AI-Shifu is a guide powered by LLM. Unlike other human-led chatbots, AI-Shifu is AI-led chat flow, and humans just need to follow.",
+  "private": true,
+  "workspaces": [
+    "src/web",
+    "src/cook-web"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\" \"npm run dev:cook-web\"",
+    "dev:api": "cd src/api && python app.py",
+    "dev:web": "cd src/web && pnpm start:dev",
+    "dev:cook-web": "cd src/cook-web && npm run dev",
+    "build": "npm run build:web && npm run build:cook-web",
+    "build:web": "cd src/web && pnpm build",
+    "build:cook-web": "cd src/cook-web && npm run build",
+    "test": "npm run test:api && npm run test:web",
+    "test:api": "cd src/api && python -m pytest",
+    "test:web": "cd src/web && pnpm test",
+    "lint": "npm run lint:web && npm run lint:cook-web",
+    "lint:web": "cd src/web && pnpm lint:knip",
+    "lint:cook-web": "cd src/cook-web && npm run lint",
+    "install:all": "npm install && cd src/web && pnpm install && cd ../cook-web && npm install",
+    "docker:dev": "cd docker && docker compose -f docker-compose-dev.yml up -d",
+    "docker:prod": "cd docker && docker compose up -d"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "education",
+    "chatbot",
+    "interactive"
+  ],
+  "author": "AI-Shifu Team",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-shifu/ai-shifu.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ai-shifu/ai-shifu/issues"
+  },
+  "homepage": "https://ai-shifu.com",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
