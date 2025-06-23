@@ -4,7 +4,7 @@ import { Button } from '@/components/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { TextareaAutosize } from '@/components/ui/textarea-autosize';
+import { Editor } from '@/components/cm-editor';
 import api from '@/api';
 import Loading from '../loading';
 
@@ -105,12 +105,10 @@ const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string;
 
                             <div className="flex space-x-4">
                                 <div className="w-24 text-sm mt-2">{t('chapter-setting.system-prompt')}</div>
-                                <TextareaAutosize
-                                    placeholder={t('chapter-setting.please-input')}
-                                    value={systemPrompt}
-                                    onChange={(e) => setSystemPrompt(e.target.value)}
-                                    className="min-h-24 bg-white"
-                                    maxRows={25}
+                                <Editor
+                                    content={systemPrompt}
+                                    onChange={(value, isEdit) => setSystemPrompt(value)}
+                                    isEdit={true}
                                 />
                             </div>
 

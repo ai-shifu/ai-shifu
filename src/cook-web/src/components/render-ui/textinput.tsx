@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Input } from '../ui/input'
-import { TextareaAutosize } from '@/components/ui/textarea-autosize'
+import { Editor } from '@/components/cm-editor'
 import InputNumber from '@/components/input-number'
 import ModelList from '@/components/model-list'
 import { Button } from '../ui/button'
@@ -53,7 +53,7 @@ export default memo(function TextInput(props: TextInputProps) {
     const [tempProperties, setTempProperties] = useState(properties);
     const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
-    const onValueChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const onValueChange = (value: string, isEdit: boolean) => {
         if (!changed) {
             setChanged(true);
             onChanged?.(true);
@@ -65,7 +65,7 @@ export default memo(function TextInput(props: TextInputProps) {
                 ...tempProperties.prompt,
                 properties: {
                     ...tempProperties.prompt.properties,
-                    prompt: e.target.value
+                    prompt: value
                 }
             }
         });
@@ -134,12 +134,11 @@ export default memo(function TextInput(props: TextInputProps) {
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('textinput.prompt')}
                 </label>
-                <TextareaAutosize
-                    value={tempProperties.prompt.properties.prompt}
+                <Editor
+                    content={tempProperties.prompt.properties.prompt}
                     onChange={onValueChange}
-                    placeholder={t('textinput.prompt-placeholder')}
-                    maxRows={20}
-
+                    isEdit={true}
+                    profiles={tempProperties.prompt.properties.profiles}
                 />
             </div>
             <div className='flex flex-row items-center space-x-1'>
