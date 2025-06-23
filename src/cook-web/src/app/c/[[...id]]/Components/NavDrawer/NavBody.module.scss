@@ -1,0 +1,20 @@
+.navBody {
+  height: 100%;
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+  justify-content: center;
+
+  .productName {
+    margin-top: 8px;
+    font-weight: var(--font-weight-bold);
+    color: var(--font-color-title);
+  }
+  .slogan {
+    margin-top: 8px;
+  }
+  .btnWrapper {
+    margin-top: 40px;
+    width: 185px;
+  }
+}

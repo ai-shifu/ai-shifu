@@ -1,0 +1,103 @@
+.courseSection {
+  display: flex;
+  flex-flow: row nowrap;
+
+  &:first-child {
+    .iconWrapper {
+      .topLine {
+        background-color: transparent;
+      }
+    }
+  }
+
+  &:last-child {
+    .iconWrapper {
+      .bottomLine {
+        background-color: transparent
+      }
+    }
+  }
+
+  &.selected {
+    .textArea {
+      background-color: var(--color-2);
+
+      .courseTitle {
+        color: var(--color-4);
+      }
+
+    }
+  }
+
+  &.available:hover {
+    cursor: pointer;
+  }
+
+  &.unavailable {
+    .textArea {
+      .courseTitle {
+        color: var(--color-9);
+      }
+
+    }
+  }
+
+  .iconWrapper {
+    width: 16px;
+    display: flex;
+    flex-flow: column nowrap;
+    align-items: center;
+    flex: 0 0 auto;
+
+    &.small {
+      .icon {
+        width: 4px;
+      }
+    }
+
+    .topLine {
+      width: 1px;
+      background-color: var(--color-9);
+      flex: 1 1 auto;
+    }
+
+    .icon {
+      padding: 5px 0;
+      width: 100%;
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+
+      .smallIcon {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--color-9);
+      }
+
+      .bigIcon {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    .bottomLine {
+      flex: 1 1 auto;
+      width: 1px;
+      background-color: var(--color-9);
+    }
+  }
+
+  .textArea {
+    margin-left: 4px;
+    padding: 8px 8px;
+    border-radius: 8px;
+    flex: 1 0 0;
+
+    .courseTitle {
+      display: inline;
+    }
+  }
+}

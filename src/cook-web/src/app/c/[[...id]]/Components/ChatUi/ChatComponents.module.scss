@@ -1,0 +1,198 @@
+.chatComponents {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  box-sizing: border-box;
+
+  :global(.MessageContainer) {
+    background-color: var(--color-4);
+
+    :global(.PullToRefresh) {
+      &::-webkit-scrollbar {
+        display: none;
+      }
+    }
+
+    :global(.BackBottom) {
+      display: none;
+    }
+  }
+
+  :global(.MessageList) {
+    padding-bottom: 50px;
+
+    --brand-3: var(--color-2);
+
+    :global(.Message.right) {
+      color: var(--color-4);
+    }
+
+    :global(.Message[data-type=lessonSeparator]) {
+      height: 0;
+      overflow: hidden;
+    }
+
+    :global(.Message.left) {
+      color: var(--font-color-main);
+      font-size: var(--font-size-3);
+
+      :global(.Bubble) {
+        background-color: transparent;
+        padding-top: 7px;
+
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6 {
+          &:first-child {
+            margin-top: 0;
+          }
+        }
+      }
+
+      :global(.Avatar) {
+        border: 1px solid rgba(0, 0, 0, 0.05);
+      }
+    }
+
+    :global(.Bubble.text) {
+      white-space: normal;
+
+      p {
+        line-height: 1.8em;
+      }
+
+      &>p {
+        margin-bottom: 1em;
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      :global(.ant-image) {
+        width: 100%;
+      }
+    }
+
+    :global(.Bubble.text ol),
+    :global(.Bubble.text ul) {
+      white-space: normal;
+      padding-inline-start: 1em;
+      margin: 0;
+
+      margin-bottom: 1em;
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      :global(li) {
+        margin-top: 0.5em;
+
+        :global(p) {
+          display: block;
+        }
+      }
+    }
+
+    :global(.Bubble.text table) {
+
+      background-color: var(--color-5);
+      padding: 0px 20px 10px 20px;
+      margin-top: 20px;
+      margin-bottom: 20px;
+      border-radius: 16px;
+
+      :global(thead tr th) {
+        text-align: left;
+        font-weight: normal;
+        color: var(--color-7);
+        padding: 15px;
+      }
+
+      :global(tbody tr:first-child) {
+        :global(td:first-child) {
+          border-top-left-radius: 16px;
+        }
+
+        :global(td:last-child) {
+          border-top-right-radius: 16px;
+        }
+      }
+
+      :global(tbody tr:last-child) {
+        :global(td:first-child) {
+          border-bottom-left-radius: 16px;
+        }
+
+        :global(td:last-child) {
+          border-bottom-right-radius: 16px;
+        }
+      }
+
+      :global(td) {
+        padding: 15px;
+        background-color: var(--color-4);
+        border-right: 1px solid #fff;
+        border-bottom: 1px solid #fff;
+
+      }
+    }
+  }
+
+  &.mobile {
+    :global(.MessageList) {
+      padding-top: 86px;
+      padding-bottom: 50px;
+
+      :global(.Message.left) {
+        :global(.Bubble) {
+          margin-right: 0;
+        }
+      }
+    }
+  }
+}
+
+.messageContentOperation {
+  display:flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  justify-content:space-around;
+  width: 50px;
+  margin-left: 5px;
+}
+
+.brandcolor {
+  color: var(--color-21);
+}
+
+:global(.scroll-more) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 130px;
+  z-index: 10;
+
+  :global(.scroll-more-btn) {
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .8);
+    box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.6);
+    border: 0;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    color: var(--brand-1);
+    font-size: var(--font-size-sm);
+  }
+
+  :global(.scroll-more-icon) {
+    transform: rotate(90deg);
+    font-size: 24px;
+    color: rgba(0, 0, 0, .45);
+  }
+}

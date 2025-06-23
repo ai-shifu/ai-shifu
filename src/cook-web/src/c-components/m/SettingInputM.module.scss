@@ -1,0 +1,23 @@
+.settingInputM {
+  .title {
+    font-size: var(--font-size-5);
+    color: var(--color-9);
+  }
+
+  .inputWrapper {
+    padding-top: 5px;
+    padding-bottom: 5px;
+
+    .inputElement {
+      --font-size: var(--font-size-4);
+      padding-bottom: 5px;
+      color: var(--font-color-main);
+      border-bottom: 1px solid var(--color-9);
+    }
+  }
+
+  .errorMessage {
+    font-size: var(--font-size-5);
+    color: var(--fail-color);
+  }
+}

@@ -1,0 +1,32 @@
+.orderPromotePopoverContent {
+  display: flex;
+
+  .leftColumn {
+    flex: 0 0 auto;
+  }
+
+  .rightColumn {
+    margin-left: 10px;
+    flex: 1 1 auto;
+    color: var(--font-color-2);
+
+    .descRow1 {
+      font-weight: 700;
+    }
+
+    .descRow2 {
+      padding-top: 12px;
+    }
+
+    .buttonRow {
+      padding-top: 15px;
+      display: flex;
+      flex-flow: row nowrap;
+      justify-content: end;
+
+      .payBtn {
+        margin-left: 10px;
+      }
+    }
+  }
+}
