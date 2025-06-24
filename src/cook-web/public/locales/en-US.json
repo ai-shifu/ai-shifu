@@ -37,7 +37,13 @@
     "image": "Image",
     "input-slash-to-insert-content": "Input Slash to Insert Content",
     "variable": "Variable",
-    "video": "Video"
+    "video": "Video",
+    "mermaid": "Diagram",
+    "code-and-diagram": "Code & Diagram",
+    "code-only": "Code only",
+    "diagram-only": "Diagram only",
+    "view-source": "View Source",
+    "copy-source": "Copy Source"
   },
   "common": {
     "all": "All",

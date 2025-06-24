@@ -37,7 +37,13 @@
     "image": "图片",
     "input-slash-to-insert-content": "输入\"/\"快速插入内容",
     "variable": "变量",
-    "video": "视频"
+    "video": "视频",
+    "mermaid": "流程图",
+    "code-and-diagram": "展示代码和图表",
+    "code-only": "仅展示代码",
+    "diagram-only": "仅展示图表",
+    "view-source": "查看源码",
+    "copy-source": "复制源码"
   },
   "common": {
     "all": "全部",

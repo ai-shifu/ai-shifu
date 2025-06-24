@@ -21,11 +21,13 @@ const biliVideoContextRegexp =
   /<span\s+data-tag="video"[^>]*data-url="([^"]+)"[^>]*data-title="([^"]+)"[^>]*>([^<]+)<\/span>/gi
 const agiImgContextRegexp =
   /<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi
+const mermaidContextRegexp =
+  /<span\s+data-tag="mermaid"[^>]*data-code="([^"]*)"[^>]*>([^<]+)<\/span>/gi
 
 // get value from content
 const parseContentInfo = (
   type: SelectedOption,
-  dataset: { title: string; url: string; scale: string }
+  dataset: { title: string; url: string; scale: string; code: string }
 ) => {
   switch (type) {
     case SelectedOption.Profile:
@@ -41,6 +43,11 @@ const parseContentInfo = (
       return {
         resourceUrl: dataset.url,
         resourceTitle: dataset.title
+      }
+    
+    case SelectedOption.Mermaid:
+      return {
+        mermaidCode: dataset.code
       }
   }
 }
@@ -181,6 +188,23 @@ const biliUrlMatcher = new MatchDecorator({
     })
 })
 
+const mermaidMatcher = new MatchDecorator({
+  regexp: mermaidContextRegexp,
+  decoration: (match, view) =>
+    Decoration.replace({
+      widget: new PlaceholderWidget(
+        match?.[2],
+        {
+          tag: 'mermaid',
+          code: match?.[1]
+        },
+        'tag-mermaid',
+        SelectedOption.Mermaid,
+        view
+      )
+    })
+})
+
 const profilePlaceholders = ViewPlugin.fromClass(
   class {
     placeholders: DecorationSet
@@ -238,6 +262,25 @@ const videoPlaceholders = ViewPlugin.fromClass(
   }
 )
 
+const mermaidPlaceholders = ViewPlugin.fromClass(
+  class {
+    placeholders: DecorationSet
+    constructor (view: EditorView) {
+      this.placeholders = mermaidMatcher.createDeco(view)
+    }
+    update (update: ViewUpdate) {
+      this.placeholders = mermaidMatcher.updateDeco(update, this.placeholders)
+    }
+  },
+  {
+    decorations: instance => instance.placeholders,
+    provide: plugin =>
+      EditorView.atomicRanges.of(view => {
+        return view.plugin(plugin)?.placeholders || Decoration.none
+      })
+  }
+)
+
 function createSlashCommands (
   onSelectOption: (selectedOption: SelectedOption) => void
 ) {
@@ -280,6 +323,12 @@ function createSlashCommands (
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Video)
           }
+        },
+        {
+          label: t('cm-editor.mermaid'),
+          apply: (view, _, from, to) => {
+            handleSelect(view, _, from, to, SelectedOption.Mermaid)
+          }
         }
       ],
       filter: false
@@ -293,6 +342,7 @@ export {
   profilePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
+  mermaidPlaceholders,
   createSlashCommands,
   parseContentInfo
 }

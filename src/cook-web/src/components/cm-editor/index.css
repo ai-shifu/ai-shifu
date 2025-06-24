@@ -1,6 +1,7 @@
 .tag-profile,
 .tag-image,
-.tag-video {
+.tag-video,
+.tag-mermaid {
     cursor: pointer;
     border-radius: 3px;
     padding: 0 6px;
@@ -20,6 +21,9 @@
 }
 .tag-video{
     background-color: #0d71f138;
+}
+.tag-mermaid{
+    background-color: #ff9f4070;
 }
 
 .tag-icon {

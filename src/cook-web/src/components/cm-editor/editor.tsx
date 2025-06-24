@@ -10,6 +10,7 @@ import type { Profile } from '@/components/profiles/type'
 import ImageInject from './components/image-inject'
 import VideoInject from './components/video-inject'
 import ProfileInject from './components/profile-inject'
+import MermaidInject from './components/mermaid-inject'
 import { SelectedOption, IEditorContext } from './type'
 import './index.css'
 
@@ -17,6 +18,7 @@ import {
   profilePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
+  mermaidPlaceholders,
   createSlashCommands,
   parseContentInfo
 } from './util'
@@ -162,6 +164,24 @@ const Editor: React.FC<EditorProps> = ({
     [insertText, selectedOption]
   )
 
+  const handleSelectMermaid = useCallback(
+    ({ mermaidCode }: { mermaidCode: string }) => {
+      const textToInsert = `<span data-tag="mermaid" data-code="${mermaidCode}">Mermaid Diagram</span>`
+      if (selectContentInfo?.type === SelectedOption.Mermaid) {
+        deleteSelectedContent()
+        if (!editorViewRef.current) return
+        const { dispatch } = editorViewRef.current
+        dispatch({
+          changes: { from: selectContentInfo.from, insert: textToInsert }
+        })
+      } else {
+        insertText(textToInsert)
+      }
+      setDialogOpen(false)
+    },
+    [insertText, selectedOption]
+  )
+
   const slashCommandsExtension = useCallback(() => {
     return autocompletion({
       override: [createSlashCommands(onSelectedOption)]
@@ -217,6 +237,7 @@ const Editor: React.FC<EditorProps> = ({
                 profilePlaceholders,
                 imgPlaceholders,
                 videoPlaceholders,
+                mermaidPlaceholders,
                 EditorView.updateListener.of(update => {
                   handleEditorUpdate(update.view)
                 })
@@ -255,6 +276,12 @@ const Editor: React.FC<EditorProps> = ({
                 <VideoInject
                   value={selectContentInfo?.value}
                   onSelect={handleSelectVideo}
+                />
+              )}
+              {selectedOption === SelectedOption.Mermaid && (
+                <MermaidInject
+                  value={selectContentInfo?.value}
+                  onSelect={handleSelectMermaid}
                 />
               )}
             </CustomDialog>
