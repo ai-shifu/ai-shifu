@@ -7,7 +7,7 @@ import Image from 'next/image'
 
 export default function TestImagesPage() {
   const testImageUrl = 'https://resource.ai-shifu.cn/ec2da124-c927-45c3-87cb-0a2ba9df66c3.jpg'
-  
+
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">External Image Test</h1>
