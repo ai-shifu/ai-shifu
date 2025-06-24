@@ -373,9 +373,8 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                                                 <Image
                                                     src={uploadedImageUrl}
                                                     alt={t('shifu-setting.shifu-avatar')}
-                                                    width={96}
-                                                    height={96}
-                                                    className="w-full h-full object-cover"
+                                                    fill
+                                                    className="object-cover"
                                                 />
                                                 <button
                                                     type="button"
