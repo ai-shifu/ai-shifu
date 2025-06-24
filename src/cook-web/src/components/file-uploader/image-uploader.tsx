@@ -83,6 +83,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       setResourceUrl(res.data)
       setResourceTitle(file.name)
       setResourceScale(100)
+      // Use `window.Image` to avoid conflicts with Next.js's `Image` component.
       const img = new window.Image()
       img.src = res.data
     } catch (error) {
