@@ -135,12 +135,14 @@ export default memo(function TextInput(props: TextInputProps) {
                     {t('textinput.prompt')}
                 </label>
                 <div className="w-full rounded-md border bg-background px-1 py-1">
-                    <Editor
-                        content={tempProperties.prompt.properties.prompt}
-                        onChange={onValueChange}
-                        isEdit={true}
-                        profiles={tempProperties.prompt.properties.profiles}
-                    />
+                    <div style={{ minHeight: '72px', maxHeight: '480px', overflowY: 'auto' }}>
+                        <Editor
+                            content={tempProperties.prompt.properties.prompt}
+                            onChange={onValueChange}
+                            isEdit={true}
+                            profiles={tempProperties.prompt.properties.profiles}
+                        />
+                    </div>
                 </div>
             </div>
             <div className='flex flex-row items-center space-x-1'>

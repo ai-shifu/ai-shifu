@@ -106,11 +106,13 @@ const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string;
                             <div className="flex space-x-4">
                                 <div className="w-24 text-sm mt-2">{t('chapter-setting.system-prompt')}</div>
                                 <div className="w-full rounded-md border bg-background px-1 py-1">
-                                    <Editor
-                                        content={systemPrompt}
-                                        onChange={(value) => setSystemPrompt(value)}
-                                        isEdit={true}
-                                    />
+                                    <div style={{ minHeight: '72px', maxHeight: '480px', overflowY: 'auto' }}>
+                                        <Editor
+                                            content={systemPrompt}
+                                            onChange={(value) => setSystemPrompt(value)}
+                                            isEdit={true}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
