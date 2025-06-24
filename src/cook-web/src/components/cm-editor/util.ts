@@ -280,6 +280,15 @@ function createSlashCommands (
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Video)
           }
+        },
+        {
+          label: t('cm-editor.diagram'),
+          apply: (view, _, from, to) => {
+            const mermaidCode = '```mermaid\ngraph TD\n  A[节点 A] --> B[节点 B]\n```'
+            view.dispatch({
+              changes: { from, to, insert: mermaidCode }
+            })
+          }
         }
       ],
       filter: false

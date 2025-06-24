@@ -2,6 +2,7 @@ enum SelectedOption {
   Video = 'video',
   Image = 'Image',
   Profile = 'Profile',
+  Mermaid = 'mermaid',
   Empty = ''
 }
 interface IEditorContext {

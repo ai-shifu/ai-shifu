@@ -34,6 +34,7 @@
     "trial-chapter": "试用章节"
   },
   "cm-editor": {
+    "diagram": "文本绘图",
     "image": "图片",
     "input-slash-to-insert-content": "输入\"/\"快速插入内容",
     "variable": "变量",
