@@ -44,7 +44,7 @@ const parseContentInfo = (
         resourceUrl: dataset.url,
         resourceTitle: dataset.title
       }
-    
+
     case SelectedOption.Mermaid:
       return {
         mermaidCode: dataset.code
