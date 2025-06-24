@@ -17,6 +17,22 @@ const nextConfig: NextConfig = {
     ];
   },
 
+  images: {
+    remotePatterns: (process.env.PUBLIC_ALLOWED_IMAGE_DOMAINS || '')
+      .split(',')
+      .filter(domain => domain.trim())
+      .map(domain => {
+        console.log('Adding remote pattern for domain:', domain.trim());
+        return {
+          protocol: 'https',
+          hostname: domain.trim(),
+          port: '',
+          pathname: '/**',
+          search: '',
+        };
+      }),
+  },
+
   // 仅 Turbopack dev 时生效
   experimental: {
     turbo: {
