@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import Image from 'next/image';
 import { Copy, Check, SlidersVertical, Plus } from "lucide-react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -370,11 +369,10 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                                     {uploadedImageUrl ? (
                                         <div className="mb-2">
                                             <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
-                                                <Image
+                                                <img
                                                     src={uploadedImageUrl}
                                                     alt={t('shifu-setting.shifu-avatar')}
-                                                    fill
-                                                    className="object-cover"
+                                                    className="w-full h-full object-cover"
                                                 />
                                                 <button
                                                     type="button"

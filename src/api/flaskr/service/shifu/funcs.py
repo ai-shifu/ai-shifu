@@ -294,6 +294,7 @@ def check_shifu_can_publish(app, shifu_id: str):
 
 def publish_shifu(app, user_id, shifu_id: str):
     with app.app_context():
+        current_time = datetime.now()
         shifu = (
             AICourse.query.filter(
                 AICourse.course_id == shifu_id,
@@ -306,9 +307,10 @@ def publish_shifu(app, user_id, shifu_id: str):
             check_shifu_can_publish(app, shifu_id)
             shifu.status = STATUS_PUBLISH
             shifu.updated_user_id = user_id
-            shifu.updated_at = datetime.now()
+            shifu.updated_at = current_time
             # deal with draft lessons
             to_publish_lessons = get_existing_outlines_for_publish(app, shifu_id)
+            publish_outline_ids = []
             for to_publish_lesson in to_publish_lessons:
                 if to_publish_lesson.status == STATUS_TO_DELETE:
                     # delete the lesson
@@ -320,9 +322,10 @@ def publish_shifu(app, user_id, shifu_id: str):
                         {
                             "status": STATUS_DELETE,
                             "updated_user_id": user_id,
-                            "updated": datetime.now(),
+                            "updated": current_time,
                         }
                     )
+                    publish_outline_ids.append(to_publish_lesson.lesson_id)
                 elif to_publish_lesson.status == STATUS_PUBLISH:
                     # change the lesson status to history
                     # these logic would be removed in the future
@@ -334,16 +337,17 @@ def publish_shifu(app, user_id, shifu_id: str):
                         {
                             "status": STATUS_HISTORY,
                             "updated_user_id": user_id,
-                            "updated": datetime.now(),
+                            "updated": current_time,
                         }
                     )
+                    publish_outline_ids.append(to_publish_lesson.lesson_id)
 
                 elif to_publish_lesson.status == STATUS_DRAFT:
                     # create a new lesson to publish
                     new_lesson = to_publish_lesson.clone()
                     new_lesson.status = STATUS_PUBLISH
                     new_lesson.updated_user_id = user_id
-                    new_lesson.updated = datetime.now()
+                    new_lesson.updated = current_time
                     db.session.add(new_lesson)
                     # change the lesson status to history
                     AILesson.query.filter(
@@ -354,12 +358,13 @@ def publish_shifu(app, user_id, shifu_id: str):
                         {
                             "status": STATUS_HISTORY,
                             "updated_user_id": user_id,
-                            "updated": datetime.now(),
+                            "updated": current_time,
                         }
                     )
+                    publish_outline_ids.append(to_publish_lesson.lesson_id)
 
-            lesson_ids = [lesson.lesson_id for lesson in to_publish_lessons]
-            block_scripts = get_existing_blocks_for_publish(app, lesson_ids)
+            block_scripts = get_existing_blocks_for_publish(app, publish_outline_ids)
+            publish_block_ids = []
             if block_scripts:
                 for block_script in block_scripts:
                     if block_script.status == STATUS_TO_DELETE:
@@ -372,7 +377,7 @@ def publish_shifu(app, user_id, shifu_id: str):
                             {
                                 "status": STATUS_DELETE,
                                 "updated_user_id": user_id,
-                                "updated": datetime.now(),
+                                "updated": current_time,
                             }
                         )
 
@@ -381,7 +386,7 @@ def publish_shifu(app, user_id, shifu_id: str):
                         new_block_script = block_script.clone()
                         new_block_script.status = STATUS_PUBLISH
                         new_block_script.updated_user_id = user_id
-                        new_block_script.updated = datetime.now()
+                        new_block_script.updated = current_time
                         db.session.add(new_block_script)
                         # change the block status to history
                         AILessonScript.query.filter(
@@ -392,9 +397,10 @@ def publish_shifu(app, user_id, shifu_id: str):
                             {
                                 "status": STATUS_HISTORY,
                                 "updated_user_id": user_id,
-                                "updated": datetime.now(),
+                                "updated": current_time,
                             }
                         )
+                        publish_block_ids.append(block_script.script_id)
 
                     elif block_script.status == STATUS_PUBLISH:
                         # if the block is publish, then we need to change the status to history
@@ -408,12 +414,36 @@ def publish_shifu(app, user_id, shifu_id: str):
                             {
                                 "status": STATUS_HISTORY,
                                 "updated_user_id": user_id,
-                                "updated": datetime.now(),
+                                "updated": current_time,
                             }
                         )
+                        publish_block_ids.append(block_script.script_id)
                     block_script.updated_user_id = user_id
-                    block_script.updated = datetime.now()
+                    block_script.updated = current_time
                     db.session.add(block_script)
+            AILessonScript.query.filter(
+                AILessonScript.lesson_id.in_(publish_outline_ids),
+                AILessonScript.status.in_([STATUS_PUBLISH]),
+                AILessonScript.script_id.notin_(publish_block_ids),
+            ).update(
+                {
+                    "status": STATUS_DELETE,
+                    "updated_user_id": user_id,
+                    "updated": current_time,
+                }
+            )
+
+            AILesson.query.filter(
+                AILesson.course_id == shifu_id,
+                AILesson.lesson_id.notin_(publish_outline_ids),
+                AILesson.status.in_([STATUS_PUBLISH]),
+            ).update(
+                {
+                    "status": STATUS_DELETE,
+                    "updated_user_id": user_id,
+                    "updated": current_time,
+                }
+            )
             db.session.commit()
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id
         raise_error("SHIFU.SHIFU_NOT_FOUND")
@@ -889,83 +919,210 @@ def get_shifu_summary(app, shifu_id: str):
         if not shifu:
             app.logger.error(f"get_shifu_summary shifu_id: {shifu_id} not found")
             return
+
         # 获取提示词模板
-        # Obtain the prompt word template
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        prompt_path = os.path.join(current_dir, "../../../prompts/summary.md")
-        with open(prompt_path, "r", encoding="utf-8") as f:
-            summary_prompt = f.read()
+        summary_prompt_template, ask_prompt_template = _load_prompt_templates()
 
-        # 获取结构化章节数据
-        # Obtain structured chapter data
-        outline_tree = get_original_outline_tree(app, shifu_id)
-        outline_ids = []
-
-        # 获取所有节的ID ,章下面没有块所以不用获取
-        # Obtain all the lesson ids, chapters do not have blocks, so no need to get
-        for chapter in outline_tree:
-            for section in chapter.children:
-                outline_ids.append(section.outline.lesson_id)
-        # 获取所有节的块
-        # Obtain all the lesson blocks
-        all_blocks = get_all_publish_blocks(app, outline_ids)
-
-        # Obtain all the lesson data
-        lesson_infos = (
-            AILesson.query.filter(
-                AILesson.lesson_id.in_(outline_ids),
-                AILesson.status == STATUS_PUBLISH,
-            )
-            .order_by(AILesson.id.desc())
-            .all()
+        # 获取课程数据
+        outline_tree, outline_ids, all_blocks, lesson_map = _get_course_data(
+            app, shifu_id
         )
-        lesson_map = {lesson.lesson_id: lesson for lesson in lesson_infos}
 
-        for chapter in outline_tree:
-            for section in chapter.children:
-                section_blocks = all_blocks[section.outline.lesson_id]
-                now_lesson_script_prompts = ""
-                for block in section_blocks:
-                    now_lesson_script_prompts += block.script_prompt
-                final_prompt = summary_prompt.replace(
-                    "{all_script_content}", now_lesson_script_prompts
-                )
-                # 调用课程关联的 ai模型 获取摘要
-                # Call the ai model associated with the course to get the summary
-                model_name = ""
-                temperature = 0.3
-                if shifu.course_default_model:
-                    model_name = shifu.course_default_model
-                if shifu.ask_model:
-                    model_name = shifu.ask_model
-                if not model_name:
-                    app.logger.error(
-                        f"get_shifu_summary shifu_id: {shifu_id} model_name is empty"
-                    )
-                    return
-                if shifu.course_default_temperature:
-                    temperature = shifu.course_default_temperature
-                summary = get_summary(
-                    app,
-                    prompt=final_prompt,
-                    model_name=model_name,
-                    temperature=temperature,
-                )
-                # 更新到章节
-                # Update to the section
-                lesson = lesson_map.get(section.outline.lesson_id)
-                if lesson:
-                    lesson.ask_prompt = summary
-                    lesson.lesson_desc = summary
-                    lesson.ask_mode = ASK_MODE_ENABLE
-                # print(summary)
+        # 生成摘要
+        outline_summary_map = _generate_summaries(
+            app, outline_tree, all_blocks, lesson_map, summary_prompt_template, shifu
+        )
+
+        # 生成 ask_prompt
+        _generate_ask_prompts(
+            app,
+            outline_tree,
+            outline_ids,
+            outline_summary_map,
+            lesson_map,
+            ask_prompt_template,
+        )
+
         db.session.commit()
-        return None
+        return
 
 
-def get_all_publish_blocks(app, outline_ids: list[str]):
+def _generate_ask_prompts(
+    app, outline_tree, outline_ids, outline_summary_map, lesson_map, ask_prompt_template
+):
     """
-    返回 {outline_id: [block, ...]}，只包含 STATUS_PUBLISH，且每组按 script_index 升序
+    为每个节生成 ask_prompt
+    :param app: Flask app
+    :param outline_tree: 大纲树
+    :param outline_ids: 节ID列表
+    :param outline_summary_map: 摘要映射
+    :param lesson_map: 节映射
+    :param ask_prompt_template: ask模板
+    """
+    for chapter in outline_tree:
+        for section in chapter.children:
+            # 将 outline_summary_map 按当前节ID分割为已学习和未学习两部分
+            current_section_id = section.outline.lesson_id
+
+            # 找到当前节在 outline_ids 中的索引
+            current_index = outline_ids.index(current_section_id)
+
+            # 分割已学习和未学习的内容
+            learned_summaries = []
+            unlearned_summaries = []
+
+            for i, section_id in enumerate(outline_ids):
+                if section_id in outline_summary_map:
+                    if i <= current_index:
+                        # 当前节及之前的所有节（已学习）
+                        learned_summaries.append(outline_summary_map[section_id])
+                    else:
+                        # 当前节之后的所有节（未学习）
+                        unlearned_summaries.append(outline_summary_map[section_id])
+
+            # 构建已学习部分的文本
+            learned_text = _build_summary_text(learned_summaries, is_learned=True)
+
+            # 构建未学习部分的文本
+            unlearned_text = _build_summary_text(unlearned_summaries, is_learned=False)
+
+            ask_prompt = _make_ask_prompt(
+                app, ask_prompt_template, learned_text, unlearned_text
+            )
+            lesson = lesson_map.get(section.outline.lesson_id)
+            if lesson:
+                lesson.ask_prompt = ask_prompt
+
+
+def _generate_summaries(
+    app, outline_tree, all_blocks, lesson_map, summary_prompt_template, shifu
+) -> dict[str, dict]:
+    """
+    生成所有节的摘要
+    :param app: Flask app
+    :param outline_tree: 大纲树
+    :param all_blocks: 所有块数据
+    :param lesson_map: 节映射
+    :param summary_prompt_template: 摘要模板
+    :param shifu: 课程信息
+    :return: 摘要映射
+    """
+    outline_summary_map = {}
+
+    # 获取模型配置
+    model_name = shifu.ask_model or shifu.course_default_model
+    temperature = shifu.course_default_temperature or 0.3
+    if not model_name:
+        app.logger.error(
+            f"get_shifu_summary shifu_id: {shifu.course_id} model_name is empty"
+        )
+        return outline_summary_map
+
+    for chapter in outline_tree:
+        for section in chapter.children:
+            section_blocks = all_blocks[section.outline.lesson_id]
+            now_lesson_script_prompts = "".join(
+                block.script_prompt for block in section_blocks
+            )
+
+            final_prompt = summary_prompt_template.format(
+                all_script_content=now_lesson_script_prompts
+            )
+
+            summary = _get_summary(
+                app,
+                prompt=final_prompt,
+                model_name=model_name,
+                temperature=temperature,
+            )
+
+            # 更新节信息
+            lesson = lesson_map.get(section.outline.lesson_id)
+            if lesson:
+                lesson.lesson_desc = summary
+                lesson.ask_mode = ASK_MODE_ENABLE
+
+                # 存储摘要信息
+                outline_summary_map[section.outline.lesson_id] = {
+                    "chapter_id": chapter.outline.lesson_id,
+                    "chapter_name": chapter.outline.lesson_name,
+                    "section_id": section.outline.lesson_id,
+                    "section_name": section.outline.lesson_name,
+                    "content": summary,
+                }
+
+    return outline_summary_map
+
+
+def _get_course_data(app, shifu_id: str) -> tuple[list, dict, dict]:
+    """
+    获取课程相关数据
+    :param app: Flask app
+    :param shifu_id: 课程ID
+    :return: (outline_ids, all_blocks, lesson_map)
+    """
+    outline_tree = get_original_outline_tree(app, shifu_id)
+    outline_ids = []
+
+    # 获取所有节的ID
+    for chapter in outline_tree:
+        for section in chapter.children:
+            outline_ids.append(section.outline.lesson_id)
+
+    # 获取所有节的块
+    all_blocks = _get_all_publish_blocks(app, outline_ids)
+
+    # 获取所有节的数据
+    lesson_infos = (
+        AILesson.query.filter(
+            AILesson.lesson_id.in_(outline_ids),
+            AILesson.status == STATUS_PUBLISH,
+        )
+        .order_by(AILesson.id.desc())
+        .all()
+    )
+    lesson_map = {lesson.lesson_id: lesson for lesson in lesson_infos}
+
+    return outline_tree, outline_ids, all_blocks, lesson_map
+
+
+def _load_prompt_templates() -> tuple[str, str]:
+    """
+    加载提示词模板文件
+    :return: (summary_template, ask_template)
+    """
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    summary_path = os.path.join(current_dir, "../../../prompts/summary.md")
+    ask_path = os.path.join(current_dir, "../../../prompts/ask.md")
+
+    summary_prompt_template = ""
+    ask_prompt_template = ""
+
+    with open(summary_path, "r", encoding="utf-8") as f:
+        summary_prompt_template = f.read()
+    with open(ask_path, "r", encoding="utf-8") as f:
+        ask_prompt_template = f.read()
+
+    return summary_prompt_template, ask_prompt_template
+
+
+def _make_ask_prompt(
+    app, ask_prompt: str, learned_text: str, unlearned_text: str
+) -> str:
+    # 替换模板中的标签
+    # result = ask_prompt.replace("{learned}", learned_text or "")
+    # result = result.replace("{unlearned}", unlearned_text or "")
+    result = ask_prompt.format(
+        learned=learned_text or "",
+        unlearned=unlearned_text or "",
+        shifu_system_message="{shifu_system_message}",
+    )
+    return result
+
+
+def _get_all_publish_blocks(app, outline_ids: list[str]):
+    """
+    返回 {outline_id: [block, ...]}，只包含 STATUS_PUBLISH,且每组按 script_index 升序
     Return {outline_id: [block, ...]}, only contains STATUS_PUBLISH, and each group is sorted by script_index in ascending order
     """
     query = AILessonScript.query.filter(
@@ -986,13 +1143,13 @@ def get_all_publish_blocks(app, outline_ids: list[str]):
     return dict(result)
 
 
-def get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
+def _get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
     """
     调用大模型生成摘要
     :param app: Flask app
     :param prompt: 需要摘要的 prompt
     :param model_name: 使用的模型名称
-    :param user_id: 可选，用户ID
+    :param user_id: 可选,用户ID
     :param temperature: 可选，采样温度
     :return: 摘要文本
     Call the ai model associated with the course to get the summary
@@ -1017,3 +1174,36 @@ def get_summary(app, prompt, model_name, user_id=None, temperature=0.8):
     span.update(output=summary)
     span.end()
     return summary
+
+
+def _build_summary_text(summaries: list[dict], is_learned: bool) -> str:
+    """
+    Build a summary text based on whether it's learned or unlearned
+    :param summaries: List of summary dictionaries
+    :param is_learned: Boolean indicating whether the summary is for learned or unlearned
+    :return: Built summary text
+    """
+    if not summaries:
+        return ""
+
+    result_lines = []
+    chapter_titles_added = set()
+
+    for summary in summaries:
+        chapter_id = summary["chapter_id"]
+        chapter_name = summary["chapter_name"]
+        section_name = summary["section_name"]
+        content = summary["content"]
+
+        # 检查是否需要添加章的标题
+        if chapter_id not in chapter_titles_added:
+            # 第一次遇到这个章，添加章的标题
+            result_lines.append(f"### {chapter_name}")
+            chapter_titles_added.add(chapter_id)
+
+        # 添加节的标题和内容
+        result_lines.append(f"#### {section_name}")
+        result_lines.append(content)
+        result_lines.append("")  # 添加空行分隔
+
+    return "\n".join(result_lines)

@@ -2,7 +2,7 @@
 <who_am_i>和</who_am_i>两个标签中间，是你的基础设定
 
 <who_am_i>
-{当前师傅使用的系统提示词}
+{shifu_system_message}
 </who_am_i>
 
 **请继续遵照你的基础设定，但你的任务变更为回答用户的问题**
@@ -18,10 +18,10 @@
 
 ## 已学内容
 <learned>
-{learned}//阶段零用已学章节的剧本摘要。未来升级到通过RAG检索该用户在该师傅内跟AI已经完成的交互，具体落库效果
+{learned}
 </learned>
 
 ## 未学内容
 <unlearned>
-{unlearned}//阶段零用未学章节的摘要，通过cook里内容进行总结（旧版实现逻辑）。未来拓展考虑直接让用户提供师傅的核心知识点，这是个新话题
+{unlearned}
 </unlearned>

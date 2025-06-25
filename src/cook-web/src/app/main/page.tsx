@@ -1,7 +1,6 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from 'react';
-import Image from 'next/image';
 import { PlusIcon, StarIcon as StarOutlineIcon, RectangleStackIcon as RectangleStackOutlineIcon } from '@heroicons/react/24/outline';
 import { TrophyIcon, RectangleStackIcon, StarIcon } from '@heroicons/react/24/solid';
 import api from "@/api";
@@ -33,7 +32,7 @@ const ShifuCard = ({ id, image, title, description, isFavorite }: ShifuCardProps
                     <div className='flex flex-row items-center mb-2'>
                         <div className="p-2 h-10 w-10 rounded-lg bg-purple-50 mr-4 flex items-center justify-center shrink-0">
                             {
-                                image && <Image src={image} alt="recipe" fill className="object-cover rounded-lg" />
+                                image && <img src={image} alt="recipe" className="w-full h-full object-cover rounded-lg" />
                             }
                             {
                                 !image && <TrophyIcon className="w-6 h-6 text-purple-600" />
