@@ -3,14 +3,14 @@ const testCache = {
     let supportsPassive = false;
     try {
       const opts = Object.defineProperty({}, 'passive', {
-        // eslint-disable-next-line
         get() {
           supportsPassive = true;
         },
       });
-      // @ts-ignore
+      // @ts-expect-error EXPECT
       window.addEventListener('test', null, opts);
     } catch (e) {
+      console.log(e)
       // No support
     }
     return supportsPassive;
@@ -19,12 +19,10 @@ const testCache = {
   touch: () => 'ontouchstart' in window,
 };
 
-export function addTest(name: string, test: Function) {
-  // @ts-ignore
+export function addTest(name: string, test: () => unknown) {
   testCache[name] = test();
 }
 
 export default function canUse(name: string) {
-  // @ts-ignore
   return testCache[name]();
 }

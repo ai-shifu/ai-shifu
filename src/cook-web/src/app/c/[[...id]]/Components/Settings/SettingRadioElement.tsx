@@ -1,6 +1,6 @@
 import styles from './SettingRadioElement.module.scss';
 
-import { useEffect, memo, useState, useCallback  } from 'react';
+import { useEffect, memo, useState  } from 'react';
 
 import { Label } from "@/components/ui/label"
 import {
@@ -15,7 +15,7 @@ export const SettingRadioElement = ({
   className = '',
   options = [],
   value = '',
-  onChange = (e) => {},
+  // onChange = (e) => {},
 }) => {
   const [curr, setCurr] = useState(value);
 
@@ -23,13 +23,13 @@ export const SettingRadioElement = ({
     setCurr(value);
   }, [value]);
 
-  const _onChange = useCallback(
-    (e) => {
-      setCurr(e.target.value);
-      onChange(e.target.value);
-    },
-    [setCurr, onChange]
-  );
+  // const _onChange = useCallback(
+  //   (e) => {
+  //     setCurr(e.target.value);
+  //     onChange(e.target.value);
+  //   },
+  //   [setCurr, onChange]
+  // );
 
   return (
     <div className={cn(styles.settingRadio, className)}>
@@ -46,7 +46,11 @@ export const SettingRadioElement = ({
                 {label}
               </Label>
             </div>
-            return <Radio key={value} value={value} checked={value === curr} className={styles.inputElement}>{label}</Radio>;
+            return (
+              <RadioGroupItem key={value} value={value} className={styles.inputElement}>
+                {label}
+              </RadioGroupItem>
+            )
           })}
         </RadioGroup>
       </div>

@@ -43,3 +43,5 @@ export const InfiniteScroll = React.forwardRef<HTMLDivElement, InfiniteScrollPro
     );
   },
 );
+
+InfiniteScroll.displayName = 'InfiniteScroll';

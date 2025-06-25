@@ -78,7 +78,6 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
       target.placeholder = '';
     }
 
-    // eslint-disable-next-line no-bitwise
     const currentRows = ~~(target.scrollHeight / lineHeight);
 
     if (currentRows === prevRows) {
@@ -143,3 +142,5 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
   }
   return input;
 });
+
+Input.displayName = 'Input';

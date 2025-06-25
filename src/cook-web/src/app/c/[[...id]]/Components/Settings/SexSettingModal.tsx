@@ -1,15 +1,15 @@
-import { useState } from 'react';
 import styles from './SexSettingModal.module.scss';
+
+import { useCallback, memo, useState } from 'react';
 import SettingBaseModal from './SettingBaseModal';
 
 import clsx from 'clsx';
 import { SEX, SEX_NAMES } from '@/c-constants/userConstants';
-// TODO: FIXME
-// import { message } from 'antd';
-import { useCallback } from 'react';
-import { memo } from 'react';
+
+import { toast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 
+import Image from 'next/image';
 import iconMaleHl2x from '@/c-assets/newchat/light/icon16-male-hl@2x.png'
 import iconMale2x from '@/c-assets/newchat/light/icon16-male@2x.png'
 import iconFemaleHl2x from '@/c-assets/newchat/light/icon16-female-hl@2x.png'
@@ -20,12 +20,13 @@ import iconAccount from '@/c-assets/newchat/light/icon16-account.png'
 export const SexSettingModal = ({
   open,
   onClose,
-  onOk = ({ sex }) => {},
+  onOk = () => {},
   initialValues = {},
 }) => {
+  // @ts-expect-error EXPECT
   const [selectedSex, setSelectedSex] = useState(initialValues.sex);
-  const [messageApi, contextHolder] = message.useMessage();
-  const { t } = useTranslation();
+
+  const { t } = useTranslation('tanslation', {keyPrefix: 'c'});
   const checkSelected = useCallback((sex) => {
     return sex === selectedSex;
   }, [selectedSex]);
@@ -35,10 +36,13 @@ export const SexSettingModal = ({
 
   const onOkClick = () => {
     if (!selectedSex) {
-      messageApi.error('请选择性别');
+      toast({
+        title: '请选择性别',
+        variant: 'destructive'
+      })
       return;
     }
-
+    // @ts-expect-error EXPECT
     onOk?.({ sex: selectedSex });
   };
 
@@ -68,6 +72,7 @@ export const SexSettingModal = ({
 
   return (
     <SettingBaseModal
+      // @ts-expect-error EXPECT
       className={styles.SexSettingModal}
       open={open}
       onClose={onClose}
@@ -79,7 +84,7 @@ export const SexSettingModal = ({
           className={clsx(styles.sexItem, getSelectedClassName(t('user.sex.male')))}
           onClick={() => setSelectedSex(t('user.sex.male'))}
         >
-          <img
+          <Image
             className={styles.itemIcon}
             src={sexMaleIcon(SEX_NAMES[SEX.MALE])}
             alt="male"
@@ -93,7 +98,7 @@ export const SexSettingModal = ({
           )}
           onClick={() => setSelectedSex(t('user.sex.female'))}
         >
-          <img
+          <Image
             className={styles.itemIcon}
             src={sexFemaleIcon(SEX_NAMES[SEX.FEMALE])}
             alt="female"
@@ -107,7 +112,7 @@ export const SexSettingModal = ({
           )}
           onClick={() => setSelectedSex(t('user.sex.secret'))}
         >
-          <img
+          <Image
             className={styles.itemIcon}
             src={sexSecretIcon(t('user.sex.secret'))}
             alt="secret"
@@ -115,7 +120,6 @@ export const SexSettingModal = ({
           <div className={styles.itemTitle}>{t('user.sex.secret')}</div>
         </div>
       </div>
-      {contextHolder}
     </SettingBaseModal>
   );
 };

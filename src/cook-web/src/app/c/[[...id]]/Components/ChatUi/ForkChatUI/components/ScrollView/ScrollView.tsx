@@ -122,3 +122,5 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps<any
     </div>
   );
 });
+
+ScrollView.displayName = 'ScrollView';

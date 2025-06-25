@@ -26,5 +26,7 @@ export const tracking = async (eventName, eventData) => {
       return;
     }
     umami.track(eventName, eventData);
-  } catch (error) { }
+  } catch (error) {
+    console.log(error)
+  }
 };

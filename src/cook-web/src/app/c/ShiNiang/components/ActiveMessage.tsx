@@ -10,6 +10,7 @@ const ActiveMessage = ({
   button = '',
 }) => {
   const _onButtonClick = () => {
+    // @ts-expect-error EXPECT
     shifu.payTools.openPay({
       type: 'active',
       payload: {

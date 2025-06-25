@@ -7,6 +7,7 @@ export type CardActionsProps = {
 };
 
 export const CardActions: React.FC<CardActionsProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { children, className, direction, ...other } = props;
   return (
     <div

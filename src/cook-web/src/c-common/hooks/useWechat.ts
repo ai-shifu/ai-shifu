@@ -9,12 +9,15 @@ export const useWechat = () => {
     function onBridgeReady() {
       resolve();
     }
-
+    // @ts-expect-error EXPECT
     if (typeof WeixinJSBridge == "undefined") {
       if (document.addEventListener) {
         document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false);
+        // @ts-expect-error EXPECT
       } else if (document.attachEvent) {
+        // @ts-expect-error EXPECT
         document.attachEvent('WeixinJSBridgeReady', onBridgeReady);
+        // @ts-expect-error EXPECT
         document.attachEvent('onWeixinJSBridgeReady', onBridgeReady);
       }
     } else {
@@ -33,12 +36,13 @@ export const useWechat = () => {
   const payByJsApi = async (payData) => {
     return new Promise((resolve, reject) => {
       runInJsBridge(() => {
-
+          // @ts-expect-error EXPECT
           WeixinJSBridge.invoke(
             'getBrandWCPayRequest',
             payData,
             function (res) {
               if (res.err_msg === 'get_brand_wcpay_request:ok') {
+                // @ts-expect-error EXPECT
                 resolve();
               } else {
                 reject(res.err_msg);

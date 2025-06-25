@@ -31,8 +31,9 @@ export const Stepper = React.forwardRef<HTMLUListElement, StepperProps>((props, 
       state.disabled = !inverted;
       state.completed = inverted;
     }
-
+    
     return React.isValidElement(child)
+      // @ts-expect-error EXPECT
       ? React.cloneElement(child, { ...state, ...child.props })
       : null;
   });
@@ -43,3 +44,5 @@ export const Stepper = React.forwardRef<HTMLUListElement, StepperProps>((props, 
     </ul>
   );
 });
+
+Stepper.displayName = 'Stepper';

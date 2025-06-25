@@ -1,33 +1,49 @@
 import styles from './MainMenuModal.module.scss';
 
-import { memo, useRef } from 'react';
-// import { Dropdown, Modal } from 'antd';
-import clsx from 'clsx';
+import { memo, useRef, useState } from 'react';
+import { cn } from '@/lib/utils'
 import { useShallow } from 'zustand/react/shallow';
-import { DropdownMenu } from '@/components/ui/dropdown-menu';
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
 import { languages } from '@/c-service/constants';
 import { useUserStore } from '@/c-store/useUserStore';
 
-import { ChevronDown } from 'lucide-react';
+// import { ChevronDown } from 'lucide-react';
 
 import { shifu } from '@/c-service/Shifu';
 import { getUserProfile, updateUserProfile } from '@/c-api/user';
 import { LANGUAGE_DICT } from '@/c-constants/userConstants';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
+import Image from 'next/image';
 import imgUserInfo from '@/c-assets/newchat/light/userInfo.png'
 import imgPersonal from '@/c-assets/newchat/light/personal.png'
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png'
 import imgSignIn from '@/c-assets/newchat/light/signin.png'
 
 /**
- * TODO：迁移这个组件弹出菜单中列出的页面
+ * TODO：FIXME
  * - 语言切换组件似乎可以直接用 `cook-web` 的
  */
-
 
 const MainMenuModal = ({
   open,
@@ -48,13 +64,13 @@ const MainMenuModal = ({
     }))
   );
 
-  const languageDrowdownContainer = (triggerNode) => {
-    if (htmlRef.current) {
-      return htmlRef.current;
-    }
+  // const languageDrowdownContainer = (triggerNode) => {
+  //   if (htmlRef.current) {
+  //     return htmlRef.current;
+  //   }
 
-    return triggerNode;
-  };
+  //   return triggerNode;
+  // };
 
   const { trackEvent } = useTracking();
 
@@ -68,10 +84,12 @@ const MainMenuModal = ({
       const languageData = LANGUAGE_DICT[key];
 
       if (languageData) {
+        // @ts-expect-error EXPECT
         const { data } = await getUserProfile();
         const languageSetting = data.find((item) => item.key === 'language');
         if (languageSetting) {
           languageSetting.value = languageData;
+          // @ts-expect-error EXPECT
           await updateUserProfile(data);
         }
       }
@@ -105,104 +123,146 @@ const MainMenuModal = ({
     shifu.loginTools.openLogin();
   };
 
-  const onLogoutClick = async () => {
-    await Modal.confirm({
-      title: t('user.confirmLogoutTitle'),
-      content: t('user.confirmLogoutContent'),
-      onOk: async () => {
-        await logout();
-      },
-    });
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const onLogoutConfirm = async () => {
+     await logout();
+     setLogoutConfirmOpen(false);
   };
 
   return (
-    <PopupModal
-      open={open}
-      onClose={onClose}
-      wrapStyle={{ ...style }}
-      className={clsx(className, styles.mainMenuModalWrapper, mobileStyle && styles.mobile)}
-    >
-      <div className={styles.mainMenuModal} ref={htmlRef}>
-        <div className={styles.mainMenuModalRow} onClick={onUserInfoClick}>
-          <img
-            className={styles.rowIcon}
-            src={imgUserInfo.src}
-            alt=""
-          />
-          <div className={styles.rowTitle}>
-            {t('menus.navigationMenus.basicInfo')}
+    <>
+       <AlertDialog 
+        open={logoutConfirmOpen} 
+        onOpenChange={(open) => setLogoutConfirmOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              { t('user.confirmLogoutTitle') }
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              { t('user.confirmLogoutContent') }
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={onLogoutConfirm}>
+              确认
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* @ts-expect-error EXPECT */}
+      <PopupModal
+        open={open}
+        onClose={onClose}
+        wrapStyle={{ ...style }}
+        className={cn(className, styles.mainMenuModalWrapper, mobileStyle && styles.mobile)}
+      >
+        <div className={styles.mainMenuModal} ref={htmlRef}>
+          <div className={styles.mainMenuModalRow} onClick={onUserInfoClick}>
+            <Image
+              className={styles.rowIcon}
+              width={16}
+              height={16}
+              src={imgUserInfo.src}
+              alt=""
+            />
+            <div className={styles.rowTitle}>
+              {t('menus.navigationMenus.basicInfo')}
+            </div>
           </div>
-        </div>
-        <div className={styles.mainMenuModalRow} onClick={_onPersonalInfoClick}>
-          <img
-            className={styles.rowIcon}
-            src={imgPersonal.src}
-            alt=""
-          />
-          <div className={styles.rowTitle}>
-            {t('menus.navigationMenus.personalInfo')}
+          <div className={styles.mainMenuModalRow} onClick={_onPersonalInfoClick}>
+            <Image
+              className={styles.rowIcon}
+              width={16}
+              height={16}
+              src={imgPersonal.src}
+              alt=""
+            />
+            <div className={styles.rowTitle}>
+              {t('menus.navigationMenus.personalInfo')}
+            </div>
           </div>
-        </div>
 
-        <div className={styles.languageRow}>
-          <div
-            className={clsx(
-              styles.mainMenuModalRow,
-              styles.languageRowInner
-            )}
-          >
-            <div className={styles.languageRowLeft}>
-              <img
-                className={styles.rowIcon}
-                src={imgMultiLanguage.src}
-                alt=""
-              />
-              <div className={styles.rowTitle}>
-                {t('menus.navigationMenus.language')}
+          <div className={styles.languageRow}>
+            <div
+              className={cn(
+                styles.mainMenuModalRow,
+                styles.languageRowInner
+              )}
+            >
+              <div className={styles.languageRowLeft}>
+                <Image
+                  className={styles.rowIcon}
+                  width={16}
+                  height={16}
+                  src={imgMultiLanguage.src}
+                  alt=""
+                />
+                <div className={styles.rowTitle}>
+                  {t('menus.navigationMenus.language')}
+                </div>
+              </div>
+              <div className={styles.languageRowRight}>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">请选择</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-56" align="start">
+                    {languageDrowdownMeus.items.map((li) => {
+                      return (
+                        <DropdownMenuItem key={li.key} onClick={() => {
+                          languageDrowdownMeus.onClick({key: li.key})
+                        }}>
+                          { li.label }
+                        </DropdownMenuItem>
+                      )
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {/* <Dropdown
+                  getPopupContainer={languageDrowdownContainer}
+                  menu={languageDrowdownMeus}
+                >
+                  <div
+                    onClick={(e) => {
+                      e.preventDefault();
+                    }}
+                  >
+                    {languages.find((lang) => lang.value === i18n.language)
+                      ?.label || '请选择'}{' '}
+                    {<ChevronDown className={style.langDownIcon} />}
+                  </div>
+                </Dropdown> */}
               </div>
             </div>
-            <div className={styles.languageRowRight}>
-              <DropdownMenu>
-                {/* TODO: 完成 DropdonMenu 的替换 */}
-              </DropdownMenu>
-              {/* <Dropdown
-                getPopupContainer={languageDrowdownContainer}
-                menu={languageDrowdownMeus}
-              >
-                <div
-                  onClick={(e) => {
-                    e.preventDefault();
-                  }}
-                >
-                  {languages.find((lang) => lang.value === i18n.language)
-                    ?.label || '请选择'}{' '}
-                  {<ChevronDown className={style.langDownIcon} />}
-                </div>
-              </Dropdown> */}
+          </div>
+          {!hasLogin ? (
+            <div className={styles.mainMenuModalRow} onClick={onLoginClick}>
+              <Image
+                className={styles.rowIcon}
+                width={16}
+                height={16}
+                src={imgSignIn.src}
+                alt=""
+              />
+              <div className={styles.rowTitle}>{t('user.login')}</div>
             </div>
-          </div>
+          ) : (
+            <div className={styles.mainMenuModalRow} onClick={onLogoutConfirm}>
+              <Image
+                className={styles.rowIcon}
+                width={16}
+                height={16}
+                src={imgSignIn.src}
+                alt=""
+              />
+              <div className={styles.rowTitle}>{t('user.logout')}</div>
+            </div>
+          )}
         </div>
-        {!hasLogin ? (
-          <div className={styles.mainMenuModalRow} onClick={onLoginClick}>
-            <img
-              className={styles.rowIcon}
-              src={imgSignIn.src}
-              alt=""
-            />
-            <div className={styles.rowTitle}>{t('user.login')}</div>
-          </div>
-        ) : (
-          <div className={styles.mainMenuModalRow} onClick={onLogoutClick}>
-            <img
-              className={styles.rowIcon}
-              src={imgSignIn.src}
-              alt=""
-            />
-            <div className={styles.rowTitle}>{t('user.logout')}</div>
-          </div>
-        )}
-      </div>
-    </PopupModal>
+      </PopupModal>
+    </>
   );
 };
 

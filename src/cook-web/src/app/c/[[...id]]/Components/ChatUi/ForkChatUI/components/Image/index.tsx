@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import clsx from 'clsx';
+import { cn } from '@/lib/utils';
+import NextImage from 'next/image';
+
 import useForwardRef from '../../hooks/useForwardRef';
 
 export interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -10,7 +12,7 @@ export interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
 }
 
 export const Image = React.forwardRef<HTMLImageElement, ImageProps>((props, ref) => {
-  const { className, src: oSrc, lazy, fluid, children, ...other } = props;
+  const { className, src: oSrc, lazy, fluid, ...other } = props;
   const [src, setSrc] = useState('');
   const imgRef = useForwardRef(ref);
   const savedSrc = useRef('');
@@ -42,8 +44,9 @@ export const Image = React.forwardRef<HTMLImageElement, ImageProps>((props, ref)
   }, [lazy, oSrc]);
 
   return (
-    <img
-      className={clsx('Image', { 'Image--fluid': fluid }, className)}
+    // @ts-expect-errorn EXPECT
+    <NextImage
+      className={cn('Image', { 'Image--fluid': fluid }, className)}
       src={src}
       alt=""
       ref={imgRef}
@@ -51,3 +54,5 @@ export const Image = React.forwardRef<HTMLImageElement, ImageProps>((props, ref)
     />
   );
 });
+
+Image.displayName = 'Image';

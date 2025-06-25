@@ -3,7 +3,7 @@ import { shifu } from '@/c-service/Shifu';
 import styles from './TrialNodeOuter.module.scss';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 
-const TrialNodeOuter = ({ nodePosition, payload, containerScrollTop }) => {
+const TrialNodeOuter = ({ nodePosition, payload }) => {
   const getTrialNodeAreaControl = useCallback(() => {
     const Control = shifu.getControl(shifu.ControlTypes.TRIAL_NODE_BOTTOM_AREA);
 
@@ -13,10 +13,11 @@ const TrialNodeOuter = ({ nodePosition, payload, containerScrollTop }) => {
   const getClassName = useCallback(() => {
     let className = '';
 
-    nodePosition === TRAIL_NODE_POSITION.STICK_TOP &&
-      (className = styles.stickTop);
-    nodePosition === TRAIL_NODE_POSITION.STICK_BOTTOM &&
-      (className = styles.stickBottom);
+    if (nodePosition === TRAIL_NODE_POSITION.STICK_TOP) {
+      className = styles.stickTop;
+    } else if (nodePosition === TRAIL_NODE_POSITION.STICK_BOTTOM) {
+      className = styles.stickBottom;
+    }
 
     return className;
   }, [nodePosition]);

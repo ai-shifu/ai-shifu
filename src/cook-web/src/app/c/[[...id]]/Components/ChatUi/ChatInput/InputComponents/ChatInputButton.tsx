@@ -1,12 +1,14 @@
 import styles from './ChatInputButton.module.scss';
-import { memo, useEffect } from 'react';
+
+import { memo, useCallback, useEffect } from 'react';
+import { cn } from '@/lib/utils'
 
 import {
   INTERACTION_OUTPUT_TYPE,
   INTERACTION_TYPE,
 } from '@/c-constants/courseConstants';
 
-import MainButton from '@/c-components/MainButton';
+import { Button } from '@/components/ui/button'
 import { registerInteractionType } from '../interactionRegistry';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
@@ -20,7 +22,7 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
     useShallow((state) => ({ skip: state.skip }))
   );
 
-  const onBtnClick = () => {
+  const onBtnClick = useCallback(() => {
     if (type === INTERACTION_TYPE.NEXT_CHAPTER) {
       onClick?.(INTERACTION_OUTPUT_TYPE.NEXT_CHAPTER, false, {
         lessonId: props.lessonId,
@@ -42,13 +44,13 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
     }
 
     onClick?.(INTERACTION_OUTPUT_TYPE.CONTINUE, props.display !== undefined ? props.display : false, props.value);
-  }
+  }, [type, props.lessonId, props.display, props.value, onClick])
 
   useEffect(() => {
     if (skip && !disabled && (type === INTERACTION_TYPE.NEXT_CHAPTER || type === INTERACTION_TYPE.CONTINUE )) {
       onBtnClick();
     }
-  }, [skip, disabled, type]);
+  }, [skip, disabled, type, onBtnClick]);
 
   const { inMacOs } = useUiLayoutStore(
     useShallow((state) => ({ inMacOs: state.inMacOs }))
@@ -64,14 +66,12 @@ export const ChatInputButton = ({ type, props, onClick, disabled }) => {
 
   return (
     <div className={styles.continueWrapper}>
-      <MainButton
-        className={styles.continueBtn}
-        width="90%"
+      <Button
+        className={cn(styles.continueBtn, 'w-11/12')}
         disabled={disabled}
-        onClick={onBtnClick}
-      >
+        onClick={onBtnClick}>
         {props.label}
-      </MainButton>
+      </Button>
     </div>
   );
 };

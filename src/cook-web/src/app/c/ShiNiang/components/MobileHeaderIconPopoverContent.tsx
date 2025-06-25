@@ -23,7 +23,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
       updateOrderPromotePopoverOpen: state.updateOrderPromotePopoverOpen,
     }))
   );
-
+  // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
   useEffect(() => {
@@ -36,6 +36,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
 
   const onOkButtonClick = useCallback(() => {
     if (!hasPay) {
+      // @ts-expect-error EXPECT
       shifu.payTools.openPay({});
       trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' })
     }
@@ -60,7 +61,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     const onModalOk = () => {
       updateHasPay(true);
     };
-
+    // @ts-expect-error EXPECT
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
 
     return () => {
@@ -68,7 +69,9 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
         onEventHandler
       );
+      // @ts-expect-error EXPECT
       shifu.events.removeEventListener(
+        // @ts-expect-error EXPECT
         shifu.EventTypes.PAY_MODAL_OK,
         onModalOk
       );
