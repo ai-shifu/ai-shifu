@@ -46,13 +46,13 @@ export default function ProfileFormItem ({
       profile => profile?.profile_id && value?.includes(profile.profile_id)
     )
     setSelectedProfiles(selectedProfiles)
-  }, [value, JSON.stringify(systemProfiles), JSON.stringify(customProfiles)])
+  }, [JSON.stringify(systemProfiles), JSON.stringify(customProfiles)])
 
   return (
     <div className='py-2 flex items-center justify-between gap-6'>
       {!!selectedProfiles?.length && (
         <div className='flex flex-wrap gap-2'>
-          {selectedProfiles?.map((profile, index) => (
+          {selectedProfiles?.map((profile: Profile, index: number) => (
             <Badge
               key={index}
               variant='outline'
