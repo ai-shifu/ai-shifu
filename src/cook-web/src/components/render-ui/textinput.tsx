@@ -89,6 +89,7 @@ function TextInput (props: TextInputProps) {
   }
 
   const handleProfileChange = (value: string[]) => {
+    // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
       prompt: {
