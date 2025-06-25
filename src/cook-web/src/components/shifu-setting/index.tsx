@@ -368,7 +368,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                                 <div className="col-span-3">
                                     {uploadedImageUrl ? (
                                         <div className="mb-2">
-                                            <div className="relative w-24 l h-24 bg-gray-100 rounded-lg overflow-hidden">
+                                            <div className="relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden">
                                                 <img
                                                     src={uploadedImageUrl}
                                                     alt={t('shifu-setting.shifu-avatar')}

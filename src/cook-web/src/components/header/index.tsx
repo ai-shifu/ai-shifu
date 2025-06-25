@@ -6,7 +6,7 @@ import { useShifu } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/use-alert';
 import api from '@/api'
-import { ChevronLeft, CircleAlert, CircleCheck, TrendingUp } from 'lucide-react';
+import { Home, CircleAlert, CircleCheck, TrendingUp } from 'lucide-react';
 import Preivew from '@/components/preview';
 import ShifuSetting from '@/components/shifu-setting';
 import { useTranslation } from 'react-i18next';
@@ -58,8 +58,8 @@ const Header = () => {
     return (
         <div className="flex items-center w-full h-14 px-2 py-2 bg-white border-b border-gray-200">
             <div className="flex items-center space-x-4">
-                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
-                    <ChevronLeft className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.push('/')}>
+                    <Home className="h-5 w-5" />
                 </Button>
 
                 <div className="flex items-center">

@@ -24,6 +24,48 @@ def upgrade():
                 "course_keywords", sa.Text(), nullable=False, comment="Course keywords"
             )
         )
+        batch_op.drop_column("course_teacher_avator")
+        batch_op.add_column(
+            sa.Column(
+                "course_teacher_avator",
+                sa.String(length=255),
+                nullable=True,
+                default="",
+                server_default="",
+                comment="Course teacher avatar",
+            )
+        )
+        batch_op.drop_column("course_default_temprature")
+        batch_op.add_column(
+            sa.Column(
+                "course_default_temprature",
+                sa.DECIMAL(precision=3, scale=1),
+                nullable=False,
+                default=0.3,
+                server_default="0.3",
+                comment="Course default temperature",
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "course_default_temperature",
+                sa.DECIMAL(precision=3, scale=1),
+                nullable=False,
+                default=0.3,
+                server_default="0.3",
+                comment="Course default temperature",
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "course_teacher_avatar",
+                sa.String(length=255),
+                nullable=False,
+                default="",
+                server_default="",
+                comment="Course teacher avatar",
+            )
+        )
     with op.batch_alter_table("ai_lesson", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
@@ -33,6 +75,27 @@ def upgrade():
                 comment="Parent lesson UUID",
             )
         )
+        batch_op.drop_column("lesson_default_temprature")
+        batch_op.add_column(
+            sa.Column(
+                "lesson_default_temprature",
+                sa.DECIMAL(precision=3, scale=1),
+                nullable=False,
+                default=0.3,
+                server_default="0.3",
+                comment="Lesson default temperature",
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "lesson_default_temperature",
+                sa.DECIMAL(precision=3, scale=1),
+                nullable=False,
+                default=0.3,
+                server_default="0.3",
+                comment="Lesson default temperature",
+            )
+        )
     with op.batch_alter_table("ai_lesson_script", schema=None) as batch_op:
         batch_op.add_column(
             sa.Column(
@@ -40,6 +103,25 @@ def upgrade():
                 sa.String(length=36),
                 nullable=False,
                 comment="Script UI profile id",
+            )
+        )
+        batch_op.drop_column("script_temprature")
+        batch_op.add_column(
+            sa.Column(
+                "script_temprature",
+                sa.DECIMAL(precision=3, scale=1),
+                nullable=False,
+                default=0.3,
+                server_default="0.3",
+                comment="Script temperature",
+            )
+        )
+        batch_op.add_column(
+            sa.Column(
+                "script_temperature",
+                sa.DECIMAL(precision=3, scale=1),
+                nullable=False,
+                comment="Script temperature",
             )
         )
 
@@ -102,10 +184,28 @@ def upgrade():
     )
     with op.batch_alter_table("ai_course", schema=None) as batch_op:
         batch_op.drop_column("course_keywords")
+        batch_op.execute(
+            "UPDATE ai_course SET course_default_temprature = course_default_temperature"
+        )
+        batch_op.drop_column("course_default_temperature")
+        batch_op.execute(
+            "UPDATE ai_course SET course_teacher_avator = course_teacher_avatar"
+        )
+        batch_op.drop_column("course_teacher_avatar")
+
     with op.batch_alter_table("ai_lesson", schema=None) as batch_op:
         batch_op.drop_column(batch_op.f("parent_id"))
+        batch_op.execute(
+            "UPDATE ai_lesson SET lesson_default_temprature = lesson_default_temperature"
+        )
+        batch_op.drop_column("lesson_default_temperature")
+
     with op.batch_alter_table("ai_lesson_script", schema=None) as batch_op:
         batch_op.drop_column(batch_op.f("script_ui_profile_id"))
+        batch_op.execute(
+            "UPDATE ai_lesson_script SET script_temprature = script_temperature"
+        )
+        batch_op.drop_column("script_temperature")
 
 
 def downgrade():
