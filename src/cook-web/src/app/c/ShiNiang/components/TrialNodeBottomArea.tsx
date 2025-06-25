@@ -15,9 +15,11 @@ const TrialNodeBottomArea = ({ payload }) => {
     }))
   );
 
+  // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
   const onClick = useCallback( () => {
+    // @ts-expect-error EXPECT
     shifu.payTools.openPay({});
     trackEvent(EVENT_NAMES.POP_PAY, { from: 'left-nav-banner' });
   }, [EVENT_NAMES.POP_PAY, trackEvent]);
@@ -26,10 +28,11 @@ const TrialNodeBottomArea = ({ payload }) => {
     const onModalOk = () => {
       updateHasPay(true);
     };
-
+    // @ts-expect-error EXPECT
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
-
+    
     return () => {
+      // @ts-expect-error EXPECT
       shifu.events.removeEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
     }
   });

@@ -9,6 +9,7 @@ import { Avatar, AvatarImage } from '@/components/ui/avatar';
 
 import imgUser from '@/c-assets/newchat/light/user.png';
 
+// @ts-expect-error EXPECT
 export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
   
@@ -19,6 +20,7 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
   const htmlRef = useRef(null);
 
   const containElement = (elem) => {
+    // @ts-expect-error EXPECT
     return htmlRef.current && htmlRef.current.contains(elem);
   };
   useImperativeHandle(ref, () => ({

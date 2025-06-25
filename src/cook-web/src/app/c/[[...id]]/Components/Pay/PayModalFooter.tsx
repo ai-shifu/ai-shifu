@@ -3,8 +3,8 @@ import styles from './PayModalFooter.module.scss';
 import classNames from 'classnames';
 import { useTranslation } from 'react-i18next';
 
-export const PayModalFooter = ({ className }) => {
-  const { t } = useTranslation();
+export const PayModalFooter = ({ className = ''}) => {
+  const { t } = useTranslation('translation', {keyPrefix: 'c'});
 
   const renderVirtualProductPoint1 = () => {
     const point1Text = t('pay.virtualProductPoint1');
@@ -25,7 +25,9 @@ export const PayModalFooter = ({ className }) => {
           rel="noopener"
         >
           {t('pay.modelServiceAgreement')}
-        </a>{parts[1]}<a
+        </a>
+        {parts[1]}
+        <a
           className={styles.protocolLink}
           href="/privacypolicy"
           target="_blank"

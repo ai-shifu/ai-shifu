@@ -1,4 +1,4 @@
-import { memo, useState } from "react"
+import { useState } from "react"
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 export const TrackingVisit = () => {
@@ -11,4 +11,4 @@ export const TrackingVisit = () => {
   }
 }
 
-export default memo(TrackingVisit);
+export default TrackingVisit;

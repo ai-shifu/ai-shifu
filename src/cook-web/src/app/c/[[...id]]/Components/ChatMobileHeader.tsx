@@ -39,6 +39,7 @@ export const ChatMobileHeader = ({
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
             onOpen={onIconPopoverOpen}
+            onClose={onIconPopoverClose}
           />
         </div>
       )}
@@ -52,6 +53,7 @@ export const ChatMobileHeader = ({
         <PopoverContent className={styles.iconButtonPopover}>
             <MobileHeaderIconPopover
               payload={iconPopoverPayload}
+              onOpen={onIconPopoverOpen}
               onClose={onIconPopoverClose}
             />
         </PopoverContent>

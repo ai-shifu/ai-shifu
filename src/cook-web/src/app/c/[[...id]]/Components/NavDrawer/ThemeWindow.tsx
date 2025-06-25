@@ -1,10 +1,11 @@
-import PopupModal from 'Components/PopupModal';
+import PopupModal from '@/c-components/PopupModal';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 export const ThemeWindow = ({ open, onClose, style, className }) => {
   const { t } = useTranslation();
   return (
+    // @ts-expect-error EXPECT
     <PopupModal
       open={open}
       onClose={onClose}

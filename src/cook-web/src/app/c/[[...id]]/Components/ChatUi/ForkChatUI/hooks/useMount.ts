@@ -10,7 +10,7 @@ interface UseMountOptions {
 function useMount({ active = false, ref, delay = 300 }: UseMountOptions) {
   const [isShow, setIsShow] = useState(false);
   const [didMount, setDidMount] = useState(false);
-  const timeout = useRef<ReturnType<typeof setTimeout>>();
+  const timeout = useRef<ReturnType<typeof setTimeout>>(null);
 
   useEffect(() => {
     if (active) {

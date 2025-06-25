@@ -10,6 +10,7 @@ export type ClickOutsideProps = {
 };
 
 export const ClickOutside: React.FC<ClickOutsideProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { children, onClick, mouseEvent = 'mouseup', ...others } = props;
   const wrapper = useRef<HTMLDivElement>(null!);
 

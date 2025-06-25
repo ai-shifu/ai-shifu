@@ -30,10 +30,12 @@ export const SettingInputM = ({
     }
 
     rules.some((r) => {
+      // @ts-expect-error EXPECT
       const ret = r.validator(_value);
 
       if (!ret) {
         setIsError(true);
+        // @ts-expect-error EXPECT
         setErrorMessage(r.message);
         return true
       }
@@ -51,6 +53,7 @@ export const SettingInputM = ({
           onChange={_onChange}
           onBlur={_onBlur}
           placeholder={placeholder || title}
+          // @ts-expect-error EXPECT
           clearable={true}
         />
       </div>

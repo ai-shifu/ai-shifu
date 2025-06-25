@@ -130,3 +130,6 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>((props, 
     </div>
   );
 });
+
+
+Recorder.displayName = 'Recorder';

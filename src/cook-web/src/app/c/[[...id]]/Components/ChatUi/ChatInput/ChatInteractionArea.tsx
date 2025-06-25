@@ -10,19 +10,20 @@ import { getInteractionComponent } from './interactionRegistry';
 import ChatInputText from './InputComponents/ChatInputText';
 import AskButton from './InputComponents/AskButton';
 
+// TODO: FIXME
 // import all interaction components
-const importAll = (r) => r.keys().forEach(r);
-importAll(require.context('./InputComponents', true, /\.tsx$/));
+// const importAll = (r) => r.keys().forEach(r);
+// importAll(require.context('./InputComponents', true, /\.tsx$/));
 
 export const ChatInteractionArea = ({
   type = INTERACTION_DISPLAY_TYPE.TEXT,
   props = {},
-  onSend = (type, display, val, scriptId) => {},
+  onSend = () => {},
   disabled = false,
   askButtonState = { askMode: false, total: 1, used: 0 },
-  onSizeChange = ({ width, height }) => {},
+  onSizeChange = () => {},
 }) => {
-  const elemRef = useRef();
+  const elemRef = useRef(null);
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
   const [askContent, setAskContent] = useState('');
@@ -34,6 +35,7 @@ export const ChatInteractionArea = ({
     }
     setInputValue('');
     setAskContent('');
+    // @ts-expect-error EXPECT
     onSend?.(type, display, val, props.scriptId);
   };
 
@@ -56,6 +58,7 @@ export const ChatInteractionArea = ({
 
   const resizeChange = useCallback(
     (e) => {
+      // @ts-expect-error EXPECT
       onSizeChange?.({
         width: e.contentRect.width,
         height: e.contentRect.height,
@@ -82,10 +85,12 @@ export const ChatInteractionArea = ({
         resizeChange(ent);
       }
     });
+    // @ts-expect-error EXPECT
     resize.observe(elemRef?.current);
     // Destroy the observer in a timely manner (important!!!)
     const curr = elemRef?.current;
     return () => {
+      // @ts-expect-error EXPECT
       resize.unobserve(curr);
     };
   }, [resizeChange]);
@@ -105,6 +110,7 @@ export const ChatInteractionArea = ({
                 id="askInput"
                 onClick={onSendAsk}
                 type="text"
+                // @ts-expect-error EXPECT
                 props={{ content: t('chat.askContent') }}
                 visible={isInputVisible}
                 initialValue={askContent}
@@ -112,6 +118,7 @@ export const ChatInteractionArea = ({
               />
             )}
           </div>
+          {/* @ts-expect-error EXPECT */}
           {askButtonState.visible && (
             <AskButton
               className={styles.askButton}

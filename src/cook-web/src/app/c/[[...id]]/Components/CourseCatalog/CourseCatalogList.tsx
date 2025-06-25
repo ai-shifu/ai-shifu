@@ -8,18 +8,17 @@ import CourseCatalog from './CourseCatalog';
 import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
 
-// TODO: 替换成 lucide icon
+import Image from 'next/image';
 import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png'
-
 
 export const CourseCatalogList = ({
   courseName = '',
   catalogs = [],
   containerScrollTop = 0,
   containerHeight = 0,
-  onChapterCollapse = ({ id }) => {},
-  onLessonSelect = ({ id }) => {},
-  onTryLessonSelect = ({ chapterId, lessonId }) => {},
+  onChapterCollapse,
+  onLessonSelect,
+  onTryLessonSelect,
   selectedLessonId = '',
   bannerInfo = null,
 }) => {
@@ -39,6 +38,7 @@ export const CourseCatalogList = ({
 
   useEffect(() => {
     setTrialNodePayload(
+      // @ts-expect-error EXPECT
       catalogs.find((c) => !!c.bannerInfo)?.bannerInfo || null
     );
   }, [catalogs]);
@@ -52,8 +52,10 @@ export const CourseCatalogList = ({
       <div className={styles.courseCatalogList}>
         <div className={styles.titleRow}>
           <div className={styles.titleArea}>
-            <img
+            <Image
               className={styles.icon}
+              width={16}
+              height={16}
               src={imgCourseList.src}
               alt={t('navigation.courseList')}
             />
@@ -64,23 +66,32 @@ export const CourseCatalogList = ({
         <div className={styles.listRow}>
           {catalogs.map((catalog) => {
             return (
+              // @ts-expect-error EXPECT
               <div key={catalog.id}>
                 <CourseCatalog
+                // @ts-expect-error EXPECT
                   key={catalog.id}
+                  // @ts-expect-error EXPECT
                   id={catalog.id}
+                  // @ts-expect-error EXPECT
                   name={catalog.name}
+                  // @ts-expect-error EXPECT
                   status={catalog.status_value}
                   selectedLessonId={selectedLessonId}
+                  // @ts-expect-error EXPECT
                   lessons={catalog.lessons}
+                  // @ts-expect-error EXPECT
                   collapse={catalog.collapse}
                   onCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTrySelect={onTryLessonSelect}
                 />
+                {/* @ts-expect-error EXPECT */}
                 {catalog.bannerInfo && (
                   <TrialNodeBottomArea
                     containerHeight={containerHeight}
                     containerScrollTop={containerScrollTop}
+                    // @ts-expect-error EXPECT
                     payload={catalog.bannerInfo}
                     onNodePositionChange={onNodePositionChange}
                   />
@@ -94,6 +105,7 @@ export const CourseCatalogList = ({
         <TrialNodeOuter
           nodePosition={trialNodePosition}
           payload={trialNodePayload}
+          // @ts-expect-error EXPECT
           containerScrollTop={containerScrollTop}
         />
       )}

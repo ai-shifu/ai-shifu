@@ -3,6 +3,8 @@ import { Modal } from '../Modal';
 import { Flex } from '../Flex';
 import { useLocale } from '../LocaleProvider';
 
+import Image from 'next/image'
+
 export type SendConfirmProps = {
   file: Blob;
   onCancel: () => void;
@@ -43,7 +45,7 @@ export const SendConfirm: React.FC<SendConfirmProps> = (props) => {
       ]}
     >
       <Flex className="SendConfirm-inner" center>
-        <img src={img} alt="" />
+        <Image src={img} alt="" />
       </Flex>
     </Modal>
   );

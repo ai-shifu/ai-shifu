@@ -7,5 +7,6 @@ interface AccessoryWrapProps {
 }
 
 export const AccessoryWrap = ({ onClickOutside, children }: AccessoryWrapProps) => (
+  // @ts-expect-error EXPECT
   <ClickOutside onClick={onClickOutside}>{children}</ClickOutside>
 );

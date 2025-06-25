@@ -3,6 +3,7 @@ import clsx from 'clsx';
 
 export type TreeProps = {
   className?: string;
+  children?: React.ReactNode;
 };
 
 export const Tree: React.FC<TreeProps> = (props) => {
