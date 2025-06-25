@@ -24,7 +24,7 @@ export default function ProfileFormItem ({
   const handleAddProfile = (profile: Profile) => {
     setIsDialogOpen(false)
     if (
-      profile.profile_key &&
+      profile.profile_id &&
       !selectedProfiles.find(item => item.profile_id === profile.profile_id)
     ) {
       const currentProfiles = [...selectedProfiles, profile]
