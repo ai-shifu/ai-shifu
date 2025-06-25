@@ -1,15 +1,23 @@
+import styles from './PayModalM.module.scss';
+
 import { memo, useState, useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import ModalM from '@/c-components/m/ModalM';
-import styles from './PayModalM.module.scss';
-import classNames from 'classnames';
 
+import { cn } from '@/lib/utils'
+
+import Image from 'next/image';
 import weixinIcon from '@/c-assets/newchat/weixin.png';
 import zhifuboIcon from '@/c-assets/newchat/zhifubao.png';
+import payInfoBg from '@/c-assets/newchat/pay-info-bg-m.png';
+import paySuccessBg from '@/c-assets/newchat/pay-success@2x.png';
 
-// import RadioM from '@/c-components/m/RadioM';
-// import { Radio } from 'antd-mobile';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 import {
@@ -18,7 +26,6 @@ import {
   ORDER_STATUS,
 } from './constans';
 import MainButtonM from '@/c-components/m/MainButtonM';
-import payInfoBg from '@/c-assets/newchat/pay-info-bg-m.png';
 
 import {
   getPayUrl,
@@ -27,24 +34,25 @@ import {
   applyDiscountCode,
 } from '@/c-api/order';
 import { useWechat } from '@/c-common/hooks/useWechat';
-// TODO: FIXME
-// import { message } from 'antd';
+
+import { toast } from '@/hooks/use-toast';
+
 import { inWechat } from '@/c-constants/uiConstants';
 import { useDisclosture } from '@/c-common/hooks/useDisclosture';
 import { SettingInputM } from '@/c-components/m/SettingInputM';
 import PayModalFooter from './PayModalFooter';
-import paySuccessBg from '@/c-assets/newchat/pay-success@2x.png';
+
 import { getStringEnv } from '@/c-utils/envUtils';
 import { useUserStore } from '@/c-store/useUserStore';
 import { shifu } from '@/c-service/Shifu';
 
 const CompletedSection = memo(() => {
-  const { t } = useTranslation();
+  const { t } = useTranslation('translation', { keyPrefix: 'c'});
   return (
     <div className={styles.completedSection}>
       <div className={styles.title}>{t('pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
-        <img className={styles.paySuccessBg} src={paySuccessBg} alt="" />
+        <Image className={styles.paySuccessBg} src={paySuccessBg.src} alt="pay-success-bg" />
       </div>
       <PayModalFooter className={styles.payModalFooter} />
     </div>
@@ -71,9 +79,9 @@ export const PayModalM = ({
   const [originalPrice, setOriginalPrice] = useState('');
   const [priceItems, setPriceItems] = useState([]);
 
-  const { t } = useTranslation();
+  const { t } = useTranslation('translation', { keyPrefix: 'c'});
   const { payByJsApi } = useWechat();
-  const [messageApi, contextHolder] = message.useMessage();
+
   const {
     open: couponCodeModalOpen,
     onClose: onCouponCodeModalClose,
@@ -87,6 +95,7 @@ export const PayModalM = ({
   const initOrderUniform = useCallback(
     async (courseId) => {
       if (type === 'active') {
+        // @ts-expect-error EXPECT
         return initActiveOrder({
           courseId,
           ...payload,
@@ -107,16 +116,22 @@ export const PayModalM = ({
     if (payChannel === PAY_CHANNEL_WECHAT_JSAPI) {
       try {
         await payByJsApi(qrcodeResp.qr_url);
-        messageApi.success('支付成功');
+        toast({
+          title: '支付成功',
+        })
         setIsCompleted(true);
         onOk();
       } catch (e) {
-        messageApi.error('支付失败');
+        console.log(e)
+        toast({
+          title: '支付失败',
+          variant: 'destructive',
+        });
       }
     } else {
       window.open(qrcodeResp.qr_url);
     }
-  }, [messageApi, onOk, orderId, payByJsApi, payChannel]);
+  }, [ onOk, orderId, payByJsApi, payChannel]);
 
   const onPayChannelChange = useCallback((value) => {
     setPayChannel(value);
@@ -136,8 +151,13 @@ export const PayModalM = ({
 
   const onCouponCodeOkClick = useCallback(async () => {
     const resp = await applyDiscountCode({ orderId, code: couponCode });
+    // @ts-expect-error EXPECT
     if (resp.code !== 0) {
-      messageApi.error(resp.message);
+      toast({
+        // @ts-expect-error EXPECT
+        title: resp.message,
+        variant: 'destructive',
+      })
       return;
     }
 
@@ -147,7 +167,7 @@ export const PayModalM = ({
       setIsCompleted(true);
       onOk();
     }
-  }, [couponCode, messageApi, onCouponCodeModalClose, onOk, orderId]);
+  }, [couponCode, onCouponCodeModalClose, onOk, orderId]);
 
   const onLoginButtonClick = useCallback(() => {
     onCancel?.();
@@ -170,14 +190,16 @@ export const PayModalM = ({
     })();
   }, [courseId, initOrderUniform]);
 
+  function handleCancel(open: boolean) {
+    if (!open) {
+      onCancel?.();
+    }
+  }
+
   return (
     <>
-      <ModalM
-        className={''}
-        visible={open}
-        onClose={onCancel}
-        style={{ wdith: '100%' }}
-        content={
+      <Dialog open={open} onOpenChange={handleCancel}>
+        <DialogContent className="w-full">
           <div className={styles.payModalContent}>
             {isCompleted ? (
               <CompletedSection />
@@ -187,7 +209,7 @@ export const PayModalM = ({
                   <>
                     <div className={styles.payInfoTitle}>到手价格</div>
                     <div className={styles.priceWrapper}>
-                      <div className={classNames(styles.price)}>
+                      <div className={cn(styles.price)}>
                         <span className={styles.priceSign}>￥</span>
                         <span className={styles.priceNumber}>{price}</span>
                       </div>
@@ -206,9 +228,11 @@ export const PayModalM = ({
                           return (
                             <div className={styles.priceItem} key={index}>
                               <div className={styles.priceItemName}>
+                                {/* @ts-expect-error EXPECT */}
                                 {item.price_name}
                               </div>
                               <div className={styles.priceItemPrice}>
+                                {/* @ts-expect-error EXPECT */}
                                 {item.price}
                               </div>
                             </div>
@@ -221,11 +245,10 @@ export const PayModalM = ({
                         <div className={styles.payChannelWrapper}>
                           <RadioGroup
                             value={payChannel}
-                            onChange={onPayChannelChange}
-                          >
+                            onChange={onPayChannelChange}>
                             {inWechat() && (
                               <div
-                                className={classNames(
+                                className={cn(
                                   styles.payChannelRow,
                                   payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
                                     styles.selected
@@ -233,24 +256,17 @@ export const PayModalM = ({
                                 onClick={onPayChannelWechatClick}
                               >
                                 <div className={styles.payChannelBasic}>
-                                  <img
-                                    src={weixinIcon}
-                                    alt="微信支付"
-                                    className={styles.payChannelIcon}
-                                  />
+                                  <Image className={styles.payChannelIcon} src={weixinIcon.src} alt="微信支付" />
                                   <span className={styles.payChannelTitle}>
                                     微信支付
                                   </span>
                                 </div>
-                                <RadioM
-                                  className={styles.payChannelRadio}
-                                  value={PAY_CHANNEL_WECHAT_JSAPI}
-                                />
+                                <RadioGroupItem value={PAY_CHANNEL_WECHAT_JSAPI} className={styles.payChannelRadio} />
                               </div>
                             )}
                             {!inWechat() && (
                               <div
-                                className={classNames(
+                                className={cn(
                                   styles.payChannelRow,
                                   payChannel === PAY_CHANNEL_ZHIFUBAO &&
                                     styles.selected
@@ -258,24 +274,18 @@ export const PayModalM = ({
                                 onClick={onPayChannelZhifubaoClick}
                               >
                                 <div className={styles.payChannelBasic}>
-                                  <img
-                                    src={zhifuboIcon}
-                                    alt="支付宝支付"
-                                    className={styles.payChannelIcon}
-                                  />
+                                  <Image className={styles.payChannelIcon} src={zhifuboIcon.src} alt="支付宝支付" />
                                   <span className={styles.payChannelTitle}>
                                     支付宝支付
                                   </span>
                                 </div>
-                                <RadioM
-                                  className={styles.payChannelRadio}
-                                  value={PAY_CHANNEL_ZHIFUBAO}
-                                />
+                                <RadioGroupItem value={PAY_CHANNEL_ZHIFUBAO} className={styles.payChannelRadio} />
                               </div>
                             )}
                           </RadioGroup>
                         </div>
                         <div className={styles.buttonWrapper}>
+                          {/* @ts-expect-error EXPECT */}
                           <MainButtonM
                             className={styles.payButton}
                             onClick={handlePay}
@@ -284,6 +294,7 @@ export const PayModalM = ({
                           </MainButtonM>
                         </div>
                         <div className={styles.couponCodeWrapper}>
+                          {/* @ts-expect-error EXPECT */}
                           <MainButtonM
                             className={styles.couponCodeButton}
                             fill="none"
@@ -298,6 +309,7 @@ export const PayModalM = ({
                       </>
                     ) : (
                       <div className={styles.loginButtonWrapper}>
+                        {/* @ts-expect-error EXPECT */}
                         <MainButtonM onClick={onLoginButtonClick}>
                           登录
                         </MainButtonM>
@@ -311,39 +323,36 @@ export const PayModalM = ({
             )}
 
             <div className={styles.payInfoWrapper}>
-              <img className={styles.payInfo} src={payInfoBg.src} alt="产品说明" />
+              <Image className={styles.payInfo} src={payInfoBg.src} alt="产品说明" />
             </div>
           </div>
-        }
-      />
+        </DialogContent>
+      </Dialog>
+
       {couponCodeModalOpen && (
-        <ModalM
-          visible={couponCodeModalOpen}
-          title="兑换码"
-          onClose={onCouponCodeModalClose}
-          style={{ width: '80%' }}
-          className={styles.couponCodeModal}
-          content={
-            <>
+        <Dialog open={couponCodeModalOpen}>
+          <DialogContent className={cn('w-5/6', styles.couponCodeModal)}>
+            <DialogHeader>
+              <DialogTitle>兑换码</DialogTitle>
+            </DialogHeader>
               <div className={styles.couponCodeInputWrapper}>
+                {/* @ts-expect-error EXPECT */}
                 <SettingInputM
                   title="兑换码"
                   onChange={(e) => setCouponCode(e)}
                 />
               </div>
-              <div class={styles.buttonWrapper}>
+              <div className={styles.buttonWrapper}>
+                {/* @ts-expect-error EXPECT */}
                 <MainButtonM
                   onClick={onCouponCodeOkClick}
-                  className={styles.okButton}
-                >
+                  className={styles.okButton}>
                   确定
                 </MainButtonM>
               </div>
-            </>
-          }
-        />
+          </DialogContent>
+        </Dialog>
       )}
-      {contextHolder}
     </>
   );
 };

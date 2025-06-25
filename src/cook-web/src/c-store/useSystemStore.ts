@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SystemStoreState } from '../types/store';
+import { SystemStoreState } from '@/c-types/store';
 
 export const useSystemStore = create<SystemStoreState>((set) => ({
   language: 'en',

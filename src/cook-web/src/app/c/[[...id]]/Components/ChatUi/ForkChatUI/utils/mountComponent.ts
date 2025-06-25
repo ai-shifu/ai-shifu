@@ -1,18 +1,21 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+
+import { createRoot } from 'react-dom/client';
 
 export function mountComponent(Comp: React.ReactElement, root = document.body) {
   const div = document.createElement('div');
   root.appendChild(div);
+  const rootContainer = createRoot(div);
 
   const Clone = React.cloneElement(Comp, {
+    // @ts-expect-error EXPECT
     onUnmount() {
-      ReactDOM.unmountComponentAtNode(div);
+      rootContainer.unmount()
       root.removeChild(div);
     },
   });
 
-  ReactDOM.render(Clone, div);
+  rootContainer.render(Clone);
 
   return div;
 }

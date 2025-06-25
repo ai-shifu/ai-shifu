@@ -13,7 +13,7 @@ export const MainButtonM = forwardRef((props, ref) => {
     if (loading) {
       return
     }
-
+    // @ts-expect-error EXPECT
     const ret = props.onClick?.(e);
     if (!(ret instanceof Promise)) {
       return
@@ -29,12 +29,14 @@ export const MainButtonM = forwardRef((props, ref) => {
 
   return (
     <Button
+      // @ts-expect-error EXPECT
       ref={ref}
       color="primary"
       fill="solid"
       shape='rounded'
       {...props}
       onClick={_onClick}
+      // @ts-expect-error EXPECT
       className={clsx(styles.mainButtonM, props.className)}
     />
   );

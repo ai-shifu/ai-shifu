@@ -4,6 +4,7 @@ import clsx from 'clsx';
 export type ListProps = {
   className?: string;
   bordered?: boolean;
+  children?: React.ReactNode;
 };
 
 export const List: React.FC<ListProps> = (props) => {

@@ -1,15 +1,17 @@
 import styles from './ChatInputText.module.scss';
+import { useEffect, useRef, useState, memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { toast } from '@/hooks/use-toast';
 import {
   INTERACTION_OUTPUT_TYPE,
   INTERACTION_TYPE,
 } from '@/c-constants/courseConstants';
-import { useEffect, useRef, useState, memo } from 'react';
-import { useTranslation } from 'react-i18next';
+
 
 import { registerInteractionType } from '../interactionRegistry';
 import iconSend from '@/c-assets/newchat/light/icon-send.png'
+import Image from 'next/image';
 
 const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.INPUT]: INTERACTION_OUTPUT_TYPE.TEXT,
@@ -40,7 +42,7 @@ export const ChatInputText = ({ onClick, initialValue, onInputChange, type, disa
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const placeholder = props?.content?.content || t('chat.chatInputPlaceholder');
-
+  // @ts-expect-error EXPECT
   const outputType = OUTPUT_TYPE_MAP[type];
 
   const onSendClick = async () => {
@@ -157,7 +159,7 @@ export const ChatInputText = ({ onClick, initialValue, onInputChange, type, disa
             data-gramm="false"
             suppressContentEditableWarning={true}
           />
-          <img src={iconSend.src} alt="" className={styles.sendIcon} onClick={onSendClick} />
+          <Image src={iconSend.src} width={24} height={24} alt="" className={styles.sendIcon} onClick={onSendClick} />
         </div>
       </div>
     </div>

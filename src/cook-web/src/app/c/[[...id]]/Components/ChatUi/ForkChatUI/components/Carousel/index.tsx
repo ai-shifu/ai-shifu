@@ -446,16 +446,19 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>((props, 
         ref={innerRef}
       >
         {loop && (
+          // @ts-expect-error EXPECTED
           <CarouselItem width={itemWith}>
             {React.Children.toArray(children)[count - 1]}
           </CarouselItem>
         )}
         {React.Children.map(children, (item, i) => (
+          // @ts-expect-error EXPECTED
           <CarouselItem width={itemWith} key={i}>
             {item}
           </CarouselItem>
         ))}
         {loop && (
+          // @ts-expect-error EXPECTED
           <CarouselItem width={itemWith}>{React.Children.toArray(children)[0]}</CarouselItem>
         )}
       </div>
@@ -477,3 +480,5 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>((props, 
     </div>
   );
 });
+
+Carousel.displayName = 'Carousel';

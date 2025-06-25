@@ -1,9 +1,13 @@
-import PopupModal from 'Components/PopupModal';
-import { Button } from 'antd';
-
 import styles from './FilingModal.module.scss';
+
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import PopupModal from '@/c-components/PopupModal';
+import { Button } from '@/components/ui/button';
+
+import Image from 'next/image';
+import imgBeian from '@/c-assets/newchat/light/beian.png'
 
 export const FillingModal = ({
   open,
@@ -12,8 +16,10 @@ export const FillingModal = ({
   onFeedbackClick,
   className,
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation('translation', {keyPrefix: 'c'});
+
   return (
+    // @ts-expect-error EXPECT
     <PopupModal
       open={open}
       onClose={onClose}
@@ -34,16 +40,16 @@ export const FillingModal = ({
           </a>
         </div>
         <div className={styles.gonganRow}>
-          <img
+          <Image
             className={styles.beianIcon}
-            src={require('@Assets/newchat/light/beian.png')}
+            src={imgBeian.src}
             alt={t('navigation.filing')}
           />
           <div>{t('navigation.gongan')}</div>
         </div>
         <div className={styles.btnGroup}>
           <Button
-            type="link"
+            variant="link"
             className={styles.actionBtn}
             onClick={onFeedbackClick}
           >
@@ -51,9 +57,9 @@ export const FillingModal = ({
           </Button>
           <div>|</div>
           <Button
-            type="link"
+            variant="link"
             className={styles.actionBtn}
-            onClick={(e) => {
+            onClick={() => {
               window.open('/useragreement');
             }}
           >
@@ -61,9 +67,9 @@ export const FillingModal = ({
           </Button>
           <div>|</div>
           <Button
-            type="link"
+            variant="link"
             className={styles.actionBtn}
-            onClick={(e) => {
+            onClick={() => {
               window.open('/privacypolicy');
             }}
           >

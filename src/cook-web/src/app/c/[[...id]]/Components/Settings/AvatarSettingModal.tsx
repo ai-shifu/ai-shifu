@@ -1,5 +1,6 @@
-import { useState, memo } from 'react';
 import styles from './AvatarSettingModal.module.scss';
+
+import { useState, memo } from 'react';
 import SettingBaseModal from './SettingBaseModal';
 import Cropper from 'react-easy-crop';
 import { genCroppedImg } from '@/c-utils/imgUtils';
@@ -8,8 +9,8 @@ export const AvatarSettingModal = ({
   open,
   onClose,
   image,
-  onOk = ({ img }) => {},
-  initialValues = {},
+  onOk,
+  // initialValues = {},
 }) => {
   const [srcImg] = useState(image);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
@@ -30,6 +31,7 @@ export const AvatarSettingModal = ({
   };
 
   return (
+    // @ts-expect-error EXPECT
     <SettingBaseModal open={open} onClose={onClose} onOk={onOkClick}>
       <div className={styles.avatarSettingModalWrapper}>
         <div className={styles.avatarSettingModal}>
@@ -41,6 +43,7 @@ export const AvatarSettingModal = ({
             onCropChange={setCrop}
             onCropComplete={onCropComplete}
             onZoomChange={setZoom}
+            // @ts-expect-error EXPECT
             style={{ height: '200px', width: '200px;' }}
           />
         </div>

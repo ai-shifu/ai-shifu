@@ -29,12 +29,15 @@ export const TreeNode: React.FC<TreeNodeProps> = (props) => {
     }
   }
   return (
-    <div className="TreeNode" role="treeitem" aria-expanded={expand}>
+    <div 
+    className="TreeNode" 
+    // role="treeitem" 
+    aria-expanded={expand}>
       {
         <div
           className="TreeNode-title"
           onClick={handleTitleClick}
-          role="treeitem"
+          // role="treeitem"
           aria-expanded={expand}
           tabIndex={0}
         >
@@ -62,7 +65,7 @@ export const TreeNode: React.FC<TreeNodeProps> = (props) => {
                     },
                   })
                 }
-                role="treeitem"
+                // role="treeitem"
               >
                 <span className="TreeNode-title-text">{t.title}</span>
               </div>

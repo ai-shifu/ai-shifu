@@ -8,6 +8,7 @@ interface ListItemPropsBase {
   content?: React.ReactNode;
   rightIcon?: string;
   onClick?: (event: React.MouseEvent) => void;
+  children?: React.ReactNode;
 }
 
 interface ListItemPropsWithLink extends ListItemPropsBase {

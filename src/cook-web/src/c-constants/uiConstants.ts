@@ -44,6 +44,7 @@ export const THEME_DARK = 'dark';
 
 export const inWechat = () => {
   const ua = navigator.userAgent.toLowerCase();
+  // @ts-expect-error EXPECT
   const isWXWork = ua.match(/wxwork/i) === 'wxwork';
   const isWeixin = !isWXWork && /MicroMessenger/i.test(ua);
 

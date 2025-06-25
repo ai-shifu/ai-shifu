@@ -36,7 +36,6 @@ export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
     completed = false,
     disabled = false,
     status,
-    index,
     title,
     subTitle,
     desc,
@@ -74,3 +73,5 @@ export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
     </li>
   );
 });
+
+Step.displayName = 'Step';

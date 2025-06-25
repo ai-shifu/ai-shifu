@@ -25,6 +25,7 @@ export type ModalProps = {
   bgColor?: string;
   onClose?: () => void;
   onBackdropClick?: () => void;
+  children?: React.ReactNode;
 };
 
 function clearModal() {

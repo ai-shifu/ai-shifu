@@ -5,6 +5,7 @@ export type ProgressProps = {
   className?: string;
   value: number;
   status?: 'active' | 'success' | 'error';
+  children?: React.ReactNode;
 };
 
 export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>((props, ref) => {
@@ -29,3 +30,5 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>((props, 
     </div>
   );
 });
+
+Progress.displayName = 'Progress';

@@ -198,6 +198,7 @@ export const Chat = React.forwardRef<HTMLDivElement, ChatProps>((props, ref) => 
   }, []);
 
   return (
+    // @ts-expect-error EXPECT
     <LocaleProvider locale={locale} locales={locales}>
       <div className="ChatApp" ref={ref}>
         {renderNavbar ? renderNavbar() : navbar && <Navbar {...navbar} />}
@@ -213,16 +214,14 @@ export const Chat = React.forwardRef<HTMLDivElement, ChatProps>((props, ref) => 
           onBackBottomClick={onBackBottomClick}
         />
         <div className="ChatFooter">
-          {renderQuickReplies ? (
-            renderQuickReplies()
-          ) : (
+          {renderQuickReplies && renderQuickReplies() ? (
             <QuickReplies
               items={quickReplies}
               visible={quickRepliesVisible}
               onClick={onQuickReplyClick}
               onScroll={onQuickReplyScroll}
             />
-          )}
+          ) : null}
           <Composer
             wideBreakpoint={wideBreakpoint}
             ref={composerRef}

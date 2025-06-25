@@ -1,4 +1,4 @@
-export default {
+ const ar_EG = {
   BackBottom: {
     newMsgOne: '{n} رسالة جديدة',
     newMsgOther: '{n} رسالة جديدة',
@@ -35,3 +35,5 @@ export default {
     search: 'يبحث',
   },
 };
+
+export default ar_EG;

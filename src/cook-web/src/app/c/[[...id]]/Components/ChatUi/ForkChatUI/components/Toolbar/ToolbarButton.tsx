@@ -2,6 +2,8 @@ import React from 'react';
 import { Button } from '../Button';
 import { Icon } from '../Icon';
 
+import Image from 'next/image';
+
 export interface ToolbarItemProps {
   type: string;
   title: string;
@@ -24,7 +26,7 @@ export const ToolbarButton: React.FC<ToolbarButtonProps> = (props) => {
       <Button className="Toolbar-btn" onClick={(e) => onClick(item, e)}>
         <span className="Toolbar-btnIcon">
           {icon && <Icon type={icon} />}
-          {img && <img className="Toolbar-img" src={img} alt="" />}
+          {img && <Image className="Toolbar-img" src={img} alt="" />}
         </span>
         <span className="Toolbar-btnText">{title}</span>
       </Button>

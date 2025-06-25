@@ -26,11 +26,12 @@ export const MarkdownBubble = (props) => {
     <>
       <Bubble>
         <ReactMarkdown
-          children={props.content}
+          // children={props.content}
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
           components={{
-            code({ node, inline, className, children, ...props }) {
+            // @ts-expect-error EXPECTED
+            code({ inline, className, children, ...props }) {
               const match = /language-(\w+)/.exec(className || '');
               return !inline && match ? (
                 <div
@@ -42,7 +43,7 @@ export const MarkdownBubble = (props) => {
                   <CopyButton content={children} />
                   <SyntaxHighlighter
                     {...props}
-                    children={String(children).replace(/\n$/, '')}
+                    // children={String(children).replace(/\n$/, '')}
                     style={vscDarkPlus}
                     language={match[1]}
                     showLineNumbers={!mobileStyle}
@@ -50,7 +51,9 @@ export const MarkdownBubble = (props) => {
                     onCopy={() => {
                       onCopy(children);
                     }}
-                  ></SyntaxHighlighter>
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
                 </div>
               ) : (
                 <code
@@ -76,7 +79,9 @@ export const MarkdownBubble = (props) => {
               );
             },
           }}
-        />
+        >
+          {props.content}
+        </ReactMarkdown>
       </Bubble>
     </>
   );

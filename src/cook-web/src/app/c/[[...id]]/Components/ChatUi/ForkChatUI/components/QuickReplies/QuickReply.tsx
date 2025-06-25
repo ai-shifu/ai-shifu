@@ -2,6 +2,8 @@ import React from 'react';
 import clsx from 'clsx';
 import { Icon } from '../Icon';
 
+import Image from 'next/image';
+
 export interface QuickReplyItemProps {
   name: string;
   code?: string;
@@ -37,7 +39,7 @@ export const QuickReply = (props: QuickReplyProps) => {
     >
       <div className="QuickReply-inner">
         {item.icon && <Icon type={item.icon} />}
-        {item.img && <img className="QuickReply-img" src={item.img} alt="" />}
+        {item.img && <Image className="QuickReply-img" src={item.img} alt="" />}
         <span>{item.name}</span>
       </div>
     </button>

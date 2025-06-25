@@ -7,7 +7,7 @@ import { useCallback } from 'react';
 
 export const PopupModal = ({
   open = false,
-  onClose = (event) => {},
+  onClose,
   children,
   style,
   wrapStyle,
@@ -18,6 +18,7 @@ export const PopupModal = ({
   // 点击其他区域关闭弹出窗口
   const handleClickOutside = useCallback(
     (event) => {
+      // @ts-expect-error EXPECT
       if (popupRef.current && !popupRef.current.contains(event.target)) {
         onClose?.(event);
       }

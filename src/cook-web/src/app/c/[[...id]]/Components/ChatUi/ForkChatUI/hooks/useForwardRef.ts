@@ -9,7 +9,6 @@ export default function useForwardRef<T>(ref: ForwardedRef<T>) {
     if (typeof ref === 'function') {
       ref(targetRef.current);
     } else {
-      // eslint-disable-next-line no-param-reassign
       ref.current = targetRef.current;
     }
   }, [ref]);

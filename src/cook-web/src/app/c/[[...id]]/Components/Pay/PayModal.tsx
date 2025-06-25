@@ -1,11 +1,23 @@
-// import { Button, Modal, QRCode, message } from 'antd';
-// TODO: Migrate components like Modal, QRCode, etc.
+import styles from './PayModal.module.scss';
+
+import { memo, useState, useCallback, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils'
+
+import Image from 'next/image';
+import { LoaderIcon, LoaderCircleIcon } from 'lucide-react'
+
+import { QRCodeSVG } from 'qrcode.react';
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog"
+
 import { Button } from '@/components/ui/button';
 
-import { useShallow } from 'zustand/react/shallow';
-import { memo, useState, useCallback, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import styles from './PayModal.module.scss';
+import { toast } from '@/hooks/use-toast';
+
 import { useDisclosture } from '@/c-common/hooks/useDisclosture';
 import CouponCodeModal from './CouponCodeModal';
 import { ORDER_STATUS, PAY_CHANNEL_WECHAT } from './constans';
@@ -16,17 +28,15 @@ import {
   queryOrder,
   applyDiscountCode,
 } from '@/c-api/order';
-import clsx from 'clsx';
-import { useInterval } from 'react-use';
 
 import PayModalFooter from './PayModalFooter';
 import PayChannelSwitch from './PayChannelSwitch';
 import { getStringEnv } from '@/c-utils/envUtils';
-import MainButton from '@/c-components/MainButton';
 import { useUserStore } from '@/c-store/useUserStore';
 import { shifu } from '@/c-service/Shifu';
 import { getCourseInfo } from '@/c-api/course';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { useInterval } from 'react-use';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
 import payInfoBg from '@/c-assets/newchat/pay-info-bg.png';
@@ -36,12 +46,12 @@ const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
 
 const CompletedSection = memo(() => {
-  const { t } = useTranslation();
+  const { t } = useTranslation('translation', { keyPrefix: 'c'});
   return (
     <div className={styles.completedSection}>
       <div className={styles.title}>{t('pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
-        <img className={styles.paySuccessBg} src={paySucessBg} alt="" />
+        <Image className={styles.paySuccessBg} src={paySucessBg.src} alt="" />
       </div>
       <PayModalFooter />
     </div>
@@ -56,7 +66,7 @@ export const PayModal = ({
   type = '',
   payload = {},
 }) => {
-  const { t } = useTranslation();
+  const { t } = useTranslation('translation', {keyPrefix: 'c'});
   const [isLoading, setIsLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -68,7 +78,7 @@ export const PayModal = ({
   const [interval, setInterval] = useState(null);
   const [orderId, setOrderId] = useState('');
   const [countDwon, setCountDown] = useState(MAX_TIMEOUT);
-  const [messageApi, contextHolder] = message.useMessage();
+
   const [couponCode, setCouponCode] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
   const [priceItems, setPriceItems] = useState([]);
@@ -84,6 +94,7 @@ export const PayModal = ({
   const initOrderUniform = useCallback(
     async (courseId) => {
       if (type === 'active') {
+        // @ts-expect-error EXPECT
         return initActiveOrder({
           courseId,
           ...payload,
@@ -132,6 +143,7 @@ export const PayModal = ({
           setInterval(null);
         } else {
           setCountDown(MAX_TIMEOUT);
+          // @ts-expect-error EXPECT
           setInterval(COUNTDOWN_INTERVAL);
         }
       }
@@ -190,17 +202,12 @@ export const PayModal = ({
     loadPayInfo();
   }, [loadPayInfo]);
 
-  const getQrcodeStatus = useCallback(() => {
-    if (isLoading) {
-      return 'loading';
-    }
-
-    if (isTimeout) {
-      return 'expired';
-    }
-
-    return 'active';
-  }, [isLoading, isTimeout]);
+  let qrcodeStatus = 'active';
+  if (isLoading) {
+    qrcodeStatus = 'loading';
+  } else if (isTimeout) {
+    qrcodeStatus = 'expired';
+  }
 
   const onLoginButtonClick = useCallback(() => {
     onCancel?.();
@@ -213,13 +220,6 @@ export const PayModal = ({
     onClose: onCouponCodeModalClose,
   } = useDisclosture();
 
-  const _onCancel = useCallback(
-    (e) => {
-      onCancel?.(e);
-    },
-    [onCancel]
-  );
-
   const onCouponCodeClick = useCallback(() => {
     onCouponCodeModalOpen();
   }, [onCouponCodeModalOpen]);
@@ -229,14 +229,19 @@ export const PayModal = ({
       const { couponCode } = values;
       setCouponCode(couponCode);
       const resp = await applyDiscountCode({ orderId, code: couponCode });
+      // @ts-expect-error EXPECT
       if (resp.code !== 0) {
-        messageApi.error(resp.message);
+        toast({
+          // @ts-expect-error EXPECT
+          title: resp.message,
+          variant: 'destructive',
+        })
         return;
       }
       refreshOrderQrcode(resp.data.order_id);
       onCouponCodeModalClose();
     },
-    [messageApi, onCouponCodeModalClose, orderId, refreshOrderQrcode]
+    [ onCouponCodeModalClose, orderId, refreshOrderQrcode]
   );
 
   const onPayChannelSelectChange = useCallback((e) => {
@@ -258,111 +263,126 @@ export const PayModal = ({
     }
   }, [hasLogin, loadCourseInfo]);
 
+  function handleOpenChange(open: boolean) {
+    if (!open) {
+      onCancel?.();
+    }
+  }
+
   return (
     <>
-      <Modal
-        title={null}
-        open={open}
-        footer={null}
-        onCancel={_onCancel}
-        className={styles.payModal}
-        width="700px"
-        height="588px"
-        maskClosable={false}
-      >
-        {!initLoading && (
-          <div className={styles.payModalContent}>
-            <div
-              className={styles.introSection}
-              style={{ backgroundImage: `url(${payInfoBg})` }}
-            ></div>
-            {isCompleted ? (
-              <CompletedSection />
-            ) : (
-              <div className={styles.paySection}>
-                <div className={styles.payInfoTitle}>到手价格</div>
-                <div className={styles.priceWrapper}>
-                  <div
-                    className={clsx(
-                      styles.price,
-                      (isLoading || isTimeout) && styles.disabled
-                    )}
-                  >
-                    <span className={styles.priceSign}>￥</span>
-                    <span className={styles.priceNumber}>{price}</span>
-                  </div>
-                </div>
-                {originalPrice && (
-                  <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
-                    <div className={styles.originalPrice}>{originalPrice}</div>
-                  </div>
-                )}
-                {priceItems && priceItems.length > 0 && (
-                  <div className={styles.priceItemsWrapper}>
-                    {priceItems.map((item, index) => {
-                      return (
-                        <div className={styles.priceItem} key={index}>
-                          <div className={styles.priceItemName}>
-                            {item.price_name}
-                          </div>
-                          <div className={styles.priceItemPrice}>
-                            {item.price}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {hasLogin ? (
-                  <>
-                    <div className={styles.qrcodeWrapper}>
-                      <QRCode
-                        size={175}
-                        value={qrUrl}
-                        status={getQrcodeStatus()}
-                        onRefresh={onQrcodeRefresh}
-                        bordered={false}
-                      />
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogContent 
+        className={cn(styles.payModal, 'w-[700px] h-[588px]')}
+        onPointerDownOutside={(evt) => evt.preventDefault()}>
+          {!initLoading && (
+            <div className={styles.payModalContent}>
+              <div
+                className={styles.introSection}
+                style={{ backgroundImage: `url(${payInfoBg.src})` }}
+              ></div>
+              {isCompleted ? (
+                <CompletedSection />
+              ) : (
+                <div className={styles.paySection}>
+                  <div className={styles.payInfoTitle}>到手价格</div>
+                  <div className={styles.priceWrapper}>
+                    <div
+                      className={cn(
+                        styles.price,
+                        (isLoading || isTimeout) && styles.disabled
+                      )}
+                    >
+                      <span className={styles.priceSign}>￥</span>
+                      <span className={styles.priceNumber}>{price}</span>
                     </div>
-                    <div className={styles.channelSwitchWrapper}>
-                      <PayChannelSwitch
-                        channel={payChannel}
-                        onChange={onPayChannelSelectChange}
-                      />
+                  </div>
+                  {originalPrice && (
+                    <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
+                      <div className={styles.originalPrice}>{originalPrice}</div>
                     </div>
-                    <div className={styles.couponCodeWrapper}>
-                      <Button
-                        variant="link"
-                        onClick={onCouponCodeClick}
-                        className={styles.couponCodeButton}
-                      >
-                        {!couponCode
-                          ? t('groupon.grouponUse')
-                          : t('groupon.grouponModify')}
+                  )}
+                  {priceItems && priceItems.length > 0 && (
+                    <div className={styles.priceItemsWrapper}>
+                      {priceItems.map((item, index) => {
+                        return (
+                          <div className={styles.priceItem} key={index}>
+                            <div className={styles.priceItemName}>
+                              {/* @ts-expect-error EXPECT */}
+                              {item.price_name}
+                            </div>
+                            <div className={styles.priceItemPrice}>
+                              {/* @ts-expect-error EXPECT */}
+                              {item.price}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {hasLogin ? (
+                    <>
+                      <div className={cn(styles.qrcodeWrapper, 'relative')}>
+                        <QRCodeSVG
+                          value={qrUrl}
+                          size={175}
+                          level={'M'}
+                        />
+                        {qrcodeStatus !== 'active' ? (
+                          <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col content-center justify-center bg-black/75'>
+                            {qrcodeStatus === 'loading' ? (
+                              <LoaderIcon className='animation-spin' />
+                            ) : null}
+                            {qrcodeStatus === 'error' ? (
+                              <Button variant="outline" onClick={onQrcodeRefresh}>
+                                <LoaderCircleIcon />
+                                点击刷新
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                      <div className={styles.channelSwitchWrapper}>
+                        <PayChannelSwitch
+                          channel={payChannel}
+                          // @ts-expect-error EXPECT
+                          onChange={onPayChannelSelectChange}
+                        />
+                      </div>
+                      <div className={styles.couponCodeWrapper}>
+                        <Button
+                          variant="link"
+                          onClick={onCouponCodeClick}
+                          className={styles.couponCodeButton}
+                        >
+                          {!couponCode
+                            ? t('groupon.grouponUse')
+                            : t('groupon.grouponModify')}
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className={styles.loginButtonWrapper}>
+                      <Button onClick={onLoginButtonClick}>
+                        登录
                       </Button>
                     </div>
-                  </>
-                ) : (
-                  <div className={styles.loginButtonWrapper}>
-                    <MainButton onClick={onLoginButtonClick}>
-                      登录
-                    </MainButton>
-                  </div>
-                )}
-                <PayModalFooter className={styles.payModalFooter} />
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-      {couponCodeModalOpen && (
+                  )}
+                  <PayModalFooter className={styles.payModalFooter} />
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {couponCodeModalOpen ? (
         <CouponCodeModal
           open={couponCodeModalOpen}
           onCancel={onCouponCodeModalClose}
           onOk={onCouponCodeOk}
         />
-      )}
-      {contextHolder}
+      ) : null}
     </>
   );
 };

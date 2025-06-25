@@ -1,4 +1,4 @@
-export default {
+const en_US = {
   BackBottom: {
     newMsgOne: '{n} new message',
     newMsgOther: '{n} new messages',
@@ -35,3 +35,5 @@ export default {
     search: 'Search',
   },
 };
+
+export default en_US

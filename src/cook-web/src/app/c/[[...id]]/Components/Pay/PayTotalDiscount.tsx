@@ -1,6 +1,6 @@
-import { memo } from 'react';
-import { AiOutlineExclamationCircle } from 'react-icons/ai';
 import styles from './PayTotalDiscount.module.scss';
+import { memo } from 'react';
+import { CircleAlertIcon } from 'lucide-react';
 
 export const PayTotalDiscount = ({ discount }) => {
   const onDescIconClick = () => {
@@ -11,7 +11,7 @@ export const PayTotalDiscount = ({ discount }) => {
     <div className={styles.payTotalDiscount}>
       <div>已节省：</div>
       <div>{'￥'}{discount || '0.00'}</div>{' '}
-      <AiOutlineExclamationCircle
+      <CircleAlertIcon
         className={styles.descIcon}
         onClick={onDescIconClick}
       />

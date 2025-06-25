@@ -4,16 +4,18 @@ import { inWechat } from '@/c-constants/uiConstants';
 const isSafari = navigator.userAgent.match(/iPad|iPhone|iPod|Macintosh/i);
 
 const copyTextOld = async (text) => {
-  return new Promise((resolve) => {
+  return new Promise(() => {
     const textArea = document.createElement("textArea");
+    // @ts-expect-error EXPECT
     textArea.value = text;
+    // @ts-expect-error EXPECT
     textArea.style.width = 0;
     textArea.style.position = "fixed";
     textArea.style.left = "-999px";
     textArea.style.top = "10px";
     textArea.setAttribute("readonly", "readonly");
     document.body.appendChild(textArea);
-
+    // @ts-expect-error EXPECT
     textArea.select();
     document.execCommand("copy");
     document.body.removeChild(textArea);

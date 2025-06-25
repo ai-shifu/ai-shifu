@@ -1,4 +1,3 @@
-/* eslint-disable no-underscore-dangle */
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import canUse from '../../utils/canUse';
 import getToBottom from '../../utils/getToBottom';
@@ -193,7 +192,7 @@ export const MessageContainer = React.forwardRef<MessageContainerHandle, Message
         wrapper.removeEventListener('touchcancel', reset);
       };
     }, []);
-
+    // @ts-expect-error EXPECT
     useImperativeHandle(ref, () => ({ ref: messagesRef, scrollToEnd }), [scrollToEnd]);
 
     return (

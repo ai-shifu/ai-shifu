@@ -5,7 +5,6 @@ export default function parseDataTransfer(
   // const dataTransfer = e.dataTransfer || e.clipboardData;
   const { items } = e.clipboardData;
   if (items && items.length) {
-    // eslint-disable-next-line no-plusplus
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 

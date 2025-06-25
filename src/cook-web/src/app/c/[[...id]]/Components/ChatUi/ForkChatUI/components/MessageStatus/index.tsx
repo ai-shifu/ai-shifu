@@ -22,8 +22,8 @@ export const MessageStatus = ({
   onChange,
 }: MessageStatusProps) => {
   const [type, setType] = useState<StatusType>('');
-  const loadingTimerRef = useRef<ReturnType<typeof setTimeout>>();
-  const failTimerRef = useRef<ReturnType<typeof setTimeout>>();
+  const loadingTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const failTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const doTimeout = useCallback(() => {
     loadingTimerRef.current = setTimeout(() => {

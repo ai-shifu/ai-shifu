@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { memo } from 'react';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 
+import Image from 'next/image';
 import imgLearningSelected from '@/c-assets/newchat/light/icon16-learning-selected.png'
 import imgLearning from '@/c-assets/newchat/light/icon16-learning.png'
 import imgLearningCompletedSelected from '@/c-assets/newchat/light/icon16-learning-completed-selected.png'
@@ -12,15 +13,15 @@ import imgLearningCompleted from '@/c-assets/newchat/light/icon16-learning-compl
 export const CourseSection = ({
   id,
   name = '',
-  status = '',
   status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
-  onSelect = ({ id }) => {},
-  onTrySelect= ({ id }) => {},
+  onSelect,
+  onTrySelect,
 }) => {
   const genIconClassName = () => {
     switch (status_value) {
+      // @ts-expect-error EXPECT
       case LESSON_STATUS_VALUE.NOT_START:
       case LESSON_STATUS_VALUE.LOCKED:
         return styles.small;
@@ -35,6 +36,7 @@ export const CourseSection = ({
 
   const onSectionClick = useCallback(() => {
     onTrySelect?.({ id });
+    // @ts-expect-error EXPECT
     if (status_value === LESSON_STATUS_VALUE.NOT_START || status_value === LESSON_STATUS_VALUE.LOCKED) {
       return;
     }
@@ -54,6 +56,7 @@ export const CourseSection = ({
       <div className={classNames(styles.iconWrapper, genIconClassName())}>
         <div className={styles.topLine}></div>
         <div className={styles.icon}>
+          {/* @ts-expect-error EXPECT */}
           {(status_value === LESSON_STATUS_VALUE.NOT_START ||
             status_value === LESSON_STATUS_VALUE.LOCKED) && (
             <div className={styles.smallIcon}></div>
@@ -61,28 +64,36 @@ export const CourseSection = ({
           {(status_value === LESSON_STATUS_VALUE.LEARNING ||
             status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING) &&
             (selected ? (
-              <img
+              <Image
                 className={styles.bigIcon}
+                width={16}
+                height={16}
                 src={imgLearningSelected.src}
                 alt=""
               />
             ) : (
-              <img
+              <Image
                 className={styles.bigIcon}
+                width={16}
+                height={16}
                 src={imgLearning.src}
                 alt=""
               />
             ))}
           {status_value === LESSON_STATUS_VALUE.COMPLETED &&
             (selected ? (
-              <img
+              <Image
                 className={styles.bigIcon}
+                width={16}
+                height={16}
                 src={imgLearningCompletedSelected.src}
                 alt=""
               />
             ) : (
-              <img
+              <Image
                 className={styles.bigIcon}
+                width={16}
+                height={16}
                 src={imgLearningCompleted.src}
                 alt=""
               />

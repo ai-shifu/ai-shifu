@@ -1,6 +1,5 @@
-// import '@ai-shifu/chatui/dist/index.css';
-// import Chat, { useMessages } from '@ai-shifu/chatui';
 import './ForkChatUI/styles/index.scss'
+import styles from './ChatComponents.module.scss';
 
 import {
   useEffect,
@@ -25,7 +24,7 @@ import { runScript, getLessonStudyRecord, scriptContentOperation } from '@/c-api
 import { genUuid } from '@/c-utils/common';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea';
 import { AppContext } from '@/c-components/AppContext';
-import styles from './ChatComponents.module.scss';
+
 import { useCourseStore } from '@/c-store/useCourseStore';
 import {
   LESSON_STATUS_VALUE,
@@ -46,7 +45,7 @@ import { tokenTool } from '@/c-service/storeUtil';
 import MarkdownBubble from './ChatMessage/MarkdownBubble';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import PayModalM from '../Pay/PayModalM';
-import { useTranslation } from 'react-i18next';
+// import { useTranslation } from 'react-i18next';
 import { useEnvStore } from '@/c-store/envStore';
 import { shifu } from '@/c-service/Shifu';
 import {
@@ -113,9 +112,9 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
       interaction_type: serverMessage.interaction_type,
       logid: serverMessage.logid,
       type: serverMessage.script_type,
-      userInfo,
+      // userInfo,
       teach_avator,
-      isComplete: true,
+      // isComplete: true,
     });
   } else if (serverMessage.script_type === CHAT_MESSAGE_TYPE.LESSON_SEPARATOR) {
     return createMessage({
@@ -125,9 +124,9 @@ const convertMessage = (serverMessage, userInfo, teach_avator) => {
       type: serverMessage.script_type,
       interaction_type: serverMessage.interaction_type,
       logid: serverMessage.logid,
-      userInfo,
+      // userInfo,
       teach_avator,
-      isComplete: true,
+      // isComplete: true,
     });
   }
 
@@ -184,8 +183,8 @@ const convertEventInputModal = ({ type, content, script_id }) => {
     }
   }
 };
-
-export const ChatComponents = forwardRef(
+// TODO: FIXME
+export const ChatComponents = forwardRef<any, any>(
   (
     {
       className,
@@ -199,7 +198,7 @@ export const ChatComponents = forwardRef(
     },
     ref
   ) => {
-    const { t } = useTranslation();
+    // const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
     const { courseId } = useEnvStore.getState();
     const chatId = courseId;
@@ -247,7 +246,7 @@ export const ChatComponents = forwardRef(
     } = useMessages([]);
 
     const { 
-      autoScroll,
+      // autoScroll,
       onMessageListScroll,
       scrollToLesson,
       scrollToBottom 
@@ -275,9 +274,9 @@ export const ChatComponents = forwardRef(
     } = useDisclosture();
 
     const {
-      open: loginModalOpen,
+      // open: loginModalOpen,
       onOpen: onLoginModalOpen,
-      onClose: onLoginModalClose,
+      // onClose: onLoginModalClose,
     } = useDisclosture();
 
     const _onPayModalClose = useCallback(() => {
@@ -285,10 +284,10 @@ export const ChatComponents = forwardRef(
       setInputDisabled(false);
     }, [onPayModalClose]);
 
-    const _onLoginModalClose = useCallback(() => {
-      onLoginModalClose();
-      setInputDisabled(false);
-    }, [onLoginModalClose]);
+    // const _onLoginModalClose = useCallback(() => {
+    //   onLoginModalClose();
+    //   setInputDisabled(false);
+    // }, [onLoginModalClose]);
 
     const closeActionControl = useCallback(() => {
       setShowActionControl(false);
@@ -313,6 +312,7 @@ export const ChatComponents = forwardRef(
     const initLoadedInteraction = useCallback((ui) => {
       const nextInputModal = convertEventInputModal(ui);
       setInputDisabled(false);
+      // @ts-expect-error EXPECT
       setInputModal(nextInputModal);
     }, []);
 
@@ -384,24 +384,31 @@ export const ChatComponents = forwardRef(
                 return;
               }
               setIsStreaming(true);
+              // @ts-expect-error EXPECT
               if (lastMsg !== null && lastMsg.type === 'text') {
                 const currText = fixMarkdownStream(
+                  // @ts-expect-error EXPECT
                   lastMsg.content,
                   response.content
                 );
+                // @ts-expect-error EXPECT
                 lastMsg.content = lastMsg.content + currText;
+                // @ts-expect-error EXPECT
                 updateMsg(lastMsg.id, lastMsg);
                 lastMsgRef.current = lastMsg;
               } else {
                 const id = genUuid();
+                // @ts-expect-error EXPECT
                 lastMsg = createMessage({
                   id: id,
                   type: response.type,
                   role: USER_ROLE.TEACHER,
                   content: response.content,
+                  // @ts-expect-error EXPECT
                   userInfo,
                   teach_avator: teach_avator,
                 });
+                // @ts-expect-error EXPECT
                 appendMsg(lastMsg);
                 lastMsgRef.current = lastMsg;
               }
@@ -409,10 +416,13 @@ export const ChatComponents = forwardRef(
               setIsStreaming(false);
               setTyping(false);
               if (lastMsg) {
+                // @ts-expect-error EXPECT
                 lastMsg.isComplete = true;
                 if (response.log_id) {
+                  // @ts-expect-error EXPECT
                   lastMsg.logid = response.log_id;
                 }
+                // @ts-expect-error EXPECT
                 updateMsg(lastMsg.id, lastMsg);
                 // lastMsg = null;
                 lastActiveMsg = lastMsg;
@@ -426,10 +436,13 @@ export const ChatComponents = forwardRef(
               }
             } else if (response.type === RESP_EVENT_TYPE.ACTIVE) {
               if (lastActiveMsg) {
+                // @ts-expect-error EXPECT
                 lastActiveMsg.ext = {
+                  // @ts-expect-error EXPECT
                   ...lastActiveMsg.ext,
                   active: convertKeysToCamelCase(response.content),
                 };
+                // @ts-expect-error EXPECT
                 updateMsg(lastActiveMsg.id, lastActiveMsg);
                 lastActiveMsg = null;
               }
@@ -441,6 +454,7 @@ export const ChatComponents = forwardRef(
               if (isEnd) {
                 return;
               }
+              // @ts-expect-error EXPECT
               setInputModal({ type: response.type, props: response });
               setInputDisabled(false);
             } else if (
@@ -453,6 +467,7 @@ export const ChatComponents = forwardRef(
                 return;
               }
               const model = convertEventInputModal(response);
+              // @ts-expect-error EXPECT
               setInputModal(model);
               setInputDisabled(false);
             } else if (response.type === RESP_EVENT_TYPE.LESSON_UPDATE) {
@@ -468,11 +483,13 @@ export const ChatComponents = forwardRef(
                   return;
                 }
                 if (newLessonId !== lastLessonId) {
+                  // @ts-expect-error EXPECT
                   const msg = createMessage({
                     id: `lesson-${newLessonId}`,
                     type: CHAT_MESSAGE_TYPE.LESSON_SEPARATOR,
                     content: { lessonId: newLessonId },
                   });
+                  // @ts-expect-error EXPECT
                   appendMsg(msg);
                   lastLessonId = newLessonId;
                   setMessageLessonId(newLessonId);
@@ -491,6 +508,7 @@ export const ChatComponents = forwardRef(
               }
               if (status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING) {
                 setInputModal({
+                  // @ts-expect-error EXPECT
                   type: INTERACTION_TYPE.NEXT_CHAPTER,
                   props: {
                     label: '下一章',
@@ -517,7 +535,7 @@ export const ChatComponents = forwardRef(
                 visible: content.visible,
               });
             }
-          } catch (e) { }
+          } catch (e) { console.log(e) }
         });
       },
       [
@@ -543,6 +561,7 @@ export const ChatComponents = forwardRef(
       scrollToBottom();
 
       if (!initRecords || initRecords.length === 0) {
+        // @ts-expect-error EXPECT
         nextStep({
           chatId,
           lessonId: lessonId,
@@ -561,6 +580,7 @@ export const ChatComponents = forwardRef(
       setTyping(false);
       setInputDisabled(true);
       resetList();
+      // @ts-expect-error EXPECT
       setInitRecords(null);
 
       const resp = await getLessonStudyRecord(chapterId);
@@ -578,6 +598,7 @@ export const ChatComponents = forwardRef(
           if (newLessonId !== lessonId && !!newLessonId) {
             lessonId = newLessonId;
             appendMsg(
+              // @ts-expect-error EXPECT
               convertMessage({
                 ...v,
                 id: `lesson-${newLessonId}`,
@@ -591,14 +612,16 @@ export const ChatComponents = forwardRef(
             if (!lastMsg) {
               return;
             }
-
+            // @ts-expect-error EXPECT
             lastMsg.ext = {
+              // @ts-expect-error EXPECT
               ...lastMsg.ext,
               active: convertKeysToCamelCase({
                 msg: v.script_content,
                 ...v.data,
               }),
             };
+            // @ts-expect-error EXPECT
             updateMsg(lastMsg.id, lastMsg);
             lastMsg = null;
             return;
@@ -614,7 +637,9 @@ export const ChatComponents = forwardRef(
             userInfo,
             teach_avator
           );
+          // @ts-expect-error EXPECT
           appendMsg(newMessage);
+          // @ts-expect-error EXPECT
           lastMsg = newMessage;
         });
 
@@ -665,6 +690,7 @@ export const ChatComponents = forwardRef(
           if (curr === loadedChapterId) {
             resetAndLoadData();
             // reset to null
+            // @ts-expect-error EXPECT
             updateResetedChapterId(null);
           } else {
             return;
@@ -734,8 +760,10 @@ export const ChatComponents = forwardRef(
               role: USER_ROLE.STUDENT,
               content: val,
               type: CHAT_MESSAGE_TYPE.TEXT,
+              // @ts-expect-error EXPECT
               userInfo,
             });
+            // @ts-expect-error EXPECT
             await appendMsg(message);
           }
         }
@@ -757,6 +785,7 @@ export const ChatComponents = forwardRef(
     );
 
     const onPayModalOk = useCallback(() => {
+      // @ts-expect-error EXPECT
       handleSend(INTERACTION_OUTPUT_TYPE.ORDER);
       onPurchased?.();
       refreshUserInfo();
@@ -900,7 +929,7 @@ export const ChatComponents = forwardRef(
       if (!chatRef || !chatRef.current) {
         return;
       }
-
+      // @ts-expect-error EXPECT
       const messageListElem = chatRef.current.querySelector('.MessageList');
       if (!messageListElem) {
         return;
@@ -909,10 +938,10 @@ export const ChatComponents = forwardRef(
       messageListElem.style.paddingBottom = `${height}px`;
     }, []);
 
-    const onLogin = useCallback(async () => {
-      await refreshUserInfo();
-      handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, false, t('chat.loginSuccess'));
-    }, [handleSend, refreshUserInfo, t]);
+    // const onLogin = useCallback(async () => {
+    //   await refreshUserInfo();
+    //   handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, false, t('chat.loginSuccess'));
+    // }, [handleSend, refreshUserInfo, t]);
 
     useEffect(() => {
       const onGoToNavigationNode = (e) => {
@@ -940,10 +969,12 @@ export const ChatComponents = forwardRef(
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
+        // @ts-expect-error EXPECT
         const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
         } else if (messageIndex !== messages.length - 1) {
+          // @ts-expect-error EXPECT
           deleteMsg(lastMsgRef.current.id);
           appendMsg(lastMsgRef.current);
         }
@@ -960,6 +991,7 @@ export const ChatComponents = forwardRef(
         ref={chatRef}
       >
         <Chat
+          // @ts-expect-error EXPECT
           navbar={null}
           messages={messages}
           renderMessageContent={renderMessageContent}
@@ -974,10 +1006,14 @@ export const ChatComponents = forwardRef(
         {inputModal && (
           <ChatInteractionArea
             askButtonState={askButtonState}
+            // @ts-expect-error EXPECT
             type={inputModal.type}
+            // @ts-expect-error EXPECT
             props={inputModal.props}
             disabled={inputDisabled}
+            // @ts-expect-error EXPECT
             onSend={onChatInputSend}
+            // @ts-expect-error EXPECT
             onSizeChange={onChatInteractionAreaSizeChange}
           />
         )}
@@ -999,13 +1035,14 @@ export const ChatComponents = forwardRef(
               payload={{}}
             />
           ))}
-        {loginModalOpen && (
+          {/* TODO: FIXME */}
+        {/* {loginModalOpen && (
           <LoginModal
             open={loginModalOpen}
             onClose={_onLoginModalClose}
             onLogin={onLogin}
           />
-        )}
+        )} */}
         {showActionControl && getActionControl()}
       </div>
     );

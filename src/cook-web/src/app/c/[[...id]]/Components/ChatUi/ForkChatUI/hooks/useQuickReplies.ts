@@ -6,8 +6,8 @@ type QuickReplies = QuickReplyItemProps[];
 export default function useQuickReplies(initialState: QuickReplies = []) {
   const [quickReplies, setQuickReplies] = useState(initialState);
   const [visible, setVisible] = useState(true);
-  const savedRef = useRef<QuickReplies>();
-  const stashRef = useRef<QuickReplies>();
+  const savedRef = useRef<QuickReplies>(null);
+  const stashRef = useRef<QuickReplies>(null);
 
   useEffect(() => {
     savedRef.current = quickReplies;

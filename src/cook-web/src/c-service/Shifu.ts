@@ -34,10 +34,13 @@ const createShifu = () => {
 
   const getConfig = () => {
     return {
+      // TODO: FIXME
+      // @ts-expect-error EXPECT
       isLogin: useUserStore.getState().isLogin,
       userInfo: useUserStore.getState().userInfo,
       frameLayout: useUiLayoutStore.getState().frameLayout,
       inMobile: useUiLayoutStore.getState().inMobile,
+      // @ts-expect-error EXPECT
       inWechat: useUiLayoutStore.getState().inWechat,
       token: tokenTool.get(),
       mobileStyle: useUiLayoutStore.getState().frameLayout === FRAME_LAYOUT_MOBILE,

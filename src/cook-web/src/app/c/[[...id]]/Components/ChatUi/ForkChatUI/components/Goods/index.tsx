@@ -1,5 +1,7 @@
-import React from 'react';
-import clsx from 'clsx';
+import * as React from 'react';
+import { cn } from '@/lib/utils'
+
+import Image from 'next/image';
 import { Flex, FlexItem } from '../Flex';
 import { Text } from '../Text';
 import { Price } from '../Price';
@@ -109,8 +111,8 @@ export const Goods = React.forwardRef<GoodsRef, GoodsProps>((props, ref) => {
   );
 
   return (
-    <Flex className={clsx('Goods', className)} data-type={type} ref={ref} {...other}>
-      {img && <img className="Goods-img" src={img} alt={name} />}
+    <Flex className={cn('Goods', className)} data-type={type} ref={ref} {...other}>
+      {img && <Image className="Goods-img" src={img} alt={name} />}
       <FlexItem className="Goods-main">
         {mainCont}
         {children}
@@ -126,3 +128,5 @@ export const Goods = React.forwardRef<GoodsRef, GoodsProps>((props, ref) => {
     </Flex>
   );
 });
+
+Goods.displayName = 'Goods';

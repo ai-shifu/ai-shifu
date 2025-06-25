@@ -1,5 +1,8 @@
-import React from 'react';
-import clsx from 'clsx';
+import * as React from 'react';
+import { cn } from '@/lib/utils'
+
+import Image from 'next/image';
+
 import { IconButton, IconButtonProps } from '../IconButton';
 
 export type NavbarProps = {
@@ -13,11 +16,11 @@ export type NavbarProps = {
 export const Navbar: React.FC<NavbarProps> = (props) => {
   const { className, title, logo, leftContent, rightContent = [] } = props;
   return (
-    <header className={clsx('Navbar', className)}>
+    <header className={cn('Navbar', className)}>
       <div className="Navbar-left">{leftContent && <IconButton size="lg" {...leftContent} />}</div>
       <div className="Navbar-main">
         {logo ? (
-          <img className="Navbar-logo" src={logo} alt={title} />
+          <Image className="Navbar-logo" src={logo} alt={title} />
         ) : (
           <h2 className="Navbar-title">{title}</h2>
         )}

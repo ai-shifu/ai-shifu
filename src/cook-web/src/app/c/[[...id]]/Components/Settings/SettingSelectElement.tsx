@@ -9,7 +9,7 @@ export const SettingSelectElement = ({
   title = '',
   value = '',
   placeholder = '',
-  onClick = (e) => {},
+  onClick = () => {},
 }) => {
   return (
     <div

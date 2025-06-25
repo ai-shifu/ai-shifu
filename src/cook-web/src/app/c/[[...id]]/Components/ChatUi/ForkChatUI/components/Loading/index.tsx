@@ -4,6 +4,7 @@ import { Icon } from '../Icon';
 
 export type LoadingProps = {
   tip?: string;
+  children?: React.ReactNode;
 };
 
 export const Loading: React.FC<LoadingProps> = (props) => {

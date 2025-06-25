@@ -1,4 +1,3 @@
-/* eslint-disable no-underscore-dangle */
 import { useState, useMemo, useRef, useCallback } from 'react';
 import { getRandomString } from '../utils';
 import { MessageProps, MessageId } from '../components/Message';

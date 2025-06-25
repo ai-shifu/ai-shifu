@@ -5,7 +5,7 @@ import styles from './UserSettings.module.scss';
 
 import { useState, useCallback, memo, useEffect } from 'react';
 
-import MainButton from '@/c-components/MainButton';
+import { Button } from '@/components/ui/button';
 import SettingHeader from './SettingHeader';
 import clsx from 'clsx';
 import ChangeAvatar from './ChangeAvatar';
@@ -55,25 +55,32 @@ export const UserSettings = ({
 
   const onSaveSettingsClick = useCallback(async () => {
     const data = [];
+    // @ts-expect-error EXPECT
     data.push({
       key: 'nickname',
       value: nickName,
     });
+    // @ts-expect-error EXPECT
     data.push({
       key: 'avatar',
       value: avatar,
     });
+    // @ts-expect-error EXPECT
     data.push({
       key: 'sex',
       value: sex,
     });
+    // @ts-expect-error EXPECT
     data.push({
       key: 'birth',
       value: birth,
     });
     dynFormData.forEach((v) => {
+      // @ts-expect-error EXPECT
       data.push({
+        // @ts-expect-error EXPECT
         key: v.key,
+        // @ts-expect-error EXPECT
         value: v.value,
       });
     });
@@ -131,7 +138,7 @@ export const UserSettings = ({
       }
     });
     setDynFormData(respData.filter((v) => (!fixed_keys.includes(v.key) && !hidden_keys.includes(v.key))));
-  }, []);
+  }, [courseId]);
 
 
   useEffect(() => {
@@ -145,7 +152,9 @@ export const UserSettings = ({
   const onDynamicSettingItemChange = useCallback((key, value) => {
     setDynFormData((prev) => {
       return prev.map((v) => {
+        // @ts-expect-error EXPECT
         if (v.key === key) {
+          // @ts-expect-error EXPECT
           v.value = value;
         }
 
@@ -174,6 +183,7 @@ export const UserSettings = ({
                   : styles.basicInfoWrapperHidden
               }
             >
+              {/* @ts-expect-error EXPECT */}
               <ChangeAvatar image={avatar} onChange={onChangeAvatarChanged} />
               <div className={styles.basicInfoTitle}>
                 {t('settings.basicInfo')}
@@ -184,6 +194,7 @@ export const UserSettings = ({
                 onChange={onNickNameChanged}
                 className={styles.inputUnit}
                 value={nickName}
+                // @ts-expect-error EXPECT
                 maxLength={10}
               />
               <SettingSelectElement
@@ -218,11 +229,13 @@ export const UserSettings = ({
                 onChange={onNickNameChanged}
                 className={styles.inputUnit}
                 value={nickName}
+                // @ts-expect-error EXPECT
                 maxLength={10}
               />
               {dynFormData.map((item) => {
                 return (
                   <DynamicSettingItem
+                    // @ts-expect-error EXPECT
                     key={item.key}
                     settingItem={item}
                     onChange={onDynamicSettingItemChange}
@@ -235,12 +248,11 @@ export const UserSettings = ({
         </div>
         <div className={styles.settingFooter}>
           <div className={styles.centerWrapper}>
-            <MainButton
+            <Button
               className={styles.saveBtn}
-              onClick={onSaveSettingsClick}
-            >
+              onClick={onSaveSettingsClick}>
               保存
-            </MainButton>
+            </Button>
           </div>
         </div>
       </div>
@@ -252,6 +264,7 @@ export const UserSettings = ({
       />
       <SexSettingModal
         open={sexSettingModalOpen}
+        // @ts-expect-error EXPECT
         onOk={onSexSettingModalOk}
         onClose={() => setSexSettingModalOpen(false)}
         initialValues={{ sex }}

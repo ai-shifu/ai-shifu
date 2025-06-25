@@ -15,7 +15,7 @@ export const NavHeader = ({
   showCollapseBtn = true,
   isCollapse = false,
   showCloseBtn = false,
-  onToggle = (isCollapse) => {},
+  onToggle,
   onClose = () => {},
   mobileStyle = false,
 }) => {

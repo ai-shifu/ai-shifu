@@ -10,6 +10,7 @@ export type CardMediaProps = {
 };
 
 export const CardMedia: React.FC<CardMediaProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { className, aspectRatio = 'square', color, image, children, ...other } = props;
 
   const bgStyle = {

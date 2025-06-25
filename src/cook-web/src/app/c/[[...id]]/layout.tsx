@@ -145,7 +145,7 @@ export default function ChatLayout({
     }
   }, [browserLanguage, updateLanguage, envDataInitialized]);
 
-  const [loading, setLoading] = useState<boolean>(true);
+  // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
   const currChannel = params.channel || '';
   const isPreviewMode = params.preview ? params.preview.toLowerCase() === 'true' : false;
@@ -159,7 +159,7 @@ export default function ChatLayout({
     if (!envDataInitialized) return;
     if (enableWxcode && inWechat()) {
       const { appId } = useEnvStore.getState() as EnvStoreState;
-      setLoading(true);
+      // setLoading(true);
       const currCode = params.code;
       if (!currCode) {
         wechatLogin({
@@ -174,7 +174,7 @@ export default function ChatLayout({
     } else {
       setCheckWxcode(true);
     }
-    setLoading(false);
+    // setLoading(false);
   }, [
     params.code,
     updateWechatCode,
@@ -230,6 +230,7 @@ export default function ChatLayout({
             window.location.href = '/404';
           }
         } catch (error) {
+          console.log(error)
           window.location.href = '/404';
         }
       }
@@ -247,9 +248,9 @@ export default function ChatLayout({
     if (!envDataInitialized) return;
     if (!checkWxcode) return;
     const checkLogin = async () => {
-      setLoading(true);
+      // setLoading(true);
       await (useUserStore.getState() as UserStoreState).checkLogin();
-      setLoading(false);
+      // setLoading(false);
     };
     checkLogin();
   }, [envDataInitialized, checkWxcode]);

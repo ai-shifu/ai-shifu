@@ -20,22 +20,21 @@ export const runScript = (course_id, lesson_id, input, input_type, script_id, on
   });
   source.onmessage = (event) => {
     try {
-      var response = JSON.parse(event.data);
+      const response = JSON.parse(event.data);
       if (onMessage) {
         onMessage(response);
       }
     } catch (e) {
+      console.log(e);
     }
   };
-  source.onerror = (event) => {
-  };
-  source.onclose = (event) => {
-  };
-  source.onopen = (event) => {
-  };
-  source.close = () => {
-  };
+  
+  source.onerror = () => {};
+  source.onclose = () => {};
+  source.onopen = () => {};
+  source.close = () => {};
   source.stream();
+
   return source;
 };
 

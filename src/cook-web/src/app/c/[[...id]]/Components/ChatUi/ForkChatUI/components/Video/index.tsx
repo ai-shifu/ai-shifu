@@ -1,6 +1,7 @@
-/* eslint-disable jsx-a11y/media-has-caption */
 import React, { useState, useRef } from 'react';
 import clsx from 'clsx';
+
+import Image from 'next/image';
 
 export type VideoProps = React.VideoHTMLAttributes<HTMLVideoElement> & {
   className?: string;
@@ -65,7 +66,7 @@ export const Video: React.FC<VideoProps> = (props) => {
       className={clsx('Video', `Video--${paused ? 'paused' : 'playing'}`, className)}
       style={style}
     >
-      {hasCover && <img className="Video-cover" src={cover} onLoad={onCoverLoad} alt="" />}
+      {hasCover && <Image className="Video-cover" src={cover} onLoad={onCoverLoad} alt="" />}
       {hasDuration && <span className="Video-duration">{duration}</span>}
       <video
         className="Video-video"

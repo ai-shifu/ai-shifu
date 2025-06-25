@@ -7,7 +7,7 @@ import { memo } from 'react';
 
 export const SettingInputElement = ({
   value = '',
-  onChange = (e) => {},
+  onChange,
   placeholder = '',
   title = '',
   className = '',
@@ -36,6 +36,7 @@ export const SettingInputElement = ({
           placeholder={placeholder}
           value={_value}
           onChange={onInputChanged}
+          // @ts-expect-error EXPECTED
           maxLength={maxLength}
         />
       </div>

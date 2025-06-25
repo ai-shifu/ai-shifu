@@ -1,7 +1,7 @@
 const UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 const k = 1024;
 
-export default (bytes: number, decimals?: number) => {
+const prettyBytes = (bytes: number, decimals?: number) => {
   if (bytes < 1) {
     return `${bytes} ${UNITS[0]}`;
   }
@@ -11,3 +11,5 @@ export default (bytes: number, decimals?: number) => {
 
   return `${parseFloat((bytes / k ** i).toFixed(dm))} ${UNITS[i]}`;
 };
+
+export default prettyBytes

@@ -6,6 +6,7 @@ type Container = React.RefObject<any> | Element | (() => Element) | null;
 export interface PortalProps {
   container?: Container;
   onRendered?: () => void;
+  children: React.ReactNode;
 }
 
 function getEl(el: Container) {

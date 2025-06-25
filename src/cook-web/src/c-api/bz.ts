@@ -1,4 +1,4 @@
-import request from '../Service/Request';
+import request from '@/c-service/Request';
 
 /**
  * 提交反馈

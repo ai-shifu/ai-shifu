@@ -59,14 +59,14 @@ const calcNavWidth = (frameLayout) => {
 const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
 const NavDrawer = ({
-  showType = NAV_SHOW_TYPE_NORMAL,
+  // showType = NAV_SHOW_TYPE_NORMAL,
   courseName = '',
   onLoginClick = () => {},
   lessonTree,
   selectedLessonId = '',
   onChapterCollapse = () => {},
   onLessonSelect = () => {},
-  onTryLessonSelect = ({ chapterId, lessonId }) => {},
+  onTryLessonSelect = () => {},
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
@@ -104,6 +104,7 @@ const NavDrawer = ({
 
   const mainModalCloseHandler = useCallback(
     (e) => {
+      // @ts-expect-error EXPECT
       if (footerRef.current && footerRef.current.containElement(e.target)) {
         return;
       }
@@ -146,12 +147,14 @@ const NavDrawer = ({
                   courseName={courseName}
                   selectedLessonId={selectedLessonId}
                   catalogs={lessonTree?.catalogs || []}
+                  // @ts-expect-error EXPECT
                   catalogCount={lessonTree?.catalogCount || 0}
                   lessonCount={lessonTree?.lessonCount || 0}
                   onChapterCollapse={onChapterCollapse}
                   onLessonSelect={onLessonSelect}
                   onTryLessonSelect={onTryLessonSelect}
                   containerScrollTop={bodyScrollTop}
+                  // @ts-expect-error EXPECT
                   containerHeight={bodyRef.current?.clientHeight || 0}
                   bannerInfo={lessonTree?.bannerInfo}
                 />
@@ -162,11 +165,13 @@ const NavDrawer = ({
         </div>
         <NavFooter
           ref={footerRef}
+          // @ts-expect-error EXPECT
           isCollapse={isCollapse}
           onClick={onFooterClick}
         />
         <MainMenuModal
           open={mainModalOpen}
+          // @ts-expect-error EXPECT
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
           mobileStyle={mobileStyle}

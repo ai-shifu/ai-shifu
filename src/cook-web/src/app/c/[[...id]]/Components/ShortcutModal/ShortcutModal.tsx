@@ -1,18 +1,18 @@
 import styles from './ShortcutModal.module.scss';
-import { memo, useContext } from 'react';
+import { memo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import clsx from 'clsx';
 // import { Modal } from 'antd';
-import { Dialog, DialogContent, DialogTrigger } from '@radix-ui/react-dialog';
+import { Dialog, DialogContent } from '@radix-ui/react-dialog';
 
-import { AppContext } from '@/c-components/AppContext';
-import { calModalWidth } from '@/c-utils/common';
+// import { AppContext } from '@/c-components/AppContext';
+// import { calModalWidth } from '@/c-utils/common';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 import { useTranslation } from 'react-i18next';
 import { shortcutKeys } from '@/c-service/shortcut';
 
 const ShortcutModal = ({ open, onClose }) => {
-  const { mobileStyle } = useContext(AppContext);
+  // const { mobileStyle } = useContext(AppContext);
   const { inMacOs } = useUiLayoutStore(
     useShallow((state) => ({ inMacOs: state.inMacOs }))
   );
@@ -54,7 +54,7 @@ const ShortcutModal = ({ open, onClose }) => {
             键盘快捷方式
           </div>
           <div className={styles.shortcutContent}>
-            {shortcutKeysOptions.map((option, index) => {
+            {shortcutKeysOptions.map((option) => {
               return (
                 <div className={styles.shortcutRow} key={option.title}>
                   <div className={styles.rowTitle}>{option.title}</div>

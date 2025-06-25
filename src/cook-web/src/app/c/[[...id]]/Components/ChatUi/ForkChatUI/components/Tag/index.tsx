@@ -19,3 +19,5 @@ export const Tag = React.forwardRef<TagRef, TagProps>((props, ref) => {
     </Element>
   );
 });
+
+Tag.displayName = 'Tag';

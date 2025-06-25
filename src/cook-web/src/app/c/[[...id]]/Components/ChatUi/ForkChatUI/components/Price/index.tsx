@@ -1,4 +1,3 @@
-/* eslint-disable react/no-array-index-key */
 import React from 'react';
 import clsx from 'clsx';
 
@@ -46,3 +45,6 @@ export const Price = React.forwardRef<HTMLDivElement, PriceProps>((props, ref) =
     </div>
   );
 });
+
+
+Price.displayName = 'Price';

@@ -27,7 +27,6 @@ export default function riseInput(input: HTMLElement, target: HTMLElement) {
   let scrollTimer: ReturnType<typeof setTimeout>;
 
   if (!target) {
-    // eslint-disable-next-line no-param-reassign
     target = input;
   }
 

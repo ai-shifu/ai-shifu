@@ -8,6 +8,7 @@ type TabItemProps = {
   index: number;
   tabIndex: number;
   onClick: (index: number, event: React.MouseEvent) => void;
+  children: React.ReactNode;
 };
 
 const TabItem: React.FC<TabItemProps> = (props) => {
@@ -36,6 +37,7 @@ const TabItem: React.FC<TabItemProps> = (props) => {
 type TabsPaneProps = {
   active: boolean;
   id?: string;
+  children?: React.ReactNode;
 };
 
 const TabsPane: React.FC<TabsPaneProps> = (props) => {
@@ -54,6 +56,7 @@ export type TabsProps = {
   scrollable?: boolean;
   hideNavIfOnlyOne?: boolean;
   onChange?: (index: number, event: React.MouseEvent) => void;
+  children?: React.ReactNode;
 };
 
 export const Tabs: React.FC<TabsProps> = (props) => {

@@ -1,5 +1,6 @@
-import { useCallback, useState, memo } from 'react';
 import styles from './BirthdaySettingModal.module.scss';
+
+import { useState, memo } from 'react';
 import SettingBaseModal from './SettingBaseModal';
 
 import { Calendar } from "@/components/ui/calendar"
@@ -8,12 +9,12 @@ import { useTranslation } from 'react-i18next';
 export const BirthdaySettingModal = ({
   open,
   onClose,
-  onOk = ({ birthday }) => {},
+  onOk,
   currentBirthday,
 }) => {
   const { t } = useTranslation('translation', {keyPrefix: 'c'});
 
-  const [value, setValue] = useState(currentBirthday || new Date('2000-01-01'));
+  const [value] = useState(currentBirthday || new Date('2000-01-01'));
   const onOkClick = () => {
     onOk({ birthday: value });
   };
@@ -21,12 +22,13 @@ export const BirthdaySettingModal = ({
   const min = new Date();
   min.setFullYear(now.getFullYear() - 100);
 
-  const _onChange = useCallback((val) => {
-    setValue(val);
-  }, []);
+  // const _onChange = useCallback((val) => {
+  //   setValue(val);
+  // }, []);
 
   return (
     <SettingBaseModal
+      // @ts-expect-error EXPECT
       className={styles.SexSettingModal}
       open={open}
       onClose={onClose}

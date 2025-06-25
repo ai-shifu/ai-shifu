@@ -3,7 +3,6 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 import { useShallow } from 'zustand/react/shallow';
-import LineButton from '@/c-components/LineButton';
 import { useCourseStore } from '@/c-store/useCourseStore';
 
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
@@ -92,14 +91,12 @@ export const ResetChapterButton = ({
 
   return (
     <>
-      <LineButton
-        className={cn(className)}
-        onClick={onButtonClick}
-        size="small"
-        shape="round"
-      >
-        {t('lesson.reset.resetTitle') }
-      </LineButton>
+      <Button
+        size="sm"
+        className={cn(className, 'size-max', 'px-2', 'rounded-full')} 
+        onClick={onButtonClick}>
+        { t('lesson.reset.resetTitle') }
+      </Button>
       <Dialog open={showConfirm} onOpenChange={(open) => setShowConfirm(open)}>
         <DialogContent>
           <DialogHeader>

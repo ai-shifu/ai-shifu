@@ -1,4 +1,4 @@
-export default function throttle(fn: Function, delay = 300) {
+export default function throttle(fn: (...args: any[]) => unknown, delay = 300) {
   let ready = true;
 
   return (...args: any) => {

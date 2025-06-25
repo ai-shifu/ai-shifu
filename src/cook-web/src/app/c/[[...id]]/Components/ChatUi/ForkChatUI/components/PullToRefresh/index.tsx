@@ -68,8 +68,8 @@ export const PullToRefresh = React.forwardRef<PullToRefreshHandle, PullToRefresh
     const [disabled, setDisabled] = useState(!props.onRefresh);
     const sharedRef = useRef<any>({});
     const statusRef = useRef<PullToRefreshStatus>(status);
-    const timer1 = useRef<ReturnType<typeof setTimeout>>();
-    const timer2 = useRef<ReturnType<typeof setTimeout>>();
+    const timer1 = useRef<ReturnType<typeof setTimeout>>(null);
+    const timer2 = useRef<ReturnType<typeof setTimeout>>(null);
 
     const useFallback = !canUse('touch');
 
@@ -129,8 +129,9 @@ export const PullToRefresh = React.forwardRef<PullToRefreshHandle, PullToRefresh
               animated: false,
             });
           };
-
+          // @ts-expect-error EXPECT
           clearTimeout(timer1.current);
+          // @ts-expect-error EXPECT
           clearTimeout(timer2.current);
           handleOffset();
           timer1.current = setTimeout(handleOffset, 150);
@@ -143,7 +144,6 @@ export const PullToRefresh = React.forwardRef<PullToRefreshHandle, PullToRefresh
           }
         });
       } catch (ex) {
-        // eslint-disable-next-line no-console
         console.error(ex);
         reset();
       }
@@ -225,6 +225,7 @@ export const PullToRefresh = React.forwardRef<PullToRefreshHandle, PullToRefresh
       () => ({
         scrollTo,
         scrollToEnd,
+        // @ts-expect-error EXPECT
         wrapperRef,
       }),
       [scrollToEnd],
@@ -255,3 +256,5 @@ export const PullToRefresh = React.forwardRef<PullToRefreshHandle, PullToRefresh
     );
   },
 );
+
+PullToRefresh.displayName = 'PullToRefresh';

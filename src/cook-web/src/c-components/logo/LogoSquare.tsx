@@ -1,13 +1,14 @@
-import { Avatar } from 'antd';
+import { Avatar, AvatarImage } from '@/components/ui/avatar';
+import imgLogo64 from '@/c-assets/logos/logo64.png'
 
-export const LogoSquare = ({ size = 64, style = {} }) => {
+export const LogoSquare = ({ 
+  // size = 64, 
+  style = {} 
+}) => {
   return (
-    <Avatar
-      size={size}
-      src={require('@Assets/logos/logo64.png')}
-      style={style}
-      shape="square"
-    />
+    <Avatar style={style}>
+      <AvatarImage src={imgLogo64.src} />
+    </Avatar>
   );
 };
 

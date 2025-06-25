@@ -20,10 +20,8 @@ export default function smoothScroll({ el, to, duration = 300, x }: Props) {
   }
 
   function animate() {
-    // eslint-disable-next-line no-param-reassign
     el[attr] += step;
 
-    // eslint-disable-next-line no-plusplus
     if (++count < frames) {
       rAF(animate);
     }

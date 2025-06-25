@@ -7,6 +7,7 @@ export type DividerProps = {
 };
 
 export const Divider: React.FC<DividerProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { className, position = 'center', children, ...other } = props;
   return (
     <div

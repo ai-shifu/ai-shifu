@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import { useEnvStore } from '@/c-store/envStore';
 
+import Image from 'next/image';
 import imgLogoRow from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import imgLogoColumn from '@/c-assets/logos/ai-shifu-logo-vertical.png';
 
@@ -22,8 +23,6 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     height: isRow ? size + 'px' : 'auto',
   };
 
-
-
   return (
     <div
       style={{
@@ -35,9 +34,9 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     >
       <a href={siteUrl}>
         {isRow ? (
-          <img src={ logoHorizontal || imgLogoRow.src} alt="logo" style={{ ...commonStyles }} />
+          <Image src={ logoHorizontal || imgLogoRow.src} alt="logo" width={size} height={size} style={{ ...commonStyles }} />
         ) : (
-          <img src={logoVertical || imgLogoColumn.src} alt="logo" style={{ ...commonStyles }} />
+          <Image src={logoVertical || imgLogoColumn.src} alt="logo" width={size} height={size} style={{ ...commonStyles }} />
         )}
       </a>
     </div>

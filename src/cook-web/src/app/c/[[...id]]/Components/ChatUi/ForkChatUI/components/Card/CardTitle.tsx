@@ -9,6 +9,7 @@ export type CardTitleProps = {
 };
 
 export const CardTitle: React.FC<CardTitleProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { className, title, subtitle, center, children, ...other } = props;
   return (
     <div className={clsx('CardTitle', { 'CardTitle--center': center }, className)} {...other}>

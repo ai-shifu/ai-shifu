@@ -1,11 +1,13 @@
 import { SSE } from 'sse.js';
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from "axios";
-// import { message } from "antd";
+import axios, { AxiosInstance } from "axios";
+
+import { toast } from '@/hooks/use-toast'
 import { tokenTool } from "./storeUtil";
-import { v4 } from "uuid";
-import { useTranslation } from "react-i18next";
+import { v4 as uuidv4 } from "uuid";
+
+import i18n from 'i18next';
 import { getStringEnv } from "@/c-utils/envUtils";
-import { ApiResponse } from "@/c-types";
+
 /**
  *
  * @param {*} token
@@ -19,19 +21,19 @@ export const SendMsg = (
   chatId: string,
   text: string,
   onMessage?: (response: any) => void
-): SSE => {
-  var source = new SSE(getStringEnv('baseURL')+"/chat/chat-assistant?token="+token, {
+): InstanceType<typeof SSE> => {
+  const source = new SSE(getStringEnv('baseURL')+"/chat/chat-assistant?token="+token, {
     headers: { "Content-Type": "application/json" },
     payload: JSON.stringify({
       token: token,
       msg: text,
       chat_id: chatId,
     }),
-
   });
+
   source.addEventListener('message', (event: MessageEvent) => {
     try {
-      var response = JSON.parse(event.data);
+      const response = JSON.parse(event.data);
       if (onMessage) {
         onMessage(response);
       }
@@ -62,7 +64,7 @@ const axiosrequest: AxiosInstance = axios.create({
 axiosrequest.interceptors.request.use(async(config: any)=>{
   config.baseURL = getStringEnv('baseURL');
   config.headers.token = tokenTool.get().token;
-  config.headers["X-Request-ID"] = v4().replace(/-/g, '');
+  config.headers["X-Request-ID"] = uuidv4().replace(/-/g, '');
   return config;
 });
 
@@ -71,8 +73,10 @@ axiosrequest.interceptors.response.use(
   (response: any) => {
     if(response.data.code !== 0) {
       if (![1001].includes(response.data.code)) {
-        // TODO: FIXME
-        // message.error({content:response.data.message});
+        toast({
+          title: response.data.message,
+          variant: 'destructive',
+        })
       }
       const apiError = new CustomEvent("apiError", {detail:response.data, bubbles:true,});
       document.dispatchEvent(apiError);
@@ -82,9 +86,12 @@ axiosrequest.interceptors.response.use(
   }, (error: any) => {
     const apiError = new CustomEvent("apiError", {detail:error});
     document.dispatchEvent(apiError);
-    // TODO: FIXME
-    // const { t } = useTranslation();
-    // message.error(t("common.networkError"));
+
+    toast({
+      title: i18n.t("common.networkError"),
+      variant: 'destructive',
+    })
+
     return Promise.reject(error);
   });
 

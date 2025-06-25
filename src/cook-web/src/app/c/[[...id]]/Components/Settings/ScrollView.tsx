@@ -1,11 +1,13 @@
 import styles from './ScrollView.module.scss';
+
 import { useState } from 'react';
-import classNames from 'classnames';
+
+import { cn } from '@/lib/utils'
 
 const data = [1,2,3,4,5,6,7,8,9,10,11,12];
 
 export const ScrollView = () => {
-  const [buffer, setBuffer] = useState(data.map((item, index) => ({ key: index, value: item})));
+  const [buffer] = useState(data.map((item, index) => ({ key: index, value: item})));
   const [valueIndex, setValueIndex] = useState(10);
   const topOffset = 90;
   const unitLength = 30;
@@ -15,7 +17,7 @@ export const ScrollView = () => {
   let scrollDirection = 0;
   const duration = 100 * 1000; // ms
 
-  const onRequestAnimationFrame = (callback) => {
+  const onRequestAnimationFrame = () => {
     const now = Date.now();
     if (!isScroll || now - lastTime < duration) {
       requestAnimationFrame(onRequestAnimationFrame);
@@ -72,7 +74,14 @@ export const ScrollView = () => {
 
   return <div className={styles.ScrollView} onWheel={onWheel}>
     {buffer.map((item, index) => {
-      return <div key={item.key} className={classNames(styles.scrollItem)} style={{ transform: `translateY(${getTranslateY(index)}px)`, zIndex: getZIndex(index)}} >{item.value}</div>
+      return (
+      <div 
+        key={item.key} 
+        className={cn(styles.scrollItem)} 
+        style={{ transform: `translateY(${getTranslateY(index)}px)`, zIndex: getZIndex(index)}}>
+        {item.value}
+      </div>
+      )
     })}
   </div>;
 }
