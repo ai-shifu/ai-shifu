@@ -5,6 +5,7 @@ export type FormProps = {
   className?: string;
   /** @deprecated Use `<Input>`'s `variant` instead */
   theme?: string;
+  children?: React.ReactNode;
 };
 
 export const ThemeContext = React.createContext('');

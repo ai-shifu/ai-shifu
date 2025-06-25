@@ -1,11 +1,17 @@
-// TODO: FIXME
-// import { Modal } from 'antd-mobile';
-import { calModalWidth } from '@/c-utils/common';
-import MainButton from '@/c-components/MainButton';
 import styles from './SettingBaseModal.module.scss';
+
 import { memo, useContext } from 'react';
-import { AppContext } from '@/c-components/AppContext';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils'
+
+import { calModalWidth } from '@/c-utils/common';
+import { AppContext } from '@/c-components/AppContext';
+
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+} from "@/components/ui/dialog"
 
 export const SettingBaseModal = ({
   open,
@@ -19,27 +25,29 @@ export const SettingBaseModal = ({
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
   
   const { mobileStyle } = useContext(AppContext);
+
+  function handleOpenChange(open: boolean) {
+    if (!open) {
+      onClose?.();
+    }
+  }
+
   return (
-    <Modal
-      visible={open}
-      onClose={onClose}
-      className={styles.SettingBaseModal}
-      closeOnMaskClick={true}
-      content={
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className={cn(styles.SettingBaseModal)}>
         <div
           style={{ width: calModalWidth({ inMobile: mobileStyle, width: defaultWidth }) }}
-          className={styles.modalWrapper}
-        >
+          className={styles.modalWrapper}>
           {header(t, title || t('common.settings'))}
           {children}
           <div className={styles.btnWrapper}>
-            <MainButton width="100%" onClick={onOk}>
+            <Button className={cn('w-full')} onClick={onOk}>
               {t('common.ok')}
-            </MainButton>
+            </Button>
           </div>
         </div>
-      }
-    ></Modal>
+      </DialogContent>
+    </Dialog>
   );
 };
 

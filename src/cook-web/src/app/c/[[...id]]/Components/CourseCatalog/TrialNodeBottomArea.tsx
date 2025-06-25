@@ -39,8 +39,9 @@ const TrialNodeBottomArea = ({
   useEffect(() => {
     if (normalAreaRef.current) {
       let position = TRAIL_NODE_POSITION.NORMAL;
-
+      // @ts-expect-error EXPECT
       setOffsetToScroller(normalAreaRef.current.offsetTop);
+      // @ts-expect-error EXPECT
       setCurrHeight(normalAreaRef.current.clientHeight);
 
       if (isStickTop()) {

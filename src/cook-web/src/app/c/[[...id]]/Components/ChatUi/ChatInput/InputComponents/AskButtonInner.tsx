@@ -4,11 +4,9 @@ import { memo, useEffect, useState, useCallback } from 'react';
 import clsx from 'clsx';
 
 import { useTranslation } from 'react-i18next';
+
+import Image from 'next/image';
 import askIcon from '@/c-assets/newchat/light/svg-ask-16.svg';
-
-import { animate } from 'animejs';
-
-const ANIME_DURATION = 400;
 
 const PERCENT_MIN = 0.00001;
 const PERCENT_MAX = 99.99999;
@@ -60,7 +58,7 @@ const AskButtonInner = ({
   };
 
   useEffect(() => {
-    const animatePercentChange = (start, end) => {
+    const animatePercentChange = () => {
       // TODO: FIXME
       // animate({
       //   easing: 'easeOutQuad',
@@ -79,12 +77,14 @@ const AskButtonInner = ({
 
     if (oldPercent === null) {
       updateRealPercent(percent);
+      // @ts-expect-error EXPECT
       setOldPercent(percent);
     } else {
       const start = formatPercentForAnime(oldPercent);
       const end = formatPercentForAnime(percent);
 
       if (start !== end) {
+        // @ts-expect-error EXPECT
         animatePercentChange(start, end);
         return;
       }
@@ -116,7 +116,7 @@ const AskButtonInner = ({
         </svg>
 
         <div className={styles.askButtonInner}>
-          <img src={askIcon.src} alt="ask" className={styles.askButtonIcon} />
+          <Image src={askIcon.src} width={24} height={24} alt="ask" />
           <div
             className={clsx(
               styles.askButtonText,

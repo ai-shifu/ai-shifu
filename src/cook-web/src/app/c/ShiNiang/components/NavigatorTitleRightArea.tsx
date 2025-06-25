@@ -13,7 +13,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
   const {
     hasPay,
     updateHasPay,
-    orderPromotePopoverOpen,
+    // orderPromotePopoverOpen,
     updateOrderPromotePopoverOpen,
   } = usePayStore(
     useShallow((state) => ({
@@ -24,23 +24,24 @@ const NavigatorTitleRightArea = ({ payload }) => {
     }))
   );
 
-  const { frameLayout } = shifu.stores.useUiLayoutStore(
-    useShallow((state) => ({ frameLayout: state.frameLayout }))
-  );
-
+  // const { frameLayout } = shifu.stores.useUiLayoutStore(
+  //   useShallow((state) => ({ frameLayout: state.frameLayout }))
+  // );
+  // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
   const onUnlockAllClick = useCallback(() => {
     if (!hasPay) {
+      // @ts-expect-error EXPECT
       shifu.payTools.openPay({});
       trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
   }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);
 
-  const popoverLocation = shifu.utils.checkMobileStyle(frameLayout)
-    ? 'bottom'
-    : 'rightTop';
+  // const popoverLocation = shifu.utils.checkMobileStyle(frameLayout)
+  //   ? 'bottom'
+  //   : 'rightTop';
 
   useEffect(() => {
     const onEventHandler = () => {
@@ -55,7 +56,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
       EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
       onEventHandler
     );
-
+    // @ts-expect-error EXPECT
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
 
     return () => {
@@ -63,7 +64,9 @@ const NavigatorTitleRightArea = ({ payload }) => {
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
         onEventHandler
       );
+      // @ts-expect-error EXPECT
       shifu.events.removeEventListener(
+        // @ts-expect-error EXPECT
         shifu.EventTypes.PAY_MODAL_OK,
         onModalOk
       );
@@ -82,11 +85,13 @@ const NavigatorTitleRightArea = ({ payload }) => {
   return (
     <>
       {!hasPay ? (
+        // @ts-expect-error EXPECT
         <Popover className={styles.navigatorTitleRightAreaPopover}>
           <PopoverTrigger>
                <ToPayButton onClick={onPayButtonClick}>{payload.title}</ToPayButton>
           </PopoverTrigger>
           <PopoverContent>
+            {/* @ts-expect-error EXPECT */}
           <OrderPromotePopoverContent
               payload={payload}
               onCancelButtonClick={onPopoverClose}

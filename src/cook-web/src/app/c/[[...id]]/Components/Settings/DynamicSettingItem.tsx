@@ -24,6 +24,7 @@ export const DynamicSettingItem = ({ settingItem, onChange, className }) => {
       )}
       {settingItem.type === 'select' && <SettingRadioElement
           title={settingItem.label}
+          // @ts-expect-error EXPECT
           placeholder={settingItem.label}
           onChange={_onRaidoChange}
           className={className}

@@ -7,6 +7,7 @@ export type ScrollViewItemProps = {
   item: any;
   effect?: ScrollViewEffect;
   onIntersect?: (item?: any, entry?: IntersectionObserverEntry) => boolean | void;
+  children?: React.ReactNode;
 };
 
 const observerOptions = {

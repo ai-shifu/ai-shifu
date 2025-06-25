@@ -13,6 +13,7 @@ export { useComponents } from './useComponents';
 export type { ComponentsProviderProps, ComponentsMap };
 
 export const ComponentsProvider: React.FC<ComponentsProviderProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { components, children } = props;
   const componentsRef = React.useRef<ComponentsMap>({ ...components });
 

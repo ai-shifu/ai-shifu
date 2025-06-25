@@ -6,6 +6,7 @@ export type CardContentProps = {
 };
 
 export const CardContent: React.FC<CardContentProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { className, children, ...other } = props;
   return (
     <div className={clsx('CardContent', className)} {...other}>

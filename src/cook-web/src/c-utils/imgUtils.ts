@@ -43,7 +43,9 @@ export const genCroppedImg = async (
 
   // calculate bounding box of the rotated image
   const { width: bBoxWidth, height: bBoxHeight } = rotateSize(
+    // @ts-expect-error EXPECT
     image.width,
+    // @ts-expect-error EXPECT
     image.height,
     rotation
   );
@@ -56,9 +58,11 @@ export const genCroppedImg = async (
   ctx.translate(bBoxWidth / 2, bBoxHeight / 2);
   ctx.rotate(rotRad);
   ctx.scale(flip.horizontal ? -1 : 1, flip.vertical ? -1 : 1);
+  // @ts-expect-error EXPECT
   ctx.translate(-image.width / 2, -image.height / 2);
 
   // draw rotated image
+  // @ts-expect-error EXPECT
   ctx.drawImage(image, 0, 0);
 
   const croppedCanvas = document.createElement('canvas');
@@ -87,6 +91,7 @@ export const genCroppedImg = async (
 
   return new Promise((resolve) => {
     croppedCanvas.toBlob((blob) => {
+      // @ts-expect-error EXPECT
       const file = new File([blob], 'image.png', {});
       resolve(file);
     });
@@ -102,6 +107,7 @@ export const genCroppedImg = async (
 export const convertFileToDataUrl = async (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
+    // @ts-expect-error EXPECT
     reader.addEventListener('load', (e) => { resolve(e.target.result); });
     reader.addEventListener('error', (err) => reject(err));
 

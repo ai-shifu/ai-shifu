@@ -1,5 +1,6 @@
-import React from 'react';
-import clsx from 'clsx';
+import * as React from 'react';
+import { cn } from '@/lib/utils'
+import Image from 'next/image';
 
 export type MediaObjectProps = {
   className?: string;
@@ -13,10 +14,10 @@ export type MediaObjectProps = {
 export const MediaObject: React.FC<MediaObjectProps> = (props) => {
   const { className, picUrl, picSize, title, picAlt, meta } = props;
   return (
-    <div className={clsx('MediaObject', className)}>
+    <div className={cn('MediaObject', className)}>
       {picUrl && (
-        <div className={clsx('MediaObject-pic', picSize && `MediaObject-pic--${picSize}`)}>
-          <img src={picUrl} alt={picAlt || title} />
+        <div className={cn('MediaObject-pic', picSize && `MediaObject-pic--${picSize}`)}>
+          <Image src={picUrl} alt={picAlt || title || ''} />
         </div>
       )}
       <div className="MediaObject-info">

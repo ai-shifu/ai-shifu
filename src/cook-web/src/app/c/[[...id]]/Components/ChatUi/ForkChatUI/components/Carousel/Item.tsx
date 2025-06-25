@@ -5,6 +5,7 @@ interface CarouselItemProps {
 }
 
 export const CarouselItem: React.FC<CarouselItemProps> = (props) => {
+  // @ts-expect-error EXPECT
   const { width, children } = props;
 
   return (

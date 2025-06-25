@@ -33,7 +33,7 @@ const AskButton = ({
 
   useEffect(() => {
     const all = total ? total : 1;
-    let percent = (used / all) * 100;
+    const percent = (used / all) * 100;
 
     setPercent(percent);
     // setPercent(0.01)

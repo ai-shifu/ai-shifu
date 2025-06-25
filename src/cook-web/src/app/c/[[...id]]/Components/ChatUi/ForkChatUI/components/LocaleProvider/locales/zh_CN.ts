@@ -1,4 +1,4 @@
-export default {
+const zh_CN = {
   BackBottom: {
     newMsgOne: '{n}条新消息',
     newMsgOther: '{n}条新消息',
@@ -35,3 +35,5 @@ export default {
     search: '搜索',
   },
 };
+
+export default zh_CN

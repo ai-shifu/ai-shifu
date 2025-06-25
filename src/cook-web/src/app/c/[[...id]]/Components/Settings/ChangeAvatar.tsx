@@ -1,7 +1,8 @@
 import styles from './ChangeAvatar.module.scss';
 
 import { useState, useRef, memo, useCallback, useEffect } from 'react';
-import clsx from 'clsx';
+
+import { cn } from '@/lib/utils'
 
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
 import AvatarSettingModal from './AvatarSettingModal';
@@ -9,12 +10,13 @@ import { convertFileToDataUrl } from '@/c-utils/imgUtils';
 
 import { uploadAvatar } from '@/c-api/user';
 
+import Image from 'next/image';
 import iconEditAvatar2x from '@/c-assets/newchat/light/icon-edit-avatar-Normal@2x.png'
 
 export const ChangeAvatar = ({
   className,
   image,
-  onChange = ({ dataUrl }) => {},
+  onChange,
 }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const uploadRef = useRef(null);
@@ -25,7 +27,8 @@ export const ChangeAvatar = ({
     setImg(image);
   }, [image])
   const onAvatarClick = () => {
-    uploadRef.current.click();
+    // @ts-expect-error EXPECT
+    uploadRef.current?.click();
   };
 
   const onAvatarSettingModalOk = useCallback(
@@ -44,6 +47,7 @@ export const ChangeAvatar = ({
     }
 
     const file = e.target.files[0];
+    // @ts-expect-error EXPECT
     setUploadedImage(await convertFileToDataUrl(file));
     setModalOpen(true);
   }, []);
@@ -62,7 +66,7 @@ export const ChangeAvatar = ({
           onOk={onAvatarSettingModalOk}
         />
       )}
-      <div className={clsx(styles.ChangeAvatar, className)}>
+      <div className={cn(styles.ChangeAvatar, className)}>
         <div className={styles.avatarContainer} onClick={onAvatarClick}>
           <Avatar>
             <AvatarImage src={img} />
@@ -74,7 +78,7 @@ export const ChangeAvatar = ({
             onChange={onAvatarUploadChange}
             accept='.png,.jpg,.jpeg,.bmp,.webp'
           />
-          <img
+          <Image
             className={styles.editIcon}
             src={iconEditAvatar2x.src}
             alt=""

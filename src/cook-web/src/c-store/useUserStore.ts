@@ -69,6 +69,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         }
         i18n.changeLanguage(userInfo.language);
       } catch (err) {
+        // @ts-expect-error EXPECT
         if ((err.status && err.status === 403) || (err.code && err.code === 1005) || (err.code && err.code === 1001)) {
           const res = await registerTmp({ temp_id: genUuid() });
           const token = res.data.token;

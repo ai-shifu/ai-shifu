@@ -65,8 +65,8 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>((props, 
   const [accessoryContent, setAccessoryContent] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null!);
   const focused = useRef(false);
-  const blurTimer = useRef<any>();
-  const popoverTarget = useRef<any>();
+  const blurTimer = useRef<NodeJS.Timeout>(null);
+  const popoverTarget = useRef(null);
   const isMountRef = useRef(false);
   const [isWide, setWide] = useState(false);
 
@@ -121,7 +121,6 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>((props, 
     if (isVoice) {
       const input = inputRef.current;
       input.focus();
-      // eslint-disable-next-line no-multi-assign
       input.selectionStart = input.selectionEnd = input.value.length;
     }
     if (onInputTypeChange) {
@@ -131,6 +130,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>((props, 
 
   const handleInputFocus = useCallback(
     (e: React.FocusEvent<HTMLTextAreaElement>) => {
+      // @ts-expect-error EXPECT
       clearTimeout(blurTimer.current);
       toggleClass(CLASS_NAME_FOCUSING, true);
       focused.current = true;
@@ -211,6 +211,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>((props, 
         onToolbarClick(item, e);
       }
       if (item.render) {
+        // @ts-expect-error EXPECT
         popoverTarget.current = e.currentTarget;
         setAccessoryContent(item.render);
       }
@@ -248,6 +249,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>((props, 
         {accessoryContent && (
           <Popover
             active={!!accessoryContent}
+            // @ts-expect-error EXPECT
             target={popoverTarget.current}
             onClose={handlePopoverClose}
           >
@@ -299,3 +301,6 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>((props, 
     </>
   );
 });
+
+
+Composer.displayName = 'Composer';

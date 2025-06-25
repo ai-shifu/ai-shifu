@@ -10,6 +10,7 @@ export type PopoverProps = {
   active: boolean;
   target: HTMLElement;
   onClose: () => void;
+  children?: React.ReactNode;
 };
 
 export const Popover: React.FC<PopoverProps> = (props) => {
