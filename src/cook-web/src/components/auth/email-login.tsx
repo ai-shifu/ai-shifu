@@ -14,8 +14,10 @@ import { isValidEmail } from '@/lib/validators'
 import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 
+import type { UserInfo } from '@/c-types'
+
 interface EmailLoginProps {
-  onLoginSuccess: () => void
+  onLoginSuccess: (userInfo: UserInfo) => void
   onForgotPassword: () => void
 }
 
@@ -102,12 +104,13 @@ export function EmailLogin ({
         username,
         password
       })
+
       if (response.code==0) {
         toast({
           title: t('login.login-success')
         })
         setToken(response.data.token)
-        onLoginSuccess()
+        onLoginSuccess(response.data.userInfo)
       }
 
       if (response.code == 1001 || response.code == 1005 || response.code === 1003 ) {

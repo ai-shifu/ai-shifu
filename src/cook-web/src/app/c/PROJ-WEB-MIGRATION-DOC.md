@@ -53,9 +53,7 @@ export SITE_HOST="https://cook02.dev.pillowai.cn"
 3. 文件内填入如下字段并设置合适的值(开发环境下会用于 `/api/config/c-cenv` 接口返回的结果)
 ```bash
   # Next.js 环境变量的命名规则可参考文档：https://nextjs.org/docs/app/guides/environment-variables
-  # NEXT_PUBLIC_BASEURL=/
   NEXT_PUBLIC_BASEURL=
-
   NEXT_PUBLIC_UMAMI_SCRIPT_SRC=
   NEXT_PUBLIC_UMAMI_WEBSITE_ID=
   NEXT_PUBLIC_COURSE_ID=

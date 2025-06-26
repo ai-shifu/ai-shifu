@@ -20,7 +20,11 @@ export const PopupModal = ({
     (event) => {
       // @ts-expect-error EXPECT
       if (popupRef.current && !popupRef.current.contains(event.target)) {
-        onClose?.(event);
+        // `data-scroll-locked` indicates that another overlay is active, so the menu cannot be closed directly.
+        // TODO: Migrate to `shadcn/ui`
+        if (!document.body.getAttribute('data-scroll-locked')) {
+          onClose?.(event);
+        }
       }
     },
     [onClose]
