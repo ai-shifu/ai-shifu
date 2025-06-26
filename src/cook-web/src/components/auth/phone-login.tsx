@@ -14,8 +14,10 @@ import { isValidPhoneNumber } from '@/lib/validators'
 import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
+
+import type { UserInfo } from '@/c-types'
 interface PhoneLoginProps {
-  onLoginSuccess: () => void
+  onLoginSuccess: (userInfo: UserInfo) => void
 }
 
 export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
@@ -140,7 +142,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
           title: t('login.login-success')
         })
         setToken(response.data.token)
-        onLoginSuccess()
+        onLoginSuccess(response.data.userInfo)
       } else if (response.code == 1003) {
         toast({
           title: t('login.verification-failed'),

@@ -709,7 +709,6 @@ export const ChatComponents = forwardRef<any, any>(
       );
     }, [chapterId, resetAndLoadData]);
 
-    // debugger
     useEffect(() => {
       if (window.ztDebug) {
         window.ztDebug.resend = () => {
