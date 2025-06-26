@@ -137,5 +137,9 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
     },
 
     updateHasCheckLogin: (hasCheckLogin) => set(() => ({ hasCheckLogin })),
+
+    // TODO: FIXME
+    // Added temporarily. Please refine and organize user-related logic later.
+    _setHasLogin: (v: boolean) => set({ hasLogin: v }),
   }))
 );

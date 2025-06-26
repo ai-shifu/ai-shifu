@@ -14,24 +14,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
-import { languages } from '@/c-service/constants';
+// import { languages } from '@/c-service/constants';
 import { useUserStore } from '@/c-store/useUserStore';
 
-// import { ChevronDown } from 'lucide-react';
-
 import { shifu } from '@/c-service/Shifu';
-import { getUserProfile, updateUserProfile } from '@/c-api/user';
-import { LANGUAGE_DICT } from '@/c-constants/userConstants';
+// import { getUserProfile, updateUserProfile } from '@/c-api/user';
+// import { LANGUAGE_DICT } from '@/c-constants/userConstants';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 import Image from 'next/image';
@@ -40,10 +31,7 @@ import imgPersonal from '@/c-assets/newchat/light/personal.png'
 import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png'
 import imgSignIn from '@/c-assets/newchat/light/signin.png'
 
-/**
- * TODO：FIXME
- * - 语言切换组件似乎可以直接用 `cook-web` 的
- */
+import LanguageSelect from '@/components/language-select'
 
 const MainMenuModal = ({
   open,
@@ -54,7 +42,7 @@ const MainMenuModal = ({
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const { i18n, t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
   const htmlRef = useRef(null);
   const { hasLogin, logout } = useUserStore(
@@ -74,28 +62,28 @@ const MainMenuModal = ({
 
   const { trackEvent } = useTracking();
 
-  const languageDrowdownMeus = {
-    items: languages.map((lang) => ({
-      key: lang.value,
-      label: lang.label,
-    })),
-    onClick: async ({ key }) => {
+  // const languageDrowdownMeus = {
+  //   items: languages.map((lang) => ({
+  //     key: lang.value,
+  //     label: lang.label,
+  //   })),
+  //   onClick: async ({ key }) => {
 
-      const languageData = LANGUAGE_DICT[key];
+  //     const languageData = LANGUAGE_DICT[key];
 
-      if (languageData) {
-        // @ts-expect-error EXPECT
-        const { data } = await getUserProfile();
-        const languageSetting = data.find((item) => item.key === 'language');
-        if (languageSetting) {
-          languageSetting.value = languageData;
-          // @ts-expect-error EXPECT
-          await updateUserProfile(data);
-        }
-      }
-      i18n.changeLanguage(key);
-    },
-  };
+  //     if (languageData) {
+  //       // @ts-expect-error EXPECT
+  //       const { data } = await getUserProfile();
+  //       const languageSetting = data.find((item) => item.key === 'language');
+  //       if (languageSetting) {
+  //         languageSetting.value = languageData;
+  //         // @ts-expect-error EXPECT
+  //         await updateUserProfile(data);
+  //       }
+  //     }
+  //     i18n.changeLanguage(key);
+  //   },
+  // };
 
   const onUserInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_BASIC_INFO, {});
@@ -121,6 +109,12 @@ const MainMenuModal = ({
 
   const onLoginClick = () => {
     shifu.loginTools.openLogin();
+  };
+
+  const onLooutClick = (evt) => {
+    setLogoutConfirmOpen(true);
+    // @ts-expect-error EXPECT
+    onClose?.(evt)
   };
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
@@ -159,7 +153,7 @@ const MainMenuModal = ({
         className={cn(className, styles.mainMenuModalWrapper, mobileStyle && styles.mobile)}
       >
         <div className={styles.mainMenuModal} ref={htmlRef}>
-          <div className={styles.mainMenuModalRow} onClick={onUserInfoClick}>
+          <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onUserInfoClick}>
             <Image
               className={styles.rowIcon}
               width={16}
@@ -171,7 +165,7 @@ const MainMenuModal = ({
               {t('menus.navigationMenus.basicInfo')}
             </div>
           </div>
-          <div className={styles.mainMenuModalRow} onClick={_onPersonalInfoClick}>
+          <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={_onPersonalInfoClick}>
             <Image
               className={styles.rowIcon}
               width={16}
@@ -188,7 +182,8 @@ const MainMenuModal = ({
             <div
               className={cn(
                 styles.mainMenuModalRow,
-                styles.languageRowInner
+                styles.languageRowInner,
+                'px-2.5'
               )}
             >
               <div className={styles.languageRowLeft}>
@@ -204,41 +199,12 @@ const MainMenuModal = ({
                 </div>
               </div>
               <div className={styles.languageRowRight}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline">请选择</Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-56" align="start">
-                    {languageDrowdownMeus.items.map((li) => {
-                      return (
-                        <DropdownMenuItem key={li.key} onClick={() => {
-                          languageDrowdownMeus.onClick({key: li.key})
-                        }}>
-                          { li.label }
-                        </DropdownMenuItem>
-                      )
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {/* <Dropdown
-                  getPopupContainer={languageDrowdownContainer}
-                  menu={languageDrowdownMeus}
-                >
-                  <div
-                    onClick={(e) => {
-                      e.preventDefault();
-                    }}
-                  >
-                    {languages.find((lang) => lang.value === i18n.language)
-                      ?.label || '请选择'}{' '}
-                    {<ChevronDown className={style.langDownIcon} />}
-                  </div>
-                </Dropdown> */}
+                <LanguageSelect contentClassName="z-[1001]" />
               </div>
             </div>
           </div>
           {!hasLogin ? (
-            <div className={styles.mainMenuModalRow} onClick={onLoginClick}>
+            <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onLoginClick}>
               <Image
                 className={styles.rowIcon}
                 width={16}
@@ -249,7 +215,7 @@ const MainMenuModal = ({
               <div className={styles.rowTitle}>{t('user.login')}</div>
             </div>
           ) : (
-            <div className={styles.mainMenuModalRow} onClick={onLogoutConfirm}>
+            <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onLooutClick}>
               <Image
                 className={styles.rowIcon}
                 width={16}
