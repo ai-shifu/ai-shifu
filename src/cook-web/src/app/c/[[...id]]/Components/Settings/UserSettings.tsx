@@ -12,7 +12,7 @@ import ChangeAvatar from './ChangeAvatar';
 import SexSettingModal from './SexSettingModal';
 import { SettingInputElement } from './SettingInputElement';
 import SettingSelectElement from './SettingSelectElement';
-import { getUserProfile, updateUserProfile } from '@/c-api/user';
+import { updateUserProfile } from '@/c-api/user';
 import BirthdaySettingModal from './BirthdaySettingModal';
 import { SEX, SEX_NAMES } from '@/c-constants/userConstants';
 import DynamicSettingItem from './DynamicSettingItem';
@@ -21,8 +21,10 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEnvStore } from '@/c-store/envStore';
 
-const fixed_keys = ['nickname', 'avatar', 'sex', 'birth'];
-const hidden_keys = ['language'];
+import api from '@/api';
+
+// const fixed_keys = ['nickname', 'avatar', 'sex', 'birth'];
+// const hidden_keys = ['language'];
 
 export const UserSettings = ({
   onHomeClick,
@@ -125,20 +127,26 @@ export const UserSettings = ({
   }, []);
 
   const loadData = useCallback(async () => {
-    const { data: respData } = await getUserProfile(courseId);
-    respData.forEach((v) => {
-      if (v.key === 'nickname') {
-        setNickName(v.value);
-      } else if (v.key === 'avatar') {
-        setAvatar(v.value);
-      } else if (v.key === 'sex') {
-        setSex(v.value);
-      } else if (v.key === 'birth') {
-        setBirth(v.value);
-      }
-    });
-    setDynFormData(respData.filter((v) => (!fixed_keys.includes(v.key) && !hidden_keys.includes(v.key))));
-  }, [courseId]);
+    // TODO: FIXME
+    const userInfo = await api.getUserInfo({})
+    if (userInfo) {
+      setNickName(userInfo.name || userInfo.username || userInfo.email)
+      setAvatar(userInfo.avatar)
+    }
+    // const { data: respData } = await getUserProfile(courseId);
+    // respData.forEach((v) => {
+    //   if (v.key === 'nickname') {
+    //     setNickName(v.value);
+    //   } else if (v.key === 'avatar') {
+    //     setAvatar(v.value);
+    //   } else if (v.key === 'sex') {
+    //     setSex(v.value);
+    //   } else if (v.key === 'birth') {
+    //     setBirth(v.value);
+    //   }
+    // });
+    // setDynFormData(respData.filter((v) => (!fixed_keys.includes(v.key) && !hidden_keys.includes(v.key))));
+  }, []);
 
 
   useEffect(() => {

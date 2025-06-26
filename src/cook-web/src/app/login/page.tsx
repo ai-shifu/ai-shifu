@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
@@ -23,6 +23,10 @@ import LanguageSelect from '@/components/language-select'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
+
+import { useUserStore } from '@/c-store/useUserStore';
+import type { UserInfo } from '@/c-types'
+
 export default function AuthPage () {
   const router = useRouter()
   const [authMode, setAuthMode] = useState<
@@ -33,8 +37,27 @@ export default function AuthPage () {
     'phone'
   )
   const [language, setLanguage] = useState(browserLanguage)
-  const handleAuthSuccess = () => {
-    router.push('/main')
+  
+  /**
+   * Sync user login information to the "web(c)".
+   * TODO:
+   *   - Consolidate and synchronize the `hasLogin` and `hasCheckLogin` logic.
+   */
+  const updateUserInfo = useUserStore((state) => state.updateUserInfo);
+  const _setHasLogin = useUserStore((state) => state._setHasLogin);
+  
+  const searchParams = useSearchParams()
+  const handleAuthSuccess = (userInfo: UserInfo) => {
+    updateUserInfo(userInfo)
+    _setHasLogin(true)
+    
+    let redirect = searchParams.get('redirect')
+    if (!redirect || redirect.charAt(0) !== '/') {
+      redirect = '/main'
+    }
+    // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
+    // router.push('/main')
+    router.replace(redirect)
   }
 
   const handleForgotPassword = () => {
@@ -156,10 +179,14 @@ export default function AuthPage () {
                 </TabsList>
 
                 <TabsContent value='phone'>
+                  {/* TODO: FIXME */}
+                  {/* @ts-expect-error EXPECT */}
                   <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
 
                 <TabsContent value='email'>
+                  {/* TODO: FIXME */}
+                  {/* @ts-expect-error EXPECT */}
                   <EmailRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
               </Tabs>

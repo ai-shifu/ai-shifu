@@ -65,6 +65,7 @@ export interface UserStoreState {
   updateUserInfo: (info: Partial<UserInfo>) => void;
   refreshUserInfo: () => Promise<void>;
   updateHasCheckLogin: (hasCheckLogin: boolean) => void;
+  _setHasLogin: (v: boolean) => void
 }
 
 export interface UiLayoutStoreState {

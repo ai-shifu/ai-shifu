@@ -76,7 +76,7 @@ export default function ChatPage() {
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent(window.location.href)}`;
+    window.location.href = `/login?redirect=${encodeURIComponent('/c')}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -333,7 +333,8 @@ export default function ChatPage() {
 
     };
     const eventHandler = () => {
-      setLoginModalOpen(true);
+      // setLoginModalOpen(true);
+      gotoLogin()
     };
 
     const payEventHandler = (e) => {

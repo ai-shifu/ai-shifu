@@ -81,6 +81,8 @@ export const ChangeAvatar = ({
           <Image
             className={styles.editIcon}
             src={iconEditAvatar2x.src}
+            width={40}
+            height={40}
             alt=""
           />
         </div>

@@ -8,12 +8,7 @@
 
 .mainMenuModal {
   font-size: var(--font-size-4);
-  padding: 5px;
   line-height: 2em;
-
-  :global(.ant-modal-content) {
-    padding: 0;
-  }
 
   .languageRow {
     border-top: 1px solid var(--color-8);

@@ -15,11 +15,11 @@ import { getBoolEnv } from '@/c-utils/envUtils';
 import { userInfoStore } from '@/c-service/storeUtil';
 import { getCourseInfo } from '@/c-api/course';
 import { useEnvStore } from '@/c-store/envStore';
-import { useUserStore } from '@/c-store/useUserStore';
+// import { useUserStore } from '@/c-store/useUserStore';
 
 import { selectDefaultLanguage } from '@/c-constants/userConstants';
 import { useCourseStore } from '@/c-store/useCourseStore';
-import { EnvStoreState, SystemStoreState, CourseStoreState, UserStoreState } from '@/c-types/store';
+import { EnvStoreState, SystemStoreState, CourseStoreState } from '@/c-types/store';
 
 import { AuthProvider } from "@/store"
 
@@ -249,7 +249,8 @@ export default function ChatLayout({
     if (!checkWxcode) return;
     const checkLogin = async () => {
       // setLoading(true);
-      await (useUserStore.getState() as UserStoreState).checkLogin();
+      // TODO: FIXME
+      // await (useUserStore.getState() as UserStoreState).checkLogin();
       // setLoading(false);
     };
     checkLogin();
