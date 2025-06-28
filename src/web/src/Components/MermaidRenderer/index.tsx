@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
 
-interface Props { 
-  code: string; 
+interface Props {
+  code: string;
 }
 
 export default function MermaidRenderer({ code }: Props) {

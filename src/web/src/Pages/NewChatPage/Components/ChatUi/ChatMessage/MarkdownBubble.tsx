@@ -29,11 +29,11 @@ export const MarkdownBubble = (props) => {
             code({ node, className, children, ...props }: any) {
               const inline = !className;
               const match = /language-(\w+)/.exec(className || '');
-              
+
               if (!inline && match && match[1] === 'mermaid') {
                 return <MermaidRenderer code={String(children)} />;
               }
-              
+
               return !inline && match ? (
                 <div
                   className="markdown-code_block"
