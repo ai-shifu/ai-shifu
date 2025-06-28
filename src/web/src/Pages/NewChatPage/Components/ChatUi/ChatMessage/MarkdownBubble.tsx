@@ -20,7 +20,7 @@ export const MarkdownBubble = (props) => {
 
   return (
     <>
-      <Bubble content={props.content}>
+      <Bubble>
         <ReactMarkdown
           children={props.content}
           remarkPlugins={[remarkGfm]}
