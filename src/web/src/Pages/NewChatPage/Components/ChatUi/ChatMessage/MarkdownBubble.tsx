@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import MermaidRenderer from 'Components/MermaidRenderer';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Bubble } from '@ai-shifu/chatui';
 import { Image } from 'antd';
@@ -19,14 +20,20 @@ export const MarkdownBubble = (props) => {
 
   return (
     <>
-      <Bubble>
+      <Bubble content={props.content}>
         <ReactMarkdown
           children={props.content}
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
           components={{
-            code({ node, inline, className, children, ...props }) {
+            code({ node, className, children, ...props }: any) {
+              const inline = !className;
               const match = /language-(\w+)/.exec(className || '');
+              
+              if (!inline && match && match[1] === 'mermaid') {
+                return <MermaidRenderer code={String(children)} />;
+              }
+              
               return !inline && match ? (
                 <div
                   className="markdown-code_block"
