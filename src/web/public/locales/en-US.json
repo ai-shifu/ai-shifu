@@ -161,13 +161,5 @@
       "personalInfo": "Personalized Information",
       "language": "Language"
     }
-  },
-  "mermaid": {
-    "modal": {
-      "copySource": "Copy Source"
-    },
-    "hint": {
-      "longDiagram": "This diagram is long. View full screen for clarity."
-    }
   }
 }
