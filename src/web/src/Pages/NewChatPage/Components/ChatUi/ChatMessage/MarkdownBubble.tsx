@@ -34,7 +34,7 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
   };
 
   const getLanguageFromClassName = (className?: string): string | null => {
-    const match = /language-(\w+)/.exec(className || '');
+    const match = /language-([^\s]+)/.exec(className || '');
     return match ? match[1] : null;
   };
 
