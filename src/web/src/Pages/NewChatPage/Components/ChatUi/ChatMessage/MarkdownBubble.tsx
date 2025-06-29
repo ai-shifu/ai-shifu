@@ -56,7 +56,7 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
       className="markdown-code_block"
       style={{ position: 'relative' }}
     >
-      <CopyButton content={children} />
+      <CopyButton content={String(children)} />
       <SyntaxHighlighter
         {...props}
         children={String(children).replace(/\n$/, '')}
