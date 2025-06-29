@@ -48,7 +48,7 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
   );
 
   const renderMermaidDiagram = (children: React.ReactNode) => (
-    <MermaidRenderer code={String(children)} />
+    <MermaidRenderer code={String(children)} isStreaming={props.isStreaming} />
   );
 
   const renderCodeBlock = (language: string, children: React.ReactNode, props: any) => (

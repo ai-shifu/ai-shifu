@@ -3,25 +3,46 @@ import mermaid from 'mermaid';
 
 interface Props {
   code: string;
+  isStreaming?: boolean;
 }
 
-export default function MermaidRenderer({ code }: Props) {
+export default function MermaidRenderer({ code, isStreaming = false }: Props) {
   const container = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (container.current) {
+    const renderMermaid = async () => {
+      if (!container.current) return;
+
       mermaid.initialize({ startOnLoad: false });
-      mermaid.render('mermaid-svg-' + Date.now(), code).then((result) => {
+
+      try {
+        // First, try to parse the code. This will throw an error on syntax issues.
+        await mermaid.parse(code);
+
+        // Only if parsing is successful, render the diagram.
+        const { svg } = await mermaid.render('mermaid-svg-' + Date.now(), code);
         if (container.current) {
-          container.current.innerHTML = result.svg;
+          container.current.innerHTML = svg;
         }
-      }).catch((error) => {
+      } catch (error: any) {
         if (container.current) {
-          container.current.innerHTML = `<pre style="color: red;">Mermaid Error: ${error.message}</pre>`;
+          if (isStreaming) {
+            // In streaming mode, do nothing on error to keep the last valid diagram.
+            return;
+          } else {
+            // In non-streaming mode, display the error message.
+            container.current.innerHTML = `<pre style="color: red;">Mermaid Syntax Error: ${error.message}</pre>`;
+          }
         }
-      });
+      }
+    };
+
+    // Do not render empty code to avoid mermaid parsing errors on initial empty state.
+    if (code.trim()) {
+      renderMermaid();
     }
-  }, [code]);
+
+  }, [code, isStreaming]);
 
   return (
     <div
