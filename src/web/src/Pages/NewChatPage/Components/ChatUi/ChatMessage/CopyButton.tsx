@@ -1,39 +1,45 @@
 import { Button } from 'antd';
 import { CopyOutlined } from '@ant-design/icons';
-import { memo } from 'react';
-import { useState } from 'react';
+import { memo, useState, useRef } from 'react';
 import styles from './CopyButton.module.scss';
-import { useRef } from 'react';
 import classNames from 'classnames';
 import { copyText } from 'Utils/textutils';
 import { useTranslation } from 'react-i18next';
 
 const TIMEOUT = 5000;
 
-export const CopyButton = ({ content }) => {
-  const [hasCopy, setHasCopy] = useState(false);
-  const timeoutRef = useRef();
-  const {t} = useTranslation();
+interface CopyButtonProps {
+  content: string;
+}
 
-  const onCopyClick = () => {
-    copyText(content);
-    setHasCopy(true);
+export const CopyButton = ({ content }: CopyButtonProps) => {
+  const [hasCopied, setHasCopied] = useState<boolean>(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t } = useTranslation();
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+  const onCopyClick = async (): Promise<void> => {
+    try {
+      await copyText(content);
+      setHasCopied(true);
+
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      timeoutRef.current = setTimeout(() => setHasCopied(false), TIMEOUT);
+    } catch (error) {
+      console.error('Failed to copy text:', error);
     }
-    timeoutRef.current = setTimeout(() => setHasCopy(false), TIMEOUT);
   };
 
   return (
     <Button
-      className={classNames(styles.copyButton, hasCopy ? styles.copyed : '')}
+      className={classNames(styles.copyButton, hasCopied ? styles.copied : '')}
       type="dashed"
       size="small"
-      icon={<CopyOutlined></CopyOutlined>}
+      icon={<CopyOutlined />}
       onClick={onCopyClick}
     >
-      {hasCopy ? t('chat.copySuccess') : t('chat.copyText')}
+      {hasCopied ? t('chat.copySuccess') : t('chat.copyText')}
     </Button>
   );
 };
