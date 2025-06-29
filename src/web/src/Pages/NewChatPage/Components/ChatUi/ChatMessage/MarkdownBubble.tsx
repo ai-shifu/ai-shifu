@@ -11,11 +11,84 @@ import classNames from 'classnames';
 import styles from './MarkdownBubble.module.scss';
 import CopyButton from './CopyButton';
 
-export const MarkdownBubble = (props) => {
+interface MarkdownBubbleProps {
+  content: string;
+  mobileStyle?: boolean;
+  isStreaming?: boolean;
+  onImageLoaded?: () => void;
+}
+
+interface CodeComponentProps {
+  node?: any;
+  inline?: boolean;
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}
+
+export const MarkdownBubble = (props: MarkdownBubbleProps) => {
   const { mobileStyle, onImageLoaded } = props;
 
-  const onCopy = (content) => {
+  const copyToClipboard = (content: string) => {
     navigator.clipboard.writeText(content);
+  };
+
+  const getLanguageFromClassName = (className?: string): string | null => {
+    const match = /language-(\w+)/.exec(className || '');
+    return match ? match[1] : null;
+  };
+
+  const renderInlineCode = (className?: string, children?: React.ReactNode, props?: any) => (
+    <code
+      {...props}
+      className={classNames(className, styles.inlineCode)}
+    >
+      {children}
+    </code>
+  );
+
+  const renderMermaidDiagram = (children: React.ReactNode) => (
+    <MermaidRenderer code={String(children)} />
+  );
+
+  const renderCodeBlock = (language: string, children: React.ReactNode, props: any) => (
+    <div
+      className="markdown-code_block"
+      style={{ position: 'relative' }}
+    >
+      <CopyButton content={children} />
+      <SyntaxHighlighter
+        {...props}
+        children={String(children).replace(/\n$/, '')}
+        style={vscDarkPlus}
+        language={language}
+        showLineNumbers={!mobileStyle}
+        wrapLines={false}
+        onCopy={() => copyToClipboard(String(children))}
+      />
+    </div>
+  );
+
+  const renderCodeComponent = ({ node, inline, className, children, ...props }: CodeComponentProps) => {
+    const language = getLanguageFromClassName(className);
+    
+    // Inline code
+    if (inline) {
+      return renderInlineCode(className, children, props);
+    }
+
+    // Mermaid diagram
+    if (language === 'mermaid') {
+      return renderMermaidDiagram(children);
+    }
+
+    // Code block
+    if (language) {
+      return renderCodeBlock(language, children, props);
+    }
+
+    // Default inline code
+    return renderInlineCode(className, children, props);
   };
 
   return (
@@ -26,43 +99,7 @@ export const MarkdownBubble = (props) => {
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeRaw]}
           components={{
-            code({ node, className, children, ...props }: any) {
-              const inline = !className;
-              const match = /language-(\w+)/.exec(className || '');
-
-              if (!inline && match && match[1] === 'mermaid') {
-                return <MermaidRenderer code={String(children)} />;
-              }
-
-              return !inline && match ? (
-                <div
-                  className="markdown-code_block"
-                  style={{
-                    position: 'relative',
-                  }}
-                >
-                  <CopyButton content={children} />
-                  <SyntaxHighlighter
-                    {...props}
-                    children={String(children).replace(/\n$/, '')}
-                    style={vscDarkPlus}
-                    language={match[1]}
-                    showLineNumbers={!mobileStyle}
-                    wrapLines={false}
-                    onCopy={() => {
-                      onCopy(children);
-                    }}
-                  ></SyntaxHighlighter>
-                </div>
-              ) : (
-                <code
-                  {...props}
-                  className={classNames(className, styles.inlineCode)}
-                >
-                  {children}
-                </code>
-              );
-            },
+            code: renderCodeComponent,
             img(imgProps) {
               return (
                 <Image
