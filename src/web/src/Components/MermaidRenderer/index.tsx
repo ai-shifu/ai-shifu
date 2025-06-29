@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useId } from 'react';
 import mermaid from 'mermaid';
 
 interface Props {
@@ -8,19 +8,24 @@ interface Props {
 
 export default function MermaidRenderer({ code, isStreaming = false }: Props) {
   const container = useRef<HTMLDivElement>(null);
+  const isMermaidInitialized = useRef(false);
+  const uniqueId = useId();
 
   useEffect(() => {
     const renderMermaid = async () => {
       if (!container.current) return;
 
-      mermaid.initialize({ startOnLoad: false });
+      if (!isMermaidInitialized.current) {
+        mermaid.initialize({ startOnLoad: false });
+        isMermaidInitialized.current = true;
+      }
 
       try {
         // First, try to parse the code. This will throw an error on syntax issues.
         await mermaid.parse(code);
 
         // Only if parsing is successful, render the diagram.
-        const { svg } = await mermaid.render('mermaid-svg-' + Date.now(), code);
+        const { svg } = await mermaid.render('mermaid-svg-' + uniqueId.replace(/:/g, '-'), code);
         if (container.current) {
           container.current.innerHTML = svg;
         }
