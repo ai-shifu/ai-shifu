@@ -137,6 +137,57 @@ export const useContentTypes = () => {
         prompt: '',
         variables: []
       }
-    }
-  ]
-}
+    },
+    {
+      type: 'button',
+      name: t('render-block.button'),
+      properties: {
+        text: '',
+        link: '',
+        target: '_self'
+      }
+    },
+    {
+      type: 'login',
+      name: t('render-block.login'),
+      properties: {
+        text: '',
+        link: '',
+        target: '_self'
+      }
+    },
+    {
+      type: 'payment',
+      name: t('render-block.logout'),
+      properties: {
+        text: '',
+        link: '',
+        target: '_self'
+      }
+    },
+    {
+      type: 'option',
+      name: t('render-block.option'),
+      properties: {
+        text: '',
+        link: '',
+        target: '_self'
+      }
+    },
+    {
+      type: 'text-input',
+      name: t('render-block.text-input'),
+      properties: {
+        text: '',
+        link: '',
+        target: '_self'
+      }
+    },
+    {
+      type: 'gap',
+      name: t('render-block.gap'),
+      properties: {
+        height: '10px'
+      }
+    }]
+  }

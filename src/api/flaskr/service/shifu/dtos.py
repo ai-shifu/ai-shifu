@@ -167,13 +167,6 @@ class SimpleOutlineDto(BaseModel):
 
 
 @register_schema_to_swagger
-class UnitDto:
-    unit_id: str
-    unit_no: str
-    unit_name: str
-
-
-@register_schema_to_swagger
 class OutlineDto(BaseModel):
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline no", required=False)
@@ -716,3 +709,255 @@ class ReorderOutlineItemDto:
 @register_schema_to_swagger
 class ReorderOutlineDto:
     outlines: list[ReorderOutlineItemDto]
+
+
+# new dto for block
+
+
+# i18n label dto
+@register_schema_to_swagger
+class LabelDTO(BaseModel):
+    lang: dict[str, str] = Field(..., description="label lang", required=True)
+
+    def __init__(self, lang: dict[str, str]):
+        super().__init__(lang=lang)
+
+    def __json__(self):
+        return {
+            "lang": self.lang,
+        }
+
+
+@register_schema_to_swagger
+class ContentDTO(BaseModel):
+    content: str = Field(..., description="content", required=True)
+    llm_enabled: bool = Field(..., description="llm enabled", required=True)
+    llm: str = Field(..., description="llm", required=False)
+    llm_temperature: float = Field(..., description="llm temperature", required=False)
+
+    def __init__(
+        self,
+        content: str,
+        llm_enabled: bool,
+        llm: str = None,
+        llm_temperature: float = None,
+    ):
+        super().__init__(
+            content=content,
+            llm_enabled=llm_enabled,
+            llm=llm,
+            llm_temperature=llm_temperature,
+        )
+
+    def __json__(self):
+        return {
+            "content": self.content,
+            "llm_enabled": self.llm_enabled,
+            "llm": self.llm,
+            "llm_temperature": self.llm_temperature,
+        }
+
+
+@register_schema_to_swagger
+class BreakDTO(BaseModel):
+
+    def __init__(self):
+        super().__init__()
+
+    def __json__(self):
+        return {}
+
+
+@register_schema_to_swagger
+class ButtonDTO(BaseModel):
+    label: LabelDTO = Field(..., description="label", required=True)
+
+    def __init__(self, label: LabelDTO):
+        super().__init__(label=label)
+
+    def __json__(self):
+        return {
+            "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class InputDTO(BaseModel):
+    placeholder: LabelDTO = Field(..., description="placeholder", required=True)
+    prompt: str = Field(..., description="prompt", required=True)
+    result_variable_bids: list[str] = Field(
+        ..., description="result variable bids", required=True
+    )
+    llm: str = Field(..., description="llm", required=False)
+    llm_temperature: float = Field(..., description="llm temperature", required=False)
+
+    def __init__(
+        self,
+        placeholder: LabelDTO,
+        prompt: str,
+        result_variable_bids: list[str],
+        llm: str = None,
+        llm_temperature: float = None,
+    ):
+        super().__init__(
+            placeholder=placeholder,
+            prompt=prompt,
+            result_variable_bids=result_variable_bids,
+            llm=llm,
+            llm_temperature=llm_temperature,
+        )
+
+    def __json__(self):
+        return {
+            "placeholder": self.placeholder,
+            "prompt": self.prompt,
+            "result_variable_bids": self.result_variable_bids,
+            "llm": self.llm,
+            "llm_temperature": self.llm_temperature,
+        }
+
+
+@register_schema_to_swagger
+class OptionItemDTO(BaseModel):
+
+    label: LabelDTO = Field(..., description="label", required=True)
+    value: str = Field(..., description="value", required=True)
+
+    def __init__(self, label: LabelDTO, value: str):
+        super().__init__(label=label, value=value)
+
+    def __json__(self):
+        return {
+            "label": self.label,
+            "value": self.value,
+        }
+
+
+@register_schema_to_swagger
+class OptionsDTO(BaseModel):
+    result_variable_bid: str = Field(
+        ..., description="result variable bid", required=True
+    )
+    options: list[OptionItemDTO] = Field(..., description="options", required=True)
+
+    def __init__(self, result_variable_bid: str, options: list[OptionItemDTO]):
+        super().__init__(result_variable_bid=result_variable_bid, options=options)
+
+    def __json__(self):
+        return {
+            "result_variable_bid": self.result_variable_bid,
+            "options": self.options,
+        }
+
+
+@register_schema_to_swagger
+class GotoConditionDTO(BaseModel):
+    value: str = Field(..., description="value", required=True)
+    destination_type: str = Field(..., description="destination type", required=True)
+    destination_bid: str = Field(..., description="destination bid", required=True)
+
+    def __init__(self, value: str, destination_type: str, destination_bid: str):
+        super().__init__(
+            value=value,
+            destination_type=destination_type,
+            destination_bid=destination_bid,
+        )
+
+    def __json__(self):
+        return {
+            "value": self.value,
+            "destination_type": self.destination_type,
+            "destination_bid": self.destination_bid,
+        }
+
+
+@register_schema_to_swagger
+class GotoDTO(BaseModel):
+    conditions: list[GotoConditionDTO] = Field(
+        ..., description="conditions", required=True
+    )
+
+    def __init__(self, conditions: list[GotoConditionDTO]):
+        super().__init__(conditions=conditions)
+
+    def __json__(self):
+        return {
+            "conditions": self.conditions,
+        }
+
+
+@register_schema_to_swagger
+class PaymentDTO(BaseModel):
+    label: LabelDTO = Field(..., description="label", required=True)
+
+    def __init__(self, label: LabelDTO):
+        super().__init__(label=label)
+
+    def __json__(self):
+        return {
+            "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class LoginDTO(BaseModel):
+    label: LabelDTO = Field(..., description="label", required=True)
+
+    def __init__(self, label: LabelDTO):
+        super().__init__(label=label)
+
+    def __json__(self):
+        return {
+            "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class BlockDTO(BaseModel):
+    bid: str = Field(..., description="bid", required=True)
+    type: str = Field(..., description="type", required=True)
+    block_content: (
+        ContentDTO
+        | BreakDTO
+        | ButtonDTO
+        | InputDTO
+        | OptionsDTO
+        | GotoDTO
+        | PaymentDTO
+        | LoginDTO
+    ) = Field(..., description="block content", required=True)
+    variable_bids: list[str] = Field(..., description="variable bids", required=True)
+    resource_bids: list[str] = Field(..., description="resource bids", required=True)
+
+    def __init__(
+        self,
+        bid: str,
+        block_content: (
+            ContentDTO
+            | BreakDTO
+            | ButtonDTO
+            | InputDTO
+            | OptionsDTO
+            | GotoDTO
+            | PaymentDTO
+            | LoginDTO
+        ),
+        variable_bids: list[str],
+        resource_bids: list[str],
+    ):
+        super().__init__(
+            bid=bid,
+            type=block_content.__class__.__name__.replace("DTO", "").lower(),
+            block_content=block_content,
+            variable_bids=variable_bids,
+            resource_bids=resource_bids,
+        )
+
+    def __json__(self):
+        return {
+            "bid": self.bid,
+            "type": self.type,
+            "properties": self.block_content,
+            "variable_bids": self.variable_bids,
+            "resource_bids": self.resource_bids,
+        }
