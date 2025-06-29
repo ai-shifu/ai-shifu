@@ -36,7 +36,12 @@ export default function MermaidRenderer({ code, isStreaming = false }: Props) {
             return;
           } else {
             // In non-streaming mode, display the error message.
-            container.current.innerHTML = `<pre style="color: red;">Mermaid Syntax Error: ${error.message}</pre>`;
+            const pre = document.createElement('pre');
+            pre.style.color = 'red';
+            const message = error instanceof Error ? error.message : String(error);
+            pre.textContent = `Mermaid Syntax Error: ${message}`;
+            container.current.innerHTML = '';
+            container.current.appendChild(pre);
           }
         }
       }
