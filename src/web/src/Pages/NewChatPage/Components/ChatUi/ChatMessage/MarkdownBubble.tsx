@@ -71,7 +71,7 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
 
   const renderCodeComponent = ({ node, inline, className, children, ...props }: CodeComponentProps) => {
     const language = getLanguageFromClassName(className);
-    
+
     // Inline code
     if (inline) {
       return renderInlineCode(className, children, props);
