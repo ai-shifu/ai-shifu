@@ -58,12 +58,6 @@ export default function MermaidRenderer({ code, isStreaming = false }: Props) {
     <div
       ref={container}
       className="w-full max-h-[60vh] overflow-auto rounded-md"
-      style={{
-        width: '100%',
-        maxHeight: '60vh',
-        overflow: 'auto',
-        borderRadius: '6px',
-      }}
     />
   );
 }
