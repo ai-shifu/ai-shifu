@@ -83,12 +83,7 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
     }
 
     // Code block
-    if (language) {
-      return renderCodeBlock(language, children, props);
-    }
-
-    // Default inline code
-    return renderInlineCode(className, children, props);
+    return renderCodeBlock(language || 'text', children, props);
   };
 
   return (
