@@ -35,6 +35,7 @@ from collections import defaultdict
 import os
 from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
+import threading
 
 
 def get_raw_shifu_list(
@@ -445,6 +446,8 @@ def publish_shifu(app, user_id, shifu_id: str):
                 }
             )
             db.session.commit()
+            thread = threading.Thread(target=get_shifu_summary, args=(app, shifu_id))
+            thread.start()
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id
         raise_error("SHIFU.SHIFU_NOT_FOUND")
 
@@ -1035,6 +1038,7 @@ def _generate_summaries(
                 model_name=model_name,
                 temperature=temperature,
             )
+            print(f"summary: {summary}")
 
             # 更新节信息
             lesson = lesson_map.get(section.outline.lesson_id)
