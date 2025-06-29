@@ -23,18 +23,11 @@ const agiImgContextRegexp =
   /<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi
 
 const getProfileKeyListFromContent = (content: string): string[] => {
-  const profileKeys: string[] = []
-  let match:any = null;
-
-  profileRegexp.lastIndex = 0
-
-  while ((match = profileRegexp.exec(content)) !== null) {
-    if (match?.[1]) {
-      profileKeys.push(match?.[1])
-    }
+  const keys = new Set<string>()
+  for (const match of content?.matchAll(profileRegexp)) {
+    keys.add(match[1])
   }
-
-  return [...new Set(profileKeys)]
+  return Array.from(keys)
 }
 
 // get value from content
