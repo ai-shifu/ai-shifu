@@ -16,7 +16,7 @@ export default function MermaidRenderer({ code, isStreaming = false }: Props) {
       if (!container.current) return;
 
       if (!isMermaidInitialized.current) {
-        mermaid.initialize({ startOnLoad: false });
+        mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
         isMermaidInitialized.current = true;
       }
 
@@ -29,7 +29,7 @@ export default function MermaidRenderer({ code, isStreaming = false }: Props) {
         if (container.current) {
           container.current.innerHTML = svg;
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (container.current) {
           if (isStreaming) {
             // In streaming mode, do nothing on error to keep the last valid diagram.
