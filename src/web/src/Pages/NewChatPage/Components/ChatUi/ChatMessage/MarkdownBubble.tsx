@@ -29,10 +29,6 @@ interface CodeComponentProps {
 export const MarkdownBubble = (props: MarkdownBubbleProps) => {
   const { mobileStyle, onImageLoaded } = props;
 
-  const copyToClipboard = (content: string) => {
-    navigator.clipboard.writeText(content);
-  };
-
   const getLanguageFromClassName = (className?: string): string | null => {
     const match = /language-([^\s]+)/.exec(className || '');
     return match ? match[1] : null;
@@ -64,7 +60,6 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
         language={language}
         showLineNumbers={!mobileStyle}
         wrapLines={false}
-        onCopy={() => copyToClipboard(String(children))}
       />
     </div>
   );
