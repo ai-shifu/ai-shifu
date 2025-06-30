@@ -33,7 +33,6 @@ from urllib.parse import urlparse
 import re
 import time
 from collections import defaultdict
-import os
 from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
 import threading
@@ -455,7 +454,9 @@ def publish_shifu(app, user_id, shifu_id: str):
                 }
             )
             db.session.commit()
-            thread = threading.Thread(target=_run_summary_with_error_handling, args=(app, shifu_id))
+            thread = threading.Thread(
+                target=_run_summary_with_error_handling, args=(app, shifu_id)
+            )
             thread.daemon = True  # Ensure thread doesn't prevent app shutdown
             thread.start()
             return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu.course_id
@@ -941,7 +942,7 @@ def get_shifu_summary(app, shifu_id: str):
         ask_prompt_template = load_prompt_template("ask")
 
         # Get course data
-        outline_tree, outline_ids, all_blocks, lesson_map = _get_course_data(
+        outline_tree, outline_ids, all_blocks, lesson_map = _get_shifu_data(
             app, shifu_id
         )
 
@@ -1068,11 +1069,11 @@ def _generate_summaries(
     return outline_summary_map
 
 
-def _get_course_data(app, shifu_id: str) -> tuple[list, dict, dict]:
+def _get_shifu_data(app, shifu_id: str) -> tuple[list, dict, dict]:
     """
-    Get course related data
+    Get shifu related data
     :param app: Flask app
-    :param shifu_id: Course ID
+    :param shifu_id: shifu ID
     :return: (outline_tree, outline_ids, all_blocks, lesson_map)
     """
     outline_tree = get_original_outline_tree(app, shifu_id)

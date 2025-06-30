@@ -20,7 +20,7 @@ def load_prompt_template(template_name: str) -> str:
     prompts_dir = os.path.join(current_dir, "../../prompts")
 
     # Ensure filename has .md extension
-    if not template_name.endswith('.md'):
+    if not template_name.endswith(".md"):
         template_name = f"{template_name}.md"
 
     # Build complete file path
