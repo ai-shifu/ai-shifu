@@ -6,6 +6,7 @@ from ...util.uuid import generate_id
 from ..common.models import raise_error
 from ..lesson.const import (
     LESSON_TYPE_TRIAL,
+    LESSON_TYPE_NORMAL,
     STATUS_PUBLISH,
     STATUS_DRAFT,
     STATUS_HISTORY,
@@ -26,6 +27,7 @@ from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from .unit_funcs import create_unit
 from .dtos import ReorderOutlineItemDto
 from .adapter import convert_outline_to_reorder_outline_item_dto
+from .const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
 
 
 # get chapter list
@@ -411,10 +413,17 @@ def create_outline(
     outline_name: str,
     outline_description: str,
     outline_index: int = 0,
-    outline_type: int = LESSON_TYPE_TRIAL,
+    outline_type: str = UNIT_TYPE_TRIAL,
     system_prompt: str = None,
     is_hidden: bool = False,
 ) -> SimpleOutlineDto:
+    # 将字符串类型的 outline_type 转换为整数类型
+    chapter_type = LESSON_TYPE_TRIAL
+    if outline_type == UNIT_TYPE_NORMAL:
+        chapter_type = LESSON_TYPE_NORMAL
+    elif outline_type == UNIT_TYPE_TRIAL:
+        chapter_type = LESSON_TYPE_TRIAL
+
     if parent_id:
         return create_unit(
             app=app,
@@ -425,8 +434,8 @@ def create_outline(
             unit_description=outline_description,
             unit_index=outline_index,
             unit_type=outline_type,
-            unit_system_prompt=None,
-            unit_is_hidden=False,
+            unit_system_prompt=system_prompt,
+            unit_is_hidden=is_hidden,
         )
     else:
         return create_chapter(
@@ -436,7 +445,7 @@ def create_outline(
             chapter_name=outline_name,
             chapter_description=outline_description,
             chapter_index=outline_index,
-            chapter_type=outline_type,
+            chapter_type=chapter_type,
         )
 
 
