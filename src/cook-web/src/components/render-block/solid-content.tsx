@@ -22,11 +22,10 @@ export default function SolidContent(props: SolideContnet) {
     return (
         <CMEditor
             content={props.properties.prompt}
-            variables={props.properties.variables}
             isEdit={props.isEdit}
             onBlur={props.onBlur}
-            onChange={(value, isEdit) => {
-                props.onChange({ ...props.properties, prompt: value })
+            onChange={(value, variables, isEdit) => {
+                props.onChange({ ...props.properties, prompt: value, variables: variables })
                 if (props.onEditChange) {
                     props.onEditChange(isEdit)
                 }

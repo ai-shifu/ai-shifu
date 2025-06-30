@@ -28,7 +28,7 @@ const getProfileKeyListFromContent = (content: string): string[] => {
   for (const match of content?.matchAll(profileRegexp)) {
     keys.add(match[1])
   }
-  return Array.from(keys)
+  return Array.from(new Set(keys))
 }
 
 // get value from content
