@@ -16,6 +16,15 @@ from flaskr.service.shifu.dtos import (
     EmptyDto,
     BlockUpdateResultDto,
     ReorderOutlineItemDto,
+    BlockDTO,
+    LabelDTO,
+    ContentDTO,
+    ButtonDTO,
+    LoginDTO,
+    PaymentDTO,
+    OptionsDTO,
+    InputDTO,
+    BreakDTO,
 )
 from sqlalchemy import func
 from flaskr.i18n import _
@@ -26,6 +35,7 @@ from flaskr.service.lesson.const import (
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPE_SYSTEM,
     SCRIPT_TYPE_PROMPT,
+    SCRIPT_TYPE_ACTION,
     UI_TYPE_BUTTON,
     UI_TYPE_LOGIN,
     UI_TYPE_PHONE,
@@ -35,6 +45,8 @@ from flaskr.service.lesson.const import (
     UI_TYPE_BRANCH,
     UI_TYPE_INPUT,
     UI_TYPE_EMPTY,
+    UI_TYPE_CONTENT,
+    UI_TYPE_BREAK,
 )
 
 from flaskr.service.profile.dtos import (
@@ -576,3 +588,84 @@ def convert_outline_to_reorder_outline_item_dto(
         )
         for item in json_array
     ]
+
+
+CONTENT_TYPE = {
+    "content": ContentDTO,
+    "label": LabelDTO,
+    "button": ButtonDTO,
+    "login": LoginDTO,
+    "payment": PaymentDTO,
+    "options": OptionsDTO,
+    "input": InputDTO,
+    "break": BreakDTO,
+}
+
+
+def convert_to_blockDTO(json_object: dict) -> BlockDTO:
+    type = json_object.get("type")
+    if type not in CONTENT_TYPE:
+        raise_error(f"Invalid type: {type}")
+    return BlockDTO(
+        bid=json_object.get("bid"),
+        type=type,
+        block_content=CONTENT_TYPE[type](**json_object.get("properties")),
+        variable_bids=json_object.get("variable_bids", []),
+        resource_bids=json_object.get("resource_bids", []),
+    )
+
+
+def update_block_dto_to_model(block_dto: BlockDTO, block_model: AILessonScript):
+    if block_dto.type == "content":
+        block_model.script_ui_type = UI_TYPE_CONTENT
+        content: ContentDTO = block_dto.block_content  # type: ContentDTO
+        block_model.script_prompt = content.prompt
+        block_model.script_profile = content.variables
+        block_model.script_model = content.model
+        block_model.script_temperature = content.temperature
+        block_model.script_other_conf = content.other_conf
+
+        if content.llm_enabled:
+            block_model.script_type = SCRIPT_TYPE_PROMPT
+        else:
+            block_model.script_type = SCRIPT_TYPE_FIX
+        return
+    block_model.script_type = SCRIPT_TYPE_ACTION
+    if block_dto.type == "break":
+        block_model.script_ui_type = UI_TYPE_BREAK
+        return
+
+    if block_dto.type == "button":
+        block_model.script_ui_type = UI_TYPE_BUTTON
+        content: ButtonDTO = block_dto.block_content  # type: ButtonDTO
+        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
+        return
+
+    if block_dto.type == "login":
+        block_model.script_ui_type = UI_TYPE_LOGIN
+        content: LoginDTO = block_dto.block_content  # type: LoginDTO
+        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
+        return
+
+    if block_dto.type == "payment":
+        block_model.script_ui_type = UI_TYPE_TO_PAY
+        content: PaymentDTO = block_dto.block_content  # type: PaymentDTO
+        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
+        return
+
+    if block_dto.type == "options":
+        block_model.script_type = SCRIPT_TYPE_ACTION
+        block_model.script_ui_type = UI_TYPE_SELECTION
+        content: OptionsDTO = block_dto.block_content  # type: OptionsDTO
+        block_model.script_ui_content = content.result_variable_bid
+        return
+
+    if block_dto.type == "input":
+        block_model.script_ui_type = UI_TYPE_INPUT
+        content: InputDTO = block_dto.block_content  # type: InputDTO
+        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
+        return
+
+    if block_dto.type == "break":
+        block_model.script_ui_type = UI_TYPE_BREAK
+        return
