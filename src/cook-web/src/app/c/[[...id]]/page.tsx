@@ -8,7 +8,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import { useParams } from 'next/navigation';
-import { useAuth } from '@/store';
 
 import {
   calcFrameLayout,
@@ -17,13 +16,9 @@ import {
 } from '@/c-constants/uiConstants';
 import { EVENT_NAMES, events } from './events';
 
-import { useEnvStore } from '@/c-store/envStore';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useEnvStore, useUserStore, useCourseStore, useUiLayoutStore, useSystemStore } from '@/c-store';
 import { useDisclosture } from '@/c-common/hooks/useDisclosture';
-import { useCourseStore } from '@/c-store/useCourseStore';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 import { useLessonTree } from './hooks/useLessonTree';
-import { useSystemStore } from '@/c-store/useSystemStore';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 
@@ -42,19 +37,19 @@ import PayModal from './Components/Pay/PayModal';
 
 // the main page of course learning
 export default function ChatPage() {
-  const { i18n, t } = useTranslation('translation', {
+  const { i18n } = useTranslation('translation', {
     keyPrefix: 'c',
   });
 
   /**
    * User info and init part
    */
-  const { profile: userInfo } = useAuth();
+  const userInfo = useUserStore((state) => state.profile);
   const hasLogin = !!userInfo;
 
   const { hasCheckLogin } = useUserStore((state) => state);
   const [initialized, setInitialized] = useState(false);
-  
+
   const { wechatCode } = useSystemStore(
     useShallow((state) => ({ wechatCode: state.wechatCode }))
   );
@@ -86,7 +81,7 @@ export default function ChatPage() {
    */
   const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
-  
+
   // check the frame layout
   useEffect(() => {
     const onResize = () => {
@@ -110,7 +105,6 @@ export default function ChatPage() {
 
   const {
     open: feedbackModalOpen,
-    onOpen: onFeedbackModalOpen,
     onClose: onFeedbackModalClose,
   } = useDisclosture();
 
@@ -174,7 +168,7 @@ export default function ChatPage() {
     await loadTree(chapterId, lessonId);
   }, [chapterId, lessonId, loadTree]);
 
-  const [loadedChapterId, setLoadedChapterId] = useState(null);
+  const [loadedChapterId, setLoadedChapterId] = useState('');
   useEffect(() => {
     if (hasCheckLogin && loadedChapterId !== chapterId) {
       loadData();
@@ -264,14 +258,14 @@ export default function ChatPage() {
     reloadTree();
   }, [reloadTree]);
 
-  const _onPayModalCancel = useCallback(() => {
+  const _onPayModalCancel = useCallback((e) => {
     setPayModalOpen(false);
-    shifu.payTools.emitPayModalCancel();
+    shifu.payTools.emitPayModalCancel(e);
   }, []);
 
-  const _onPayModalOk = useCallback(() => {
+  const _onPayModalOk = useCallback((e) => {
     setPayModalOpen(false);
-    shifu.payTools.emitPayModalOk();
+    shifu.payTools.emitPayModalOk(e);
   }, []);
 
   /**
@@ -341,7 +335,7 @@ export default function ChatPage() {
       const { type = '', payload = {} } = e.detail;
       setPayModalState({ type, payload });
       setPayModalOpen(true);
-      setLoginOkHandlerData({ type: 'pay', payload: {} });
+      // setLoginOkHandlerData({ type: 'pay', payload: {} });
     };
 
     shifu.events.addEventListener(

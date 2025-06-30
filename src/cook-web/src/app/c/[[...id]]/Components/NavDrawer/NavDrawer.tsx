@@ -22,7 +22,7 @@ import {
 import { useDisclosture } from '@/c-common/hooks/useDisclosture';
 import MainMenuModal from './MainMenuModal';
 
-import { useAuth } from '@/store';
+import { useUserStore } from '@/c-store';
 
 /**
  * 导航栏展示形式
@@ -70,9 +70,9 @@ const NavDrawer = ({
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const { profile: userInfo } = useAuth();
+  const userInfo = useUserStore((state) => state.profile);
   const hasLogin = !!userInfo
-  
+
   const [isCollapse, setIsCollapse] = useState(false);
 
   const [bodyScrollTop, setBodyScrollTop] = useState(0);

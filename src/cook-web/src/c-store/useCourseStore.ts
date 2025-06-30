@@ -7,7 +7,7 @@ export const useCourseStore = create<CourseStoreState, [["zustand/subscribeWithS
   subscribeWithSelector((set,get) => ({
     courseName: '',
     updateCourseName: (courseName) => set(() => ({ courseName })),
-    lessonId: null,
+    lessonId: undefined,
     updateLessonId: (lessonId) => set(() => ({ lessonId })),
     chapterId: '',
     updateChapterId: (newChapterId) =>  {

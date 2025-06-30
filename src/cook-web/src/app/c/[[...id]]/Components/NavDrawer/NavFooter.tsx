@@ -3,7 +3,7 @@ import styles from './NavFooter.module.scss';
 import clsx from 'clsx';
 import { memo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/store';
+import { useUserStore } from '@/c-store';
 
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
 
@@ -12,8 +12,8 @@ import imgUser from '@/c-assets/newchat/light/user.png';
 // @ts-expect-error EXPECT
 export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
-  
-  const { profile: userInfo } = useAuth();
+
+  const userInfo = useUserStore((state) => state.profile);
   const hasLogin = !!userInfo
   const avatar = userInfo?.avatar || imgUser.src;
 

@@ -13,7 +13,8 @@ import {
   Settings2,
   ListCollapse
 } from 'lucide-react'
-import { useShifu, useAuth } from '@/store'
+import { useShifu } from '@/store'
+import { useUserStore } from '@/c-store'
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header'
@@ -249,7 +250,8 @@ const DraggableBlock = ({
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
-  const { profile } = useAuth()
+  const profile = useUserStore((state) => state.profile)
+  const ContentTypes = useContentTypes()
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
     {}
   )

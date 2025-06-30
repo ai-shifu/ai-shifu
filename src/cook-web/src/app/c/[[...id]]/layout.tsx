@@ -14,14 +14,10 @@ import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import { userInfoStore } from '@/c-service/storeUtil';
 import { getCourseInfo } from '@/c-api/course';
-import { useEnvStore } from '@/c-store/envStore';
-// import { useUserStore } from '@/c-store/useUserStore';
-
 import { selectDefaultLanguage } from '@/c-constants/userConstants';
-import { useCourseStore } from '@/c-store/useCourseStore';
 import { EnvStoreState, SystemStoreState, CourseStoreState } from '@/c-types/store';
 
-import { AuthProvider } from "@/store"
+import { useEnvStore, useCourseStore, UserProvider } from "@/c-store"
 
 
 const initializeEnvData = async (): Promise<void> => {
@@ -257,9 +253,8 @@ export default function ChatLayout({
   }, [envDataInitialized, checkWxcode]);
 
   return (
-    <AuthProvider>
+    <UserProvider>
       {children}
-    </AuthProvider>
+    </UserProvider>
   )
 }
-
