@@ -491,7 +491,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
 
           <div className='mt-6 flex justify-center'>
             <Button
-              className='bg-purple-600 hover:bg-purple-700 text-white w-full'
+              className='bg-primary hover:bg-primary-lighter text-white w-full'
               onClick={onDebug}
             >
               {!runing && <span>{t('ai-debug.start-debug')}</span>}

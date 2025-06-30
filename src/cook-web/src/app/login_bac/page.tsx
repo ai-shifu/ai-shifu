@@ -116,7 +116,7 @@ const LoginPage = () => {
         <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
             <div className="w-full max-w-md space-y-2">
                 <div className="flex flex-col items-center space-y-2">
-                    <h2 className="text-purple-600 text-2xl flex items-center font-semibold">
+                    <h2 className="text-primary text-2xl flex items-center font-semibold">
                         <Image
                             className="dark:invert"
                             src="/logo.svg"
@@ -193,25 +193,25 @@ const LoginPage = () => {
 
                             <Button
                                 onClick={handleSubmit}
-                                className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full bg-primary hover:bg-primary-lighter disabled:opacity-50 disabled:cursor-not-allowed"
                                 disabled={!!errors.username || !!errors.password || !formData.username || !formData.password}
                             >
                                 {t("login.login")}
                             </Button>
 
                             <div className="text-center  text-stone-900 text-base">
-                                {t("login.want-to-experience-creation")} <a className='underline cursor-pointer hover:text-purple-500' href="http://">{t("login.apply-for-admission")}</a>
+                                {t("login.want-to-experience-creation")} <a className='underline cursor-pointer hover:text-primary-lighter' href="http://">{t("login.apply-for-admission")}</a>
                             </div>
                         </form>
                     </CardContent>
                 </Card>
                 <div className="text-xs text-stone-500 text-center">
                     {t("login.click-login-to-represent-you-have-agreed-to")}
-                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500" href="/privacy">
+                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-primary-lighter" href="/privacy">
                         {t("login.user-agreement")}
                     </a>
                     {t("login.and")}
-                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-purple-500" href="/agreement">
+                    <a className="px-1 text-xs text-stone-900 underline cursor-pointer hover:text-primary-lighter" href="/agreement">
                         {t("login.service-agreement")}
                     </a>
                 </div>

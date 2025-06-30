@@ -63,7 +63,7 @@ export default function AuthPage () {
 
       <div className='w-full max-w-md space-y-2'>
         <div className='flex flex-col items-center relative'>
-          <h2 className='text-purple-600 flex items-center font-semibold pb-2  w-full justify-center'>
+          <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
             <Image
               className='dark:invert'
               src='/logo.svg'
