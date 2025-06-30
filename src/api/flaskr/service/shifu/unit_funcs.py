@@ -328,15 +328,20 @@ def modify_unit(
                         )
 
             db.session.commit()
+            # 确保 system_prompt 不为 None
+            final_system_prompt = (
+                unit_system_prompt if unit_system_prompt is not None else ""
+            )
+
             return OutlineDto(
-                unit.lesson_id,
-                unit.lesson_no,
-                unit.lesson_name,
-                unit.lesson_desc,
-                unit_type,
-                unit.lesson_index,
-                unit_system_prompt,
-                unit_is_hidden,
+                bid=unit.lesson_id,
+                position=unit.lesson_no,
+                name=unit.lesson_name,
+                description=unit.lesson_desc,
+                type=unit_type,
+                index=unit.lesson_index,
+                system_prompt=final_system_prompt,
+                is_hidden=unit_is_hidden,
             )
         raise_error("SCENARIO.UNIT_NOT_FOUND")
 
