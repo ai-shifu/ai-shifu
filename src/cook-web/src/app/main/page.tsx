@@ -30,12 +30,12 @@ const ShifuCard = ({ id, image, title, description, isFavorite }: ShifuCardProps
             <CardContent className="p-4 cursor-pointer" >
                 <div className='flex flex-row items-center justify-between'>
                     <div className='flex flex-row items-center mb-2'>
-                        <div className="p-2 h-10 w-10 rounded-lg bg-purple-50 mr-4 flex items-center justify-center shrink-0">
+                        <div className="p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0">
                             {
                                 image && <img src={image} alt="recipe" className="w-full h-full object-cover rounded-lg" />
                             }
                             {
-                                !image && <TrophyIcon className="w-6 h-6 text-purple-600" />
+                                !image && <TrophyIcon className="w-6 h-6 text-primary" />
                             }
                         </div>
 
