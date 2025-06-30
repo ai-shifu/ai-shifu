@@ -18,6 +18,7 @@ import { EmailRegister } from '@/components/auth/email-register'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 import { FeedbackForm } from '@/components/auth//feedback-form'
 import Image from 'next/image'
+import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png'
 import { setToken } from '@/local/local'
 import LanguageSelect from '@/components/language-select'
 import { useTranslation } from 'react-i18next';
@@ -89,10 +90,10 @@ export default function AuthPage () {
           <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
             <Image
               className='dark:invert'
-              src='/logo.svg'
+              src={logoHorizontal}
               alt='AI-Shifu'
-              width={140}
-              height={30}
+              width={180}
+              height={40}
               priority
             />
 

@@ -14,6 +14,7 @@ import Image from "next/image";
 import Link from "next/link";
 import UserProfile from '@/components/user-profile';
 import { useTranslation } from 'react-i18next';
+import logo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 
 const MainInterface = ({
   children,
@@ -31,7 +32,7 @@ const MainInterface = ({
       <h1 className="text-xl font-bold p-4">
         <Image
           className="dark:invert"
-          src="/icons/logo.svg"
+          src={logo}
           alt="AI-Shifu"
           width={140}
           height={32}
