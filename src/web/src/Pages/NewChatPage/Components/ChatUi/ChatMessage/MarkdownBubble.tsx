@@ -20,7 +20,6 @@ interface MarkdownBubbleProps {
 
 interface CodeComponentProps {
   node?: any;
-  inline?: boolean;
   className?: string;
   children: React.ReactNode;
   [key: string]: any;
@@ -64,11 +63,12 @@ export const MarkdownBubble = (props: MarkdownBubbleProps) => {
     </div>
   );
 
-  const renderCodeComponent = ({ node, inline, className, children, ...props }: CodeComponentProps) => {
+  const renderCodeComponent = ({ node, className, children, ...props }: CodeComponentProps) => {
     const language = getLanguageFromClassName(className);
+    const isInline = !className && !String(children).includes('\n');  // Maybe not strictly correct, but works
 
     // Inline code
-    if (inline) {
+    if (isInline) {
       return renderInlineCode(className, children, props);
     }
 
