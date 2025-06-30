@@ -9,12 +9,17 @@ import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
 import { useEnvStore } from './envStore';
+import api from '@/api';
+
+// Auto-initialize flag
+let isInitialized = false;
 
 export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
-  subscribeWithSelector((set) => ({
+  subscribeWithSelector((set, get) => ({
     hasCheckLogin: false,
     hasLogin: false,
     userInfo: null,
+    profile: null,
     login: async ({ mobile, smsCode }) => {
       const courseId = useEnvStore.getState().courseId;
       const res = await verifySmsCode({ mobile, sms_code: smsCode, course_id: courseId });
@@ -141,5 +146,31 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
     // TODO: FIXME
     // Added temporarily. Please refine and organize user-related logic later.
     _setHasLogin: (v: boolean) => set({ hasLogin: v }),
+
+    // Profile management (merged from useAuth)
+    setProfile: (profile: any) => set({ profile }),
+
+    fetchProfile: async () => {
+      const { profile } = get();
+      if (!profile) {
+        try {
+          const userInfo = await api.getUserInfo({});
+          set({ profile: userInfo });
+          get().updateUserInfo(userInfo);
+          get()._setHasLogin(true);
+        } catch (error) {
+          console.error('Failed to fetch user profile:', error);
+        }
+      }
+    },
+
+    // Initialize profile fetch automatically
+    initProfileFetch: () => {
+      const state = get();
+      if (!state.profile && !isInitialized) {
+        isInitialized = true;
+        state.fetchProfile();
+      }
+    },
   }))
 );

@@ -1,15 +1,16 @@
 "use client"
-import { ShifuProvider, AuthProvider } from '@/store'
+import { ShifuProvider } from '@/store'
+import { UserProvider } from '@/c-store'
 import React from 'react'
 import ShifuEdit from '../shifu-edit'
 
 export default function ShifuRoot({ id }: { id: string }) {
 
     return (
-        <AuthProvider>
+        <UserProvider>
             <ShifuProvider>
                 <ShifuEdit id={id} />
             </ShifuProvider>
-        </AuthProvider>
+        </UserProvider>
     )
 }
