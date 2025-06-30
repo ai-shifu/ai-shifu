@@ -43,7 +43,7 @@ export interface SystemStoreState {
 export interface CourseStoreState {
   courseName: string;
   updateCourseName: (name: string) => void;
-  lessonId: string | null;
+  lessonId: string | undefined;
   updateLessonId: (id: string) => void;
   chapterId: string;
   updateChapterId: (id: string) => void;
@@ -58,6 +58,7 @@ export interface UserStoreState {
   userInfo: UserInfo | null;
   hasLogin: boolean;
   hasCheckLogin: boolean;
+  profile: any;
   login: (params: { mobile: string; smsCode: string }) => Promise<void>;
   checkLogin: () => void;
   checkLoginForce: () => Promise<void>;
@@ -65,7 +66,10 @@ export interface UserStoreState {
   updateUserInfo: (info: Partial<UserInfo>) => void;
   refreshUserInfo: () => Promise<void>;
   updateHasCheckLogin: (hasCheckLogin: boolean) => void;
-  _setHasLogin: (v: boolean) => void
+  _setHasLogin: (v: boolean) => void;
+  setProfile: (profile: any) => void;
+  fetchProfile: () => Promise<void>;
+  initProfileFetch: () => void;
 }
 
 export interface UiLayoutStoreState {
