@@ -26,14 +26,13 @@ type EditorProps = {
   content?: string
   isEdit?: boolean
   variables?: string[]
-  onChange?: (value: string, variables: string[], isEdit: boolean) => void
+  onChange?: (value: string, isEdit: boolean) => void
   onBlur?: () => void
 }
 
 const Editor: React.FC<EditorProps> = ({
   content = '',
   isEdit,
-  variables = [],
   onChange,
   onBlur
 }) => {
@@ -42,7 +41,6 @@ const Editor: React.FC<EditorProps> = ({
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
     SelectedOption.Empty
   )
-  const [variableList, setVariableList] = useState<string[]>(variables)
   const [selectContentInfo, setSelectContentInfo] = useState<any>()
   const editorViewRef = useRef<EditorView | null>(null)
 
@@ -51,8 +49,6 @@ const Editor: React.FC<EditorProps> = ({
     setSelectedOption,
     dialogOpen,
     setDialogOpen,
-    variableList,
-    setVariableList
   }
 
   const onSelectedOption = useCallback((selectedOption: SelectedOption) => {
@@ -103,8 +99,6 @@ const Editor: React.FC<EditorProps> = ({
           changes: { from: selectContentInfo.from, insert: textToInsert }
         })
       } else {
-        const newVariableList = [...variableList, profile.profile_key]
-        setVariableList(Array.from(new Set(newVariableList)))
         insertText(textToInsert)
       }
       setDialogOpen(false)
@@ -236,7 +230,7 @@ const Editor: React.FC<EditorProps> = ({
               theme='light'
               minHeight='2rem'
               onChange={(value: string) => {
-                onChange?.(value, variableList, isEdit || false)
+                onChange?.(value, isEdit || false)
               }}
               onBlur={onBlur}
             />

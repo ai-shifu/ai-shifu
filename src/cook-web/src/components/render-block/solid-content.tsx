@@ -25,8 +25,8 @@ export default function SolidContent(props: SolideContnet) {
             variables={props.properties.variables}
             isEdit={props.isEdit}
             onBlur={props.onBlur}
-            onChange={(value, variables, isEdit) => {
-                props.onChange({ ...props.properties, prompt: value, variables: variables })
+            onChange={(value, isEdit) => {
+                props.onChange({ ...props.properties, prompt: value })
                 if (props.onEditChange) {
                     props.onEditChange(isEdit)
                 }
