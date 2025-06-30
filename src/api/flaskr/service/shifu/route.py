@@ -5,7 +5,6 @@ from .funcs import (
     mark_or_unmark_favorite_shifu,
     publish_shifu,
     preview_shifu,
-    get_shifu_info,
     save_shifu_detail,
     get_shifu_detail,
     upload_file,
@@ -14,15 +13,11 @@ from .funcs import (
     shifu_permission_verification,
 )
 from .outline_funcs import (
-    get_chapter_list,
-    create_chapter,
-    modify_chapter,
-    update_chapter_order,
+    reorder_outline_tree,
     get_outline_tree,
+    create_outline,
 )
 from .unit_funcs import (
-    get_unit_list,
-    create_unit,
     modify_unit,
     delete_unit,
     get_unit_by_id,
@@ -63,19 +58,21 @@ class ShifuTokenValidation:
             if not token and request.method.upper() == "POST" and request.is_json:
                 token = request.get_json().get("token", None)
 
-            shifu_id = request.args.get("shifu_id", None)
-            if not shifu_id and request.method.upper() == "POST" and request.is_json:
-                shifu_id = request.get_json().get("shifu_id", None)
+            shifu_bid = request.view_args.get("shifu_bid", None)
+            if not shifu_bid:
+                shifu_bid = request.args.get("shifu_bid", None)
+            if not shifu_bid and request.method.upper() == "POST" and request.is_json:
+                shifu_bid = request.get_json().get("shifu_bid", None)
 
             if not token:
                 raise_param_error("token is required")
-            if not shifu_id or not str(shifu_id).strip():
-                raise_param_error("shifu_id is required")
+            if not shifu_bid or not str(shifu_bid).strip():
+                raise_param_error("shifu_bid is required")
 
             user_id = request.user.user_id
             app = current_app._get_current_object()
             has_permission = shifu_permission_verification(
-                app, user_id, shifu_id, self.permission.value
+                app, user_id, shifu_bid, self.permission.value
             )
             if not has_permission:
                 raise_error("SHIFU.NO_PERMISSION")
@@ -89,7 +86,7 @@ class ShifuTokenValidation:
 def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
     app.logger.info(f"register shifu routes {path_prefix}")
 
-    @app.route(path_prefix + "/shifu-list", methods=["GET"])
+    @app.route(path_prefix + "/shifus", methods=["GET"])
     def get_shifu_list_api():
         """
         get shifu list
@@ -144,7 +141,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             get_shifu_list(app, user_id, page_index, page_size, is_favorite)
         )
 
-    @app.route(path_prefix + "/create-shifu", methods=["POST"])
+    @app.route(path_prefix + "/shifus", methods=["PUT"])
     def create_shifu_api():
         """
         create shifu
@@ -158,15 +155,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               schema:
                 type: object
                 properties:
-                    shifu_name:
+                    name:
                         type: string
                         description: shifu name
-                    shifu_description:
+                    description:
                         type: string
                         description: shifu description
-                    shifu_image:
+                    avatar:
                         type: string
-                        description: shifu image
+                        description: shifu avatar
         responses:
             200:
                 description: create shifu success
@@ -185,58 +182,25 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDto"
         """
         user_id = request.user.user_id
-        shifu_name = request.get_json().get("shifu_name")
+        shifu_name = request.get_json().get("name")
         if not shifu_name:
-            raise_param_error("shifu_name is required")
-        shifu_description = request.get_json().get("shifu_description")
-        shifu_image = request.get_json().get("shifu_image")
+            raise_param_error("name is required")
+        shifu_description = request.get_json().get("description")
+        shifu_avatar = request.get_json().get("avatar", "")
         return make_common_response(
-            create_shifu(app, user_id, shifu_name, shifu_description, shifu_image)
+            create_shifu(app, user_id, shifu_name, shifu_description, shifu_avatar, [])
         )
 
-    @app.route(path_prefix + "/shifu-info", methods=["GET"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_shifu_info_api():
-        """
-        get shifu info
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_id
-              type: string
-              required: true
-        responses:
-            200:
-                description: get shifu info success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/ShifuDto"
-        """
-        user_id = request.user.user_id
-        shifu_id = request.args.get("shifu_id")
-        return make_common_response(get_shifu_info(app, user_id, shifu_id))
-
-    @app.route(path_prefix + "/shifu-detail", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_shifu_detail_api():
+    def get_shifu_detail_api(shifu_bid: str):
         """
         get shifu detail
         ---
         tags:
             - shifu
         parameters:
-            - name: shifu_id
+            - name: shifu_bid
               type: string
               required: true
         responses:
@@ -257,18 +221,21 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        shifu_id = request.args.get("shifu_id")
-        return make_common_response(get_shifu_detail(app, user_id, shifu_id))
+        app.logger.info(f"get shifu detail, user_id: {user_id}, shifu_bid: {shifu_bid}")
+        return make_common_response(get_shifu_detail(app, user_id, shifu_bid))
 
-    @app.route(path_prefix + "/save-shifu-detail", methods=["POST"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def save_shifu_detail_api():
+    def save_shifu_detail_api(shifu_bid: str):
         """
         save shifu detail
         ---
         tags:
             - shifu
         parameters:
+            - name: shifu_bid
+              type: string
+              required: true
             - name: body
               in: body
               type: object
@@ -276,30 +243,27 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               schema:
                 type: object
                 properties:
-                    shifu_id:
-                        type: string
-                        description: shifu id
-                    shifu_name:
+                    name:
                         type: string
                         description: shifu name
-                    shifu_description:
+                    description:
                         type: string
                         description: shifu description
-                    shifu_avatar:
+                    avatar:
                         type: string
                         description: shifu avatar
-                    shifu_keywords:
+                    keywords:
                         type: array
                         items:
                             type: string
                         description: shifu keywords
-                    shifu_model:
+                    model:
                         type: string
                         description: shifu model
-                    shifu_price:
+                    price:
                         type: number
                         description: shifu price
-                    shifu_temperature:
+                    temperature:
                         type: number
                         description: shifu temperature
         responses:
@@ -320,19 +284,18 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
-        shifu_name = request.get_json().get("shifu_name")
-        shifu_description = request.get_json().get("shifu_description")
-        shifu_avatar = request.get_json().get("shifu_avatar")
-        shifu_keywords = request.get_json().get("shifu_keywords")
-        shifu_model = request.get_json().get("shifu_model")
-        shifu_price = request.get_json().get("shifu_price")
-        shifu_temperature = request.get_json().get("shifu_temperature")
+        shifu_name = request.get_json().get("name")
+        shifu_description = request.get_json().get("description")
+        shifu_avatar = request.get_json().get("avatar")
+        shifu_keywords = request.get_json().get("keywords")
+        shifu_model = request.get_json().get("model")
+        shifu_price = request.get_json().get("price")
+        shifu_temperature = request.get_json().get("temperature")
         return make_common_response(
             save_shifu_detail(
                 app,
                 user_id,
-                shifu_id,
+                shifu_bid,
                 shifu_name,
                 shifu_description,
                 shifu_avatar,
@@ -343,7 +306,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             )
         )
 
-    @app.route(path_prefix + "/mark-favorite-shifu", methods=["POST"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/favorite", methods=["POST"])
     def mark_favorite_shifu_api():
         """
         mark favorite shifu
@@ -351,15 +314,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tags:
             - shifu
         parameters:
+            - name: shifu_bid
+              type: string
+              required: true
             - in: body
               name: body
               required: true
               schema:
                 type: object
                 properties:
-                    shifu_id:
-                        type: string
-                        description: shifu id
                     is_favorite:
                         type: boolean
                         description: is favorite
@@ -381,7 +344,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: is favorite
         """
         user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
+        shifu_bid = request.view_args.get("shifu_bid")
         is_favorite = request.get_json().get("is_favorite")
         if isinstance(is_favorite, str):
             is_favorite = True if is_favorite.lower() == "true" else False
@@ -390,28 +353,21 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         else:
             raise_param_error("is_favorite is not a boolean")
         return make_common_response(
-            mark_or_unmark_favorite_shifu(app, user_id, shifu_id, is_favorite)
+            mark_or_unmark_favorite_shifu(app, user_id, shifu_bid, is_favorite)
         )
 
-    @app.route(path_prefix + "/publish-shifu", methods=["POST"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/publish", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.PUBLISH)
-    def publish_shifu_api():
+    def publish_shifu_api(shifu_bid: str):
         """
         publish shifu
         ---
         tags:
             - shifu
         parameters:
-            - in: body
-              name: body
+            - name: shifu_bid
+              type: string
               required: true
-              schema:
-                type: object
-                properties:
-                    shifu_id:
-                        type: string
-                        description: shifu id
-
         responses:
             200:
                 description: publish shifu success
@@ -430,27 +386,26 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: publish url
         """
         user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
-        return make_common_response(publish_shifu(app, user_id, shifu_id))
+        return make_common_response(publish_shifu(app, user_id, shifu_bid))
 
-    @app.route(path_prefix + "/preview-shifu", methods=["POST"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def preview_shifu_api():
+    def preview_shifu_api(shifu_bid: str):
         """
         preview shifu
         ---
         tags:
             - shifu
         parameters:
+            - name: shifu_bid
+              type: string
+              required: true
             - in: body
               name: body
               required: true
               schema:
                 type: object
                 properties:
-                    shifu_id:
-                        type: string
-                        description: shifu id
                     variables:
                         type: object
                         description: variables
@@ -475,216 +430,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: preview url
         """
         user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
         variables = request.get_json().get("variables")
         skip = request.get_json().get("skip", False)
         return make_common_response(
-            preview_shifu(app, user_id, shifu_id, variables, skip)
+            preview_shifu(app, user_id, shifu_bid, variables, skip)
         )
 
-    @app.route(path_prefix + "/chapters", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_chapter_list_api():
-        """
-        get chapter list
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_id
-              type: string
-              required: true
-        """
-        user_id = request.user.user_id
-        shifu_id = request.args.get("shifu_id")
-        if not shifu_id:
-            raise_param_error("shifu_id is required")
-        return make_common_response(get_chapter_list(app, user_id, shifu_id))
-
-    @app.route(path_prefix + "/create-chapter", methods=["POST"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def create_chapter_api():
-        """
-        create chapter
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    shifu_id:
-                        type: string
-                        description: shifu id
-                    chapter_name:
-                        type: string
-                        description: chapter name
-                    chapter_description:
-                        type: string
-                        description: chapter description
-                    chapter_index:
-                        type: integer
-                        description: chapter index
-        responses:
-            200:
-                description: create chapter success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/ChapterDto"
-        """
-
-        app.logger.info(
-            f"create chapter, user_id: {request.user.user_id} {request.get_json()}"
-        )
-        user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
-        if not shifu_id:
-            raise_param_error("shifu_id is required")
-        chapter_name = request.get_json().get("chapter_name")
-        if not chapter_name:
-            raise_param_error("chapter_name is required")
-        chapter_description = request.get_json().get("chapter_description")
-        if not chapter_description:
-            raise_param_error("chapter_description is required")
-        chapter_index = request.get_json().get("chapter_index", None)
-        chapter_type = request.get_json().get("chapter_type", LESSON_TYPE_TRIAL)
-        return make_common_response(
-            create_chapter(
-                app,
-                user_id,
-                shifu_id,
-                chapter_name,
-                chapter_description,
-                chapter_index,
-                chapter_type,
-            )
-        )
-
-    @app.route(path_prefix + "/modify-chapter", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    def modify_chapter_api():
-        """
-        modify chapter
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    chapter_id:
-                        type: string
-                        description: chapter id
-                    chapter_name:
-                        type: string
-                        description: chapter name
-                    chapter_description:
-                        type: string
-                        description: chapter description
-                    chapter_index:
-                        type: integer
-                        description: chapter index
-        responses:
-            200:
-                description: modify chapter success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/ChapterDto"
-        """
-        user_id = request.user.user_id
-        chapter_id = request.get_json().get("chapter_id")
-        if not chapter_id:
-            raise_param_error("chapter_id is required")
-        chapter_name = request.get_json().get("chapter_name")
-        if not chapter_name:
-            raise_param_error("chapter_name is required")
-        chapter_description = request.get_json().get("chapter_description")
-        if not chapter_description:
-            raise_param_error("chapter_description is required")
-        chapter_index = request.get_json().get("chapter_index", None)
-        chapter_type = request.get_json().get("chapter_type", LESSON_TYPE_TRIAL)
-        return make_common_response(
-            modify_chapter(
-                app,
-                user_id,
-                chapter_id,
-                chapter_name,
-                chapter_description,
-                chapter_index,
-                chapter_type,
-            )
-        )
-
-    @app.route(path_prefix + "/delete-chapter", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    def delete_chapter_api():
-        """
-        delete chapter
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    chapter_id:
-                        type: string
-                        description: chapter id
-        responses:
-            200:
-                description: delete chapter success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: boolean
-                                    description: is deleted
-        """
-        user_id = request.user.user_id
-        chapter_id = request.get_json().get("chapter_id")
-        if not chapter_id:
-            raise_param_error("chapter_id is required")
-        return make_common_response(delete_unit(app, user_id, chapter_id))
-
-    @app.route(path_prefix + "/update-chapter-order", methods=["POST"])
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    def update_chapter_order_api():
+    def update_chapter_order_api(shifu_bid: str):
         """
         update chapter order
         reset the chapter order to the order of the chapter ids
@@ -692,26 +446,17 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         tags:
             - shifu
         parameters:
+            - name: shifu_bid
+              type: string
+              required: true
             - in: body
               name: body
               required: true
               schema:
                 type: object
-                properties:
-                    shifu_id:
-                        type: string
-                        description: shifu id
-                    chapter_ids:
-                        type: array
-                        items:
-                            type: string
-                        description: chapter ids
-                    move_chapter_id:
-                        type: string
-                        description: the chapter id to be moved
-                    move_to_parent_id:
-                        type: string
-                        description: the parent chapter id where the chapter will be moved to
+                $ref: "#/components/schemas/ReorderOutlineDto"
+
+
         responses:
             200:
                 description: update chapter order success
@@ -728,103 +473,60 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                 data:
                                     type: array
                                     items:
-                                        $ref: "#/components/schemas/ChapterDto"
-        """
-        user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
-        if not shifu_id:
-            raise_param_error("shifu_id is required")
-        chapter_ids = request.get_json().get("chapter_ids")
-        move_chapter_id = request.get_json().get("move_chapter_id")
-        if not move_chapter_id:
-            raise_param_error("move_chapter_id is required")
-        move_to_parent_id = request.get_json().get("move_to_parent_id")
-        return make_common_response(
-            update_chapter_order(
-                app, user_id, shifu_id, chapter_ids, move_chapter_id, move_to_parent_id
-            )
-        )
-
-    @app.route(path_prefix + "/units", methods=["GET"])
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_unit_list_api():
-        """
-        get unit list
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: shifu_id
-              type: string
-              required: true
-            - name: chapter_id
-              type: string
-              required: true
-        responses:
-            200:
-                description: get unit list success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: array
-                                    items:
                                         $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        shifu_id = request.args.get("shifu_id")
-        chapter_id = request.args.get("chapter_id")
-        return make_common_response(get_unit_list(app, user_id, shifu_id, chapter_id))
+        outlines = request.get_json().get("outlines")
+        app.logger.info(type(outlines))
+        app.logger.info(
+            f"reorder outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}, outlines: {outlines}"
+        )
+        return make_common_response(
+            reorder_outline_tree(app, user_id, shifu_bid, outlines)
+        )
 
-    @app.route(path_prefix + "/create-unit", methods=["POST"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["PUT"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def create_unit_api():
+    def create_outline_api(shifu_bid: str):
         """
         create unit
         ---
         tags:
             - shifu
         parameters:
+            - name: shifu_bid
+              type: string
+              required: true
             - in: body
               name: body
               required: true
               schema:
                 type: object
                 properties:
-                    shifu_id:
+                    parent_bid:
                         type: string
-                        description: shifu id
-                    parent_id:
+                        description: parent id
+                    name:
                         type: string
-                        description: chapter id
-                    unit_name:
+                        description: outline name
+                    description:
                         type: string
-                        description: unit name
-                    unit_description:
+                        description: outline description
+                    type:
                         type: string
-                        description: unit description
-                    unit_type:
+                        description: outline type (normal,trial)
+                    system_prompt:
                         type: string
-                        description: unit type (normal,trial)
-                    unit_system_prompt:
-                        type: string
-                        description: unit system prompt
-                    unit_is_hidden:
+                        description: outline system prompt
+                    is_hidden:
                         type: boolean
-                        description: unit is hidden
-                    unit_index:
+                        description: outline is hidden
+                    index:
                         type: integer
-                        description: unit index
+                        description: outline index
         responses:
             200:
-                description: create unit success
+                description: create outline success
                 content:
                     application/json:
                         schema:
@@ -837,37 +539,38 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/OutlineDto"
+                                    $ref: "#/components/schemas/SimpleOutlineDto"
         """
         user_id = request.user.user_id
-        shifu_id = request.get_json().get("shifu_id")
-        parent_id = request.get_json().get("parent_id")
-        unit_name = request.get_json().get("unit_name")
-        unit_description = request.get_json().get("unit_description", "")
-        unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)
-        unit_index = request.get_json().get("unit_index", None)
-        unit_system_prompt = request.get_json().get("unit_system_prompt", None)
-        unit_is_hidden = request.get_json().get("unit_is_hidden", False)
+        parent_bid = request.get_json().get("parent_bid")
+        name = request.get_json().get("name")
+        description = request.get_json().get("description", "")
+        type = request.get_json().get("type", LESSON_TYPE_TRIAL)
+        index = request.get_json().get("index", None)
+        system_prompt = request.get_json().get("system_prompt", None)
+        is_hidden = request.get_json().get("is_hidden", False)
         return make_common_response(
-            create_unit(
+            create_outline(
                 app,
                 user_id,
-                shifu_id,
-                parent_id,
-                unit_name,
-                unit_description,
-                unit_type,
-                unit_index,
-                unit_system_prompt,
-                unit_is_hidden,
+                shifu_bid,
+                parent_bid,
+                name,
+                description,
+                index,
+                type,
+                system_prompt,
+                is_hidden,
             )
         )
 
-    @app.route(path_prefix + "/modify-unit", methods=["POST"])
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>", methods=["POST"]
+    )
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def modify_unit_api():
+    def modify_outline_api(shifu_bid: str, outline_bid: str):
         """
-        modify unit
+        modify outline
         ---
         tags:
             - shifu
@@ -878,30 +581,27 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               schema:
                 type: object
                 properties:
-                    unit_id:
+                    name:
                         type: string
-                        description: unit id
-                    unit_name:
+                        description: outline name
+                    description:
                         type: string
-                        description: unit name
-                    unit_description:
-                        type: string
-                        description: unit description
-                    unit_index:
+                        description: outline description
+                    index:
                         type: integer
-                        description: unit index
-                    unit_system_prompt:
+                        description: outline index
+                    system_prompt:
                         type: string
-                        description: unit system prompt
-                    unit_is_hidden:
+                        description: outline system prompt
+                    is_hidden:
                         type: boolean
-                        description: unit is hidden
-                    unit_type:
+                        description: outline is hidden
+                    type:
                         type: string
                         description: unit type (normal,trial)
         responses:
             200:
-                description: modify unit success
+                description: modify outline success
                 content:
                     application/json:
                         schema:
@@ -917,37 +617,38 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        unit_id = request.get_json().get("unit_id")
-        unit_name = request.get_json().get("unit_name")
-        unit_description = request.get_json().get("unit_description")
-        unit_index = request.get_json().get("unit_index")
-        unit_system_prompt = request.get_json().get("unit_system_prompt", None)
-        unit_is_hidden = request.get_json().get("unit_is_hidden", False)
-        unit_type = request.get_json().get("unit_type", LESSON_TYPE_TRIAL)
+        name = request.get_json().get("name")
+        description = request.get_json().get("description")
+        index = request.get_json().get("index")
+        system_prompt = request.get_json().get("system_prompt", None)
+        is_hidden = request.get_json().get("is_hidden", False)
+        type = request.get_json().get("type", LESSON_TYPE_TRIAL)
         return make_common_response(
             modify_unit(
                 app,
                 user_id,
-                unit_id,
-                unit_name,
-                unit_description,
-                unit_index,
-                unit_system_prompt,
-                unit_is_hidden,
-                unit_type,
+                outline_bid,
+                name,
+                description,
+                index,
+                system_prompt,
+                is_hidden,
+                type,
             )
         )
 
-    @app.route(path_prefix + "/unit-info", methods=["GET"])
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>", methods=["GET"]
+    )
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_unit_info_api():
+    def get_unit_info_api(shifu_bid: str, outline_bid: str):
         """
         get unit info
         ---
         tags:
             - shifu
         parameters:
-            - name: unit_id
+            - name: outline_bid
               type: string
               required: true
         responses:
@@ -968,27 +669,26 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/OutlineDto"
         """
         user_id = request.user.user_id
-        unit_id = request.args.get("unit_id")
-        return make_common_response(get_unit_by_id(app, user_id, unit_id))
+        return make_common_response(get_unit_by_id(app, user_id, outline_bid))
 
-    @app.route(path_prefix + "/delete-unit", methods=["POST"])
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>",
+        methods=["DELETE"],
+    )
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def delete_unit_api():
+    def delete_unit_api(shifu_bid: str, outline_bid: str):
         """
         delete unit
         ---
         tags:
             - shifu
         parameters:
-            - in: body
-              name: body
+            - name: shifu_bid
+              type: string
               required: true
-              schema:
-                type: object
-                properties:
-                    unit_id:
-                        type: string
-                        description: unit id
+            - name: outline_bid
+              type: string
+              required: true
         responses:
             200:
                 description: delete unit success
@@ -1007,19 +707,18 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: delete unit success
         """
         user_id = request.user.user_id
-        unit_id = request.get_json().get("unit_id")
-        return make_common_response(delete_unit(app, user_id, unit_id))
+        return make_common_response(delete_unit(app, user_id, outline_bid))
 
-    @app.route(path_prefix + "/outline-tree", methods=["GET"])
+    @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_outline_tree_api():
+    def get_outline_tree_api(shifu_bid: str):
         """
         get outline tree
         ---
         tags:
             - shifu
         parameters:
-            - name: shifu_id
+            - name: shifu_bid
               type: string
               required: true
         responses:
@@ -1041,12 +740,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         $ref: "#/components/schemas/SimpleOutlineDto"
         """
         user_id = request.user.user_id
-        shifu_id = request.args.get("shifu_id")
-        return make_common_response(get_outline_tree(app, user_id, shifu_id))
+        return make_common_response(get_outline_tree(app, user_id, shifu_bid))
 
-    @app.route(path_prefix + "/blocks", methods=["GET"])
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/blocks",
+        methods=["GET"],
+    )
     @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_block_list_api():
+    def get_block_list_api(shifu_bid: str, outline_bid: str):
         """
         get block list
         ---
@@ -1075,12 +776,14 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         $ref: "#/components/schemas/BlockDto"
         """
         user_id = request.user.user_id
-        outline_id = request.args.get("outline_id")
-        return make_common_response(get_block_list(app, user_id, outline_id))
+        return make_common_response(get_block_list(app, user_id, outline_bid))
 
-    @app.route(path_prefix + "/save-blocks", methods=["POST"])
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/blocks",
+        methods=["POST"],
+    )
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def save_blocks_api():
+    def save_blocks_api(shifu_bid: str, outline_bid: str):
         """
         save blocks
         ---
@@ -1119,13 +822,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                         $ref: "#/components/schemas/BlockDto"
         """
         user_id = request.user.user_id
-        outline_id = request.get_json().get("outline_id")
         blocks = request.get_json().get("blocks")
-        return make_common_response(save_block_list(app, user_id, outline_id, blocks))
+        return make_common_response(save_block_list(app, user_id, outline_bid, blocks))
 
-    @app.route(path_prefix + "/add-block", methods=["POST"])
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/blocks",
+        methods=["PUT"],
+    )
     @ShifuTokenValidation(ShifuPermission.EDIT)
-    def add_block_api():
+    def add_block_api(shifu_bid: str, outline_bid: str):
         """
         add block
         ---
@@ -1138,9 +843,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
               schema:
                 type: object
                 properties:
-                    outline_id:
+                    outline_bid:
                         type: string
-                        description: outline id
+                        description: outline bid
                     block:
                         type: object
                         $ref: "#/components/schemas/BlockDto"
@@ -1165,12 +870,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/BlockDto"
         """
         user_id = request.user.user_id
-        outline_id = request.get_json().get("outline_id")
         block = request.get_json().get("block")
         block_index = request.get_json().get("block_index")
-
         return make_common_response(
-            add_block(app, user_id, outline_id, block, block_index)
+            add_block(app, user_id, outline_bid, block, block_index)
         )
 
     @app.route(path_prefix + "/upfile", methods=["POST"])

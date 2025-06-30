@@ -5,7 +5,7 @@ from ...common.swagger import register_schema_to_swagger
 @register_schema_to_swagger
 class AIDto:
     prompt: str
-    profiles: list[str]
+    variables: list[str]
     model: str
     temperature: float
     other_conf: dict
@@ -13,13 +13,13 @@ class AIDto:
     def __init__(
         self,
         prompt: str = None,
-        profiles: list[str] = None,
+        variables: list[str] = None,
         model: str = None,
         temperature: float = None,
         other_conf: dict = None,
     ):
         self.prompt = prompt
-        self.profiles = profiles
+        self.variables = variables
         self.model = model
         self.temperature = temperature
         self.other_conf = other_conf
@@ -28,7 +28,7 @@ class AIDto:
         return {
             "properties": {
                 "prompt": self.prompt,
-                "profiles": self.profiles,
+                "variables": self.variables,
                 "model": self.model,
                 "temperature": self.temperature,
                 "other_conf": self.other_conf,
@@ -41,7 +41,7 @@ class AIDto:
 @register_schema_to_swagger
 class SystemPromptDto:
     prompt: str
-    profiles: list[str]
+    variables: list[str]
     model: str
     temperature: float
     other_conf: dict
@@ -49,13 +49,13 @@ class SystemPromptDto:
     def __init__(
         self,
         prompt: str = None,
-        profiles: list[str] = None,
+        variables: list[str] = None,
         model: str = None,
         temperature: float = None,
         other_conf: dict = None,
     ):
         self.prompt = prompt
-        self.profiles = profiles
+        self.variables = variables
         self.model = model
         self.temperature = temperature
         self.other_conf = other_conf
@@ -64,7 +64,7 @@ class SystemPromptDto:
         return {
             "properties": {
                 "prompt": self.prompt,
-                "profiles": self.profiles,
+                "variables": self.variables,
                 "model": self.model,
                 "temperature": self.temperature,
                 "other_conf": self.other_conf,

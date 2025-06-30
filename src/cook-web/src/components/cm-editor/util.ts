@@ -181,7 +181,7 @@ const biliUrlMatcher = new MatchDecorator({
     })
 })
 
-const profilePlaceholders = ViewPlugin.fromClass(
+const variablePlaceholders = ViewPlugin.fromClass(
   class {
     placeholders: DecorationSet
     constructor (view: EditorView) {
@@ -290,7 +290,7 @@ function createSlashCommands (
 export {
   biliVideoUrlRegexp,
   profileRegexp,
-  profilePlaceholders,
+  variablePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
   createSlashCommands,

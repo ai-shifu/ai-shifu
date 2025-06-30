@@ -25,15 +25,27 @@ export const gen = (option: string) => {
     return function (params: { [x: string]: any }, config: RequestConfig | StreamRequestConfig = {}, callback?: StreamCallback) {
         let tarUrl = url;
         let body;
+
+        const urlParams = url.match(/\{([^}]+)\}/g);
+        const urlParamsMap = { ...params };
+        if (urlParams) {
+            urlParams.forEach(param => {
+                const key = param.replace('{', '').replace('}', '');
+                tarUrl = tarUrl.replace(param, urlParamsMap[key] || param);
+                console.log(tarUrl);
+                delete urlParamsMap[key];
+            });
+        }
+
         if (method === 'GET') {
-            if (params) {
-                const queryString = objectToQueryString(params);
-                tarUrl = `${url}?${queryString}`;
+            if (urlParamsMap && Object.keys(urlParamsMap).length > 0) {
+                const queryString = objectToQueryString(urlParamsMap);
+                tarUrl = `${tarUrl}?${queryString}`;
             }
 
         } else {
-            if (params) {
-                body = JSON.stringify(params);
+            if (urlParamsMap && Object.keys(urlParamsMap).length > 0) {
+                body = JSON.stringify(urlParamsMap);
             }
         }
 

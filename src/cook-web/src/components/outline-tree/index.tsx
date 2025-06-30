@@ -48,6 +48,16 @@ interface ICataTreeProps {
   onAddNodeClick?: (node: Outline) => void
 }
 
+
+const getReorderOutlineDto = (items: TreeItems<Outline>) => {
+  return items.map(item => {
+    return {
+      bid: item.bid,
+      children: getReorderOutlineDto(item?.children || [])
+    }
+  })
+}
+
 export const CataTree = React.memo((props: ICataTreeProps) => {
   const { items, onChange } = props
   const { actions, focusId } = useShifu()
@@ -56,16 +66,11 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
     reason: ItemChangedReason<Outline>
   ) => {
     if (reason.type == 'dropped') {
-      const moveToParentId = reason?.droppedToParent?.id
-      const moveChapterId = reason?.draggedItem?.id
-      let ids
-      if (moveToParentId) {
-        const parent = data.find(item => item.id == moveToParentId)
-        ids = parent?.children?.map(item => item.id) || []
-      } else {
-        ids = data.map(item => item.id)
-      }
-      await actions.updateChapterOrder(moveChapterId, moveToParentId, ids)
+
+      const reorderOutlineDtos = getReorderOutlineDto(data)
+
+      console.log('onItemsChanged', reason, data)
+      await actions.reorderOutlineTree(reorderOutlineDtos)
 
     }
 
@@ -110,29 +115,21 @@ const MinimalTreeItemComponent = React.forwardRef<
         description: '',
         confirmText: t('common.confirm'),
         onConfirm () {
-          actions.removeOutline(props.item)
+          actions.removeOutline({ parent_bid: props.item.parentId, ...props.item })
           actions.setFocusId('')
         }
       })
       return
     }
-    if (props.item.depth == 0) {
-      await actions.createChapter({
-        parent_id: props.item.parentId,
-        id: props.item.id,
-        name: value,
-        children: [],
-        no: ''
-      })
-    } else if (props.item.depth == 1) {
-      await actions.createUnit({
-        parent_id: props.item.parentId,
-        id: props.item.id,
-        name: value,
-        children: [],
-        no: ''
-      })
-    }
+    await actions.createOutline({
+      shifu_bid: currentShifu?.bid || '',
+      id: props.item.id,
+      parent_bid: props.item.parent_bid || '',
+      bid: props.item.bid,
+      name: value,
+      children: [],
+      position: ''
+    })
   }
   const onAddNodeClick = (node: Outline) => {
     if (node.depth && node.depth >= 1) {
@@ -161,11 +158,11 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
 
     await actions.setCurrentNode(props.item)
-    await actions.loadBlocks(props.item.id || '', currentShifu?.shifu_id || '')
+    await actions.loadBlocks(props.item.bid || '', currentShifu?.bid || '')
   }
 
   const handleConfirmDelete = async () => {
-    await actions.removeOutline(props.item)
+    await actions.removeOutline({ parent_bid: props.item.parentId, ...props.item })
     setShowDeleteDialog(false)
   }
 
@@ -322,7 +319,7 @@ const MinimalTreeItemComponent = React.forwardRef<
         </div>
       </SimpleTreeItemWrapper>
       <ChapterSettingsDialog
-        unitId={props.item.id}
+        outlineBid={props.item.bid}
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />

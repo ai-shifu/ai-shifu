@@ -11,7 +11,7 @@ import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
 
-const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string; open: boolean; onOpenChange?: (open: boolean) => void; }) => {
+const ChapterSettingsDialog = ({ outlineBid, open, onOpenChange }: { outlineBid: string; open: boolean; onOpenChange?: (open: boolean) => void; }) => {
     const { currentShifu } = useShifu();
     const { t } = useTranslation();
     const [chapterType, setChapterType] = useState("normal");
@@ -21,23 +21,23 @@ const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string;
 
     const init = useCallback(async () => {
         setLoading(true);
-        const result = await api.getUnitInfo({
-            unit_id: unitId,
-            shifu_id: currentShifu?.shifu_id
+        const result = await api.getOutlineInfo({
+            outline_bid: outlineBid,
+            shifu_bid: currentShifu?.bid
         })
         setChapterType(result.type);
         setSystemPrompt(result.system_prompt);
         setHideChapter(result.is_hidden);
         setLoading(false);
-    }, [unitId, currentShifu?.shifu_id]);
+    }, [outlineBid, currentShifu?.bid]);
 
     const onConfirm = async () => {
-        await api.modifyUnit({
-            "unit_id": unitId,
-            "unit_is_hidden": hideChapter,
-            "unit_system_prompt": systemPrompt,
-            "unit_type": chapterType,
-            "shifu_id": currentShifu?.shifu_id
+        await api.modifyOutline({
+            "outline_bid": outlineBid,
+            "is_hidden": hideChapter,
+            "system_prompt": systemPrompt,
+            "type": chapterType,
+            "shifu_bid": currentShifu?.bid
         })
         onOpenChange?.(false);
     }
@@ -51,7 +51,7 @@ const ChapterSettingsDialog = ({ unitId, open, onOpenChange }: { unitId: string;
             init();
         }
         onOpenChange?.(open);
-    }, [open, unitId, onOpenChange, init])
+    }, [open, outlineBid, onOpenChange, init])
 
     return (
         <Dialog

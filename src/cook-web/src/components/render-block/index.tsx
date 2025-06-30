@@ -71,13 +71,13 @@ export const RenderBlockContent = memo(({
     }
     if (currentNode) {
       actions.autoSaveBlocks(
-        currentNode.id,
+        currentNode.bid,
         blocks,
         blockContentTypes,
         p,
         blockUITypes,
         blockUIProperties,
-        currentShifu?.shifu_id || ''
+        currentShifu?.bid || ''
       )
     }
   }
@@ -92,7 +92,7 @@ export const RenderBlockContent = memo(({
       setError(t('render-block.solid-content-empty'))
       return
     }
-    await actions.saveBlocks(currentShifu?.shifu_id || '')
+    await actions.saveBlocks(currentShifu?.bid || '')
   }
 
   const isEdit = true
@@ -124,7 +124,7 @@ export const useContentTypes = () => {
       name: t('render-block.ai-content'),
       properties: {
         prompt: '',
-        profiles: [],
+        variables: [],
         model: '',
         temperature: '0.40',
         other_conf: ''
@@ -135,7 +135,7 @@ export const useContentTypes = () => {
       name: t('render-block.solid-content'),
       properties: {
         prompt: '',
-        profiles: []
+        variables: []
       }
     }
   ]

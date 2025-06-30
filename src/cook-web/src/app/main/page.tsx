@@ -194,11 +194,11 @@ const ScriptManagementPage = () => {
                     <div className="flex flex-wrap gap-4">
                         {shifus.map((shifu) => (
                             <ShifuCard
-                                id={shifu.shifu_id + ""}
-                                key={shifu.shifu_id}
-                                image={shifu.shifu_avatar}
-                                title={shifu.shifu_name || ""}
-                                description={shifu.shifu_description || ""}
+                                id={shifu.bid + ""}
+                                key={shifu.bid}
+                                image={shifu.avatar}
+                                title={shifu.name || ""}
+                                description={shifu.description || ""}
                                 isFavorite={shifu.is_favorite || false}
                             />
                         ))}

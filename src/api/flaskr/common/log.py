@@ -128,14 +128,14 @@ def init_log(app: Flask) -> Flask:
 
     host_name = socket.gethostname()
     log_format = (
-        "%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu "
+        "%(asctime)s [%(levelname)s] ai-shifu.com/ai-shifu "
         + host_name
         + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
     )
     formatter = RequestFormatter(log_format)
     # color log format
     color_log_format = (
-        "%(log_color)s%(asctime)s [%(levelname)s] ai-shifu.com/ai-sifu "
+        "%(log_color)s%(asctime)s [%(levelname)s] ai-shifu.com/ai-shifu "
         + host_name
         + " %(client_ip)s %(url)s %(request_id)s %(funcName)s %(process)d %(message)s"
     )
@@ -149,7 +149,7 @@ def init_log(app: Flask) -> Flask:
             "CRITICAL": "bold_red",
         },
     )
-    log_file = app.config.get("LOGGING_PATH", "logs/ai-sifu.log")
+    log_file = app.config.get("LOGGING_PATH", "logs/ai-shifu.log")
     log_dir = os.path.dirname(log_file)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)

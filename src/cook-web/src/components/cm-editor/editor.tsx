@@ -14,7 +14,7 @@ import { SelectedOption, IEditorContext } from './type'
 import './index.css'
 
 import {
-  profilePlaceholders,
+  variablePlaceholders,
   imgPlaceholders,
   videoPlaceholders,
   createSlashCommands,
@@ -25,15 +25,15 @@ import { useTranslation } from 'react-i18next'
 type EditorProps = {
   content?: string
   isEdit?: boolean
-  profiles?: string[]
-  onChange?: (value: string, isEdit: boolean) => void
+  variables?: string[]
+  onChange?: (value: string, variables: string[], isEdit: boolean) => void
   onBlur?: () => void
 }
 
 const Editor: React.FC<EditorProps> = ({
   content = '',
   isEdit,
-  profiles = [],
+  variables = [],
   onChange,
   onBlur
 }) => {
@@ -42,7 +42,7 @@ const Editor: React.FC<EditorProps> = ({
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
     SelectedOption.Empty
   )
-  const [profileList, setProfileList] = useState<string[]>(profiles)
+  const [variableList, setVariableList] = useState<string[]>(variables)
   const [selectContentInfo, setSelectContentInfo] = useState<any>()
   const editorViewRef = useRef<EditorView | null>(null)
 
@@ -51,8 +51,8 @@ const Editor: React.FC<EditorProps> = ({
     setSelectedOption,
     dialogOpen,
     setDialogOpen,
-    profileList,
-    setProfileList
+    variableList,
+    setVariableList
   }
 
   const onSelectedOption = useCallback((selectedOption: SelectedOption) => {
@@ -103,6 +103,8 @@ const Editor: React.FC<EditorProps> = ({
           changes: { from: selectContentInfo.from, insert: textToInsert }
         })
       } else {
+        const newVariableList = [...variableList, profile.profile_key]
+        setVariableList(Array.from(new Set(newVariableList)))
         insertText(textToInsert)
       }
       setDialogOpen(false)
@@ -214,7 +216,7 @@ const Editor: React.FC<EditorProps> = ({
               extensions={[
                 EditorView.lineWrapping,
                 slashCommandsExtension(),
-                profilePlaceholders,
+                variablePlaceholders,
                 imgPlaceholders,
                 videoPlaceholders,
                 EditorView.updateListener.of(update => {
@@ -234,7 +236,7 @@ const Editor: React.FC<EditorProps> = ({
               theme='light'
               minHeight='2rem'
               onChange={(value: string) => {
-                onChange?.(value, isEdit || false)
+                onChange?.(value, variableList, isEdit || false)
               }}
               onBlur={onBlur}
             />

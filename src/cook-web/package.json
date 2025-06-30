@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "dev-web300": "SITE_HOST=https://web01.dev.pillowai.cn npm run dev",
+    "dev-web300": "SITE_HOST=https://web02.dev.pillowai.cn npm run dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location src/cook-web/.eslintcache --max-warnings 0",

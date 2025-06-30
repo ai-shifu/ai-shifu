@@ -15,9 +15,11 @@ from flaskr.service.shifu.dtos import (
     GotoSettings,
     EmptyDto,
     BlockUpdateResultDto,
+    ReorderOutlineItemDto,
 )
 from sqlalchemy import func
 from flaskr.i18n import _
+from flask import current_app as app
 
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.lesson.const import (
@@ -115,7 +117,7 @@ def check_button_dto(button_dto: ButtonDto):
     pass
 
 
-def html_2_markdown(content):
+def html_2_markdown(content, variables_in_prompt):
     def video_repl(match):
         url = match.group("url")
         title = match.group("title")
@@ -128,6 +130,8 @@ def html_2_markdown(content):
     def profile_repl(match):
         var = match.group("var")
         var = var.strip("{}")
+        if var not in variables_in_prompt:
+            variables_in_prompt.append(var)
         return f"{{{var}}}"
 
     def image_repl(match):
@@ -155,7 +159,7 @@ def html_2_markdown(content):
     return content
 
 
-def markdown_2_html(content):
+def markdown_2_html(content, variables_in_prompt):
     import re
 
     def iframe_repl(match):
@@ -165,6 +169,8 @@ def markdown_2_html(content):
 
     def profile_repl(match):
         var = match.group("var")
+        if var not in variables_in_prompt:
+            variables_in_prompt.append(var)
         return f'<span data-tag="profile">{{{var}}}</span>'
 
     def image_repl(match):
@@ -191,8 +197,6 @@ def markdown_2_html(content):
         content,
     )
 
-    from flask import current_app as app
-
     app.logger.info(f"content: {content}")
     return content
 
@@ -212,13 +216,19 @@ def update_block_model(
     block_model.script_prompt = ""
     block_model.script_profile = ""
     block_model.script_ui_content = ""
+    variables_in_prompt = []
     if block_dto.block_content:
         if isinstance(block_dto.block_content, AIDto):
             block_model.script_type = SCRIPT_TYPE_PROMPT
-            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
-            if block_dto.block_content.profiles:
+
+            block_model.script_prompt = html_2_markdown(
+                block_dto.block_content.prompt, variables_in_prompt
+            )
+            if block_dto.block_content.variables:
                 block_model.script_profile = (
-                    "[" + "][".join(block_dto.block_content.profiles) + "]"
+                    "["
+                    + "][".join(block_dto.block_content.variables + variables_in_prompt)
+                    + "]"
                 )
             if block_dto.block_content.model and block_dto.block_content.model != "":
                 block_model.script_model = block_dto.block_content.model
@@ -229,13 +239,25 @@ def update_block_model(
                 block_model.script_temperature = block_dto.block_content.temperature
         elif isinstance(block_dto.block_content, SolidContentDto):
             block_model.script_type = SCRIPT_TYPE_FIX
-            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
+            block_model.script_prompt = html_2_markdown(
+                block_dto.block_content.prompt, variables_in_prompt
+            )
+            if block_dto.block_content.variables:
+                block_model.script_profile = (
+                    "["
+                    + "][".join(block_dto.block_content.variables + variables_in_prompt)
+                    + "]"
+                )
         elif isinstance(block_dto.block_content, SystemPromptDto):
             block_model.script_type = SCRIPT_TYPE_SYSTEM
-            block_model.script_prompt = html_2_markdown(block_dto.block_content.prompt)
-            if block_dto.block_content.profiles:
+            block_model.script_prompt = html_2_markdown(
+                block_dto.block_content.system_prompt, variables_in_prompt
+            )
+            if block_dto.block_content.variables:
                 block_model.script_profile = (
-                    "[" + "][".join(block_dto.block_content.profiles) + "]"
+                    "["
+                    + "][".join(block_dto.block_content.variables + variables_in_prompt)
+                    + "]"
                 )
             if block_dto.block_content.model and block_dto.block_content.model != "":
                 block_model.script_model = block_dto.block_content.model
@@ -275,7 +297,6 @@ def update_block_model(
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
         elif isinstance(block_dto.block_ui, GotoDto):
-            from flask import current_app as app
 
             app.logger.info(f"GOTODTO block_dto.block_ui: {block_dto.block_ui}")
             block_model.script_ui_type = UI_TYPE_BRANCH
@@ -302,39 +323,45 @@ def update_block_model(
             block_model.script_ui_type = UI_TYPE_BUTTON
             block_model.script_ui_content = block_dto.block_ui.button_key
             block_model.script_ui_content = block_dto.block_ui.button_name
-
         elif isinstance(block_dto.block_ui, OptionDto):
-            if not block_dto.block_ui.option_key:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_KEY_REQUIRED"))
-            if not block_dto.block_ui.option_name:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
-            if not block_dto.block_ui.profile_key:
+            block_model.script_ui_type = UI_TYPE_SELECTION
+            if not block_dto.block_ui.profile_id:
                 return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
+            profile_option_info = block_dto.profile_info
+            if not profile_option_info:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
             for btn in block_dto.block_ui.buttons:
                 if not btn.button_name:
                     return BlockUpdateResultDto(None, _("SHIFU.BUTTON_NAME_REQUIRED"))
                 if not btn.button_key:
                     return BlockUpdateResultDto(None, _("SHIFU.BUTTON_KEY_REQUIRED"))
-            block_model.script_ui_type = UI_TYPE_SELECTION
-            block_model.script_ui_content = block_dto.block_ui.option_key
-            block_model.script_ui_content = block_dto.block_ui.option_name
+
+            block_model.script_ui_content = profile_option_info.profile_key
+            block_dto.block_ui.profile_key = profile_option_info.profile_key
             block_model.script_ui_profile = "[" + block_dto.block_ui.profile_key + "]"
+
+            block_model.script_ui_profile_id = profile_option_info.profile_id
+            block_dto.block_ui.profile_id = profile_option_info.profile_id
             block_model.script_other_conf = json.dumps(
                 {
-                    "var_name": block_dto.block_ui.option_key,
+                    "var_name": profile_option_info.profile_key,
                     "btns": [
                         {
+                            # "label": profile_item_value.name,
+                            # "value": profile_item_value.value,
                             "label": btn.button_name,
                             "value": btn.button_key,
                         }
+                        # for profile_item_value in profile_item_value_list
                         for btn in block_dto.block_ui.buttons
                     ],
                 }
             )
+
             return BlockUpdateResultDto(
                 SelectProfileDto(
-                    block_dto.block_ui.option_key,
-                    block_dto.block_ui.option_name,
+                    profile_option_info.profile_key,
+                    profile_option_info.profile_key,
                     [
                         ProfileValueDto(btn.button_name, btn.button_key)
                         for btn in block_dto.block_ui.buttons
@@ -344,23 +371,21 @@ def update_block_model(
         elif isinstance(block_dto.block_ui, TextInputDto):
             if not block_dto.block_ui.prompt:
                 return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
-            if not block_dto.block_ui.input_key:
-                return BlockUpdateResultDto(None, _("SHIFU.INPUT_KEY_REQUIRED"))
-            if not block_dto.block_ui.input_name:
-                return BlockUpdateResultDto(None, _("SHIFU.INPUT_NAME_REQUIRED"))
-            if not block_dto.block_ui.input_placeholder:
-                return BlockUpdateResultDto(None, _("SHIFU.INPUT_PLACEHOLDER_REQUIRED"))
-            from flask import current_app as app
-
             app.logger.info(f"block_dto.block_ui.prompt: {block_dto.block_ui}")
-
             block_model.script_ui_type = UI_TYPE_INPUT
-            if block_dto.block_ui.input_key:
-                block_model.script_ui_content = block_dto.block_ui.input_key
-            if block_dto.block_ui.input_name:
-                block_model.script_ui_content = block_dto.block_ui.input_name
-            if block_dto.block_ui.input_placeholder:
-                block_model.script_ui_content = block_dto.block_ui.input_placeholder
+            if not block_dto.block_ui.profile_ids:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_KEY_REQUIRED"))
+            if len(block_dto.block_ui.profile_ids) != 1:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_IDS_NOT_CORRECT"))
+            input_profile_info = block_dto.profile_info
+            if not input_profile_info:
+                return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+            input_profile_info.profile_remark = block_dto.block_ui.input_name
+            block_model.script_ui_content = input_profile_info.profile_remark
+            block_model.script_ui_profile_id = input_profile_info.profile_id
+            block_dto.block_ui.input_key = input_profile_info.profile_key
+            # block_dto.block_ui.input_name = input_profile_info.profile_remark
+            block_dto.block_ui.input_placeholder = input_profile_info.profile_remark
             if (
                 not block_dto.block_ui.prompt
                 or not block_dto.block_ui.prompt.prompt
@@ -376,7 +401,7 @@ def update_block_model(
                 block_model.script_model = block_dto.block_ui.prompt.model
 
             block_model.script_ui_profile = (
-                "[" + "][".join(block_dto.block_ui.prompt.profiles) + "]"
+                "[" + "][".join(block_dto.block_ui.prompt.variables) + "]"
             )
             return BlockUpdateResultDto(
                 TextProfileDto(
@@ -411,16 +436,17 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         block_index=block.script_index,
     )
 
+    variables_in_prompt = []
     if block.script_type == SCRIPT_TYPE_FIX:
         ret.block_content = SolidContentDto(
-            prompt=markdown_2_html(block.script_prompt),
-            profiles=get_profiles(block.script_profile),
+            prompt=markdown_2_html(block.script_prompt, variables_in_prompt),
+            variables=get_profiles(block.script_profile) + variables_in_prompt,
         )
         ret.block_type = "solid"
     elif block.script_type == SCRIPT_TYPE_PROMPT:
         ret.block_content = AIDto(
-            prompt=markdown_2_html(block.script_prompt),
-            profiles=get_profiles(block.script_profile),
+            prompt=markdown_2_html(block.script_prompt, variables_in_prompt),
+            variables=get_profiles(block.script_profile) + variables_in_prompt,
             model=block.script_model,
             temperature=block.script_temperature,
             other_conf=block.script_other_conf,
@@ -428,8 +454,8 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         ret.block_type = "ai"
     elif block.script_type == SCRIPT_TYPE_SYSTEM:
         ret.block_content = SystemPromptDto(
-            prompt=markdown_2_html(block.script_prompt),
-            profiles=get_profiles(block.script_profile),
+            prompt=markdown_2_html(block.script_prompt, variables_in_prompt),
+            variables=get_profiles(block.script_profile) + variables_in_prompt,
             model=block.script_model,
             temperature=block.script_temperature,
             other_conf=block.script_other_conf,
@@ -441,7 +467,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
 
         prompt = AIDto(
             prompt=block.script_check_prompt,
-            profiles=get_profiles(block.script_ui_profile),
+            variables=get_profiles(block.script_ui_profile) + variables_in_prompt,
             model=block.script_model,
             temperature=block.script_temperature,
             other_conf=block.script_other_conf,
@@ -457,6 +483,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
             input_key = profile_item.profile_key
 
         ret.block_ui = TextInputDto(
+            profile_ids=[block.script_ui_profile_id],
             input_name=block.script_ui_content,
             input_key=input_key,
             input_placeholder=block.script_ui_content,
@@ -497,8 +524,6 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
                 ).first()
 
                 if goto_lesson:
-                    from flask import current_app as app
-
                     app.logger.info(
                         f"migrate lark table id: {item.get('lark_table_id', '')} to goto_id: {goto_lesson.lesson_id}"
                     )
@@ -528,12 +553,26 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
             items.append(
                 ButtonDto(button_name=item.get("label"), button_key=item.get("value"))
             )
-        from flask import current_app as app
-
         app.logger.info(f"profile_key: {profile_key}")
         app.logger.info(f"items: {items}")
         app.logger.info(f"block.script_ui_content: {block.script_ui_content}")
-        ret.block_ui = OptionDto(profile_key, profile_key, profile_key, items)
+        ret.block_ui = OptionDto(
+            block.script_ui_profile_id, profile_key, profile_key, profile_key, items
+        )
     elif block.script_ui_type == UI_TYPE_EMPTY:
         ret.block_ui = EmptyDto()
     return ret
+
+
+def convert_outline_to_reorder_outline_item_dto(
+    json_array: list[dict],
+) -> ReorderOutlineItemDto:
+    return [
+        ReorderOutlineItemDto(
+            bid=item.get("bid"),
+            children=convert_outline_to_reorder_outline_item_dto(
+                item.get("children", [])
+            ),
+        )
+        for item in json_array
+    ]

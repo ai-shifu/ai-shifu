@@ -321,6 +321,10 @@
     "title": "Title",
     "variable-name": "Variable Name"
   },
+  "profile-select-modal": {
+    "add-variable": "Add Variable",
+    "add": "Add"
+  },
   "profiles-manage": {
     "enum": "Option",
     "search-variable": "Search Variable...",

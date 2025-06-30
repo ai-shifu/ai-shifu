@@ -86,8 +86,9 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                 setUserPrompt(contentProp.content);
             } else if (block.properties.block_content.type == 'ai') {
                 const contentProp = blockContentProperties[blockId];
+                console.log(contentProp);
                 setUserPrompt(contentProp.prompt);
-                setProfiles(contentProp.profiles);
+                setProfiles(contentProp.variables || []);
                 setModels([{
                     model: contentProp.model,
                     temperature: contentProp.temperature
@@ -260,7 +261,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                         </CollapsibleTrigger>
                         <CollapsibleContent className="p-0">
                             <CMEditor
-                                profiles={profiles}
+                                variables={profiles}
                                 content={systemPrompt}
                                 onChange={setSystemPrompt}
                                 isEdit={true}
@@ -287,7 +288,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                         </CollapsibleTrigger>
                         <CollapsibleContent className="py-2 overflow-hidden">
                             <CMEditor
-                                profiles={profiles}
+                                variables={profiles}
                                 content={userPrompt}
                                 onChange={setUserPrompt}
                                 isEdit={true}

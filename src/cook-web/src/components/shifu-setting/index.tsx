@@ -30,16 +30,16 @@ import { getSiteHost } from "@/config/runtime-config";
 import ModelList from "@/components/model-list";
 
 interface Shifu {
-    shifu_description: string;
-    shifu_id: string;
-    shifu_keywords: string[];
-    shifu_model: string;
-    shifu_name: string;
-    shifu_preview_url: string;
-    shifu_price: number;
-    shifu_avatar: string;
-    shifu_url: string;
-    shifu_temperature: number;
+    description: string;
+    bid: string;
+    keywords: string[];
+    model: string;
+    name: string;
+    preview_url: string;
+    price: number;
+    avatar: string;
+    url: string;
+    temperature: number;
 }
 
 
@@ -176,14 +176,14 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
     // Handle form submission
     const onSubmit = async (data) => {
         await api.saveShifuDetail({
-            "shifu_description": data.description,
-            "shifu_id": shifuId,
-            "shifu_keywords": keywords,
-            "shifu_model": data.model,
-            "shifu_name": data.name,
-            "shifu_price": Number(data.price),
-            "shifu_avatar": uploadedImageUrl,
-            "shifu_temperature": Number(data.temperature)
+            "description": data.description,
+            "shifu_bid": shifuId,
+            "keywords": keywords,
+            "model": data.model,
+            "name": data.name,
+            "price": Number(data.price),
+            "avatar": uploadedImageUrl,
+            "temperature": Number(data.temperature)
         })
 
         if (onSave) {
@@ -193,21 +193,21 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
     };
     const init = async () => {
         const result = await api.getShifuDetail({
-            shifu_id: shifuId
+            shifu_bid: shifuId
         }) as Shifu;
 
         if (result) {
             form.reset({
-                name: result.shifu_name,
-                description: result.shifu_description,
-                price: result.shifu_price + '',
-                model: result.shifu_model || '',
-                previewUrl: result.shifu_preview_url,
-                url: result.shifu_url,
-                temperature: result.shifu_temperature + ''
+                name: result.name,
+                description: result.description,
+                price: result.price + '',
+                model: result.model || '',
+                previewUrl: result.preview_url,
+                url: result.url,
+                temperature: result.temperature + ''
             })
-            setKeywords(result.shifu_keywords)
-            setUploadedImageUrl(result.shifu_avatar || "")
+            setKeywords(result.keywords)
+            setUploadedImageUrl(result.avatar || "")
         }
     }
     useEffect(() => {

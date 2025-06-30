@@ -40,21 +40,21 @@ export const CreateShifuDialog = ({
     const { t } = useTranslation();
 
     const formSchema = z.object({
-        shifu_name: z.string()
+        name: z.string()
             .min(1, t('create-shifu-dialog.shifu-name-cannot-be-empty'))
             .max(20, t('create-shifu-dialog.shifu-name-cannot-exceed-20-characters')),
-        shifu_description: z.string()
+        description: z.string()
             .max(500, t('create-shifu-dialog.shifu-description-cannot-exceed-500-characters'))
             .optional(),
-        shifu_image: z.string().default(""),
+        avatar: z.string().default(""),
     });
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
         defaultValues: {
-            shifu_name: "",
-            shifu_description: "",
-            shifu_image: "",
+            name: "",
+            description: "",
+            avatar: "",
         },
     });
 
@@ -80,7 +80,7 @@ export const CreateShifuDialog = ({
                     <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
                         <FormField
                             control={form.control}
-                            name="shifu_name"
+                            name="name"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel
@@ -97,7 +97,7 @@ export const CreateShifuDialog = ({
                         />
                         <FormField
                             control={form.control}
-                            name="shifu_description"
+                            name="description"
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel

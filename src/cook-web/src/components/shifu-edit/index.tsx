@@ -276,11 +276,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const onAddChapter = () => {
     actions.addChapter({
-      parent_id: '',
+      parent_bid: '',
+      bid: 'new_chapter',
       id: 'new_chapter',
       name: ``,
       children: [],
-      no: '',
+      position: '',
       depth: 0
     })
     setTimeout(() => {
@@ -305,15 +306,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const handleConfirmDelete = async (id: string | undefined) => {
     if (!id) return
     try {
-      await actions.removeBlock(id, currentShifu?.shifu_id || '')
+      await actions.removeBlock(id, currentShifu?.bid || '')
       setRemoveBlockInfo({ blockId: '', visible: false })
     } catch (error) {
       console.log(error)
     }
   }
 
-  const onAddBlock = (index: number, type: BlockType, shifu_id: string) => {
-    actions.addBlock(index, type, shifu_id)
+  const onAddBlock = (index: number, type: BlockType, bid: string) => {
+    actions.addBlock(index, type, bid)
   }
 
   const onChangeBlockType = (id: string, type: BlockType) => {
@@ -332,7 +333,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       mergeOpt?.properties || ({} as any),
       true
     )
-    actions.saveBlocks(currentShifu?.shifu_id || '')
+    actions.saveBlocks(currentShifu?.bid || '')
   }
 
   useEffect(() => {
@@ -436,7 +437,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           blockContentProperties,
                           blockUITypes,
                           blockUIProperties,
-                          currentShifu?.shifu_id || ''
+                          currentShifu?.bid || ''
                         )
                       }}
                       onClickChangeType={onChangeBlockType}

@@ -9,8 +9,8 @@ interface IEditorContext {
   setSelectedOption: (selectedOption: SelectedOption) => void
   dialogOpen: boolean
   setDialogOpen: (dialogOpen:boolean) => void
-  profileList?: string[],
-  setProfileList?: (profiles: string[]) => void
+  variableList?: string[],
+  setVariableList?: (variables: string[]) => void
 }
 
 

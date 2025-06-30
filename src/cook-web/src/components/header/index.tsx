@@ -18,13 +18,13 @@ const Header = () => {
     const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
     const onShifuSave = async () => {
         if (currentShifu) {
-            await actions.loadShifu(currentShifu.shifu_id);
+            await actions.loadShifu(currentShifu.bid);
         }
     }
     const publish = async () => {
         // TODO: publish
         // actions.publishScenario();
-        await actions.saveBlocks(currentShifu?.shifu_id || '');
+        await actions.saveBlocks(currentShifu?.bid || '');
         alert.showAlert({
             confirmText: t('header.confirm'),
             cancelText: t('header.cancel'),
@@ -33,7 +33,7 @@ const Header = () => {
             async onConfirm() {
                 setPublishing(true)
                 const reuslt = await api.publishShifu({
-                    shifu_id: currentShifu?.shifu_id || ''
+                    shifu_bid: currentShifu?.bid || ''
                 });
                 setPublishing(false)
                 alert.showAlert({
@@ -64,10 +64,10 @@ const Header = () => {
 
                 <div className="flex items-center">
                     {
-                        currentShifu?.shifu_avatar ? (
+                        currentShifu?.avatar ? (
                             <div className="bg-blue-100 flex items-center justify-center h-10 w-10 rounded-md p-1 mr-2 overflow-hidden">
                                 <img
-                                    src={currentShifu?.shifu_avatar}
+                                    src={currentShifu?.avatar}
                                     alt="Profile"
                                     className="rounded"
                                 />
@@ -78,7 +78,7 @@ const Header = () => {
                     <div className='flex flex-col'>
                         <div className="flex items-center">
                             <span className="font-medium text-sm">
-                                {currentShifu?.shifu_name}
+                                {currentShifu?.name}
                             </span>
 
                             <span className='ml-1'>
@@ -121,7 +121,7 @@ const Header = () => {
             </div>
 
             <div className='flex flex-row items-center'>
-                <ShifuSetting shifuId={currentShifu?.shifu_id || ""} onSave={onShifuSave} />
+                <ShifuSetting shifuId={currentShifu?.bid || ""} onSave={onShifuSave} />
                 <Preivew />
                 <Button size="sm" className="h-8 ml-1 bg-purple-600 hover:bg-purple-700 text-xs font-normal"
                     onClick={publish}

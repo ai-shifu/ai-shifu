@@ -98,7 +98,7 @@ export default memo(function Goto(props: GotoProps) {
 
     const loadProfileItemDefinations = async (preserveSelection: boolean = false) => {
         const list = await api.getProfileItemDefinitions({
-            parent_id: currentShifu?.shifu_id
+            parent_id: currentShifu?.bid
         })
         setProfileItemDefinations(list)
 

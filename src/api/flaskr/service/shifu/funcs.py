@@ -185,7 +185,7 @@ def create_shifu(
             created_user_id=user_id,
             updated_user_id=user_id,
             status=STATUS_DRAFT,
-            course_keywords=shifu_keywords,
+            course_keywords=",".join(shifu_keywords) if shifu_keywords else "",
         )
         check_text_with_risk_control(app, shifu_id, user_id, course.get_str_to_check())
         db.session.add(course)
@@ -789,7 +789,11 @@ def save_shifu_detail(
                 shifu_name=new_shifu.course_name,
                 shifu_description=new_shifu.course_desc,
                 shifu_avatar=new_shifu.course_teacher_avatar,
-                shifu_keywords=new_shifu.course_keywords,
+                shifu_keywords=(
+                    new_shifu.course_keywords.split(",")
+                    if new_shifu.course_keywords
+                    else []
+                ),
                 shifu_model=new_shifu.course_default_model,
                 shifu_price=str(new_shifu.course_price),
                 shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")

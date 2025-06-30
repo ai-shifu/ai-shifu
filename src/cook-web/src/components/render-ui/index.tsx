@@ -1,15 +1,15 @@
 'use client';
 
 import Button from './button'
-import ButtonView from './view/button'
+// import ButtonView from './view/button'
 import Option from './option'
-import OptionView from './view/option'
+// import OptionView from './view/option'
 import SingleInput from './input'
-import InputView from './view/input'
+// import InputView from './view/input'
 import Goto from './goto'
-import GotoView from './view/goto'
+// import GotoView from './view/goto'
 import TextInput from './textinput'
-import TextInputView from './view/textinput'
+// import TextInputView from './view/textinput'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
@@ -20,7 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
-const EditBlockMap = {
+const componentMap = {
     button: Button,
     option: Option,
     goto: Goto,
@@ -32,14 +32,14 @@ const EditBlockMap = {
     empty: Empty,
 }
 
-const ViewBlockMap = {
-    button: ButtonView,
-    option: OptionView,
-    goto: GotoView,
-    phone: InputView,
-    code: InputView,
-    textinput: TextInputView,
-}
+// const ViewBlockMap = {
+//     button: ButtonView,
+//     option: OptionView,
+//     goto: GotoView,
+//     phone: InputView,
+//     code: InputView,
+//     textinput: TextInputView,
+// }
 
 const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     if (! _.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
@@ -55,7 +55,7 @@ const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     }
     return true
 }
-export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edit', onChanged }: {
+export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }: {
     id: any,
     type: any,
     properties: any,
@@ -87,7 +87,7 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edi
         }
         actions.setBlockUIPropertiesById(id, properties);
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.shifu_id || '')
+            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.bid || '')
         }
     }
 
@@ -95,7 +95,6 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edi
         setError('');
     }, [type]);
 
-    const componentMap = mode === 'edit' ? EditBlockMap : ViewBlockMap
     const Ele = componentMap[type]
     if (!Ele) {
         return null
@@ -118,7 +117,7 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, mode = 'edi
     )
 }, BlockUIPropsEqual)
 
-export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit', onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) {
+export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) {
     const {
         actions,
         blockUITypes,
@@ -167,7 +166,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
                 blockContentProperties,
                 newUITypes,
                 newUIProps,
-                currentShifu?.shifu_id || ''
+                currentShifu?.bid || ''
             )
         }
     }
@@ -200,7 +199,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
             <div className='bg-[#F8F8F8] rounded-md p-2 space-y-1'>
                 <div className='flex flex-row items-center justify-between py-1 cursor-pointer' onClick={() => handleExpandChange(!expand)}>
                     <div className='flex flex-row items-center space-x-1'>
-                        <span>
+                        <span className='w-[70px]'>
                             {t('render-ui.user-operation')}
                         </span>
                         <Select value={blockUITypes[block.properties.block_id]} onValueChange={onUITypeChange.bind(null, block.properties.block_id)}>
@@ -241,7 +240,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
                                 id={block.properties.block_id}
                                 type={blockUITypes[block.properties.block_id]}
                                 properties={blockUIProperties[block.properties.block_id]}
-                                mode={mode}
                                 onChanged={handleBlockChanged}
                             />
                         )
@@ -266,7 +264,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, mode = 'edit',
         </>
     )
 }, (prevProps, nextProps) => {
-    return prevProps.block.properties.block_id === nextProps.block.properties.block_id && prevProps.mode === nextProps.mode && prevProps.onExpandChange === nextProps.onExpandChange
+    return prevProps.block.properties.block_id === nextProps.block.properties.block_id && prevProps.onExpandChange === nextProps.onExpandChange
 })
 RenderBlockUI.displayName = 'RenderBlockUI'
 
@@ -287,9 +285,7 @@ export const useUITypes = () => {
         type: 'option',
         name: t('render-ui.option'),
         properties: {
-            "option_name": "",
-            "option_key": "",
-            "profile_key": "Usage_level",
+            "profile_id": "",
             "buttons": [
                 {
                     "properties": {
@@ -301,9 +297,9 @@ export const useUITypes = () => {
             ]
         },
         validate: (properties): string => {
-            if (!properties.option_name) {
-                return t('render-ui.option-name-empty')
-            }
+            // if (!properties.option_name) {
+            //     return t('render-ui.option-name-empty')
+            // }
             if (properties.buttons.length === 0) {
                 return t('render-ui.option-buttons-empty')
             }
@@ -346,7 +342,7 @@ export const useUITypes = () => {
             "prompt": {
                 "properties": {
                     "prompt": "",
-                    "profiles": [
+                    "variables": [
                     ],
                     "model": "",
                     "temperature": "0.40",
@@ -356,14 +352,12 @@ export const useUITypes = () => {
             },
             "input_name": "",
             "input_key": "",
-            "input_placeholder": ""
+            "input_placeholder": "",
+            "profile_ids": []
         },
         validate: (properties): string => {
             if (!properties.input_placeholder) {
                 return t('render-ui.textinput-placeholder-empty')
-            }
-            if (!properties.input_key) {
-                return t('render-ui.textinput-key-empty')
             }
             if (!properties?.prompt?.properties?.prompt) {
                 return t('render-ui.textinput-prompt-empty')

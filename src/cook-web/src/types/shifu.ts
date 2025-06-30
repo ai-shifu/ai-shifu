@@ -1,23 +1,25 @@
 export type BlockType = 'ai' | 'systemprompt' | 'solidcontent';
 
 export interface Shifu {
-    shifu_id: string;
-    shifu_name?: string;
-    shifu_description?: string;
-    shifu_avatar?: string;
+    bid: string;
+    name?: string;
+    description?: string;
+    avatar?: string;
     state?: number;
     is_favorite?: boolean;
 }
 
 export interface Outline {
-    parent_id?: string;
-    parentId?: string;
     id: string;
-    no?: string;
+    bid: string;
+    parent_bid?: string;
+    parentId?: string;
+    position?: string;
     name?: string;
     children?: Outline[];
     depth?: number;
     status?: 'new' | 'edit' | 'saving';
+    shifu_bid?: string;
 }
 
 export interface Block {
@@ -79,6 +81,11 @@ export interface SaveBlockListResult {
     error_messages: Record<string, string>;
 }
 
+export interface ReorderOutlineItemDto {
+    bid: string;
+    children: ReorderOutlineItemDto[];
+}
+
 export interface ShifuActions {
     addChapter: (chapter: Outline) => void;
     loadShifu: (shifuId: string) => Promise<void>;
@@ -92,7 +99,7 @@ export interface ShifuActions {
     addSiblingOutline: (item: Outline, name: string) => Promise<void>;
     removeOutline: (item: Outline) => Promise<void>;
     replaceOutline: (id: string, outline: Outline) => Promise<void>;
-    createUnit: (chapter: Outline) => Promise<void>;
+    createOutline: (outline: Outline) => Promise<void>;
     createSiblingUnit: (chapter: Outline) => Promise<void>;
     loadBlocks: (outlineId: string, shifuId: string) => void;
     addBlock: (index: number, type: BlockType, shifuId: string) => void;
@@ -111,6 +118,7 @@ export interface ShifuActions {
     loadModels: () => void;
     setBlockError: (blockId: string, error: string | null) => void;
     clearBlockErrors: () => void;
+    reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
 }
 
 export interface ShifuContextType extends ShifuState {

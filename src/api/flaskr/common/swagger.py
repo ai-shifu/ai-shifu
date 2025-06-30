@@ -12,6 +12,21 @@ swagger_config = {
             "route": "/apispec_1.json",
         }
     ],
+    "swagger_ui_config": {
+        "deepLinking": True,
+        "displayOperationId": False,
+        "defaultModelsExpandDepth": 1,
+        "defaultModelExpandDepth": 1,
+        "defaultModelRendering": "example",
+        "displayRequestDuration": True,
+        "docExpansion": "none",
+        "filter": True,
+        "showExtensions": True,
+        "showCommonExtensions": True,
+        "tryItOutEnabled": True,
+        "requestInterceptor": "function(request) { return request; }",
+        "responseInterceptor": "function(response) { return response; }",
+    },
 }
 
 

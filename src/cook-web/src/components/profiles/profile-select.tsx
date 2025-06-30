@@ -21,15 +21,15 @@ import {
   AlertDialogTitle
 } from '@/components/ui/alert-dialog'
 import { useTranslation } from 'react-i18next'
+import { useShifu } from '@/store'
+
 interface ProfileSelectProps {
   value?: string
-  parentId?: string
   onSelect?: (profile: Profile) => void
 }
 
 const ProfileSelect: React.FC<ProfileSelectProps> = ({
   value,
-  parentId,
   onSelect = () => {}
 }) => {
   const { t } = useTranslation()
@@ -40,6 +40,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
   const [refreshFlag, setRefreshFlag] = useState(0)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [deleteProfileId, setDeleteProfileId] = useState<string | null>(null)
+  const { currentShifu } = useShifu()
 
   const handleDeleteProfile = useCallback(async (id: string) => {
     setDeleteProfileId(id)
@@ -60,7 +61,6 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
   }
 
   const [systemProfiles, customProfiles] = useProfiles({
-    parentId,
     searchTerm,
     refreshFlag
   })
@@ -231,7 +231,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
         {t('profiles.add-new-variable')}
       </Button>
       <ProfileSave
-        parentId={parentId}
+        parentId={currentShifu?.bid}
         open={saveOpen}
         onOpenChange={setSaveOpen}
         value={editingProfile}

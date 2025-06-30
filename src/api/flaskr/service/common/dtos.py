@@ -1,4 +1,5 @@
 from ...common.swagger import register_schema_to_swagger
+from pydantic import BaseModel, Field
 import math
 
 USER_STATE_UNTEGISTERED = 0
@@ -86,12 +87,25 @@ class UserToken:
 
 
 @register_schema_to_swagger
-class PageNationDTO:
+class PageNationDTO(BaseModel):
+    page: int = Field(..., description="page")
+    page_size: int = Field(..., description="page_size")
+    total: int = Field(..., description="total")
+    page_count: int = Field(..., description="page_count")
+    data: list = Field(..., description="data")
+
     def __init__(self, page: int, page_size: int, total: int, data) -> None:
+        super().__init__(
+            page=page,
+            page_count=math.ceil(total / page_size if page_size > 0 else 0),
+            page_size=page_size,
+            total=total,
+            data=data,
+        )
         self.page = page
         self.page_size = page_size
         self.total = total
-        self.page_count = math.ceil(total / page_size)
+        self.page_count = math.ceil(total / page_size if page_size > 0 else 0)
         self.data = data
 
     def __json__(self):
