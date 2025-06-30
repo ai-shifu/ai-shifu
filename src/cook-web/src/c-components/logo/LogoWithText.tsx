@@ -18,9 +18,11 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const logoHorizontal = useEnvStore((state) => state.logoHorizontal);
   const logoVertical = useEnvStore((state) => state.logoVertical);
   const siteUrl = useEnvStore((state) => state.siteUrl);
+  const width = isRow ? size * 3.8125 : size;
+  const height = isRow ? size : size * 2.5;
   const commonStyles = {
-    width: isRow ? 'auto' : size + 'px',
-    height: isRow ? size + 'px' : 'auto',
+    width: width + 'px',
+    height: height + 'px',
   };
 
   return (
@@ -34,9 +36,9 @@ export const LogoWithText = ({ direction, size = 64 }) => {
     >
       <a href={siteUrl}>
         {isRow ? (
-          <Image src={ logoHorizontal || imgLogoRow.src} alt="logo" width={size} height={size} style={{ ...commonStyles }} />
+          <Image src={ logoHorizontal || imgLogoRow.src} alt="logo" width={width} height={height} style={{ ...commonStyles }} />
         ) : (
-          <Image src={logoVertical || imgLogoColumn.src} alt="logo" width={size} height={size} style={{ ...commonStyles }} />
+          <Image src={logoVertical || imgLogoColumn.src} alt="logo" width={width} height={height} style={{ ...commonStyles }} />
         )}
       </a>
     </div>
