@@ -8,7 +8,7 @@ from flaskr.util.uuid import generate_id
 from flaskr.dao import db
 from flaskr.service.common.models import raise_error
 from datetime import datetime
-from flaskr.service.shifu.dtos import UnitDto, OutlineDto, SimpleOutlineDto
+from flaskr.service.shifu.dtos import OutlineDto, SimpleOutlineDto
 from flaskr.service.lesson.const import (
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
@@ -27,32 +27,6 @@ from flaskr.service.shifu.utils import (
 )
 
 import queue
-
-
-def get_unit_list(app, user_id: str, shifu_id: str, chapter_id: str):
-    with app.app_context():
-        existing_outlines = get_existing_outlines(app, shifu_id)
-        chapter = next(
-            (
-                outline
-                for outline in existing_outlines
-                if outline.lesson_id == chapter_id
-            ),
-            None,
-        )
-        if not chapter:
-            raise_error("SCENARIO.CHAPTER_NOT_FOUND")
-        return [
-            UnitDto(
-                unit.lesson_id,
-                unit.lesson_no,
-                unit.lesson_name,
-                unit.lesson_desc,
-                unit.lesson_type,
-            )
-            for unit in existing_outlines
-            if unit.parent_id == chapter_id
-        ]
 
 
 def create_unit(

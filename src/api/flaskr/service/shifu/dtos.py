@@ -719,7 +719,7 @@ class ReorderOutlineDto:
 class LabelDTO(BaseModel):
     lang: dict[str, str] = Field(..., description="label lang", required=True)
 
-    def __init__(self, lang: dict[str, str]):
+    def __init__(self, lang: dict[str, str], **kwargs):
         super().__init__(lang=lang)
 
     def __json__(self):
@@ -741,6 +741,7 @@ class ContentDTO(BaseModel):
         llm_enabled: bool,
         llm: str = None,
         llm_temperature: float = None,
+        **kwargs
     ):
         super().__init__(
             content=content,
@@ -761,7 +762,7 @@ class ContentDTO(BaseModel):
 @register_schema_to_swagger
 class BreakDTO(BaseModel):
 
-    def __init__(self):
+    def __init__(self, **kwargs):
         super().__init__()
 
     def __json__(self):
@@ -772,8 +773,8 @@ class BreakDTO(BaseModel):
 class ButtonDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
-    def __init__(self, label: LabelDTO):
-        super().__init__(label=label)
+    def __init__(self, label: dict[str, str], **kwargs):
+        super().__init__(label=LabelDTO(label))
 
     def __json__(self):
         return {
@@ -793,14 +794,15 @@ class InputDTO(BaseModel):
 
     def __init__(
         self,
-        placeholder: LabelDTO,
+        placeholder: dict[str, str],
         prompt: str,
         result_variable_bids: list[str],
         llm: str = None,
         llm_temperature: float = None,
+        **kwargs
     ):
         super().__init__(
-            placeholder=placeholder,
+            placeholder=LabelDTO(placeholder),
             prompt=prompt,
             result_variable_bids=result_variable_bids,
             llm=llm,
@@ -823,8 +825,8 @@ class OptionItemDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
     value: str = Field(..., description="value", required=True)
 
-    def __init__(self, label: LabelDTO, value: str):
-        super().__init__(label=label, value=value)
+    def __init__(self, label: dict[str, str], value: str, **kwargs):
+        super().__init__(label=LabelDTO(label), value=value)
 
     def __json__(self):
         return {
@@ -840,8 +842,11 @@ class OptionsDTO(BaseModel):
     )
     options: list[OptionItemDTO] = Field(..., description="options", required=True)
 
-    def __init__(self, result_variable_bid: str, options: list[OptionItemDTO]):
-        super().__init__(result_variable_bid=result_variable_bid, options=options)
+    def __init__(self, result_variable_bid: str, options: list[dict], **kwargs):
+        super().__init__(
+            result_variable_bid=result_variable_bid,
+            options=[OptionItemDTO(option) for option in options],
+        )
 
     def __json__(self):
         return {
@@ -877,8 +882,10 @@ class GotoDTO(BaseModel):
         ..., description="conditions", required=True
     )
 
-    def __init__(self, conditions: list[GotoConditionDTO]):
-        super().__init__(conditions=conditions)
+    def __init__(self, conditions: list[dict], **kwargs):
+        super().__init__(
+            conditions=[GotoConditionDTO(condition) for condition in conditions]
+        )
 
     def __json__(self):
         return {
@@ -890,8 +897,8 @@ class GotoDTO(BaseModel):
 class PaymentDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
-    def __init__(self, label: LabelDTO):
-        super().__init__(label=label)
+    def __init__(self, label: dict[str, str], **kwargs):
+        super().__init__(label=LabelDTO(label))
 
     def __json__(self):
         return {
@@ -903,8 +910,8 @@ class PaymentDTO(BaseModel):
 class LoginDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
-    def __init__(self, label: LabelDTO):
-        super().__init__(label=label)
+    def __init__(self, label: dict[str, str], **kwargs):
+        super().__init__(label=LabelDTO(label))
 
     def __json__(self):
         return {

@@ -120,8 +120,8 @@ export const useContentTypes = () => {
   const { t } = useTranslation()
   return [
     {
-      type: 'ai',
-      name: t('render-block.ai-content'),
+      type: 'content',
+      name: t('render-ui.content'),
       properties: {
         prompt: '',
         variables: [],
@@ -131,16 +131,8 @@ export const useContentTypes = () => {
       }
     },
     {
-      type: 'solidcontent',
-      name: t('render-block.solid-content'),
-      properties: {
-        prompt: '',
-        variables: []
-      }
-    },
-    {
       type: 'button',
-      name: t('render-block.button'),
+      name: t('render-ui.button'),
       properties: {
         text: '',
         link: '',
@@ -149,7 +141,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'login',
-      name: t('render-block.login'),
+      name: t('render-ui.login'),
       properties: {
         text: '',
         link: '',
@@ -158,7 +150,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'payment',
-      name: t('render-block.logout'),
+      name: t('render-ui.payment'),
       properties: {
         text: '',
         link: '',
@@ -167,7 +159,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'option',
-      name: t('render-block.option'),
+      name: t('render-ui.option'),
       properties: {
         text: '',
         link: '',
@@ -175,8 +167,8 @@ export const useContentTypes = () => {
       }
     },
     {
-      type: 'text-input',
-      name: t('render-block.text-input'),
+      type: 'textinput',
+      name: t('render-ui.textinput'),
       properties: {
         text: '',
         link: '',
@@ -184,8 +176,8 @@ export const useContentTypes = () => {
       }
     },
     {
-      type: 'gap',
-      name: t('render-block.gap'),
+      type: 'break',
+      name: t('render-ui.break'),
       properties: {
         height: '10px'
       }
