@@ -370,16 +370,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       const block = await api.addBlock({
         block: {
-          block_content: {
-            type: blockType,
-            properties: item?.properties
-          },
-          block_desc: '',
-          block_index: index,
-          block_name: '',
-          block_no: '',
-          block_type: 0,
-          block_ui: buttonUI
+          "properties": item?.properties,
+          "type": blockType,
         },
         block_index: index,
         outline_bid: currentNode!.bid,

@@ -26,7 +26,7 @@ class ShifuDto(BaseModel):
         shifu_avatar: str,
         shifu_state: int,
         is_favorite: bool,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             bid=shifu_id,
@@ -325,7 +325,7 @@ class GotoDto(ButtonDto):
         button_name: str = None,
         button_key: str = None,
         goto_settings: GotoSettings = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(button_name, button_key)
         if isinstance(goto_settings, dict):
@@ -396,7 +396,7 @@ class OptionDto:
         option_key: str = None,
         profile_key: str = None,
         buttons: list = None,
-        **kwargs
+        **kwargs,
     ):
         self.option_name = option_name
         self.option_key = option_key
@@ -470,7 +470,7 @@ class TextInputDto(InputDto):
         input_key: str = None,
         input_placeholder: str = None,
         prompt: AIDto = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(input_name, input_key, input_placeholder)
         self.profile_ids = profile_ids or []
@@ -577,7 +577,7 @@ class BlockDto:
         block_content: AIDto | SolidContentDto | SystemPromptDto = None,
         block_ui: OptionDto | TextInputDto | ButtonDto = None,
         input_profile_info: "ProfileItem" = None,
-        **kwargs
+        **kwargs,
     ):
         self.block_id = block_id
         self.block_no = block_no
@@ -717,9 +717,14 @@ class ReorderOutlineDto:
 # i18n label dto
 @register_schema_to_swagger
 class LabelDTO(BaseModel):
-    lang: dict[str, str] = Field(..., description="label lang", required=True)
+    lang: dict[str, str] = Field(
+        default_factory=dict, description="label lang", required=True
+    )
 
     def __init__(self, lang: dict[str, str], **kwargs):
+        from flask import current_app
+
+        current_app.logger.info(f"lang: {lang}")
         super().__init__(lang=lang)
 
     def __json__(self):
@@ -741,7 +746,7 @@ class ContentDTO(BaseModel):
         llm_enabled: bool,
         llm: str = None,
         llm_temperature: float = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             content=content,
@@ -774,7 +779,7 @@ class ButtonDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(label))
+        super().__init__(label=LabelDTO(**label))
 
     def __json__(self):
         return {
@@ -799,10 +804,10 @@ class InputDTO(BaseModel):
         result_variable_bids: list[str],
         llm: str = None,
         llm_temperature: float = None,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
-            placeholder=LabelDTO(placeholder),
+            placeholder=LabelDTO(**placeholder),
             prompt=prompt,
             result_variable_bids=result_variable_bids,
             llm=llm,
@@ -826,7 +831,7 @@ class OptionItemDTO(BaseModel):
     value: str = Field(..., description="value", required=True)
 
     def __init__(self, label: dict[str, str], value: str, **kwargs):
-        super().__init__(label=LabelDTO(label), value=value)
+        super().__init__(label=LabelDTO(**label), value=value)
 
     def __json__(self):
         return {
@@ -898,7 +903,7 @@ class PaymentDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(label))
+        super().__init__(label=LabelDTO(**label))
 
     def __json__(self):
         return {
@@ -911,7 +916,7 @@ class LoginDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(label))
+        super().__init__(label=LabelDTO(**label))
 
     def __json__(self):
         return {

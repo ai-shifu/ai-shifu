@@ -123,63 +123,101 @@ export const useContentTypes = () => {
       type: 'content',
       name: t('render-ui.content'),
       properties: {
-        prompt: '',
-        variables: [],
-        model: '',
-        temperature: '0.40',
-        other_conf: ''
+        content: '',
+        llm_enabled: false,
+        llm: '',
+        llm_temperature: '0.40',
+
       }
     },
     {
       type: 'button',
       name: t('render-ui.button'),
       properties: {
-        text: '',
-        link: '',
-        target: '_self'
+        label: {
+          lang: {
+            'zh-CN': '',
+            'en-US': ''
+          }
+        }
       }
     },
     {
       type: 'login',
       name: t('render-ui.login'),
       properties: {
-        text: '',
-        link: '',
-        target: '_self'
+        label: {
+          lang: {
+            'zh-CN': '',
+            'en-US': ''
+          }
+        }
       }
     },
     {
       type: 'payment',
       name: t('render-ui.payment'),
       properties: {
-        text: '',
-        link: '',
-        target: '_self'
+        label: {
+          lang: {
+            'zh-CN': '',
+            'en-US': ''
+          }
+        }
       }
     },
     {
       type: 'option',
       name: t('render-ui.option'),
       properties: {
-        text: '',
-        link: '',
-        target: '_self'
+        result_variable_bid: '',
+        "options": [
+          {
+            "label": {
+              "lang": {
+                "zh-CN": "",
+                "en-US": ""
+              }
+            },
+            "value": ""
+          }
+        ]
       }
     },
     {
-      type: 'textinput',
+      type: 'goto',
+      name: t('render-ui.goto'),
+      properties: {
+        conditions: [
+          {
+            "value": "",
+            "destination_type": "",
+            "destination_bid": ""
+          }
+        ]
+      }
+    },
+    {
+      type: 'input',
       name: t('render-ui.textinput'),
       properties: {
-        text: '',
-        link: '',
-        target: '_self'
+        placeholder:{
+          lang:{
+            'zh-CN': '',
+            'en-US': ''
+          }
+        },
+        prompt:'',
+        result_variable_bids:[],
+        llm:'',
+        llm_temperature:'0.40'
       }
     },
     {
       type: 'break',
       name: t('render-ui.break'),
       properties: {
-        height: '10px'
+
       }
     }]
   }

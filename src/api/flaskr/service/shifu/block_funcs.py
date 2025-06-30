@@ -9,6 +9,8 @@ from flaskr.service.shifu.adapter import (
     convert_dict_to_block_dto,
     update_block_model,
     generate_block_dto,
+    convert_to_blockDTO,
+    update_block_dto_to_model,
 )
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import (
@@ -384,7 +386,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
     return
 
 
-def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: int):
+def add_block(app, user_id: str, outline_id: str, block: dict, block_index: int):
     with app.app_context():
         time = datetime.now()
         outline = (
@@ -397,15 +399,14 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
         )
         if not outline:
             raise_error("SHIFU.OUTLINE_NOT_FOUND")
-        block_dto = convert_dict_to_block_dto({"type": "block", "properties": block})
+        block_dto = convert_to_blockDTO(block)
         # add 1 to the block index / 1 is the index of the block in the outline
         block_index = block_index + 1
         block_model = AILessonScript(
             script_id=generate_id(app),
             script_index=block_index,
-            script_name=block_dto.block_name,
-            script_desc=block_dto.block_desc,
-            script_type=block_dto.block_type,
+            script_name="",
+            script_desc="",
             created=time,
             created_user_id=user_id,
             updated=time,
@@ -413,9 +414,7 @@ def add_block(app, user_id: str, outline_id: str, block: BlockDto, block_index: 
             status=STATUS_DRAFT,
         )
 
-        _fetch_profile_info_for_block_dto(app, block_dto)
-
-        update_block_result = update_block_model(block_model, block_dto, new_block=True)
+        update_block_result = update_block_dto_to_model(block_dto, block_model)
         if update_block_result.error_message:
             raise_error(update_block_result.error_message)
         check_str = block_model.get_str_to_check()

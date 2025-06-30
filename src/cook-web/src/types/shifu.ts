@@ -1,4 +1,4 @@
-export type BlockType = 'ai' | 'systemprompt' | 'solidcontent';
+export type BlockType = 'ai' | 'systemprompt' | 'solidcontent' | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input';
 
 export interface Shifu {
     bid: string;

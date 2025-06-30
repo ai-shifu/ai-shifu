@@ -25,6 +25,7 @@ from flaskr.service.shifu.dtos import (
     OptionsDTO,
     InputDTO,
     BreakDTO,
+    GotoDTO,
 )
 from sqlalchemy import func
 from flaskr.i18n import _
@@ -607,7 +608,7 @@ def convert_to_blockDTO(json_object: dict) -> BlockDTO:
     if type not in CONTENT_TYPE:
         raise_error(f"Invalid type: {type}")
     return BlockDTO(
-        bid=json_object.get("bid"),
+        bid=json_object.get("bid", ""),
         type=type,
         block_content=CONTENT_TYPE[type](**json_object.get("properties")),
         variable_bids=json_object.get("variable_bids", []),
@@ -624,7 +625,6 @@ def update_block_dto_to_model(block_dto: BlockDTO, block_model: AILessonScript):
         block_model.script_model = content.model
         block_model.script_temperature = content.temperature
         block_model.script_other_conf = content.other_conf
-
         if content.llm_enabled:
             block_model.script_type = SCRIPT_TYPE_PROMPT
         else:
@@ -663,6 +663,11 @@ def update_block_dto_to_model(block_dto: BlockDTO, block_model: AILessonScript):
     if block_dto.type == "input":
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
+        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
+        return
+    if block_dto.type == "goto":
+        block_model.script_ui_type = UI_TYPE_BRANCH
+        content: GotoDTO = block_dto.block_content  # type: GotoDTO
         block_model.script_ui_content = content.label.lang.get("zh-CN", "")
         return
 
