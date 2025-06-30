@@ -148,7 +148,6 @@ function TextInput (props: TextInputProps) {
               content={tempProperties.prompt.properties.prompt}
               onChange={onValueChange}
               isEdit={true}
-              variables={tempProperties.prompt.properties.variables}
             />
           </div>
         </div>

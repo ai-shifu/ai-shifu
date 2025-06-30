@@ -24,12 +24,10 @@ export default function AI(props: AIBlock) {
     return (
         <CMEditor
             content={props.properties.prompt}
-            variables={props.properties.variables}
             isEdit={props.isEdit}
             onBlur={props.onBlur}
             onChange={(value, variables, isEdit) => {
-                console.log("variables", variables)
-                props.onChange({ ...props.properties, prompt: value, variables: variables });
+                props.onChange({ ...props.properties, prompt: value, variables:variables });
                 if (props.onEditChange) {
                     props.onEditChange(isEdit);
                 }
