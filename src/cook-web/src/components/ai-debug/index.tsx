@@ -41,7 +41,7 @@ async function* makeTextSteamLineIterator (reader: ReadableStreamDefaultReader) 
       if (readerDone) {
         break
       }
-      const remainder = chunk.substr(startIndex)
+      const remainder = chunk.substring(startIndex)
       ;({ value: chunk, done: readerDone } = await reader.read())
       chunk =
         remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : '')
@@ -250,7 +250,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     init()
   }, [])
   useEffect(() => {
-    setProfiles([...getProfileKeyListFromContent(systemPrompt),...getProfileKeyListFromContent(userPrompt)])
+    setProfiles(Array.from(new Set([...getProfileKeyListFromContent(systemPrompt),...getProfileKeyListFromContent(userPrompt)])))
   }, [systemPrompt, userPrompt])
   return (
     <Dialog open={open} onOpenChange={onOpenChangeHandle}>
