@@ -466,7 +466,14 @@ def get_study_record(
             .order_by(AILesson.id.desc())
             .first()
         )
-        course_info = AICourse.query.filter_by(course_id=lesson_info.course_id).first()
+        course_info = (
+            AICourse.query.filter(
+                AICourse.course_id == lesson_info.course_id,
+                AICourse.status.in_(ai_course_status),
+            )
+            .order_by(AICourse.id.desc())
+            .first()
+        )
         if not course_info:
             return None
         teacher_avatar = course_info.course_teacher_avatar

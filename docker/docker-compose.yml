@@ -2,8 +2,8 @@ services:
   ai-shifu-api:
     container_name: ai-shifu-api
     # if you're in China, please use the following
-    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-api:v0.4-beta
-    image: aishifu/ai-shifu-api:v0.4-beta
+    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-api:v0.5-beta
+    image: aishifu/ai-shifu-api:v0.5-beta
     entrypoint: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && exec gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output"]
     env_file:
       - ./.env
@@ -13,8 +13,8 @@ services:
   ai-shifu-web:
     container_name:  ai-shifu-web
     # if you're in China, please use the following
-    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-web:v0.4-beta
-    image: aishifu/ai-shifu-web:v0.4-beta
+    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-web:v0.5-beta
+    image: aishifu/ai-shifu-web:v0.5-beta
     env_file:
       - ./.env
     depends_on:
@@ -22,8 +22,8 @@ services:
   ai-shifu-cook-web:
     container_name: ai-shifu-cook-web
     # if you're in China, please use the following
-    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-cook-web:v0.4-beta
-    image: aishifu/ai-shifu-cook-web:v0.4-beta
+    # image: registry.cn-beijing.aliyuncs.com/ai-shifu/ai-shifu-cook-web:v0.5-beta
+    image: aishifu/ai-shifu-cook-web:v0.5-beta
     env_file:
       - ./.env
     depends_on:

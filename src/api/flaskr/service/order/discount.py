@@ -197,16 +197,22 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
         if userDiscountRecord:
             discountRecord = userDiscountRecord
         else:
-            discountRecord = DiscountRecord.query.filter(
-                DiscountRecord.discount_code == discount_code,
-                DiscountRecord.status == DISCOUNT_STATUS_ACTIVE,
-            ).first()
+            discountRecord = (
+                DiscountRecord.query.filter(
+                    DiscountRecord.discount_code == discount_code,
+                    DiscountRecord.status == DISCOUNT_STATUS_ACTIVE,
+                )
+                .order_by(DiscountRecord.id.desc())
+                .first()
+            )
 
         if not discountRecord:
             # query fixcode
-            discount = Discount.query.filter(
-                Discount.discount_code == discount_code
-            ).first()
+            discount = (
+                Discount.query.filter(Discount.discount_code == discount_code)
+                .order_by(Discount.id.desc())
+                .first()
+            )
             if not discount:
                 raise_error("DISCOUNT.DISCOUNT_NOT_FOUND")
             discountRecord = DiscountRecord()
@@ -232,6 +238,11 @@ def use_discount_code(app: Flask, user_id, discount_code, order_id):
         if discount_start > now:
             raise_error("DISCOUNT.DISCOUNT_NOT_START")
         if discount_end < now:
+            app.logger.info(
+                "discount_end < now:{} {} {}".format(
+                    discount_end, now, discount_end < now
+                )
+            )
             raise_error("DISCOUNT.DISCOUNT_ALREADY_EXPIRED")
         if discount.discount_used + 1 > discount.discount_count:
             raise_error("DISCOUNT.DISCOUNT_LIMIT_EXCEEDED")

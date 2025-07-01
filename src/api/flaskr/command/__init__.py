@@ -13,6 +13,7 @@ def enable_commands(app: Flask):
     @click.argument("mobile")
     @click.argument("course_id")
     @click.argument("discount_code")
-    def import_user_command(mobile, course_id, discount_code):
+    @click.argument("user_nick_name")
+    def import_user_command(mobile, course_id, discount_code, user_nick_name):
         """Import user and enable course"""
-        import_user(app, mobile, course_id, discount_code)
+        import_user(app, mobile, course_id, discount_code, user_nick_name)

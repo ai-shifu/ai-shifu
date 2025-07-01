@@ -314,9 +314,12 @@ def publish_shifu(app, user_id, shifu_id: str):
         )
         if shifu:
             check_shifu_can_publish(app, shifu_id)
-            shifu.status = STATUS_PUBLISH
-            shifu.updated_user_id = user_id
-            shifu.updated_at = current_time
+            publish_shifu = shifu.clone()
+            publish_shifu.status = STATUS_PUBLISH
+            publish_shifu.updated_user_id = user_id
+            publish_shifu.updated_at = current_time
+            db.session.add(publish_shifu)
+            db.session.flush()
             # deal with draft lessons
             to_publish_lessons = get_existing_outlines_for_publish(app, shifu_id)
             publish_outline_ids = []
@@ -449,6 +452,18 @@ def publish_shifu(app, user_id, shifu_id: str):
             ).update(
                 {
                     "status": STATUS_DELETE,
+                    "updated_user_id": user_id,
+                    "updated": current_time,
+                }
+            )
+
+            AICourse.query.filter(
+                AICourse.course_id == shifu_id,
+                AICourse.status.in_([STATUS_PUBLISH]),
+                AICourse.id != publish_shifu.id,
+            ).update(
+                {
+                    "status": STATUS_HISTORY,
                     "updated_user_id": user_id,
                     "updated": current_time,
                 }

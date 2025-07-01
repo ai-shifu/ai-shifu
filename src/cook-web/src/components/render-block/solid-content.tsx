@@ -22,7 +22,6 @@ export default function SolidContent(props: SolideContnet) {
     return (
         <CMEditor
             content={props.properties.prompt}
-            variables={props.properties.variables}
             isEdit={props.isEdit}
             onBlur={props.onBlur}
             onChange={(value, variables, isEdit) => {
