@@ -6,7 +6,7 @@
 
 AI-Shifu consists of three main components:
 
-```
+```bash
 src/
 ├── api/          # Backend API service (Flask/Python)
 ├── web/          # User frontend (React)

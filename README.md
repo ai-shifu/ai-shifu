@@ -36,6 +36,8 @@ AI-Shifu serves as a teacher, broadcaster, storyteller, and guide... As an AI-dr
 
 ## Self-hosting
 
+> For source code installation, please refer to the [Installation Manual](INSTALL_MANUAL.md)
+
 Make sure your machine has installed [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 
 ### Using Docker Hub image

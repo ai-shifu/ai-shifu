@@ -36,6 +36,8 @@ AI 师傅既是老师、主播、说书人，也是向导……作为一名 AI �
 
 ## 自建站
 
+> 如需从源代码安装，请参考 [安装手册](INSTALL_MANUAL.md)。
+
 请先确认你的机器已经安装好[Docker](https://docs.docker.com/get-docker/)和[Docker Compose](https://docs.docker.com/compose/install/)。
 
 ### 使用 Docker Hub 镜像
