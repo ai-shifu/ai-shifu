@@ -10,7 +10,7 @@ import Goto from './goto'
 // import GotoView from './view/goto'
 import TextInput from './textinput'
 // import TextInputView from './view/textinput'
-import Content from './content'
+import {RenderBlockContent} from '../render-block/index'
 import Break from './break'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -23,7 +23,7 @@ import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
 const componentMap = {
-    content: Content,
+    content: RenderBlockContent,
     break: Break,
     input: TextInput,
     button: Button,
@@ -38,15 +38,6 @@ const componentMap = {
     payment: (props) => <Button {...props} mode="payment" />,
     empty: Empty,
 }
-
-// const ViewBlockMap = {
-//     button: ButtonView,
-//     option: OptionView,
-//     goto: GotoView,
-//     phone: InputView,
-//     code: InputView,
-//     textinput: TextInputView,
-// }
 
 const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     if (! _.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
@@ -69,8 +60,7 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
     mode?: string,
     onChanged?: (changed: boolean) => void
 }){
-
-    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
+    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu, blockProperties } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
     const handleChanged = (changed: boolean) => {
@@ -92,7 +82,7 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
             setError(err);
             return;
         }
-        actions.setBlockUIPropertiesById(id, properties);
+        actions.updateBlockProperties(id, properties);
         if (currentNode) {
             actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.bid || '')
         }
@@ -106,7 +96,6 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
     if (!Ele) {
         return null
     }
-
     return (
         <>
             <Ele
@@ -134,6 +123,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         blockContentTypes,
         blockContentProperties,
         currentShifu,
+        blockProperties,
     } = useShifu();
     const [expand, setExpand] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -150,9 +140,8 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const handleTypeChange = (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
-
-        actions.setBlockUITypesById(block.properties.block_id, type)
-        actions.setBlockUIPropertiesById(block.properties.block_id, opt?.properties || {}, true)
+        actions.setBlockUITypesById(block.bid, type)
+        actions.setBlockUIPropertiesById(block.bid, opt?.properties || {}, true)
 
         const newUITypes = {
             ...blockUITypes,
@@ -209,7 +198,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                         <span className='w-[70px]'>
                             {t('render-ui.user-operation')}
                         </span>
-                        <Select value={blockUITypes[block.bid]} onValueChange={onUITypeChange.bind(null, block.bid)}>
+                        <Select value={blockProperties[block.bid].type} onValueChange={onUITypeChange.bind(null, block.bid)}>
                             <SelectTrigger className="h-8 w-[120px]">
                                 <SelectValue placeholder={t('render-ui.select-placeholder')} />
                             </SelectTrigger>
@@ -242,11 +231,11 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                     expand ? 'block' : 'hidden'
                 )}>
                     {
-                        blockUIProperties[block.bid] && (
+                        blockProperties[block.bid] && (
                             <BlockUI
                                 id={block.bid}
-                                type={blockUITypes[block.bid]}
-                                properties={blockUIProperties[block.bid]}
+                                type={blockProperties[block.bid].type}
+                                properties={blockProperties[block.bid]}
                                 onChanged={handleBlockChanged}
                             />
                         )
@@ -290,7 +279,6 @@ export const useUITypes = () => {
                     "en-US": t('render-ui.button-name')
                 }
             },
-            "value": ""
         }
     },
     {

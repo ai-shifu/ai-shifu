@@ -1,31 +1,25 @@
 
 import CMEditor from '@/components/cm-editor';
-
-
-
-interface ContentProps {
-    content: string;
-    llm_enabled: boolean;
-    llm: string;
-    llm_temperature: string;
-}
+import { BlockDTO,ContentDTO } from '@/types/shifu';
 
 interface Content {
+    id: string;
+    properties: BlockDTO;
     isEdit: boolean;
-    properties: ContentProps;
-    onChange: (properties: ContentProps) => void;
+    onChange: (properties: BlockDTO) => void;
     onBlur?: () => void;
     onEditChange?: (isEdit: boolean) => void;
 }
 
 export default function Content(props: Content) {
+    const contentProperties = props.properties.properties as ContentDTO
     return (
         <CMEditor
-            content={props.properties.content}
+            content={contentProperties.content}
             isEdit={props.isEdit}
             onBlur={props.onBlur}
             onChange={(value, variables, isEdit) => {
-                props.onChange({ ...props.properties, content: value });
+                props.onChange({ ...props.properties, properties: { ...contentProperties, content: value } });
                 if (props.onEditChange) {
                     props.onEditChange(isEdit);
                 }

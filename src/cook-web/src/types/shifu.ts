@@ -58,6 +58,7 @@ export interface ShifuState {
     blockContentProperties: { [x: string]: any };
     blockContentTypes: { [x: string]: string };
     blockContentState: { [x: string]: 'edit' | 'preview' };
+    blockProperties: { [x: string]: any };
     blockErrors: { [x: string]: string | null };
     profileItemDefinations: ProfileItem[];
     currentNode: Outline | null;
@@ -113,6 +114,7 @@ export interface ShifuActions {
     setBlockError: (blockId: string, error: string | null) => void;
     clearBlockErrors: () => void;
     reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
+    updateBlockProperties: (bid: string, properties: any) => Promise<void>;
 }
 
 export interface ShifuContextType extends ShifuState {
@@ -131,4 +133,64 @@ export interface AIBlockProperties {
 export interface SolidContentBlockProperties {
     content: string,
     profiles?: string[]
+}
+
+
+export interface LabelDTO {
+    lang: Record<string, string>;
+}
+export interface ContentDTO {
+    content: string;
+    llm_enabled: boolean;
+    llm: string;
+    llm_temperature: number;
+}
+
+export interface ButtonDTO {
+    label: LabelDTO;
+}
+
+export interface InputDTO {
+    placeholder: LabelDTO;
+    prompt: string;
+    result_variable_bids: string[];
+    llm: string;
+    llm_temperature: number;
+}
+
+export interface OptionItemDTO {
+    label: LabelDTO;
+    value: string;
+}
+
+
+
+export interface OptionsDTO {
+    result_variable_bid: string;
+    options: OptionItemDTO[];
+}
+
+export interface GotoConditionDTO {
+    condition: string;
+    goto_bid: string;
+}
+
+
+
+export interface GotoDTO {
+    conditions: GotoConditionDTO[];
+}
+
+
+
+
+
+
+
+export interface BlockDTO {
+    bid: string;
+    type: string;
+    properties: ContentDTO | ButtonDTO | InputDTO | OptionsDTO | GotoDTO;
+    variable_bids: string[];
+    resource_bids: string[];
 }

@@ -15,7 +15,15 @@ const BlockMap = {
 interface IRenderBlockContentProps {
   id: string
   type: any
-  properties: any
+  properties: {
+    content: string,
+    llm_enabled: boolean,
+    llm: string,
+    llm_temperature: string,
+  },
+  variable_bids: string[],
+  resource_bids: string[],
+
 }
 
 
@@ -37,7 +45,6 @@ const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextP
 }
 export const RenderBlockContent = memo(({
   id,
-  type,
   properties
 }: IRenderBlockContentProps) => {
   const { t } = useTranslation()
@@ -63,10 +70,10 @@ export const RenderBlockContent = memo(({
       }
     }
     setError('')
-    if (type == 'ai' && properties.prompt == '') {
+    if (properties.llm_enabled && properties.content == '') {
       setError(t('render-block.ai-content-empty'))
       return
-    } else if (type == 'solidcontent' && properties.content == '') {
+    } else if (properties.content == '') {
       setError(t('render-block.solid-content-empty'))
       return
     }
@@ -86,10 +93,10 @@ export const RenderBlockContent = memo(({
   const onSave = async () => {
     setError('')
     const block = blocks.find(item => item.properties.block_id == id)
-    if (type == 'ai' && block && properties.prompt == '') {
+    if (properties.llm_enabled && block && properties.content == '') {
       setError(t('render-block.ai-content-empty'))
       return
-    } else if (type == 'solidcontent' && block && properties.content == '') {
+    } else if (block && properties.content == '') {
       setError(t('render-block.solid-content-empty'))
       return
     }
@@ -97,7 +104,7 @@ export const RenderBlockContent = memo(({
   }
 
   const isEdit = true
-  const Ele = BlockMap[type] ?? SolidContent
+  const Ele =  properties.llm_enabled ? AI : SolidContent
 
   return (
     <div className='bg-[#F5F5F4]'>

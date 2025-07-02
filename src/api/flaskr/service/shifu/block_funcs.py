@@ -1,9 +1,8 @@
 from flaskr.service.shifu.dtos import (
-    BlockDto,
     SaveBlockListResultDto,
-    OptionDto,
-    TextInputDto,
     BlockDTO,
+    OptionsDTO,
+    InputDTO,
 )
 from flaskr.service.shifu.adapter import (
     generate_block_dto,
@@ -37,7 +36,7 @@ import queue
 from flaskr.dao import redis_client
 
 
-def get_block_list(app, user_id: str, outline_id: str):
+def get_block_list(app, user_id: str, outline_id: str) -> list[BlockDTO]:
     with app.app_context():
         lesson = AILesson.query.filter(
             AILesson.lesson_id == outline_id,
@@ -108,7 +107,7 @@ def delete_block(app, user_id: str, outline_id: str, block_id: str):
     pass
 
 
-def get_block(app, user_id: str, outline_id: str, block_id: str):
+def get_block(app, user_id: str, outline_id: str, block_id: str) -> BlockDTO:
     with app.app_context():
         block = AILessonScript.query.filter(
             AILessonScript.lesson_id == outline_id,
@@ -337,7 +336,7 @@ def save_block_list_internal(
         )
 
 
-def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDto]):
+def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDTO]):
     timeout = 5 * 60
     blocking_timeout = 1
     lock_key = app.config.get("REDIS_KEY_PREFIX") + ":save_block_list:" + outline_id
@@ -359,7 +358,9 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDt
     return
 
 
-def add_block(app, user_id: str, outline_id: str, block: dict, block_index: int):
+def add_block(
+    app, user_id: str, outline_id: str, block: dict, block_index: int
+) -> BlockDTO:
     with app.app_context():
         time = datetime.now()
         outline = (
@@ -414,7 +415,9 @@ def add_block(app, user_id: str, outline_id: str, block: dict, block_index: int)
 
 
 # delete block list
-def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]):
+def delete_block_list(
+    app, user_id: str, outline_id: str, block_list: list[dict]
+) -> bool:
     with app.app_context():
         lesson = AILesson.query.filter(
             AILesson.lesson_id == outline_id,
@@ -434,7 +437,7 @@ def delete_block_list(app, user_id: str, outline_id: str, block_list: list[dict]
         return True
 
 
-def get_block_by_id(app, block_id: str):
+def get_block_by_id(app, block_id: str) -> AILessonScript:
     with app.app_context():
         block = (
             AILessonScript.query.filter(
@@ -446,7 +449,7 @@ def get_block_by_id(app, block_id: str):
         return block
 
 
-def get_system_block_by_outline_id(app, outline_id: str):
+def get_system_block_by_outline_id(app, outline_id: str) -> AILessonScript:
     with app.app_context():
         block = (
             AILessonScript.query.filter(
@@ -471,16 +474,16 @@ def get_system_block_by_outline_id(app, outline_id: str):
         return block
 
 
-def _fetch_profile_info_for_block_dto(app, block_dto: BlockDTO):
+def _fetch_profile_info_for_block_dto(app, block_dto: BlockDTO) -> None:
     """根据 block_dto 的类型获取相应的 profile 信息"""
     if (
-        isinstance(block_dto.block_content, OptionDto)
+        isinstance(block_dto.block_content, OptionsDTO)
         and block_dto.block_content.profile_id
     ):
         # block_dto = get_profile_info(app, block_dto.block_content.profile_id)
         pass
     elif (
-        isinstance(block_dto.block_content, TextInputDto)
+        isinstance(block_dto.block_content, InputDTO)
         and block_dto.block_content.profile_ids
     ):
         if len(block_dto.block_content.profile_ids) == 1:

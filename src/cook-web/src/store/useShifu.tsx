@@ -8,7 +8,8 @@ import {
   SolidContentBlockProperties,
   SaveBlockListResult,
   ApiResponse,
-  ReorderOutlineItemDto
+  ReorderOutlineItemDto,
+  BlockDTO,
 } from '../types/shifu'
 import api from '@/api'
 import { useContentTypes } from '@/components/render-block'
@@ -35,9 +36,9 @@ const buildBlockListWithAllInfo = (
     return {
       bid: block.bid,
       type: blockContentTypes[block.bid],
-      properties: blockContentProperties[block.bid],
-      variable_bids: block.variable_bids,
-      resource_bids: block.resource_bids
+      properties: blockUIProperties[block.bid].properties,
+      variable_bids: blockUIProperties[block.bid].variable_bids,
+      resource_bids: blockUIProperties[block.bid].resource_bids
     }
   })
   return list
@@ -55,7 +56,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [focusId, setFocusId] = useState('')
   const [focusValue, setFocusValue] = useState('')
   const [cataData, setCataData] = useState<{ [x: string]: Outline }>({})
-  const [blocks, setBlocks] = useState<Block[]>([])
+  const [blocks, setBlocks] = useState<BlockDTO[]>([])
+  const [blockProperties, setBlockProperties] = useState<{
+    [x: string]: BlockDTO
+  }>({})
   const [blockContentProperties, setBlockContentProperties] = useState<{
     [x: string]: any
   }>({})
@@ -63,7 +67,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     [x: string]: string
   }>({})
   const [blockUIProperties, setBlockUIProperties] = useState<{
-    [x: string]: any
+    [x: string]: BlockDTO
   }>({})
   const [blockUITypes, setBlockUITypes] = useState<{ [x: string]: string }>({})
   const [blockContentState, setBlockContentState] = useState<{
@@ -251,47 +255,35 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }, {})
     setBlockContentTypes(types)
   }
-
-  const initBlockContentProperties = async (list: Block[]) => {
+  const initBlockProperties = async (list: Block[]) => {
     const properties = list.reduce((prev: any, cur: Block) => {
       return {
         ...prev,
-        [cur.bid]: cur.properties
+        [cur.bid]: cur
       }
     }, {})
-    setBlockContentProperties(properties)
+    setBlockProperties(properties)
   }
-  const initBlockUITypes = async (list: Block[]) => {
-    const types = Object.fromEntries(
-      list.map((block: Block) => [block.bid, block.type])
-    )
-    setBlockUITypes(types)
-  }
-
   const initBlockUIProperties = async (list: Block[]) => {
     const properties = list.reduce((prev: any, cur: Block) => {
       return {
         ...prev,
-        [cur.bid]: cur.properties
+        [cur.bid]: cur.type
       }
     }, {})
     setBlockUIProperties(properties)
   }
-
-  const buildBlockList = (blocks: Block[]) => {
-    console.log('buildBlockList', blocks)
-    const list = blocks.map((block: Block) => {
-      return {
-        bid: block.bid,
-        type: block.type,
-        properties: block.properties
-      }
+  const updateBlockProperties =useCallback (async(bid: string, properties: any) => {
+    setBlockProperties({
+      ...blockProperties,
+      [bid]: properties
     })
-    return list
-  }
+
+  }, [blockProperties])
 
   const loadBlocks = async (outlineId: string, shifuId: string) => {
     try {
+      console.log('loadBlocks', outlineId, shifuId)
       setIsLoading(true)
       setError(null)
       clearBlockErrors()
@@ -302,13 +294,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       const list = blocksData
       setBlocks(list)
       initBlockContentTypes(list)
-      initBlockContentProperties(list)
-      initBlockUITypes(list)
+      initBlockProperties(list)
       initBlockUIProperties(list)
       setIsLoading(false)
     } catch (error) {
       console.error(error)
-      setError('Failed to load blocks')
       setIsLoading(false)
     }
   }
@@ -317,7 +307,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       return
     }
     const list = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties)
-    console.log('saveBlocks', list)
     try {
       setError(null)
       await api.saveBlocks({
@@ -359,7 +348,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       })
       setBlockContentProperties({
         ...blockContentProperties,
-        [block.bid]: item?.properties
+        [block.bid]: block
       })
       setBlockUITypes({
         ...blockUITypes,
@@ -431,6 +420,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       if (isLoading) {
         return null
       }
+      console.log('saveCurrentBlocks', outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id)
       setIsSaving(true)
       setError(null)
       try {
@@ -772,6 +762,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     properties: AIBlockProperties | SolidContentBlockProperties,
     reset: boolean = false
   ) => {
+    console.log('setBlockContentPropertiesById', id, properties, reset)
     if (reset) {
       setBlockContentProperties({
         ...blockContentProperties,
@@ -782,8 +773,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setBlockContentProperties({
       ...blockContentProperties,
       [id]: {
-        ...blockContentProperties[id],
-        ...properties
+        ...properties,
       }
     })
   }
@@ -798,6 +788,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     properties: any,
     reset: boolean = false
   ) => {
+    console.log('setBlockUIPropertiesById', id, properties, reset)
     if (reset) {
       setBlockUIProperties({
         ...blockUIProperties,
@@ -902,6 +893,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     currentNode,
     profileItemDefinations,
     models,
+    blockProperties,
     actions: {
       setFocusId,
       addChapter,
@@ -919,6 +911,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       createOutline,
       loadBlocks,
       addBlock,
+      updateBlockProperties,
       setBlockContentPropertiesById,
       setBlockContentTypesById,
       setBlockUIPropertiesById,
