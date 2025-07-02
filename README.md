@@ -7,20 +7,23 @@ English | [简体中文](README_ZH-CN.md)
 
 AI-Shifu is a guide powered by LLM. Unlike other human-led chatbots, AI-Shifu is AI-led chat flow, and humans just need to follow. Although in the process, humans can ask questions at any time and affect the content of the conversation, it will eventually return to the AI-led storyline. And AI can make personalized output based on user identity, interests, and preferences, making users feel like they are being served one-on-one. In education, storytelling, product guides, surveys, and game NPC scenarios, AI-Shifu can provide a more interactive and immersive experience.
 
+<div align="center">
+  <img src="assets/architecture.png" alt="Architecture" height="329">
+</div>
+
 # Features
 
-1. **Controllable Chat Flow**: Use preset prompts to constrain AI's output and control the chat process.
-2. **Interactive**: Allow asking questions to the user and obtaining feedback.
-3. **Personalized**: Make personalized output based on user input such as identity, interests, and preferences.
-4. **Q & A**: Ask questions based on context at any time to get more information.
-5. **Script Development Environment**: Use Lark multi-dimensional tables as an editor, combined with a debugger, to easily debug script prompts.
+1. **Personalized Output**: Fully personalized content output based on user's identity, background, interests and preferences, comparable to one-on-one human interaction.
+2. **Media Types**: Support for multiple content formats including Markdown, HTML, Mermaid, etc.
+3. **Content Safety**: Preset master scripts control all output, reducing hallucination.
+4. **Q & A**: Users can ask questions at any time to get contextually relevant intelligent answers.
+5. **Interactive**: Ask questions to users at any time, driving subsequent processes based on user responses.
+6. **Script Editor**: Easily edit scripts and preview effects.
 
 # Roadmap
 
-- [ ] Better script development environment, abandon the dependency on Lark
-- [ ] Refactor the user experience of Q & A
-- [ ] Support knowledge base
-- [ ] Continuous output mode
+- [ ] Writing AI agent for rapid script generation and maintenance
+- [ ] Knowledge base
 - [ ] Speech input and output
 
 # Using AI-Shifu
@@ -43,10 +46,7 @@ cp .env.example .env
 docker compose up -d
 ```
 
-Then visit `http://localhost:8080`.
-
 ### Building from source code
-#### Building docker image
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -56,8 +56,9 @@ cp .env.example .env
 ./dev_in_docker.sh
 ```
 
-Then visit `http://localhost:8080`.
+### Access
 
-
-#### Building and configuring from source code directly
-[Install Manual](INSTALL_MANUAL.md)
+After Docker starts:
+1. Open `http://localhost:8080` in your browser to access the user interface
+2. Open `http://localhost:8081` in your browser to access the script editor
+3. Use any phone number for login, default universal verification code is 1024
