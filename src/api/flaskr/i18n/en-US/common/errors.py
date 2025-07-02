@@ -1,5 +1,5 @@
 UNKNOWN_ERROR = "Unknown Error"
-PARAMS_ERROR = "Params Error"
+PARAMS_ERROR = "Params Error {param_message}"
 TEXT_NOT_ALLOWED = "Please check the input content"
 NICKNAME_NOT_ALLOWED = "Oops, illegal nickname."
 BACKGROUND_NOT_ALLOWED = "Oops, illegal background."

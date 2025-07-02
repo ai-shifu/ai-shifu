@@ -19,9 +19,10 @@ interface SolideContnet {
 }
 
 export default function SolidContent(props: SolideContnet) {
+    console.log('SolidContent', props.properties)
     return (
         <CMEditor
-            content={props.properties.prompt}
+            content={props.properties?.prompt ?? ''}
             isEdit={props.isEdit}
             onBlur={props.onBlur}
             onChange={(value, variables, isEdit) => {

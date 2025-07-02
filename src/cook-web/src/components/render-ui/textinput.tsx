@@ -11,16 +11,7 @@ import { ProfileFormItem } from '@/components/profiles'
 
 interface TextInputProps {
   properties: {
-    prompt: {
-      properties: {
-        prompt: string
-        variables: string[]
-        model: string
-        temperature: string
-        other_conf: string
-      }
-      type: string
-    }
+    prompt: string
     input_name: string
     // "input_key": string,
     input_placeholder: string
@@ -41,6 +32,7 @@ const TextInputPropsEqual = (
 }
 
 function TextInput (props: TextInputProps) {
+  console.log('TextInput', props)
   const { properties, onChanged } = props
   const [tempProperties, setTempProperties] = useState(properties)
   const [changed, setChanged] = useState(false)
@@ -52,13 +44,7 @@ function TextInput (props: TextInputProps) {
     }
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          prompt: value
-        }
-      }
+      prompt: value
     })
   }
 
@@ -68,7 +54,7 @@ function TextInput (props: TextInputProps) {
       prompt: {
         ...tempProperties.prompt,
         properties: {
-          ...tempProperties.prompt.properties,
+          ...tempProperties.prompt,
           model: value
         }
       }
@@ -78,13 +64,7 @@ function TextInput (props: TextInputProps) {
   const onTemperatureChange = (value: number) => {
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          temperature: value.toString()
-        }
-      }
+      prompt: value.toString()
     })
   }
 
@@ -92,13 +72,7 @@ function TextInput (props: TextInputProps) {
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          variables: value
-        }
-      },
+      prompt: value,
       profile_ids: value
     })
   }
@@ -145,7 +119,7 @@ function TextInput (props: TextInputProps) {
             style={{ minHeight: '72px', maxHeight: '480px', overflowY: 'auto' }}
           >
             <Editor
-              content={tempProperties.prompt.properties.prompt}
+              content={tempProperties.prompt}
               onChange={onValueChange}
               isEdit={true}
             />
@@ -157,7 +131,7 @@ function TextInput (props: TextInputProps) {
           {t('textinput.model')}
         </label>
         <ModelList
-          value={tempProperties.prompt.properties.model}
+          value={tempProperties.llm}
           className='h-8 w-[200px]'
           onChange={onModelChange}
         />
@@ -170,7 +144,7 @@ function TextInput (props: TextInputProps) {
           min={0}
           max={1}
           step={0.1}
-          value={Number(tempProperties.prompt?.properties?.temperature)}
+          value={Number(tempProperties.llm_temperature)}
           onChange={onTemperatureChange}
           className='w-full'
         ></InputNumber>

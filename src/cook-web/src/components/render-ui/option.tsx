@@ -18,14 +18,12 @@ import { ProfileFormItem } from '@/components/profiles'
 
 interface ButtonProps {
     properties: {
-        "profile_id": string,
-        "buttons": {
-            "properties": {
-                "button_name": string,
-                "button_key": string,
-            },
-            "type": string
+        "result_variable_bid": string,
+        "options": {
+            "label": any,
+            "value": any,
         }[]
+        "type": string
     }
     onChange: (properties: any) => void
     onChanged?: (changed: boolean) => void
@@ -35,11 +33,11 @@ const OptionPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
     if (! _.isEqual(prevProps.properties, nextProps.properties)) {
         return false
     }
-    if (! _.isEqual(prevProps.properties.profile_id, nextProps.properties.profile_id)) {
+    if (! _.isEqual(prevProps.properties.result_variable_bid, nextProps.properties.result_variable_bid)) {
         return false
     }
-    for (let i = 0; i < prevProps.properties.buttons.length; i++) {
-        if (!_.isEqual(prevProps.properties.buttons[i], nextProps.properties.buttons[i])) {
+    for (let i = 0; i < prevProps.properties.options.length; i++) {
+        if (!_.isEqual(prevProps.properties.options[i], nextProps.properties.options[i])) {
             return false
         }
     }
@@ -50,15 +48,15 @@ export default memo(function Option(props: ButtonProps) {
     const { properties } = props;
     // const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
-    const { profile_id, buttons } = properties;
-    const [tempValue, setTempValue] = useState<string>(profile_id);
-    const [tempButtons, setTempButtons] = useState(buttons.length === 0 ? [{
+    const { result_variable_bid, options } = properties;
+    const [tempValue, setTempValue] = useState<string>(result_variable_bid);
+    const [tempButtons, setTempButtons] = useState(options.length === 0 ? [{
         "properties": {
             "button_name": t('option.button-name'),
             "button_key": t('option.button-key')
         },
         "type": "button"
-    }] : buttons);
+    }] : options);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
@@ -197,11 +195,11 @@ export default memo(function Option(props: ButtonProps) {
                                     <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                                         {t('option.value')}
                                     </label>
-                                    <Input value={button.properties.button_key} className='w-40' onChange={onButtonValueChange.bind(null, index)}></Input>
+                                    <Input value={button.value} className='w-40' onChange={onButtonValueChange.bind(null, index)}></Input>
                                     <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
                                         {t('option.title')}
                                     </label>
-                                    <Input value={button.properties.button_name} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
+                                    <Input value={button.label} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
                                     <Button className='h-8 w-8' variant="ghost" onClick={onAdd.bind(null, index)} >
                                         <Plus />
                                     </Button>

@@ -26,6 +26,8 @@ from flaskr.service.shifu.dtos import (
     InputDTO,
     BreakDTO,
     GotoDTO,
+    CheckCodeDTO,
+    PhoneDTO,
 )
 from sqlalchemy import func
 from flaskr.i18n import _
@@ -562,7 +564,7 @@ def generate_block_dto(block: AILessonScript, profile_items: list[ProfileItem]):
         json_data = json.loads(block.script_other_conf)
         profile_key = json_data.get("var_name")
         items = []
-        for item in json_data.get("btns"):
+        for item in json_data.get("btns", []):
             items.append(
                 ButtonDto(button_name=item.get("label"), button_key=item.get("value"))
             )
@@ -600,6 +602,8 @@ CONTENT_TYPE = {
     "options": OptionsDTO,
     "input": InputDTO,
     "break": BreakDTO,
+    "checkcode": CheckCodeDTO,
+    "phone": PhoneDTO,
 }
 
 
@@ -609,68 +613,291 @@ def convert_to_blockDTO(json_object: dict) -> BlockDTO:
         raise_error(f"Invalid type: {type}")
     return BlockDTO(
         bid=json_object.get("bid", ""),
-        type=type,
         block_content=CONTENT_TYPE[type](**json_object.get("properties")),
         variable_bids=json_object.get("variable_bids", []),
         resource_bids=json_object.get("resource_bids", []),
     )
 
 
-def update_block_dto_to_model(block_dto: BlockDTO, block_model: AILessonScript):
+def _get_label_lang(label) -> LabelDTO:
+    # get label from label.lang
+    if isinstance(label, dict):
+        return LabelDTO(lang=label)
+    if label.startswith("{"):
+        return LabelDTO(lang=json.loads(label))
+    return LabelDTO(
+        lang={
+            "zh-CN": label,
+            "en-US": label,
+        }
+    )
+
+
+def _get_lang_dict(lang: str) -> dict[str, str]:
+    from flask import current_app
+
+    current_app.logger.info(f"lang: {lang} {type(lang)}")
+    if isinstance(lang, dict):
+        return lang
+    if lang.startswith("{"):
+        return json.loads(lang)
+    return {
+        "zh-CN": lang,
+        "en-US": lang,
+    }
+
+
+def update_block_dto_to_model(
+    block_dto: BlockDTO, block_model: AILessonScript
+) -> BlockUpdateResultDto:
+
+    variables = []
+
     if block_dto.type == "content":
+        raw_content = html_2_markdown(block_dto.block_content.content, variables)
         block_model.script_ui_type = UI_TYPE_CONTENT
         content: ContentDTO = block_dto.block_content  # type: ContentDTO
-        block_model.script_prompt = content.prompt
-        block_model.script_profile = content.variables
-        block_model.script_model = content.model
-        block_model.script_temperature = content.temperature
-        block_model.script_other_conf = content.other_conf
+        block_model.script_prompt = raw_content
+        block_model.script_profile = "[" + "][".join(variables) + "]"
+        block_model.script_model = content.llm
+        block_model.script_temperature = content.llm_temperature
         if content.llm_enabled:
             block_model.script_type = SCRIPT_TYPE_PROMPT
         else:
             block_model.script_type = SCRIPT_TYPE_FIX
-        return
+        return BlockUpdateResultDto(None, None)
     block_model.script_type = SCRIPT_TYPE_ACTION
     if block_dto.type == "break":
         block_model.script_ui_type = UI_TYPE_BREAK
-        return
-
+        return BlockUpdateResultDto(None, None)
     if block_dto.type == "button":
         block_model.script_ui_type = UI_TYPE_BUTTON
         content: ButtonDTO = block_dto.block_content  # type: ButtonDTO
-        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
-        return
+        block_model.script_ui_content = json.dumps(content.label.lang)
+
+        from flask import current_app
+
+        current_app.logger.info(
+            f"block_model.script_ui_content: {block_model.script_ui_content}"
+        )
+        return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "login":
         block_model.script_ui_type = UI_TYPE_LOGIN
         content: LoginDTO = block_dto.block_content  # type: LoginDTO
-        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
-        return
+        block_model.script_ui_content = json.dumps(content.label.lang)
+        return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "payment":
         block_model.script_ui_type = UI_TYPE_TO_PAY
         content: PaymentDTO = block_dto.block_content  # type: PaymentDTO
-        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
-        return
+        block_model.script_ui_content = json.dumps(content.label.lang)
+        return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "options":
         block_model.script_type = SCRIPT_TYPE_ACTION
         block_model.script_ui_type = UI_TYPE_SELECTION
         content: OptionsDTO = block_dto.block_content  # type: OptionsDTO
         block_model.script_ui_content = content.result_variable_bid
-        return
+        block_model.script_other_conf = json.dumps(
+            {
+                "var_name": content.result_variable_bid,
+                "btns": [
+                    {
+                        "label": content.label.lang,
+                        "value": content.value,
+                    }
+                    for content in content.options
+                ],
+            }
+        )
+        return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "input":
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
-        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
-        return
+        block_model.script_ui_content = json.dumps(content.label)
+        block_model.script_ui_profile_id = content.result_variable_bids
+        return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
         block_model.script_ui_type = UI_TYPE_BRANCH
         content: GotoDTO = block_dto.block_content  # type: GotoDTO
-        block_model.script_ui_content = content.label.lang.get("zh-CN", "")
-        return
+        block_model.script_ui_content = json.dumps(content.label.lang)
+        block_model.script_other_conf = json.dumps(
+            {
+                "var_name": content.result_variable_bid,
+                "jump_rule": [
+                    {
+                        "goto_id": content.destination_bid,
+                        "value": content.value,
+                        "type": content.destination_type,
+                    }
+                    for content in content.conditions
+                ],
+            }
+        )
+        return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "break":
         block_model.script_ui_type = UI_TYPE_BREAK
-        return
+        return BlockUpdateResultDto(None, None)
+    return BlockUpdateResultDto(None, None)
+
+
+def generate_block_dto_from_model(
+    block_model: AILessonScript, variable_bids: list[str]
+) -> list[BlockDTO]:
+
+    from flask import current_app
+
+    current_app.logger.info(f"block_model: {block_model.script_ui_content}")
+    ret = []
+    variables_in_prompt = []
+    if (
+        block_model.script_type == SCRIPT_TYPE_FIX
+        or block_model.script_type == SCRIPT_TYPE_PROMPT
+    ):
+        html_content = html_2_markdown(block_model.script_prompt, variables_in_prompt)
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=ContentDTO(
+                    content=html_content,
+                    llm_enabled=block_model.script_type == SCRIPT_TYPE_PROMPT,
+                    llm_temperature=block_model.script_temperature,
+                ),
+                variable_bids=variable_bids,
+                resource_bids=[],
+            )
+        )
+
+    elif block_model.script_type == SCRIPT_TYPE_ACTION:
+        pass
+
+    if block_model.script_ui_type == UI_TYPE_CONTENT:
+        pass
+    elif block_model.script_ui_type == UI_TYPE_BREAK:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=BreakDTO(),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_BUTTON:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=ButtonDTO(
+                    label=_get_lang_dict(block_model.script_ui_content),
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_INPUT:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=InputDTO(
+                    placeholder=_get_lang_dict(block_model.script_ui_content),
+                    result_variable_bids=[],
+                    prompt=block_model.script_check_prompt,
+                    llm="",
+                    llm_temperature=0.0,
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_CHECKCODE:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=CheckCodeDTO(
+                    placeholder=_get_lang_dict(block_model.script_ui_content),
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_PHONE:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=PhoneDTO(
+                    placeholder=_get_lang_dict(block_model.script_ui_content),
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_LOGIN:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=LoginDTO(
+                    label=_get_lang_dict(block_model.script_ui_content),
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_TO_PAY:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=PaymentDTO(
+                    label=_get_lang_dict(block_model.script_ui_content),
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_BRANCH:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=GotoDTO(
+                    label=_get_lang_dict(block_model.script_ui_content),
+                    result_variable_bid=block_model.script_ui_content,
+                    conditions=[
+                        {
+                            "destination_bid": content.get("goto_id", ""),
+                            "destination_value": content.get("value", ""),
+                            "type": content.get("type", ""),
+                        }
+                        for content in json.loads(block_model.script_other_conf).get(
+                            "jump_rule", []
+                        )
+                    ],
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    elif block_model.script_ui_type == UI_TYPE_SELECTION:
+        ret.append(
+            BlockDTO(
+                bid=block_model.script_id,
+                block_content=OptionsDTO(
+                    result_variable_bid=block_model.script_ui_profile_id,
+                    options=[
+                        {
+                            "label": _get_lang_dict(content.get("label", "")),
+                            "value": content.get("value", ""),
+                        }
+                        for content in json.loads(block_model.script_other_conf).get(
+                            "btns", []
+                        )
+                    ],
+                ),
+                variable_bids=[],
+                resource_bids=[],
+            )
+        )
+    if len(ret) > 1:
+        ret[1].bid = ret[0].bid + "_1"
+
+    return ret

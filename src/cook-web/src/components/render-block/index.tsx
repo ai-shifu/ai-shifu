@@ -8,7 +8,8 @@ import _ from 'lodash'
 
 const BlockMap = {
   ai: AI,
-  solidcontent: SolidContent
+  solidcontent: SolidContent,
+
 }
 
 interface IRenderBlockContentProps {
@@ -96,7 +97,8 @@ export const RenderBlockContent = memo(({
   }
 
   const isEdit = true
-  const Ele = BlockMap[type]
+  const Ele = BlockMap[type] ?? SolidContent
+
   return (
     <div className='bg-[#F5F5F4]'>
       <div>
@@ -167,7 +169,7 @@ export const useContentTypes = () => {
       }
     },
     {
-      type: 'option',
+      type: 'options',
       name: t('render-ui.option'),
       properties: {
         result_variable_bid: '',

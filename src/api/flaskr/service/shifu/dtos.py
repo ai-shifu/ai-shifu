@@ -735,7 +735,7 @@ class LabelDTO(BaseModel):
 
 @register_schema_to_swagger
 class ContentDTO(BaseModel):
-    content: str = Field(..., description="content", required=True)
+    content: str = Field(..., description="content", required=True, allow_none=True)
     llm_enabled: bool = Field(..., description="llm enabled", required=True)
     llm: str = Field(..., description="llm", required=False)
     llm_temperature: float = Field(..., description="llm temperature", required=False)
@@ -748,10 +748,16 @@ class ContentDTO(BaseModel):
         llm_temperature: float = None,
         **kwargs,
     ):
+        from flask import current_app
+
+        current_app.logger.info(f"content: {content}")
+        current_app.logger.info(f"llm_enabled: {llm_enabled}")
+        current_app.logger.info(f"llm: {llm}")
+        current_app.logger.info(f"llm_temperature: {llm_temperature}")
         super().__init__(
-            content=content,
+            content=content if content is not None else "",
             llm_enabled=llm_enabled,
-            llm=llm,
+            llm=llm if llm is not None else "",
             llm_temperature=llm_temperature,
         )
 
@@ -779,7 +785,11 @@ class ButtonDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(**label))
+        from flask import current_app
+
+        current_app.logger.info(f"label: {label} type: {type(label)}")
+
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
 
     def __json__(self):
         return {
@@ -807,7 +817,7 @@ class InputDTO(BaseModel):
         **kwargs,
     ):
         super().__init__(
-            placeholder=LabelDTO(**placeholder),
+            placeholder=LabelDTO(lang=placeholder),
             prompt=prompt,
             result_variable_bids=result_variable_bids,
             llm=llm,
@@ -827,11 +837,11 @@ class InputDTO(BaseModel):
 @register_schema_to_swagger
 class OptionItemDTO(BaseModel):
 
-    label: LabelDTO = Field(..., description="label", required=True)
+    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
     value: str = Field(..., description="value", required=True)
 
     def __init__(self, label: dict[str, str], value: str, **kwargs):
-        super().__init__(label=LabelDTO(**label), value=value)
+        super().__init__(label=LabelDTO(lang=label), value=value)
 
     def __json__(self):
         return {
@@ -850,7 +860,7 @@ class OptionsDTO(BaseModel):
     def __init__(self, result_variable_bid: str, options: list[dict], **kwargs):
         super().__init__(
             result_variable_bid=result_variable_bid,
-            options=[OptionItemDTO(option) for option in options],
+            options=[OptionItemDTO(**option) for option in options],
         )
 
     def __json__(self):
@@ -900,10 +910,10 @@ class GotoDTO(BaseModel):
 
 @register_schema_to_swagger
 class PaymentDTO(BaseModel):
-    label: LabelDTO = Field(..., description="label", required=True)
+    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(**label))
+        super().__init__(label=LabelDTO(lang=label))
 
     def __json__(self):
         return {
@@ -913,14 +923,44 @@ class PaymentDTO(BaseModel):
 
 @register_schema_to_swagger
 class LoginDTO(BaseModel):
-    label: LabelDTO = Field(..., description="label", required=True)
+    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(**label))
+        super().__init__(label=LabelDTO(lang=label))
 
     def __json__(self):
         return {
             "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class CheckCodeDTO(BaseModel):
+    placeholder: LabelDTO = Field(
+        ..., description="placeholder", type=LabelDTO, required=True
+    )
+
+    def __init__(self, placeholder: dict[str, str], **kwargs):
+        super().__init__(placeholder=LabelDTO(lang=placeholder))
+
+    def __json__(self):
+        return {
+            "placeholder": self.placeholder,
+        }
+
+
+@register_schema_to_swagger
+class PhoneDTO(BaseModel):
+    placeholder: LabelDTO = Field(
+        ..., description="placeholder", type=LabelDTO, required=True
+    )
+
+    def __init__(self, placeholder: dict[str, str], **kwargs):
+        super().__init__(placeholder=LabelDTO(lang=placeholder))
+
+    def __json__(self):
+        return {
+            "placeholder": self.placeholder,
         }
 
 
@@ -938,8 +978,8 @@ class BlockDTO(BaseModel):
         | PaymentDTO
         | LoginDTO
     ) = Field(..., description="block content", required=True)
-    variable_bids: list[str] = Field(..., description="variable bids", required=True)
-    resource_bids: list[str] = Field(..., description="resource bids", required=True)
+    variable_bids: list[str] = Field(..., description="variable bids", required=False)
+    resource_bids: list[str] = Field(..., description="resource bids", required=False)
 
     def __init__(
         self,

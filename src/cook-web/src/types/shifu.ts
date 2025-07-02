@@ -23,17 +23,11 @@ export interface Outline {
 }
 
 export interface Block {
-    properties: {
-        block_content: any;
-        block_desc: string;
-        block_id: string;
-        block_index: number;
-        block_name: string;
-        block_no: string;
-        block_type: number;
-        block_ui: any;
-    }
+    bid: string;
+    properties:  any;
     type: string;
+    variable_bids: string[];
+    resource_bids: string[];
 }
 
 export interface ColorSetting {

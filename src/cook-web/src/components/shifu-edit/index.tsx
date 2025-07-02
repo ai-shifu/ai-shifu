@@ -416,13 +416,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 <DndProvider backend={HTML5Backend}>
                   {blocks.map((block, index) => (
                     <DraggableBlock
-                      key={block.properties.block_id}
-                      id={block.properties.block_id}
-                      type={
-                        blockContentTypes[
-                          block.properties.block_id
-                        ] as BlockType
-                      }
+                      key={block.bid}
+                      id={block.bid}
+                      type={block.type as BlockType}
                       index={index}
                       moveBlock={(dragIndex: number, hoverIndex: number) => {
                         const dragBlock = blocks[dragIndex]
@@ -443,28 +439,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       onClickChangeType={onChangeBlockType}
                       onClickDebug={onDebugBlock}
                       onClickRemove={onRemove}
-                      disabled={expandedBlocks[block.properties.block_id]}
-                      error={blockErrors[block.properties.block_id]}
+                      disabled={expandedBlocks[block.bid]}
+                      error={blockErrors[block.bid]}
                     >
                       <div
-                        id={block.properties.block_id}
+                        id={block.bid}
                         className='relative flex flex-col gap-2 '
                       >
-                        <div className=' '>
-                          <RenderBlockContent
-                            id={block.properties.block_id}
-                            type={blockContentTypes[block.properties.block_id]}
-                            properties={
-                              blockContentProperties[block.properties.block_id]
-                            }
-                          />
-                        </div>
                         <RenderBlockUI
                           block={block}
                           onExpandChange={expanded => {
                             setExpandedBlocks(prev => ({
                               ...prev,
-                              [block.properties.block_id]: expanded
+                              [block.bid]: expanded
                             }))
                           }}
                         />
@@ -481,7 +468,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 </DndProvider>
                 {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
                   <div className='flex flex-row items-center justify-start h-6'>
-                    <AddBlock onAdd={onAddBlock.bind(null, 0, 'ai', id)} />
+                    <AddBlock onAdd={(type: BlockType) => {
+                      onAddBlock(1, type, id)
+                    }} />
                   </div>
                 )}
               </>

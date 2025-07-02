@@ -31,25 +31,13 @@ const buildBlockListWithAllInfo = (
   blockUITypes: Record<string, any>,
   blockUIProperties: Record<string, any>
 ) => {
-  const list = blocks.map((block: Block, index) => {
+  const list = blocks.map((block: Block) => {
     return {
-      properties: {
-        block_id: block.properties.block_id,
-        block_no: '',
-        block_name: '',
-        block_desc: '',
-        block_type: 101,
-        block_index: index,
-        block_content: {
-          type: blockContentTypes[block.properties.block_id],
-          properties: blockContentProperties[block.properties.block_id]
-        },
-        block_ui: {
-          type: blockUITypes[block.properties.block_id],
-          properties: blockUIProperties[block.properties.block_id]
-        }
-      },
-      type: 'block'
+      bid: block.bid,
+      type: blockContentTypes[block.bid],
+      properties: blockContentProperties[block.bid],
+      variable_bids: block.variable_bids,
+      resource_bids: block.resource_bids
     }
   })
   return list
@@ -258,7 +246,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   }
   const initBlockContentTypes = async (list: Block[]) => {
     const types = list.reduce((prev: any, cur: Block) => {
-      prev[cur.properties.block_id] = cur.properties.block_content.type
+      prev[cur.bid] = cur.type
       return prev
     }, {})
     setBlockContentTypes(types)
@@ -268,16 +256,15 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const properties = list.reduce((prev: any, cur: Block) => {
       return {
         ...prev,
-        [cur.properties.block_id]: cur.properties.block_content.properties
+        [cur.bid]: cur.properties
       }
     }, {})
     setBlockContentProperties(properties)
   }
   const initBlockUITypes = async (list: Block[]) => {
-    const types = list.reduce((prev: any, cur: Block) => {
-      prev[cur.properties.block_id] = cur.properties.block_ui.type
-      return prev
-    }, {})
+    const types = Object.fromEntries(
+      list.map((block: Block) => [block.bid, block.type])
+    )
     setBlockUITypes(types)
   }
 
@@ -285,32 +272,19 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const properties = list.reduce((prev: any, cur: Block) => {
       return {
         ...prev,
-        [cur.properties.block_id]: cur.properties.block_ui.properties
+        [cur.bid]: cur.properties
       }
     }, {})
     setBlockUIProperties(properties)
   }
 
   const buildBlockList = (blocks: Block[]) => {
-    const list = blocks.map((block: Block, index) => {
+    console.log('buildBlockList', blocks)
+    const list = blocks.map((block: Block) => {
       return {
-        properties: {
-          block_id: block.properties.block_id,
-          block_no: '',
-          block_name: '',
-          block_desc: '',
-          block_type: 101,
-          block_index: index,
-          block_content: {
-            type: blockContentTypes[block.properties.block_id],
-            properties: blockContentProperties[block.properties.block_id]
-          },
-          block_ui: {
-            type: blockUITypes[block.properties.block_id],
-            properties: blockUIProperties[block.properties.block_id]
-          }
-        },
-        type: 'block'
+        bid: block.bid,
+        type: block.type,
+        properties: block.properties
       }
     })
     return list
@@ -325,13 +299,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         shifu_bid: shifuId,
         outline_bid: outlineId
       })
-      const list = blocksData.filter(p => p.type == 'block') as Block[]
+      const list = blocksData
       setBlocks(list)
       initBlockContentTypes(list)
       initBlockContentProperties(list)
-      const blockUIList = list.filter(p => p.properties.block_ui)
-      initBlockUITypes(blockUIList)
-      initBlockUIProperties(blockUIList)
+      initBlockUITypes(list)
+      initBlockUIProperties(list)
       setIsLoading(false)
     } catch (error) {
       console.error(error)
@@ -343,10 +316,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (isLoading) {
       return
     }
-    const list = buildBlockList(blocks)
+    const list = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties)
+    console.log('saveBlocks', list)
     try {
       setError(null)
-      console.log('saveBlocks', shifu_id, currentNode)
       await api.saveBlocks({
         shifu_bid: shifu_id,
         outline_bid: currentNode!.bid,
@@ -382,26 +355,26 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       const list = [...blocks]
       setBlockContentTypes({
         ...blockContentTypes,
-        [block.properties.block_id]: blockType
+        [block.bid]: blockType
       })
       setBlockContentProperties({
         ...blockContentProperties,
-        [block.properties.block_id]: item?.properties
+        [block.bid]: item?.properties
       })
       setBlockUITypes({
         ...blockUITypes,
-        [block.properties.block_id]: buttonUI.type
+        [block.bid]: buttonUI.type
       })
       setBlockUIProperties({
         ...blockUIProperties,
-        [block.properties.block_id]: buttonUI.properties
+        [block.bid]: buttonUI.properties
       })
-      setBlockContentStateById(block.properties.block_id, 'edit')
+      setBlockContentStateById(block.bid, 'edit')
       setBlocks(list)
       setLastSaveTime(new Date())
 
       setTimeout(() => {
-        document.getElementById(block.properties.block_id)?.scrollIntoView({
+        document.getElementById(block.bid)?.scrollIntoView({
           behavior: 'smooth'
         })
       }, 500)

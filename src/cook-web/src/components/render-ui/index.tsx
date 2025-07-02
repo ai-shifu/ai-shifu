@@ -10,6 +10,8 @@ import Goto from './goto'
 // import GotoView from './view/goto'
 import TextInput from './textinput'
 // import TextInputView from './view/textinput'
+import Content from './content'
+import Break from './break'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
@@ -21,11 +23,16 @@ import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
 const componentMap = {
+    content: Content,
+    break: Break,
+    input: TextInput,
     button: Button,
-    option: Option,
+    options: Option,
     goto: Goto,
     phone: SingleInput,
     code: SingleInput,
+    // old
+    option:  Option,
     textinput: TextInput,
     login: (props) => <Button {...props} mode="login" />,
     payment: (props) => <Button {...props} mode="payment" />,
@@ -62,10 +69,10 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
     mode?: string,
     onChanged?: (changed: boolean) => void
 }){
+
     const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
-
     const handleChanged = (changed: boolean) => {
         onChanged?.(changed);
     }
@@ -202,7 +209,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                         <span className='w-[70px]'>
                             {t('render-ui.user-operation')}
                         </span>
-                        <Select value={blockUITypes[block.properties.block_id]} onValueChange={onUITypeChange.bind(null, block.properties.block_id)}>
+                        <Select value={blockUITypes[block.bid]} onValueChange={onUITypeChange.bind(null, block.bid)}>
                             <SelectTrigger className="h-8 w-[120px]">
                                 <SelectValue placeholder={t('render-ui.select-placeholder')} />
                             </SelectTrigger>
@@ -235,11 +242,11 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                     expand ? 'block' : 'hidden'
                 )}>
                     {
-                        blockUIProperties[block.properties.block_id] && (
+                        blockUIProperties[block.bid] && (
                             <BlockUI
-                                id={block.properties.block_id}
-                                type={blockUITypes[block.properties.block_id]}
-                                properties={blockUIProperties[block.properties.block_id]}
+                                id={block.bid}
+                                type={blockUITypes[block.bid]}
+                                properties={blockUIProperties[block.bid]}
                                 onChanged={handleBlockChanged}
                             />
                         )
@@ -277,12 +284,17 @@ export const useUITypes = () => {
         type: 'button',
         name: t('render-ui.button'),
         properties: {
-            "button_name": "",
-            "button_key": t('render-ui.button-button-key')
+            "label": {
+                "lang": {
+                    "zh-CN": t('render-ui.button-name'),
+                    "en-US": t('render-ui.button-name')
+                }
+            },
+            "value": ""
         }
     },
     {
-        type: 'option',
+        type: 'options',
         name: t('render-ui.option'),
         properties: {
             "profile_id": "",
@@ -336,7 +348,7 @@ export const useUITypes = () => {
         }
     },
     {
-        type: 'textinput',
+        type: 'input',
         name: t('render-ui.textinput'),
         properties: {
             "prompt": {
@@ -374,43 +386,6 @@ export const useUITypes = () => {
         name: t('render-ui.none'),
         properties: {},
     },
-    /**commit temp  for current version
-    {
-        type: 'phone',
-        name: '手机号',
-        properties: {
-            "input_name": "",
-            "input_key": "",
-            "input_placeholder": ""
-        },
-        validate: (properties): string => {
-            if (!properties.input_placeholder) {
-                return "提示不能为空"
-            }
-            if (!properties.input_key) {
-                return "名称不能为空"
-            }
-            return "";
-        }
-    },
-    {
-        type: 'code',
-        name: '手机验证码',
-        properties: {
-            "input_name": "",
-            "input_key": "",
-            "input_placeholder": ""
-        },
-        validate: (properties): string => {
-            if (!properties.input_placeholder) {
-                return "提示不能为空"
-            }
-            if (!properties.input_key) {
-                return "名称不能为空"
-            }
-            return "";
-        }
-    }, **/
     {
         type: 'login',
         name: t('render-ui.login'),
@@ -427,5 +402,12 @@ export const useUITypes = () => {
             "button_key": ""
         }
     },
+    {
+        type: 'content',
+        name: t('render-ui.content'),
+        properties: {
+            "content": ""
+        }
+    }
     ]
 }
