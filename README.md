@@ -61,4 +61,4 @@ cp .env.example .env
 After Docker starts:
 1. Open `http://localhost:8080` in your browser to access the user interface
 2. Open `http://localhost:8081` in your browser to access the script editor
-3. Use any phone number for login, default universal verification code is 1024
+3. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
