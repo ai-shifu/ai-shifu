@@ -8,16 +8,10 @@ import { useTranslation } from 'react-i18next'
 import { memo } from 'react'
 import _ from 'lodash'
 import { ProfileFormItem } from '@/components/profiles'
-
+import { BlockDTO ,InputDTO} from '@/types/shifu'
 interface TextInputProps {
-  properties: {
-    prompt: string
-    input_name: string
-    // "input_key": string,
-    input_placeholder: string
-    profile_ids: string[]
-  }
-  onChange: (properties: any) => void
+  properties: BlockDTO
+  onChange: (properties: BlockDTO) => void
   onChanged?: (changed: boolean) => void
 }
 
@@ -25,7 +19,15 @@ const TextInputPropsEqual = (
   prevProps: TextInputProps,
   nextProps: TextInputProps
 ) => {
+  const prevInputSettings = prevProps.properties.properties as InputDTO
+  const nextInputSettings = nextProps.properties.properties as InputDTO
   if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+    return false
+  }
+  if (!_.isEqual(prevInputSettings.prompt, nextInputSettings.prompt)) {
+    return false
+  }
+  if (!_.isEqual(prevInputSettings.placeholder, nextInputSettings.placeholder)) {
     return false
   }
   return true
@@ -44,17 +46,20 @@ function TextInput (props: TextInputProps) {
     }
     setTempProperties({
       ...tempProperties,
-      prompt: value
+      properties: {
+        ...tempProperties.properties,
+        prompt: value
+      }
     })
   }
 
   const onModelChange = (value: string) => {
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt,
+      properties: {
+        ...tempProperties.properties,
+        prompt: {
+          ...tempProperties.properties.prompt,
           model: value
         }
       }
@@ -64,7 +69,10 @@ function TextInput (props: TextInputProps) {
   const onTemperatureChange = (value: number) => {
     setTempProperties({
       ...tempProperties,
-      prompt: value.toString()
+      properties: {
+        ...tempProperties.properties,
+        prompt: value.toString()
+      }
     })
   }
 
@@ -72,16 +80,26 @@ function TextInput (props: TextInputProps) {
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
-      prompt: value,
-      profile_ids: value
+      properties: {
+        ...tempProperties.properties,
+        prompt: {
+          ...tempProperties.properties.prompt,
+          profiles: value
+        }
+      }
     })
   }
 
   const onInputPlaceholderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTempProperties({
       ...tempProperties,
-      input_name: e.target.value,
-      input_placeholder: e.target.value
+      properties: {
+        ...tempProperties.properties,
+        prompt: {
+          ...tempProperties.properties.prompt,
+          placeholder: e.target.value
+        }
+      }
     })
   }
 

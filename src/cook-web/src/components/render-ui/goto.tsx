@@ -3,56 +3,28 @@ import React, { useEffect, useState } from 'react'
 import OutlineSelector from '@/components/outline-selector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useShifu } from '@/store'
-import { Outline } from '@/types/shifu'
+import { ColorSetting, Outline ,GotoDTO,BlockDTO,ProfileItem, UIBlockDTO} from '@/types/shifu'
 import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import _ from 'lodash'
-interface ColorSetting {
-    color: string;
-    text_color: string;
-}
-
-interface ProfileItemDefination {
-    color_setting: ColorSetting;
-    profile_key: string;
-    profile_id: string;
-}
 
 
-interface GotoProps {
-    properties: {
-        "goto_settings": {
-            "items": {
-                "value": string,
-                "type": string,
-                "goto_id": string
-            }[],
-            "profile_key": string
-        },
-        "button_name": string,
-        "button_key": string
-    }
-    onChange: (properties: any) => void
-    onChanged?: (changed: boolean) => void
-}
-
-const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
-    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
-        return false
-    }
-    if (!_.isEqual(prevProps.properties.goto_settings.profile_key, nextProps.properties.goto_settings.profile_key)) {
+const GotoPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
+    const prevGotoSettings = prevProps.data.properties as GotoDTO
+    const nextGotoSettings = nextProps.data.properties as GotoDTO
+    if (! _.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
 
-    if (!_.isEqual(prevProps.properties.goto_settings.items, nextProps.properties.goto_settings.items)) {
+    if (!_.isEqual(prevGotoSettings.conditions, nextGotoSettings.conditions)) {
         return false
     }
-    for (let i = 0; i < prevProps.properties.goto_settings.items.length; i++) {
-        if (!_.isEqual(prevProps.properties.goto_settings.items[i].value, nextProps.properties.goto_settings.items[i].value)
-            || !_.isEqual(prevProps.properties.goto_settings.items[i].goto_id, nextProps.properties.goto_settings.items[i].goto_id)
-            || !_.isEqual(prevProps.properties.goto_settings.items[i].type, nextProps.properties.goto_settings.items[i].type)
+    for (let i = 0; i < prevGotoSettings.conditions.length; i++) {
+        if (!_.isEqual(prevGotoSettings.conditions[i].value, nextGotoSettings.conditions[i].value)
+            || !_.isEqual(prevGotoSettings.conditions[i].destination_bid, nextGotoSettings.conditions[i].destination_bid)
+            || !_.isEqual(prevGotoSettings.conditions[i].destination_type, nextGotoSettings.conditions[i].destination_type)
         ) {
             return false
         }
@@ -60,24 +32,22 @@ const GotoPropsEqual = (prevProps: GotoProps, nextProps: GotoProps) => {
 
     return true
 }
-export default memo(function Goto(props: GotoProps) {
-    const { properties, onChanged } = props
+export default memo(function Goto(props: UIBlockDTO) {
+    const { data, onChanged } = props
     const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const { chapters, currentShifu } = useShifu();
 
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItemDefination[]>([]);
     const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
-    const [tempGotoSettings, setTempGotoSettings] = useState(properties.goto_settings || {
-        items: [],
-        profile_key: ""
-    });
+    const gotoSettings = data.properties as GotoDTO
+    const [tempGotoSettings, setTempGotoSettings] = useState(gotoSettings);
 
     const onNodeSelect = (index: number, node: Outline) => {
 
         setTempGotoSettings({
             ...tempGotoSettings,
-            items: tempGotoSettings.items.map((item, i) => {
+            conditions: tempGotoSettings.conditions.map((item, i) => {
                 if (i === index) {
                     return {
                         ...item,
@@ -90,10 +60,7 @@ export default memo(function Goto(props: GotoProps) {
     }
 
     const handleConfirm = () => {
-        props.onChange({
-            ...properties,
-            goto_settings: tempGotoSettings
-        });
+        onChanged?.(true);
     }
 
     const loadProfileItemDefinations = async (preserveSelection: boolean = false) => {
@@ -101,9 +68,8 @@ export default memo(function Goto(props: GotoProps) {
             parent_id: currentShifu?.bid
         })
         setProfileItemDefinations(list)
-
         if (!preserveSelection && list.length > 0) {
-            const initialSelected = list.find((item) => item.profile_key === properties.goto_settings?.profile_key);
+            const initialSelected = list.find((item) => item.profile_key === gotoSettings.variable_bid);
             if (initialSelected) {
                 setSelectedProfile(initialSelected);
                 await loadProfileItem(initialSelected.profile_id, initialSelected.profile_key);
@@ -116,8 +82,8 @@ export default memo(function Goto(props: GotoProps) {
             parent_id: id
         })
         setTempGotoSettings({
-            profile_key: name,
-            items: list.map((item) => {
+            variable_bid: name,
+            conditions: list.map((item) => {
                 return {
                     value: item.value,
                     goto_id: "",
@@ -178,13 +144,13 @@ export default memo(function Goto(props: GotoProps) {
                 </div>
                 <div className='flex flex-col space-y-1 '>
                     {
-                        tempGotoSettings.items.map((item, index) => {
+                        tempGotoSettings.conditions.map((item, index) => {
                             return (
-                                <div className='flex flex-row items-center space-x-2' key={`${item.value}-${index}`}>
-                                    <span className='w-40'>{item.value}</span>
+                                <div className='flex flex-row items-center space-x-2' key={`${item.destination_bid}-${index}`}>
+                                    <span className='w-40'>{item.destination_bid}</span>
                                     <span className='px-2'>{t('goto.goto-settings-jump-to')}</span>
                                     <span>
-                                        <OutlineSelector value={item.goto_id} chapters={chapters} onSelect={onNodeSelect.bind(null, index)} />
+                                        <OutlineSelector value={item.destination_bid} chapters={chapters} onSelect={onNodeSelect.bind(null, index)} />
                                     </span>
                                 </div>
                             )

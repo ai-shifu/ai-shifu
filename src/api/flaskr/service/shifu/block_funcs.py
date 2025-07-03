@@ -5,7 +5,6 @@ from flaskr.service.shifu.dtos import (
     InputDTO,
 )
 from flaskr.service.shifu.adapter import (
-    generate_block_dto,
     convert_to_blockDTO,
     update_block_dto_to_model,
     generate_block_dto_from_model,
@@ -116,7 +115,7 @@ def get_block(app, user_id: str, outline_id: str, block_id: str) -> BlockDTO:
         ).first()
         if not block:
             raise_error("SHIFU.BLOCK_NOT_FOUND")
-        return generate_block_dto(block)
+        return generate_block_dto_from_model(block, [])[0]
 
 
 # save block list
@@ -330,8 +329,12 @@ def save_block_list_internal(
                 app.logger.info("delete block : {}".format(block.script_id))
                 mark_block_to_delete(block, user_id, time)
         db.session.commit()
+        app.logger.info(f"block_models : {block_models}")
         return SaveBlockListResultDto(
-            [convert_to_blockDTO(block_model) for block_model in block_models],
+            [
+                generate_block_dto_from_model(block_model, [])[0]
+                for block_model in block_models
+            ],
             error_messages,
         )
 
@@ -347,6 +350,9 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDT
         try:
             return save_block_list_internal(app, user_id, outline_id, block_list)
         except Exception as e:
+            import traceback
+
+            app.logger.error(traceback.format_exc())
             app.logger.error(e)
         finally:
             lock.release()
@@ -410,8 +416,7 @@ def add_block(
                 db.session.add(new_block)
         db.session.add(block_model)
         db.session.commit()
-        block_dtos = generate_block_dto_from_model(block_model, [])
-        return block_dtos[0]
+        return generate_block_dto_from_model(block_model, [])[0]
 
 
 # delete block list

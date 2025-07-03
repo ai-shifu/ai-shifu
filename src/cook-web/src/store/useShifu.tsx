@@ -27,18 +27,16 @@ const ShifuContext = createContext<ShifuContextType | undefined>(undefined)
 
 const buildBlockListWithAllInfo = (
   blocks: Block[],
-  blockContentTypes: Record<string, any>,
-  blockContentProperties: Record<string, any>,
-  blockUITypes: Record<string, any>,
-  blockUIProperties: Record<string, any>
+  blockTypes: Record<string, any>,
+  blockProperties: Record<string, BlockDTO>,
 ) => {
   const list = blocks.map((block: Block) => {
     return {
       bid: block.bid,
-      type: blockContentTypes[block.bid],
-      properties: blockUIProperties[block.bid].properties,
-      variable_bids: blockUIProperties[block.bid].variable_bids,
-      resource_bids: blockUIProperties[block.bid].resource_bids
+      type: blockTypes[block.bid],
+      properties: blockProperties[block.bid].properties,
+      variable_bids: blockProperties[block.bid].variable_bids,
+      resource_bids: blockProperties[block.bid].resource_bids
     }
   })
   return list
@@ -63,13 +61,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [blockContentProperties, setBlockContentProperties] = useState<{
     [x: string]: any
   }>({})
-  const [blockContentTypes, setBlockContentTypes] = useState<{
+  const [blockTypes, setBlockTypes] = useState<{
     [x: string]: string
   }>({})
-  const [blockUIProperties, setBlockUIProperties] = useState<{
-    [x: string]: BlockDTO
-  }>({})
-  const [blockUITypes, setBlockUITypes] = useState<{ [x: string]: string }>({})
   const [blockContentState, setBlockContentState] = useState<{
     [x: string]: 'edit' | 'preview'
   }>({})
@@ -248,12 +242,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setIsLoading(false)
     }
   }
-  const initBlockContentTypes = async (list: Block[]) => {
+  const initBlockTypes = async (list: Block[]) => {
     const types = list.reduce((prev: any, cur: Block) => {
       prev[cur.bid] = cur.type
       return prev
     }, {})
-    setBlockContentTypes(types)
+    setBlockTypes(types)
   }
   const initBlockProperties = async (list: Block[]) => {
     const properties = list.reduce((prev: any, cur: Block) => {
@@ -264,26 +258,19 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }, {})
     setBlockProperties(properties)
   }
-  const initBlockUIProperties = async (list: Block[]) => {
-    const properties = list.reduce((prev: any, cur: Block) => {
+
+  const updateBlockProperties =useCallback(async(bid: string, properties: any) => {
+    setBlockProperties(prev => {
       return {
         ...prev,
-        [cur.bid]: cur.type
+        [bid]: properties
       }
-    }, {})
-    setBlockUIProperties(properties)
-  }
-  const updateBlockProperties =useCallback (async(bid: string, properties: any) => {
-    setBlockProperties({
-      ...blockProperties,
-      [bid]: properties
     })
 
-  }, [blockProperties])
+  }, [])
 
   const loadBlocks = async (outlineId: string, shifuId: string) => {
     try {
-      console.log('loadBlocks', outlineId, shifuId)
       setIsLoading(true)
       setError(null)
       clearBlockErrors()
@@ -293,9 +280,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       })
       const list = blocksData
       setBlocks(list)
-      initBlockContentTypes(list)
+      initBlockTypes(list)
       initBlockProperties(list)
-      initBlockUIProperties(list)
       setIsLoading(false)
     } catch (error) {
       console.error(error)
@@ -306,7 +292,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (isLoading) {
       return
     }
-    const list = buildBlockListWithAllInfo(blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties)
+
+    console.log('saveBlocks',blockContentProperties)
+    const list = buildBlockListWithAllInfo(blocks, blockTypes, blockProperties)
+    console.log('saveBlocks',list)
     try {
       setError(null)
       await api.saveBlocks({
@@ -328,7 +317,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setError(null)
     try {
       const item = ContentTypes.find(p => p.type == blockType)
-      const buttonUI = UITypes[0]
 
       const block = await api.addBlock({
         block: {
@@ -342,22 +330,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       blocks.splice(index, 0, block)
       const list = [...blocks]
-      setBlockContentTypes({
-        ...blockContentTypes,
+      setBlockTypes({
+        ...blockTypes,
         [block.bid]: blockType
       })
-      setBlockContentProperties({
-        ...blockContentProperties,
-        [block.bid]: block
-      })
-      setBlockUITypes({
-        ...blockUITypes,
-        [block.bid]: buttonUI.type
-      })
-      setBlockUIProperties({
-        ...blockUIProperties,
-        [block.bid]: buttonUI.properties
-      })
+      updateBlockProperties(block.bid, block)
       setBlockContentStateById(block.bid, 'edit')
       setBlocks(list)
       setLastSaveTime(new Date())
@@ -411,26 +388,21 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     async (
       outline: string,
       blocks: Block[],
-      blockContentTypes: Record<string, any>,
-      blockContentProperties: Record<string, any>,
-      blockUITypes: Record<string, any>,
-      blockUIProperties: Record<string, any>,
+      blockTypes: Record<string, any>,
+      blockProperties: Record<string, BlockDTO>,
       shifu_id: string
     ): Promise<ApiResponse<SaveBlockListResult> | null> => {
       if (isLoading) {
         return null
       }
-      console.log('saveCurrentBlocks', outline, blocks, blockContentTypes, blockContentProperties, blockUITypes, blockUIProperties, shifu_id)
       setIsSaving(true)
       setError(null)
       try {
         setError(null)
         const blockList = buildBlockListWithAllInfo(
           blocks,
-          blockContentTypes,
-          blockContentProperties,
-          blockUITypes,
-          blockUIProperties
+          blockTypes,
+          blockProperties
         )
         const result = await api.saveBlocks({
           outline_bid: outline,
@@ -476,19 +448,15 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       async (
         outline: string,
         blocks: Block[],
-        blockContentTypes: Record<string, any>,
+        blockTypes: Record<string, any>,
         blockContentProperties: Record<string, any>,
-        blockUITypes: Record<string, any>,
-        blockUIProperties: Record<string, any>,
         shifu_id: string
       ) => {
         return await saveCurrentBlocks(
           outline,
           blocks,
-          blockContentTypes,
+          blockTypes,
           blockContentProperties,
-          blockUITypes,
-          blockUIProperties,
           shifu_id
         )
       },
@@ -498,10 +466,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   ) as (
     outline: string,
     blocks: Block[],
-    blockContentTypes: Record<string, any>,
-    blockContentProperties: Record<string, any>,
-    blockUITypes: Record<string, any>,
-    blockUIProperties: Record<string, any>,
+    blockTypes: Record<string, any>,
+    blockProperties: Record<string, any>,
     shifu_id: string
   ) => Promise<ApiResponse<SaveBlockListResult> | null>
 
@@ -603,7 +569,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setIsSaving(true)
     setError(null)
     updateOutlineStatus(data.bid, 'saving')
-    console.log('createOutline', data)
 
     const parent = findNode(data.parent_bid || '')
     const index = parent?.children?.findIndex(child => child.bid === data.bid) || 0
@@ -736,7 +701,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   }
   const replaceOutline = async (id: string, outline: Outline) => {
     const node = findNode(id)
-    console.log('replaceOutline', id, outline, node)
     node.id = outline.id
     node.name = outline.name
     node.position = outline.position
@@ -762,7 +726,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     properties: AIBlockProperties | SolidContentBlockProperties,
     reset: boolean = false
   ) => {
-    console.log('setBlockContentPropertiesById', id, properties, reset)
     if (reset) {
       setBlockContentProperties({
         ...blockContentProperties,
@@ -788,25 +751,24 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     properties: any,
     reset: boolean = false
   ) => {
-    console.log('setBlockUIPropertiesById', id, properties, reset)
     if (reset) {
-      setBlockUIProperties({
-        ...blockUIProperties,
+      setBlockProperties({
+        ...blockProperties,
         [id]: properties
       })
       return
     }
-    setBlockUIProperties({
-      ...blockUIProperties,
+    setBlockProperties({
+      ...blockProperties,
       [id]: {
-        ...blockUIProperties[id],
+        ...blockProperties[id],
         ...properties
       }
     })
   }
   const setBlockUITypesById = (id: string, type: string) => {
-    setBlockUITypes({
-      ...blockUITypes,
+    setBlockTypes({
+      ...blockTypes,
       [id]: type
     })
   }
@@ -839,15 +801,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }
   }
   const removeBlock = async (id: string) => {
-    const list = blocks.filter(block => block.properties.block_id !== id)
+    const list = blocks.filter(block => block.bid !== id)
     setBlocks(list)
     await saveCurrentBlocks(
       currentNode!.bid,
       list,
-      blockContentTypes,
-      blockContentProperties,
-      blockUITypes,
-      blockUIProperties,
+      blockTypes,
+      blockProperties,
       currentShifu?.bid || ''
     )
   }
@@ -885,9 +845,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     cataData,
     blocks,
     blockContentProperties,
-    blockContentTypes,
-    blockUIProperties,
-    blockUITypes,
+    blockTypes,
     blockContentState,
     blockErrors,
     currentNode,

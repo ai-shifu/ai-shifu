@@ -521,6 +521,7 @@ CONTENT_TYPE = {
     "break": BreakDTO,
     "checkcode": CheckCodeDTO,
     "phone": PhoneDTO,
+    "goto": GotoDTO,
 }
 
 
@@ -633,16 +634,20 @@ def update_block_dto_to_model(
     if block_dto.type == "input":
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
-        block_model.script_ui_content = json.dumps(content.label)
+        block_model.script_ui_content = json.dumps(content.placeholder.lang)
         block_model.script_ui_profile_id = content.result_variable_bids
         return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
         block_model.script_ui_type = UI_TYPE_BRANCH
-        content: GotoDTO = block_dto.block_content  # type: GotoDTO
-        block_model.script_ui_content = json.dumps(content.label.lang)
+        content: GotoDTO = block_dto.block_content
+        block_model.script_ui_content = ""
         block_model.script_other_conf = json.dumps(
             {
-                "var_name": content.result_variable_bid,
+                "var_name": (
+                    block_dto.variable_bids[0]
+                    if len(block_dto.variable_bids) > 0
+                    else ""
+                ),
                 "jump_rule": [
                     {
                         "goto_id": content.destination_bid,
@@ -777,13 +782,11 @@ def generate_block_dto_from_model(
             BlockDTO(
                 bid=block_model.script_id,
                 block_content=GotoDTO(
-                    label=_get_lang_dict(block_model.script_ui_content),
-                    result_variable_bid=block_model.script_ui_content,
                     conditions=[
                         {
                             "destination_bid": content.get("goto_id", ""),
-                            "destination_value": content.get("value", ""),
-                            "type": content.get("type", ""),
+                            "value": content.get("value", ""),
+                            "destination_type": content.get("type", ""),
                         }
                         for content in json.loads(block_model.script_other_conf).get(
                             "jump_rule", []

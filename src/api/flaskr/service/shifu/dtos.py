@@ -421,7 +421,7 @@ class InputDTO(BaseModel):
         **kwargs,
     ):
         super().__init__(
-            placeholder=LabelDTO(lang=placeholder),
+            placeholder=LabelDTO(lang=placeholder.get("lang", placeholder)),
             prompt=prompt,
             result_variable_bids=result_variable_bids,
             llm=llm,
@@ -445,7 +445,7 @@ class OptionItemDTO(BaseModel):
     value: str = Field(..., description="value", required=True)
 
     def __init__(self, label: dict[str, str], value: str, **kwargs):
-        super().__init__(label=LabelDTO(lang=label), value=value)
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)), value=value)
 
     def __json__(self):
         return {
@@ -503,7 +503,7 @@ class GotoDTO(BaseModel):
 
     def __init__(self, conditions: list[dict], **kwargs):
         super().__init__(
-            conditions=[GotoConditionDTO(condition) for condition in conditions]
+            conditions=[GotoConditionDTO(**condition) for condition in conditions]
         )
 
     def __json__(self):
@@ -517,7 +517,7 @@ class PaymentDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(lang=label))
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
 
     def __json__(self):
         return {
@@ -530,7 +530,7 @@ class LoginDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(lang=label))
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
 
     def __json__(self):
         return {
@@ -545,7 +545,9 @@ class CheckCodeDTO(BaseModel):
     )
 
     def __init__(self, placeholder: dict[str, str], **kwargs):
-        super().__init__(placeholder=LabelDTO(lang=placeholder))
+        super().__init__(
+            placeholder=LabelDTO(lang=placeholder.get("lang", placeholder))
+        )
 
     def __json__(self):
         return {
@@ -560,7 +562,9 @@ class PhoneDTO(BaseModel):
     )
 
     def __init__(self, placeholder: dict[str, str], **kwargs):
-        super().__init__(placeholder=LabelDTO(lang=placeholder))
+        super().__init__(
+            placeholder=LabelDTO(lang=placeholder.get("lang", placeholder))
+        )
 
     def __json__(self):
         return {

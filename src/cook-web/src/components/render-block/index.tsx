@@ -5,29 +5,11 @@ import SolidContent from './solid-content'
 import { useState ,memo} from 'react'
 import { useTranslation } from 'react-i18next'
 import _ from 'lodash'
-
-const BlockMap = {
-  ai: AI,
-  solidcontent: SolidContent,
-
-}
-
-interface IRenderBlockContentProps {
-  id: string
-  type: any
-  properties: {
-    content: string,
-    llm_enabled: boolean,
-    llm: string,
-    llm_temperature: string,
-  },
-  variable_bids: string[],
-  resource_bids: string[],
-
-}
+import { BlockDTO ,ContentDTO,UIBlockDTO} from '@/types/shifu'
 
 
-const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextProps: IRenderBlockContentProps) => {
+
+const RenderBlockContentPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
   const isSame = _.isEqual(prevProps.id, nextProps.id) && prevProps.type === nextProps.type
   if (!isSame) {
     return false
@@ -43,10 +25,9 @@ const RenderBlockContentPropsEqual = (prevProps: IRenderBlockContentProps, nextP
   }
   return true
 }
-export const RenderBlockContent = memo(({
-  id,
-  properties
-}: IRenderBlockContentProps) => {
+export const RenderBlockContent = memo(function RenderBlockContent(props: UIBlockDTO) {
+  const { id, data } = props
+  const properties = data.properties as ContentDTO
   const { t } = useTranslation()
   const {
     actions,
@@ -61,39 +42,13 @@ export const RenderBlockContent = memo(({
   const [error, setError] = useState('')
 
   const onPropertiesChange = async properties => {
-    await actions.setBlockContentPropertiesById(id, properties)
-    const p = {
-      ...blockContentProperties,
-      [id]: {
-        ...blockContentProperties[id],
-        ...properties
-      }
-    }
-    setError('')
-    if (properties.llm_enabled && properties.content == '') {
-      setError(t('render-block.ai-content-empty'))
-      return
-    } else if (properties.content == '') {
-      setError(t('render-block.solid-content-empty'))
-      return
-    }
-    if (currentNode) {
-      actions.autoSaveBlocks(
-        currentNode.bid,
-        blocks,
-        blockContentTypes,
-        p,
-        blockUITypes,
-        blockUIProperties,
-        currentShifu?.bid || ''
-      )
-    }
+    props.onPropertiesChange(properties)
   }
 
   const onSave = async () => {
     setError('')
     const block = blocks.find(item => item.properties.block_id == id)
-    if (properties.llm_enabled && block && properties.content == '') {
+    if (block && properties.llm_enabled && properties.content == '') {
       setError(t('render-block.ai-content-empty'))
       return
     } else if (block && properties.content == '') {
@@ -110,11 +65,10 @@ export const RenderBlockContent = memo(({
     <div className='bg-[#F5F5F4]'>
       <div>
         <Ele
+          {...props}
           isEdit={isEdit}
-          properties={properties}
-          onChange={onPropertiesChange}
-          onBlur={onSave}
-        />
+          onPropertiesChange={onPropertiesChange}
+       />
       </div>
       {error && <div className='text-red-500 text-sm px-2 pb-2'>{error}</div>}
     </div>

@@ -1,36 +1,18 @@
 
 import CMEditor from '@/components/cm-editor';
+import { UIBlockDTO,ContentDTO} from '@/types/shifu';
 
 
-
-interface AIBlockProps {
-    prompt: string;
-    variables: string[];
-    model: string;
-    temperature: string;
-    other_conf: string;
-    content?: string; // Added optional content property
-}
-
-interface AIBlock {
-    isEdit: boolean;
-    properties: AIBlockProps;
-    onChange: (properties: AIBlockProps) => void;
-    onBlur?: () => void;
-    onEditChange?: (isEdit: boolean) => void;
-}
-
-export default function AI(props: AIBlock) {
+export default function AI(props: UIBlockDTO) {
+    const { data } = props;
+    const { content, llm, llm_enabled, llm_temperature } = data.properties as ContentDTO;
     return (
         <CMEditor
-            content={props.properties.prompt}
+            content={content}
             isEdit={props.isEdit}
-            onBlur={props.onBlur}
+            // onBlur={props.onBlur}
             onChange={(value, variables, isEdit) => {
-                props.onChange({ ...props.properties, prompt: value, variables:variables });
-                if (props.onEditChange) {
-                    props.onEditChange(isEdit);
-                }
+                props.onPropertiesChange({ ...data, properties: { ...data.properties, content: value } });
             }}
         />
     )

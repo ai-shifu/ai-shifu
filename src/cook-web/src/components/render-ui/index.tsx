@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
+import { BlockDTO, UIBlockDTO } from '@/types/shifu';
 const componentMap = {
     content: RenderBlockContent,
     break: Break,
@@ -53,14 +54,9 @@ const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     }
     return true
 }
-export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }: {
-    id: any,
-    type: any,
-    properties: any,
-    mode?: string,
-    onChanged?: (changed: boolean) => void
-}){
-    const { actions, currentNode, blocks, blockContentTypes, blockUITypes, blockUIProperties, blockContentProperties, currentShifu, blockProperties } = useShifu();
+export const BlockUI = memo(function BlockUI(p: UIBlockDTO){
+    const { id, data, onChanged } = p
+    const { actions, currentNode, blocks, blockTypes, blockProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
     const UITypes = useUITypes()
     const handleChanged = (changed: boolean) => {
@@ -69,13 +65,13 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
 
     const onPropertiesChange = async (properties) => {
         const p = {
-            ...blockUIProperties,
+            ...blockProperties,
             [id]: {
-                ...blockUIProperties[id],
+                ...blockProperties[id],
                 ...properties
             }
         }
-        const ut = UITypes.find(p => p.type === type)
+        const ut = UITypes.find(p => p.type === data.type)
         setError('');
         const err = ut?.validate?.(properties)
         if (err) {
@@ -84,25 +80,30 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
         }
         actions.updateBlockProperties(id, properties);
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockContentTypes, blockContentProperties, blockUITypes, p, currentShifu?.bid || '')
+            actions.autoSaveBlocks(currentNode.id, blocks, blockTypes, p, currentShifu?.bid || '')
         }
     }
 
     useEffect(() => {
         setError('');
-    }, [type]);
+    }, [data.type]);
 
-    const Ele = componentMap[type]
+    const Ele = componentMap[data.type]
     if (!Ele) {
         return null
     }
     return (
         <>
             <Ele
-                id={id}
-                properties={properties}
-                onChange={onPropertiesChange}
-                onChanged={handleChanged}
+                {...{
+                    id: id,
+                    data: data,
+                    onPropertiesChange: onPropertiesChange,
+                    onChanged: handleChanged,
+                    onEditChange: () => {},
+                    isEdit: false,
+                    isChanged: false
+                }}
             />
             {
                 error && (
@@ -113,7 +114,7 @@ export const BlockUI = memo(function BlockUI({ id, type, properties, onChanged }
     )
 }, BlockUIPropsEqual)
 
-export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange }: { block: any, mode?: string, onExpandChange?: (expanded: boolean) => void }) {
+export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange }: { block: BlockDTO, onExpandChange?: (expanded: boolean) => void }) {
     const {
         actions,
         blockUITypes,
@@ -131,7 +132,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const [isChanged, setIsChanged] = useState(false)
     const { t } = useTranslation();
     const UITypes = useUITypes()
-
     const handleExpandChange = (newExpand: boolean) => {
         setExpand(newExpand)
         onExpandChange?.(newExpand)
@@ -140,16 +140,16 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const handleTypeChange = (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
-        actions.setBlockUITypesById(block.bid, type)
-        actions.setBlockUIPropertiesById(block.bid, opt?.properties || {}, true)
+        actions.setBlockUITypesById(block.id, type)
+        actions.setBlockUIPropertiesById(block.id, opt?.properties || {}, true)
 
         const newUITypes = {
             ...blockUITypes,
-            [block.properties.block_id]: type,
+            [block.id]: type,
         }
         const newUIProps = {
             ...blockUIProperties,
-            [block.properties.block_id]: opt?.properties || {},
+            [block.id]: opt?.properties || {},
         }
 
         setIsChanged(false);
@@ -188,6 +188,14 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         if (changed !== isChanged) {
             setIsChanged(changed);
         }
+    }
+
+    const onPropertiesChange = (properties) => {
+        console.log('onPropertiesChange',properties)
+    }
+
+    const handleBlockEditChange = (isEdit: boolean) => {
+        setExpand(isEdit);
     }
 
     return (
@@ -234,9 +242,12 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                         blockProperties[block.bid] && (
                             <BlockUI
                                 id={block.bid}
-                                type={blockProperties[block.bid].type}
-                                properties={blockProperties[block.bid]}
+                                data={block}
                                 onChanged={handleBlockChanged}
+                                onPropertiesChange={onPropertiesChange}
+                                isEdit={expand}
+                                isChanged={isChanged}
+                                onEditChange={handleBlockEditChange}
                             />
                         )
                     }
@@ -260,7 +271,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         </>
     )
 }, (prevProps, nextProps) => {
-    return prevProps.block.properties.block_id === nextProps.block.properties.block_id && prevProps.onExpandChange === nextProps.onExpandChange
+    return prevProps.block.id === nextProps.block.id && prevProps.onExpandChange === nextProps.onExpandChange
 })
 RenderBlockUI.displayName = 'RenderBlockUI'
 

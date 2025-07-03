@@ -106,8 +106,8 @@ export interface ShifuActions {
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;
     saveBlocks: (shifuId: string) => Promise<void>;
-    autoSaveBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
-    saveCurrentBlocks: (outline: string, blocks: Block[], blockContentTypes: Record<string, any>, blockContentProperties: Record<string, any>, blockUITypes: Record<string, any>, blockUIProperties: Record<string, any>, shifuId: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
+    autoSaveBlocks: (outline: string, blocks: Block[], blockTypes: Record<string, any>, blockProperties: Record<string, any>, shifuId: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
+    saveCurrentBlocks: (outline: string, blocks: Block[], blockTypes: Record<string, any>, blockProperties: Record<string, any>, shifuId: string) => Promise<ApiResponse<SaveBlockListResult> | null>;
     removeBlock: (id: string, shifuId: string) => Promise<void>;
     setCurrentNode: (node: Outline) => void;
     loadModels: () => void;
@@ -171,13 +171,15 @@ export interface OptionsDTO {
 }
 
 export interface GotoConditionDTO {
-    condition: string;
-    goto_bid: string;
+    destination_type: string;
+    destination_bid: string;
+    value: string;
 }
 
 
 
 export interface GotoDTO {
+    variable_bid: string;
     conditions: GotoConditionDTO[];
 }
 
@@ -193,4 +195,20 @@ export interface BlockDTO {
     properties: ContentDTO | ButtonDTO | InputDTO | OptionsDTO | GotoDTO;
     variable_bids: string[];
     resource_bids: string[];
+}
+
+
+
+
+/**
+ *
+ */
+export interface UIBlockDTO {
+    data: BlockDTO;
+    id: string;
+    onPropertiesChange: (properties: BlockDTO) => void;
+    onChanged: (changed: boolean) => void;
+    onEditChange: (isEdit: boolean) => void;
+    isEdit: boolean;
+    isChanged: boolean;
 }
