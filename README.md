@@ -8,9 +8,7 @@ English | [简体中文](README_ZH-CN.md)
 
 AI-Shifu serves as a teacher, broadcaster, storyteller, and guide... As an AI-driven narrator, AI-Shifu can present any textual content to each user in a fully personalized way, creating an unprecedented reading experience.
 
-<div align="center">
-  <img src="assets/architecture.png" alt="Architecture" height="329">
-</div>
+![Architecture](assets/architecture.png)
 
 # Features
 

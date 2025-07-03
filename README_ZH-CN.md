@@ -8,9 +8,7 @@
 
 AI 师傅既是老师、主播、说书人，也是向导……作为一名 AI 驱动的讲述者，AI 师傅可以将任何文字内容以全方位个性化的方式呈现给每一位用户，创造前所未有的阅读体验。
 
-<div align="center">
-  <img src="assets/architecture.png" alt="系统架构示意图" height="329">
-</div>
+![系统架构示意图](assets/architecture.png)
 
 # 功能特性
 
