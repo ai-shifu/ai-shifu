@@ -15,6 +15,7 @@ export const useChatComponentsScroll = ({
 
   const startAutoScroll = useCallback(() => {
     setAutoScroll(true);
+    // 清理可能存在的 pop 位置的消息
     if (messages.length && messages[messages.length - 1].position === 'pop') {
       deleteMsg(messages[messages.length - 1]._id);
     }
@@ -22,10 +23,16 @@ export const useChatComponentsScroll = ({
 
   const stopAutoScroll = useCallback(() => {
     setAutoScroll(false);
+    // 检查是否已经存在 pop 位置的消息，避免重复添加
     if (messages.length && messages[messages.length - 1].position === 'pop') {
       return;
     }
-    appendMsg({ type: 'loading', position: 'pop' });
+    // 添加一个带有内容的 loading 消息，而不是空的
+    appendMsg({
+      type: 'loading',
+      position: 'pop',
+      content: '正在加载...' // 添加内容避免空的 div
+    });
   }, [appendMsg, messages]);
 
   const onMessageListScroll = useCallback((e) => {

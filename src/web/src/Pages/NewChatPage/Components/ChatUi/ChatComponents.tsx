@@ -89,7 +89,7 @@ const createMessage = ({
     isComplete: false,
     logid,
     type,
-    position: position === 'left' ? 'left' : 'right',
+    position: position as 'left' | 'right' | 'pop' | 'center',
     user: { avatar },
     script_id,
   };
@@ -184,7 +184,18 @@ const convertEventInputModal = ({ type, content, script_id }) => {
   }
 };
 
-export const ChatComponents = forwardRef(
+interface ChatComponentsProps {
+  className?: string;
+  lessonUpdate?: (lesson: any) => void;
+  onGoChapter?: (lessonId: string) => void;
+  chapterId?: string;
+  lessonId?: string;
+  onPurchased?: () => void;
+  chapterUpdate?: (chapter: any) => void;
+  updateSelectedLesson?: (lessonId: string) => void;
+}
+
+export const ChatComponents = forwardRef<any, ChatComponentsProps>(
   (
     {
       className,
@@ -228,7 +239,7 @@ export const ChatComponents = forwardRef(
     });
 
     const { userInfo, mobileStyle } = useContext(AppContext);
-    const chatRef = useRef();
+    const chatRef = useRef<HTMLDivElement>(null);
 
     const { updateResetedChapterId } = useCourseStore(
       useShallow((state) => ({
@@ -247,7 +258,7 @@ export const ChatComponents = forwardRef(
         appendMsg,
         deleteMsg,
       });
-    const lastMsgRef = useRef(null);
+    const lastMsgRef = useRef<any>(null);
     const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
       useShallow((state) => ({
         checkLogin: state.checkLogin,
@@ -373,6 +384,7 @@ export const ChatComponents = forwardRef(
                 return;
               }
               setIsStreaming(true);
+              setTyping(false);
               if (lastMsg !== null && lastMsg.type === 'text') {
                 const currText = fixMarkdownStream(
                   lastMsg.content,
@@ -435,6 +447,7 @@ export const ChatComponents = forwardRef(
               if (isEnd) {
                 return;
               }
+              setTyping(false);
               setInputModal({ type: response.type, props: response });
               setInputDisabled(false);
             } else if (
@@ -446,6 +459,7 @@ export const ChatComponents = forwardRef(
               if (isEnd) {
                 return;
               }
+              setTyping(false);
               const model = convertEventInputModal(response);
               setInputModal(model);
               setInputDisabled(false);
@@ -489,6 +503,7 @@ export const ChatComponents = forwardRef(
                 setTyping(false);
               }
               if (status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING) {
+                setTyping(false);
                 setInputModal({
                   type: INTERACTION_TYPE.NEXT_CHAPTER,
                   props: {
@@ -516,7 +531,9 @@ export const ChatComponents = forwardRef(
                 visible: content.visible,
               });
             }
-          } catch (e) { }
+          } catch (e) {
+            setTyping(false);
+          }
         });
       },
       [
@@ -879,6 +896,16 @@ export const ChatComponents = forwardRef(
         if (content === undefined) {
           return <></>;
         }
+
+        // 处理 loading 类型的消息
+        if (type === 'loading') {
+          return (
+            <div style={{ padding: '10px', textAlign: 'center', color: '#666' }}>
+              {content || '正在加载...'}
+            </div>
+          );
+        }
+
         if (type === CHAT_MESSAGE_TYPE.TEXT) {
           return (
             <div>
@@ -955,7 +982,7 @@ export const ChatComponents = forwardRef(
         return;
       }
 
-      const messageListElem = chatRef.current.querySelector('.MessageList');
+      const messageListElem = chatRef.current.querySelector('.MessageList') as HTMLElement;
       if (!messageListElem) {
         return;
       }
@@ -992,9 +1019,10 @@ export const ChatComponents = forwardRef(
         );
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
+
     useEffect(() => {
       if (lastMsgRef.current) {
-        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        const messageIndex = messages.findIndex(msg => (msg as any).id === lastMsgRef.current.id);
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
         } else if (messageIndex !== messages.length - 1) {
@@ -1004,21 +1032,33 @@ export const ChatComponents = forwardRef(
       }
     }, [messages, appendMsg, deleteMsg]);
 
+    useEffect(() => {
+      const messageListElem = chatRef.current?.querySelector('.MessageList') as HTMLElement;
+      if (!messageListElem) {
+        return;
+      }
+
+      messageListElem.style.scrollBehavior = 'smooth';
+      messageListElem.scrollTop = messageListElem.scrollHeight;
+    }, [messages]);
+
     return (
       <div
-        className={classNames(
-          styles.chatComponents,
-          className,
-          mobileStyle ? styles.mobile : ''
-        )}
         ref={chatRef}
+        className={classNames(styles.chatComponents, className, {
+          [styles.mobile]: mobileStyle,
+        })}
       >
         <Chat
           navbar={null}
           messages={messages}
           renderMessageContent={renderMessageContent}
-          recorder={{ canRecord: true }}
-          inputOptions={{ disabled: inputDisabled }}
+          recorder={{
+            canRecord: true,
+          }}
+          inputOptions={{
+            disabled: inputDisabled,
+          }}
           Composer={() => {
             return <></>;
           }}
@@ -1035,8 +1075,11 @@ export const ChatComponents = forwardRef(
             onSizeChange={onChatInteractionAreaSizeChange}
           />
         )}
-        {payModalOpen &&
-          (mobileStyle ? (
+
+        {showActionControl && getActionControl()}
+
+        {payModalOpen && (
+          mobileStyle ? (
             <PayModalM
               open={payModalOpen}
               onCancel={_onPayModalClose}
@@ -1052,15 +1095,18 @@ export const ChatComponents = forwardRef(
               type={''}
               payload={{}}
             />
-          ))}
+          )
+        )}
+
         {loginModalOpen && (
           <LoginModal
             open={loginModalOpen}
+            width={400}
             onClose={_onLoginModalClose}
             onLogin={onLogin}
+            onFeedbackClick={() => {}}
           />
         )}
-        {showActionControl && getActionControl()}
       </div>
     );
   }

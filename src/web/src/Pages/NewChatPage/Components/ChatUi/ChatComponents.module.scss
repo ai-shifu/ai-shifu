@@ -32,6 +32,14 @@
       overflow: hidden;
     }
 
+    // 隐藏空的 loading 消息
+    :global(.Message[data-type=loading]) {
+      &:empty,
+      &:has(.Message-content:empty) {
+        display: none;
+      }
+    }
+
     :global(.Message.left) {
       color: var(--font-color-main);
       font-size: var(--font-size-3);
