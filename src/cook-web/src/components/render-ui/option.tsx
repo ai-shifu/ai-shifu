@@ -90,8 +90,9 @@ export default memo(function Option(props: UIBlockDTO) {
                 "lang": {
                     [i18n.language]: t('option.button-name')
                 },
-                "value": t('option.button-key')
+
             },
+            "value": t('option.button-key')
         }
         setTempOptions([
             ...tempOptions.slice(0, index + 1),

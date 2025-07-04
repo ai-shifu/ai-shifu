@@ -10,6 +10,7 @@ import {
   ApiResponse,
   ReorderOutlineItemDto,
   BlockDTO,
+  BlockType,
 } from '../types/shifu'
 import api from '@/api'
 import { useContentTypes } from '@/components/render-block'
@@ -62,7 +63,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     [x: string]: any
   }>({})
   const [blockTypes, setBlockTypes] = useState<{
-    [x: string]: string
+    [x: string]: BlockType
+  }>({})
+  const [blockUITypes, setBlockUITypes] = useState<{
+    [x: string]: BlockType
+  }>({})
+  const [blockContentTypes, setBlockContentTypes] = useState<{
+    [x: string]: BlockType
   }>({})
   const [blockContentState, setBlockContentState] = useState<{
     [x: string]: 'edit' | 'preview'
@@ -81,6 +88,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const ContentTypes = useContentTypes()
 
   const loadShifu = async (shifuId: string) => {
+    setBlockUITypes({})
+    setBlockContentTypes({})
     try {
       setIsLoading(true)
       setError(null)
@@ -737,9 +746,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       }
     })
   }
-  const setBlockContentTypesById = (id: string, type: string) => {
-    setBlockContentTypes({
-      ...blockContentTypes,
+  const setBlockContentTypesById = (id: string, type: BlockType) => {
+    setBlockTypes({
+      ...blockTypes,
       [id]: type
     })
   }
@@ -763,7 +772,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       }
     })
   }
-  const setBlockUITypesById = (id: string, type: string) => {
+  const setBlockUITypesById = (id: string, type: BlockType) => {
     setBlockTypes({
       ...blockTypes,
       [id]: type
@@ -849,6 +858,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     profileItemDefinations,
     models,
     blockProperties,
+    blockUITypes,
+    blockContentTypes,
     actions: {
       setFocusId,
       addChapter,

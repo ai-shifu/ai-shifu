@@ -8,20 +8,16 @@ import { useTranslation } from 'react-i18next'
 import { memo } from 'react'
 import _ from 'lodash'
 import { ProfileFormItem } from '@/components/profiles'
-import { BlockDTO ,InputDTO} from '@/types/shifu'
-interface TextInputProps {
-  properties: BlockDTO
-  onChange: (properties: BlockDTO) => void
-  onChanged?: (changed: boolean) => void
-}
+import { InputDTO,UIBlockDTO} from '@/types/shifu'
+import i18n from '@/i18n'
 
 const TextInputPropsEqual = (
-  prevProps: TextInputProps,
-  nextProps: TextInputProps
+  prevProps: UIBlockDTO,
+  nextProps: UIBlockDTO
 ) => {
-  const prevInputSettings = prevProps.properties.properties as InputDTO
-  const nextInputSettings = nextProps.properties.properties as InputDTO
-  if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+  const prevInputSettings = prevProps.data.properties as InputDTO
+  const nextInputSettings = nextProps.data.properties as InputDTO
+  if (!_.isEqual(prevProps.data, nextProps.data)) {
     return false
   }
   if (!_.isEqual(prevInputSettings.prompt, nextInputSettings.prompt)) {
@@ -33,10 +29,10 @@ const TextInputPropsEqual = (
   return true
 }
 
-function TextInput (props: TextInputProps) {
+function TextInput (props: UIBlockDTO) {
   console.log('TextInput', props)
-  const { properties, onChanged } = props
-  const [tempProperties, setTempProperties] = useState(properties)
+  const { data, onChanged } = props
+  const [tempProperties, setTempProperties] = useState(data.properties as InputDTO)
   const [changed, setChanged] = useState(false)
   const { t } = useTranslation()
   const onValueChange = (value:string) => {
@@ -46,33 +42,21 @@ function TextInput (props: TextInputProps) {
     }
     setTempProperties({
       ...tempProperties,
-      properties: {
-        ...tempProperties.properties,
-        prompt: value
-      }
+      prompt: value
     })
   }
 
   const onModelChange = (value: string) => {
     setTempProperties({
       ...tempProperties,
-      properties: {
-        ...tempProperties.properties,
-        prompt: {
-          ...tempProperties.properties.prompt,
-          model: value
-        }
-      }
+      llm: value
     })
   }
 
   const onTemperatureChange = (value: number) => {
     setTempProperties({
       ...tempProperties,
-      properties: {
-        ...tempProperties.properties,
-        prompt: value.toString()
-      }
+      llm_temperature: value
     })
   }
 
@@ -80,31 +64,28 @@ function TextInput (props: TextInputProps) {
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
-      properties: {
-        ...tempProperties.properties,
-        prompt: {
-          ...tempProperties.properties.prompt,
-          profiles: value
-        }
-      }
+      result_variable_bids: value
     })
   }
 
   const onInputPlaceholderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTempProperties({
       ...tempProperties,
-      properties: {
-        ...tempProperties.properties,
-        prompt: {
-          ...tempProperties.properties.prompt,
-          placeholder: e.target.value
+      placeholder: {
+        ...tempProperties.placeholder,
+        lang: {
+          ...tempProperties.placeholder.lang,
+          [i18n.language]: e.target.value
         }
       }
     })
   }
 
   const handleConfirm = () => {
-    props.onChange(tempProperties)
+    props.onPropertiesChange({
+      ...data,
+      properties: tempProperties
+    })
   }
 
   return (
@@ -114,7 +95,7 @@ function TextInput (props: TextInputProps) {
           {t('textinput.input-placeholder')}
         </label>
         <Input
-          value={tempProperties.input_name}
+          value={tempProperties.placeholder.lang[i18n.language]}
           onChange={onInputPlaceholderChange}
           className='w-full'
         ></Input>
@@ -124,7 +105,7 @@ function TextInput (props: TextInputProps) {
           {t('textinput.input-name')}
         </label>
         <ProfileFormItem
-          value={tempProperties?.profile_ids}
+          value={tempProperties?.result_variable_bids}
           onChange={handleProfileChange}
         />
       </div>

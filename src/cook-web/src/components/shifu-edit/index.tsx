@@ -189,20 +189,20 @@ const DraggableBlock = ({
           >
             <div className='flex flex-col gap-2 text-sm'>
               <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                {type === 'ai' ? t('shifu.ai-block') : t('shifu.regular-block')}
+                {type === 'content' ? t('shifu.ai-block') : t('shifu.regular-block')}
               </div>
               <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                 onClick={() =>
-                  onClickChangeType?.(id, type === 'ai' ? 'solidcontent' : 'ai')
+                  onClickChangeType?.(id, type === 'content' ? 'button' : 'content')
                 }
               >
                 <Settings2 className='h-4 w-4' />
-                {type === 'ai'
+                {type === 'content'
                   ? t('shifu.setting-regular-block')
                   : t('shifu.setting-ai-block')}
               </div>
-              {type === 'ai' && (
+              {type === 'content' && (
                 <div
                   className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                   onClick={() => onClickDebug?.(id)}

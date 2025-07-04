@@ -1,4 +1,4 @@
-export type BlockType = 'ai' | 'systemprompt' | 'solidcontent' | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input';
+export type BlockType =  | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input';
 
 export interface Shifu {
     bid: string;
@@ -57,9 +57,9 @@ export interface ShifuState {
     focusId: string | null;
     focusValue: string | null;
     cataData: { [x: string]: Outline };
-    blockTypes: { [x: string]: string };
+    blockTypes: { [x: string]: BlockType };
     blocks: Block[];
-    blockUIProperties: { [x: string]: any };
+    // blockUIProperties: { [x: string]: any };
     blockUITypes: { [x: string]: string };
     blockContentProperties: { [x: string]: any };
     blockContentTypes: { [x: string]: string };
@@ -105,9 +105,9 @@ export interface ShifuActions {
     loadBlocks: (outlineId: string, shifuId: string) => void;
     addBlock: (index: number, type: BlockType, shifuId: string) => void;
     setBlockContentPropertiesById: (id: string, properties: AIBlockProperties | SolidContentBlockProperties, reset?: boolean) => void;
-    setBlockContentTypesById: (id: string, type: string) => void;
+    setBlockContentTypesById: (id: string, type: BlockType) => void;
     setBlockUIPropertiesById: (id: string, properties: any, reset?: boolean) => void;
-    setBlockUITypesById: (id: string, type: string) => void;
+    setBlockUITypesById: (id: string, type: BlockType) => void;
     updateChapterOrder: (move_chapter_id: string,move_to_parent_id?: string,chapterIds?: string[]) => Promise<void>
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;

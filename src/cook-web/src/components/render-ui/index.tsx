@@ -22,7 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
-import { BlockDTO, UIBlockDTO } from '@/types/shifu';
+import { BlockDTO, BlockType, UIBlockDTO } from '@/types/shifu';
 import i18n from '@/i18n';
 const componentMap = {
     content: RenderBlockContent,
@@ -141,7 +141,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const handleTypeChange = (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
-        actions.setBlockUITypesById(block.bid, type)
+        actions.setBlockUITypesById(block.bid, type as BlockType)
         actions.setBlockUIPropertiesById(block.bid, opt?.properties || {}, true)
 
         // const newUITypes = {
