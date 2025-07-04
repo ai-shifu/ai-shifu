@@ -489,9 +489,9 @@ def _fetch_profile_info_for_block_dto(app, block_dto: BlockDTO) -> None:
         pass
     elif (
         isinstance(block_dto.block_content, InputDTO)
-        and block_dto.block_content.result_variable_bid
+        and block_dto.block_content.result_variable_bids
     ):
-        if len(block_dto.block_content.result_variable_bid) == 1:
+        if len(block_dto.block_content.result_variable_bids) == 1:
             # block_dto.profile_info = get_profile_info(
             #     app, block_dto.block_content.profile_ids[0]
             # )

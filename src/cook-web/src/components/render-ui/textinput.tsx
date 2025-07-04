@@ -30,7 +30,6 @@ const TextInputPropsEqual = (
 }
 
 function TextInput (props: UIBlockDTO) {
-  console.log('TextInput', props)
   const { data, onChanged } = props
   const [tempProperties, setTempProperties] = useState(data.properties as InputDTO)
   const [changed, setChanged] = useState(false)

@@ -570,6 +570,7 @@ def update_block_dto_to_model(
 ) -> BlockUpdateResultDto:
 
     variables = []
+    block_model.script_ui_profile_id = ",".join(block_dto.variable_bids)
 
     if block_dto.type == "content":
         raw_content = html_2_markdown(block_dto.block_content.content, variables)
@@ -635,7 +636,10 @@ def update_block_dto_to_model(
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
         block_model.script_ui_content = json.dumps(content.placeholder.lang)
-        block_model.script_ui_profile_id = content.result_variable_bids
+
+        block_model.script_check_prompt = content.prompt
+        block_model.script_model = content.llm
+        block_model.script_temperature = content.llm_temperature
         return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
         block_model.script_ui_type = UI_TYPE_BRANCH

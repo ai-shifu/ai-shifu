@@ -144,15 +144,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         actions.setBlockUITypesById(block.bid, type as BlockType)
         actions.setBlockUIPropertiesById(block.bid, opt?.properties || {}, true)
 
-        // const newUITypes = {
-        //     ...blockUITypes,
-        //     [block.id]: type,
-        // }
-        // const newUIProps = {
-        //     ...blockUIProperties,
-        //     [block.id]: opt?.properties || {},
-        // }
-
         setIsChanged(false);
 
         if (['login', 'payment', 'empty'].includes(type) && currentNode) {
@@ -325,8 +316,7 @@ export const useUITypes = () => {
         type: 'goto',
         name: t('render-ui.goto'),
         properties: {
-            "goto_settings": {
-                "items": [
+            "items": [
                     {
                         "value": t('render-ui.goto-value'),
                         "type": "outline",
@@ -338,40 +328,36 @@ export const useUITypes = () => {
                         "goto_id": "tbl9gl38im3rd1HB"
                     }
                 ],
-                "profile_key": "ai_tools"
-            },
-            "button_name": t('render-ui.goto-button-name'),
-            "button_key": t('render-ui.goto-button-key')
         }
     },
     {
         type: 'input',
         name: t('render-ui.textinput'),
         properties: {
-            "prompt": {
-                "properties": {
-                    "prompt": "",
-                    "variables": [
-                    ],
-                    "model": "",
-                    "temperature": "0.40",
-                    "other_conf": ""
-                },
-                "type": "ai"
+            "prompt": "",
+            "variables": [
+            ],
+            "llm": "",
+            "llm_temperature": "0.40",
+            "placeholder": {
+                "lang": {
+                    "zh-CN": "",
+                    "en-US": ""
+                }
             },
-            "input_name": "",
-            "input_key": "",
-            "input_placeholder": "",
-            "profile_ids": []
+            "result_variable_bids": []
         },
-        validate: (properties): string => {
-            if (!properties.input_placeholder) {
+        validate: (data): string => {
+            const p = data.properties
+
+            console.log('validate',p)
+            if (!p.placeholder.lang[i18n.language]) {
                 return t('render-ui.textinput-placeholder-empty')
             }
-            if (!properties?.prompt?.properties?.prompt) {
+            if (!p?.prompt) {
                 return t('render-ui.textinput-prompt-empty')
             }
-            if (typeof properties?.prompt?.properties?.temperature == 'undefined') {
+            if (typeof p?.llm_temperature == 'undefined') {
                 return t('render-ui.textinput-temperature-empty')
             }
             return ""
@@ -403,7 +389,15 @@ export const useUITypes = () => {
         type: 'content',
         name: t('render-ui.content'),
         properties: {
-            "content": ""
+            "content": "",
+            "llm": "",
+            "llm_temperature": "0.40",
+            "placeholder": {
+                "lang": {
+                    "zh-CN": "",
+                    "en-US": ""
+                }
+            },
         }
     }
     ]
