@@ -127,8 +127,8 @@
     "feedbackContactEmpty": "联系方式不能为空"
   },
   "chat": {
-    "chatInputWarn": "请输入内容",
-    "chatInputPlaceholder": "请输入内容",
+    "chatInputWarn": "请输入问题",
+    "chatInputPlaceholder": "有什么想问的？",
     "chatTips": "内容由 AI 大模型生成，无法确保真实准确，仅供学习参考",
     "copyText": "复制",
     "copySuccess": "已复制到剪切板",
