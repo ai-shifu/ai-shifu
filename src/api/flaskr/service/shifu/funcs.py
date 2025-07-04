@@ -1120,8 +1120,8 @@ def _make_ask_prompt(
     app, ask_prompt: str, learned_text: str, unlearned_text: str
 ) -> str:
     result = ask_prompt.format(
-        learned=learned_text or "",
-        unlearned=unlearned_text or "",
+        learned=("\n" + learned_text) if learned_text else "",
+        unlearned=("\n" + unlearned_text) if unlearned_text else "",
         shifu_system_message="{shifu_system_message}",
     )
     return result

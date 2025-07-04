@@ -4,7 +4,6 @@ import re
 from flaskr.service.common.models import raise_error
 from flask import Flask
 from flaskr.util.uuid import generate_id
-from langchain.prompts import PromptTemplate
 from ...service.lesson.const import (
     ASK_MODE_DEFAULT,
     ASK_MODE_DISABLE,
@@ -246,14 +245,33 @@ def extract_json(app: Flask, text: str):
 
 
 def extract_variables(template: str) -> list:
-    # 使用正则表达式匹配单层 {} 中的内容，忽略双层大括号
-    pattern = r"\{([^{}]+)\}(?!})"
+    # Match all {xxx} or {{xxx}} in the template
+    pattern = r"\{{1,2}([^{}]+)\}{1,2}"
     matches = re.findall(pattern, template)
+    # Only keep valid variable names (letters, digits, underscore, hyphen), no dots, commas, colons, quotes, or spaces
+    variables = [
+        m.strip()
+        for m in matches
+        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", m.strip())
+    ]
+    return list(set(variables))
 
-    # 去重并过滤包含双引号的元素
-    variables = list(set(matches))
-    filtered_variables = [var for var in variables if '"' not in var]
-    return filtered_variables
+
+def safe_format_template(template: str, variables: dict) -> str:
+    # Replace {xxx} or {{xxx}} with values from variables dict, keep original if not found
+    pattern = re.compile(r"(\{{1,2})([^{}]+)(\}{1,2})")
+
+    def replacer(match):
+        left, var, right = match.groups()
+        var_name = var.strip()
+        # Only process variable names with letters, digits, underscore, hyphen
+        if re.fullmatch(r"[a-zA-Z_][a-zA-Z0-9_-]*", var_name):
+            if var_name in variables:
+                return str(variables[var_name])
+        # Otherwise, keep the original
+        return match.group(0)
+
+    return pattern.sub(replacer, template)
 
 
 def get_fmt_prompt(
@@ -271,27 +289,22 @@ def get_fmt_prompt(
     profiles = get_user_profiles(app, user_id, course_id)
     propmpt_keys = list(profiles.keys())
     if input:
-        profiles["input"] = input
-        propmpt_keys.append("input")
+        profiles["sys_user_input"] = input
+        propmpt_keys.append("sys_user_input")
     app.logger.info(propmpt_keys)
     app.logger.info(profiles)
-    prompt_template_lc = PromptTemplate.from_template(profile_tmplate)
     keys = extract_variables(profile_tmplate)
     fmt_keys = {}
     for key in keys:
         if key in profiles:
             fmt_keys[key] = profiles[key]
         else:
-            fmt_keys[key] = key
             app.logger.info("key not found:" + key + " ,user_id:" + user_id)
     app.logger.info(fmt_keys)
-    if len(fmt_keys) == 0:
-        if len(profile_tmplate) == 0:
-            prompt = input
-        else:
-            prompt = profile_tmplate
+    if not keys:
+        prompt = input if not profile_tmplate else profile_tmplate
     else:
-        prompt = prompt_template_lc.format(**fmt_keys)
+        prompt = safe_format_template(profile_tmplate, fmt_keys)
     app.logger.info("fomat input:{}".format(prompt))
     return prompt
 

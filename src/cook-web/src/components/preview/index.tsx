@@ -70,7 +70,7 @@ const PreviewSettingsModal = () => {
 
                 <DialogFooter>
                     <Button
-                        className="w-full bg-purple-600 hover:bg-purple-700"
+                        className="w-full bg-primary hover:bg-primary-lighter"
                         onClick={handleStartPreview}
                     >
                         {t('preview.start-preview')}

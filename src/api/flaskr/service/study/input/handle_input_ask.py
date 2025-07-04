@@ -81,7 +81,7 @@ def handle_input_ask(
     )
 
     # Format shifu Q&A prompt, insert system prompt
-    system_message = lesson.ask_prompt.format(shifu_system_message=system_message)
+    system_message = lesson.ask_prompt.replace("{shifu_system_message}", system_message)
     messages.append({"role": "system", "content": system_message})  # Add system message
 
     # Add historical conversation records to system messages

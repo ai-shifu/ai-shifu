@@ -208,7 +208,7 @@ def handle_input_text(
             log_script.log_id,
         )
         yield make_script_dto(
-            "input",
+            "sys_user_input",
             script_info.script_ui_content,
             script_info.script_id,
             script_info.lesson_id,

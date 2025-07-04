@@ -45,6 +45,9 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                         script_id:
                             type: string
                             description: 脚本ID,如果为空则运行下一条，否则运行指定脚本
+                        reload_script_id:
+                            type: string
+                            description: 重新生成脚本ID,用于重新生成指定的对话块
                         preview_mode:
                             type: boolean
                             default: false
@@ -65,6 +68,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         input = request.get_json().get("input", None)
         input_type = request.get_json().get("input_type", "start")
         preview_mode = request.get_json().get("preview_mode", False)
+        reload_script_id = request.get_json().get("reload_script_id", None)
         if course_id == "":
             course_id = None
         user_id = request.user.user_id
@@ -81,6 +85,7 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
                     script_id=script_id,
                     log_id=log_id,
                     preview_mode=preview_mode,
+                    reload_script_id=reload_script_id,
                 ),
                 headers={"Cache-Control": "no-cache"},
                 mimetype="text/event-stream",

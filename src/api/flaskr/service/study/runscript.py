@@ -51,7 +51,7 @@ from .utils import make_script_dto_to_stream
 from flaskr.service.study.dtos import AILessonAttendDTO
 
 
-def handle_preview_script(
+def handle_reload_script(
     app: Flask,
     user_id: str,
     course_id: str,
@@ -191,7 +191,7 @@ def run_script_inner(
     script_id: str = None,
     log_id: str = None,
     preview_mode: bool = False,
-    preview_script_id: str = None,
+    reload_script_id: str = None,
 ) -> Generator[str, None, None]:
     """
     Core function for running course scripts
@@ -206,14 +206,14 @@ def run_script_inner(
             attend_status_values = get_attend_status_values()
             user_info = User.query.filter(User.user_id == user_id).first()
 
-            # In the preview mode, if preview_script_id is provided, obtain the script information directly
-            if preview_mode and preview_script_id and lesson_id and course_id:
-                yield from handle_preview_script(
+            # When reload_script_id is provided, regenerate the script content directly
+            if reload_script_id and lesson_id and course_id:
+                yield from handle_reload_script(
                     app,
                     user_id,
                     course_id,
                     lesson_id,
-                    preview_script_id,
+                    reload_script_id,
                     input,
                     input_type,
                 )
@@ -620,6 +620,7 @@ def run_script(
     script_id: str = None,
     log_id: str = None,
     preview_mode: bool = False,
+    reload_script_id: str = None,
 ) -> Generator[ScriptDTO, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
@@ -639,6 +640,7 @@ def run_script(
                 script_id,
                 log_id,
                 preview_mode,
+                reload_script_id,
             )
         except Exception as e:
             app.logger.error("run_script error")

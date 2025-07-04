@@ -486,7 +486,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
                             </Button>
                             <Button
                                 type="submit"
-                                className="bg-purple-600 hover:bg-purple-700 text-white"
+                                className="bg-primary hover:bg-primary-lighter text-white"
                                 onClick={() => {
 
                                     onSubmit(form.getValues())

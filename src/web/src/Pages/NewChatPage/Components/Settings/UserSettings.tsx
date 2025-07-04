@@ -22,7 +22,9 @@ import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEnvStore } from 'stores/envStore';
 
-const fixed_keys = ['nickname', 'avatar', 'sex', 'birth'];
+// These keys are included in basic information
+const fixed_keys = ['sys_user_nickname', 'avatar', 'sex', 'birth'];
+// These keys and the above keys are not displayed in the personalized information
 const hidden_keys = ['language'];
 
 export const UserSettings = ({
@@ -57,7 +59,7 @@ export const UserSettings = ({
   const onSaveSettingsClick = useCallback(async () => {
     const data = [];
     data.push({
-      key: 'nickname',
+      key: 'sys_user_nickname',
       value: nickName,
     });
     data.push({
@@ -121,7 +123,7 @@ export const UserSettings = ({
   const loadData = useCallback(async () => {
     const { data: respData } = await getUserProfile(courseId);
     respData.forEach((v) => {
-      if (v.key === 'nickname') {
+      if (v.key === 'sys_user_nickname') {
         setNickName(v.value);
       } else if (v.key === 'avatar') {
         setAvatar(v.value);

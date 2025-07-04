@@ -123,7 +123,7 @@ const Header = () => {
             <div className='flex flex-row items-center'>
                 <ShifuSetting shifuId={currentShifu?.bid || ""} onSave={onShifuSave} />
                 <Preivew />
-                <Button size="sm" className="h-8 ml-1 bg-purple-600 hover:bg-purple-700 text-xs font-normal"
+                <Button size="sm" className="h-8 ml-1 bg-primary hover:bg-primary-lighter text-xs font-normal"
                     onClick={publish}
                 >
                     {

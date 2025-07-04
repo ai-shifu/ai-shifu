@@ -64,10 +64,13 @@ class UserProfileDTO:
 
 def get_profile_labels(course_id: str = None):
     # language = get_current_language()
-
     return {
-        "nickname": {"label": _("PROFILE.NICKNAME"), "mapping": "name", "default": ""},
-        "user_background": {"label": _("PROFILE.USER_BACKGROUND")},
+        "sys_user_nickname": {
+            "label": _("PROFILE.NICKNAME"),
+            "mapping": "name",
+            "default": "",
+        },
+        "sys_user_background": {"label": _("PROFILE.USER_BACKGROUND")},
         "sex": {
             "label": _("PROFILE.SEX"),
             "mapping": "user_sex",
@@ -102,7 +105,7 @@ def get_profile_labels(course_id: str = None):
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
             "default": "zh-CN",
         },
-        "style": {
+        "sys_user_style": {
             "label": _("PROFILE.STYLE"),
         },
     }
@@ -307,10 +310,10 @@ def update_user_profile_with_lable(
     user_info = User.query.filter(User.user_id == user_id).first()
     if user_info:
         # check nickname
-        nickname = [p for p in profiles if p["key"] == "nickname"]
+        nickname = [p for p in profiles if p["key"] == "sys_user_nickname"]
         if nickname and not check_text_content(app, user_id, nickname[0]["value"]):
             raise_error("COMMON.NICKNAME_NOT_ALLOWED")
-        background = [p for p in profiles if p["key"] == "user_background"]
+        background = [p for p in profiles if p["key"] == "sys_user_background"]
         if background and not check_text_content(app, user_id, background[0]["value"]):
             raise_error("COMMON.BACKGROUND_NOT_ALLOWED")
         user_profiles = UserProfile.query.filter_by(user_id=user_id).all()

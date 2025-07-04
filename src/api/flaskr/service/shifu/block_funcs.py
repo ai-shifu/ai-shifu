@@ -328,6 +328,7 @@ def save_block_list_internal(
             if block.script_id not in save_block_ids:
                 app.logger.info("delete block : {}".format(block.script_id))
                 mark_block_to_delete(block, user_id, time)
+
         db.session.commit()
         app.logger.info(f"block_models : {block_models}")
         return SaveBlockListResultDto(

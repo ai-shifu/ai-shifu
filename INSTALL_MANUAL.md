@@ -1,190 +1,245 @@
 # INSTALL FROM SOURCE CODE STEP BY STEP
+
 ## Prerequisites
-### Concept
-Firstly, look at the source code structure:
+
+### Architecture Overview
+
+AI-Shifu consists of three main components:
+
+```bash
+src/
+├── api/          # Backend API service (Flask/Python)
+├── web/          # User frontend (React)
+└── cook-web/     # Script editor frontend (Next.js)
 ```
-$ ls
-api cook web
-```
-AI Shifu is composed of backend in `api` and frontend in `web`. And `cook` is the editor for the course.
-So, we can
 
-### Tools
-- Python 3.11
-- MySQL
-- Redis
-- Lark for script editing
-- OSS for image storage
+- **api**: Backend API service built with Flask
+- **web**: User-facing frontend application built with React
+- **cook-web**: Script editor for creating and managing courses, built with Next.js
 
-- OpenAI API Key or LLM Provider API Key
+### Required Tools and Services
 
-## Operating Steps
+- **Python 3.11+** for backend API
+- **Node.js 18+** for frontend applications
+- **MySQL 8.0+** for database storage
+- **Redis** for caching and session management
+- **Docker & Docker Compose** (recommended for easy deployment)
 
-### Step 1: Clone the repository
+### Required API Keys
+
+At least one LLM provider must be configured:
+
+- **OpenAI** API Key
+- **Baidu ERNIE** API credentials
+- **ByteDance Volcengine Ark** API Key
+- **SiliconFlow** API Key
+- **Zhipu GLM** API Key
+- **DeepSeek** API Key
+- **Alibaba Qwen** API Key
+
+### Optional Services
+
+- **Alibaba Cloud OSS** for file storage
+- **Alibaba Cloud SMS** for phone verification
+- **Langfuse** for LLM tracking
+- **Email SMTP** for email verification
+
+## Installation Steps
+
+### Step 1: Clone the Repository
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu
 ```
 
+### Step 2: Set Up Environment Variables
 
-### Step 2: Configure environment variables
+Copy the example environment file:
 
-[More Info](https://github.com/ai-shifu/ai-shifu-docs/blob/main/zh_CN/guides/environment-variables.md)
 ```bash
-cp docker/.env.example .env  # guess this is under the root folder
+cp docker/.env.example .env
 ```
 
-### Step 3: Configure .env
-```
-... skip code ...
-########
-# LLMs #
-########
+### Step 3: Configure Environment Variables
 
-# IMPORTANT: At least one LLM should be enabled
+Edit the `.env` file and configure the required settings:
 
+#### LLM Configuration (Required)
+
+At least one LLM provider must be configured:
+
+```bash
 # OpenAI
 OPENAI_BASE_URL="https://api.openai.com/v1"
-OPENAI_API_KEY="sk-proj-..."
+OPENAI_API_KEY="sk-..."
 
-... skip code ...
+# Or use other providers like:
+# ERNIE_API_ID="your-ernie-id"
+# ERNIE_API_SECRET="your-ernie-secret"
+# ERNIE_API_KEY="your-ernie-key"
 
-# Default LLM model. Supported models:
-# OpenAI's models:
-#   gpt-4o-latest, gpt-4o-mini, gpt-4, gpt-3.5-turbo, chatgpt-4o-latest, and their dated releases
-... skip code ...
+# GLM_API_KEY="your-glm-key"
+# DEEPSEEK_API_KEY="your-deepseek-key"
+# QWEN_API_KEY="your-qwen-key"
 
+# Set default model (must match your configured provider)
 DEFAULT_LLM_MODEL="gpt-4o"
 
 # Default LLM temperature
 DEFAULT_LLM_TEMPERATURE=0.3
+```
 
-... skip code ...
+#### Database Configuration
 
-# MySQL settings. If you don't know what they are, don't modify them.
+```bash
+# MySQL (adjust if running locally)
 SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu"
 
-
-# Redis settings. If you don't know what they are, don't modify them.
+# Redis (adjust if running locally)
 REDIS_HOST="ai-shifu-redis"
 REDIS_PORT=6379
 REDIS_DB=0
 REDIS_PASSWORD=""
-REDIS_USER=""
+```
 
+#### Application Settings
 
-
-# (Optional) Alibaba Cloud settings for sending SMS and uploading files
-ALIBABA_CLOUD_SMS_ACCESS_KEY_ID=""
-ALIBABA_CLOUD_SMS_ACCESS_KEY_SECRET=""
-ALIBABA_CLOUD_SMS_SIGN_NAME=""
-ALIBABA_CLOUD_SMS_TEMPLATE_CODE=""
-
-# Universal verification code
+```bash
+# Universal verification code for testing
 UNIVERSAL_VERIFICATION_CODE="1024"
 
-# (Optional) Alibaba Cloud OSS settings for uploading files
+# Frontend configuration
+REACT_APP_BASEURL="http://localhost:5800"
+SITE_HOST="http://localhost:8081/"
+```
+
+#### Optional Services
+
+```bash
+# Alibaba Cloud OSS for file storage
 ALIBABA_CLOUD_OSS_ACCESS_KEY_ID=""
 ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET=""
 ALIBABA_CLOUD_OSS_ENDPOINT="oss-cn-beijing.aliyuncs.com"
 ALIBABA_CLOUD_OSS_BUCKET=""
-ALIBABA_CLOUD_OSS_BASE_URL=""
 
-ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID=""
-ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET=""
-ALIBABA_CLOUD_OSS_COURSES_ENDPOINT="oss-cn-beijing.aliyuncs.com"
-ALIBABA_CLOUD_OSS_COURSES_BUCKET=""
-ALIBABA_CLOUD_OSS_COURSES_URL=""
-
-# (Optional) Langfuse settings for tracking LLM
-LANGFUSE_PUBLIC_KEY=""
-LANGFUSE_SECRET_KEY=""
-LANGFUSE_HOST=""
-
-# (Optional) NetEase YIDUN settings for content detection
-NETEASE_YIDUN_SECRET_ID=""
-NETEASE_YIDUN_SECRET_KEY=""
-NETEASE_YIDUN_BUSINESS_ID=""
-
-# Lark (Feishu) for script editing
-LARK_APP_ID=""
-LARK_APP_SECRET=""
-
-... skip code ...
-
-# Path of log file
-LOGGING_PATH="/var/log/ai-shifu.log"  # make sure you have the permission to write to the file
-
-# Website access domain name
-WEB_URL=""
-
-############
-# Frontend #
-############
-
-# Service
-REACT_APP_BASEURL="http://localhost:5800" # example as for local development
-PORT=5000
-
-# Eruda console
-REACT_APP_ERUDA="true"
-
-
-
-
-
-
+# Email SMTP for email verification
+SMTP_SERVER=""
+SMTP_PORT=25
+SMTP_USERNAME=""
+SMTP_PASSWORD=""
+SMTP_SENDER=""
 
 ```
 
-### Step 4: Run the application
-* Make sure .env is under every folder
+### Step 4: Manual Installation (Development)
 
-#### Step 4.1: Run the api
+This section covers manual installation for development purposes or when you need more control over the setup.
+
+#### Step 4.1: Set Up Database Services
+
+Start MySQL and Redis services on your local machine or use Docker:
+
 ```bash
-cd api
-cp ../.env .env
+# Using Docker for databases only
+docker run -d --name mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=ai-shifu -e MYSQL_DATABASE=ai-shifu mysql:latest
+docker run -d --name redis -p 6379:6379 redis:latest
+```
 
+#### Step 4.2: Configure Environment for Local Development
+
+Update your `.env` file for local development:
+
+```bash
+# Update database URLs for local services
+SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@localhost:3306/ai-shifu"
+REDIS_HOST="localhost"
+
+# Update API base URL
+REACT_APP_BASEURL="http://localhost:5800"
+```
+
+#### Step 4.3: Start Backend API
+
+```bash
+cd src/api
+cp ../../.env .env
+
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Initialize database
 flask db upgrade
-gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug --access-logfile /var/log/app.log --capture-output
+
+# Start the API server
+gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 4.2: Run the web
-```bash
-cd web
-cp ../.env .env
+#### Step 4.4: Start User Frontend
 
+```bash
+cd src/web
+cp ../../.env .env
+
+# Install Node.js dependencies
 npm install  # or use pnpm install
-npm run start:dev # or use pnpm run build
+
+# Start development server
+npm run start:dev
 ```
 
-#### Step 4.3: Run the cook
-1. Copy .env
+The user frontend will be available at `http://localhost:3000`.
+
+#### Step 4.5: Start Script Editor Frontend
+
 ```bash
-cd cook
-cp ../.env .env
+cd src/cook-web
+cp ../../.env .env
+
+# Install Node.js dependencies
+npm install  # or use pnpm install
+
+# Start development server
+npm run dev
 ```
 
-2. Install requirements
-```bash
-pip install -r requirements.txt
-```
+The script editor will be available at `http://localhost:3001`.
 
-3. Edit auth_config.yml
-```bash
-cp auth_config.example.yml auth_config.yml
-```
-4. Init database
-```bash
-# pay attention to the database name should be the same as the one in .env
-mysql -u user -h xxxx -p database_name < ../../docker/init.sql
-```
+## Troubleshooting
 
-5. Run the cook
-```bash
-streamlit  run Home.py
-```
+### Common Issues
 
-## Step 5: Access the application
-Go to the browser and have fun!
+1. **Database Connection Failed**
+   - Ensure MySQL is running and accessible
+   - Check database credentials in `.env`
+   - Run `flask db upgrade` to initialize tables
+
+2. **Redis Connection Failed**
+   - Ensure Redis is running and accessible
+   - Check Redis configuration in `.env`
+
+3. **LLM API Errors**
+   - Verify API keys are correct
+   - Check API base URLs
+   - Ensure the model name matches your provider
+
+4. **Frontend Build Failures**
+   - Ensure Node.js version is 18+
+   - Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+   - Check for environment variable issues
+
+### Log Files
+
+- API logs: Check gunicorn output or `/var/log/ai-shifu.log`
+- Frontend logs: Check browser console or terminal output
+
+## Access the Application
+
+### Manual Installation
+- User Interface: `http://localhost:3000` (or configured PORT)
+- Script Editor: `http://localhost:3001`
+- API: `http://localhost:5800`
+
+### Default Login
+- Use any phone number for registration/login
+- Default verification code: `1024`
