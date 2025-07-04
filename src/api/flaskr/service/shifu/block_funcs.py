@@ -12,6 +12,7 @@ from flaskr.service.shifu.adapter import (
 from flaskr.service.lesson.models import AILesson, AILessonScript
 from flaskr.service.profile.profile_manage import (
     save_profile_item_defination,
+    get_profile_item_definition_list,
 )
 from flaskr.service.profile.models import ProfileItem
 from flaskr.service.common.models import raise_error
@@ -67,12 +68,6 @@ def get_block_list(app, user_id: str, outline_id: str) -> list[BlockDTO]:
         blocks = get_existing_blocks(app, sub_outline_ids)
         ret = []
         app.logger.info(f"blocks : {len(blocks)}")
-
-        # profile_ids = [b.script_ui_profile_id for b in blocks]
-        # profile_items = ProfileItem.query.filter(
-        #     ProfileItem.profile_id.in_(profile_ids),
-        #     ProfileItem.status == 1,
-        # ).all()
         for sub_outline in sub_outlines:
 
             lesson_blocks = sorted(
@@ -157,6 +152,8 @@ def save_block_list_internal(
                     q.put(child)
         # get all blocks
         blocks = get_existing_blocks(app, sub_outline_ids)
+        variable_definitions = get_profile_item_definition_list(app, outline.course_id)
+        variable_definition_map = {v.profile_id: v for v in variable_definitions}
         block_index = 1
         current_outline_id = outline_id
         block_models = []
@@ -195,7 +192,9 @@ def save_block_list_internal(
                 )
                 app.logger.info(f"new block : {block_model.script_id}")
                 _fetch_profile_info_for_block_dto(app, block_dto)
-                update_block_result = update_block_dto_to_model(block_dto, block_model)
+                update_block_result = update_block_dto_to_model(
+                    block_dto, block_model, variable_definition_map
+                )
                 profile = None
                 if update_block_result.error_message:
                     error_messages[block_model.script_id] = (
@@ -258,7 +257,9 @@ def save_block_list_internal(
                 new_block = block_model.clone()
                 old_check_str = block_model.get_str_to_check()
                 _fetch_profile_info_for_block_dto(app, block_dto)
-                update_block_result = update_block_dto_to_model(block_dto, new_block)
+                update_block_result = update_block_dto_to_model(
+                    block_dto, new_block, variable_definition_map
+                )
                 profile = None
                 if update_block_result.error_message:
                     error_messages[new_block.script_id] = (

@@ -277,11 +277,22 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       block.properties = properties
       setBlocks([...blocks])
     }
-    setBlockProperties(prev => {
-      return {
-        ...prev,
-        [bid]: properties
-      }
+    // setBlockProperties(prev => {
+    //   return {
+    //     ...prev,
+    //     [bid]: properties
+    //   }
+    // })
+    return new Promise<void>((resolve) => {
+      setBlockProperties(prev => {
+        const newState = {
+          ...prev,
+          [bid]: properties
+        }
+        // 在下一个微任务中解析 Promise，确保状态已更新
+        setTimeout(() => resolve(), 0)
+        return newState
+      })
     })
 
   }, [])
@@ -306,10 +317,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }
   }
 
-  const saveBlocks = async (shifu_id: string) => {
+  const saveBlocks = useCallback(async (shifu_id: string) => {
     if (isLoading) {
       return
     }
+    console.log('saveBlocks', blockProperties)
     const list = buildBlockListWithAllInfo(blocks, blockTypes, blockProperties)
     try {
       setError(null)
@@ -322,7 +334,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       console.error(error)
       setError('Failed to save blocks')
     }
-  }
+  }, [blocks, isLoading, blockTypes, blockProperties, currentNode])
 
   const addBlock = async (
     index: number,

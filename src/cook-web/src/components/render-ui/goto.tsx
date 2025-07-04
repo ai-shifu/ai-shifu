@@ -40,10 +40,13 @@ export default memo(function Goto(props: UIBlockDTO) {
     const { chapters, currentShifu } = useShifu();
 
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItemDefination[]>([]);
-    const [variableBid, setVariableBid] = useState<string>("");
+    const [variableBid, setVariableBid] = useState<string>(data.variable_bids?.[0] || "");
     const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
     const gotoSettings = data.properties as GotoDTO
     const [tempGotoSettings, setTempGotoSettings] = useState(gotoSettings);
+
+
+    console.log('gotoSettings', props)
 
     const onNodeSelect = (index: number, node: Outline) => {
         setTempGotoSettings({
@@ -106,6 +109,7 @@ export default memo(function Goto(props: UIBlockDTO) {
     }, [])
 
     const handleValueChange = async (value: string) => {
+        setVariableBid(value);
         if (!changed) {
             setChanged(true);
             onChanged?.(true);

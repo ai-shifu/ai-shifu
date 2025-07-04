@@ -327,13 +327,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actions.addBlock(index, type, bid)
   }
 
-  const onChangeBlockType = (id: string, llm_enabled: boolean) => {
+  const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
 
     console.log(id, llm_enabled)
 
     const p = blockProperties[id].properties as ContentDTO
-    console.log(p)
-    actions.updateBlockProperties(id, {
+    await actions.updateBlockProperties(id, {
       ...blockProperties[id],
       properties: {
         ...p,

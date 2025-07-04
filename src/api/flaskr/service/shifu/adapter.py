@@ -15,6 +15,7 @@ from flaskr.service.shifu.dtos import (
     CheckCodeDTO,
     PhoneDTO,
 )
+from flaskr.service.profile.dtos import ProfileItemDefinition
 from flaskr.i18n import _
 from flask import current_app as app
 
@@ -567,7 +568,9 @@ def _get_lang_dict(lang: str) -> dict[str, str]:
 
 
 def update_block_dto_to_model(
-    block_dto: BlockDTO, block_model: AILessonScript
+    block_dto: BlockDTO,
+    block_model: AILessonScript,
+    variable_definition_map: dict[str, ProfileItemDefinition],
 ) -> BlockUpdateResultDto:
 
     variables = []
@@ -595,11 +598,6 @@ def update_block_dto_to_model(
         content: ButtonDTO = block_dto.block_content  # type: ButtonDTO
         block_model.script_ui_content = json.dumps(content.label.lang)
 
-        from flask import current_app
-
-        current_app.logger.info(
-            f"block_model.script_ui_content: {block_model.script_ui_content}"
-        )
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "login":
@@ -621,7 +619,9 @@ def update_block_dto_to_model(
         block_model.script_ui_content = content.result_variable_bid
         block_model.script_other_conf = json.dumps(
             {
-                "var_name": content.result_variable_bid,
+                "var_name": variable_definition_map.get(
+                    content.result_variable_bid, {}
+                ).profile_key,
                 "btns": [
                     {
                         "label": content.label.lang,
@@ -641,6 +641,9 @@ def update_block_dto_to_model(
         block_model.script_check_prompt = content.prompt
         block_model.script_model = content.llm
         block_model.script_temperature = content.llm_temperature
+        block_model.script_ui_profile_id = variable_definition_map.get(
+            block_dto.variable_bids[0], {}
+        ).profile_id
         return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
         block_model.script_ui_type = UI_TYPE_BRANCH
@@ -649,9 +652,9 @@ def update_block_dto_to_model(
         block_model.script_other_conf = json.dumps(
             {
                 "var_name": (
-                    block_dto.variable_bids[0]
-                    if len(block_dto.variable_bids) > 0
-                    else ""
+                    variable_definition_map.get(
+                        block_dto.variable_bids[0], {}
+                    ).profile_key
                 ),
                 "jump_rule": [
                     {
@@ -679,7 +682,12 @@ def generate_block_dto_from_model(
 
     current_app.logger.info(f"block_model: {block_model.script_ui_content}")
     ret = []
-    block_model.script_ui_profile_id = ",".join(variable_bids)
+
+    if block_model.script_ui_profile_id:
+        variable_bids = block_model.script_ui_profile_id.split(",")
+    else:
+        variable_bids = []
+
     variables_in_prompt = []
     if (
         block_model.script_type == SCRIPT_TYPE_FIX
@@ -709,7 +717,7 @@ def generate_block_dto_from_model(
             BlockDTO(
                 bid=block_model.script_id,
                 block_content=BreakDTO(),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -720,7 +728,7 @@ def generate_block_dto_from_model(
                 block_content=ButtonDTO(
                     label=_get_lang_dict(block_model.script_ui_content),
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -735,7 +743,7 @@ def generate_block_dto_from_model(
                     llm="",
                     llm_temperature=0.0,
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -746,7 +754,7 @@ def generate_block_dto_from_model(
                 block_content=CheckCodeDTO(
                     placeholder=_get_lang_dict(block_model.script_ui_content),
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -757,7 +765,7 @@ def generate_block_dto_from_model(
                 block_content=PhoneDTO(
                     placeholder=_get_lang_dict(block_model.script_ui_content),
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -768,7 +776,7 @@ def generate_block_dto_from_model(
                 block_content=LoginDTO(
                     label=_get_lang_dict(block_model.script_ui_content),
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -779,7 +787,7 @@ def generate_block_dto_from_model(
                 block_content=PaymentDTO(
                     label=_get_lang_dict(block_model.script_ui_content),
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -799,7 +807,7 @@ def generate_block_dto_from_model(
                         )
                     ],
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )
@@ -819,7 +827,7 @@ def generate_block_dto_from_model(
                         )
                     ],
                 ),
-                variable_bids=[],
+                variable_bids=variable_bids,
                 resource_bids=[],
             )
         )

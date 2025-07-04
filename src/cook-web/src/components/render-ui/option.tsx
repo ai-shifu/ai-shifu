@@ -136,13 +136,16 @@ export default memo(function Option(props: UIBlockDTO) {
             ...data,
             properties: {
                 ...data.properties,
-                options: tempOptions
-            }
+                options: tempOptions,
+                result_variable_bid: tempValue
+            },
+            variable_bids: [tempValue]
         }
         props.onPropertiesChange(updatedProperties);
     }
 
     const handleProfileChange = (value: string[]) => {
+        console.log('handleProfileChange', value)
         setTempValue(value?.[0])
     }
 
