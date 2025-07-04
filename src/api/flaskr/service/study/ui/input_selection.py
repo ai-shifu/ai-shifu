@@ -7,6 +7,7 @@ from flaskr.service.study.const import INPUT_TYPE_SELECT
 from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
+from flaskr.service.study.utils import get_script_ui_label
 
 
 @register_ui_handler(UI_TYPE_SELECTION)
@@ -21,6 +22,7 @@ def handle_input_selection(
 ):
     btns = json.loads(script_info.script_other_conf)["btns"]
     for btn in btns:
+        btn["label"] = get_script_ui_label(app, btn["label"])
         btn["type"] = INPUT_TYPE_SELECT
     return ScriptDTO(
         "buttons",

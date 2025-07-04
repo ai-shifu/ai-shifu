@@ -8,6 +8,7 @@ from flaskr.service.study.const import INPUT_TYPE_CONTINUE
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
 from flaskr.i18n import _
+from flaskr.service.study.utils import get_script_ui_label
 
 
 @register_ui_handler(UI_TYPE_EMPTY)
@@ -25,7 +26,7 @@ def handle_input_continue(
     if not msg:
         msg = _("COMMON.CONTINUE")  # Assign default message if msg is empty
 
-    app.logger.info("handle_input_continue:{}".format(msg))
+    msg = get_script_ui_label(app, msg)
 
     btn = [
         {

@@ -14,6 +14,7 @@ from flaskr.service.study.utils import (
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.user.models import User
+from flaskr.service.study.utils import get_script_ui_label
 
 
 @register_input_handler(input_type=INPUT_TYPE_PHONE)
@@ -45,7 +46,7 @@ def handle_input_phone(
         )
         yield make_script_dto(
             INPUT_TYPE_PHONE,
-            script_info.script_ui_content,
+            get_script_ui_label(app, script_info.script_ui_content),
             script_info.script_id,
             script_info.lesson_id,
         )

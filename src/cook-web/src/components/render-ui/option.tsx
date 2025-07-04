@@ -196,7 +196,6 @@ export default memo(function Option(props: UIBlockDTO) {
                     ) : (
                         tempOptions.map((option: any, index: number) => {
                             return (
-                                console.log('option', option),
                                 <div key={index} className='flex flex-row items-center'>
                                     <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                                         {t('option.value')}

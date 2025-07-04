@@ -7,7 +7,7 @@ from flaskr.service.study.plugin import (
     register_input_handler,
     CONTINUE_HANDLE_MAP,
 )
-from flaskr.service.study.utils import generation_attend
+from flaskr.service.study.utils import generation_attend, get_script_ui_label
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.user.models import User
@@ -28,7 +28,9 @@ def handle_input_continue(
     if script_info.script_ui_content:
         # The continue button has a non-default label
         log_script = generation_attend(app, attend, script_info)
-        log_script.script_content = script_info.script_ui_content
+        log_script.script_content = get_script_ui_label(
+            app, script_info.script_ui_content
+        )
         log_script.script_role = ROLE_STUDENT
         db.session.add(log_script)
         span = trace.span(name="user_continue", input=input)
