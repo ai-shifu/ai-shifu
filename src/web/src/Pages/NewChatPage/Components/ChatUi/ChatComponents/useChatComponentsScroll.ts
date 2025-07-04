@@ -1,58 +1,12 @@
-import { useCallback, useState } from "react"
+import { useCallback } from "react"
 import { smoothScroll } from 'Utils/smoothScroll';
 
-const SCROLL_BOTTOM_THROTTLE = 50;
-
-// take scoll logic in the separte file
+// take scroll logic in the separate file
 export const useChatComponentsScroll = ({
   chatRef,
   containerStyle,
-  messages,
-  deleteMsg,
-  appendMsg,
 }) => {
-  const [autoScroll, setAutoScroll] = useState(true);
-
-  const startAutoScroll = useCallback(() => {
-    setAutoScroll(true);
-    if (messages.length && messages[messages.length - 1].position === 'pop') {
-      deleteMsg(messages[messages.length - 1]._id);
-    }
-  }, [deleteMsg, messages]);
-
-  const stopAutoScroll = useCallback(() => {
-    setAutoScroll(false);
-    if (messages.length && messages[messages.length - 1].position === 'pop') {
-      return;
-    }
-    appendMsg({ type: 'loading', position: 'pop' });
-  }, [appendMsg, messages]);
-
-  const onMessageListScroll = useCallback((e) => {
-    const scrollWrapper = e.target;
-    const inner = scrollWrapper.children[0];
-    const currentScrollTop = Math.max(0, scrollWrapper.scrollTop);
-
-    if (!scrollWrapper || !inner) {
-      return;
-    }
-
-    if (
-      currentScrollTop >= 0 &&
-      currentScrollTop + scrollWrapper.clientHeight <
-      inner.clientHeight - SCROLL_BOTTOM_THROTTLE
-    ) {
-      stopAutoScroll();
-    } else {
-      startAutoScroll();
-    }
-  }, [startAutoScroll, stopAutoScroll]);
-
-  const scrollTo = useCallback((height, stopScroll = false) => {
-    if (stopScroll) {
-      stopAutoScroll();
-    }
-
+  const scrollTo = useCallback((height) => {
     const wrapper = chatRef.current?.querySelector(
       `.${containerStyle} .PullToRefresh`
     );
@@ -61,7 +15,7 @@ export const useChatComponentsScroll = ({
       return;
     }
     smoothScroll({ el: wrapper, to: height });
-  }, [chatRef, containerStyle, stopAutoScroll]);
+  }, [chatRef, containerStyle]);
 
   const scrollToLesson = useCallback((lessonId) => {
     if (!chatRef.current) {
@@ -75,7 +29,7 @@ export const useChatComponentsScroll = ({
       return;
     }
 
-    scrollTo(lessonNode.offsetTop, true);
+    scrollTo(lessonNode.offsetTop);
   }, [chatRef, scrollTo]);
 
   const scrollToBottom = useCallback(() => {
@@ -91,8 +45,6 @@ export const useChatComponentsScroll = ({
   }, [chatRef, containerStyle, scrollTo]);
 
   return {
-    autoScroll,
-    onMessageListScroll,
     scrollTo,
     scrollToLesson,
     scrollToBottom,
