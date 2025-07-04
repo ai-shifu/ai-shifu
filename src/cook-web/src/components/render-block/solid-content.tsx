@@ -10,7 +10,8 @@ export default function SolidContent(props: UIBlockDTO) {
             content={content}
             isEdit={props.isEdit}
             // onBlur={props.onBlur}
-            onChange={(value, variables, isEdit) => {
+            onChange={(value) => {
+
                 props.onPropertiesChange({ ...props.data, properties: { ...props.data.properties, content: value } });
             }}
         />

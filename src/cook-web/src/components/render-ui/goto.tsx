@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import OutlineSelector from '@/components/outline-selector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useShifu } from '@/store'
-import { ColorSetting, Outline ,GotoDTO,BlockDTO,ProfileItem, UIBlockDTO} from '@/types/shifu'
+import { Outline ,GotoDTO, ProfileItemDefination,UIBlockDTO} from '@/types/shifu'
 import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
@@ -39,6 +39,7 @@ export default memo(function Goto(props: UIBlockDTO) {
     const { chapters, currentShifu } = useShifu();
 
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItemDefination[]>([]);
+    const [variableBid, setVariableBid] = useState<string>("");
     const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
     const gotoSettings = data.properties as GotoDTO
     const [tempGotoSettings, setTempGotoSettings] = useState(gotoSettings);
@@ -51,7 +52,7 @@ export default memo(function Goto(props: UIBlockDTO) {
                 if (i === index) {
                     return {
                         ...item,
-                        goto_id: node.id
+                        destination_bid: node.id
                     }
                 }
                 return item
@@ -60,34 +61,41 @@ export default memo(function Goto(props: UIBlockDTO) {
     }
 
     const handleConfirm = () => {
+        props.onPropertiesChange({
+            ...data,
+            properties: tempGotoSettings,
+            variable_bids: [variableBid]
+        });
         onChanged?.(true);
     }
 
     const loadProfileItemDefinations = async (preserveSelection: boolean = false) => {
         const list = await api.getProfileItemDefinitions({
-            parent_id: currentShifu?.bid
+            parent_id: currentShifu?.bid,
+            type: "option"
         })
         setProfileItemDefinations(list)
         if (!preserveSelection && list.length > 0) {
-            const initialSelected = list.find((item) => item.profile_key === gotoSettings.variable_bid);
+            const initialSelected = list.find((item) => item.profile_id === variableBid);
             if (initialSelected) {
                 setSelectedProfile(initialSelected);
-                await loadProfileItem(initialSelected.profile_id, initialSelected.profile_key);
+                await loadProfileItem(initialSelected.profile_id);
             }
         }
     }
 
-    const loadProfileItem = async (id: string, name: string) => {
+    const loadProfileItem = async (id: string) => {
+        setVariableBid(id);
         const list = await api.getProfileItemOptionList({
             parent_id: id
         })
+        console.log(list)
         setTempGotoSettings({
-            variable_bid: name,
             conditions: list.map((item) => {
                 return {
                     value: item.value,
-                    goto_id: "",
-                    type: "goto"
+                    destination_bid: "",
+                    destination_type: "outline"
                 }
             })
         });
@@ -105,7 +113,7 @@ export default memo(function Goto(props: UIBlockDTO) {
         const selectedItem = profileItemDefinations.find((item) => item.profile_id === value);
         if (selectedItem) {
             setSelectedProfile(selectedItem);
-            await loadProfileItem(value, selectedItem.profile_key);
+            await loadProfileItem(value);
         }
     }
 
@@ -116,7 +124,7 @@ export default memo(function Goto(props: UIBlockDTO) {
                     {t('goto.select-variable')}
                 </div>
                 <Select
-                    value={selectedProfile?.profile_id || ""}
+                    value={selectedProfile?.profile_key || ""}
                     onValueChange={handleValueChange}
                     onOpenChange={(open) => {
                         if (open) {
@@ -147,7 +155,7 @@ export default memo(function Goto(props: UIBlockDTO) {
                         tempGotoSettings.conditions.map((item, index) => {
                             return (
                                 <div className='flex flex-row items-center space-x-2' key={`${item.destination_bid}-${index}`}>
-                                    <span className='w-40'>{item.destination_bid}</span>
+                                    <span className='w-40'>{item.value}</span>
                                     <span className='px-2'>{t('goto.goto-settings-jump-to')}</span>
                                     <span>
                                         <OutlineSelector value={item.destination_bid} chapters={chapters} onSelect={onNodeSelect.bind(null, index)} />

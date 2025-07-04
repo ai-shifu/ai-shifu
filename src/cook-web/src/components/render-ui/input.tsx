@@ -3,16 +3,13 @@ import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import _ from 'lodash'
-import { BlockDTO ,InputDTO} from '@/types/shifu'
-interface SingleInputProps {
-    properties: BlockDTO
-    onChange: (properties: BlockDTO) => void
-}
+import { UIBlockDTO ,InputDTO} from '@/types/shifu'
+import i18n from '@/i18n'
 
-const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInputProps) => {
-    const prevInputSettings = prevProps.properties.properties as InputDTO
-    const nextInputSettings = nextProps.properties.properties as InputDTO
-    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+const SingleInputPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
+    const prevInputSettings = prevProps.data.properties as InputDTO
+    const nextInputSettings = nextProps.data.properties as InputDTO
+    if (! _.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
     if (! _.isEqual(prevInputSettings.placeholder, nextInputSettings.placeholder)) {
@@ -30,33 +27,34 @@ const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInp
     if (! _.isEqual(prevInputSettings.llm_temperature, nextInputSettings.llm_temperature)) {
         return false
     }
-    if (! _.isEqual(prevProps.properties.variable_bids, nextProps.properties.variable_bids)) {
+    if (! _.isEqual(prevProps.data.variable_bids, nextProps.data.variable_bids)) {
         return false
     }
-    if (! _.isEqual(prevProps.properties.resource_bids, nextProps.properties.resource_bids)) {
+    if (! _.isEqual(prevProps.data.resource_bids, nextProps.data.resource_bids)) {
         return false
     }
     return true
 }
 
-export default memo(function SingleInput(props: SingleInputProps) {
-    const { properties } = props
+export default memo(function SingleInput(props: UIBlockDTO) {
+    const { data } = props
     const { t } = useTranslation();
+    const inputSettings = data.properties as InputDTO
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
         if (field === 'prompt') {
-            props.onChange({
-                ...properties,
+            props.onPropertiesChange({
+                ...data,
                 properties: {
-                    ...properties.properties,
+                    ...data.properties,
                     prompt: e.target.value,
                 }
             });
             return;
         }
-        props.onChange({
-            ...properties,
+        props.onPropertiesChange({
+            ...data,
             properties: {
-                ...properties.properties,
+                ...data.properties,
                 [field]: e.target.value,
             }
         })
@@ -70,7 +68,7 @@ export default memo(function SingleInput(props: SingleInputProps) {
                 </span>
                 <Input
                     className='h-8 w-40'
-                    value={properties.properties.placeholder.lang[i18n.language]}
+                    value={inputSettings.placeholder.lang[i18n.language]}
                     onChange={(e) => onValueChange(e, 'placeholder')}
                     placeholder={t('input.input-placeholder')}
                 />
@@ -81,7 +79,7 @@ export default memo(function SingleInput(props: SingleInputProps) {
                 </span>
                 <Input
                     className='h-8 w-40'
-                    value={properties.properties.prompt}
+                    value={inputSettings.prompt}
                     onChange={(e) => onValueChange(e, 'prompt')}
                     placeholder={t('input.input-name')}
                 // type="tel"

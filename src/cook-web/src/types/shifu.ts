@@ -41,6 +41,11 @@ export interface ProfileItem {
     profile_type: string;
 }
 
+export interface ProfileItemDefination {
+    profile_id: string;
+    profile_key: string;
+    value: string;
+}
 
 export interface ShifuState {
     currentShifu: Shifu | null;
@@ -52,6 +57,7 @@ export interface ShifuState {
     focusId: string | null;
     focusValue: string | null;
     cataData: { [x: string]: Outline };
+    blockTypes: { [x: string]: string };
     blocks: Block[];
     blockUIProperties: { [x: string]: any };
     blockUITypes: { [x: string]: string };
@@ -179,7 +185,6 @@ export interface GotoConditionDTO {
 
 
 export interface GotoDTO {
-    variable_bid: string;
     conditions: GotoConditionDTO[];
 }
 

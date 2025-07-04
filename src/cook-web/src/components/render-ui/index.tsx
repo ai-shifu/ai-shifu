@@ -23,6 +23,7 @@ import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
 import { BlockDTO, UIBlockDTO } from '@/types/shifu';
+import i18n from '@/i18n';
 const componentMap = {
     content: RenderBlockContent,
     break: Break,
@@ -118,7 +119,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const {
         actions,
         blockUITypes,
-        blockUIProperties,
+        // blockUIProperties,
         currentNode,
         blocks,
         blockContentTypes,
@@ -140,17 +141,17 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const handleTypeChange = (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
-        actions.setBlockUITypesById(block.id, type)
-        actions.setBlockUIPropertiesById(block.id, opt?.properties || {}, true)
+        actions.setBlockUITypesById(block.bid, type)
+        actions.setBlockUIPropertiesById(block.bid, opt?.properties || {}, true)
 
-        const newUITypes = {
-            ...blockUITypes,
-            [block.id]: type,
-        }
-        const newUIProps = {
-            ...blockUIProperties,
-            [block.id]: opt?.properties || {},
-        }
+        // const newUITypes = {
+        //     ...blockUITypes,
+        //     [block.id]: type,
+        // }
+        // const newUIProps = {
+        //     ...blockUIProperties,
+        //     [block.id]: opt?.properties || {},
+        // }
 
         setIsChanged(false);
 
@@ -160,15 +161,13 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                 blocks,
                 blockContentTypes,
                 blockContentProperties,
-                newUITypes,
-                newUIProps,
                 currentShifu?.bid || ''
             )
         }
     }
 
     const onUITypeChange = (id: string, type: string) => {
-        if (type === blockUITypes[block.properties.block_id]) {
+        if (type === blockUITypes[block.bid]) {
             return;
         }
         if (isChanged) {
@@ -271,7 +270,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         </>
     )
 }, (prevProps, nextProps) => {
-    return prevProps.block.id === nextProps.block.id && prevProps.onExpandChange === nextProps.onExpandChange
+    return prevProps.block.bid === nextProps.block.bid && prevProps.onExpandChange === nextProps.onExpandChange
 })
 RenderBlockUI.displayName = 'RenderBlockUI'
 
@@ -296,27 +295,26 @@ export const useUITypes = () => {
         type: 'options',
         name: t('render-ui.option'),
         properties: {
-            "profile_id": "",
-            "buttons": [
+            "options": [
                 {
-                    "properties": {
-                        "button_name": t('render-ui.button-name'),
-                        "button_key": t('render-ui.button-key')
+                        "label": {
+                            "lang": {
+                                "zh-CN": t('render-ui.button-name'),
+                                "en-US": t('render-ui.button-name')
+                            }
                     },
-                    "type": "button"
+                    "value": t('render-ui.button-key')
                 }
             ]
         },
-        validate: (properties): string => {
-            // if (!properties.option_name) {
-            //     return t('render-ui.option-name-empty')
-            // }
-            if (properties.buttons.length === 0) {
+        validate: (data): string => {
+            console.log('validate',data)
+            if (data.properties.options.length === 0) {
                 return t('render-ui.option-buttons-empty')
             }
-            for (let i = 0; i < properties.buttons.length; i++) {
-                const item = properties.buttons[i];
-                if (!item.properties.button_key || item.properties.button_name == "") {
+            for (let i = 0; i < data.properties.options.length; i++) {
+                const item = data.properties.options[i];
+                if (!item.value || item.label.lang[i18n.language] == "") {
                     return t('render-ui.option-button-empty')
                 }
             }

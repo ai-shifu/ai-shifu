@@ -13,7 +13,7 @@ import {
 } from '../types/shifu'
 import api from '@/api'
 import { useContentTypes } from '@/components/render-block'
-import { useUITypes } from '@/components/render-ui'
+// import { useUITypes } from '@/components/render-ui'
 import { debounce } from 'lodash'
 import {
   createContext,
@@ -77,7 +77,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [models, setModels] = useState<string[]>([])
 
   // 确保在客户端环境下获取 UI 类型和内容类型
-  const UITypes = useUITypes()
+  // const UITypes = useUITypes()
   const ContentTypes = useContentTypes()
 
   const loadShifu = async (shifuId: string) => {
@@ -292,10 +292,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (isLoading) {
       return
     }
-
-    console.log('saveBlocks',blockContentProperties)
     const list = buildBlockListWithAllInfo(blocks, blockTypes, blockProperties)
-    console.log('saveBlocks',list)
     try {
       setError(null)
       await api.saveBlocks({

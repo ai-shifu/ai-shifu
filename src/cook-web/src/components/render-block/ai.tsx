@@ -5,13 +5,13 @@ import { UIBlockDTO,ContentDTO} from '@/types/shifu';
 
 export default function AI(props: UIBlockDTO) {
     const { data } = props;
-    const { content, llm, llm_enabled, llm_temperature } = data.properties as ContentDTO;
+    const { content } = data.properties as ContentDTO;
     return (
         <CMEditor
             content={content}
             isEdit={props.isEdit}
             // onBlur={props.onBlur}
-            onChange={(value, variables, isEdit) => {
+            onChange={(value) => {
                 props.onPropertiesChange({ ...data, properties: { ...data.properties, content: value } });
             }}
         />

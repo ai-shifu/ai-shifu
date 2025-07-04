@@ -18,7 +18,7 @@ import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header'
 import { BlockType } from '@/types/shifu'
-import RenderBlockContent, { useContentTypes } from '@/components/render-block'
+import { useContentTypes } from '@/components/render-block'
 import RenderBlockUI from '../render-ui'
 import AIDebugDialog from '@/components/ai-debug'
 
@@ -256,8 +256,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actions,
     blockContentTypes,
     blockContentProperties,
-    blockUIProperties,
-    blockUITypes,
+    // blockUIProperties,
+    // blockUITypes,
     currentNode,
     isLoading,
     currentShifu,
@@ -431,8 +431,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           newBlocks,
                           blockContentTypes,
                           blockContentProperties,
-                          blockUITypes,
-                          blockUIProperties,
                           currentShifu?.bid || ''
                         )
                       }}

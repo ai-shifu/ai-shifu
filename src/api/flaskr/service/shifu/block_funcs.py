@@ -480,18 +480,17 @@ def get_system_block_by_outline_id(app, outline_id: str) -> AILessonScript:
 
 
 def _fetch_profile_info_for_block_dto(app, block_dto: BlockDTO) -> None:
-    """根据 block_dto 的类型获取相应的 profile 信息"""
     if (
         isinstance(block_dto.block_content, OptionsDTO)
-        and block_dto.block_content.profile_id
+        and block_dto.block_content.result_variable_bid
     ):
         # block_dto = get_profile_info(app, block_dto.block_content.profile_id)
         pass
     elif (
         isinstance(block_dto.block_content, InputDTO)
-        and block_dto.block_content.profile_ids
+        and block_dto.block_content.result_variable_bid
     ):
-        if len(block_dto.block_content.profile_ids) == 1:
+        if len(block_dto.block_content.result_variable_bid) == 1:
             # block_dto.profile_info = get_profile_info(
             #     app, block_dto.block_content.profile_ids[0]
             # )

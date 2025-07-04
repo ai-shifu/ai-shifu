@@ -1,62 +1,57 @@
 'use client'
-import { useShifu } from '@/store'
+// import { useShifu } from '@/store'
 import AI from './ai'
 import SolidContent from './solid-content'
 import { useState ,memo} from 'react'
 import { useTranslation } from 'react-i18next'
 import _ from 'lodash'
-import { BlockDTO ,ContentDTO,UIBlockDTO} from '@/types/shifu'
+import { ContentDTO,UIBlockDTO} from '@/types/shifu'
 
 
 
 const RenderBlockContentPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
-  const isSame = _.isEqual(prevProps.id, nextProps.id) && prevProps.type === nextProps.type
+  const isSame = _.isEqual(prevProps.data.bid, nextProps.data.bid) && prevProps.data.type === nextProps.data.type
   if (!isSame) {
     return false
   }
 
-  const prevKeys = Object.keys(prevProps.properties || {})
-  const nextKeys = Object.keys(nextProps.properties || {})
+  const prevKeys = Object.keys(prevProps.data.properties || {})
+  const nextKeys = Object.keys(nextProps.data.properties || {})
   if (prevKeys.length !== nextKeys.length) {
     return false
   }
-  if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+  if (!_.isEqual(prevProps.data.properties, nextProps.data.properties)) {
     return false
   }
   return true
 }
 export const RenderBlockContent = memo(function RenderBlockContent(props: UIBlockDTO) {
-  const { id, data } = props
+  const { data } = props
   const properties = data.properties as ContentDTO
-  const { t } = useTranslation()
-  const {
-    actions,
-    blocks,
-    blockContentTypes,
-    currentNode,
-    blockUITypes,
-    blockContentProperties,
-    blockUIProperties,
-    currentShifu
-  } = useShifu()
-  const [error, setError] = useState('')
+  // const { t } = useTranslation()
+  // const {
+  //   actions,
+  //   blocks,
+  //   currentShifu
+  // } = useShifu()
+  const [error] = useState('')
 
   const onPropertiesChange = async properties => {
     props.onPropertiesChange(properties)
   }
 
-  const onSave = async () => {
-    setError('')
-    const block = blocks.find(item => item.properties.block_id == id)
-    if (block && properties.llm_enabled && properties.content == '') {
-      setError(t('render-block.ai-content-empty'))
-      return
-    } else if (block && properties.content == '') {
-      setError(t('render-block.solid-content-empty'))
-      return
-    }
-    await actions.saveBlocks(currentShifu?.bid || '')
-  }
+  // const onSave = async () => {
+  //   setError('')
+  //   const block = blocks.find(item => item.properties.block_id == id)
+  //   if (block && properties.llm_enabled && properties.content == '') {
+  //     setError(t('render-block.ai-content-empty'))
+  //     return
+  //   } else if (block && properties.content == '') {
+  //     setError(t('render-block.solid-content-empty'))
+  //     return
+  //   }
+  //   await actions.saveBlocks(currentShifu?.bid || '')
+  // }
 
   const isEdit = true
   const Ele =  properties.llm_enabled ? AI : SolidContent

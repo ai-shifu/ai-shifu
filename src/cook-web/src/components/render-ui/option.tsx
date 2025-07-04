@@ -15,7 +15,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash'
 import { ProfileFormItem } from '@/components/profiles'
-import { BlockDTO ,OptionsDTO, UIBlockDTO} from '@/types/shifu'
+import { OptionsDTO, UIBlockDTO} from '@/types/shifu'
 import i18n from '@/i18n'
 
 
@@ -41,44 +41,42 @@ export default memo(function Option(props: UIBlockDTO) {
     // const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const optionsSettings = data.properties as OptionsDTO
+    console.log('optionsSettings',optionsSettings)
     const [tempValue, setTempValue] = useState<string>(optionsSettings.result_variable_bid);
     const [tempOptions, setTempOptions] = useState(optionsSettings.options.length === 0 ? [{
-        "properties": {
-            "label": {
-                "lang": {
-                    [i18n.language]: t('option.button-name')
-                },
-                "value": t('option.button-key')
-            },
-        },
-        "type": "button"
+        "value": t('option.button-key'),
+        "label": {
+            "lang": {
+                [i18n.language]: t('option.button-name')
+            }
+        }
     }] : optionsSettings.options);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
     const onButtonValueChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
+        console.log('onButtonValueChange',index,e.target.value)
         setTempOptions(tempOptions.map((option: any, i: number) => {
             if (i === index) {
                 return {
                     ...option,
-                    properties: {
-                        ...option.properties,
-                        button_key: e.target.value
-                    }
+                    value: e.target.value
                 }
             }
             return option;
         }));
     }
-
     const onButtonTextChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
         setTempOptions(tempOptions.map((option: any, i: number) => {
             if (i === index) {
                 return {
                     ...option,
-                    properties: {
-                        ...option.properties,
-                        button_name: e.target.value,
+                    label: {
+                        ...option.label,
+                        lang: {
+                            ...option.label.lang,
+                            [i18n.language]: e.target.value
+                        }
                     }
                 }
             }
@@ -88,15 +86,12 @@ export default memo(function Option(props: UIBlockDTO) {
 
     const onAdd = (index: number) => {
         const newOption = {
-            "properties": {
-                "label": {
-                    "lang": {
-                        [i18n.language]: t('option.button-name')
-                    },
-                    "value": t('option.button-key')
+            "label": {
+                "lang": {
+                    [i18n.language]: t('option.button-name')
                 },
+                "value": t('option.button-key')
             },
-            "type": "button"
         }
         setTempOptions([
             ...tempOptions.slice(0, index + 1),
@@ -125,21 +120,24 @@ export default memo(function Option(props: UIBlockDTO) {
     const handleConfirm = () => {
         if (tempOptions.length === 0) {
             const defaultButton = {
-                "properties": {
-                    "button_name": t('option.button-name'),
-                    "button_key": t('option.button-key')
-                },
-                "type": "button"
+                "value": t('option.button-key'),
+                "label": {
+                    "lang": {
+                        [i18n.language]: t('option.button-name')
+                    },
+                }
             };
             setTempOptions([defaultButton]);
         }
 
         const updatedProperties = {
             ...data,
-            profile_id: tempValue,
-            options: tempOptions
-        };
-        props.onChange(updatedProperties);
+            properties: {
+                ...data.properties,
+                options: tempOptions
+            }
+        }
+        props.onPropertiesChange(updatedProperties);
     }
 
     const handleProfileChange = (value: string[]) => {
@@ -162,27 +160,29 @@ export default memo(function Option(props: UIBlockDTO) {
                                 {t('option.value')}
                             </span>
                             <Input className='w-40' placeholder={t('option.variable-placeholder')} value="全部" onChange={(e) => {
-                                const newButton = {
-                                    "properties": {
-                                        "button_name": "全部",
-                                        "button_key": e.target.value
+                                const newOption = {
+                                    "label": {
+                                        "lang": {
+                                            [i18n.language]: "全部"
+                                        },
                                     },
-                                    "type": "button"
+                                    "value": e.target.value
                                 };
-                                setTempButtons([newButton]);
+                                setTempOptions([newOption]);
                             }}></Input>
                             <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
                                 {t('option.title')}
                             </label>
                             <Input className='w-40 ml-4' placeholder={t('option.title-placeholder')} value="全部" onChange={(e) => {
-                                const newButton = {
-                                    "properties": {
-                                        "button_name": e.target.value,
-                                        "button_key": "全部"
+                                const newOption = {
+                                    "label": {
+                                        "lang": {
+                                            [i18n.language]: e.target.value
+                                        },
                                     },
-                                    "type": "button"
+                                    "value": "全部"
                                 };
-                                setTempButtons([newButton]);
+                                setTempOptions([newOption]);
                             }}></Input>
                             <Button className='h-8 w-8' variant="ghost" onClick={() => onAdd(-1)} >
                                 <Plus />
@@ -191,6 +191,7 @@ export default memo(function Option(props: UIBlockDTO) {
                     ) : (
                         tempOptions.map((option: any, index: number) => {
                             return (
+                                console.log('option',option),
                                 <div key={index} className='flex flex-row items-center'>
                                     <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                                         {t('option.value')}
@@ -199,7 +200,7 @@ export default memo(function Option(props: UIBlockDTO) {
                                     <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
                                         {t('option.title')}
                                     </label>
-                                    <Input value={option.label} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
+                                    <Input value={option.label.lang[i18n.language]} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
                                     <Button className='h-8 w-8' variant="ghost" onClick={onAdd.bind(null, index)} >
                                         <Plus />
                                     </Button>

@@ -17,7 +17,8 @@ const ButtonPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
 }
 
 export default memo(function Button(props: UIBlockDTO) {
-    const { id, data, onChanged,onPropertiesChange,isEdit,type } = props
+    const { data, onChanged,onPropertiesChange,isEdit } = props
+    const type = data.type
     const buttonProperties = data.properties as ButtonDTO
     const [tempValue, setTempValue] = useState(buttonProperties.label.lang['zh-CN'])
     const [changed, setChanged] = useState(false)
@@ -43,7 +44,8 @@ export default memo(function Button(props: UIBlockDTO) {
                         ...buttonProperties.label,
                         lang: {
                             ...buttonProperties.label.lang,
-                            'zh-CN': value
+                            'zh-CN': value,
+                            'en-US': value
                         }
                     }
                 }
@@ -59,7 +61,8 @@ export default memo(function Button(props: UIBlockDTO) {
                     ...buttonProperties.label,
                 lang: {
                     ...buttonProperties.label.lang,
-                        'zh-CN': tempValue
+                        'zh-CN': tempValue,
+                        'en-US': tempValue
                     }
                 }
             }

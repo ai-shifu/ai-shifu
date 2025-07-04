@@ -674,12 +674,13 @@ def generate_block_dto_from_model(
 
     current_app.logger.info(f"block_model: {block_model.script_ui_content}")
     ret = []
+    block_model.script_ui_profile_id = ",".join(variable_bids)
     variables_in_prompt = []
     if (
         block_model.script_type == SCRIPT_TYPE_FIX
         or block_model.script_type == SCRIPT_TYPE_PROMPT
     ):
-        html_content = html_2_markdown(block_model.script_prompt, variables_in_prompt)
+        html_content = markdown_2_html(block_model.script_prompt, variables_in_prompt)
         ret.append(
             BlockDTO(
                 bid=block_model.script_id,
