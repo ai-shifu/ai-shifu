@@ -163,7 +163,11 @@ def handle_reload_script(
             yield make_script_dto_to_stream(script_dto)
     else:
         res = update_lesson_status(app, attend.attend_id, True)
-        res.append(handle_ask_mode(app, user_info, attend, script_info, input, trace, trace_args))
+        res.append(
+            handle_ask_mode(
+                app, user_info, attend, script_info, input, trace, trace_args
+            )
+        )
         if res:
             for attend_update in res:
                 if isinstance(attend_update, AILessonAttendDTO):
@@ -513,7 +517,17 @@ def run_script_inner(
                             yield make_script_dto_to_stream(script_dto)
                     else:
                         res = update_lesson_status(app, attend.attend_id, preview_mode)
-                        res.append(handle_ask_mode(app, user_info, attend, script_info, input, trace, trace_args))
+                        res.append(
+                            handle_ask_mode(
+                                app,
+                                user_info,
+                                attend,
+                                script_info,
+                                input,
+                                trace,
+                                trace_args,
+                            )
+                        )
                         if res:
                             for attend_update in res:
                                 if isinstance(attend_update, AILessonAttendDTO):
