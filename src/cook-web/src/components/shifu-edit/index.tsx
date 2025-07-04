@@ -17,8 +17,7 @@ import { useShifu, useAuth } from '@/store'
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header'
-import { BlockType } from '@/types/shifu'
-import { useContentTypes } from '@/components/render-block'
+import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu'
 import RenderBlockUI from '../render-ui'
 import AIDebugDialog from '@/components/ai-debug'
 
@@ -45,10 +44,11 @@ interface DraggableBlockProps {
   id: string
   type: BlockType
   index: number
+  block: BlockDTO
   moveBlock: (dragIndex: number, hoverIndex: number) => void
   onClickDebug?: (id: string) => void
   onClickRemove?: (id: string) => void
-  onClickChangeType?: (id: string, type: BlockType) => void
+  onClickChangeType?: (id: string, llm_enabled: boolean) => void
   children: React.ReactNode
   disabled?: boolean
   error?: string | null
@@ -58,6 +58,7 @@ const DraggableBlock = ({
   id,
   type,
   index,
+  block,
   moveBlock,
   onClickDebug,
   onClickRemove,
@@ -68,6 +69,8 @@ const DraggableBlock = ({
 }: DraggableBlockProps) => {
   const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
+
+  const [llmEnabled, setLlmEnabled] = useState((block.properties as ContentDTO).llm_enabled)
 
   const [{ handlerId }, drop] = useDrop<
     DragItem,
@@ -188,21 +191,29 @@ const DraggableBlock = ({
             }}
           >
             <div className='flex flex-col gap-2 text-sm'>
+
+
+
+            {type === 'content' && (
               <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                {type === 'content' ? t('shifu.ai-block') : t('shifu.regular-block')}
+                {llmEnabled ? t('shifu.ai-block') : t('shifu.regular-block')}
               </div>
-              <div
+            )}
+              {type === 'content' && ( <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                 onClick={() =>
-                  onClickChangeType?.(id, type === 'content' ? 'button' : 'content')
-                }
+                  {
+                    onClickChangeType?.(id, !llmEnabled)
+                    setLlmEnabled(!llmEnabled)
+                 }}
               >
                 <Settings2 className='h-4 w-4' />
-                {type === 'content'
+                {llmEnabled
                   ? t('shifu.setting-regular-block')
                   : t('shifu.setting-ai-block')}
               </div>
-              {type === 'content' && (
+            )}
+              {type === 'content' && llmEnabled && (
                 <div
                   className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                   onClick={() => onClickDebug?.(id)}
@@ -239,7 +250,6 @@ const DraggableBlock = ({
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
   const { profile } = useAuth()
-  const ContentTypes = useContentTypes()
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
     {}
   )
@@ -255,7 +265,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     chapters,
     actions,
     blockContentTypes,
-    blockContentProperties,
+    blockProperties ,
     // blockUIProperties,
     // blockUITypes,
     currentNode,
@@ -317,22 +327,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actions.addBlock(index, type, bid)
   }
 
-  const onChangeBlockType = (id: string, type: BlockType) => {
-    const opt = ContentTypes.find(p => p.type === type)
-    const mergeOpt = {
-      ...opt,
+  const onChangeBlockType = (id: string, llm_enabled: boolean) => {
+
+    console.log(id, llm_enabled)
+
+    const p = blockProperties[id].properties as ContentDTO
+    console.log(p)
+    actions.updateBlockProperties(id, {
+      ...blockProperties[id],
       properties: {
-        ...opt?.properties,
-        prompt: blockContentProperties?.[id]?.prompt,
-        profiles: blockContentProperties?.[id]?.profiles
+        ...p,
+        llm_enabled: llm_enabled
       }
-    }
-    actions.setBlockContentTypesById(id, type)
-    actions.setBlockContentPropertiesById(
-      id,
-      mergeOpt?.properties || ({} as any),
-      true
-    )
+    });
+
     actions.saveBlocks(currentShifu?.bid || '')
   }
 
@@ -418,6 +426,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     <DraggableBlock
                       key={block.bid}
                       id={block.bid}
+                      block={block}
                       type={block.type as BlockType}
                       index={index}
                       moveBlock={(dragIndex: number, hoverIndex: number) => {
@@ -430,7 +439,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           currentNode!.id,
                           newBlocks,
                           blockContentTypes,
-                          blockContentProperties,
+                          blockProperties,
                           currentShifu?.bid || ''
                         )
                       }}

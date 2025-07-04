@@ -37,6 +37,7 @@ from flaskr.service.lesson.const import (
 
 import json
 from flaskr.service.common import raise_error
+from flaskr.util import generate_id
 import re
 
 
@@ -823,6 +824,6 @@ def generate_block_dto_from_model(
             )
         )
     if len(ret) > 1:
-        ret[1].bid = ret[0].bid + "_1"
+        ret[1].bid = generate_id(app)
 
     return ret

@@ -270,7 +270,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setBlockProperties(properties)
   }
 
-  const updateBlockProperties = useCallback(async (bid: string, properties: any) => {
+  const updateBlockProperties =useCallback(async(bid: string, properties: any) => {
+    const block = blocks.find(b => b.bid === bid)
+    if (block) {
+      console.log(block)
+      block.properties = properties
+      setBlocks([...blocks])
+    }
     setBlockProperties(prev => {
       return {
         ...prev,

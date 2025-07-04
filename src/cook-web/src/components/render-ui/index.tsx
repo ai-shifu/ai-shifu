@@ -10,8 +10,7 @@ import Goto from './goto'
 // import GotoView from './view/goto'
 import TextInput from './textinput'
 // import TextInputView from './view/textinput'
-import { RenderBlockContent } from '../render-block/index'
-import Break from './break'
+import {RenderBlockContent} from '../render-block/index'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { ChevronDown } from 'lucide-react'
@@ -26,7 +25,6 @@ import { BlockDTO, BlockType, UIBlockDTO } from '@/types/shifu';
 import i18n from '@/i18n';
 const componentMap = {
     content: RenderBlockContent,
-    break: Break,
     input: TextInput,
     button: Button,
     options: Option,
@@ -119,7 +117,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const {
         actions,
         blockUITypes,
-        // blockUIProperties,
         currentNode,
         blocks,
         blockContentTypes,
@@ -127,7 +124,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         currentShifu,
         blockProperties,
     } = useShifu();
-    const [expand, setExpand] = useState(false)
+    const [expand, setExpand] = useState(block.type === 'content' ? true : false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
     const [isChanged, setIsChanged] = useState(false)
@@ -350,7 +347,6 @@ export const useUITypes = () => {
             validate: (data): string => {
                 const p = data.properties
 
-                console.log('validate', p)
                 if (!p.placeholder.lang[i18n.language]) {
                     return t('render-ui.textinput-placeholder-empty')
                 }
