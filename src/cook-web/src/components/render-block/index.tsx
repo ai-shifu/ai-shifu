@@ -2,11 +2,10 @@
 // import { useShifu } from '@/store'
 import AI from './ai'
 import SolidContent from './solid-content'
-import { useState ,memo} from 'react'
+import { useState, memo } from 'react'
 import { useTranslation } from 'react-i18next'
 import _ from 'lodash'
-import { ContentDTO,UIBlockDTO} from '@/types/shifu'
-
+import { ContentDTO, UIBlockDTO } from '@/types/shifu'
 
 
 const RenderBlockContentPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
@@ -25,6 +24,7 @@ const RenderBlockContentPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockD
   }
   return true
 }
+
 export const RenderBlockContent = memo(function RenderBlockContent(props: UIBlockDTO) {
   const { data } = props
   const properties = data.properties as ContentDTO
@@ -54,7 +54,7 @@ export const RenderBlockContent = memo(function RenderBlockContent(props: UIBloc
   // }
 
   const isEdit = true
-  const Ele =  properties.llm_enabled ? AI : SolidContent
+  const Ele = properties.llm_enabled ? AI : SolidContent
 
   return (
     <div className='bg-[#F5F5F4]'>
@@ -63,7 +63,7 @@ export const RenderBlockContent = memo(function RenderBlockContent(props: UIBloc
           {...props}
           isEdit={isEdit}
           onPropertiesChange={onPropertiesChange}
-       />
+        />
       </div>
       {error && <div className='text-red-500 text-sm px-2 pb-2'>{error}</div>}
     </div>
@@ -159,16 +159,16 @@ export const useContentTypes = () => {
       type: 'input',
       name: t('render-ui.textinput'),
       properties: {
-        placeholder:{
-          lang:{
+        placeholder: {
+          lang: {
             'zh-CN': '',
             'en-US': ''
           }
         },
-        prompt:'',
-        result_variable_bids:[],
-        llm:'',
-        llm_temperature:'0.40'
+        prompt: '',
+        result_variable_bids: [],
+        llm: '',
+        llm_temperature: '0.40'
       }
     },
     {
@@ -178,4 +178,4 @@ export const useContentTypes = () => {
 
       }
     }]
-  }
+}

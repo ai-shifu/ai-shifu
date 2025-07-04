@@ -15,17 +15,17 @@ import {
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash'
 import { ProfileFormItem } from '@/components/profiles'
-import { OptionsDTO, UIBlockDTO} from '@/types/shifu'
+import { OptionsDTO, UIBlockDTO } from '@/types/shifu'
 import i18n from '@/i18n'
 
 
 const OptionPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
     const prevOptionsSettings = prevProps.data.properties as OptionsDTO
     const nextOptionsSettings = nextProps.data.properties as OptionsDTO
-    if (! _.isEqual(prevProps.data, nextProps.data)) {
+    if (!_.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
-    if (! _.isEqual(prevOptionsSettings.result_variable_bid, nextOptionsSettings.result_variable_bid)) {
+    if (!_.isEqual(prevOptionsSettings.result_variable_bid, nextOptionsSettings.result_variable_bid)) {
         return false
     }
     for (let i = 0; i < prevOptionsSettings.options.length; i++) {
@@ -41,7 +41,7 @@ export default memo(function Option(props: UIBlockDTO) {
     // const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const optionsSettings = data.properties as OptionsDTO
-    console.log('optionsSettings',optionsSettings)
+    console.log('optionsSettings', optionsSettings)
     const [tempValue, setTempValue] = useState<string>(optionsSettings.result_variable_bid);
     const [tempOptions, setTempOptions] = useState(optionsSettings.options.length === 0 ? [{
         "value": t('option.button-key'),
@@ -55,7 +55,7 @@ export default memo(function Option(props: UIBlockDTO) {
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
     const onButtonValueChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-        console.log('onButtonValueChange',index,e.target.value)
+        console.log('onButtonValueChange', index, e.target.value)
         setTempOptions(tempOptions.map((option: any, i: number) => {
             if (i === index) {
                 return {
@@ -66,6 +66,7 @@ export default memo(function Option(props: UIBlockDTO) {
             return option;
         }));
     }
+
     const onButtonTextChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
         setTempOptions(tempOptions.map((option: any, i: number) => {
             if (i === index) {
@@ -151,7 +152,7 @@ export default memo(function Option(props: UIBlockDTO) {
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('option.variable')}
                 </label>
-                <ProfileFormItem value={[tempValue||'']} onChange={handleProfileChange} />
+                <ProfileFormItem value={[tempValue || '']} onChange={handleProfileChange} />
             </div>
             <div className='flex flex-col space-y-2'>
                 {
@@ -192,7 +193,7 @@ export default memo(function Option(props: UIBlockDTO) {
                     ) : (
                         tempOptions.map((option: any, index: number) => {
                             return (
-                                console.log('option',option),
+                                console.log('option', option),
                                 <div key={index} className='flex flex-row items-center'>
                                     <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                                         {t('option.value')}
@@ -240,4 +241,4 @@ export default memo(function Option(props: UIBlockDTO) {
             </AlertDialog>
         </div>
     )
-},OptionPropsEqual)
+}, OptionPropsEqual)

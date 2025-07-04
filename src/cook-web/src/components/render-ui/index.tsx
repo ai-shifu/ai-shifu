@@ -10,7 +10,7 @@ import Goto from './goto'
 // import GotoView from './view/goto'
 import TextInput from './textinput'
 // import TextInputView from './view/textinput'
-import {RenderBlockContent} from '../render-block/index'
+import { RenderBlockContent } from '../render-block/index'
 import Break from './break'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -34,7 +34,7 @@ const componentMap = {
     phone: SingleInput,
     code: SingleInput,
     // old
-    option:  Option,
+    option: Option,
     textinput: TextInput,
     login: (props) => <Button {...props} mode="login" />,
     payment: (props) => <Button {...props} mode="payment" />,
@@ -42,7 +42,7 @@ const componentMap = {
 }
 
 const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
-    if (! _.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
+    if (!_.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
         return false
     }
     const prevKeys = Object.keys(prevProps.properties || {})
@@ -55,7 +55,7 @@ const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
     }
     return true
 }
-export const BlockUI = memo(function BlockUI(p: UIBlockDTO){
+export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
     const { id, data, onChanged } = p
     const { actions, currentNode, blocks, blockTypes, blockProperties, currentShifu } = useShifu();
     const [error, setError] = useState('');
@@ -101,7 +101,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO){
                     data: data,
                     onPropertiesChange: onPropertiesChange,
                     onChanged: handleChanged,
-                    onEditChange: () => {},
+                    onEditChange: () => { },
                     isEdit: false,
                     isChanged: false
                 }}
@@ -181,7 +181,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     }
 
     const onPropertiesChange = (properties) => {
-        console.log('onPropertiesChange',properties)
+        console.log('onPropertiesChange', properties)
     }
 
     const handleBlockEditChange = (isEdit: boolean) => {
@@ -270,53 +270,53 @@ export default RenderBlockUI
 export const useUITypes = () => {
     const { t } = useTranslation();
     return [
-    {
-        type: 'button',
-        name: t('render-ui.button'),
-        properties: {
-            "label": {
-                "lang": {
-                    "zh-CN": t('render-ui.button-name'),
-                    "en-US": t('render-ui.button-name')
-                }
-            },
-        }
-    },
-    {
-        type: 'options',
-        name: t('render-ui.option'),
-        properties: {
-            "options": [
-                {
+        {
+            type: 'button',
+            name: t('render-ui.button'),
+            properties: {
+                "label": {
+                    "lang": {
+                        "zh-CN": t('render-ui.button-name'),
+                        "en-US": t('render-ui.button-name')
+                    }
+                },
+            }
+        },
+        {
+            type: 'options',
+            name: t('render-ui.option'),
+            properties: {
+                "options": [
+                    {
                         "label": {
                             "lang": {
                                 "zh-CN": t('render-ui.button-name'),
                                 "en-US": t('render-ui.button-name')
                             }
-                    },
-                    "value": t('render-ui.button-key')
+                        },
+                        "value": t('render-ui.button-key')
+                    }
+                ]
+            },
+            validate: (data): string => {
+                console.log('validate', data)
+                if (data.properties.options.length === 0) {
+                    return t('render-ui.option-buttons-empty')
                 }
-            ]
+                for (let i = 0; i < data.properties.options.length; i++) {
+                    const item = data.properties.options[i];
+                    if (!item.value || item.label.lang[i18n.language] == "") {
+                        return t('render-ui.option-button-empty')
+                    }
+                }
+                return ""
+            }
         },
-        validate: (data): string => {
-            console.log('validate',data)
-            if (data.properties.options.length === 0) {
-                return t('render-ui.option-buttons-empty')
-            }
-            for (let i = 0; i < data.properties.options.length; i++) {
-                const item = data.properties.options[i];
-                if (!item.value || item.label.lang[i18n.language] == "") {
-                    return t('render-ui.option-button-empty')
-                }
-            }
-            return ""
-        }
-    },
-    {
-        type: 'goto',
-        name: t('render-ui.goto'),
-        properties: {
-            "items": [
+        {
+            type: 'goto',
+            name: t('render-ui.goto'),
+            properties: {
+                "items": [
                     {
                         "value": t('render-ui.goto-value'),
                         "type": "outline",
@@ -328,77 +328,77 @@ export const useUITypes = () => {
                         "goto_id": "tbl9gl38im3rd1HB"
                     }
                 ],
-        }
-    },
-    {
-        type: 'input',
-        name: t('render-ui.textinput'),
-        properties: {
-            "prompt": "",
-            "variables": [
-            ],
-            "llm": "",
-            "llm_temperature": "0.40",
-            "placeholder": {
-                "lang": {
-                    "zh-CN": "",
-                    "en-US": ""
-                }
-            },
-            "result_variable_bids": []
+            }
         },
-        validate: (data): string => {
-            const p = data.properties
-
-            console.log('validate',p)
-            if (!p.placeholder.lang[i18n.language]) {
-                return t('render-ui.textinput-placeholder-empty')
-            }
-            if (!p?.prompt) {
-                return t('render-ui.textinput-prompt-empty')
-            }
-            if (typeof p?.llm_temperature == 'undefined') {
-                return t('render-ui.textinput-temperature-empty')
-            }
-            return ""
-        }
-
-    },
-    {
-        type: 'empty',
-        name: t('render-ui.none'),
-        properties: {},
-    },
-    {
-        type: 'login',
-        name: t('render-ui.login'),
-        properties: {
-            "button_name": "",
-            "button_key": ""
-        }
-    },
-    {
-        type: 'payment',
-        name: t('render-ui.payment'),
-        properties: {
-            "button_name": "",
-            "button_key": ""
-        }
-    },
-    {
-        type: 'content',
-        name: t('render-ui.content'),
-        properties: {
-            "content": "",
-            "llm": "",
-            "llm_temperature": "0.40",
-            "placeholder": {
-                "lang": {
-                    "zh-CN": "",
-                    "en-US": ""
-                }
+        {
+            type: 'input',
+            name: t('render-ui.textinput'),
+            properties: {
+                "prompt": "",
+                "variables": [
+                ],
+                "llm": "",
+                "llm_temperature": "0.40",
+                "placeholder": {
+                    "lang": {
+                        "zh-CN": "",
+                        "en-US": ""
+                    }
+                },
+                "result_variable_bids": []
             },
+            validate: (data): string => {
+                const p = data.properties
+
+                console.log('validate', p)
+                if (!p.placeholder.lang[i18n.language]) {
+                    return t('render-ui.textinput-placeholder-empty')
+                }
+                if (!p?.prompt) {
+                    return t('render-ui.textinput-prompt-empty')
+                }
+                if (typeof p?.llm_temperature == 'undefined') {
+                    return t('render-ui.textinput-temperature-empty')
+                }
+                return ""
+            }
+
+        },
+        {
+            type: 'empty',
+            name: t('render-ui.none'),
+            properties: {},
+        },
+        {
+            type: 'login',
+            name: t('render-ui.login'),
+            properties: {
+                "button_name": "",
+                "button_key": ""
+            }
+        },
+        {
+            type: 'payment',
+            name: t('render-ui.payment'),
+            properties: {
+                "button_name": "",
+                "button_key": ""
+            }
+        },
+        {
+            type: 'content',
+            name: t('render-ui.content'),
+            properties: {
+                "content": "",
+                "llm": "",
+                "llm_temperature": "0.40",
+                "placeholder": {
+                    "lang": {
+                        "zh-CN": "",
+                        "en-US": ""
+                    }
+                },
+            }
         }
-    }
     ]
 }

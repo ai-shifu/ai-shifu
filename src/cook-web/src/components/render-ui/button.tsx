@@ -3,11 +3,11 @@ import { Input } from '../ui/input'
 import { Button as UIButton } from '../ui/button'
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash'
-import { UIBlockDTO,ButtonDTO } from '@/types/shifu'
+import { UIBlockDTO, ButtonDTO } from '@/types/shifu'
 
 const ButtonPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
 
-    if (! _.isEqual(prevProps.data, nextProps.data)) {
+    if (!_.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
     if (!_.isEqual(prevProps.data.properties, nextProps.data.properties)) {
@@ -17,7 +17,7 @@ const ButtonPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
 }
 
 export default memo(function Button(props: UIBlockDTO) {
-    const { data, onChanged,onPropertiesChange,isEdit } = props
+    const { data, onChanged, onPropertiesChange, isEdit } = props
     const type = data.type
     const buttonProperties = data.properties as ButtonDTO
     const [tempValue, setTempValue] = useState(buttonProperties.label.lang['zh-CN'])
@@ -36,20 +36,20 @@ export default memo(function Button(props: UIBlockDTO) {
             setChanged(true)
             onChanged?.(true)
         }
-            onPropertiesChange({
-                ...data,
-                properties: {
-                    ...data.properties,
-                    label: {
-                        ...buttonProperties.label,
-                        lang: {
-                            ...buttonProperties.label.lang,
-                            'zh-CN': value,
-                            'en-US': value
-                        }
+        onPropertiesChange({
+            ...data,
+            properties: {
+                ...data.properties,
+                label: {
+                    ...buttonProperties.label,
+                    lang: {
+                        ...buttonProperties.label.lang,
+                        'zh-CN': value,
+                        'en-US': value
                     }
                 }
-            })
+            }
+        })
     }, [changed, onChanged, data, onPropertiesChange, tempValue])
 
     const handleConfirm = useCallback(() => {
@@ -59,8 +59,8 @@ export default memo(function Button(props: UIBlockDTO) {
                 ...data.properties,
                 label: {
                     ...buttonProperties.label,
-                lang: {
-                    ...buttonProperties.label.lang,
+                    lang: {
+                        ...buttonProperties.label.lang,
                         'zh-CN': tempValue,
                         'en-US': tempValue
                     }
@@ -113,4 +113,4 @@ export default memo(function Button(props: UIBlockDTO) {
             )}
         </div>
     )
-},ButtonPropsEqual)
+}, ButtonPropsEqual)

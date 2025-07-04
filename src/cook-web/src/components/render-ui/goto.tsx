@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import OutlineSelector from '@/components/outline-selector'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { useShifu } from '@/store'
-import { Outline ,GotoDTO, ProfileItemDefination,UIBlockDTO} from '@/types/shifu'
+import { Outline, GotoDTO, ProfileItemDefination, UIBlockDTO } from '@/types/shifu'
 import api from '@/api'
 import { Button } from '../ui/button'
 import { useTranslation } from 'react-i18next';
@@ -14,7 +14,7 @@ import _ from 'lodash'
 const GotoPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
     const prevGotoSettings = prevProps.data.properties as GotoDTO
     const nextGotoSettings = nextProps.data.properties as GotoDTO
-    if (! _.isEqual(prevProps.data, nextProps.data)) {
+    if (!_.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
 
@@ -32,6 +32,7 @@ const GotoPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
 
     return true
 }
+
 export default memo(function Goto(props: UIBlockDTO) {
     const { data, onChanged } = props
     const [changed, setChanged] = useState(false);
@@ -45,7 +46,6 @@ export default memo(function Goto(props: UIBlockDTO) {
     const [tempGotoSettings, setTempGotoSettings] = useState(gotoSettings);
 
     const onNodeSelect = (index: number, node: Outline) => {
-
         setTempGotoSettings({
             ...tempGotoSettings,
             conditions: tempGotoSettings.conditions.map((item, i) => {
@@ -178,4 +178,4 @@ export default memo(function Goto(props: UIBlockDTO) {
             </div>
         </div>
     )
-},GotoPropsEqual)
+}, GotoPropsEqual)

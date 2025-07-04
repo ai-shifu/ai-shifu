@@ -1,6 +1,6 @@
 
 import CMEditor from '@/components/cm-editor';
-import { BlockDTO,ContentDTO } from '@/types/shifu';
+import { BlockDTO, ContentDTO } from '@/types/shifu';
 
 interface Content {
     id: string;

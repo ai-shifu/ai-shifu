@@ -31,8 +31,6 @@ UI_TYPE_BRANCH = 309
 # only generate content block
 UI_TYPE_CONTENT = 330
 UI_TYPE_BREAK = 331
-
-
 UI_TYPE_ASK = 321
 UI_TYPES = {
     "显示 按钮": UI_TYPE_BUTTON,
@@ -47,7 +45,6 @@ UI_TYPES = {
     "跳转按钮": UI_TYPE_BRANCH,
 }
 
-
 UI_TYPE_VALUES = {
     UI_TYPE_BUTTON: "显示 按钮",
     UI_TYPE_INPUT: "显示 输入框",
@@ -59,7 +56,6 @@ UI_TYPE_VALUES = {
     UI_TYPE_EMPTY: "无",
     UI_TYPE_BRANCH: "跳转按钮",
 }
-
 
 LESSON_TYPE_TRIAL = 401
 LESSON_TYPE_NORMAL = 402
@@ -94,7 +90,6 @@ ASK_MODES = {
     "禁用": ASK_MODE_DISABLE,
     "启用": ASK_MODE_ENABLE,
 }
-
 
 STATUS_DELETE = 0
 STATUS_PUBLISH = 1

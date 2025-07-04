@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next'
 import { memo } from 'react'
 import _ from 'lodash'
 import { ProfileFormItem } from '@/components/profiles'
-import { InputDTO,UIBlockDTO} from '@/types/shifu'
+import { InputDTO, UIBlockDTO } from '@/types/shifu'
 import i18n from '@/i18n'
 
 const TextInputPropsEqual = (
@@ -29,12 +29,12 @@ const TextInputPropsEqual = (
   return true
 }
 
-function TextInput (props: UIBlockDTO) {
+function TextInput(props: UIBlockDTO) {
   const { data, onChanged } = props
   const [tempProperties, setTempProperties] = useState(data.properties as InputDTO)
   const [changed, setChanged] = useState(false)
   const { t } = useTranslation()
-  const onValueChange = (value:string) => {
+  const onValueChange = (value: string) => {
     if (!changed) {
       setChanged(true)
       onChanged?.(true)

@@ -1,7 +1,6 @@
 UNIT_TYPE_TRIAL = "trial"
 UNIT_TYPE_NORMAL = "normal"
 
-
 BLOCK_TYPE_CONTENT = "content"
 BLOCK_TYPE_BREAK = "break"
 BLOCK_TYPE_BUTTON = "button"

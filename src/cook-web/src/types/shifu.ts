@@ -1,4 +1,4 @@
-export type BlockType =  | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input';
+export type BlockType = | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input';
 
 export interface Shifu {
     bid: string;
@@ -24,7 +24,7 @@ export interface Outline {
 
 export interface Block {
     bid: string;
-    properties:  any;
+    properties: any;
     type: string;
     variable_bids: string[];
     resource_bids: string[];
@@ -108,7 +108,7 @@ export interface ShifuActions {
     setBlockContentTypesById: (id: string, type: BlockType) => void;
     setBlockUIPropertiesById: (id: string, properties: any, reset?: boolean) => void;
     setBlockUITypesById: (id: string, type: BlockType) => void;
-    updateChapterOrder: (move_chapter_id: string,move_to_parent_id?: string,chapterIds?: string[]) => Promise<void>
+    updateChapterOrder: (move_chapter_id: string, move_to_parent_id?: string, chapterIds?: string[]) => Promise<void>
     setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
     setBlocks: (blocks: Block[]) => void;
     saveBlocks: (shifuId: string) => Promise<void>;
@@ -127,7 +127,6 @@ export interface ShifuContextType extends ShifuState {
     actions: ShifuActions;
 }
 
-
 export interface AIBlockProperties {
     prompt: string,
     profiles?: string[],
@@ -145,6 +144,7 @@ export interface SolidContentBlockProperties {
 export interface LabelDTO {
     lang: Record<string, string>;
 }
+
 export interface ContentDTO {
     content: string;
     llm_enabled: boolean;
@@ -169,8 +169,6 @@ export interface OptionItemDTO {
     value: string;
 }
 
-
-
 export interface OptionsDTO {
     result_variable_bid: string;
     options: OptionItemDTO[];
@@ -182,17 +180,9 @@ export interface GotoConditionDTO {
     value: string;
 }
 
-
-
 export interface GotoDTO {
     conditions: GotoConditionDTO[];
 }
-
-
-
-
-
-
 
 export interface BlockDTO {
     bid: string;
@@ -202,12 +192,6 @@ export interface BlockDTO {
     resource_bids: string[];
 }
 
-
-
-
-/**
- *
- */
 export interface UIBlockDTO {
     data: BlockDTO;
     id: string;
