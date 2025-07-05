@@ -1,2 +1,11 @@
 UNIT_TYPE_TRIAL = "trial"
 UNIT_TYPE_NORMAL = "normal"
+
+BLOCK_TYPE_CONTENT = "content"
+BLOCK_TYPE_BREAK = "break"
+BLOCK_TYPE_BUTTON = "button"
+BLOCK_TYPE_INPUT = "input"
+BLOCK_TYPE_OPTIONS = "options"
+BLOCK_TYPE_GOTO = "goto"
+BLOCK_TYPE_PAYMENT = "payment"
+BLOCK_TYPE_LOGIN = "login"

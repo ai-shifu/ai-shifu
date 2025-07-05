@@ -6,6 +6,7 @@ from flaskr.service.lesson.const import (
     CONTENT_TYPE_IMAGE,
     SCRIPT_TYPE_FIX,
     SCRIPT_TYPE_PROMPT,
+    SCRIPT_TYPE_ACTION,
 )
 from flaskr.api.llm import invoke_llm
 from flaskr.service.common.models import AppException
@@ -126,9 +127,22 @@ def generate_prompt_output(
     )
 
 
+def generate_empty_output(
+    app: Flask,
+    user_id: str,
+    lesson: AILesson,
+    attend: AICourseLessonAttend,
+    script_info: AILessonScript,
+    trace: Trace,
+    trace_args,
+):
+    yield make_script_dto("text_end", "", script_info.script_id, script_info.lesson_id)
+
+
 OUTPUT_HANDLERS = {
     SCRIPT_TYPE_FIX: generate_fix_output,
     SCRIPT_TYPE_PROMPT: generate_prompt_output,
+    SCRIPT_TYPE_ACTION: generate_empty_output,
 }
 
 

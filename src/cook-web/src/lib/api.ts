@@ -32,7 +32,6 @@ export const gen = (option: string) => {
             urlParams.forEach(param => {
                 const key = param.replace('{', '').replace('}', '');
                 tarUrl = tarUrl.replace(param, urlParamsMap[key] || param);
-                console.log(tarUrl);
                 delete urlParamsMap[key];
             });
         }

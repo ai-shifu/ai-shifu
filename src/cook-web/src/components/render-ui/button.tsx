@@ -3,39 +3,31 @@ import { Input } from '../ui/input'
 import { Button as UIButton } from '../ui/button'
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash'
-interface ButtonProps {
-    properties: {
-        "button_name": string,
-        "button_key": string,
-    }
-    onChange: (properties: any) => void
-    mode?: 'edit' | 'login' | 'payment'
-    onChanged?: (changed: boolean) => void
-}
+import { UIBlockDTO, ButtonDTO } from '@/types/shifu'
 
-const ButtonPropsEqual = (prevProps: ButtonProps, nextProps: ButtonProps) => {
-    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+const ButtonPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
+
+    if (!_.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
-    if (!_.isEqual(prevProps.properties.button_name, nextProps.properties.button_name)) {
-        return false
-    }
-    if (!_.isEqual(prevProps.properties.button_key, nextProps.properties.button_key)) {
+    if (!_.isEqual(prevProps.data.properties, nextProps.data.properties)) {
         return false
     }
     return true
 }
 
-export default memo(function Button(props: ButtonProps) {
-    const { properties, mode = 'edit', onChanged } = props
-    const [tempValue, setTempValue] = useState(properties.button_name)
+export default memo(function Button(props: UIBlockDTO) {
+    const { data, onChanged, onPropertiesChange, isEdit } = props
+    const type = data.type
+    const buttonProperties = data.properties as ButtonDTO
+    const [tempValue, setTempValue] = useState(buttonProperties.label.lang['zh-CN'])
     const [changed, setChanged] = useState(false)
     const { t } = useTranslation();
 
     useEffect(() => {
         setChanged(false)
-        setTempValue(properties.button_name)
-    }, [properties.button_name])
+        setTempValue(buttonProperties.label.lang['zh-CN'])
+    }, [buttonProperties.label.lang['zh-CN']])
 
     const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value
@@ -44,29 +36,45 @@ export default memo(function Button(props: ButtonProps) {
             setChanged(true)
             onChanged?.(true)
         }
-        if (mode === 'login' || mode === 'payment') {
-            props.onChange({
-                ...properties,
-                button_name: value,
-                button_key: value
-            })
-        }
-    }, [changed, mode, onChanged, properties, props])
+        onPropertiesChange({
+            ...data,
+            properties: {
+                ...data.properties,
+                label: {
+                    ...buttonProperties.label,
+                    lang: {
+                        ...buttonProperties.label.lang,
+                        'zh-CN': value,
+                        'en-US': value
+                    }
+                }
+            }
+        })
+    }, [changed, onChanged, data, onPropertiesChange, tempValue])
 
     const handleConfirm = useCallback(() => {
-        props.onChange({
-            ...properties,
-            button_name: tempValue,
-            button_key: tempValue
+        onPropertiesChange({
+            ...data,
+            properties: {
+                ...data.properties,
+                label: {
+                    ...buttonProperties.label,
+                    lang: {
+                        ...buttonProperties.label.lang,
+                        'zh-CN': tempValue,
+                        'en-US': tempValue
+                    }
+                }
+            }
         })
         if (!changed) {
             setChanged(true)
             onChanged?.(true)
         }
-    }, [changed, onChanged, properties, props, tempValue])
+    }, [changed, onChanged, data, onPropertiesChange, tempValue])
 
     const getPlaceholder = () => {
-        switch (mode) {
+        switch (type) {
             case 'login':
                 return t('button.placeholder-login')
             case 'payment':
@@ -91,7 +99,7 @@ export default memo(function Button(props: ButtonProps) {
                 />
             </div>
 
-            {mode === 'edit' && (
+            {isEdit && (
                 <div className='flex flex-row space-x-1 items-center'>
                     <span className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
                     </span>
@@ -105,4 +113,4 @@ export default memo(function Button(props: ButtonProps) {
             )}
         </div>
     )
-},ButtonPropsEqual)
+}, ButtonPropsEqual)

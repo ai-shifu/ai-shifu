@@ -17,8 +17,7 @@ import { useShifu, useAuth } from '@/store'
 import OutlineTree from '@/components/outline-tree'
 import '@mdxeditor/editor/style.css'
 import Header from '../header'
-import { BlockType } from '@/types/shifu'
-import RenderBlockContent, { useContentTypes } from '@/components/render-block'
+import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu'
 import RenderBlockUI from '../render-ui'
 import AIDebugDialog from '@/components/ai-debug'
 
@@ -45,10 +44,11 @@ interface DraggableBlockProps {
   id: string
   type: BlockType
   index: number
+  block: BlockDTO
   moveBlock: (dragIndex: number, hoverIndex: number) => void
   onClickDebug?: (id: string) => void
   onClickRemove?: (id: string) => void
-  onClickChangeType?: (id: string, type: BlockType) => void
+  onClickChangeType?: (id: string, llm_enabled: boolean) => void
   children: React.ReactNode
   disabled?: boolean
   error?: string | null
@@ -58,6 +58,7 @@ const DraggableBlock = ({
   id,
   type,
   index,
+  block,
   moveBlock,
   onClickDebug,
   onClickRemove,
@@ -68,6 +69,8 @@ const DraggableBlock = ({
 }: DraggableBlockProps) => {
   const { t } = useTranslation()
   const ref = React.useRef<HTMLDivElement>(null)
+
+  const [llmEnabled, setLlmEnabled] = useState((block.properties as ContentDTO).llm_enabled)
 
   const [{ handlerId }, drop] = useDrop<
     DragItem,
@@ -188,21 +191,29 @@ const DraggableBlock = ({
             }}
           >
             <div className='flex flex-col gap-2 text-sm'>
+
+
+
+            {type === 'content' && (
               <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                {type === 'ai' ? t('shifu.ai-block') : t('shifu.regular-block')}
+                {llmEnabled ? t('shifu.ai-block') : t('shifu.regular-block')}
               </div>
-              <div
+            )}
+              {type === 'content' && ( <div
                 className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                 onClick={() =>
-                  onClickChangeType?.(id, type === 'ai' ? 'solidcontent' : 'ai')
-                }
+                  {
+                    onClickChangeType?.(id, !llmEnabled)
+                    setLlmEnabled(!llmEnabled)
+                 }}
               >
                 <Settings2 className='h-4 w-4' />
-                {type === 'ai'
+                {llmEnabled
                   ? t('shifu.setting-regular-block')
                   : t('shifu.setting-ai-block')}
               </div>
-              {type === 'ai' && (
+            )}
+              {type === 'content' && llmEnabled && (
                 <div
                   className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
                   onClick={() => onClickDebug?.(id)}
@@ -239,7 +250,6 @@ const DraggableBlock = ({
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
   const { profile } = useAuth()
-  const ContentTypes = useContentTypes()
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
     {}
   )
@@ -255,9 +265,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
     chapters,
     actions,
     blockContentTypes,
-    blockContentProperties,
-    blockUIProperties,
-    blockUITypes,
+    blockProperties ,
+    // blockUIProperties,
+    // blockUITypes,
     currentNode,
     isLoading,
     currentShifu,
@@ -317,22 +327,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
     actions.addBlock(index, type, bid)
   }
 
-  const onChangeBlockType = (id: string, type: BlockType) => {
-    const opt = ContentTypes.find(p => p.type === type)
-    const mergeOpt = {
-      ...opt,
+  const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
+
+    console.log(id, llm_enabled)
+
+    const p = blockProperties[id].properties as ContentDTO
+    await actions.updateBlockProperties(id, {
+      ...blockProperties[id],
       properties: {
-        ...opt?.properties,
-        prompt: blockContentProperties?.[id]?.prompt,
-        profiles: blockContentProperties?.[id]?.profiles
+        ...p,
+        llm_enabled: llm_enabled
       }
-    }
-    actions.setBlockContentTypesById(id, type)
-    actions.setBlockContentPropertiesById(
-      id,
-      mergeOpt?.properties || ({} as any),
-      true
-    )
+    });
+
     actions.saveBlocks(currentShifu?.bid || '')
   }
 
@@ -416,13 +423,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 <DndProvider backend={HTML5Backend}>
                   {blocks.map((block, index) => (
                     <DraggableBlock
-                      key={block.properties.block_id}
-                      id={block.properties.block_id}
-                      type={
-                        blockContentTypes[
-                          block.properties.block_id
-                        ] as BlockType
-                      }
+                      key={block.bid}
+                      id={block.bid}
+                      block={block}
+                      type={block.type as BlockType}
                       index={index}
                       moveBlock={(dragIndex: number, hoverIndex: number) => {
                         const dragBlock = blocks[dragIndex]
@@ -434,37 +438,26 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           currentNode!.id,
                           newBlocks,
                           blockContentTypes,
-                          blockContentProperties,
-                          blockUITypes,
-                          blockUIProperties,
+                          blockProperties,
                           currentShifu?.bid || ''
                         )
                       }}
                       onClickChangeType={onChangeBlockType}
                       onClickDebug={onDebugBlock}
                       onClickRemove={onRemove}
-                      disabled={expandedBlocks[block.properties.block_id]}
-                      error={blockErrors[block.properties.block_id]}
+                      disabled={expandedBlocks[block.bid]}
+                      error={blockErrors[block.bid]}
                     >
                       <div
-                        id={block.properties.block_id}
+                        id={block.bid}
                         className='relative flex flex-col gap-2 '
                       >
-                        <div className=' '>
-                          <RenderBlockContent
-                            id={block.properties.block_id}
-                            type={blockContentTypes[block.properties.block_id]}
-                            properties={
-                              blockContentProperties[block.properties.block_id]
-                            }
-                          />
-                        </div>
                         <RenderBlockUI
                           block={block}
                           onExpandChange={expanded => {
                             setExpandedBlocks(prev => ({
                               ...prev,
-                              [block.properties.block_id]: expanded
+                              [block.bid]: expanded
                             }))
                           }}
                         />
@@ -481,7 +474,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 </DndProvider>
                 {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
                   <div className='flex flex-row items-center justify-start h-6'>
-                    <AddBlock onAdd={onAddBlock.bind(null, 0, 'ai', id)} />
+                    <AddBlock onAdd={(type: BlockType) => {
+                      onAddBlock(1, type, id)
+                    }} />
                   </div>
                 )}
               </>

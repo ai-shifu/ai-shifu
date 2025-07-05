@@ -9,6 +9,7 @@ from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
 from flaskr.i18n import _
+from flaskr.service.study.utils import get_script_ui_label
 
 
 @register_ui_handler(UI_TYPE_TO_PAY)
@@ -26,6 +27,7 @@ def handle_input_to_pay(
         title = script_info.script_ui_content
         if not title:
             title = _("COMMON.CHECKOUT")
+        title = get_script_ui_label(app, title)
         btn = [{"label": title, "value": order.order_id}]
         return ScriptDTO("order", {"buttons": btn}, script_info.script_id)
     else:

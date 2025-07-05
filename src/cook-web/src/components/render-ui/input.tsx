@@ -3,46 +3,60 @@ import { Input } from '../ui/input'
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import _ from 'lodash'
-interface SingleInputProps {
-    properties: {
-        "input_name": string,
-        "input_key": string,
-        "input_placeholder": string,
-    }
-    onChange: (properties: any) => void
-}
+import { UIBlockDTO ,InputDTO} from '@/types/shifu'
+import i18n from '@/i18n'
 
-const SingleInputPropsEqual = (prevProps: SingleInputProps, nextProps: SingleInputProps) => {
-    if (! _.isEqual(prevProps.properties, nextProps.properties)) {
+const SingleInputPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
+    const prevInputSettings = prevProps.data.properties as InputDTO
+    const nextInputSettings = nextProps.data.properties as InputDTO
+    if (! _.isEqual(prevProps.data, nextProps.data)) {
         return false
     }
-    if (! _.isEqual(prevProps.properties.input_name, nextProps.properties.input_name)) {
+    if (! _.isEqual(prevInputSettings.placeholder, nextInputSettings.placeholder)) {
         return false
     }
-    if (! _.isEqual(prevProps.properties.input_key, nextProps.properties.input_key)) {
+    if (! _.isEqual(prevInputSettings.prompt, nextInputSettings.prompt)) {
         return false
     }
-    if (! _.isEqual(prevProps.properties.input_placeholder, nextProps.properties.input_placeholder)) {
+    if (! _.isEqual(prevInputSettings.result_variable_bids, nextInputSettings.result_variable_bids)) {
+        return false
+    }
+    if (! _.isEqual(prevInputSettings.llm, nextInputSettings.llm)) {
+        return false
+    }
+    if (! _.isEqual(prevInputSettings.llm_temperature, nextInputSettings.llm_temperature)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.data.variable_bids, nextProps.data.variable_bids)) {
+        return false
+    }
+    if (! _.isEqual(prevProps.data.resource_bids, nextProps.data.resource_bids)) {
         return false
     }
     return true
 }
 
-export default memo(function SingleInput(props: SingleInputProps) {
-    const { properties } = props
+export default memo(function SingleInput(props: UIBlockDTO) {
+    const { data } = props
     const { t } = useTranslation();
+    const inputSettings = data.properties as InputDTO
     const onValueChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-        if (field === 'input_name') {
-            props.onChange({
-                ...properties,
-                input_name: e.target.value,
-                input_key: e.target.value,
+        if (field === 'prompt') {
+            props.onPropertiesChange({
+                ...data,
+                properties: {
+                    ...data.properties,
+                    prompt: e.target.value,
+                }
             });
             return;
         }
-        props.onChange({
-            ...properties,
-            [field]: e.target.value,
+        props.onPropertiesChange({
+            ...data,
+            properties: {
+                ...data.properties,
+                [field]: e.target.value,
+            }
         })
     }
 
@@ -54,8 +68,8 @@ export default memo(function SingleInput(props: SingleInputProps) {
                 </span>
                 <Input
                     className='h-8 w-40'
-                    value={properties.input_placeholder}
-                    onChange={(e) => onValueChange(e, 'input_placeholder')}
+                    value={inputSettings.placeholder.lang[i18n.language]}
+                    onChange={(e) => onValueChange(e, 'placeholder')}
                     placeholder={t('input.input-placeholder')}
                 />
             </div>
@@ -65,8 +79,8 @@ export default memo(function SingleInput(props: SingleInputProps) {
                 </span>
                 <Input
                     className='h-8 w-40'
-                    value={properties.input_name}
-                    onChange={(e) => onValueChange(e, 'input_name')}
+                    value={inputSettings.prompt}
+                    onChange={(e) => onValueChange(e, 'prompt')}
                     placeholder={t('input.input-name')}
                 // type="tel"
                 // placeholder={properties.input_placeholder}

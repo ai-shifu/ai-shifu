@@ -8,83 +8,54 @@ import { useTranslation } from 'react-i18next'
 import { memo } from 'react'
 import _ from 'lodash'
 import { ProfileFormItem } from '@/components/profiles'
-
-interface TextInputProps {
-  properties: {
-    prompt: {
-      properties: {
-        prompt: string
-        variables: string[]
-        model: string
-        temperature: string
-        other_conf: string
-      }
-      type: string
-    }
-    input_name: string
-    // "input_key": string,
-    input_placeholder: string
-    profile_ids: string[]
-  }
-  onChange: (properties: any) => void
-  onChanged?: (changed: boolean) => void
-}
+import { InputDTO, UIBlockDTO } from '@/types/shifu'
+import i18n from '@/i18n'
 
 const TextInputPropsEqual = (
-  prevProps: TextInputProps,
-  nextProps: TextInputProps
+  prevProps: UIBlockDTO,
+  nextProps: UIBlockDTO
 ) => {
-  if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+  const prevInputSettings = prevProps.data.properties as InputDTO
+  const nextInputSettings = nextProps.data.properties as InputDTO
+  if (!_.isEqual(prevProps.data, nextProps.data)) {
+    return false
+  }
+  if (!_.isEqual(prevInputSettings.prompt, nextInputSettings.prompt)) {
+    return false
+  }
+  if (!_.isEqual(prevInputSettings.placeholder, nextInputSettings.placeholder)) {
     return false
   }
   return true
 }
 
-function TextInput (props: TextInputProps) {
-  const { properties, onChanged } = props
-  const [tempProperties, setTempProperties] = useState(properties)
+function TextInput(props: UIBlockDTO) {
+  const { data, onChanged } = props
+  const [tempProperties, setTempProperties] = useState(data.properties as InputDTO)
   const [changed, setChanged] = useState(false)
   const { t } = useTranslation()
-  const onValueChange = (value:string) => {
+  const onValueChange = (value: string) => {
     if (!changed) {
       setChanged(true)
       onChanged?.(true)
     }
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          prompt: value
-        }
-      }
+      prompt: value
     })
   }
 
   const onModelChange = (value: string) => {
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          model: value
-        }
-      }
+      llm: value
     })
   }
 
   const onTemperatureChange = (value: number) => {
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          temperature: value.toString()
-        }
-      }
+      llm_temperature: value
     })
   }
 
@@ -92,27 +63,28 @@ function TextInput (props: TextInputProps) {
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
-      prompt: {
-        ...tempProperties.prompt,
-        properties: {
-          ...tempProperties.prompt.properties,
-          variables: value
-        }
-      },
-      profile_ids: value
+      result_variable_bids: value
     })
   }
 
   const onInputPlaceholderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTempProperties({
       ...tempProperties,
-      input_name: e.target.value,
-      input_placeholder: e.target.value
+      placeholder: {
+        ...tempProperties.placeholder,
+        lang: {
+          ...tempProperties.placeholder.lang,
+          [i18n.language]: e.target.value
+        }
+      }
     })
   }
 
   const handleConfirm = () => {
-    props.onChange(tempProperties)
+    props.onPropertiesChange({
+      ...data,
+      properties: tempProperties
+    })
   }
 
   return (
@@ -122,7 +94,7 @@ function TextInput (props: TextInputProps) {
           {t('textinput.input-placeholder')}
         </label>
         <Input
-          value={tempProperties.input_name}
+          value={tempProperties.placeholder.lang[i18n.language]}
           onChange={onInputPlaceholderChange}
           className='w-full'
         ></Input>
@@ -132,7 +104,7 @@ function TextInput (props: TextInputProps) {
           {t('textinput.input-name')}
         </label>
         <ProfileFormItem
-          value={tempProperties?.profile_ids}
+          value={tempProperties?.result_variable_bids}
           onChange={handleProfileChange}
         />
       </div>
@@ -145,7 +117,7 @@ function TextInput (props: TextInputProps) {
             style={{ minHeight: '72px', maxHeight: '480px', overflowY: 'auto' }}
           >
             <Editor
-              content={tempProperties.prompt.properties.prompt}
+              content={tempProperties.prompt}
               onChange={onValueChange}
               isEdit={true}
             />
@@ -157,7 +129,7 @@ function TextInput (props: TextInputProps) {
           {t('textinput.model')}
         </label>
         <ModelList
-          value={tempProperties.prompt.properties.model}
+          value={tempProperties.llm}
           className='h-8 w-[200px]'
           onChange={onModelChange}
         />
@@ -170,7 +142,7 @@ function TextInput (props: TextInputProps) {
           min={0}
           max={1}
           step={0.1}
-          value={Number(tempProperties.prompt?.properties?.temperature)}
+          value={Number(tempProperties.llm_temperature)}
           onChange={onTemperatureChange}
           className='w-full'
         ></InputNumber>

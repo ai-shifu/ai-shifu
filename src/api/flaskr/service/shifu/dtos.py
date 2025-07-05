@@ -1,11 +1,9 @@
 from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.service.common.aidtos import AIDto, SystemPromptDto
 from flaskr.service.shifu.utils import OutlineTreeNode
 from flaskr.service.profile.dtos import (
     TextProfileDto,
     SelectProfileDto,
 )
-from flaskr.service.profile.models import ProfileItem
 from pydantic import BaseModel, Field
 
 
@@ -26,7 +24,7 @@ class ShifuDto(BaseModel):
         shifu_avatar: str,
         shifu_state: int,
         is_favorite: bool,
-        **kwargs
+        **kwargs,
     ):
         super().__init__(
             bid=shifu_id,
@@ -167,13 +165,6 @@ class SimpleOutlineDto(BaseModel):
 
 
 @register_schema_to_swagger
-class UnitDto:
-    unit_id: str
-    unit_no: str
-    unit_name: str
-
-
-@register_schema_to_swagger
 class OutlineDto(BaseModel):
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline no", required=False)
@@ -216,400 +207,6 @@ class OutlineDto(BaseModel):
             "index": self.index,
             "system_prompt": self.system_prompt,
             "is_hidden": self.is_hidden,
-        }
-
-
-@register_schema_to_swagger
-class SolidContentDto:
-    prompt: str
-    variables: list[str]
-
-    def __init__(self, prompt: str = None, variables: list[str] = None):
-        self.prompt = prompt
-        self.variables = variables if variables is not None else []
-
-    def __json__(self):
-        return {
-            "properties": {
-                "prompt": self.prompt,
-                "variables": self.variables,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class ButtonDto:
-    # type button
-    button_name: str
-    button_key: str
-
-    def __init__(self, button_name: str = None, button_key: str = None):
-        self.button_name = button_name
-        self.button_key = button_key
-
-    def __json__(self):
-        return {
-            "properties": {
-                "button_name": self.button_name,
-                "button_key": self.button_key,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class LoginDto(ButtonDto):
-    # type login
-    button_name: str
-    button_key: str
-
-    def __init__(self, button_name: str = None, button_key: str = None):
-        super().__init__(button_name, button_key)
-        self.button_name = button_name
-        self.button_key = button_key
-
-    def __json__(self):
-        return {
-            "properties": {
-                "button_name": self.button_name,
-                "button_key": self.button_key,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class GotoDtoItem:
-    value: str
-    type: str
-    goto_id: str
-
-    def __init__(self, value: str = None, type: str = None, goto_id: str = None):
-        self.value = value
-        self.type = type
-        self.goto_id = goto_id
-
-    def __json__(self):
-        return {
-            "value": self.value,
-            "type": self.type,
-            "goto_id": self.goto_id,
-        }
-
-
-@register_schema_to_swagger
-class GotoSettings:
-    items: list[GotoDtoItem]
-    profile_key: str
-
-    def __init__(
-        self, items: list[GotoDtoItem] = None, profile_key: str = None, **kwargs
-    ):
-        if isinstance(items, list):
-            self.items = [
-                GotoDtoItem(**item) if isinstance(item, dict) else item
-                for item in items
-            ]
-        self.profile_key = profile_key
-
-    def __json__(self):
-        return {
-            "items": self.items,
-            "profile_key": self.profile_key,
-        }
-
-
-@register_schema_to_swagger
-class GotoDto(ButtonDto):
-    # type goto
-    button_name: str
-    button_key: str
-    goto_settings: GotoSettings
-
-    def __init__(
-        self,
-        button_name: str = None,
-        button_key: str = None,
-        goto_settings: GotoSettings = None,
-        **kwargs
-    ):
-        super().__init__(button_name, button_key)
-        if isinstance(goto_settings, dict):
-            self.goto_settings = GotoSettings(**goto_settings)
-        else:
-            self.goto_settings = goto_settings
-        button_key
-
-    def __json__(self):
-        return {
-            "properties": {
-                "goto_settings": self.goto_settings,
-                "button_name": self.button_name,
-                "button_key": self.button_key,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class PaymentDto(ButtonDto):
-    # type payment
-    button_name: str
-    button_key: str
-
-    def __init__(self, button_name: str = None, button_key: str = None):
-        super().__init__(button_name, button_key)
-        self.button_name = button_name
-        self.button_key = button_key
-
-    def __json__(self):
-        return {
-            "properties": {
-                "button_name": self.button_name,
-                "button_key": self.button_key,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class EmptyDto:
-    # type continue & empty
-
-    def __init__(self):
-        pass
-
-    def __json__(self):
-        return {
-            "properties": {},
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class OptionDto:
-    # type option
-    profile_id: str
-    option_name: str
-    option_key: str
-    profile_key: str
-    buttons: list[ButtonDto]
-
-    def __init__(
-        self,
-        profile_id: str = None,
-        option_name: str = None,
-        option_key: str = None,
-        profile_key: str = None,
-        buttons: list = None,
-        **kwargs
-    ):
-        self.option_name = option_name
-        self.option_key = option_key
-        self.profile_key = profile_key
-        self.profile_id = profile_id
-        self.buttons = []
-        if isinstance(buttons, list):
-            self.buttons = [
-                (
-                    ButtonDto(**button.get("properties"))
-                    if isinstance(button, dict)
-                    else button
-                )
-                for button in buttons
-            ]
-
-    def __json__(self):
-        return {
-            "properties": {
-                "profile_id": self.profile_id,
-                "option_name": self.option_name,
-                "option_key": self.option_key,
-                "profile_key": self.profile_key,
-                "buttons": self.buttons,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class InputDto:
-    # type text input
-    input_name: str
-    input_key: str
-    input_placeholder: str
-
-    def __init__(
-        self,
-        text_input_name: str = None,
-        text_input_key: str = None,
-        text_input_placeholder: str = None,
-    ):
-        self.text_input_name = text_input_name
-        self.text_input_key = text_input_key
-        self.text_input_placeholder = text_input_placeholder
-
-    def __json__(self):
-        return {
-            "properties": {
-                "text_input_name": self.text_input_name,
-                "text_input_key": self.text_input_key,
-                "text_input_placeholder": self.text_input_placeholder,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class TextInputDto(InputDto):
-    # type text input
-    profile_ids: list[str]
-    prompt: AIDto
-    input_name: str
-    input_key: str
-    input_placeholder: str
-
-    def __init__(
-        self,
-        profile_ids: list[str] = None,
-        input_name: str = None,
-        input_key: str = None,
-        input_placeholder: str = None,
-        prompt: AIDto = None,
-        **kwargs
-    ):
-        super().__init__(input_name, input_key, input_placeholder)
-        self.profile_ids = profile_ids or []
-        self.prompt = prompt
-        self.input_name = input_name
-        self.input_key = input_key
-        self.input_placeholder = input_placeholder
-        if isinstance(prompt, dict):
-            self.prompt = AIDto(**prompt.get("properties"))
-        elif isinstance(prompt, AIDto):
-            self.prompt = prompt
-
-    def __json__(self):
-        return {
-            "properties": {
-                "profile_ids": self.profile_ids,
-                "prompt": self.prompt,
-                "input_name": self.input_name,
-                "input_key": self.input_key,
-                "input_placeholder": self.input_placeholder,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class CodeDto(InputDto):
-    # type code
-    input_name: str
-    input_key: str
-    input_placeholder: str
-
-    def __init__(
-        self,
-        input_name: str = None,
-        input_key: str = None,
-        input_placeholder: str = None,
-    ):
-        super().__init__(input_name, input_key, input_placeholder)
-        self.input_name = input_name
-        self.input_key = input_key
-        self.input_placeholder = input_placeholder
-
-    def __json__(self):
-        return {
-            "properties": {
-                "input_name": self.input_name,
-                "input_key": self.input_key,
-                "input_placeholder": self.input_placeholder,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class PhoneDto(InputDto):
-    # type phone
-    input_name: str
-    input_key: str
-    input_placeholder: str
-
-    def __init__(
-        self,
-        input_name: str = None,
-        input_key: str = None,
-        input_placeholder: str = None,
-    ):
-        super().__init__(input_name, input_key, input_placeholder)
-        self.input_name = input_name
-        self.input_key = input_key
-        self.input_placeholder = input_placeholder
-
-    def __json__(self):
-        return {
-            "properties": {
-                "input_name": self.input_name,
-                "input_key": self.input_key,
-                "input_placeholder": self.input_placeholder,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
-        }
-
-
-@register_schema_to_swagger
-class BlockDto:
-    block_id: str
-    block_no: str
-    block_name: str
-    block_desc: str
-    block_type: int
-    block_index: int
-    block_content: AIDto | SolidContentDto
-    block_ui: OptionDto | TextInputDto | ButtonDto
-    profile_info: "ProfileItem" = None
-
-    def __init__(
-        self,
-        block_id: str = None,
-        block_no: str = None,
-        block_name: str = None,
-        block_desc: str = None,
-        block_type: int = None,
-        block_index: int = None,
-        block_content: AIDto | SolidContentDto | SystemPromptDto = None,
-        block_ui: OptionDto | TextInputDto | ButtonDto = None,
-        input_profile_info: "ProfileItem" = None,
-        **kwargs
-    ):
-        self.block_id = block_id
-        self.block_no = block_no
-        self.block_name = block_name
-        self.block_desc = block_desc
-        self.block_type = block_type
-        self.block_index = block_index
-        self.block_content = block_content
-        self.block_ui = block_ui
-        self.profile_info = input_profile_info
-
-    def __json__(self):
-        return {
-            "properties": {
-                "block_id": self.block_id,
-                "block_no": self.block_no,
-                "block_name": self.block_name,
-                "block_desc": self.block_desc,
-                "block_type": self.block_type,
-                "block_index": self.block_index,
-                "block_content": self.block_content,
-                "block_ui": self.block_ui,
-                "profile_info": self.profile_info,
-            },
-            "type": __class__.__name__.replace("Dto", "").lower(),
         }
 
 
@@ -676,12 +273,12 @@ class BlockUpdateResultDto:
 
 @register_schema_to_swagger
 class SaveBlockListResultDto:
-    blocks: list[BlockDto]
+    blocks: list["BlockDTO"]
     error_messages: dict[str, str]
 
     def __init__(
         self,
-        blocks: list[BlockDto],
+        blocks: list["BlockDTO"],
         error_messages: dict[str, str],
     ):
         self.blocks = blocks
@@ -716,3 +313,311 @@ class ReorderOutlineItemDto:
 @register_schema_to_swagger
 class ReorderOutlineDto:
     outlines: list[ReorderOutlineItemDto]
+
+
+# new dto for block
+
+
+# i18n label dto
+@register_schema_to_swagger
+class LabelDTO(BaseModel):
+    lang: dict[str, str] = Field(
+        default_factory=dict, description="label lang", required=True
+    )
+
+    def __init__(self, lang: dict[str, str], **kwargs):
+        from flask import current_app
+
+        current_app.logger.info(f"lang: {lang}")
+        super().__init__(lang=lang)
+
+    def __json__(self):
+        return {
+            "lang": self.lang,
+        }
+
+
+@register_schema_to_swagger
+class ContentDTO(BaseModel):
+    content: str = Field(..., description="content", required=True, allow_none=True)
+    llm_enabled: bool = Field(..., description="llm enabled", required=True)
+    llm: str = Field(..., description="llm", required=False)
+    llm_temperature: float = Field(..., description="llm temperature", required=False)
+
+    def __init__(
+        self,
+        content: str,
+        llm_enabled: bool,
+        llm: str = None,
+        llm_temperature: float = None,
+        **kwargs,
+    ):
+        from flask import current_app
+
+        current_app.logger.info(f"content: {content}")
+        current_app.logger.info(f"llm_enabled: {llm_enabled}")
+        current_app.logger.info(f"llm: {llm}")
+        current_app.logger.info(f"llm_temperature: {llm_temperature}")
+        super().__init__(
+            content=content if content is not None else "",
+            llm_enabled=llm_enabled,
+            llm=llm if llm is not None else "",
+            llm_temperature=llm_temperature,
+        )
+
+    def __json__(self):
+        return {
+            "content": self.content,
+            "llm_enabled": self.llm_enabled,
+            "llm": self.llm,
+            "llm_temperature": self.llm_temperature,
+        }
+
+
+@register_schema_to_swagger
+class BreakDTO(BaseModel):
+
+    def __init__(self, **kwargs):
+        super().__init__()
+
+    def __json__(self):
+        return {}
+
+
+@register_schema_to_swagger
+class ButtonDTO(BaseModel):
+    label: LabelDTO = Field(..., description="label", required=True)
+
+    def __init__(self, label: dict[str, str], **kwargs):
+        from flask import current_app
+
+        current_app.logger.info(f"label: {label} type: {type(label)}")
+
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
+
+    def __json__(self):
+        return {
+            "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class InputDTO(BaseModel):
+    placeholder: LabelDTO = Field(..., description="placeholder", required=True)
+    prompt: str = Field(..., description="prompt", required=True)
+    result_variable_bids: list[str] = Field(
+        ..., description="result variable bids", required=True
+    )
+    llm: str = Field(..., description="llm", required=False)
+    llm_temperature: float = Field(..., description="llm temperature", required=False)
+
+    def __init__(
+        self,
+        placeholder: dict[str, str],
+        prompt: str,
+        result_variable_bids: list[str],
+        llm: str = None,
+        llm_temperature: float = None,
+        **kwargs,
+    ):
+        super().__init__(
+            placeholder=LabelDTO(lang=placeholder.get("lang", placeholder)),
+            prompt=prompt,
+            result_variable_bids=result_variable_bids,
+            llm=llm,
+            llm_temperature=llm_temperature,
+        )
+
+    def __json__(self):
+        return {
+            "placeholder": self.placeholder,
+            "prompt": self.prompt,
+            "result_variable_bids": self.result_variable_bids,
+            "llm": self.llm,
+            "llm_temperature": self.llm_temperature,
+        }
+
+
+@register_schema_to_swagger
+class OptionItemDTO(BaseModel):
+
+    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
+    value: str = Field(..., description="value", required=True)
+
+    def __init__(self, label: dict[str, str], value: str, **kwargs):
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)), value=value)
+
+    def __json__(self):
+        return {
+            "label": self.label,
+            "value": self.value,
+        }
+
+
+@register_schema_to_swagger
+class OptionsDTO(BaseModel):
+    result_variable_bid: str = Field(
+        ..., description="result variable bid", required=True
+    )
+    options: list[OptionItemDTO] = Field(..., description="options", required=True)
+
+    def __init__(self, result_variable_bid: str, options: list[dict], **kwargs):
+        super().__init__(
+            result_variable_bid=result_variable_bid,
+            options=[OptionItemDTO(**option) for option in options],
+        )
+
+    def __json__(self):
+        return {
+            "result_variable_bid": self.result_variable_bid,
+            "options": self.options,
+        }
+
+
+@register_schema_to_swagger
+class GotoConditionDTO(BaseModel):
+    value: str = Field(..., description="value", required=True)
+    destination_type: str = Field(..., description="destination type", required=True)
+    destination_bid: str = Field(..., description="destination bid", required=True)
+
+    def __init__(self, value: str, destination_type: str, destination_bid: str):
+        super().__init__(
+            value=value,
+            destination_type=destination_type,
+            destination_bid=destination_bid,
+        )
+
+    def __json__(self):
+        return {
+            "value": self.value,
+            "destination_type": self.destination_type,
+            "destination_bid": self.destination_bid,
+        }
+
+
+@register_schema_to_swagger
+class GotoDTO(BaseModel):
+    conditions: list[GotoConditionDTO] = Field(
+        ..., description="conditions", required=True
+    )
+
+    def __init__(self, conditions: list[dict], **kwargs):
+        super().__init__(
+            conditions=[GotoConditionDTO(**condition) for condition in conditions]
+        )
+
+    def __json__(self):
+        return {
+            "conditions": self.conditions,
+        }
+
+
+@register_schema_to_swagger
+class PaymentDTO(BaseModel):
+    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
+
+    def __init__(self, label: dict[str, str], **kwargs):
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
+
+    def __json__(self):
+        return {
+            "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class LoginDTO(BaseModel):
+    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
+
+    def __init__(self, label: dict[str, str], **kwargs):
+        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
+
+    def __json__(self):
+        return {
+            "label": self.label,
+        }
+
+
+@register_schema_to_swagger
+class CheckCodeDTO(BaseModel):
+    placeholder: LabelDTO = Field(
+        ..., description="placeholder", type=LabelDTO, required=True
+    )
+
+    def __init__(self, placeholder: dict[str, str], **kwargs):
+        super().__init__(
+            placeholder=LabelDTO(lang=placeholder.get("lang", placeholder))
+        )
+
+    def __json__(self):
+        return {
+            "placeholder": self.placeholder,
+        }
+
+
+@register_schema_to_swagger
+class PhoneDTO(BaseModel):
+    placeholder: LabelDTO = Field(
+        ..., description="placeholder", type=LabelDTO, required=True
+    )
+
+    def __init__(self, placeholder: dict[str, str], **kwargs):
+        super().__init__(
+            placeholder=LabelDTO(lang=placeholder.get("lang", placeholder))
+        )
+
+    def __json__(self):
+        return {
+            "placeholder": self.placeholder,
+        }
+
+
+@register_schema_to_swagger
+class BlockDTO(BaseModel):
+    bid: str = Field(..., description="bid", required=True)
+    type: str = Field(..., description="type", required=True)
+    block_content: (
+        ContentDTO
+        | BreakDTO
+        | ButtonDTO
+        | InputDTO
+        | OptionsDTO
+        | GotoDTO
+        | PaymentDTO
+        | LoginDTO
+    ) = Field(..., description="block content", required=True)
+    variable_bids: list[str] = Field(..., description="variable bids", required=False)
+    resource_bids: list[str] = Field(..., description="resource bids", required=False)
+
+    def __init__(
+        self,
+        bid: str,
+        block_content: (
+            ContentDTO
+            | BreakDTO
+            | ButtonDTO
+            | InputDTO
+            | OptionsDTO
+            | GotoDTO
+            | PaymentDTO
+            | LoginDTO
+        ),
+        variable_bids: list[str],
+        resource_bids: list[str],
+    ):
+        super().__init__(
+            bid=bid,
+            type=block_content.__class__.__name__.replace("DTO", "").lower(),
+            block_content=block_content,
+            variable_bids=variable_bids,
+            resource_bids=resource_bids,
+        )
+
+    def __json__(self):
+        return {
+            "bid": self.bid,
+            "type": self.type,
+            "properties": self.block_content,
+            "variable_bids": self.variable_bids,
+            "resource_bids": self.resource_bids,
+        }
