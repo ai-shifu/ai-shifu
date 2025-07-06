@@ -89,7 +89,7 @@ const createMessage = ({
     isComplete: false,
     logid,
     type,
-    position: position === 'left' ? 'left' : 'right',
+    position: position as 'left' | 'right',
     user: { avatar },
     script_id,
   };
@@ -184,7 +184,18 @@ const convertEventInputModal = ({ type, content, script_id }) => {
   }
 };
 
-export const ChatComponents = forwardRef(
+interface ChatComponentsProps {
+  className?: string;
+  lessonUpdate?: (lesson: any) => void;
+  onGoChapter?: (lessonId: string) => void;
+  chapterId?: string;
+  lessonId?: string;
+  onPurchased?: () => void;
+  chapterUpdate?: (chapter: any) => void;
+  updateSelectedLesson?: (lessonId: string) => void;
+}
+
+export const ChatComponents = forwardRef<any, ChatComponentsProps>(
   (
     {
       className,
@@ -204,7 +215,7 @@ export const ChatComponents = forwardRef(
     const chatId = courseId;
 
     const [inputDisabled, setInputDisabled] = useState(false);
-    const [inputModal, setInputModal] = useState(null);
+    const [inputModal, setInputModal] = useState<any>(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
@@ -228,7 +239,7 @@ export const ChatComponents = forwardRef(
     });
 
     const { userInfo, mobileStyle } = useContext(AppContext);
-    const chatRef = useRef();
+    const chatRef = useRef<HTMLDivElement>(null);
 
     const { updateResetedChapterId } = useCourseStore(
       useShallow((state) => ({
@@ -239,15 +250,12 @@ export const ChatComponents = forwardRef(
     const { messages, appendMsg, setTyping, updateMsg, resetList, deleteMsg } =
       useMessages([]);
 
-    const { autoScroll, onMessageListScroll, scrollToLesson, scrollToBottom } =
+    const { scrollToLesson, scrollToBottom } =
       useChatComponentsScroll({
         chatRef,
         containerStyle: styles.chatComponents,
-        messages,
-        appendMsg,
-        deleteMsg,
       });
-    const lastMsgRef = useRef(null);
+    const lastMsgRef = useRef<any>(null);
     const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
       useShallow((state) => ({
         checkLogin: state.checkLogin,
@@ -955,7 +963,7 @@ export const ChatComponents = forwardRef(
         return;
       }
 
-      const messageListElem = chatRef.current.querySelector('.MessageList');
+      const messageListElem = chatRef.current?.querySelector('.MessageList') as HTMLElement;
       if (!messageListElem) {
         return;
       }
@@ -994,7 +1002,7 @@ export const ChatComponents = forwardRef(
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
-        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        const messageIndex = messages.findIndex(msg => (msg as any).id === lastMsgRef.current.id);
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
         } else if (messageIndex !== messages.length - 1) {
@@ -1022,7 +1030,7 @@ export const ChatComponents = forwardRef(
           Composer={() => {
             return <></>;
           }}
-          onScroll={onMessageListScroll}
+          onSend={() => {}}
         />
 
         {inputModal && (
@@ -1056,8 +1064,10 @@ export const ChatComponents = forwardRef(
         {loginModalOpen && (
           <LoginModal
             open={loginModalOpen}
+            width={400}
             onClose={_onLoginModalClose}
             onLogin={onLogin}
+            onFeedbackClick={() => {}}
           />
         )}
         {showActionControl && getActionControl()}

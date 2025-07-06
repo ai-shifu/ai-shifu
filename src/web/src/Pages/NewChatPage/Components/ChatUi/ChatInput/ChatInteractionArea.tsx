@@ -22,7 +22,7 @@ export const ChatInteractionArea = ({
   askButtonState = { askMode: false, total: 1, used: 0 },
   onSizeChange = ({ width, height }) => {},
 }) => {
-  const elemRef = useRef();
+  const elemRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
   const [askContent, setAskContent] = useState('');
