@@ -13,7 +13,7 @@ import {
 
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import LogoWithText from '@/c-components/logo/LogoWithText';
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { shifu } from '@/c-service/Shifu';
 
 export const ChatMobileHeader = ({
@@ -26,7 +26,7 @@ export const ChatMobileHeader = ({
     open: iconPopoverOpen,
     onOpen: onIconPopoverOpen,
     onClose: onIconPopoverClose,
-  } = useDisclosture();
+  } = useDisclosure();
 
   const hasPopoverContentControl = shifu.hasControl(
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER

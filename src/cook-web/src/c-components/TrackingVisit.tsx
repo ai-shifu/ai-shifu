@@ -9,6 +9,7 @@ export const TrackingVisit = () => {
     trackEvent(EVENT_NAMES.VISIT, {});
     setOk(true);
   }
+  return null;
 }
 
 export default TrackingVisit;
