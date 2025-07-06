@@ -15,8 +15,8 @@ export const checkChapterCanLearning = ({ status_value }) => {
 };
 
 export const useLessonTree = () => {
-  const [tree, setTree] = useState(null);
-  const [selectedLessonId, setSelectedLessonId] = useState(null);
+  const [tree, setTree] = useState<{ bannerInfo?: any; catalogs: any[]; } | null>(null);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const { trackEvent } = useTracking();
   const { updateCourseId } = useEnvStore.getState();
 
@@ -24,7 +24,7 @@ export const useLessonTree = () => {
     if (!tree || !selectedLessonId) {
       return { catalog: null, lesson: null }
     }
-    // @ts-expect-error EXPECT
+    
     for (const catalog of tree.catalogs) {
       const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
       if (lesson) {
@@ -118,11 +118,11 @@ export const useLessonTree = () => {
       lesson = chapter.lessons.find(v => v.status_value === LESSON_STATUS_VALUE.LEARNING || v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING);
     }
 
-    if (!lesson) {
-      return false;
+    if (lesson) {
+      const typedLesson = lesson as { id: string };
+      setSelectedLessonId(typedLesson.id);
+      return true;
     }
-    // @ts-expect-error EXPECT
-    setSelectedLessonId(lesson.id);
     return true;
   }, []);
 
@@ -136,22 +136,22 @@ export const useLessonTree = () => {
     }
     // 设置 collapse 状态
     await newTree?.catalogs.forEach(c => {
-      // @ts-expect-error EXPECT
+      
       const oldCatalog = tree?.catalogs.find(oc => oc.id === c.id);
 
       if (oldCatalog) {
         c.collapse = oldCatalog.collapse;
       }
     });
-    // @ts-expect-error EXPECT
+    
     setTree(newTree);
     return newTree;
   }, [loadTreeInner, tree, initialSelectedChapter, setSelectedState]);
 
   const loadTree = useCallback(async (chapterId = '', lessonId = '') => {
-    let newTree = null;
+    let newTree: { bannerInfo?: any; catalogs: any[]; } | null = null;
     if (!tree) {
-      // @ts-expect-error EXPECT
+      
       newTree = await loadTreeInner();
     } else {
       newTree = tree;
@@ -168,10 +168,10 @@ export const useLessonTree = () => {
 
   const updateSelectedLesson = async (lessonId, forceExpand = false) => {
     setSelectedLessonId(lessonId);
-    // @ts-expect-error EXPECT
+    
     setTree(old => {
       if (!old) {
-        return;
+        return null;
       }
       const nextState = produce(old, draft => {
         draft.catalogs.forEach(c => {
@@ -192,7 +192,7 @@ export const useLessonTree = () => {
     if (!tree) {
       return;
     }
-    // @ts-expect-error EXPECT
+    
     const ca = tree.catalogs.find(c => c.id === catalogId);
     if (!ca) {
       return;
@@ -208,7 +208,9 @@ export const useLessonTree = () => {
   const toggleCollapse = ({ id }) => {
 
     const nextState = produce(tree, draft => {
-      // @ts-expect-error EXPECT
+      if (!draft) {
+        return draft;
+      }
       draft.catalogs.forEach(c => {
         if (c.id === id) {
           c.collapse = !c.collapse;
@@ -220,10 +222,10 @@ export const useLessonTree = () => {
   };
 
   const updateLesson = (id, val) => {
-    // @ts-expect-error EXPECT
+    
     setTree(old => {
       if (!old) {
-        return;
+        return null;
       }
 
       const nextState = produce(old, draft => {
@@ -245,10 +247,10 @@ export const useLessonTree = () => {
   };
 
   const updateChapterStatus = (id, { status, status_value }) => {
-    // @ts-expect-error EXPECT
+    
     setTree(old => {
       if (!old) {
-        return;
+        return null;
       }
 
       const nextState = produce(old, draft => {
@@ -267,7 +269,9 @@ export const useLessonTree = () => {
   };
 
   const getChapterByLesson = (lessonId) => {
-    // @ts-expect-error EXPECT
+    if (!tree) {
+      return null;
+    }
     const chapter = tree.catalogs.find(ch => {
       return ch.lessons.find(ls => ls.id === lessonId);
     });
@@ -282,7 +286,7 @@ export const useLessonTree = () => {
 
     let from = '';
     let to = '';
-    // @ts-expect-error EXPECT
+    
     for (const catalog of tree.catalogs) {
       const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
 
