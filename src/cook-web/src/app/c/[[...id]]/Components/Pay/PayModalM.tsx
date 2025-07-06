@@ -38,7 +38,7 @@ import { useWechat } from '@/c-common/hooks/useWechat';
 import { toast } from '@/hooks/use-toast';
 
 import { inWechat } from '@/c-constants/uiConstants';
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { SettingInputM } from '@/c-components/m/SettingInputM';
 import PayModalFooter from './PayModalFooter';
 
@@ -86,7 +86,7 @@ export const PayModalM = ({
     open: couponCodeModalOpen,
     onClose: onCouponCodeModalClose,
     onOpen: onCouponCodeModalOpen,
-  } = useDisclosture();
+  } = useDisclosure();
   const courseId = getStringEnv('courseId');
   const { hasLogin } = useUserStore(
     useShallow((state) => ({ hasLogin: state.hasLogin }))

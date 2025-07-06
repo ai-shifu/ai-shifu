@@ -39,7 +39,7 @@ import { fixMarkdown, fixMarkdownStream } from '@/c-utils/markdownUtils';
 import PayModal from '../Pay/PayModal';
 // TODO: FIXME
 // import LoginModal from '../Login/LoginModal';
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 
 import { tokenTool } from '@/c-service/storeUtil';
 import MarkdownBubble from './ChatMessage/MarkdownBubble';
@@ -271,13 +271,13 @@ export const ChatComponents = forwardRef<any, any>(
       open: payModalOpen,
       onOpen: onPayModalOpen,
       onClose: onPayModalClose,
-    } = useDisclosture();
+    } = useDisclosure();
 
     const {
       // open: loginModalOpen,
       onOpen: onLoginModalOpen,
       // onClose: onLoginModalClose,
-    } = useDisclosture();
+    } = useDisclosure();
 
     const _onPayModalClose = useCallback(() => {
       onPayModalClose();

@@ -17,7 +17,7 @@ import FeedbackModal from '@/app/c/[[...id]]/Components/FeedbackModal/FeedbackMo
 import ShortcutModal from '../ShortcutModal/ShortcutModal';
 
 import { useTranslation } from 'react-i18next';
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -41,19 +41,19 @@ const GlobalInfoButton = ({ className }) => {
     open: feedbackModalOpen,
     onOpen: onFeedbackModalOpen,
     onClose: onFeedbackModalClose,
-  } = useDisclosture();
+  } = useDisclosure();
 
   const {
     open: shortcutModalOpen,
     onOpen: onShortcutModalOpen,
     onClose: onShortcutModalClose,
-  } = useDisclosture();
+  } = useDisclosure();
 
   const {
     open: popoverOpen,
     onClose: onPopoverClose,
     onToggle: onPopoverToggle,
-  } = useDisclosture();
+  } = useDisclosure();
 
   const onContactUsClick = useCallback(() => {
     window.open('https://zhentouai.feishu.cn/share/base/form/shrcnwp8SRl1ghzia4fBG08VYkh', '_blank', 'noopener,noreferrer');

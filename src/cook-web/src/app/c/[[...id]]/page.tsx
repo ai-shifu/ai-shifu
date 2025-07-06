@@ -17,7 +17,7 @@ import {
 import { EVENT_NAMES, events } from './events';
 
 import { useEnvStore, useUserStore, useCourseStore, useUiLayoutStore, useSystemStore } from '@/c-store';
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
@@ -99,14 +99,14 @@ export default function ChatPage() {
     open: navOpen,
     onClose: onNavClose,
     onToggle: onNavToggle,
-  } = useDisclosture({
+  } = useDisclosure({
     initOpen: mobileStyle ? false : true,
   });
 
   const {
     open: feedbackModalOpen,
     onClose: onFeedbackModalClose,
-  } = useDisclosture();
+  } = useDisclosure();
 
   /**
    * Lesson part
@@ -146,13 +146,9 @@ export default function ChatPage() {
     if (tree) {
       reloadTree();
     }
-  }, [i18n.language]);
+  }, [i18n, reloadTree]);
 
-  useEffect(()=>{
-    if(selectedLessonId){
-      updateLessonId(selectedLessonId);
-    }
-  },[selectedLessonId]);
+  
 
   const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } = useCourseStore(
     useShallow((state) => ({
@@ -163,6 +159,12 @@ export default function ChatPage() {
       updateChapterId: state.updateChapterId,
     }))
   );
+
+  useEffect(()=>{
+    if(selectedLessonId){
+      updateLessonId(selectedLessonId);
+    }
+  },[selectedLessonId, updateLessonId]);
 
   const loadData = useCallback(async () => {
     await loadTree(chapterId, lessonId);
@@ -236,7 +238,7 @@ export default function ChatPage() {
         }
       }
     }
-  }, [ tree ]);
+  }, [ tree, updateLessonId, updateChapterId ]);
 
   useEffect(() => {
     if (hasCheckLogin) {
@@ -369,7 +371,7 @@ export default function ChatPage() {
         resetChapterEventHandler
       );
     };
-  });
+  }, []);
 
 
   return (
@@ -399,11 +401,11 @@ export default function ChatPage() {
               gotoLogin();
             }}
             lessonTree={tree}
-            selectedLessonId={selectedLessonId}
-            onChapterCollapse={toggleCollapse}
+            selectedLessonId={selectedLessonId || ''}
+            onChapterCollapse={(id) => toggleCollapse({ id })}
             onLessonSelect={onLessonSelect}
             onTryLessonSelect={onTryLessonSelect}
-            onClose={onNavClose}
+            
             onBasicInfoClick={onGoToSettingBasic}
             onPersonalInfoClick={onGoToSettingPersonal}
           />

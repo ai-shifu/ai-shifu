@@ -19,7 +19,7 @@ import {
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
 } from '@/c-constants/uiConstants';
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import MainMenuModal from './MainMenuModal';
 
 import { useUserStore } from '@/c-store';
@@ -64,9 +64,9 @@ const NavDrawer = ({
   onLoginClick = () => {},
   lessonTree,
   selectedLessonId = '',
-  onChapterCollapse = () => {},
-  onLessonSelect = () => {},
-  onTryLessonSelect = () => {},
+  onChapterCollapse,
+  onLessonSelect,
+  onTryLessonSelect,
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
@@ -88,7 +88,7 @@ const NavDrawer = ({
     open: mainModalOpen,
     onToggle: onMainModalToggle,
     onClose: onMainModalClose,
-  } = useDisclosture();
+  } = useDisclosure();
 
   const onBodyScroll = (e) => {
     setBodyScrollTop(e.target.scrollTop);

@@ -18,7 +18,7 @@ import { Button } from '@/components/ui/button';
 
 import { toast } from '@/hooks/use-toast';
 
-import { useDisclosture } from '@/c-common/hooks/useDisclosture';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
 import { ORDER_STATUS, PAY_CHANNEL_WECHAT } from './constans';
 import {
@@ -218,7 +218,7 @@ export const PayModal = ({
     open: couponCodeModalOpen,
     onOpen: onCouponCodeModalOpen,
     onClose: onCouponCodeModalClose,
-  } = useDisclosture();
+  } = useDisclosure();
 
   const onCouponCodeClick = useCallback(() => {
     onCouponCodeModalOpen();
