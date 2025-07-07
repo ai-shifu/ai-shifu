@@ -23,6 +23,7 @@ import { getToken } from '@/local/local'
 import { v4 as uuidv4 } from 'uuid'
 import Loading from '../loading'
 import { useTranslation } from 'react-i18next'
+import { ContentDTO } from '@/types/shifu'
 
 async function* makeTextSteamLineIterator (reader: ReadableStreamDefaultReader) {
   const utf8Decoder = new TextDecoder('utf-8')
@@ -58,10 +59,11 @@ async function* makeTextSteamLineIterator (reader: ReadableStreamDefaultReader) 
 }
 
 const AIModelDialog = ({ blockId, open, onOpenChange }) => {
+  console.log('AIModelDialog', blockId)
   const { t } = useTranslation()
   const SITE_HOST = getSiteHost()
   const {
-    blockContentProperties,
+    blockProperties,
     blocks,
     actions
     // profileItemDefinations
@@ -83,24 +85,22 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
 
   const [variables, setVariables] = useState({})
   const init = async () => {
-    const block = blocks.find(item => item.properties.block_id === blockId)
+    const block = blocks.find(item => item.bid === blockId)
     if (block) {
       const sysPrompt = await api.getSystemPrompt({
         block_id: blockId
       })
       setSystemPrompt(sysPrompt)
-      if (block.properties.block_content.type == 'solidcontent') {
-        const contentProp = blockContentProperties[blockId]
+      const contentProp = block.properties as ContentDTO
+      if (contentProp.llm_enabled == false) {
         setUserPrompt(contentProp.content)
-      } else if (block.properties.block_content.type == 'ai') {
-        const contentProp = blockContentProperties[blockId]
-        console.log(contentProp)
-        setUserPrompt(contentProp.prompt)
-        setProfiles(contentProp.variables || [])
+      } else if (contentProp.llm_enabled == true) {
+        setUserPrompt(contentProp.content)
+        setProfiles(block.variable_bids || [])
         setModels([
           {
-            model: contentProp.model,
-            temperature: contentProp.temperature
+            model: contentProp.llm,
+            temperature: contentProp.llm_temperature
           }
         ])
       }
@@ -240,9 +240,23 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     })
   }
   const updateBlock = async () => {
-    actions.setBlockContentPropertiesById(blockId, {
-      prompt: userPrompt
-    })
+
+
+    console.log('updateBlock', blockProperties[blockId].properties)
+    console.log('updateBlock', userPrompt)
+    console.log('updateBlock', models[0].model)
+    console.log('updateBlock', models[0].temperature)
+    actions.updateBlockProperties(blockId,
+      {
+        ...blockProperties[blockId],
+        properties: {
+          content: userPrompt,
+          llm_enabled: true,
+          llm: models[0].model,
+          llm_temperature: models[0].temperature
+        }
+      }
+    )
     onOpenChange(false)
   }
 

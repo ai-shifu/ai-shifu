@@ -395,8 +395,11 @@ def add_block(
             updated_user_id=user_id,
             status=STATUS_DRAFT,
         )
-
-        update_block_result = update_block_dto_to_model(block_dto, block_model)
+        variable_definitions = get_profile_item_definition_list(app, outline.course_id)
+        variable_definition_map = {v.profile_id: v for v in variable_definitions}
+        update_block_result = update_block_dto_to_model(
+            block_dto, block_model, variable_definition_map
+        )
         if update_block_result.error_message:
             raise_error(update_block_result.error_message)
         check_str = block_model.get_str_to_check()

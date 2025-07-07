@@ -617,11 +617,15 @@ def update_block_dto_to_model(
         block_model.script_ui_type = UI_TYPE_SELECTION
         content: OptionsDTO = block_dto.block_content  # type: OptionsDTO
         block_model.script_ui_content = content.result_variable_bid
+        variable_definition = variable_definition_map.get(
+            content.result_variable_bid if content.result_variable_bid else "",
+            None,
+        )
         block_model.script_other_conf = json.dumps(
             {
-                "var_name": variable_definition_map.get(
-                    content.result_variable_bid, {}
-                ).profile_key,
+                "var_name": (
+                    variable_definition.profile_key if variable_definition else ""
+                ),
                 "btns": [
                     {
                         "label": content.label.lang,
@@ -641,20 +645,34 @@ def update_block_dto_to_model(
         block_model.script_check_prompt = content.prompt
         block_model.script_model = content.llm
         block_model.script_temperature = content.llm_temperature
-        block_model.script_ui_profile_id = variable_definition_map.get(
-            block_dto.variable_bids[0], {}
-        ).profile_id
+        variable_definition = variable_definition_map.get(
+            (
+                block_dto.variable_bids[0]
+                if block_dto.variable_bids and len(block_dto.variable_bids) > 0
+                else ""
+            ),
+            None,
+        )
+        block_model.script_ui_profile_id = (
+            variable_definition.profile_id if variable_definition else ""
+        )
         return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
+        variable_definition = variable_definition_map.get(
+            (
+                block_dto.variable_bids[0]
+                if block_dto.variable_bids and len(block_dto.variable_bids) > 0
+                else ""
+            ),
+            None,
+        )
         block_model.script_ui_type = UI_TYPE_BRANCH
         content: GotoDTO = block_dto.block_content
         block_model.script_ui_content = ""
         block_model.script_other_conf = json.dumps(
             {
                 "var_name": (
-                    variable_definition_map.get(
-                        block_dto.variable_bids[0], {}
-                    ).profile_key
+                    variable_definition.profile_key if variable_definition else ""
                 ),
                 "jump_rule": [
                     {
