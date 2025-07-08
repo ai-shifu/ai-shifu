@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { memo } from 'react'
 import Empty from './empty'
 import _ from 'lodash'
-import { BlockDTO, BlockType, UIBlockDTO } from '@/types/shifu';
+import { BlockDTO, UIBlockDTO } from '@/types/shifu';
 import i18n from '@/i18n';
 const componentMap = {
     content: RenderBlockContent,
@@ -31,7 +31,6 @@ const componentMap = {
     goto: Goto,
     phone: SingleInput,
     code: SingleInput,
-    // old
     option: Option,
     textinput: TextInput,
     login: (props) => <Button {...props} mode="login" />,
@@ -63,7 +62,6 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
         onChanged?.(changed);
     }
 
-    console.log('data', data)
     const onPropertiesChange = async (properties) => {
         const p = {
             ...blockProperties,
@@ -119,15 +117,14 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const {
         actions,
         currentNode,
-        blocks,
-        blockContentTypes,
-        blockContentProperties,
-        currentShifu,
         blockProperties,
-        blockTypes
+        blockTypes,
+        blocks,
+        currentShifu,
+        blockContentTypes,
+        blockContentProperties
     } = useShifu();
 
-    console.log('block',block)
     const [expand, setExpand] = useState(block.type === 'content' ? true : false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
@@ -152,15 +149,15 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
 
         setIsChanged(false);
 
-        // if (currentNode) {
-        //     actions.autoSaveBlocks(
-        //         currentNode.id,
-        //         blocks,
-        //         blockContentTypes,
-        //         blockContentProperties,
-        //         currentShifu?.bid || ''
-        //     )
-        // }
+        if (currentNode) {
+            actions.autoSaveBlocks(
+                currentNode.id,
+                blocks,
+                blockContentTypes,
+                blockContentProperties,
+                currentShifu?.bid || ''
+            )
+        }
     }
 
     const onUITypeChange = (id: string, type: string) => {
