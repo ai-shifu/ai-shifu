@@ -392,12 +392,12 @@ export const useUITypes = () => {
                 "content": "",
                 "llm": "",
                 "llm_temperature": "0.40",
-                "placeholder": {
-                    "lang": {
-                        "zh-CN": "",
-                        "en-US": ""
-                    }
-                },
+            },
+            validate: (data): string => {
+                if (!data.properties.content) {
+                    return t('render-ui.content-empty')
+                }
+                return ""
             }
         }
     ]
