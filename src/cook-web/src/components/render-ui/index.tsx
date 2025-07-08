@@ -146,7 +146,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
             result_variable_bid: "",
             properties: opt?.properties || {}
         })
-
         setIsChanged(false);
 
         if (currentNode) {
