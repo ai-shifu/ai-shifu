@@ -20,7 +20,7 @@ def handle_ask_mode(
     trace,
     trace_args,
 ):
-    follow_up_info = get_follow_up_info(app, script_info)
+    follow_up_info = get_follow_up_info(app, script_info, attend)
     ask_mode = follow_up_info.ask_mode
     visible = True if ask_mode == ASK_MODE_ENABLE else False
     enable = True if ask_mode == ASK_MODE_ENABLE else False

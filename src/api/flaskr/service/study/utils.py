@@ -681,8 +681,10 @@ class FollowUpInfo:
         }
 
 
-def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
-    if script_info.ask_mode != ASK_MODE_DEFAULT:
+def get_follow_up_info(
+    app: Flask, script_info: AILessonScript, attend: AICourseLessonAttend
+) -> FollowUpInfo:
+    if script_info and script_info.ask_mode != ASK_MODE_DEFAULT:
         app.logger.info(f"script_info.ask_mode: {script_info.ask_mode}")
         return FollowUpInfo(
             script_info.ask_model,
@@ -695,7 +697,7 @@ def get_follow_up_info(app: Flask, script_info: AILessonScript) -> FollowUpInfo:
     # todo add cache info
     ai_lesson = (
         AILesson.query.filter(
-            AILesson.lesson_id == script_info.lesson_id,
+            AILesson.lesson_id == attend.lesson_id,
             AILesson.status == 1,
         )
         .order_by(AILesson.id.desc())
