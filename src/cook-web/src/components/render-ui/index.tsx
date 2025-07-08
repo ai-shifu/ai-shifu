@@ -116,13 +116,13 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
 export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange }: { block: BlockDTO, onExpandChange?: (expanded: boolean) => void }) {
     const {
         actions,
-        blockUITypes,
         currentNode,
         blocks,
         blockContentTypes,
         blockContentProperties,
         currentShifu,
         blockProperties,
+        blockTypes
     } = useShifu();
     const [expand, setExpand] = useState(block.type === 'content' ? true : false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -135,11 +135,21 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         onExpandChange?.(newExpand)
     }
 
-    const handleTypeChange = (type: string) => {
+    const handleTypeChange = async (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
-        actions.setBlockUITypesById(block.bid, type as BlockType)
-        actions.setBlockUIPropertiesById(block.bid, opt?.properties || {}, true)
+        console.log('handleTypeChange', opt)
+        console.log('handleTypeChange', block.bid)
+        console.log('handleTypeChange', blockProperties[block.bid])
+        console.log('handleTypeChange', blockTypes[block.bid])
+
+        await actions.updateBlockProperties(block.bid,{
+            bid: block.bid,
+            type: type,
+            variable_bids: [],
+            result_variable_bid: "",
+            properties: opt?.properties || {}
+        })
 
         setIsChanged(false);
 
@@ -155,9 +165,10 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     }
 
     const onUITypeChange = (id: string, type: string) => {
-        if (type === blockUITypes[block.bid]) {
-            return;
-        }
+        console.log('onUITypeChange', type, blockTypes[block.bid])
+        console.log('onUITypeChange', type)
+
+        const isChanged = type !== blockTypes[block.bid]
         if (isChanged) {
             setPendingType(type);
             setShowConfirmDialog(true);
@@ -235,6 +246,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
                                 isEdit={expand}
                                 isChanged={isChanged}
                                 onEditChange={handleBlockEditChange}
+
                             />
                         )
                     }

@@ -321,7 +321,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (isLoading) {
       return
     }
-    console.log('saveBlocks', blockProperties)
     const list = buildBlockListWithAllInfo(blocks, blockTypes, blockProperties)
     try {
       setError(null)

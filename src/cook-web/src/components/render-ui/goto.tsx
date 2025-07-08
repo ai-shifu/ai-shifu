@@ -43,7 +43,6 @@ export default memo(function Goto(props: UIBlockDTO) {
     const [variableBid, setVariableBid] = useState<string>(data.variable_bids?.[0] || "");
     const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
     const gotoSettings = data.properties as GotoDTO
-    console.log('gotoSettings', gotoSettings)
     const [tempGotoSettings, setTempGotoSettings] = useState(gotoSettings);
 
 
@@ -91,7 +90,6 @@ export default memo(function Goto(props: UIBlockDTO) {
         const list = await api.getProfileItemOptionList({
             parent_id: id
         })
-        console.log(list)
         const conditions = list.map((item) => {
             const existingCondition = tempGotoSettings.conditions.find((condition) => condition.value === item.value);
             if (existingCondition) {
@@ -162,7 +160,6 @@ export default memo(function Goto(props: UIBlockDTO) {
                 <div className='flex flex-col space-y-1 '>
                     {
                         tempGotoSettings.conditions.map((item, index) => {
-                            console.log('item', item)
                             return (
                                 <div className='flex flex-row items-center space-x-2' key={`${item.destination_bid}-${index}`}>
                                     <span className='w-40'>{item.value}</span>

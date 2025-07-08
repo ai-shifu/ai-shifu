@@ -82,8 +82,6 @@ export default memo(function SingleInput(props: UIBlockDTO) {
                     value={inputSettings.prompt}
                     onChange={(e) => onValueChange(e, 'prompt')}
                     placeholder={t('input.input-name')}
-                // type="tel"
-                // placeholder={properties.input_placeholder}
                 />
             </div>
 
