@@ -516,6 +516,17 @@ def run_script_inner(
                         for script_dto in script_dtos:
                             yield make_script_dto_to_stream(script_dto)
                     else:
+                        res = handle_ask_mode(
+                            app,
+                            user_info,
+                            attend,
+                            script_info,
+                            input,
+                            trace,
+                            trace_args,
+                        )
+                        if res:
+                            yield make_script_dto_to_stream(res)
                         res = update_lesson_status(app, attend.attend_id, preview_mode)
                         if res:
                             for attend_update in res:
@@ -572,6 +583,18 @@ def run_script_inner(
                     db.session.commit()
                     return
             else:
+                app.logger.info("script_info is None handle_ask_mode")
+                res = handle_ask_mode(
+                    app,
+                    user_info,
+                    attend,
+                    script_info,
+                    input,
+                    trace,
+                    trace_args,
+                )
+                if res:
+                    yield make_script_dto_to_stream(res)
                 res = update_lesson_status(app, attend.attend_id, preview_mode)
                 if res and len(res) > 0:
                     for attend_update in res:
@@ -604,13 +627,6 @@ def run_script_inner(
             db.session.commit()
             if auto_next_lesson_id:
                 pass
-                # yield from run_script_inner(
-                #     app,
-                #     user_id,
-                #     course_id,
-                #     auto_next_lesson_id,
-                #     input_type=INPUT_TYPE_START,
-                # )
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")

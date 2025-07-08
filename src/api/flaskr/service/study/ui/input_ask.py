@@ -27,6 +27,6 @@ def handle_ask_mode(
     return ScriptDTO(
         "ask_mode",
         {"ask_mode": enable, "visible": visible},
-        script_info.lesson_id,
-        script_info.script_id,
+        attend.lesson_id,
+        script_info.script_id if script_info else "",
     )
