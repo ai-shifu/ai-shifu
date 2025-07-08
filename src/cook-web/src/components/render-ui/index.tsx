@@ -39,16 +39,17 @@ const componentMap = {
     empty: Empty,
 }
 
-const BlockUIPropsEqual = (prevProps: any, nextProps: any) => {
-    if (!_.isEqual(prevProps.id, nextProps.id) || prevProps.type !== nextProps.type) {
+const BlockUIPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
+    if (!_.isEqual(prevProps.id, nextProps.id) || prevProps.data.type !== nextProps.data.type) {
         return false
     }
-    const prevKeys = Object.keys(prevProps.properties || {})
-    const nextKeys = Object.keys(nextProps.properties || {})
-    if (prevKeys.length !== nextKeys.length) {
+    if (!_.isEqual(prevProps.data.properties, nextProps.data.properties)) {
         return false
     }
-    if (!_.isEqual(prevProps.properties, nextProps.properties)) {
+    if (!_.isEqual(prevProps.data.variable_bids, nextProps.data.variable_bids)) {
+        return false
+    }
+    if (!_.isEqual(prevProps.data.resource_bids, nextProps.data.resource_bids)) {
         return false
     }
     return true
@@ -62,6 +63,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
         onChanged?.(changed);
     }
 
+    console.log('data', data)
     const onPropertiesChange = async (properties) => {
         const p = {
             ...blockProperties,
@@ -124,6 +126,8 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         blockProperties,
         blockTypes
     } = useShifu();
+
+    console.log('block',block)
     const [expand, setExpand] = useState(block.type === 'content' ? true : false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
@@ -138,11 +142,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
     const handleTypeChange = async (type: string) => {
         handleExpandChange(true);
         const opt = UITypes.find(p => p.type === type);
-        console.log('handleTypeChange', opt)
-        console.log('handleTypeChange', block.bid)
-        console.log('handleTypeChange', blockProperties[block.bid])
-        console.log('handleTypeChange', blockTypes[block.bid])
-
         await actions.updateBlockProperties(block.bid,{
             bid: block.bid,
             type: type,
@@ -153,21 +152,18 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
 
         setIsChanged(false);
 
-        if (['login', 'payment', 'empty'].includes(type) && currentNode) {
-            actions.autoSaveBlocks(
-                currentNode.id,
-                blocks,
-                blockContentTypes,
-                blockContentProperties,
-                currentShifu?.bid || ''
-            )
-        }
+        // if (currentNode) {
+        //     actions.autoSaveBlocks(
+        //         currentNode.id,
+        //         blocks,
+        //         blockContentTypes,
+        //         blockContentProperties,
+        //         currentShifu?.bid || ''
+        //     )
+        // }
     }
 
     const onUITypeChange = (id: string, type: string) => {
-        console.log('onUITypeChange', type, blockTypes[block.bid])
-        console.log('onUITypeChange', type)
-
         const isChanged = type !== blockTypes[block.bid]
         if (isChanged) {
             setPendingType(type);

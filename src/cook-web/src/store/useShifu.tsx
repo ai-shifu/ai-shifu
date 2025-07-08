@@ -21,7 +21,8 @@ import {
   ReactNode,
   useContext,
   useState,
-  useCallback
+  useCallback,
+  useEffect
 } from 'react'
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined)
@@ -271,24 +272,37 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   }
 
   const updateBlockProperties =useCallback(async(bid: string, properties: any) => {
-    const block = blocks.find(b => b.bid === bid)
-    if (block) {
-      console.log(block)
-      block.properties = properties
-      setBlocks([...blocks])
+
+    console.log('updateBlockProperties', bid, properties)
+
+     // 1. 正确更新 blocks 数组
+  setBlocks(prevBlocks =>
+    prevBlocks.map(block =>
+      block.bid === bid
+        ? {
+            ...block,
+            type: properties.type,
+            properties: properties.properties,
+            variable_bids: properties.variable_bids || [],
+            resource_bids: properties.resource_bids || []
+          }
+        : block
+    )
+  )
+
+    if (blockTypes[bid] !== properties.type) {
+      setBlockTypes({
+        ...blockTypes,
+        [bid]: properties.type
+      })
     }
-    // setBlockProperties(prev => {
-    //   return {
-    //     ...prev,
-    //     [bid]: properties
-    //   }
-    // })
-    return new Promise<void>((resolve) => {
+    await new Promise<void>((resolve) => {
       setBlockProperties(prev => {
         const newState = {
           ...prev,
           [bid]: properties
         }
+        console.log('updateBlockProperties', newState)
         // 在下一个微任务中解析 Promise，确保状态已更新
         setTimeout(() => resolve(), 0)
         return newState
@@ -296,6 +310,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     })
 
   }, [])
+
+
+  useEffect(() => {
+    console.log('blocks', blocks)
+  }, [blocks])
+
 
   const loadBlocks = async (outlineId: string, shifuId: string) => {
     try {
@@ -796,6 +816,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         ...properties
       }
     })
+    if (blockProperties[id].type !== properties.type) {
+      setBlockTypes({
+        ...blockTypes,
+        [id]: properties.type
+      })
+    }
   }
 
   const setBlockUITypesById = (id: string, type: BlockType) => {

@@ -85,7 +85,6 @@ MinimalTreeItemComponent.displayName = 'MinimalTreeItemComponent';
 export default function OutlineSelector({ value, chapters = [], onSelect }: { value: string, chapters: Outline[], onSelect?: (node: Outline) => void }) {
     "use client"
 
-    console.log('OutlineSelector', value, chapters)
     const { t } = useTranslation();
     const [nodes, setNodes] = useState(chapters);
     const [open, setOpen] = useState(false);
