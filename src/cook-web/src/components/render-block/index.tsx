@@ -28,30 +28,13 @@ const RenderBlockContentPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockD
 export const RenderBlockContent = memo(function RenderBlockContent(props: UIBlockDTO) {
   const { data } = props
   const properties = data.properties as ContentDTO
-  // const { t } = useTranslation()
-  // const {
-  //   actions,
-  //   blocks,
-  //   currentShifu
-  // } = useShifu()
+
   const [error] = useState('')
 
   const onPropertiesChange = async properties => {
     props.onPropertiesChange(properties)
   }
 
-  // const onSave = async () => {
-  //   setError('')
-  //   const block = blocks.find(item => item.properties.block_id == id)
-  //   if (block && properties.llm_enabled && properties.content == '') {
-  //     setError(t('render-block.ai-content-empty'))
-  //     return
-  //   } else if (block && properties.content == '') {
-  //     setError(t('render-block.solid-content-empty'))
-  //     return
-  //   }
-  //   await actions.saveBlocks(currentShifu?.bid || '')
-  // }
 
   const isEdit = true
   const Ele = properties.llm_enabled ? AI : SolidContent
