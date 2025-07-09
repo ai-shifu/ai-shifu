@@ -46,7 +46,8 @@ export default memo(function Option(props: UIBlockDTO) {
         "value": t('option.button-key'),
         "label": {
             "lang": {
-                [i18n.language]: t('option.button-name')
+                "zh-CN": t('option.button-name'),
+                "en-US": t('option.button-name')
             }
         }
     }] : optionsSettings.options);
@@ -74,7 +75,8 @@ export default memo(function Option(props: UIBlockDTO) {
                         ...option.label,
                         lang: {
                             ...option.label.lang,
-                            [i18n.language]: e.target.value
+                            "zh-CN": e.target.value,
+                            "en-US": e.target.value
                         }
                     }
                 }
@@ -87,7 +89,8 @@ export default memo(function Option(props: UIBlockDTO) {
         const newOption = {
             "label": {
                 "lang": {
-                    [i18n.language]: t('option.button-name')
+                    "zh-CN": t('option.button-name'),
+                    "en-US": t('option.button-name')
                 },
 
             },
@@ -166,7 +169,8 @@ export default memo(function Option(props: UIBlockDTO) {
                                 const newOption = {
                                     "label": {
                                         "lang": {
-                                            [i18n.language]: "全部"
+                                            "zh-CN": "全部",
+                                            "en-US": "全部"
                                         },
                                     },
                                     "value": e.target.value
@@ -180,7 +184,8 @@ export default memo(function Option(props: UIBlockDTO) {
                                 const newOption = {
                                     "label": {
                                         "lang": {
-                                            [i18n.language]: e.target.value
+                                            "zh-CN": e.target.value,
+                                            "en-US": e.target.value
                                         },
                                     },
                                     "value": "全部"
