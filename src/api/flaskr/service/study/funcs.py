@@ -558,18 +558,6 @@ def get_study_record(
                 pass
         else:
             last_attend = last_attends[-1]
-        if last_attend is None or last_attend.status == ATTEND_STATUS_COMPLETED:
-            app.logger.info(
-                "last_script.script_ui_content:{}".format(last_script.script_ui_content)
-            )
-            uis = handle_ui(
-                app, user_info, last_attend, last_script, "", MockClient(), {}
-            )
-            app.logger.info("uis:{}".format(uis))
-            if len(uis) > 0:
-                ret.ui = uis[0]
-            return ret
-
         uis = handle_ui(app, user_info, last_attend, last_script, "", MockClient(), {})
         app.logger.info("uis:{}".format(uis))
         if len(uis) > 0:

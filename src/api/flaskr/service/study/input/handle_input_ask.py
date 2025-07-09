@@ -52,7 +52,7 @@ def handle_input_ask(
     """
 
     # Get follow-up information (including Q&A prompts and model configuration)
-    follow_up_info = get_follow_up_info(app, script_info)
+    follow_up_info = get_follow_up_info(app, script_info, attend)
     app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
 
     # Query historical conversation records, ordered by time
