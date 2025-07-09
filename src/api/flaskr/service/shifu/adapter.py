@@ -756,7 +756,7 @@ def generate_block_dto_from_model(
                 bid=block_model.script_id,
                 block_content=InputDTO(
                     placeholder=_get_lang_dict(block_model.script_ui_content),
-                    result_variable_bids=[],
+                    result_variable_bids=variable_bids,
                     prompt=block_model.script_check_prompt,
                     llm="",
                     llm_temperature=0.0,

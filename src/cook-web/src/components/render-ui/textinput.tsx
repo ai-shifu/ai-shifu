@@ -60,6 +60,7 @@ function TextInput(props: UIBlockDTO) {
   }
 
   const handleProfileChange = (value: string[]) => {
+    console.log('handleProfileChange', value)
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
@@ -73,8 +74,8 @@ function TextInput(props: UIBlockDTO) {
       placeholder: {
         ...tempProperties.placeholder,
         lang: {
-          ...tempProperties.placeholder.lang,
-          [i18n.language]: e.target.value
+          'zh-CN': e.target.value,
+          'en-US': e.target.value
         }
       }
     })
@@ -83,7 +84,8 @@ function TextInput(props: UIBlockDTO) {
   const handleConfirm = () => {
     props.onPropertiesChange({
       ...data,
-      properties: tempProperties
+      properties: tempProperties,
+      variable_bids: tempProperties.result_variable_bids
     })
   }
 
