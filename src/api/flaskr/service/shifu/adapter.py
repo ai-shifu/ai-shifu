@@ -595,6 +595,7 @@ def update_block_dto_to_model(
         block_model.script_prompt = raw_content
         block_model.script_profile = "[" + "][".join(variables) + "]"
         block_model.script_model = content.llm
+        block_model.script_ui_profile = "[" + "][".join(variables) + "]"
         block_model.script_temperature = content.llm_temperature
         if content.llm_enabled:
             block_model.script_type = SCRIPT_TYPE_PROMPT
@@ -643,6 +644,10 @@ def update_block_dto_to_model(
             content.result_variable_bid if content.result_variable_bid else "",
             None,
         )
+        if not new_block and variable_definition is None:
+            return BlockUpdateResultDto(None, "SHIFU.VARIABLE_DEFINITION_NOT_FOUND")
+        if not new_block and (not content.options or not content.options):
+            return BlockUpdateResultDto(None, "SHIFU.OPTIONS_REQUIRED")
         block_model.script_other_conf = json.dumps(
             {
                 "var_name": (
@@ -657,16 +662,20 @@ def update_block_dto_to_model(
                 ],
             }
         )
+        block_model.script_ui_profile = "[" + variable_definition.profile_key + "]"
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "input":
-        if not new_block and (
-            not block_dto.block_content.prompt
-            or not block_dto.block_content.prompt.strip()
-        ):
-            return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
+        if (not new_block) and (not content.prompt or not content.prompt.strip()):
+            return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+        if (not new_block) and (
+            content.result_variable_bids is None
+            or len(content.result_variable_bids) == 0
+        ):
+            return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
         block_model.script_ui_content = json.dumps(content.placeholder.lang)
 
         block_model.script_check_prompt = content.prompt
@@ -680,29 +689,14 @@ def update_block_dto_to_model(
             ),
             None,
         )
-        if not new_block and (
-            not block_dto.block_content.result_variable_bids
-            or not block_dto.block_content.result_variable_bids
-        ):
-            return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
         block_model.script_ui_profile_id = (
             variable_definition.profile_id if variable_definition else ""
         )
 
-        if (
-            not new_block
-            and "json" not in block_dto.block_content.prompt.strip().lower()
-        ):
+        if (not new_block) and ("json" not in content.prompt.strip().lower()):
             return BlockUpdateResultDto(None, "SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
-        if not new_block and (
-            not block_dto.block_content.result_variable_bids
-            or not block_dto.block_content.result_variable_bids
-        ):
-            return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
-        if (
-            not new_block
-            and variable_definition.profile_key
-            not in block_dto.block_content.prompt.strip().lower()
+        if (not new_block) and (
+            variable_definition.profile_key not in content.prompt.strip().lower()
         ):
             return BlockUpdateResultDto(
                 None, "SHIFU.TEXT_INPUT_PROMPT_VARIABLE_REQUIRED"
@@ -717,6 +711,8 @@ def update_block_dto_to_model(
             ),
             None,
         )
+        if not new_block and variable_definition is None:
+            return BlockUpdateResultDto(None, "SHIFU.VARIABLE_DEFINITION_NOT_FOUND")
         block_model.script_ui_type = UI_TYPE_BRANCH
         content: GotoDTO = block_dto.block_content
         block_model.script_ui_content = ""
