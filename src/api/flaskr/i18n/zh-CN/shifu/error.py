@@ -8,6 +8,7 @@ INVALID_BLOCK_CONTENT_TYPE = "无效的块内容类型"
 INVALID_OUTLINE_TYPE = "无效的大纲类型"
 BUTTON_NAME_REQUIRED = "按钮名称不能为空"
 BUTTON_KEY_REQUIRED = "按钮key不能为空"
+OPTIONS_REQUIRED = "选项不能为空"
 OPTION_KEY_REQUIRED = "选项key不能为空"
 OPTION_NAME_REQUIRED = "选项名称不能为空"
 PROFILE_KEY_REQUIRED = "选项key不能为空"
@@ -31,3 +32,6 @@ TEXT_INPUT_PROMPT_REQUIRED = "输入提示不能为空"
 TEXT_INPUT_PROMPT_JSON_REQUIRED = (
     "用户输入的内容将被解析为 JSON 格式。请确保提示词中包含「JSON」关键字。"
 )
+TEXT_INPUT_PROMPT_VARIABLE_REQUIRED = "输入提示中必须包含变量"
+
+RESULT_VARIABLE_BIDS_REQUIRED = "结果变量不能为空"

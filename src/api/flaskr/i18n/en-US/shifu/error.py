@@ -6,6 +6,7 @@ INVALID_BLOCK_TYPE = "invalid block type"
 INVALID_BLOCK_UI_TYPE = "invalid block ui type"
 INVALID_BLOCK_CONTENT_TYPE = "invalid block content type"
 INVALID_OUTLINE_TYPE = "invalid outline type"
+OPTIONS_REQUIRED = "options is required"
 BUTTON_NAME_REQUIRED = "button name is required"
 BUTTON_KEY_REQUIRED = "button key is required"
 OPTION_KEY_REQUIRED = "option key is required"
@@ -37,3 +38,5 @@ SHIFU_BLOCK_DESCRIPTION_TOO_SHORT = (
 )
 TEXT_INPUT_PROMPT_REQUIRED = "text input prompt is required"
 TEXT_INPUT_PROMPT_JSON_REQUIRED = "User input content will be parsed as JSON format. Please ensure the prompt contains the keyword 'JSON'."
+TEXT_INPUT_PROMPT_VARIABLE_REQUIRED = "The prompt must contain a variable"
+RESULT_VARIABLE_BIDS_REQUIRED = "Result variable is required"

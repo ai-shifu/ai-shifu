@@ -586,7 +586,7 @@ def update_block_dto_to_model(
             not block_dto.block_content.content
             or not block_dto.block_content.content.strip()
         ):
-            return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+            return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
 
         raw_content = html_2_markdown(block_dto.block_content.content, variables)
         block_model.script_ui_type = UI_TYPE_CONTENT
@@ -645,9 +645,16 @@ def update_block_dto_to_model(
             None,
         )
         if (not new_block) and variable_definition is None:
-            return BlockUpdateResultDto(None, "SHIFU.VARIABLE_DEFINITION_NOT_FOUND")
+            return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
         if (not new_block) and (not content.options or not content.options):
-            return BlockUpdateResultDto(None, "SHIFU.OPTIONS_REQUIRED")
+            return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_REQUIRED"))
+
+        for option in content.options:
+            if not option.label or not option.label.lang:
+                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
+            if not option.value:
+                return BlockUpdateResultDto(None, _("SHIFU.OPTION_VALUE_REQUIRED"))
+
         block_model.script_other_conf = json.dumps(
             {
                 "var_name": (
@@ -672,7 +679,7 @@ def update_block_dto_to_model(
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
         if (not new_block) and (not content.prompt or not content.prompt.strip()):
-            return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+            return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_REQUIRED"))
         if (not new_block) and (
             content.result_variable_bids is None
             or len(content.result_variable_bids) == 0
@@ -696,12 +703,14 @@ def update_block_dto_to_model(
         )
 
         if (not new_block) and ("json" not in content.prompt.strip().lower()):
-            return BlockUpdateResultDto(None, "SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
+            return BlockUpdateResultDto(
+                None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
+            )
         if (not new_block) and (
             variable_definition.profile_key not in content.prompt.strip().lower()
         ):
             return BlockUpdateResultDto(
-                None, "SHIFU.TEXT_INPUT_PROMPT_VARIABLE_REQUIRED"
+                None, _("SHIFU.TEXT_INPUT_PROMPT_VARIABLE_REQUIRED")
             )
         return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
@@ -714,7 +723,7 @@ def update_block_dto_to_model(
             None,
         )
         if not new_block and variable_definition is None:
-            return BlockUpdateResultDto(None, "SHIFU.VARIABLE_DEFINITION_NOT_FOUND")
+            return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
         block_model.script_ui_type = UI_TYPE_BRANCH
         content: GotoDTO = block_dto.block_content
         block_model.script_ui_content = ""
