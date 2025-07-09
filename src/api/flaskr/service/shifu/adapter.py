@@ -554,13 +554,17 @@ def _get_label_lang(label) -> LabelDTO:
 
 
 def _get_lang_dict(lang: str) -> dict[str, str]:
-    from flask import current_app
 
-    current_app.logger.info(f"lang: {lang} {type(lang)}")
     if isinstance(lang, dict):
         return lang
     if lang.startswith("{"):
-        return json.loads(lang)
+        try:
+            return json.loads(lang)
+        except Exception:
+            return {
+                "zh-CN": lang,
+                "en-US": lang,
+            }
     return {
         "zh-CN": lang,
         "en-US": lang,
@@ -745,9 +749,6 @@ def update_block_dto_to_model(
         )
         return BlockUpdateResultDto(None, None)
 
-    if block_dto.type == "break":
-        block_model.script_ui_type = UI_TYPE_BREAK
-        return BlockUpdateResultDto(None, None)
     return BlockUpdateResultDto(None, None)
 
 
