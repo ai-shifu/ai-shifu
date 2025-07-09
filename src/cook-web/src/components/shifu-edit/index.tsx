@@ -194,9 +194,6 @@ const DraggableBlock = ({
             }}
           >
             <div className='flex flex-col gap-2 text-sm'>
-
-
-
             {type === 'content' && (
               <div className='px-3 py-1.5 text-gray-500 text-lg'>
                 {llmEnabled ? t('shifu.ai-block') : t('shifu.regular-block')}
@@ -436,7 +433,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         newBlocks.splice(hoverIndex, 0, dragBlock)
                         actions.setBlocks(newBlocks)
                         actions.autoSaveBlocks(
-                          currentNode!.id,
+                          currentNode!.bid,
                           newBlocks,
                           blockContentTypes,
                           blockProperties,

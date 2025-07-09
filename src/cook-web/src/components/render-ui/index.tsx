@@ -85,7 +85,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
             [id]: data.type
         }
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
+            actions.autoSaveBlocks(currentNode.bid, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
         }
     }
 
@@ -166,7 +166,7 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
             [block.bid]: type
         }
         if (currentNode) {
-            await actions.autoSaveBlocks(currentNode.id, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
+            await actions.autoSaveBlocks(currentNode.bid, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
         }
     }
 
