@@ -739,11 +739,11 @@ def update_block_dto_to_model(
                 ),
                 "jump_rule": [
                     {
-                        "goto_id": content.destination_bid,
-                        "value": content.value,
-                        "type": content.destination_type,
+                        "goto_id": condition.destination_bid,
+                        "value": condition.value,
+                        "type": condition.destination_type,
                     }
-                    for content in content.conditions
+                    for condition in content.conditions
                 ],
             }
         )
