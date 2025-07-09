@@ -397,7 +397,7 @@ export const useUITypes = () => {
             properties: {
                 "content": "",
                 "llm": "",
-                "llm_temperature": "0.40",
+                "llm_temperature": 0.40,
                 "llm_enabled": true
             },
             validate: (data): string => {
