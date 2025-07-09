@@ -649,11 +649,12 @@ def update_block_dto_to_model(
         if (not new_block) and (not content.options or not content.options):
             return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_REQUIRED"))
 
-        for option in content.options:
-            if not option.label or not option.label.lang:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
-            if not option.value:
-                return BlockUpdateResultDto(None, _("SHIFU.OPTION_VALUE_REQUIRED"))
+        if not new_block:
+            for option in content.options:
+                if not option.label or not option.label.lang:
+                    return BlockUpdateResultDto(None, _("SHIFU.OPTION_NAME_REQUIRED"))
+                if not option.value:
+                    return BlockUpdateResultDto(None, _("SHIFU.OPTION_VALUE_REQUIRED"))
 
         block_model.script_other_conf = json.dumps(
             {

@@ -872,9 +872,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         user_id = request.user.user_id
         block = request.get_json().get("block")
         block_index = request.get_json().get("block_index")
-        if not block:
+        if block is None:
             raise_param_error("block is required")
-        if not block_index:
+        if block_index is None:
             raise_param_error("block_index is required")
         if not block.get("type"):
             raise_param_error("block type is required")
