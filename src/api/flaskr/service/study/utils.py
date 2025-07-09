@@ -902,8 +902,21 @@ def check_script_is_last_script(
 
 def get_script_ui_label(app, text):
     if isinstance(text, dict):
-        return text.get(get_current_language(), "en-US")
+        label = text.get(get_current_language(), "")
+        if label and label != "":
+            return label
+        for k, v in text.items():
+            if v and v != "":
+                return v
     if text.startswith("{"):
-        json_obj = json.loads(text)
-        return json_obj.get(get_current_language(), "en-US")
+        try:
+            json_obj = json.loads(text)
+            label = json_obj.get(get_current_language(), "")
+            if label and label != "":
+                return label
+            for k, v in json_obj.items():
+                if v and v != "":
+                    return v
+        except Exception:
+            return text
     return text
