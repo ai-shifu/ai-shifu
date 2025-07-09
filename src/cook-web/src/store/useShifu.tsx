@@ -35,7 +35,7 @@ const buildBlockListWithAllInfo = (
   const list = blocks.map((block: Block) => {
     return {
       bid: block.bid,
-      type: blockTypes[block.bid],
+      type: blockTypes[block.bid] ?? blockProperties[block.bid].type ,
       properties: blockProperties[block.bid].properties,
       variable_bids: blockProperties[block.bid].variable_bids,
       resource_bids: blockProperties[block.bid].resource_bids
@@ -272,42 +272,37 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   }
 
   const updateBlockProperties =useCallback(async(bid: string, properties: any) => {
+      setBlocks(prevBlocks =>
+        prevBlocks.map(block =>
+          block.bid === bid
+            ? {
+                ...block,
+                type: properties.type,
+                properties: properties.properties,
+                variable_bids: properties.variable_bids || [],
+                resource_bids: properties.resource_bids || []
+              }
+            : block
+        )
+      )
 
-    console.log('updateBlockProperties', bid, properties)
-
-     // 1. 正确更新 blocks 数组
-  setBlocks(prevBlocks =>
-    prevBlocks.map(block =>
-      block.bid === bid
-        ? {
-            ...block,
-            type: properties.type,
-            properties: properties.properties,
-            variable_bids: properties.variable_bids || [],
-            resource_bids: properties.resource_bids || []
-          }
-        : block
-    )
-  )
-
-    if (blockTypes[bid] !== properties.type) {
-      setBlockTypes({
-        ...blockTypes,
-        [bid]: properties.type
-      })
-    }
-    await new Promise<void>((resolve) => {
-      setBlockProperties(prev => {
-        const newState = {
-          ...prev,
-          [bid]: properties
+        if (blockTypes[bid] !== properties.type) {
+          setBlockTypes({
+            ...blockTypes,
+            [bid]: properties.type
+          })
         }
-        console.log('updateBlockProperties', newState)
-        // 在下一个微任务中解析 Promise，确保状态已更新
-        setTimeout(() => resolve(), 0)
-        return newState
-      })
-    })
+        await new Promise<void>((resolve) => {
+          setBlockProperties(prev => {
+            const newState = {
+              ...prev,
+              [bid]: properties
+            }
+            setTimeout(() => resolve(), 0)
+            console.log('updateBlockProperties done')
+            return newState
+          })
+        })
 
   }, [])
 

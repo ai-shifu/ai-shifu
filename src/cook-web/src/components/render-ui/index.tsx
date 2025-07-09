@@ -77,9 +77,16 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
             setError(err);
             return;
         }
-        actions.updateBlockProperties(id, properties);
+        await actions.updateBlockProperties(id, properties);
+
+        const newBlocks = blocks.map(b => b.bid === id ? { ...b, properties: properties } : b)
+        const newBlockTypes = {
+            ...blockTypes,
+            [id]: data.type
+        }
         if (currentNode) {
-            actions.autoSaveBlocks(currentNode.id, blocks, blockTypes, p, currentShifu?.bid || '')
+            console.log('onPropertiesChange', currentNode.id, newBlocks, 'newBLock Types', newBlockTypes, 'p', p, 'currentShifu', currentShifu?.bid || '')
+            actions.autoSaveBlocks(currentNode.id, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
         }
     }
 
@@ -138,7 +145,16 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
 
     const handleTypeChange = async (type: string) => {
         handleExpandChange(true);
+        console.log('handleTypeChange', type)
         const opt = UITypes.find(p => p.type === type);
+        const p = {
+            ...blockProperties,
+            [block.bid]: {
+                ...blockProperties[block.bid],
+                type: type,
+                properties: opt?.properties || {}
+            }
+        }
         await actions.updateBlockProperties(block.bid,{
             bid: block.bid,
             type: type,
@@ -148,14 +164,14 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         })
         setIsChanged(false);
 
+        const newBlocks = blocks.map(b => b.bid === block.bid ? { ...b, type: type, properties: opt?.properties || {} } : b)
+        const newBlockTypes = {
+            ...blockTypes,
+            [block.bid]: type
+        }
         if (currentNode) {
-            actions.autoSaveBlocks(
-                currentNode.id,
-                blocks,
-                blockContentTypes,
-                blockContentProperties,
-                currentShifu?.bid || ''
-            )
+            console.log('p', p)
+            await actions.autoSaveBlocks(currentNode.id, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
         }
     }
 
@@ -317,36 +333,30 @@ export const useUITypes = () => {
             type: 'goto',
             name: t('render-ui.goto'),
             properties: {
-                "items": [
+                conditions: [
                     {
-                        "value": t('render-ui.goto-value'),
-                        "type": "outline",
-                        "goto_id": "tblDUfFbHGnM4LQl"
-                    },
-                    {
-                        "value": t('render-ui.goto-value'),
-                        "type": "outline",
-                        "goto_id": "tbl9gl38im3rd1HB"
+                      "value": "",
+                      "destination_type": "",
+                      "destination_bid": ""
                     }
-                ],
+                  ]
             }
         },
         {
             type: 'input',
             name: t('render-ui.textinput'),
+
             properties: {
-                "prompt": "",
-                "variables": [
-                ],
-                "llm": "",
-                "llm_temperature": "0.40",
-                "placeholder": {
-                    "lang": {
-                        "zh-CN": "",
-                        "en-US": ""
+                placeholder: {
+                    lang: {
+                      'zh-CN': '',
+                      'en-US': ''
                     }
                 },
-                "result_variable_bids": []
+                prompt: '',
+                result_variable_bids: [],
+                llm: '',
+                llm_temperature: '0.40'
             },
             validate: (data): string => {
                 const p = data.properties
@@ -365,24 +375,23 @@ export const useUITypes = () => {
 
         },
         {
-            type: 'empty',
-            name: t('render-ui.none'),
-            properties: {},
-        },
-        {
             type: 'login',
             name: t('render-ui.login'),
             properties: {
-                "button_name": "",
-                "button_key": ""
+                lang: {
+                    "zh-CN": "",
+                    "en-US": ""
+                }
             }
         },
         {
             type: 'payment',
             name: t('render-ui.payment'),
             properties: {
-                "button_name": "",
-                "button_key": ""
+               lang: {
+                "zh-CN": "",
+                "en-US": ""
+               }
             }
         },
         {
@@ -392,6 +401,7 @@ export const useUITypes = () => {
                 "content": "",
                 "llm": "",
                 "llm_temperature": "0.40",
+                "llm_enabled": true
             },
             validate: (data): string => {
                 if (!data.properties.content) {

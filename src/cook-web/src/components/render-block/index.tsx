@@ -170,12 +170,6 @@ export const useContentTypes = () => {
         llm: '',
         llm_temperature: '0.40'
       }
-    },
-    {
-      type: 'break',
-      name: t('render-ui.break'),
-      properties: {
-
-      }
-    }]
+    }
+  ]
 }
