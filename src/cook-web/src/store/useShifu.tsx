@@ -344,7 +344,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     index: number,
     blockType: string = 'ai',
     shifu_id: string
-  ) => {
+  ): Promise<string> => {
     setIsSaving(true)
     setError(null)
     try {
@@ -376,9 +376,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           behavior: 'smooth'
         })
       }, 500)
+      return block.bid
     } catch (error) {
       console.error(error)
       setError('Failed to add block')
+      return ''
     } finally {
       setIsSaving(false)
     }

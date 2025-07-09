@@ -119,7 +119,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
     )
 }, BlockUIPropsEqual)
 
-export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange }: { block: BlockDTO, onExpandChange?: (expanded: boolean) => void }) {
+export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange,expanded }: { block: BlockDTO, onExpandChange?: (expanded: boolean) => void,expanded?: boolean }) {
     const {
         actions,
         currentNode,
@@ -129,7 +129,10 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         currentShifu,
     } = useShifu();
 
-    const [expand, setExpand] = useState(block.type === 'content' ? true : false)
+    if (expanded === undefined) {
+        expanded = block.type === 'content' ? true : false
+    }
+    const [expand, setExpand] = useState(expanded)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
     const [pendingType, setPendingType] = useState('')
     const [isChanged, setIsChanged] = useState(false)

@@ -284,6 +284,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
     visible: false
   })
 
+
+  const [newBlockId, setNewBlockId] = useState('')
+
   const onAddChapter = () => {
     actions.addChapter({
       parent_bid: '',
@@ -323,9 +326,32 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }
 
-  const onAddBlock = (index: number, type: BlockType, bid: string) => {
-    actions.addBlock(index, type, bid)
+  const onAddBlock = async (index: number, type: BlockType, bid: string) => {
+    const blockId = await actions.addBlock(index, type, bid)
+    if (blockId && ["content", "input", "goto", "options"].includes(type)) {
+      setNewBlockId(blockId)
+      setExpandedBlocks(prev => ({
+        ...prev,
+        [blockId]: true
+      }))
+    }
   }
+
+  useEffect(() => {
+    console.log('newBlockId', newBlockId)
+    if (newBlockId && expandedBlocks[newBlockId] === false) {
+      console.log('setExpandedBlocks', newBlockId)
+      setExpandedBlocks(prev => ({
+        ...prev,
+        [newBlockId]: true
+      }))
+      setNewBlockId('')
+    }
+  }, [newBlockId,expandedBlocks])
+
+  useEffect(() => {
+    console.log('expandedBlocks', expandedBlocks)
+  }, [expandedBlocks])
 
   const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
 
@@ -458,6 +484,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
                               [block.bid]: expanded
                             }))
                           }}
+                          expanded={expandedBlocks[block.bid]}
+
                         />
                         <div>
                           <AddBlock
