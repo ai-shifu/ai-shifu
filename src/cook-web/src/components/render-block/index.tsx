@@ -82,7 +82,7 @@ export const useContentTypes = () => {
       name: t('render-ui.content'),
       properties: {
         content: '',
-        llm_enabled: false,
+        llm_enabled: true,
         llm: '',
         llm_temperature: '0.40',
 

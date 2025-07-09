@@ -644,9 +644,9 @@ def update_block_dto_to_model(
             content.result_variable_bid if content.result_variable_bid else "",
             None,
         )
-        if not new_block and variable_definition is None:
+        if (not new_block) and variable_definition is None:
             return BlockUpdateResultDto(None, "SHIFU.VARIABLE_DEFINITION_NOT_FOUND")
-        if not new_block and (not content.options or not content.options):
+        if (not new_block) and (not content.options or not content.options):
             return BlockUpdateResultDto(None, "SHIFU.OPTIONS_REQUIRED")
         block_model.script_other_conf = json.dumps(
             {
@@ -662,7 +662,9 @@ def update_block_dto_to_model(
                 ],
             }
         )
-        block_model.script_ui_profile = "[" + variable_definition.profile_key + "]"
+        block_model.script_ui_profile = (
+            "[" + variable_definition.profile_key if variable_definition else "" + "]"
+        )
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "input":
