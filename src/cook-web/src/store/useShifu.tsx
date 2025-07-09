@@ -22,7 +22,8 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect
+  useEffect,
+  useRef
 } from 'react'
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined)
@@ -286,31 +287,19 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         )
       )
 
-        if (blockTypes[bid] !== properties.type) {
-          setBlockTypes({
-            ...blockTypes,
+
+          setBlockTypes(prev => ({
+            ...prev,
             [bid]: properties.type
-          })
-        }
-        await new Promise<void>((resolve) => {
+          }))
           setBlockProperties(prev => {
             const newState = {
               ...prev,
               [bid]: properties
             }
-            setTimeout(() => resolve(), 0)
-            console.log('updateBlockProperties done')
             return newState
           })
-        })
-
   }, [])
-
-
-  useEffect(() => {
-    console.log('blocks', blocks)
-  }, [blocks])
-
 
   const loadBlocks = async (outlineId: string, shifuId: string) => {
     try {
@@ -331,12 +320,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setIsLoading(false)
     }
   }
-
+  const blockPropertiesRef = useRef(blockProperties)
+  blockPropertiesRef.current = blockProperties
   const saveBlocks = useCallback(async (shifu_id: string) => {
     if (isLoading) {
       return
     }
-    const list = buildBlockListWithAllInfo(blocks, blockTypes, blockProperties)
+    console.log('saveBlocks', blockPropertiesRef.current)
+    const list = buildBlockListWithAllInfo(blocks, blockTypes, blockPropertiesRef.current)
     try {
       setError(null)
       await api.saveBlocks({
@@ -348,7 +339,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       console.error(error)
       setError('Failed to save blocks')
     }
-  }, [blocks, isLoading, blockTypes, blockProperties, currentNode])
+  }, [blocks, isLoading, blockTypes, currentNode])
 
   const addBlock = async (
     index: number,
