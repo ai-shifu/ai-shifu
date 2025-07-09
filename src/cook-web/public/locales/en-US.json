@@ -347,6 +347,7 @@
     "button-button-key": "Button Key",
     "button-key": "Button Key",
     "button-name": "Button Name",
+
     "break": "Break",
     "cancel": "Cancel",
     "collapse": "Collapse",
@@ -354,6 +355,7 @@
     "confirm-change": "Confirm Change",
     "confirm-change-description": "Your operation will cause the current content to be lost, whether to confirm?",
     "content": "Content",
+    "content-empty": "Content Empty",
     "expand": "Expand",
     "goto": "Goto",
     "goto-button-key": "Goto Key",

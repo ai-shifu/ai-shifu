@@ -84,9 +84,13 @@ const DraggableBlock = ({
       }
     },
     hover(item: DragItem, monitor: DropTargetMonitor) {
+
       if (!ref.current || disabled) {
         return
       }
+
+      console.log('item', item)
+      console.log('index', index)
       const dragIndex = item.index
       const hoverIndex = index
 
@@ -101,11 +105,15 @@ const DraggableBlock = ({
       const hoverClientY = clientOffset!.y - hoverBoundingRect.top
 
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
+        console.log('dragIndex < hoverIndex && hoverClientY < hoverMiddleY')
         return
       }
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
+        console.log('dragIndex > hoverIndex && hoverClientY > hoverMiddleY')
         return
       }
+
+      console.log('moveBlock', dragIndex, hoverIndex)
 
       moveBlock(dragIndex, hoverIndex)
       item.index = hoverIndex
