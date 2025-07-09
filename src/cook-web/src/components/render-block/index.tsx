@@ -94,8 +94,8 @@ export const useContentTypes = () => {
       properties: {
         label: {
           lang: {
-            'zh-CN': '',
-            'en-US': ''
+            'zh-CN': '继续',
+            'en-US': 'Continue'
           }
         }
       }
@@ -106,8 +106,8 @@ export const useContentTypes = () => {
       properties: {
         label: {
           lang: {
-            'zh-CN': '',
-            'en-US': ''
+            'zh-CN': '登录',
+            'en-US': 'Login'
           }
         }
       }
@@ -118,8 +118,8 @@ export const useContentTypes = () => {
       properties: {
         label: {
           lang: {
-            'zh-CN': '',
-            'en-US': ''
+            'zh-CN': '支付',
+            'en-US': 'Payment'
           }
         }
       }
@@ -161,8 +161,8 @@ export const useContentTypes = () => {
       properties: {
         placeholder: {
           lang: {
-            'zh-CN': '',
-            'en-US': ''
+            'zh-CN': '请输入',
+            'en-US': 'Please enter'
           }
         },
         prompt: '',
