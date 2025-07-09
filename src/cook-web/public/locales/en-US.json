@@ -372,7 +372,7 @@
     "textinput-placeholder-empty": "Text Input Placeholder Empty",
     "textinput-prompt-empty": "Text Input Prompt Empty",
     "textinput-temperature-empty": "Text Input Temperature Empty",
-    "user-operation": "User Operation"
+    "user-operation": "Type"
   },
   "shifu": {
     "debug": "Debug",
