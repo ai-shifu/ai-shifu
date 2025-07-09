@@ -41,7 +41,6 @@ export default memo(function Option(props: UIBlockDTO) {
     // const [changed, setChanged] = useState(false);
     const { t } = useTranslation();
     const optionsSettings = data.properties as OptionsDTO
-    console.log('optionsSettings', optionsSettings)
     const [tempValue, setTempValue] = useState<string>(optionsSettings.result_variable_bid);
     const [tempOptions, setTempOptions] = useState(optionsSettings.options.length === 0 ? [{
         "value": t('option.button-key'),
@@ -55,7 +54,6 @@ export default memo(function Option(props: UIBlockDTO) {
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
 
     const onButtonValueChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-        console.log('onButtonValueChange', index, e.target.value)
         setTempOptions(tempOptions.map((option: any, i: number) => {
             if (i === index) {
                 return {
@@ -145,7 +143,6 @@ export default memo(function Option(props: UIBlockDTO) {
     }
 
     const handleProfileChange = (value: string[]) => {
-        console.log('handleProfileChange', value)
         setTempValue(value?.[0])
     }
 

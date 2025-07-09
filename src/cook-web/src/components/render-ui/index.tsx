@@ -85,7 +85,6 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
             [id]: data.type
         }
         if (currentNode) {
-            console.log('onPropertiesChange', currentNode.id, newBlocks, 'newBLock Types', newBlockTypes, 'p', p, 'currentShifu', currentShifu?.bid || '')
             actions.autoSaveBlocks(currentNode.id, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
         }
     }
@@ -128,8 +127,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
         blockTypes,
         blocks,
         currentShifu,
-        blockContentTypes,
-        blockContentProperties
     } = useShifu();
 
     const [expand, setExpand] = useState(block.type === 'content' ? true : false)
@@ -145,7 +142,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
 
     const handleTypeChange = async (type: string) => {
         handleExpandChange(true);
-        console.log('handleTypeChange', type)
         const opt = UITypes.find(p => p.type === type);
         const p = {
             ...blockProperties,
@@ -170,7 +166,6 @@ export const RenderBlockUI = memo(function RenderBlockUI({ block, onExpandChange
             [block.bid]: type
         }
         if (currentNode) {
-            console.log('p', p)
             await actions.autoSaveBlocks(currentNode.id, newBlocks, newBlockTypes, p, currentShifu?.bid || '')
         }
     }
@@ -316,7 +311,6 @@ export const useUITypes = () => {
                 ]
             },
             validate: (data): string => {
-                console.log('validate', data)
                 if (data.properties.options.length === 0) {
                     return t('render-ui.option-buttons-empty')
                 }

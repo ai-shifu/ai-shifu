@@ -89,8 +89,6 @@ const DraggableBlock = ({
         return
       }
 
-      console.log('item', item)
-      console.log('index', index)
       const dragIndex = item.index
       const hoverIndex = index
 
@@ -105,15 +103,12 @@ const DraggableBlock = ({
       const hoverClientY = clientOffset!.y - hoverBoundingRect.top
 
       if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
-        console.log('dragIndex < hoverIndex && hoverClientY < hoverMiddleY')
         return
       }
       if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
-        console.log('dragIndex > hoverIndex && hoverClientY > hoverMiddleY')
         return
       }
 
-      console.log('moveBlock', dragIndex, hoverIndex)
 
       moveBlock(dragIndex, hoverIndex)
       item.index = hoverIndex
@@ -327,7 +322,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       await actions.removeBlock(id, currentShifu?.bid || '')
       setRemoveBlockInfo({ blockId: '', visible: false })
     } catch (error) {
-      console.log(error)
+      console.error(error)
     }
   }
 
@@ -336,8 +331,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }
 
   const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
-
-    console.log(id, llm_enabled)
 
     const p = blockProperties[id].properties as ContentDTO
     await actions.updateBlockProperties(id, {

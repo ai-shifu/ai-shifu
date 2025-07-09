@@ -22,7 +22,6 @@ import {
   useContext,
   useState,
   useCallback,
-  useEffect,
   useRef
 } from 'react'
 

@@ -68,8 +68,6 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
     if (reason.type == 'dropped') {
 
       const reorderOutlineDtos = getReorderOutlineDto(data)
-
-      console.log('onItemsChanged', reason, data)
       await actions.reorderOutlineTree(reorderOutlineDtos)
 
     }
