@@ -570,16 +570,28 @@ def _get_lang_dict(lang: str) -> dict[str, str]:
 def update_block_dto_to_model(
     block_dto: BlockDTO,
     block_model: AILessonScript,
-    variable_definition_map: dict[str, ProfileItemDefinition],
+    variable_definitions: list[ProfileItemDefinition],
+    new_block: bool = False,
 ) -> BlockUpdateResultDto:
 
     variables = []
     block_model.script_ui_profile_id = ",".join(block_dto.variable_bids)
+    variable_definition_map = {
+        variable_definition.profile_id: variable_definition
+        for variable_definition in variable_definitions
+    }
 
     if block_dto.type == "content":
+        if not new_block and (
+            not block_dto.block_content.content
+            or not block_dto.block_content.content.strip()
+        ):
+            return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
+
         raw_content = html_2_markdown(block_dto.block_content.content, variables)
         block_model.script_ui_type = UI_TYPE_CONTENT
         content: ContentDTO = block_dto.block_content  # type: ContentDTO
+
         block_model.script_prompt = raw_content
         block_model.script_profile = "[" + "][".join(variables) + "]"
         block_model.script_model = content.llm
@@ -588,6 +600,16 @@ def update_block_dto_to_model(
             block_model.script_type = SCRIPT_TYPE_PROMPT
         else:
             block_model.script_type = SCRIPT_TYPE_FIX
+        if block_dto.variable_bids:
+            block_model.script_ui_profile_id = ",".join(block_dto.variable_bids)
+        else:
+            block_model.script_ui_profile_id = ",".join(
+                [
+                    variable_definition.profile_id
+                    for variable_definition in variable_definitions
+                    if variable_definition.profile_key in variables
+                ]
+            )
         return BlockUpdateResultDto(None, None)
     block_model.script_type = SCRIPT_TYPE_ACTION
     if block_dto.type == "break":
@@ -638,6 +660,11 @@ def update_block_dto_to_model(
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "input":
+        if not new_block and (
+            not block_dto.block_content.prompt
+            or not block_dto.block_content.prompt.strip()
+        ):
+            return BlockUpdateResultDto(None, "SHIFU.PROMPT_REQUIRED")
         block_model.script_ui_type = UI_TYPE_INPUT
         content: InputDTO = block_dto.block_content  # type: InputDTO
         block_model.script_ui_content = json.dumps(content.placeholder.lang)
@@ -653,9 +680,33 @@ def update_block_dto_to_model(
             ),
             None,
         )
+        if not new_block and (
+            not block_dto.block_content.result_variable_bids
+            or not block_dto.block_content.result_variable_bids
+        ):
+            return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
         block_model.script_ui_profile_id = (
             variable_definition.profile_id if variable_definition else ""
         )
+
+        if (
+            not new_block
+            and "json" not in block_dto.block_content.prompt.strip().lower()
+        ):
+            return BlockUpdateResultDto(None, "SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED")
+        if not new_block and (
+            not block_dto.block_content.result_variable_bids
+            or not block_dto.block_content.result_variable_bids
+        ):
+            return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
+        if (
+            not new_block
+            and variable_definition.profile_key
+            not in block_dto.block_content.prompt.strip().lower()
+        ):
+            return BlockUpdateResultDto(
+                None, "SHIFU.TEXT_INPUT_PROMPT_VARIABLE_REQUIRED"
+            )
         return BlockUpdateResultDto(None, None)
     if block_dto.type == "goto":
         variable_definition = variable_definition_map.get(
@@ -693,30 +744,35 @@ def update_block_dto_to_model(
 
 
 def generate_block_dto_from_model(
-    block_model: AILessonScript, variable_bids: list[str]
+    block_model: AILessonScript, variable_definitions: list[ProfileItemDefinition]
 ) -> list[BlockDTO]:
 
-    from flask import current_app
-
-    current_app.logger.info(f"block_model: {block_model.script_ui_content}")
     ret = []
 
     if block_model.script_ui_profile_id:
         variable_bids = block_model.script_ui_profile_id.split(",")
     else:
         variable_bids = []
-
     variables_in_prompt = []
     if (
         block_model.script_type == SCRIPT_TYPE_FIX
         or block_model.script_type == SCRIPT_TYPE_PROMPT
     ):
         html_content = markdown_2_html(block_model.script_prompt, variables_in_prompt)
+        variable_bids.extend(
+            [
+                variable_definition.profile_id
+                for variable_definition in variable_definitions
+                if variable_definition.profile_key in variables_in_prompt
+            ]
+        )
+        variable_bids = list(set(variable_bids))
         ret.append(
             BlockDTO(
                 bid=block_model.script_id,
                 block_content=ContentDTO(
                     content=html_content,
+                    llm=block_model.script_model,
                     llm_enabled=block_model.script_type == SCRIPT_TYPE_PROMPT,
                     llm_temperature=block_model.script_temperature,
                 ),
@@ -751,6 +807,14 @@ def generate_block_dto_from_model(
             )
         )
     elif block_model.script_ui_type == UI_TYPE_INPUT:
+        if len(variable_bids) == 0:
+            variable_name = get_profiles(block_model.script_ui_profile)
+            variable_bids = [
+                variable_definition.profile_id
+                for variable_definition in variable_definitions
+                if variable_definition.profile_key == variable_name
+            ]
+
         ret.append(
             BlockDTO(
                 bid=block_model.script_id,
@@ -758,8 +822,8 @@ def generate_block_dto_from_model(
                     placeholder=_get_lang_dict(block_model.script_ui_content),
                     result_variable_bids=variable_bids,
                     prompt=block_model.script_check_prompt,
-                    llm="",
-                    llm_temperature=0.0,
+                    llm=block_model.script_model,
+                    llm_temperature=block_model.script_temperature,
                 ),
                 variable_bids=variable_bids,
                 resource_bids=[],
@@ -810,6 +874,13 @@ def generate_block_dto_from_model(
             )
         )
     elif block_model.script_ui_type == UI_TYPE_BRANCH:
+        if len(variable_bids) == 0:
+            variable_name = get_profiles(block_model.script_ui_profile)
+            variable_bids = [
+                variable_definition.profile_id
+                for variable_definition in variable_definitions
+                if variable_definition.profile_key == variable_name
+            ]
         ret.append(
             BlockDTO(
                 bid=block_model.script_id,

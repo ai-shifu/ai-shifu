@@ -68,6 +68,7 @@ def get_block_list(app, user_id: str, outline_id: str) -> list[BlockDTO]:
         blocks = get_existing_blocks(app, sub_outline_ids)
         ret = []
         app.logger.info(f"blocks : {len(blocks)}")
+        variable_definitions = get_profile_item_definition_list(app, lesson.course_id)
         for sub_outline in sub_outlines:
 
             lesson_blocks = sorted(
@@ -76,7 +77,10 @@ def get_block_list(app, user_id: str, outline_id: str) -> list[BlockDTO]:
             )
             for block in lesson_blocks:
                 ret.extend(
-                    block_dto for block_dto in generate_block_dto_from_model(block, [])
+                    block_dto
+                    for block_dto in generate_block_dto_from_model(
+                        block, variable_definitions
+                    )
                 )
         return ret
     pass
@@ -153,7 +157,6 @@ def save_block_list_internal(
         # get all blocks
         blocks = get_existing_blocks(app, sub_outline_ids)
         variable_definitions = get_profile_item_definition_list(app, outline.course_id)
-        variable_definition_map = {v.profile_id: v for v in variable_definitions}
         block_index = 1
         current_outline_id = outline_id
         block_models = []
@@ -193,7 +196,7 @@ def save_block_list_internal(
                 app.logger.info(f"new block : {block_model.script_id}")
                 _fetch_profile_info_for_block_dto(app, block_dto)
                 update_block_result = update_block_dto_to_model(
-                    block_dto, block_model, variable_definition_map
+                    block_dto, block_model, variable_definitions
                 )
                 profile = None
                 if update_block_result.error_message:
@@ -258,7 +261,7 @@ def save_block_list_internal(
                 old_check_str = block_model.get_str_to_check()
                 _fetch_profile_info_for_block_dto(app, block_dto)
                 update_block_result = update_block_dto_to_model(
-                    block_dto, new_block, variable_definition_map
+                    block_dto, new_block, variable_definitions
                 )
                 profile = None
                 if update_block_result.error_message:
@@ -332,9 +335,10 @@ def save_block_list_internal(
 
         db.session.commit()
         app.logger.info(f"block_models : {block_models}")
+        variable_definitions = get_profile_item_definition_list(app, outline.course_id)
         return SaveBlockListResultDto(
             [
-                generate_block_dto_from_model(block_model, [])[0]
+                generate_block_dto_from_model(block_model, variable_definitions)[0]
                 for block_model in block_models
             ],
             error_messages,
@@ -396,9 +400,8 @@ def add_block(
             status=STATUS_DRAFT,
         )
         variable_definitions = get_profile_item_definition_list(app, outline.course_id)
-        variable_definition_map = {v.profile_id: v for v in variable_definitions}
         update_block_result = update_block_dto_to_model(
-            block_dto, block_model, variable_definition_map
+            block_dto, block_model, variable_definitions, new_block=True
         )
         if update_block_result.error_message:
             raise_error(update_block_result.error_message)
