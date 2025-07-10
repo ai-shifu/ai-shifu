@@ -12,12 +12,11 @@ import { useShallow } from 'zustand/react/shallow';
 
 import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
 import { getBoolEnv } from '@/c-utils/envUtils';
-import { userInfoStore } from '@/c-service/storeUtil';
 import { getCourseInfo } from '@/c-api/course';
 import { selectDefaultLanguage } from '@/c-constants/userConstants';
 import { EnvStoreState, SystemStoreState, CourseStoreState } from '@/c-types/store';
 
-import { useEnvStore, useCourseStore, UserProvider } from "@/c-store"
+import { useEnvStore, useCourseStore, UserProvider, useUserStore } from "@/c-store"
 
 
 const initializeEnvData = async (): Promise<void> => {
@@ -131,15 +130,16 @@ export default function ChatLayout({
     }))
   );
 
+  const { userInfo, initUser } = useUserStore();
+
   useEffect(() => {
     if (!envDataInitialized) return;
-    const userInfo = userInfoStore.get();
-    if (userInfo) {
+    if (userInfo?.language) {
       updateLanguage(userInfo.language);
     } else {
       updateLanguage(browserLanguage);
     }
-  }, [browserLanguage, updateLanguage, envDataInitialized]);
+  }, [browserLanguage, updateLanguage, envDataInitialized, userInfo]);
 
   // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
@@ -243,14 +243,8 @@ export default function ChatLayout({
   useEffect(() => {
     if (!envDataInitialized) return;
     if (!checkWxcode) return;
-    const checkLogin = async () => {
-      // setLoading(true);
-      // TODO: FIXME
-      // await (useUserStore.getState() as UserStoreState).checkLogin();
-      // setLoading(false);
-    };
-    checkLogin();
-  }, [envDataInitialized, checkWxcode]);
+    initUser();
+  }, [envDataInitialized, checkWxcode, initUser]);
 
   return (
     <UserProvider>

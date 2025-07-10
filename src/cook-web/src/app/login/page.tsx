@@ -19,16 +19,14 @@ import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 import { FeedbackForm } from '@/components/auth//feedback-form'
 import Image from 'next/image'
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png'
-import { setToken } from '@/local/local'
 import LanguageSelect from '@/components/language-select'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
 
-import { useUserStore } from '@/c-store/useUserStore';
-import type { UserInfo } from '@/c-types'
 
-export default function AuthPage () {
+
+export default function AuthPage() {
   const router = useRouter()
   const [authMode, setAuthMode] = useState<
     'login' | 'register' | 'forgot-password' | 'feedback'
@@ -38,23 +36,12 @@ export default function AuthPage () {
     'phone'
   )
   const [language, setLanguage] = useState(browserLanguage)
-  
-  /**
-   * Sync user login information to the "web(c)".
-   * TODO:
-   *   - Consolidate and synchronize the `hasLogin` and `hasCheckLogin` logic.
-   */
-  const updateUserInfo = useUserStore((state) => state.updateUserInfo);
-  const _setHasLogin = useUserStore((state) => state._setHasLogin);
-  
+
   const searchParams = useSearchParams()
-  const handleAuthSuccess = (userInfo: UserInfo) => {
-    updateUserInfo(userInfo)
-    _setHasLogin(true)
-    
+  const handleAuthSuccess = () => {
     let redirect = searchParams.get('redirect')
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/main'
+      redirect = '/c'
     }
     // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
     // router.push('/main')
@@ -74,9 +61,6 @@ export default function AuthPage () {
   }
 
   const { t } = useTranslation();
-  useEffect(() => {
-    setToken('')
-  }, [])
 
   useEffect(() => {
     i18n.changeLanguage(language)
@@ -97,10 +81,10 @@ export default function AuthPage () {
               priority
             />
 
-          <div className='absolute top-0 right-0'>
-          <LanguageSelect language={language} onSetLanguage={setLanguage} variant='login' />
-        </div>
-        </h2>
+            <div className='absolute top-0 right-0'>
+              <LanguageSelect language={language} onSetLanguage={setLanguage} variant='login' />
+            </div>
+          </h2>
         </div>
         <Card>
           <CardHeader>
@@ -181,13 +165,11 @@ export default function AuthPage () {
 
                 <TabsContent value='phone'>
                   {/* TODO: FIXME */}
-                  {/* @ts-expect-error EXPECT */}
                   <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
 
                 <TabsContent value='email'>
                   {/* TODO: FIXME */}
-                  {/* @ts-expect-error EXPECT */}
                   <EmailRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
               </Tabs>

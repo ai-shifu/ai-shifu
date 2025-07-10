@@ -11,9 +11,9 @@ import { useToast } from '@/hooks/use-toast'
 import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidPhoneNumber } from '@/lib/validators'
-import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
+import { useUserStore } from '@/c-store/useUserStore'
 
 import type { UserInfo } from '@/c-types'
 interface PhoneLoginProps {
@@ -23,6 +23,7 @@ interface PhoneLoginProps {
 export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
 
   const { toast } = useToast()
+  const { login } = useUserStore()
   const [isLoading, setIsLoading] = useState(false)
   const [phoneNumber, setPhoneNumber] = useState('')
   const [phoneOtp, setPhoneOtp] = useState('')
@@ -141,7 +142,7 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         toast({
           title: t('login.login-success')
         })
-        setToken(response.data.token)
+        await login(response.data.userInfo, response.data.token)
         onLoginSuccess(response.data.userInfo)
       } else if (response.code == 1003) {
         toast({
