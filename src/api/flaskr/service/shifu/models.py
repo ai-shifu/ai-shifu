@@ -11,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
+from .consts import ASK_MODE_DEFAULT
 
 
 class ResourceType:
@@ -111,7 +112,10 @@ class ShifuDraftShifus(db.Model):
         Text, nullable=False, default="", comment="Shifu llm system prompt"
     )
     ask_enabled_status = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu ask enabled status"
+        SmallInteger,
+        nullable=False,
+        default=ASK_MODE_DEFAULT,
+        comment="Shifu ask enabled status, 5101: default, 5102: disable, 5103: enable",
     )
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Shifu ask llm model"
@@ -123,7 +127,12 @@ class ShifuDraftShifus(db.Model):
         Text, nullable=False, default="", comment="Shifu ask llm system prompt"
     )
     price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
-    status = Column(SmallInteger, nullable=False, default=0, comment="Shifu status")
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Shifu status: 6101: history, 6102: draft",
+    )
     version = Column(
         Integer, nullable=False, index=True, default=0, comment="Shifu version"
     )
@@ -137,13 +146,13 @@ class ShifuDraftShifus(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     created_user_bid = Column(
-        String(32), nullable=False, Index=True, default="", comment="Creation user id"
+        String(32), nullable=False, Index=True, default="", comment="Creation user bid"
     )
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
     updated_user_bid = Column(
-        String(32), nullable=False, Index=True, default="", comment="Update user id"
+        String(32), nullable=False, Index=True, default="", comment="Update user bid"
     )
 
 
@@ -151,7 +160,7 @@ class ShifuDraftOutlines(db.Model):
     __tablename__ = "shifu_draft_outlines"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Outline bid"
     )
     shifu_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Shifu bid"
@@ -162,38 +171,36 @@ class ShifuDraftOutlines(db.Model):
         nullable=False,
         index=True,
         default="",
-        comment="Shifu outline parent bid",
+        comment="Outline parent bid",
     )
     position = Column(
         String(10),
         nullable=False,
         index=True,
         default="",
-        comment="Shifu outline position",
+        comment="Outline position",
     )
     pre_outline_bids = Column(
         String(500),
         nullable=False,
         default="",
-        comment="Shifu outline pre outline bids",
+        comment="Outline pre outline bids",
     )
-    llm = Column(
-        String(100), nullable=False, default="", comment="Shifu outline llm model"
-    )
+    llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
     llm_temperature = Column(
         Decimal(10, 2),
         nullable=False,
         default=0,
-        comment="Shifu outline llm temperature",
+        comment="Outline llm temperature",
     )
     llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu outline llm system prompt"
+        Text, nullable=False, default="", comment="Outline llm system prompt"
     )
     ask_enabled_status = Column(
         SmallInteger,
         nullable=False,
-        default=0,
-        comment="Shifu outline ask enabled status",
+        default=ASK_MODE_DEFAULT,
+        comment="Shifu outline ask enabled status, 5101: default, 5102: disable, 5103: enable",
     )
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Shifu outline ask llm model"
@@ -205,26 +212,34 @@ class ShifuDraftOutlines(db.Model):
         comment="Shifu outline ask llm temperature",
     )
     ask_llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu outline ask llm system prompt"
+        Text, nullable=False, default="", comment="Outline ask llm system prompt"
     )
     status = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu outline status"
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Outline status: 6101: history, 6102: draft",
     )
     version = Column(
-        Integer, nullable=False, index=True, default=0, comment="Shifu outline version"
+        Integer, nullable=False, index=True, default=0, comment="Outline version"
     )
-    deleted = Column(SmallInteger, nullable=False, default=0, comment="Shifu deleted")
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="deleted status: 0: not deleted, 1: deleted",
+    )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
-    created_user_id = Column(
-        String(32), nullable=False, default="", comment="Creation user id"
+    created_user_bid = Column(
+        String(32), nullable=False, default="", comment="Creation user bid"
     )
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
-    updated_user_id = Column(
-        String(32), nullable=False, default="", comment="Update user id"
+    updated_user_bid = Column(
+        String(32), nullable=False, default="", comment="Update user bid"
     )
 
 
@@ -232,15 +247,15 @@ class ShifuDraftBlocks(db.Model):
     __tablename__ = "shifu_draft_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Block bid"
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Shifu bid"
     )
     outline_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu outline UUID"
+        String(32), nullable=False, index=True, default="", comment="Outline bid"
     )
-    type = Column(SmallInteger, nullable=False, default=0, comment="Shifu block type")
+    type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
         SmallInteger,
         nullable=False,
@@ -249,32 +264,38 @@ class ShifuDraftBlocks(db.Model):
         comment="Shifu block position",
     )
     variable_bids = Column(
-        String(500), nullable=False, default="", comment="Shifu block variable bids"
+        String(500), nullable=False, default="", comment="Block variable bids"
     )
     resource_bids = Column(
-        String(500), nullable=False, default="", comment="Shifu block resource bids"
+        String(500), nullable=False, default="", comment="Block resource bids"
     )
     content = Column(Text, nullable=False, default="", comment="Shifu block content")
     status = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu block status"
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Block status: 6101: history, 6102: draft",
     )
     version = Column(
-        Integer, nullable=False, index=True, default=0, comment="Shifu block version"
+        Integer, nullable=False, index=True, default=0, comment="Block version"
     )
     deleted = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu block deleted"
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="deleted status: 0: not deleted, 1: deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
-    created_user_id = Column(
-        String(32), nullable=False, default="", comment="Creation user id"
+    created_user_bid = Column(
+        String(32), nullable=False, default="", comment="Creation user bid"
     )
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
-    updated_user_id = Column(
-        String(32), nullable=False, default="", comment="Update user id"
+    updated_user_bid = Column(
+        String(32), nullable=False, default="", comment="Update user bid"
     )
 
 
@@ -282,12 +303,12 @@ class ShifuDraftHistories(db.Model):
     __tablename__ = "shifu_draft_histories"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Draft UUID"
+        String(32), nullable=False, index=True, default="", comment="Draft bid"
     )
     shifu_bid = Column(
-        String(36), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Shifu bid"
     )
-    draft_content = Column(Text, nullable=False, default="", comment="Draft UUID")
+    draft_content = Column(Text, nullable=False, default="", comment="Draft content")
     created_at = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
     )
@@ -298,7 +319,7 @@ class ShifuPublishedShifus(db.Model):
     __tablename__ = "shifu_published_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Shifu bid"
     )
     name = Column(String(100), nullable=False, default="", comment="Shifu name")
     keywords = Column(String(100), nullable=False, default="", comment="Shifu keywords")
@@ -316,7 +337,10 @@ class ShifuPublishedShifus(db.Model):
         Text, nullable=False, default="", comment="Shifu llm system prompt"
     )
     ask_enabled_status = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu ask enabled status"
+        SmallInteger,
+        nullable=False,
+        default=ASK_MODE_DEFAULT,
+        comment="Shifu ask enabled status, 5101: default, 5102: disable, 5103: enable",
     )
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Shifu ask llm model"
@@ -328,17 +352,27 @@ class ShifuPublishedShifus(db.Model):
         Text, nullable=False, default="", comment="Shifu ask llm system prompt"
     )
     price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
-    status = Column(SmallInteger, nullable=False, default=0, comment="Shifu status")
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Shifu status: 6101: history, 6103: published",
+    )
     version = Column(Integer, nullable=False, default=0, comment="Shifu version")
-    deleted = Column(SmallInteger, nullable=False, default=0, comment="Shifu deleted")
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="deleted status: 0: not deleted, 1: deleted",
+    )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
-    updated_user_id = Column(
-        String(32), nullable=False, default="", comment="Update user id"
+    updated_user_bid = Column(
+        String(32), nullable=False, default="", comment="Update user bid"
     )
 
 
@@ -346,25 +380,21 @@ class ShifuPublishedOutlines(db.Model):
     __tablename__ = "shifu_published_outlines"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Outline bid"
     )
-    shifu_bid = Column(String(32), nullable=False, default="", comment="Shifu UUID")
+    shifu_bid = Column(String(32), nullable=False, default="", comment="Shifu bid")
     name = Column(String(100), nullable=False, default="", comment="Shifu outline name")
     parent_bid = Column(
-        String(32), nullable=False, default="", comment="Shifu outline parent id"
+        String(32), nullable=False, default="", comment="Outline parent bid"
     )
-    position = Column(
-        String(10), nullable=False, default=0, comment="Shifu outline position"
-    )
+    position = Column(String(10), nullable=False, default=0, comment="Outline position")
     pre_outline_bids = Column(
         String(500),
         nullable=False,
         default="",
-        comment="Shifu outline pre outline bids",
+        comment="Outline pre outline bids",
     )
-    llm = Column(
-        String(100), nullable=False, default="", comment="Shifu outline llm model"
-    )
+    llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
     llm_temperature = Column(
         Decimal(10, 2),
         nullable=False,
@@ -377,8 +407,8 @@ class ShifuPublishedOutlines(db.Model):
     ask_enabled_status = Column(
         SmallInteger,
         nullable=False,
-        default=0,
-        comment="Shifu outline ask enabled status",
+        default=ASK_MODE_DEFAULT,
+        comment="Shifu outline ask enabled status, 5101: default, 5102: disable, 5103: enable",
     )
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Shifu outline ask llm model"
@@ -393,20 +423,26 @@ class ShifuPublishedOutlines(db.Model):
         Text, nullable=False, default="", comment="Shifu outline ask llm system prompt"
     )
     status = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu outline status"
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Outline status: 6101: history, 6103: published",
     )
-    version = Column(
-        Integer, nullable=False, default=0, comment="Shifu outline version"
+    version = Column(Integer, nullable=False, default=0, comment="Outline version")
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="deleted status: 0: not deleted, 1: deleted",
     )
-    deleted = Column(SmallInteger, nullable=False, default=0, comment="Shifu deleted")
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
-    updated_user_id = Column(
-        String(32), nullable=False, default="", comment="Update user id"
+    updated_user_bid = Column(
+        String(32), nullable=False, default="", comment="Update user bid"
     )
 
 
@@ -414,29 +450,31 @@ class ShifuPublishedBlocks(db.Model):
     __tablename__ = "shifu_published_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Block bid"
     )
-    shifu_bid = Column(String(32), nullable=False, default="", comment="Shifu UUID")
-    outline_bid = Column(
-        String(32), nullable=False, default="", comment="Shifu outline UUID"
-    )
-    type = Column(SmallInteger, nullable=False, default=0, comment="Shifu block type")
-    position = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu block position"
-    )
+    shifu_bid = Column(String(32), nullable=False, default="", comment="Shifu bid")
+    outline_bid = Column(String(32), nullable=False, default="", comment="Outline bid")
+    type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
+    position = Column(SmallInteger, nullable=False, default=0, comment="Block position")
     variable_bids = Column(
-        String(500), nullable=False, default="", comment="Shifu block variable bids"
+        String(500), nullable=False, default="", comment="Block variable bids"
     )
     resource_bids = Column(
-        String(500), nullable=False, default="", comment="Shifu block resource bids"
+        String(500), nullable=False, default="", comment="Block resource bids"
     )
-    content = Column(Text, nullable=False, default="", comment="Shifu block content")
+    content = Column(Text, nullable=False, default="", comment="Block content")
     status = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu block status"
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Block status: 6101: history, 6103: published",
     )
-    version = Column(Integer, nullable=False, default=0, comment="Shifu block version")
+    version = Column(Integer, nullable=False, default=0, comment="Block version")
     deleted = Column(
-        SmallInteger, nullable=False, default=0, comment="Shifu block deleted"
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="deleted status: 0: not deleted, 1: deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -444,8 +482,8 @@ class ShifuPublishedBlocks(db.Model):
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
-    updated_user_id = Column(
-        String(32), nullable=False, default="", comment="Update user id"
+    updated_user_bid = Column(
+        String(32), nullable=False, default="", comment="Update user bid"
     )
 
 
@@ -453,12 +491,12 @@ class ShifuHistories(db.Model):
     __tablename__ = "shifu_histories"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu UUID"
+        String(32), nullable=False, index=True, default="", comment="Shifu bid"
     )
     content = Column(Text, nullable=False, default="", comment="Shifu content")
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
-    created_user_id = Column(
-        String(32), nullable=False, default="", comment="Creation user id"
+    created_user_bid = Column(
+        String(32), nullable=False, default="", comment="Creation user bid"
     )
