@@ -259,9 +259,9 @@ export const ChatComponents = forwardRef<any, any>(
     });
 
     const lastMsgRef = useRef(null);
-    const { checkLogin, updateUserInfo, refreshUserInfo } = useUserStore(
+    const { initUser, updateUserInfo, refreshUserInfo } = useUserStore(
       useShallow((state) => ({
-        checkLogin: state.checkLogin,
+        initUser: state.initUser,
         updateUserInfo: state.updateUserInfo,
         refreshUserInfo: state.refreshUserInfo,
       }))
@@ -522,7 +522,7 @@ export const ChatComponents = forwardRef<any, any>(
                 token: response.content.token,
                 faked: true,
               });
-              checkLogin();
+              initUser();
             } else if (response.type === RESP_EVENT_TYPE.PROFILE_UPDATE) {
               const content = response.content;
               updateUserInfo({ [content.key]: content.value });
@@ -541,7 +541,7 @@ export const ChatComponents = forwardRef<any, any>(
       [
         appendMsg,
         chapterUpdate,
-        checkLogin,
+        initUser,
         lessonUpdateResp,
         messageLessonId,
         setTyping,
@@ -701,7 +701,7 @@ export const ChatComponents = forwardRef<any, any>(
 
     useEffect(() => {
       return useUserStore.subscribe(
-        (state) => state.hasLogin,
+        (state) => state.isLoggedIn,
         () => {
           setLoadedChapterId(chapterId);
           resetAndLoadData();

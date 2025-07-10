@@ -45,10 +45,10 @@ const MainMenuModal = ({
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
   const htmlRef = useRef(null);
-  const { hasLogin, logout } = useUserStore(
+  const { isLoggedIn, logout } = useUserStore(
     useShallow((state) => ({
       logout: state.logout,
-      hasLogin: state.hasLogin,
+      isLoggedIn: state.isLoggedIn,
     }))
   );
 
@@ -87,7 +87,7 @@ const MainMenuModal = ({
 
   const onUserInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_BASIC_INFO, {});
-    if (!hasLogin) {
+    if (!isLoggedIn) {
       trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
       shifu.loginTools.openLogin();
       return;
@@ -98,7 +98,7 @@ const MainMenuModal = ({
 
   const _onPersonalInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_PERSONALIZED, {});
-    if (!hasLogin) {
+    if (!isLoggedIn) {
       trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
       shifu.loginTools.openLogin();
       return;
@@ -203,7 +203,7 @@ const MainMenuModal = ({
               </div>
             </div>
           </div>
-          {!hasLogin ? (
+          {!isLoggedIn ? (
             <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onLoginClick}>
               <Image
                 className={styles.rowIcon}

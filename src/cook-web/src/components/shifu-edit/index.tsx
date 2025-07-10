@@ -250,8 +250,7 @@ const DraggableBlock = ({
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation()
-  const profile = useUserStore((state) => state.profile)
-  const ContentTypes = useContentTypes()
+  const profile = useUserStore((state) => state.userInfo)
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
     {}
   )

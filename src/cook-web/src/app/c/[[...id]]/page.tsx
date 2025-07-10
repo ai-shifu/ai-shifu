@@ -44,10 +44,8 @@ export default function ChatPage() {
   /**
    * User info and init part
    */
-  const userInfo = useUserStore((state) => state.profile);
-  const hasLogin = !!userInfo;
-
-  const { hasCheckLogin } = useUserStore((state) => state);
+  const userInfo = useUserStore((state) => state.userInfo);
+  const { isLoggedIn, initUser } = useUserStore((state) => state);
   const [initialized, setInitialized] = useState(false);
 
   const { wechatCode } = useSystemStore(
@@ -55,19 +53,18 @@ export default function ChatPage() {
   );
 
   const initAndCheckLogin = useCallback(async () => {
-    if (inWechat() && wechatCode && hasLogin) {
+    // Initialize user state (automatically handles guest or auth)
+    await initUser();
+    
+    if (inWechat() && wechatCode && isLoggedIn) {
       await updateWxcode({ wxcode: wechatCode });
     }
     setInitialized(true);
-  }, [wechatCode, hasLogin]);
+  }, [wechatCode, isLoggedIn, initUser]);
 
   useEffect(() => {
-    (async () => {
-      if (!hasCheckLogin) {
-        await initAndCheckLogin();
-      }
-    })();
-  }, [hasCheckLogin, initAndCheckLogin]);
+    initAndCheckLogin();
+  }, [initAndCheckLogin]);
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
@@ -172,15 +169,15 @@ export default function ChatPage() {
 
   const [loadedChapterId, setLoadedChapterId] = useState('');
   useEffect(() => {
-    if (hasCheckLogin && loadedChapterId !== chapterId) {
+    if (initialized && loadedChapterId !== chapterId) {
       loadData();
       setLoadedChapterId(chapterId);
     }
-  }, [chapterId, hasCheckLogin, loadData, loadedChapterId]);
+  }, [chapterId, initialized, loadData, loadedChapterId]);
 
 
   // TODO: REMOVE
-  console.log('chapterId: ', chapterId, 'lessonId: ', lessonId, 'hasCheckLogin: ', hasCheckLogin,  'loadedChapterId: ', loadedChapterId);
+  console.log('chapterId: ', chapterId, 'lessonId: ', lessonId, 'initialized: ', initialized,  'loadedChapterId: ', loadedChapterId);
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
@@ -241,10 +238,10 @@ export default function ChatPage() {
   }, [ tree, updateLessonId, updateChapterId ]);
 
   useEffect(() => {
-    if (hasCheckLogin) {
+    if (initialized) {
       fetchData();
     }
-  }, [fetchData, hasCheckLogin]);
+  }, [fetchData, initialized]);
 
   /**
    * Pay part
@@ -376,7 +373,7 @@ export default function ChatPage() {
 
   return (
     <div className={clsx(styles.newChatPage)}>
-      <AppContext.Provider value={{ frameLayout, mobileStyle, hasLogin, userInfo, theme: '' }}>
+      <AppContext.Provider value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}>
 
         {!initialized ? (
           <div className="flex flex-col space-y-6 p-6 container mx-auto">

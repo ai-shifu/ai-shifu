@@ -83,9 +83,7 @@ export const PayModal = ({
   const [originalPrice, setOriginalPrice] = useState('');
   const [priceItems, setPriceItems] = useState([]);
 
-  const { hasLogin } = useUserStore(
-    useShallow((state) => ({ hasLogin: state.hasLogin }))
-  );
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const { previewMode } = useSystemStore(
     useShallow((state) => ({ previewMode: state.previewMode }))
@@ -127,7 +125,7 @@ export const PayModal = ({
       setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
       setPrice(resp.value_to_pay);
     },
-    hasLogin ? interval : null
+    isLoggedIn ? interval : null
   );
 
   const refreshOrderQrcode = useCallback(
@@ -249,19 +247,19 @@ export const PayModal = ({
   }, []);
 
   useEffect(() => {
-    if (!open || !hasLogin) {
+    if (!open || !isLoggedIn) {
       return;
     }
     loadPayInfo();
     setInitLoading(false);
-  }, [hasLogin, loadPayInfo, open]);
+  }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {
-    if (!hasLogin) {
+    if (!isLoggedIn) {
       loadCourseInfo();
       setInitLoading(false);
     }
-  }, [hasLogin, loadCourseInfo]);
+  }, [isLoggedIn, loadCourseInfo]);
 
   function handleOpenChange(open: boolean) {
     if (!open) {
@@ -320,7 +318,7 @@ export const PayModal = ({
                       })}
                     </div>
                   )}
-                  {hasLogin ? (
+                  {isLoggedIn ? (
                     <>
                       <div className={cn(styles.qrcodeWrapper, 'relative')}>
                         <QRCodeSVG

@@ -1,115 +1,73 @@
 import { create } from 'zustand';
 import { getUserInfo, registerTmp } from '@/c-api/user';
-import { userInfoStore, tokenTool } from '@/c-service/storeUtil';
+import { tokenTool } from '@/c-service/storeUtil';
 import { genUuid } from '@/c-utils/common';
-import { verifySmsCode } from '@/c-api/user';
 import { subscribeWithSelector } from 'zustand/middleware';
 
 import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
-import { useEnvStore } from './envStore';
-import api from '@/api';
 
-// Auto-initialize flag
-let isInitialized = false;
+
+// Helper function to register as guest user
+const registerAsGuest = async (): Promise<string> => {
+  const tokenData = tokenTool.get();
+  if (tokenData.faked) {
+    return tokenData.token;
+  }
+  const res = await registerTmp({ temp_id: genUuid() });
+  const token = res.data.token;
+  await tokenTool.set({ token, faked: true });
+  return token;
+};
 
 export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
   subscribeWithSelector((set, get) => ({
-    hasCheckLogin: false,
-    hasLogin: false,
     userInfo: null,
-    profile: null,
-    login: async ({ mobile, smsCode }) => {
-      const courseId = useEnvStore.getState().courseId;
-      const res = await verifySmsCode({ mobile, sms_code: smsCode, course_id: courseId });
-      const { userInfo, token } = res.data;
-      await tokenTool.set({ token, faked: false });
+    isGuest: false,
+    isLoggedIn: false,
+    isInitialized: false,
 
+    // Internal method: Update user status based on token
+    _updateUserStatus: () => {
+      const tokenData = tokenTool.get();
+      if (tokenData.token) {
+        set({
+          isGuest: tokenData.faked,
+          isLoggedIn: !tokenData.faked,
+          isInitialized: true,
+        });
+      } else {
+        set({
+          isGuest: false,
+          isLoggedIn: false,
+          isInitialized: true,
+        });
+      }
+    },
+
+    // Public API: Login with user credentials
+    login: async (userInfo: any, token: string) => {
+      await tokenTool.set({ token, faked: false });
       set(() => ({
-        hasLogin: true,
         userInfo,
       }));
-      i18n.changeLanguage(userInfo.language);
 
-    },
-
-    checkLoginForce: async () => {
-      if (!tokenTool.get().token) {
-        const res = await registerTmp({ temp_id: genUuid() });
-        const token = res.data.token;
-        await tokenTool.set({ token, faked: true });
-        set(() => ({
-          hasLogin: false,
-          userInfo: null,
-          hasCheckLogin: true,
-        }));
-        return;
-      }
-
-      if (userInfoStore.get()) {
-        set(() => ({
-          userInfo: userInfoStore.get(),
-        }));
-      }
-
-      try {
-        const res = await getUserInfo();
-        const userInfo = res.data;
-        await tokenTool.set({ token: tokenTool.get().token, faked: false });
-        await userInfoStore.set(userInfo);
-        if (userInfo.mobile) {
-          set(() => ({
-            hasCheckLogin: true,
-            hasLogin: true,
-            userInfo,
-          }));
-        } else {
-          await tokenTool.set({ token: tokenTool.get().token, faked: true });
-          set(() => ({
-            hasCheckLogin: true,
-            hasLogin: false,
-            userInfo: userInfo,
-          }));
-        }
+      if (userInfo.language) {
         i18n.changeLanguage(userInfo.language);
-      } catch (err) {
-        // @ts-expect-error EXPECT
-        if ((err.status && err.status === 403) || (err.code && err.code === 1005) || (err.code && err.code === 1001)) {
-          const res = await registerTmp({ temp_id: genUuid() });
-          const token = res.data.token;
-          await tokenTool.set({ token, faked: true });
-
-          set(() => ({
-            hasCheckLogin: true,
-            hasLogin: false,
-            userInfo: null,
-          }));
-        }
       }
+
+      get()._updateUserStatus();
     },
 
-    // 通过接口检测登录状态
-    checkLogin: () => {
-      const state = useUserStore.getState();
-      if (state.hasCheckLogin) {
-        return;
-      }
-      state.checkLoginForce();
-    },
-
+    // Public API: Logout user
     logout: async (reload = true) => {
-      const res = await registerTmp({ temp_id: genUuid() });
-      const token = res.data.token;
-      await tokenTool.set({ token, faked: true });
-      await userInfoStore.remove();
+      await registerAsGuest();
+      set(() => ({
+        userInfo: null,
+      }));
 
-      set(() => {
-        return {
-          hasLogin: false,
-          userInfo: null,
-        };
-      });
+      get()._updateUserStatus();
 
       if (reload) {
         const url = removeParamFromUrl(window.location.href, ['code', 'state']);
@@ -117,18 +75,70 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       }
     },
 
-    // 更新用户信息
-    updateUserInfo: (userInfo) => {
-      set((state) => {
-        return {
-          userInfo: {
-            ...state.userInfo,
-            ...userInfo,
-          }
-        };
-      });
+    // Public API: Get token
+    getToken: () => {
+      return tokenTool.get().token || '';
     },
 
+    // Public API: Initialize user session (call once on app start)
+    initUser: async () => {
+      // Check if already initialized
+      if (get().isInitialized) {
+        return;
+      }
+
+      const tokenData = tokenTool.get();
+
+      // If no token, register as guest
+      if (!tokenData.token) {
+        await registerAsGuest();
+        set(() => ({
+          userInfo: null,
+        }));
+        get()._updateUserStatus();
+        return;
+      }
+
+      // If already has token, try to get user info
+      try {
+        const res = await getUserInfo();
+        const userInfo = res.data;
+
+        // Determine if user is authenticated based on mobile number
+        const isAuthenticated = !!userInfo.mobile;
+        await tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
+
+        set(() => ({
+          userInfo,
+        }));
+
+        if (userInfo.language) {
+          i18n.changeLanguage(userInfo.language);
+        }
+      } catch (err) {
+        // @ts-expect-error EXPECT
+        if ((err.status === 403) || (err.code === 1005) || (err.code === 1001)) {
+          await registerAsGuest();
+          set(() => ({
+            userInfo: null,
+          }));
+        }
+      }
+
+      get()._updateUserStatus();
+    },
+
+    // Public API: Update user information
+    updateUserInfo: (userInfo) => {
+      set((state) => ({
+        userInfo: {
+          ...state.userInfo,
+          ...userInfo,
+        }
+      }));
+    },
+
+    // Public API: Refresh user information from server
     refreshUserInfo: async () => {
       const res = await getUserInfo();
       set(() => ({
@@ -136,40 +146,9 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
           ...res.data
         }
       }));
-      await userInfoStore.set(res.data);
-      i18n.changeLanguage(res.data.language);
 
-    },
-
-    updateHasCheckLogin: (hasCheckLogin) => set(() => ({ hasCheckLogin })),
-
-    // TODO: FIXME
-    // Added temporarily. Please refine and organize user-related logic later.
-    _setHasLogin: (v: boolean) => set({ hasLogin: v }),
-
-    // Profile management (merged from useAuth)
-    setProfile: (profile: any) => set({ profile }),
-
-    fetchProfile: async () => {
-      const { profile } = get();
-      if (!profile) {
-        try {
-          const userInfo = await api.getUserInfo({});
-          set({ profile: userInfo });
-          get().updateUserInfo(userInfo);
-          get()._setHasLogin(true);
-        } catch (error) {
-          console.error('Failed to fetch user profile:', error);
-        }
-      }
-    },
-
-    // Initialize profile fetch automatically
-    initProfileFetch: () => {
-      const state = get();
-      if (!state.profile && !isInitialized) {
-        isInitialized = true;
-        state.fetchProfile();
+      if (res.data.language) {
+        i18n.changeLanguage(res.data.language);
       }
     },
   }))
