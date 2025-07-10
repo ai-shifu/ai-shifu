@@ -146,13 +146,13 @@ class ShifuDraftShifu(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     created_user_bid = Column(
-        String(32), nullable=False, Index=True, default="", comment="Creation user bid"
+        String(32), nullable=False, index=True, default="", comment="Creation user bid"
     )
     updated_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Update time"
     )
     updated_user_bid = Column(
-        String(32), nullable=False, Index=True, default="", comment="Update user bid"
+        String(32), nullable=False, index=True, default="", comment="Update user bid"
     )
 
 
@@ -382,12 +382,16 @@ class ShifuPublishedOutline(db.Model):
     outline_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Outline bid"
     )
-    shifu_bid = Column(String(32), nullable=False, default="", comment="Shifu bid")
+    shifu_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+    )
     name = Column(String(100), nullable=False, default="", comment="Shifu outline name")
     parent_bid = Column(
         String(32), nullable=False, default="", comment="Outline parent bid"
     )
-    position = Column(String(10), nullable=False, default=0, comment="Outline position")
+    position = Column(
+        String(10), nullable=False, default="", comment="Outline position"
+    )
     pre_outline_bids = Column(
         String(500),
         nullable=False,
@@ -452,10 +456,19 @@ class ShifuPublishedBlock(db.Model):
     block_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Block bid"
     )
-    shifu_bid = Column(String(32), nullable=False, default="", comment="Shifu bid")
-    outline_bid = Column(String(32), nullable=False, default="", comment="Outline bid")
+    shifu_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+    )
+    outline_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Outline bid"
+    )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
-    position = Column(SmallInteger, nullable=False, default=0, comment="Block position")
+    position = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Block position",
+    )
     variable_bids = Column(
         String(500), nullable=False, default="", comment="Block variable bids"
     )
