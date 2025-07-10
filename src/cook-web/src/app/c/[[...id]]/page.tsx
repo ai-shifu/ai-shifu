@@ -139,11 +139,14 @@ export default function ChatPage() {
     onTryLessonSelect,
   } = useLessonTree();
 
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
+  
   useEffect(() => {
-    if (tree) {
+    if (tree && i18n.language !== currentLanguage) {
+      setCurrentLanguage(i18n.language);
       reloadTree();
     }
-  }, [i18n, reloadTree]);
+  }, [i18n.language, tree, currentLanguage, reloadTree]);
 
   
 
@@ -167,7 +170,7 @@ export default function ChatPage() {
     await loadTree(chapterId, lessonId);
   }, [chapterId, lessonId, loadTree]);
 
-  const [loadedChapterId, setLoadedChapterId] = useState('');
+  const [loadedChapterId, setLoadedChapterId] = useState<string | null>(null);
   useEffect(() => {
     if (initialized && loadedChapterId !== chapterId) {
       loadData();
@@ -177,7 +180,7 @@ export default function ChatPage() {
 
 
   // TODO: REMOVE
-  console.log('chapterId: ', chapterId, 'lessonId: ', lessonId, 'initialized: ', initialized,  'loadedChapterId: ', loadedChapterId);
+  console.log('chapterId: ', chapterId, 'lessonId: ', lessonId, 'initialized: ', initialized, 'loadedChapterId: ', loadedChapterId);
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
@@ -235,7 +238,7 @@ export default function ChatPage() {
         }
       }
     }
-  }, [ tree, updateLessonId, updateChapterId ]);
+  }, [ tree, getCurrElement, updateLessonId, updateChapterId ]);
 
   useEffect(() => {
     if (initialized) {
