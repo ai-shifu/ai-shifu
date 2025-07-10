@@ -1,7 +1,47 @@
 {
   "extends": ["next/core-web-vitals"],
   "rules": {
-    "no-console": "error", // 禁止 console.log
-    "next/no-img-element": "off" // 关闭图片标签检查
+    "no-console": "error", // Disallow console.log
+    "next/no-img-element": "off", // Disable img element check
+
+    // Blank line rules
+    "padding-line-between-statements": [
+      "error",
+      { "blankLine": "always", "prev": "*", "next": "return" }, // Require blank line before return
+      { "blankLine": "always", "prev": ["const", "let", "var"], "next": "*" }, // Require blank line after variable declarations
+      {
+        "blankLine": "any",
+        "prev": ["const", "let", "var"],
+        "next": ["const", "let", "var"]
+      }, // Allow consecutive variable declarations
+      { "blankLine": "always", "prev": "directive", "next": "*" }, // Require blank line after directives
+      { "blankLine": "always", "prev": "*", "next": "directive" }, // Require blank line before directives
+      { "blankLine": "always", "prev": ["case", "default"], "next": "*" }, // Require blank line after case/default
+      { "blankLine": "always", "prev": "*", "next": "function" }, // Require blank line before functions
+      { "blankLine": "always", "prev": "function", "next": "*" }, // Require blank line after functions
+      { "blankLine": "always", "prev": "*", "next": "class" }, // Require blank line before classes
+      { "blankLine": "always", "prev": "class", "next": "*" }, // Require blank line after classes
+      { "blankLine": "always", "prev": "*", "next": "export" }, // Require blank line before exports
+      { "blankLine": "always", "prev": "import", "next": "*" }, // Require blank line after imports
+      { "blankLine": "any", "prev": "import", "next": "import" } // Allow consecutive imports
+    ],
+    "lines-between-class-members": [
+      "error",
+      "always",
+      { "exceptAfterSingleLine": true }
+    ], // Require blank lines between class members
+    "lines-around-comment": [
+      "error",
+      {
+        "beforeBlockComment": true, // Require blank line before block comments
+        "afterBlockComment": true, // Require blank line after block comments
+        "beforeLineComment": true, // Require blank line before line comments
+        "allowBlockStart": true, // Allow comments at block start without blank line
+        "allowObjectStart": true, // Allow comments at object start without blank line
+        "allowArrayStart": true, // Allow comments at array start without blank line
+        "allowClassStart": true // Allow comments at class start without blank line
+      }
+    ],
+    "newline-before-return": "error" // Require blank line before return statements
   }
 }
