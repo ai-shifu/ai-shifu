@@ -149,7 +149,11 @@ class ShifuDraftShifu(db.Model):
         String(32), nullable=False, index=True, default="", comment="Creation user bid"
     )
     updated_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Update time"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Update user bid"
@@ -236,7 +240,11 @@ class ShifuDraftOutline(db.Model):
         String(32), nullable=False, default="", comment="Creation user bid"
     )
     updated_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Update time"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32), nullable=False, default="", comment="Update user bid"
@@ -292,10 +300,17 @@ class ShifuDraftBlock(db.Model):
         String(32), nullable=False, default="", comment="Creation user bid"
     )
     updated_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Update time"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Update user bid"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Update user bid",
     )
 
 
@@ -310,7 +325,7 @@ class ShifuDraftHistory(db.Model):
     )
     draft_content = Column(Text, nullable=False, default="", comment="Draft content")
     created_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
 
 
@@ -369,7 +384,11 @@ class ShifuPublishedShifu(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     updated_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Update time"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32), nullable=False, default="", comment="Update user bid"
@@ -443,7 +462,11 @@ class ShifuPublishedOutline(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     updated_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Update time"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32), nullable=False, default="", comment="Update user bid"
@@ -493,7 +516,11 @@ class ShifuPublishedBlock(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     updated_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Update time"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32), nullable=False, default="", comment="Update user bid"
