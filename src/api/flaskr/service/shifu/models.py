@@ -90,7 +90,7 @@ class AiCourseAuth(db.Model):
 
 
 # draft shifu's model
-class ShifuDraftShifus(db.Model):
+class ShifuDraftShifu(db.Model):
     __tablename__ = "shifu_draft_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
@@ -156,7 +156,7 @@ class ShifuDraftShifus(db.Model):
     )
 
 
-class ShifuDraftOutlines(db.Model):
+class ShifuDraftOutline(db.Model):
     __tablename__ = "shifu_draft_outlines"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
@@ -243,7 +243,7 @@ class ShifuDraftOutlines(db.Model):
     )
 
 
-class ShifuDraftBlocks(db.Model):
+class ShifuDraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
@@ -299,7 +299,7 @@ class ShifuDraftBlocks(db.Model):
     )
 
 
-class ShifuDraftHistories(db.Model):
+class ShifuDraftHistory(db.Model):
     __tablename__ = "shifu_draft_histories"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
@@ -315,7 +315,7 @@ class ShifuDraftHistories(db.Model):
 
 
 # published shifu's model
-class ShifuPublishedShifus(db.Model):
+class ShifuPublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
@@ -376,7 +376,7 @@ class ShifuPublishedShifus(db.Model):
     )
 
 
-class ShifuPublishedOutlines(db.Model):
+class ShifuPublishedOutline(db.Model):
     __tablename__ = "shifu_published_outlines"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_bid = Column(
@@ -446,7 +446,7 @@ class ShifuPublishedOutlines(db.Model):
     )
 
 
-class ShifuPublishedBlocks(db.Model):
+class ShifuPublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
@@ -487,7 +487,7 @@ class ShifuPublishedBlocks(db.Model):
     )
 
 
-class ShifuHistories(db.Model):
+class ShifuHistory(db.Model):
     __tablename__ = "shifu_histories"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
