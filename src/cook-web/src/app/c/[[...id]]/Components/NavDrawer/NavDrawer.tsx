@@ -70,8 +70,7 @@ const NavDrawer = ({
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const userInfo = useUserStore((state) => state.profile);
-  const hasLogin = !!userInfo
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const [isCollapse, setIsCollapse] = useState(false);
 
@@ -81,6 +80,7 @@ const NavDrawer = ({
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
+  
   const footerRef = useRef(null);
   const bodyRef = useRef(null);
 
@@ -116,9 +116,9 @@ const NavDrawer = ({
   const onFooterClick = useCallback(() => {
     onMainModalToggle();
     trackEvent(EVENT_NAMES.USER_MENU, {
-      status: hasLogin ? 'logged_in' : 'logged_out',
+      status: isLoggedIn ? 'logged_in' : 'logged_out',
     });
-  }, [hasLogin, onMainModalToggle, trackEvent]);
+  }, [isLoggedIn, onMainModalToggle, trackEvent]);
 
   return (
     <div
@@ -142,7 +142,7 @@ const NavDrawer = ({
             onScroll={onBodyScroll}
             ref={bodyRef}
           >
-            {!isCollapse && (hasLogin || alwaysShowLessonTree ? (
+            {!isCollapse && (isLoggedIn || alwaysShowLessonTree ? (
                 <CourseCatalogList
                   courseName={courseName}
                   selectedLessonId={selectedLessonId}

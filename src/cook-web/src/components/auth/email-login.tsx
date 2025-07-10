@@ -11,8 +11,8 @@ import { Loader2 } from 'lucide-react'
 import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
-import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
+import { useUserStore } from '@/c-store/useUserStore'
 
 import type { UserInfo } from '@/c-types'
 
@@ -26,6 +26,7 @@ export function EmailLogin ({
   onForgotPassword
 }: EmailLoginProps) {
   const { toast } = useToast()
+  const { login } = useUserStore()
   const [isLoading, setIsLoading] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -109,7 +110,7 @@ export function EmailLogin ({
         toast({
           title: t('login.login-success')
         })
-        setToken(response.data.token)
+        await login(response.data.userInfo, response.data.token)
         onLoginSuccess(response.data.userInfo)
       }
 

@@ -1,7 +1,7 @@
 /**
  * File upload utility functions
  */
-import { getToken } from "@/local/local";
+import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -41,7 +41,7 @@ export const uploadFile = async (
       xhr.open('POST', url);
 
       // Get token
-      const token = await getToken();
+      const token = useUserStore.getState().getToken();
 
       // Add headers if provided
       if (headers) {
@@ -95,7 +95,7 @@ export const uploadFile = async (
   } else {
     // Use standard fetch API if no progress tracking is needed
     // Get token
-    const token = await getToken();
+    const token = useUserStore.getState().getToken();
 
     // Prepare headers
     let mergedHeaders = headers ? { ...headers } : {};
@@ -152,7 +152,7 @@ export const uploadMultipleFiles = async (
   }
 
   // Get token
-  const token = await getToken();
+  const token = useUserStore.getState().getToken();
 
   // Prepare headers
   let mergedHeaders = headers ? { ...headers } : {};

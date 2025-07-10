@@ -1,7 +1,7 @@
 /* eslint-disable */
 import { getSiteHost } from "@/config/runtime-config";
 import { fail } from '@/hooks/use-toast';
-import { getToken } from "@/local/local";
+import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -97,7 +97,7 @@ export class Request {
       fullUrl = this.baseUrl ? this.baseUrl + url : url;
     }
 
-    this.token = await getToken();
+    this.token = useUserStore.getState().getToken();
 
     if (this.token) {
       mergedConfig.headers = {

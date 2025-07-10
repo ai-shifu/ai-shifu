@@ -13,8 +13,8 @@ import imgUser from '@/c-assets/newchat/light/user.png';
 export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
-  const userInfo = useUserStore((state) => state.profile);
-  const hasLogin = !!userInfo
+  const userInfo = useUserStore((state) => state.userInfo);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
   const avatar = userInfo?.avatar || imgUser.src;
 
   const htmlRef = useRef(null);
@@ -41,7 +41,7 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
           <AvatarImage src={avatar} />
         </Avatar>
         <div className={styles.userName}>
-          {hasLogin
+          {isLoggedIn
             ? userInfo?.name || t('user.defaultUserName')
             : t('user.notLogin')}
         </div>

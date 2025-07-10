@@ -1,7 +1,6 @@
 import styles from './PayModalM.module.scss';
 
 import { memo, useState, useCallback, useEffect } from 'react';
-import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils'
@@ -88,9 +87,7 @@ export const PayModalM = ({
     onOpen: onCouponCodeModalOpen,
   } = useDisclosure();
   const courseId = getStringEnv('courseId');
-  const { hasLogin } = useUserStore(
-    useShallow((state) => ({ hasLogin: state.hasLogin }))
-  );
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const initOrderUniform = useCallback(
     async (courseId) => {
@@ -240,7 +237,7 @@ export const PayModalM = ({
                         })}
                       </div>
                     )}
-                    {hasLogin ? (
+                    {isLoggedIn ? (
                       <>
                         <div className={styles.payChannelWrapper}>
                           <RadioGroup

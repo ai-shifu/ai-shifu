@@ -56,20 +56,17 @@ export interface CourseStoreState {
 
 export interface UserStoreState {
   userInfo: UserInfo | null;
-  hasLogin: boolean;
-  hasCheckLogin: boolean;
-  profile: any;
-  login: (params: { mobile: string; smsCode: string }) => Promise<void>;
-  checkLogin: () => void;
-  checkLoginForce: () => Promise<void>;
+  isGuest: boolean;
+  isLoggedIn: boolean;
+  // Internal methods
+  _updateUserStatus: () => void;
+  // Public API
+  getToken: () => string;
+  initUser: () => Promise<void>;
+  login: (userInfo: any, token: string) => Promise<void>;
   logout: (reload?: boolean) => Promise<void>;
   updateUserInfo: (info: Partial<UserInfo>) => void;
   refreshUserInfo: () => Promise<void>;
-  updateHasCheckLogin: (hasCheckLogin: boolean) => void;
-  _setHasLogin: (v: boolean) => void;
-  setProfile: (profile: any) => void;
-  fetchProfile: () => Promise<void>;
-  initProfileFetch: () => void;
 }
 
 export interface UiLayoutStoreState {

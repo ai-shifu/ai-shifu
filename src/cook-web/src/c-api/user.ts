@@ -139,21 +139,6 @@ export const sendSmsCode = ({ mobile, check_code }) => {
   });
 };
 
-/**
- * 验证手机号
- * @param {mobile} 手机号
- * @param {sms_code} 短信验证码
- * @returns
- */
-export const verifySmsCode = ({ mobile, sms_code, course_id }) => {
-  return request({
-    url: '/api/user/verify_sms_code',
-    method: 'post',
-    data: { mobile, sms_code, course_id },
-  });
-};
-
-
 // 获取用户详细信息
 export const getUserProfile = (courseId) => {
   return request({

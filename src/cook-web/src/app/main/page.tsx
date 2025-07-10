@@ -68,6 +68,7 @@ const ScriptManagementPage = () => {
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
+
     const fetchShifus = async () => {
         if (loading || !hasMore) return;
 
