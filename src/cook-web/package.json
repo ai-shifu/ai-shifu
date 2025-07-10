@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location src/cook-web/.eslintcache --max-warnings 0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "precommit": "lint-staged",
     "generate-languages": "node src/scripts/generate-languages.js",
     "update-i18n": "node src/scripts/update-i18n.js",
