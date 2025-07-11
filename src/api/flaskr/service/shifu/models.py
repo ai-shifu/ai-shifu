@@ -102,11 +102,17 @@ class ShifuDraftShifu(db.Model):
         String(500), nullable=False, default="", comment="Shifu description"
     )
     avatar_res_bid = Column(
-        String(32), nullable=False, default="", comment="Shifu avatar's resource business ID"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Shifu avatar's resource business ID",
     )
     llm = Column(String(100), nullable=False, default="", comment="Specified LLM model")
     llm_temperature = Column(
-        Decimal(10, 2), nullable=False, default=0, comment="Specified temperature for the LLM model"
+        Decimal(10, 2),
+        nullable=False,
+        default=0,
+        comment="Specified temperature for the LLM model",
     )
     llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Specified system prompt for the LLM model"
