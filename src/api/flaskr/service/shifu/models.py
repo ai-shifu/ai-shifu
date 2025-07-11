@@ -204,7 +204,7 @@ class ShifuDraftOutline(db.Model):
         nullable=False,
         index=True,
         default="",
-        comment="Outline position",
+        comment="The position of this outline in the catalog",
     )
     pre_outline_bids = Column(
         String(500),
