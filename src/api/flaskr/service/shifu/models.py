@@ -191,7 +191,7 @@ class ShifuDraftOutlineItem(db.Model):
     shifu_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Shifu business ID"
     )
-    name = Column(String(100), nullable=False, default="", comment="Shifu outline name")
+    title = Column(String(100), nullable=False, default="", comment="The title of this outline item")
     parent_bid = Column(
         String(32),
         nullable=False,
