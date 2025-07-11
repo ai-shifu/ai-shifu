@@ -109,7 +109,7 @@ class ShifuDraftShifu(db.Model):
         Decimal(10, 2), nullable=False, default=0, comment="Specified temperature for the LLM model"
     )
     llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu llm system prompt"
+        Text, nullable=False, default="", comment="Specified system prompt for the LLM model"
     )
     ask_enabled_status = Column(
         SmallInteger,
