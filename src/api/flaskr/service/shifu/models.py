@@ -155,7 +155,7 @@ class ShifuDraftShifu(db.Model):
         comment="deleted status: 0: not deleted, 1: deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Created timestamp"
     )
     created_user_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Creation user bid"
