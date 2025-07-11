@@ -176,7 +176,7 @@ class ShifuDraftOutline(db.Model):
     __tablename__ = "shifu_draft_outlines"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline bid"
+        String(32), nullable=False, index=True, default="", comment="Item business ID"
     )
     shifu_bid = Column(
         String(32), nullable=False, index=True, default="", comment="Shifu bid"
