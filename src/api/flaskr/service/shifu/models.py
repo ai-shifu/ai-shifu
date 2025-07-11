@@ -104,7 +104,7 @@ class ShifuDraftShifu(db.Model):
     avatar_res_bid = Column(
         String(32), nullable=False, default="", comment="Shifu avatar resource bid"
     )
-    llm = Column(String(100), nullable=False, default="", comment="Shifu llm model")
+    llm = Column(String(100), nullable=False, default="", comment="Specified LLM model")
     llm_temperature = Column(
         Decimal(10, 2), nullable=False, default=0, comment="Shifu llm temperature"
     )
