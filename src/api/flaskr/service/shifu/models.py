@@ -94,7 +94,7 @@ class ShifuDraftShifu(db.Model):
     __tablename__ = "shifu_draft_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Shifu business ID"
     )
     name = Column(String(100), nullable=False, default="", comment="Shifu name")
     keywords = Column(String(100), nullable=False, default="", comment="Shifu keywords")
