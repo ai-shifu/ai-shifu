@@ -133,10 +133,16 @@ class ShifuDraftShifu(db.Model):
         comment="Specified LLM model for ask agent",
     )
     ask_llm_temperature = Column(
-        Decimal(10, 2), nullable=False, default=0.0, comment="Specified LLM temperature for ask agent"
+        Decimal(10, 2),
+        nullable=False,
+        default=0.0,
+        comment="Specified LLM temperature for ask agent",
     )
     ask_llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Specified system prompt for ask agent"
+        Text,
+        nullable=False,
+        default="",
+        comment="Specified system prompt for ask agent",
     )
     price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
     status = Column(
@@ -168,7 +174,11 @@ class ShifuDraftShifu(db.Model):
         onupdate=func.now(),
     )
     updated_by_user_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Business ID of the user who last updated this Shifu"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Business ID of the user who last updated this Shifu",
     )
 
 
