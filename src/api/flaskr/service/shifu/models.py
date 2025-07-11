@@ -167,8 +167,8 @@ class ShifuDraftShifu(db.Model):
         comment="Update time",
         onupdate=func.now(),
     )
-    updated_user_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Update user bid"
+    updated_by_user_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Business ID of the user who last updated this Shifu"
     )
 
 
