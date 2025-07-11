@@ -136,7 +136,7 @@ class ShifuDraftShifu(db.Model):
         Decimal(10, 2), nullable=False, default=0.0, comment="Specified LLM temperature for ask agent"
     )
     ask_llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu ask llm system prompt"
+        Text, nullable=False, default="", comment="Specified system prompt for ask agent"
     )
     price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
     status = Column(
