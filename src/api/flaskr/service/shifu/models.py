@@ -197,7 +197,7 @@ class ShifuDraftOutline(db.Model):
         nullable=False,
         index=True,
         default="",
-        comment="Outline parent bid",
+        comment="The Business ID of parent outline",
     )
     position = Column(
         String(10),
