@@ -106,7 +106,7 @@ class ShifuDraftShifu(db.Model):
     )
     llm = Column(String(100), nullable=False, default="", comment="Specified LLM model")
     llm_temperature = Column(
-        Decimal(10, 2), nullable=False, default=0, comment="Shifu llm temperature"
+        Decimal(10, 2), nullable=False, default=0, comment="Specified temperature for the LLM model"
     )
     llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Shifu llm system prompt"
