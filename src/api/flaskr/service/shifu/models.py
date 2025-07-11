@@ -133,7 +133,7 @@ class ShifuDraftShifu(db.Model):
         comment="Specified LLM model for ask agent",
     )
     ask_llm_temperature = Column(
-        Decimal(10, 2), nullable=False, default=0.0, comment="Shifu ask llm temperature"
+        Decimal(10, 2), nullable=False, default=0.0, comment="Specified LLM temperature for ask agent"
     )
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Shifu ask llm system prompt"
