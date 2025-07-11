@@ -121,7 +121,7 @@ class ShifuDraftShifu(db.Model):
         SmallInteger,
         nullable=False,
         default=ASK_MODE_DEFAULT,
-        comment="Shifu ask enabled status, 5101: default, 5102: disable, 5103: enable",
+        comment="Enable ask agent or not. 5101 for default to system setting, 5102 for disable, 5103 for enable",
     )
     ask_llm = Column(
         String(100), nullable=False, default="", comment="Shifu ask llm model"
