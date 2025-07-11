@@ -96,7 +96,7 @@ class ShifuDraftShifu(db.Model):
     bid = Column(
         String(32), nullable=False, index=True, default="", comment="Shifu business ID"
     )
-    name = Column(String(100), nullable=False, default="", comment="Shifu name")
+    title = Column(String(100), nullable=False, default="", comment="Shifu title")
     keywords = Column(String(100), nullable=False, default="", comment="Shifu keywords")
     description = Column(
         String(500), nullable=False, default="", comment="Shifu description"
