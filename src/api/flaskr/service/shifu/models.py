@@ -152,7 +152,7 @@ class ShifuDraftShifu(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
-        comment="deleted status: 0: not deleted, 1: deleted",
+        comment="Deleted or not. 0 for false, 1 for true",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Created timestamp"
