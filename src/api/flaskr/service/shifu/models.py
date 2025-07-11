@@ -182,8 +182,8 @@ class ShifuDraftShifu(db.Model):
     )
 
 
-class ShifuDraftOutline(db.Model):
-    __tablename__ = "shifu_draft_outlines"
+class ShifuDraftOutlineItem(db.Model):
+    __tablename__ = "shifu_draft_outline_items"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     bid = Column(
         String(32), nullable=False, index=True, default="", comment="Item business ID"
