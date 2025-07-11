@@ -211,11 +211,11 @@ class ShifuDraftOutlineItem(db.Model):
         default="",
         comment="The position of this outline in the catalog",
     )
-    pre_outline_bids = Column(
+    prerequisite_item_bids = Column(
         String(500),
         nullable=False,
         default="",
-        comment="Outline pre outline bids",
+        comment="The business IDs of this item’s prerequisites",
     )
     llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
     llm_temperature = Column(
