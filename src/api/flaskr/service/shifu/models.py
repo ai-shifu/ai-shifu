@@ -164,7 +164,7 @@ class ShifuDraftShifu(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Update time",
+        comment="Last updated timestamp",
         onupdate=func.now(),
     )
     updated_by_user_bid = Column(
