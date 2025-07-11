@@ -1,8 +1,8 @@
 """user role
 
-Revision ID: 568b8475adab
-Revises: 7cee4b561f30
-Create Date: 2025-06-21 03:41:16.240547
+Revision ID: 15cc32aebd22
+Revises: 2681575163c0
+Create Date: 2025-07-11 06:30:16.251203
 
 """
 
@@ -10,8 +10,8 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "568b8475adab"
-down_revision = "7cee4b561f30"
+revision = '15cc32aebd22'
+down_revision = '2681575163c0'
 branch_labels = None
 depends_on = None
 
