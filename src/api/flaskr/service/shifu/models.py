@@ -124,7 +124,7 @@ class ShifuDraftShifu(db.Model):
         comment="Enable ask agent or not. 5101 for default to system setting, 5102 for disable, 5103 for enable",
     )
     ask_llm = Column(
-        String(100), nullable=False, default="", comment="Shifu ask llm model"
+        String(100), nullable=False, default="", comment="Specified LLM model for ask agent"
     )
     ask_llm_temperature = Column(
         Decimal(10, 2), nullable=False, default=0.0, comment="Shifu ask llm temperature"
