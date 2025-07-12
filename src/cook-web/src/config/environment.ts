@@ -44,18 +44,60 @@ function getRuntimeEnv(key: string): string | undefined {
 }
 
 /**
+ * 客户端动态获取API基础URL
+ * 在客户端运行时从 /api/config 获取配置
+ */
+let cachedApiBaseUrl: string = '';
+
+async function getClientApiBaseUrl(): Promise<string> {
+  if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
+    return cachedApiBaseUrl;
+  }
+
+  try {
+    const response = await fetch('/api/config');
+    if (response.ok) {
+      const config = await response.json();
+      if (config.apiBaseUrl) {
+        cachedApiBaseUrl = config.apiBaseUrl;
+        return cachedApiBaseUrl;
+      }
+    }
+  } catch (error) {
+    console.warn('Failed to fetch runtime config:', error);
+  }
+
+  // 如果获取失败，使用默认值
+  cachedApiBaseUrl = 'http://localhost:8081';
+  return cachedApiBaseUrl;
+}
+
+/**
  * Gets the unified API base URL
  * 优先级：运行时环境变量 > 构建时环境变量 > 默认值
  */
 function getApiBaseUrl(): string {
-  // 1. 优先使用运行时环境变量
+  // 1. 优先使用运行时环境变量（服务端）
   const runtimeApiUrl = getRuntimeEnv('NEXT_PUBLIC_API_BASE_URL');
   if (runtimeApiUrl) {
     return runtimeApiUrl;
   }
 
-  // 2. 使用构建时环境变量
+  // 2. 客户端使用默认值，会在运行时动态更新
   return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8081';
+}
+
+/**
+ * 获取动态API基础URL（客户端使用）
+ */
+export async function getDynamicApiBaseUrl(): Promise<string> {
+  if (typeof window === 'undefined') {
+    // 服务端直接返回
+    return getApiBaseUrl();
+  } else {
+    // 客户端动态获取
+    return getClientApiBaseUrl();
+  }
 }
 
 /**

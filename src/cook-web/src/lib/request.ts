@@ -1,4 +1,4 @@
-import { environment } from '@/config/environment';
+import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
 import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
@@ -11,20 +11,19 @@ import { getStringEnv } from "@/c-utils/envUtils";
 // ===== 类型定义 =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
 
-export type StreamCallback = (data: any) => void;
-
 export type StreamRequestConfig = RequestInit & {
-  onMessage?: StreamCallback;
-  onError?: (error: any) => void;
-  onOpen?: () => void;
-  onClose?: () => void;
+  params?: any;
+  data?: any;
+  parseChunk?: (chunkValue: string) => string
 };
+export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
 
 // ===== 错误处理 =====
-class ErrorWithCode extends Error {
-  constructor(message: string, public code: number) {
+export class ErrorWithCode extends Error {
+  code: number;
+  constructor(message: string, code: number) {
     super(message);
-    this.name = 'ErrorWithCode';
+    this.code = code;
   }
 }
 
@@ -73,46 +72,48 @@ const handleBusinessCode = (response: any) => {
   return response.data || response;
 };
 
-// ===== 动态获取API基础URL =====
-let cachedApiBaseUrl: string = '';
-
-/**
- * 动态获取API基础URL
- * 在客户端运行时获取，支持运行时环境变量
- */
-async function getDynamicApiBaseUrl(): Promise<string> {
-  // 如果已经缓存，直接返回
-  if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
-    return cachedApiBaseUrl;
-  }
-
+// ===== 工具函数 =====
+const parseJson = (text: string) => {
   try {
-    // 1. 尝试从 /api/config 获取运行时配置
-    const response = await fetch('/api/config');
-    if (response.ok) {
-      const config = await response.json();
-      if (config.apiBaseUrl) {
-        cachedApiBaseUrl = config.apiBaseUrl;
-        return cachedApiBaseUrl;
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to fetch runtime config:', error);
+    return JSON.parse(text);
+  } catch {
+    return text;
   }
+};
 
-  // 2. 使用环境变量或默认值
-  const fallbackUrl = environment.apiBaseUrl || 'http://localhost:8081';
-  cachedApiBaseUrl = fallbackUrl;
-  return fallbackUrl;
+// 流式读取行迭代器
+async function* makeTextStreamLineIterator(reader: ReadableStreamDefaultReader) {
+  const utf8Decoder = new TextDecoder("utf-8");
+  let { value: chunk, done: readerDone } = await reader.read();
+  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+  const re = /\r\n|\n|\r/gm;
+  let startIndex = 0;
+
+  for (;;) {
+    const result = re.exec(chunk);
+    if (!result) {
+      if (readerDone) break;
+      const remainder = chunk.substr(startIndex);
+      ({ value: chunk, done: readerDone } = await reader.read());
+      chunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+      startIndex = re.lastIndex = 0;
+      continue;
+    }
+    yield chunk.substring(startIndex, result.index);
+    startIndex = re.lastIndex;
+  }
+  if (startIndex < chunk.length) {
+    yield chunk.substr(startIndex);
+  }
 }
 
-// ===== Request 类 =====
+// ===== Fetch 封装类 =====
 export class Request {
-  private defaultConfig: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  };
+  private defaultConfig: RequestInit = {};
+
+  constructor(defaultConfig: RequestInit = {}) {
+    this.defaultConfig = defaultConfig;
+  }
 
   private async prepareConfig(url: string, config: RequestInit) {
     const mergedConfig = {
@@ -175,138 +176,135 @@ export class Request {
     }
   }
 
-  async get(url: string, config: RequestConfig = {}) {
-    return this.interceptFetch(url, { ...config, method: 'GET' });
+  // HTTP 方法封装
+  get(url: string, config: RequestConfig = {}) {
+    return this.interceptFetch(url, { method: 'GET', ...config });
   }
 
-  async post(url: string, data?: any, config: RequestConfig = {}) {
+  post(url: string, body: any = {}, config: RequestConfig = {}) {
     return this.interceptFetch(url, {
-      ...config,
       method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
+      body: JSON.stringify(body),
+      ...config,
     });
   }
 
-  async put(url: string, data?: any, config: RequestConfig = {}) {
+  put(url: string, body: any = {}, config: RequestConfig = {}) {
     return this.interceptFetch(url, {
-      ...config,
       method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async delete(url: string, config: RequestConfig = {}) {
-    return this.interceptFetch(url, { ...config, method: 'DELETE' });
-  }
-
-  async patch(url: string, data?: any, config: RequestConfig = {}) {
-    return this.interceptFetch(url, {
+      body: JSON.stringify(body),
       ...config,
-      method: 'PATCH',
-      body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async stream(url: string, data?: any, config: StreamRequestConfig = {}) {
+  delete(url: string, config: RequestConfig = {}) {
+    return this.interceptFetch(url, { method: 'DELETE', ...config });
+  }
+
+  // 流式请求
+  async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
     const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
-    const token = useUserStore.getState().getToken();
 
-    const source = new SSE(fullUrl, {
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        Token: token,
-        "X-Request-ID": uuidv4().replace(/-/g, ''),
-        ...mergedConfig.headers,
-      },
-      payload: data ? JSON.stringify(data) : undefined,
-    });
+    try {
+      const { parseChunk, ...rest } = mergedConfig as any;
+      const controller = new AbortController();
+      const response = await fetch(fullUrl, {
+        ...rest,
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
 
-    source.addEventListener('message', (event: MessageEvent) => {
-      try {
-        const response = JSON.parse(event.data);
-        config.onMessage?.(response);
-      } catch (e) {
-        console.error('SSE message parse error:', e);
+      if (!response.ok) {
+        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
       }
-    });
 
-    source.addEventListener('error', (event: Event) => {
-      console.error('SSE connection error:', event);
-      config.onError?.(event);
-    });
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
 
-    source.addEventListener('open', () => {
-      config.onOpen?.();
-    });
+      const decoder = new TextDecoder();
+      let done = false;
+      let text = '';
 
-    source.addEventListener('close', () => {
-      config.onClose?.();
-    });
+      const stop = () => {
+        done = true;
+        controller.abort();
+      };
 
-    source.stream();
-    return source;
-  }
+      while (!done) {
+        const { value, done: doneReading } = await reader.read();
+        done = doneReading;
+        let chunkValue = decoder.decode(value);
 
-  async streamLine(url: string, data?: any, config: StreamRequestConfig = {}) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
-    const token = useUserStore.getState().getToken();
-
-    const response = await fetch(fullUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        Token: token,
-        "X-Request-ID": uuidv4().replace(/-/g, ''),
-        ...mergedConfig.headers,
-      },
-      body: data ? JSON.stringify(data) : undefined,
-    });
-
-    if (!response.body) {
-      throw new Error('No response body');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-
-    const processStream = async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                config.onMessage?.(data);
-              } catch (e) {
-                console.error('Stream line parse error:', e);
-              }
-            }
-          }
+        if (parseChunk) {
+          chunkValue = parseChunk(chunkValue);
         }
-      } catch (error) {
-        config.onError?.(error);
-      } finally {
-        config.onClose?.();
-      }
-    };
 
-    processStream();
+        text += chunkValue;
+
+        if (callback) {
+          callback(done, text, stop);
+        }
+      }
+
+      const result = parseJson(text);
+      if (typeof result === 'object' && result.code !== undefined) {
+        return handleBusinessCode(result);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('Stream request failed:', error);
+      throw error;
+    }
+  }
+
+  // 按行流式请求
+  async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
+    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+
+    try {
+      const controller = new AbortController();
+      const response = await fetch(fullUrl, {
+        ...mergedConfig,
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
+
+      let done = false;
+      const stop = () => {
+        done = true;
+        controller.abort();
+      };
+
+      const lines: string[] = [];
+
+      for await (const line of makeTextStreamLineIterator(reader)) {
+        lines.push(line);
+        if (callback) {
+          callback(done, line, stop);
+        }
+      }
+
+      if (callback) {
+        callback(true, '', stop);
+      }
+
+      return lines;
+    } catch (error: any) {
+      console.error('StreamLine request failed:', error);
+      throw error;
+    }
   }
 }
-
-// 创建默认实例
-const http = new Request();
-
-// 导出默认实例和方法
-export default http;
 
 // ===== Axios 实例（兼容旧代码）=====
 const axiosrequest: AxiosInstance = axios.create({
@@ -337,27 +335,12 @@ axiosrequest.interceptors.request.use(async (config: InternalAxiosRequestConfig)
 
 // 响应拦截器
 axiosrequest.interceptors.response.use(
-  (response: any) => {
-    if (response.data.code !== 0) {
-      if (![1001].includes(response.data.code)) {
-        toast({
-          title: response.data.message || i18n.t("common.networkError"),
-          variant: 'destructive',
-        });
-      }
-      const apiError = new CustomEvent("apiError", { detail: response.data, bubbles: true });
-      document.dispatchEvent(apiError);
-      return Promise.reject(response.data);
-    }
-    return response.data;
-  },
+  (response: any) => handleBusinessCode(response.data),
   (error: any) => {
     handleApiError(error);
     return Promise.reject(error);
   }
 );
-
-export { axiosrequest };
 
 // ===== SSE 通信 =====
 export const SendMsg = async (
@@ -392,3 +375,15 @@ export const SendMsg = async (
   source.stream();
   return source;
 };
+
+// ===== 默认实例导出 =====
+const defaultConfig = {
+  headers: {
+    'Content-Type': 'application/json',
+  },
+};
+
+const request = new Request(defaultConfig);
+
+export { axiosrequest };
+export default request;
