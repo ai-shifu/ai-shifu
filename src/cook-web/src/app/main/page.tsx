@@ -73,7 +73,7 @@ const ScriptManagementPage = () => {
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
-    const fetchShifusRef = useRef<() => Promise<void>>();
+    const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
 
     const fetchShifus = useCallback(async () => {
         // Get fresh state to avoid stale closure
