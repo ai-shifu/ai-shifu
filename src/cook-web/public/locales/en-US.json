@@ -60,6 +60,7 @@
     "please-input-bilibili-url": "Please Input Bilibili URL",
     "please-input-valid-bilibili-url": "Please Input Valid Bilibili URL",
     "please-set": "Please Set",
+    "retry": "Retry",
     "run": "Run",
     "shifu": "Shifu",
     "unknown-error": "Unknown Error",
@@ -559,6 +560,23 @@
     },
     "error": {
       "pageNotFound": "Sorry, this Shifu is missing..."
+    },
+    "errors": {
+      "no-permission": "You don't have permission to access this page. Please contact the administrator for access.",
+      "no-permission-title": "Permission Denied",
+      "loading-failed": "Loading failed, please try again later",
+      "forbidden": "Access forbidden",
+      "forbidden-title": "Forbidden",
+      "not-found": "The requested resource was not found",
+      "not-found-title": "Not Found",
+      "auth-required": "Please login and try again",
+      "auth-required-title": "Authentication Required",
+      "server-error": "Server error, please try again later",
+      "server-error-title": "Server Error",
+      "general-error": "An error occurred, please try again later",
+      "general-error-title": "Error",
+      "error-code": "Error Code",
+      "error-message": "Error Message"
     },
     "menus": {
       "navigationMenus": {

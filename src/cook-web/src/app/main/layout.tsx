@@ -15,6 +15,7 @@ import Link from "next/link";
 import UserProfile from '@/components/user-profile';
 import { useTranslation } from 'react-i18next';
 import logo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import { UserProvider } from '@/c-store/userProvider';
 
 const MainInterface = ({
   children,
@@ -66,34 +67,36 @@ const MainInterface = ({
   );
 
   return (
-    <div className="h-screen flex bg-stone-50">
-      <div className="hidden md:flex w-64 border-r flex-col p-2">
-        <SidebarContent />
-      </div>
-      <div className="flex-1 p-5  overflow-hidden">
-        <div className="max-w-6xl mx-auto h-full overflow-hidden">
-          {
-            children
-          }
+    <UserProvider>
+      <div className="h-screen flex bg-stone-50">
+        <div className="hidden md:flex w-64 border-r flex-col p-2">
+          <SidebarContent />
+        </div>
+        <div className="flex-1 p-5  overflow-hidden">
+          <div className="max-w-6xl mx-auto h-full overflow-hidden">
+            {
+              children
+            }
+          </div>
+        </div>
+        <div className="md:hidden w-full border-b p-4">
+          <div className="flex items-center justify-between">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Bars3Icon className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-64 p-0">
+                <SidebarContent />
+              </SheetContent>
+            </Sheet>
+            <h1 className="text-xl font-bold">{t('common.home')}</h1>
+            <div className="w-6" /> {/* Spacer for centering */}
+          </div>
         </div>
       </div>
-      <div className="md:hidden w-full border-b p-4">
-        <div className="flex items-center justify-between">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="icon">
-                <Bars3Icon className="h-6 w-6" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-64 p-0">
-              <SidebarContent />
-            </SheetContent>
-          </Sheet>
-          <h1 className="text-xl font-bold">{t('common.home')}</h1>
-          <div className="w-6" /> {/* Spacer for centering */}
-        </div>
-      </div>
-    </div>
+    </UserProvider>
   );
 };
 

@@ -60,6 +60,7 @@
     "please-input-bilibili-url": "请输入B站视频链接",
     "please-input-valid-bilibili-url": "请输入有效的B站视频链接",
     "please-set": "请设置",
+    "retry": "重试",
     "run": "运行",
     "shifu": "师傅",
     "unknown-error": "未知错误",
@@ -557,6 +558,23 @@
     },
     "error": {
       "pageNotFound": "找不到这个师傅了"
+    },
+    "errors": {
+      "no-permission": "您当前没有权限访问此页面，请联系管理员获取权限",
+      "no-permission-title": "权限不足",
+      "loading-failed": "加载失败，请稍后重试",
+      "forbidden": "访问被拒绝",
+      "forbidden-title": "禁止访问",
+      "not-found": "请求的资源不存在",
+      "not-found-title": "未找到",
+      "auth-required": "请登录后再试",
+      "auth-required-title": "需要登录",
+      "server-error": "服务器错误，请稍后重试",
+      "server-error-title": "服务器错误",
+      "general-error": "发生错误，请稍后重试",
+      "general-error-title": "出错了",
+      "error-code": "错误代码",
+      "error-message": "错误信息"
     },
     "menus": {
       "navigationMenus": {
