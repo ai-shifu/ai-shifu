@@ -59,6 +59,8 @@ export interface UserStoreState {
   isGuest: boolean;
   isLoggedIn: boolean;
   isInitialized: boolean;
+  // Internal state
+  _initializingPromise: Promise<void> | null;
   // Internal methods
   _updateUserStatus: () => void;
   // Public API

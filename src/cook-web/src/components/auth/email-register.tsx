@@ -12,7 +12,6 @@ import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidEmail, checkPasswordStrength } from '@/lib/validators'
 import { PasswordStrengthIndicator } from './password-strength-indicator'
-import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface EmailRegisterProps {
@@ -227,7 +226,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         language: i18n.language
       })
       if (response.code==0) {
-        setToken(response.data.token)
+        // Token handled via login flow, no need to set manually here
         setStep('password')
         setPassword('')
         setConfirmPassword('')

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PlusIcon, StarIcon as StarOutlineIcon, RectangleStackIcon as RectangleStackOutlineIcon } from '@heroicons/react/24/outline';
 import { TrophyIcon, RectangleStackIcon, StarIcon } from '@heroicons/react/24/solid';
 import api from "@/api";
@@ -66,24 +66,23 @@ const ScriptManagementPage = () => {
     const [activeTab, setActiveTab] = useState("all");
     const [shifus, setShifus] = useState<Shifu[]>([]);
     const [loading, setLoading] = useState(false);
-    const [hasMore, setHasMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
     const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
     const [error, setError] = useState<{ message: string; code?: number } | null>(null);
     const pageSize = 30;
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
-    const fetchShifus = async () => {
+    const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
+
+    const fetchShifus = useCallback(async () => {
+        // Get fresh state to avoid stale closure
+        const { isLoggedIn: currentLoginState } = useUserStore.getState();
+
         if (loading || !hasMore) return;
 
-        // Wait for user initialization and check if user is logged in
-        const { isInitialized, isLoggedIn } = useUserStore.getState();
-        if (!isInitialized) {
-            // User store not initialized yet, wait
-            return;
-        }
-        
-        if (!isLoggedIn) {
+        // Check if user is logged in using fresh state
+        if (!currentLoginState) {
             const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
             window.location.href = `/login?redirect=${currentPath}`;
             return;
@@ -100,7 +99,12 @@ const ScriptManagementPage = () => {
                 setHasMore(false);
             }
 
-            setShifus(prev => [...prev, ...items]);
+            setShifus(prev => {
+                // 避免重复数据
+                const existingIds = new Set(prev.map(shifu => shifu.bid));
+                const newItems = items.filter((item: Shifu) => !existingIds.has(item.bid));
+                return [...prev, ...newItems];
+            });
             currentPage.current += 1;
             setLoading(false);
         } catch (error: any) {
@@ -115,7 +119,10 @@ const ScriptManagementPage = () => {
                 setError({ message: error.message || 'Unknown error', code: 0 });
             }
         }
-    };
+    }, [loading, hasMore, activeTab]);
+
+    // Store the latest fetchShifus in ref
+    fetchShifusRef.current = fetchShifus;
     const onCreateShifu = async (values: any) => {
         try {
             await api.createShifu(values);
@@ -148,12 +155,16 @@ const ScriptManagementPage = () => {
 
     useEffect(() => {
         const container = containerRef.current;
-        if (!container) return;
+        if (!container || !isInitialized) return;
+
+        // Check current login state instead of using stale closure
+        const { isLoggedIn: currentLoginState } = useUserStore.getState();
+        if (!currentLoginState) return;
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && hasMore) {
-                    fetchShifus();
+                if (entries[0].isIntersecting && hasMore && fetchShifusRef.current) {
+                    fetchShifusRef.current();
                 }
             },
             { threshold: 0.1 }
@@ -161,19 +172,23 @@ const ScriptManagementPage = () => {
 
         observer.observe(container);
         return () => observer.disconnect();
-    }, [hasMore]);
+    }, [hasMore, isInitialized]);
 
-    // Watch for initialization state changes
+    // Fetch data when user is initialized and logged in
     useEffect(() => {
-        if (isInitialized && shifus.length === 0) {
-            fetchShifus();
+        // UserProvider already handles initUser(), so we only need to fetch data when ready
+        if (isInitialized && fetchShifusRef.current) {
+            const { isLoggedIn: currentLoginState } = useUserStore.getState();
+            if (currentLoginState && shifus.length === 0 && !loading) {
+                fetchShifusRef.current();
+            }
         }
-    }, [isInitialized]);
+    }, [isInitialized, shifus.length, loading]);
 
     if (error) {
         return (
             <div className="h-full bg-gray-50 p-0">
-                <ErrorDisplay 
+                <ErrorDisplay
                     errorCode={error.code || 0}
                     errorMessage={error.message}
                     onRetry={() => {

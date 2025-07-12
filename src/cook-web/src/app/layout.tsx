@@ -5,6 +5,7 @@ import "./globals.css";
 import '@/assets/css/md-editor.css';
 import '@/assets/css/markdown.css';
 import { ConfigProvider } from '@/components/config-provider';
+import { UserProvider } from '@/c-store/userProvider';
 import '@/i18n';
 
 const geistSans = Geist({
@@ -28,10 +29,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
       >
         <ConfigProvider>
-          <AlertProvider>
-            {children}
-            <Toaster />
-          </AlertProvider>
+          <UserProvider>
+            <AlertProvider>
+              {children}
+              <Toaster />
+            </AlertProvider>
+          </UserProvider>
         </ConfigProvider>
       </body>
     </html>
