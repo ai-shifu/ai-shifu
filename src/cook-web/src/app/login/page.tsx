@@ -24,7 +24,7 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
 
-import { useUserStore } from '@/c-store/useUserStore';
+
 
 export default function AuthPage() {
   const router = useRouter()
