@@ -145,14 +145,25 @@ class ShifuDraftShifu(db.Model):
         comment="Specified system prompt for ask agent",
     )
     price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
-    status = Column(
+    latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Shifu status: 6101: history, 6102: draft",
+        comment="""latest: A flag indicating whether the current draft is the latest version.
+        1 means the draft is the latest; 0 means it is a historical version.
+        It is used to determine whether the draft is the latest version.
+        """,
     )
     version = Column(
-        Integer, nullable=False, index=True, default=0, comment="Shifu version"
+        Integer,
+        nullable=False,
+        index=True,
+        default=0,
+        comment="""The version of the Shifu draft.
+        When a draft is saved and its content differs from the previous version,
+        a new draft will be created, the version number will be incremented, and latest will be set to 1.
+        If the draft is reset to a historical version, latest will be set to 0.
+        """,
     )
     deleted = Column(
         SmallInteger,
@@ -180,6 +191,57 @@ class ShifuDraftShifu(db.Model):
         default="",
         comment="Business ID of the user who last updated this Shifu",
     )
+
+    def clone(self):
+        return ShifuDraftShifu(
+            bid=self.bid,
+            title=self.title,
+            keywords=self.keywords,
+            description=self.description,
+            avatar_res_bid=self.avatar_res_bid,
+            llm=self.llm,
+            llm_temperature=self.llm_temperature,
+            llm_system_prompt=self.llm_system_prompt,
+            ask_enabled_status=self.ask_enabled_status,
+            ask_llm=self.ask_llm,
+            ask_llm_temperature=self.ask_llm_temperature,
+            ask_llm_system_prompt=self.ask_llm_system_prompt,
+            price=self.price,
+            latest=self.latest,
+            version=self.version + 1,
+            deleted=self.deleted,
+            created_at=self.created_at,
+            created_user_bid=self.created_user_bid,
+            updated_at=self.updated_at,
+            updated_by_user_bid=self.updated_by_user_bid,
+        )
+
+    def equals(self, other):
+        return (
+            self.bid == other.bid
+            and self.version == other.version
+            and self.title == other.title
+            and self.keywords == other.keywords
+            and self.description == other.description
+            and self.avatar_res_bid == other.avatar_res_bid
+            and self.llm == other.llm
+            and self.llm_temperature == other.llm_temperature
+            and self.llm_system_prompt == other.llm_system_prompt
+            and self.ask_enabled_status == other.ask_enabled_status
+            and self.ask_llm == other.ask_llm
+            and self.ask_llm_temperature == other.ask_llm_temperature
+            and self.ask_llm_system_prompt == other.ask_llm_system_prompt
+            and self.price == other.price
+            and self.latest == other.latest
+            and self.deleted == other.deleted
+            and self.created_at == other.created_at
+            and self.created_user_bid == other.created_user_bid
+            and self.updated_at == other.updated_at
+            and self.updated_by_user_bid == other.updated_by_user_bid
+        )
+
+    def get_str_to_check(self):
+        return f"{self.title} {self.keywords} {self.description} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 
 class ShifuDraftOutlineItem(db.Model):
@@ -245,14 +307,22 @@ class ShifuDraftOutlineItem(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Outline ask llm system prompt"
     )
-    status = Column(
+    version = Column(
+        Integer,
+        nullable=False,
+        index=True,
+        default=0,
+        comment="""The version of the Shifu draft.
+        When a draft is saved and its content differs from the previous version,
+        a new draft will be created, the version number will be incremented, and latest will be set to 1.
+        If the draft is reset to a historical version, latest will be set to 0.
+        """,
+    )
+    deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Outline status: 6101: history, 6102: draft",
-    )
-    version = Column(
-        Integer, nullable=False, index=True, default=0, comment="Outline version"
+        comment="Deleted or not. 0 for false, 1 for true",
     )
     deleted = Column(
         SmallInteger,
@@ -276,6 +346,49 @@ class ShifuDraftOutlineItem(db.Model):
     updated_user_bid = Column(
         String(32), nullable=False, default="", comment="Update user bid"
     )
+
+    def clone(self):
+        return ShifuDraftOutlineItem(
+            bid=self.bid,
+            shifu_bid=self.shifu_bid,
+            title=self.title,
+            parent_bid=self.parent_bid,
+            position=self.position,
+            prerequisite_item_bids=self.prerequisite_item_bids,
+            llm=self.llm,
+            llm_temperature=self.llm_temperature,
+            llm_system_prompt=self.llm_system_prompt,
+            ask_enabled_status=self.ask_enabled_status,
+            ask_llm=self.ask_llm,
+            ask_llm_temperature=self.ask_llm_temperature,
+            ask_llm_system_prompt=self.ask_llm_system_prompt,
+            version=self.version + 1,
+            deleted=self.deleted,
+            created_at=self.created_at,
+            created_user_bid=self.created_user_bid,
+            updated_at=self.updated_at,
+            updated_user_bid=self.updated_user_bid,
+        )
+
+    def equals(self, other):
+        return (
+            self.bid == other.bid
+            and self.shifu_bid == other.shifu_bid
+            and self.title == other.title
+            and self.parent_bid == other.parent_bid
+            and self.position == other.position
+            and self.prerequisite_item_bids == other.prerequisite_item_bids
+            and self.llm == other.llm
+            and self.llm_temperature == other.llm_temperature
+            and self.llm_system_prompt == other.llm_system_prompt
+            and self.ask_enabled_status == other.ask_enabled_status
+            and self.ask_llm == other.ask_llm
+            and self.ask_llm_temperature == other.ask_llm_temperature
+            and self.ask_llm_system_prompt == other.ask_llm_system_prompt
+        )
+
+    def get_str_to_check(self):
+        return f"{self.title} {self.llm_system_prompt} {self.ask_llm_system_prompt}"
 
 
 class ShifuDraftBlock(db.Model):
