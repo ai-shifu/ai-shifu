@@ -307,6 +307,15 @@ class ShifuDraftOutlineItem(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Outline ask llm system prompt"
     )
+    latest = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="""latest: A flag indicating whether the current draft is the latest version.
+        1 means the draft is the latest; 0 means it is a historical version.
+        It is used to determine whether the draft is the latest version.
+        """,
+    )
     version = Column(
         Integer,
         nullable=False,
@@ -323,12 +332,6 @@ class ShifuDraftOutlineItem(db.Model):
         nullable=False,
         default=0,
         comment="Deleted or not. 0 for false, 1 for true",
-    )
-    deleted = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="deleted status: 0: not deleted, 1: deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -418,20 +421,31 @@ class ShifuDraftBlock(db.Model):
         String(500), nullable=False, default="", comment="Block resource bids"
     )
     content = Column(Text, nullable=False, default="", comment="Shifu block content")
-    status = Column(
+    latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Block status: 6101: history, 6102: draft",
+        comment="""latest: A flag indicating whether the current draft is the latest version.
+        1 means the draft is the latest; 0 means it is a historical version.
+        It is used to determine whether the draft is the latest version.
+        """,
     )
     version = Column(
-        Integer, nullable=False, index=True, default=0, comment="Block version"
+        Integer,
+        nullable=False,
+        index=True,
+        default=0,
+        comment="""The version of the Shifu draft.
+        When a draft is saved and its content differs from the previous version,
+        a new draft will be created, the version number will be incremented, and latest will be set to 1.
+        If the draft is reset to a historical version, latest will be set to 0.
+        """,
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="deleted status: 0: not deleted, 1: deleted",
+        comment="Deleted or not. 0 for false, 1 for true",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -513,12 +527,31 @@ class ShifuPublishedShifu(db.Model):
         default=0,
         comment="Shifu status: 6101: history, 6103: published",
     )
-    version = Column(Integer, nullable=False, default=0, comment="Shifu version")
+    latest = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="""latest: A flag indicating whether the current draft is the latest version.
+        1 means the draft is the latest; 0 means it is a historical version.
+        It is used to determine whether the draft is the latest version.
+        """,
+    )
+    version = Column(
+        Integer,
+        nullable=False,
+        index=True,
+        default=0,
+        comment="""The version of the Shifu draft.
+        When a draft is saved and its content differs from the previous version,
+        a new draft will be created, the version number will be incremented, and latest will be set to 1.
+        If the draft is reset to a historical version, latest will be set to 0.
+        """,
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="deleted status: 0: not deleted, 1: deleted",
+        comment="Deleted or not. 0 for false, 1 for true",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -585,18 +618,31 @@ class ShifuPublishedOutline(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Shifu outline ask llm system prompt"
     )
-    status = Column(
+    latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Outline status: 6101: history, 6103: published",
+        comment="""latest: A flag indicating whether the current draft is the latest version.
+        1 means the draft is the latest; 0 means it is a historical version.
+        It is used to determine whether the draft is the latest version.
+        """,
     )
-    version = Column(Integer, nullable=False, default=0, comment="Outline version")
+    version = Column(
+        Integer,
+        nullable=False,
+        index=True,
+        default=0,
+        comment="""The version of the Shifu draft.
+        When a draft is saved and its content differs from the previous version,
+        a new draft will be created, the version number will be incremented, and latest will be set to 1.
+        If the draft is reset to a historical version, latest will be set to 0.
+        """,
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="deleted status: 0: not deleted, 1: deleted",
+        comment="Deleted or not. 0 for false, 1 for true",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -645,12 +691,31 @@ class ShifuPublishedBlock(db.Model):
         default=0,
         comment="Block status: 6101: history, 6103: published",
     )
-    version = Column(Integer, nullable=False, default=0, comment="Block version")
+    latest = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="""latest: A flag indicating whether the current draft is the latest version.
+        1 means the draft is the latest; 0 means it is a historical version.
+        It is used to determine whether the draft is the latest version.
+        """,
+    )
+    version = Column(
+        Integer,
+        nullable=False,
+        index=True,
+        default=0,
+        comment="""The version of the Shifu draft.
+        When a draft is saved and its content differs from the previous version,
+        a new draft will be created, the version number will be incremented, and latest will be set to 1.
+        If the draft is reset to a historical version, latest will be set to 0.
+        """,
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="deleted status: 0: not deleted, 1: deleted",
+        comment="Deleted or not. 0 for false, 1 for true",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
