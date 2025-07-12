@@ -94,11 +94,11 @@ class AiCourseAuth(db.Model):
 class ShifuDraftShifu(db.Model):
     __tablename__ = "shifu_draft_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business ID"
+    shifu_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
     title = Column(String(100), nullable=False, default="", comment="Shifu title")
-    keywords = Column(String(100), nullable=False, default="", comment="Shifu keywords")
+    keywords = Column(String(100), nullable=False, default="", comment="Associated keywords")
     description = Column(
         String(500), nullable=False, default="", comment="Shifu description"
     )
@@ -106,83 +106,76 @@ class ShifuDraftShifu(db.Model):
         String(32),
         nullable=False,
         default="",
-        comment="Shifu avatar's resource business ID",
+        comment="Avatar resource business identifier",
     )
-    llm = Column(String(100), nullable=False, default="", comment="Specified LLM model")
+    llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
         default=0,
-        comment="Specified temperature for the LLM model",
+        comment="LLM temperature parameter",
     )
     llm_system_prompt = Column(
         Text,
         nullable=False,
         default="",
-        comment="Specified system prompt for the LLM model",
+        comment="LLM system prompt",
     )
     ask_enabled_status = Column(
         SmallInteger,
         nullable=False,
         default=ASK_MODE_DEFAULT,
-        comment="Enable ask agent or not. 5101 for default to system setting, 5102 for disable, 5103 for enable",
+        comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
     )
     ask_llm = Column(
         String(100),
         nullable=False,
         default="",
-        comment="Specified LLM model for ask agent",
+        comment="Ask agent LLM model",
     )
     ask_llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
         default=0.0,
-        comment="Specified LLM temperature for ask agent",
+        comment="Ask agent LLM temperature",
     )
     ask_llm_system_prompt = Column(
         Text,
         nullable=False,
         default="",
-        comment="Specified system prompt for ask agent",
+        comment="Ask agent LLM system prompt",
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="""latest: A flag indicating whether the current draft is the latest version.
-        1 means the draft is the latest; 0 means it is a historical version.
-        It is used to determine whether the draft is the latest version.
-        """,
+        comment="Latest version flag: 1=latest, 0=historical",
     )
     version = Column(
         Integer,
         nullable=False,
         index=True,
         default=0,
-        comment="""The version of the Shifu draft.
-        When a draft is saved and its content differs from the previous version,
-        a new draft will be created, the version number will be incremented, and latest will be set to 1.
-        If the draft is reset to a historical version, latest will be set to 0.
-        """,
+        comment="Version number. Max number is not always the latest",
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Deleted or not. 0 for false, 1 for true",
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Created timestamp"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Creation user bid"
+        String(32), nullable=False, index=True, default="", comment="Creator user business identifier"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Last updated timestamp",
+        comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_by_user_bid = Column(
@@ -190,12 +183,12 @@ class ShifuDraftShifu(db.Model):
         nullable=False,
         index=True,
         default="",
-        comment="Business ID of the user who last updated this Shifu",
+        comment="Last updater user business identifier",
     )
 
     def clone(self):
         return ShifuDraftShifu(
-            bid=self.bid,
+            shifu_bid=self.shifu_bid,
             title=self.title,
             keywords=self.keywords,
             description=self.description,
@@ -219,7 +212,8 @@ class ShifuDraftShifu(db.Model):
 
     def eq(self, other):
         return (
-            self.bid == other.bid
+            self.shifu_bid == other.shifu_bid
+            and self.version == other.version
             and self.title == other.title
             and self.keywords == other.keywords
             and self.description == other.description
@@ -241,112 +235,105 @@ class ShifuDraftShifu(db.Model):
 class ShifuDraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Item business ID"
+    outline_item_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business ID"
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
     title = Column(
         String(100),
         nullable=False,
         default="",
-        comment="The title of this outline item",
+        comment="Outline item title",
     )
     parent_bid = Column(
         String(32),
         nullable=False,
         index=True,
         default="",
-        comment="The Business ID of parent outline",
+        comment="Parent outline item business identifier",
     )
     position = Column(
         String(10),
         nullable=False,
         index=True,
         default="",
-        comment="The position of this outline in the catalog",
+        comment="Position in outline",
     )
     prerequisite_item_bids = Column(
         String(500),
         nullable=False,
         default="",
-        comment="The business IDs of this item’s prerequisites",
+        comment="Prerequisite outline item business identifiers",
     )
-    llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
+    llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
         default=0,
-        comment="Outline llm temperature",
+        comment="LLM temperature parameter",
     )
     llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Outline llm system prompt"
+        Text, nullable=False, default="", comment="LLM system prompt"
     )
     ask_enabled_status = Column(
         SmallInteger,
         nullable=False,
         default=ASK_MODE_DEFAULT,
-        comment="Shifu outline ask enabled status, 5101: default, 5102: disable, 5103: enable",
+        comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
     )
     ask_llm = Column(
-        String(100), nullable=False, default="", comment="Shifu outline ask llm model"
+        String(100), nullable=False, default="", comment="Ask agent LLM model"
     )
     ask_llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
         default=0.0,
-        comment="Shifu outline ask llm temperature",
+        comment="Ask mode LLM temperature",
     )
     ask_llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Outline ask llm system prompt"
+        Text, nullable=False, default="", comment="Ask mode LLM system prompt"
     )
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="""latest: A flag indicating whether the current draft is the latest version.
-        1 means the draft is the latest; 0 means it is a historical version.
-        It is used to determine whether the draft is the latest version.
-        """,
+        comment="Latest version flag: 1=latest, 0=historical",
     )
     version = Column(
         Integer,
         nullable=False,
         index=True,
         default=0,
-        comment="""The version of the Shifu draft.
-        When a draft is saved and its content differs from the previous version,
-        a new draft will be created, the version number will be incremented, and latest will be set to 1.
-        If the draft is reset to a historical version, latest will be set to 0.
-        """,
+        comment="Version number. Max number is not always the latest",
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Deleted or not. 0 for false, 1 for true",
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creation user bid"
+        String(32), nullable=False, default="", comment="Creator user business identifier"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Update time",
+        comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Update user bid"
+        String(32), nullable=False, default="", comment="Last updater user business identifier"
     )
 
     def clone(self):
         return ShifuDraftOutlineItem(
-            bid=self.bid,
+            outline_item_bid=self.outline_item_bid,
             shifu_bid=self.shifu_bid,
             title=self.title,
             parent_bid=self.parent_bid,
@@ -369,7 +356,7 @@ class ShifuDraftOutlineItem(db.Model):
 
     def eq(self, other):
         return (
-            self.bid == other.bid
+            self.outline_item_bid == other.outline_item_bid
             and self.shifu_bid == other.shifu_bid
             and self.title == other.title
             and self.parent_bid == other.parent_bid
@@ -391,14 +378,14 @@ class ShifuDraftOutlineItem(db.Model):
 class ShifuDraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Block bid"
+    block_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Block business identifier"
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
-    outline_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline bid"
+    outline_item_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
     )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
@@ -406,66 +393,59 @@ class ShifuDraftBlock(db.Model):
         nullable=False,
         index=True,
         default=0,
-        comment="Shifu block position",
+        comment="Block position within outline",
     )
     variable_bids = Column(
-        String(500), nullable=False, default="", comment="Block variable bids"
+        String(500), nullable=False, default="", comment="Variable business identifiers used in block"
     )
     resource_bids = Column(
-        String(500), nullable=False, default="", comment="Block resource bids"
+        String(500), nullable=False, default="", comment="Resource business identifiers used in block"
     )
-    content = Column(Text, nullable=False, default="", comment="Shifu block content")
+    content = Column(Text, nullable=False, default="", comment="Block content")
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="""latest: A flag indicating whether the current draft is the latest version.
-        1 means the draft is the latest; 0 means it is a historical version.
-        It is used to determine whether the draft is the latest version.
-        """,
+        comment="Latest version flag: 1=latest, 0=historical",
     )
     version = Column(
         Integer,
         nullable=False,
         index=True,
         default=0,
-        comment="""The version of the Shifu draft.
-        When a draft is saved and its content differs from the previous version,
-        a new draft will be created, the version number will be incremented, and latest will be set to 1.
-        If the draft is reset to a historical version, latest will be set to 0.
-        """,
+        comment="Version number. Max number is not always the latest.",
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Deleted or not. 0 for false, 1 for true",
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creation user bid"
+        String(32), nullable=False, default="", comment="Creator user business identifier"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Update time",
+        comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32),
         nullable=False,
         default="",
-        comment="Update user bid",
+        comment="Last updater user business identifier",
     )
 
     def eq(self, other):
         return (
-            self.bid == other.bid
+            self.block_bid == other.block_bid
             and self.shifu_bid == other.shifu_bid
-            and self.outline_bid == other.outline_bid
+            and self.outline_item_bid == other.outline_item_bid
             and self.type == other.type
             and self.position == other.position
             and self.variable_bids == other.variable_bids
@@ -478,9 +458,9 @@ class ShifuDraftBlock(db.Model):
 
     def clone(self):
         return ShifuDraftBlock(
-            bid=self.bid,
+            block_bid=self.block_bid,
             shifu_bid=self.shifu_bid,
-            outline_bid=self.outline_bid,
+            outline_item_bid=self.outline_item_bid,
             type=self.type,
             position=self.position,
             variable_bids=self.variable_bids,
@@ -491,18 +471,18 @@ class ShifuDraftBlock(db.Model):
         )
 
 
-class ShifuDraftHistory(db.Model):
-    __tablename__ = "shifu_draft_histories"
+class ShifuDraftRawContent(db.Model):
+    __tablename__ = "shifu_draft_raw_contents"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Draft bid"
+    content_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Content business identifier"
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
-    draft_content = Column(Text, nullable=False, default="", comment="Draft content")
+    raw_content = Column(Text, nullable=False, default="", comment="JSON serialized raw content")
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
 
 
@@ -511,98 +491,88 @@ class ShifuPublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
-    name = Column(String(100), nullable=False, default="", comment="Shifu name")
-    keywords = Column(String(100), nullable=False, default="", comment="Shifu keywords")
+    title = Column(String(100), nullable=False, default="", comment="Shifu title")
+    keywords = Column(String(100), nullable=False, default="", comment="Associated keywords")
     description = Column(
         String(500), nullable=False, default="", comment="Shifu description"
     )
     avatar_res_bid = Column(
-        String(32), nullable=False, default="", comment="Shifu avatar resource bid"
+        String(32), nullable=False, default="", comment="Avatar resource business identifier"
     )
-    llm = Column(String(100), nullable=False, default="", comment="Shifu llm model")
+    llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
-        DECIMAL(10, 2), nullable=False, default=0, comment="Shifu llm temperature"
+        DECIMAL(10, 2), nullable=False, default=0, comment="LLM temperature parameter"
     )
     llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu llm system prompt"
+        Text, nullable=False, default="", comment="LLM system prompt"
     )
     ask_enabled_status = Column(
         SmallInteger,
         nullable=False,
         default=ASK_MODE_DEFAULT,
-        comment="Shifu ask enabled status, 5101: default, 5102: disable, 5103: enable",
+        comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
     )
     ask_llm = Column(
-        String(100), nullable=False, default="", comment="Shifu ask llm model"
+        String(100), nullable=False, default="", comment="Ask agent LLM model"
     )
     ask_llm_temperature = Column(
-        DECIMAL(10, 2), nullable=False, default=0.0, comment="Shifu ask llm temperature"
+        DECIMAL(10, 2), nullable=False, default=0.0, comment="Ask agent LLM temperature"
     )
     ask_llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu ask llm system prompt"
+        Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
-    status = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Shifu status: 6101: history, 6103: published",
-    )
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="""latest: A flag indicating whether the current draft is the latest version.
-        1 means the draft is the latest; 0 means it is a historical version.
-        It is used to determine whether the draft is the latest version.
-        """,
+        comment="Latest version flag: 1=latest, 0=historical",
     )
     version = Column(
         Integer,
         nullable=False,
         index=True,
         default=0,
-        comment="""The version of the Shifu draft.
-        When a draft is saved and its content differs from the previous version,
-        a new draft will be created, the version number will be incremented, and latest will be set to 1.
-        If the draft is reset to a historical version, latest will be set to 0.
-        """,
+        comment="Version number. Max number is not always the latest",
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Deleted or not. 0 for false, 1 for true",
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+    created_user_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Creator user business identifier"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Update time",
+        comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Update user bid"
+        String(32), nullable=False, default="", comment="Last updater user business identifier"
     )
 
 
-class ShifuPublishedOutline(db.Model):
-    __tablename__ = "shifu_published_outlines"
+class ShifuPublishedOutlineItem(db.Model):
+    __tablename__ = "shifu_published_outline_items"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    outline_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline bid"
+    outline_item_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
-    name = Column(String(100), nullable=False, default="", comment="Shifu outline name")
+    title = Column(String(100), nullable=False, default="", comment="Outline item title")
     parent_bid = Column(
-        String(32), nullable=False, default="", comment="Outline parent bid"
+        String(32), nullable=False, default="", comment="Parent outline item business identifier"
     )
     position = Column(
         String(10), nullable=False, default="", comment="Outline position"
@@ -611,74 +581,70 @@ class ShifuPublishedOutline(db.Model):
         String(500),
         nullable=False,
         default="",
-        comment="Outline pre outline bids",
+        comment="Prerequisite outline item business identifiers",
     )
-    llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
+    llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
         default=0,
-        comment="Shifu outline llm temperature",
+        comment="LLM temperature parameter",
     )
     llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu outline llm system prompt"
+        Text, nullable=False, default="", comment="LLM system prompt"
     )
     ask_enabled_status = Column(
         SmallInteger,
         nullable=False,
         default=ASK_MODE_DEFAULT,
-        comment="Shifu outline ask enabled status, 5101: default, 5102: disable, 5103: enable",
+        comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
     )
     ask_llm = Column(
-        String(100), nullable=False, default="", comment="Shifu outline ask llm model"
+        String(100), nullable=False, default="", comment="Ask agent LLM model"
     )
     ask_llm_temperature = Column(
         DECIMAL(10, 2),
         nullable=False,
         default=0.0,
-        comment="Shifu outline ask llm temperature",
+        comment="Ask agent LLM temperature",
     )
     ask_llm_system_prompt = Column(
-        Text, nullable=False, default="", comment="Shifu outline ask llm system prompt"
+        Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="""latest: A flag indicating whether the current draft is the latest version.
-        1 means the draft is the latest; 0 means it is a historical version.
-        It is used to determine whether the draft is the latest version.
-        """,
+        comment="Latest version flag: 1=latest, 0=historical",
     )
     version = Column(
         Integer,
         nullable=False,
         index=True,
         default=0,
-        comment="""The version of the Shifu draft.
-        When a draft is saved and its content differs from the previous version,
-        a new draft will be created, the version number will be incremented, and latest will be set to 1.
-        If the draft is reset to a historical version, latest will be set to 0.
-        """,
+        comment="Version number. Max number is not always the latest",
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Deleted or not. 0 for false, 1 for true",
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+    created_user_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Creator user business identifier"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Update time",
+        comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Update user bid"
+        String(32), nullable=False, default="", comment="Last updater user business identifier"
     )
 
 
@@ -686,85 +652,78 @@ class ShifuPublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Block bid"
+        String(32), nullable=False, index=True, default="", comment="Block business identifier"
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
     )
-    outline_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline bid"
+    outline_item_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
     )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Block position",
+        comment="Block position within outline",
     )
     variable_bids = Column(
-        String(500), nullable=False, default="", comment="Block variable bids"
+        String(500), nullable=False, default="", comment="Variable business identifiers used in block"
     )
     resource_bids = Column(
-        String(500), nullable=False, default="", comment="Block resource bids"
+        String(500), nullable=False, default="", comment="Resource business identifiers used in block"
     )
     content = Column(Text, nullable=False, default="", comment="Block content")
-    status = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Block status: 6101: history, 6103: published",
-    )
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="""latest: A flag indicating whether the current draft is the latest version.
-        1 means the draft is the latest; 0 means it is a historical version.
-        It is used to determine whether the draft is the latest version.
-        """,
+        comment="Latest version flag: 1=latest, 0=historical",
     )
     version = Column(
         Integer,
         nullable=False,
         index=True,
         default=0,
-        comment="""The version of the Shifu draft.
-        When a draft is saved and its content differs from the previous version,
-        a new draft will be created, the version number will be incremented, and latest will be set to 1.
-        If the draft is reset to a historical version, latest will be set to 0.
-        """,
+        comment="Version number. Max number is not always the latest.",
     )
     deleted = Column(
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Deleted or not. 0 for false, 1 for true",
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+    created_user_bid = Column(
+        String(32), nullable=False, default="", comment="Creator user business identifier"
     )
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Update time",
+        comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Update user bid"
+        String(32), nullable=False, default="", comment="Last updater user business identifier"
     )
 
 
-class ShifuHistory(db.Model):
-    __tablename__ = "shifu_histories"
+class ShifuPublishedRawContent(db.Model):
+    __tablename__ = "shifu_published_raw_contents"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu bid"
+    content_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Content business identifier"
     )
-    content = Column(Text, nullable=False, default="", comment="Shifu content")
+    shifu_bid = Column(
+        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+    )
+    content = Column(Text, nullable=False, default="", comment="JSON serialized shifu raw content")
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creation user bid"
+        String(32), nullable=False, default="", comment="Creator user business identifier"
     )
