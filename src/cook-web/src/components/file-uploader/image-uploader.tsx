@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { uploadFile } from '@/lib/file'
-import { getSiteHost } from '@/config/runtime-config'
 import { useToast } from '@/hooks/use-toast'
 import { useTranslation } from 'react-i18next'
 import api from '@/api'
+import { environment } from '@/config/environment';
 
 type ImageResource = {
   resourceUrl?: string
@@ -38,7 +38,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   )
   const [uploadProgress, setUploadProgress] = useState(0)
   const resourceInputRef = useRef<HTMLInputElement>(null)
-  const siteHost = getSiteHost()
+  const siteHost = environment.apiBaseUrl
   const { toast } = useToast()
 
   const resetState = () => {

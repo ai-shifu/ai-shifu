@@ -1,4 +1,4 @@
-import { getSiteHost } from "@/config/runtime-config";
+import { environment } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
 import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
@@ -8,16 +8,16 @@ import { tokenTool } from "@/c-service/storeUtil";
 import i18n from 'i18next';
 import { getStringEnv } from "@/c-utils/envUtils";
 
-// ===== Type Definitions =====
+// ===== 类型定义 =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
-export type StreamRequestConfig = RequestInit & { 
-  params?: any; 
-  data?: any; 
-  parseChunk?: (chunkValue: string) => string 
+export type StreamRequestConfig = RequestInit & {
+  params?: any;
+  data?: any;
+  parseChunk?: (chunkValue: string) => string
 };
 export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
 
-// ===== Error Handling =====
+// ===== 错误处理 =====
 export class ErrorWithCode extends Error {
   code: number;
   constructor(message: string, code: number) {
@@ -26,41 +26,39 @@ export class ErrorWithCode extends Error {
   }
 }
 
-// Unified error handling function
-const handleApiError = (error: ErrorWithCode, showToast = true) => {
+// 统一错误处理函数
+const handleApiError = (error: any, showToast = true) => {
   if (showToast) {
     toast({
       title: error.message || i18n.t("common.networkError"),
       variant: 'destructive',
     });
   }
-  
-  // Dispatch error event (client side only)
+
+  // 派发错误事件 (仅在客户端执行)
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const apiError = new CustomEvent("apiError", { 
-      detail: error, 
-      bubbles: true 
+    const apiError = new CustomEvent("apiError", {
+      detail: error,
+      bubbles: true
     });
     document.dispatchEvent(apiError);
   }
 };
 
-// Check response status code and handle business logic
+// 检查响应状态码并处理业务逻辑
 const handleBusinessCode = (response: any) => {
   if (response.code !== 0) {
-    const error = new ErrorWithCode(response.message, response.code);
-    // Do not show toast for special status codes
+    // 特殊状态码不显示toast
     if (![1001].includes(response.code)) {
-      handleApiError(error);
+      handleApiError(response);
     }
-    
-    // Authentication related errors, redirect to login (client side only)
+
+    // 认证相关错误，跳转登录 (仅在客户端执行)
     if (typeof window !== 'undefined' && location.pathname !== '/login' && [1001, 1004, 1005].includes(response.code)) {
-      const currentPath = encodeURIComponent(location.pathname + location.search);
-      window.location.href = `/login?redirect=${currentPath}`;
+      window.location.href = '/login';
     }
-    
-    // Permission error (client side only)
+
+    // 权限错误 (仅在客户端执行)
     if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
       toast({
         title: '您当前没有权限访问此内容，请联系管理员获取权限',
@@ -68,13 +66,12 @@ const handleBusinessCode = (response: any) => {
       });
     }
 
-    // Other errors, reject the promise
-    return Promise.reject(error);
+    return Promise.reject(response);
   }
   return response.data || response;
 };
 
-// ===== Utility Functions =====
+// ===== 工具函数 =====
 const parseJson = (text: string) => {
   try {
     return JSON.parse(text);
@@ -83,7 +80,7 @@ const parseJson = (text: string) => {
   }
 };
 
-// Stream line iterator
+// 流式读取行迭代器
 async function* makeTextStreamLineIterator(reader: ReadableStreamDefaultReader) {
   const utf8Decoder = new TextDecoder("utf-8");
   let { value: chunk, done: readerDone } = await reader.read();
@@ -109,7 +106,7 @@ async function* makeTextStreamLineIterator(reader: ReadableStreamDefaultReader) 
   }
 }
 
-// ===== Fetch Wrapper Class =====
+// ===== Fetch 封装类 =====
 export class Request {
   private defaultConfig: RequestInit = {};
 
@@ -127,19 +124,19 @@ export class Request {
       }
     };
 
-    // Handle URL
+    // 处理URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
-      if (typeof window !== 'undefined') {
-        const siteHost = getSiteHost();
-        fullUrl = (siteHost || 'http://localhost:8081') + url;
-      } else {
-        // Fallback for server-side rendering
+              if (typeof window !== 'undefined') {
+          const siteHost = environment.apiBaseUrl;
+          fullUrl = (siteHost || 'http://localhost:8081') + url;
+        } else {
+        // 服务端渲染时的后备方案
         fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
       }
     }
 
-    // Add authentication headers
+    // 添加认证头
     const token = useUserStore.getState().getToken();
     if (token) {
       mergedConfig.headers = {
@@ -157,19 +154,19 @@ export class Request {
     try {
       const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
       const response = await fetch(fullUrl, mergedConfig);
-      
+
       if (!response.ok) {
         throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
       }
 
       const res = await response.json();
-      
-      // Check business status code
+
+      // 检查业务状态码
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
         if (location.pathname === '/login') return res;
         return handleBusinessCode(res);
       }
-      
+
       return res;
     } catch (error: any) {
       handleApiError(error);
@@ -177,7 +174,7 @@ export class Request {
     }
   }
 
-  // HTTP method wrappers
+  // HTTP 方法封装
   get(url: string, config: RequestConfig = {}) {
     return this.interceptFetch(url, { method: 'GET', ...config });
   }
@@ -202,7 +199,7 @@ export class Request {
     return this.interceptFetch(url, { method: 'DELETE', ...config });
   }
 
-  // Stream request
+  // 流式请求
   async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
     const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
 
@@ -226,7 +223,7 @@ export class Request {
       const decoder = new TextDecoder();
       let done = false;
       let text = '';
-      
+
       const stop = () => {
         done = true;
         controller.abort();
@@ -236,13 +233,13 @@ export class Request {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         let chunkValue = decoder.decode(value);
-        
+
         if (parseChunk) {
           chunkValue = parseChunk(chunkValue);
         }
-        
+
         text += chunkValue;
-        
+
         if (callback) {
           callback(done, text, stop);
         }
@@ -252,7 +249,7 @@ export class Request {
       if (typeof result === 'object' && result.code !== undefined) {
         return handleBusinessCode(result);
       }
-      
+
       return result;
     } catch (error: any) {
       console.error('Stream request failed:', error);
@@ -260,7 +257,7 @@ export class Request {
     }
   }
 
-  // Stream line by line request
+  // 按行流式请求
   async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
     const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
 
@@ -285,7 +282,7 @@ export class Request {
         done = true;
         controller.abort();
       };
-      
+
       const lines: string[] = [];
 
       for await (const line of makeTextStreamLineIterator(reader)) {
@@ -294,11 +291,11 @@ export class Request {
           callback(done, line, stop);
         }
       }
-      
+
       if (callback) {
         callback(true, '', stop);
       }
-      
+
       return lines;
     } catch (error: any) {
       console.error('StreamLine request failed:', error);
@@ -307,33 +304,33 @@ export class Request {
   }
 }
 
-// ===== Axios Instance (for legacy code compatibility) =====
+// ===== Axios 实例（兼容旧代码）=====
 const axiosrequest: AxiosInstance = axios.create({
   withCredentials: false,
   headers: { "Content-Type": "application/json" }
 });
 
-// Request interceptor
+// 请求拦截器
 axiosrequest.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  // Use unified base URL logic, consistent with Request class
-  if (typeof window !== 'undefined') {
-    const siteHost = getSiteHost();
-    config.baseURL = siteHost || 'http://localhost:8081';
-  } else {
-    // Fallback for server-side rendering
+      // 使用统一的 base URL 获取逻辑，与 Request 类保持一致
+    if (typeof window !== 'undefined') {
+      const siteHost = environment.apiBaseUrl;
+      config.baseURL = siteHost || 'http://localhost:8081';
+    } else {
+    // 服务端渲染时的后备方案
     config.baseURL = getStringEnv('baseURL') || 'http://localhost:8081';
   }
-  
+
   const token = tokenTool.get().token;
   if (token) {
     config.headers.token = token;
     config.headers["X-Request-ID"] = uuidv4().replace(/-/g, '');
   }
-  
+
   return config;
 });
 
-// Response interceptor
+// 响应拦截器
 axiosrequest.interceptors.response.use(
   (response: any) => handleBusinessCode(response.data),
   (error: any) => {
@@ -342,7 +339,7 @@ axiosrequest.interceptors.response.use(
   }
 );
 
-// ===== SSE Communication =====
+// ===== SSE 通信 =====
 export const SendMsg = (
   token: string,
   chatId: string,
@@ -375,7 +372,7 @@ export const SendMsg = (
   return source;
 };
 
-// ===== Default Instance Export =====
+// ===== 默认实例导出 =====
 const defaultConfig = {
   headers: {
     'Content-Type': 'application/json',

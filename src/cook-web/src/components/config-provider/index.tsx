@@ -1,25 +1,22 @@
 'use client';
-import React, { useContext, useEffect, useState } from 'react';
-import { setRuntimeConfig } from '@/config/runtime-config';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import '@/i18n';
 
 interface ConfigContextType {
   isLoaded: boolean;
 }
 
-const ConfigContext = React.createContext<ConfigContextType>({ isLoaded: false });
+const ConfigContext = createContext<ConfigContextType>({ isLoaded: false });
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
   const [isLoaded, setIsLoaded] = useState(false);
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        const response = await fetch('/api/config');
-        const config = await response.json();
-        await setRuntimeConfig(config);
+        // 直接使用环境配置，无需额外加载
         setIsLoaded(true);
       } catch (error) {
-        console.error('Failed to load runtime config:', error);
+        console.error('Failed to load config:', error);
         setIsLoaded(true);
       }
     };

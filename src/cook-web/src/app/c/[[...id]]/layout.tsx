@@ -36,25 +36,25 @@ const initializeEnvData = async (): Promise<void> => {
 
   const fetchEnvData = async (): Promise<void> => {
     try {
-      const res = await fetch('/api/config/c-env', {
+      const res = await fetch('/api/config', {
         method: 'GET',
         referrer: 'no-referrer',
       });
       if (res.ok) {
         const data = await res.json();
-        await updateCourseId(data?.NEXT_PUBLIC_COURSE_ID || '');
-        await updateAppId(data?.NEXT_PUBLIC_APP_ID || '');
+        await updateCourseId(data?.courseId || '');
+        await updateAppId(data?.wechatAppId || '');
         await updateAlwaysShowLessonTree(
-          data?.NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE || 'false'
+          data?.alwaysShowLessonTree || 'false'
         );
-        await updateUmamiWebsiteId(data?.NEXT_PUBLIC_UMAMI_WEBSITE_ID || '');
-        await updateUmamiScriptSrc(data?.NEXT_PUBLIC_UMAMI_SCRIPT_SRC || '');
-        await updateEruda(data?.NEXT_PUBLIC_ERUDA || 'false');
-        await updateBaseURL(data?.NEXT_PUBLIC_BASEURL || '');
-        await updateLogoHorizontal(data?.NEXT_PUBLIC_LOGO_HORIZONTAL || '');
-        await updateLogoVertical(data?.NEXT_PUBLIC_LOGO_VERTICAL || '');
-        await updateEnableWxcode(data?.NEXT_PUBLIC_ENABLE_WXCODE);
-        await updateSiteUrl(data?.NEXT_PUBLIC_SITE_URL);
+        await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
+        await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
+        await updateEruda(data?.enableEruda || 'false');
+        await updateBaseURL(data?.apiBaseUrl || '');
+        await updateLogoHorizontal(data?.logoHorizontal || '');
+        await updateLogoVertical(data?.logoVertical || '');
+        await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
+        await updateSiteUrl(data?.siteHost || '');
       }
     } catch (error) {
       console.error(error)
