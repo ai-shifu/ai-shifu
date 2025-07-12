@@ -1,14 +1,11 @@
+import { useUserStore } from "@/c-store/useUserStore";
+import { getStringEnv } from "@/c-utils/envUtils";
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
-import { useUserStore } from "@/c-store/useUserStore";
-import { v4 as uuidv4 } from 'uuid';
-import { SSE } from 'sse.js';
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { tokenTool } from "@/c-service/storeUtil";
 import i18n from 'i18next';
-import { getStringEnv } from "@/c-utils/envUtils";
+import { v4 as uuidv4 } from 'uuid';
 
-// ===== 类型定义 =====
+// ===== Type Definitions =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
 
 export type StreamRequestConfig = RequestInit & {
@@ -18,7 +15,7 @@ export type StreamRequestConfig = RequestInit & {
 };
 export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
 
-// ===== 错误处理 =====
+// ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
   constructor(message: string, code: number) {
@@ -27,8 +24,8 @@ export class ErrorWithCode extends Error {
   }
 }
 
-// 统一错误处理函数
-const handleApiError = (error: any, showToast = true) => {
+// Unified error handling function
+const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
       title: error.message || i18n.t("common.networkError"),
@@ -36,7 +33,7 @@ const handleApiError = (error: any, showToast = true) => {
     });
   }
 
-  // 派发错误事件 (仅在客户端执行)
+  // Dispatch error event (only on client side)
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const apiError = new CustomEvent("apiError", {
       detail: error,
@@ -46,33 +43,36 @@ const handleApiError = (error: any, showToast = true) => {
   }
 };
 
-// 检查响应状态码并处理业务逻辑
+// Check response status code and handle business logic
 const handleBusinessCode = (response: any) => {
+  const error = new ErrorWithCode(response.message || i18n.t("common.unknownError"), response.code || -1);
+
   if (response.code !== 0) {
-    // 特殊状态码不显示toast
+    // Special status codes do not show toast
     if (![1001].includes(response.code)) {
-      handleApiError(response);
+      handleApiError(error);
     }
 
-    // 认证相关错误，跳转登录 (仅在客户端执行)
+    // Authentication related errors, redirect to login (only on client side)
     if (typeof window !== 'undefined' && location.pathname !== '/login' && [1001, 1004, 1005].includes(response.code)) {
-      window.location.href = '/login';
+      const currentPath = encodeURIComponent(location.pathname + location.search);
+      window.location.href = `/login?redirect=${currentPath}`;
     }
 
-    // 权限错误 (仅在客户端执行)
+    // Permission error (only on client side)
     if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
       toast({
-        title: '您当前没有权限访问此内容，请联系管理员获取权限',
+        title: i18n.t('errors.no-permission'),
         variant: 'destructive',
       });
     }
 
-    return Promise.reject(response);
+    return Promise.reject(error);
   }
   return response.data || response;
 };
 
-// ===== 工具函数 =====
+// ===== Utility Functions =====
 const parseJson = (text: string) => {
   try {
     return JSON.parse(text);
@@ -81,33 +81,8 @@ const parseJson = (text: string) => {
   }
 };
 
-// 流式读取行迭代器
-async function* makeTextStreamLineIterator(reader: ReadableStreamDefaultReader) {
-  const utf8Decoder = new TextDecoder("utf-8");
-  let { value: chunk, done: readerDone } = await reader.read();
-  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
-  const re = /\r\n|\n|\r/gm;
-  let startIndex = 0;
 
-  for (;;) {
-    const result = re.exec(chunk);
-    if (!result) {
-      if (readerDone) break;
-      const remainder = chunk.substr(startIndex);
-      ({ value: chunk, done: readerDone } = await reader.read());
-      chunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
-      startIndex = re.lastIndex = 0;
-      continue;
-    }
-    yield chunk.substring(startIndex, result.index);
-    startIndex = re.lastIndex;
-  }
-  if (startIndex < chunk.length) {
-    yield chunk.substr(startIndex);
-  }
-}
-
-// ===== Fetch 封装类 =====
+// ===== Fetch Wrapper Class =====
 export class Request {
   private defaultConfig: RequestInit = {};
 
@@ -125,20 +100,20 @@ export class Request {
       }
     };
 
-    // 处理URL
+    // Handle URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
-        // 客户端：使用缓存的API基础URL，避免重复请求
+        // Client: use cached API base URL to avoid repeated requests
         const siteHost = await getDynamicApiBaseUrl();
         fullUrl = (siteHost || 'http://localhost:8081') + url;
       } else {
-        // 服务端渲染时的后备方案
+        // Fallback for server-side rendering
         fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
       }
     }
 
-    // 添加认证头
+    // Add authentication headers
     const token = useUserStore.getState().getToken();
     if (token) {
       mergedConfig.headers = {
@@ -158,12 +133,16 @@ export class Request {
       const response = await fetch(fullUrl, mergedConfig);
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const res = await response.json();
 
-      // 检查业务状态码
+      // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
         if (location.pathname === '/login') return res;
         return handleBusinessCode(res);
@@ -176,7 +155,7 @@ export class Request {
     }
   }
 
-  // HTTP 方法封装
+  // HTTP method wrappers
   get(url: string, config: RequestConfig = {}) {
     return this.interceptFetch(url, { method: 'GET', ...config });
   }
@@ -201,12 +180,19 @@ export class Request {
     return this.interceptFetch(url, { method: 'DELETE', ...config });
   }
 
-  // 流式请求
+  patch(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
+  // Stream request
   async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+    const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
-      const { parseChunk, ...rest } = mergedConfig as any;
+      const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...rest,
@@ -216,7 +202,11 @@ export class Request {
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const reader = response.body?.getReader();
@@ -259,26 +249,32 @@ export class Request {
     }
   }
 
-  // 按行流式请求
+  // Stream line by line request
   async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+    const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
+      const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
-        ...mergedConfig,
+        ...rest,
         method: 'POST',
         body: JSON.stringify(body),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const reader = response.body?.getReader();
       if (!reader) throw new Error('Response body is not readable');
 
+      const utf8Decoder = new TextDecoder("utf-8");
       let done = false;
       const stop = () => {
         done = true;
@@ -286,8 +282,38 @@ export class Request {
       };
 
       const lines: string[] = [];
+      let { value: chunk, done: readerDone } = await reader.read();
+      let decodedChunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+      const re = /\r\n|\n|\r/gm;
+      let startIndex = 0;
 
-      for await (const line of makeTextStreamLineIterator(reader)) {
+      // Stream read line processing
+      for (;;) {
+        const result = re.exec(decodedChunk);
+        if (!result) {
+          if (readerDone) break;
+          const remainder = decodedChunk.substring(startIndex);
+          ({ value: chunk, done: readerDone } = await reader.read());
+          decodedChunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+          startIndex = re.lastIndex = 0;
+          continue;
+        }
+        let line = decodedChunk.substring(startIndex, result.index);
+        if (parseChunk) {
+          line = parseChunk(line);
+        }
+        lines.push(line);
+        if (callback) {
+          callback(done, line, stop);
+        }
+        startIndex = re.lastIndex;
+      }
+
+      if (startIndex < decodedChunk.length) {
+        let line = decodedChunk.substring(startIndex);
+        if (parseChunk) {
+          line = parseChunk(line);
+        }
         lines.push(line);
         if (callback) {
           callback(done, line, stop);
@@ -306,77 +332,7 @@ export class Request {
   }
 }
 
-// ===== Axios 实例（兼容旧代码）=====
-const axiosrequest: AxiosInstance = axios.create({
-  withCredentials: false,
-  headers: { "Content-Type": "application/json" }
-});
-
-// 请求拦截器
-axiosrequest.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  // 使用统一的 base URL 获取逻辑，与 Request 类保持一致
-  if (typeof window !== 'undefined') {
-    // 客户端：动态获取API基础URL
-    const siteHost = await getDynamicApiBaseUrl();
-    config.baseURL = siteHost || 'http://localhost:8081';
-  } else {
-    // 服务端渲染时的后备方案
-    config.baseURL = getStringEnv('baseURL') || 'http://localhost:8081';
-  }
-
-  const token = tokenTool.get().token;
-  if (token) {
-    config.headers.token = token;
-    config.headers["X-Request-ID"] = uuidv4().replace(/-/g, '');
-  }
-
-  return config;
-});
-
-// 响应拦截器
-axiosrequest.interceptors.response.use(
-  (response: any) => handleBusinessCode(response.data),
-  (error: any) => {
-    handleApiError(error);
-    return Promise.reject(error);
-  }
-);
-
-// ===== SSE 通信 =====
-export const SendMsg = async (
-  token: string,
-  chatId: string,
-  text: string,
-  onMessage?: (response: any) => void
-): Promise<InstanceType<typeof SSE>> => {
-  const baseURL = await getDynamicApiBaseUrl();
-  const source = new SSE(`${baseURL}/chat/chat-assistant?token=${token}`, {
-    headers: { "Content-Type": "application/json" },
-    payload: JSON.stringify({
-      token,
-      msg: text,
-      chat_id: chatId,
-    }),
-  });
-
-  source.addEventListener('message', (event: MessageEvent) => {
-    try {
-      const response = JSON.parse(event.data);
-      onMessage?.(response);
-    } catch (e) {
-      console.error('SSE message parse error:', e);
-    }
-  });
-
-  source.addEventListener('error', (event: Event) => {
-    console.error('SSE connection error:', event);
-  });
-
-  source.stream();
-  return source;
-};
-
-// ===== 默认实例导出 =====
+// ===== Default Instance Export =====
 const defaultConfig = {
   headers: {
     'Content-Type': 'application/json',
@@ -385,5 +341,4 @@ const defaultConfig = {
 
 const request = new Request(defaultConfig);
 
-export { axiosrequest };
 export default request;

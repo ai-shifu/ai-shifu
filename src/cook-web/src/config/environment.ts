@@ -49,28 +49,40 @@ function getRuntimeEnv(key: string): string | undefined {
  * 支持 npm start 后通过环境变量动态配置
  */
 let cachedApiBaseUrl: string = '';
+let configFetchPromise: Promise<string> | null = null;
 
 async function getClientApiBaseUrl(): Promise<string> {
   if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
     return cachedApiBaseUrl;
   }
 
-  try {
-    const response = await fetch('/api/config');
-    if (response.ok) {
-      const config = await response.json();
-      if (config.apiBaseUrl) {
-        cachedApiBaseUrl = config.apiBaseUrl;
-        return cachedApiBaseUrl;
-      }
-    }
-  } catch (error) {
-    console.warn('Failed to fetch runtime config:', error);
+  // 防止多次并发请求
+  if (configFetchPromise) {
+    return configFetchPromise;
   }
 
-  // 如果获取失败，使用默认值
-  cachedApiBaseUrl = 'http://localhost:8081';
-  return cachedApiBaseUrl;
+  configFetchPromise = (async () => {
+    try {
+      const response = await fetch('/api/config');
+      if (response.ok) {
+        const config = await response.json();
+        if (config.apiBaseUrl) {
+          cachedApiBaseUrl = config.apiBaseUrl;
+          return cachedApiBaseUrl;
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to fetch runtime config:', error);
+    }
+
+    // 如果获取失败，使用默认值
+    cachedApiBaseUrl = 'http://localhost:8081';
+    return cachedApiBaseUrl;
+  })();
+
+  const result = await configFetchPromise;
+  configFetchPromise = null; // 请求完成后重置
+  return result;
 }
 
 /**

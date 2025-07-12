@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
-import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface ForgotPasswordVerifyProps {
@@ -93,7 +92,7 @@ export function ForgotPasswordVerify ({
       })
 
       if (response.code == 0) {
-        setToken(response.data.token)
+        // Token handled via login flow, no need to set manually here
 
         toast({
           title: t('login.verification-success'),
