@@ -1,49 +1,28 @@
 import { create } from 'zustand';
 import { EnvStoreState } from '@/c-types/store';
-
-const env = {
-  NEXT_PUBLIC_COURSE_ID: process.env.NEXT_PUBLIC_COURSE_ID,
-  NEXT_PUBLIC_APP_ID: process.env.NEXT_PUBLIC_APP_ID,
-  NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE: process.env.NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE || 'false',
-  NEXT_PUBLIC_UMAMI_WEBSITE_ID: process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID,
-  NEXT_PUBLIC_UMAMI_SCRIPT_SRC: process.env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC,
-  NEXT_PUBLIC_ERUDA: process.env.NEXT_PUBLIC_ERUDA || 'false',
-  NEXT_PUBLIC_BASEURL: process.env.NEXT_PUBLIC_BASEURL,
-  NEXT_PUBLIC_LOGO_HORIZONTAL: process.env.NEXT_PUBLIC_LOGO_HORIZONTAL,
-  NEXT_PUBLIC_LOGO_VERTICAL: process.env.NEXT_PUBLIC_LOGO_VERTICAL,
-  NEXT_PUBLIC_ENABLE_WXCODE: process.env.NEXT_PUBLIC_ENABLE_WXCODE,
-  NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
-};
+import { environment } from '@/config/environment';
 
 export const useEnvStore = create<EnvStoreState>((set) => ({
-  // @ts-expect-error EXPECT
-  courseId: env.NEXT_PUBLIC_COURSE_ID,
+  courseId: environment.courseId,
   updateCourseId: async (courseId: string) => set({ courseId }),
-  // @ts-expect-error EXPECT
-  appId: env.NEXT_PUBLIC_APP_ID,
+  appId: environment.wechatAppId,
   updateAppId: async (appId: string) => set({ appId }),
-  alwaysShowLessonTree: env.NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE,
+  alwaysShowLessonTree: environment.alwaysShowLessonTree.toString(),
   updateAlwaysShowLessonTree: async (alwaysShowLessonTree: string) => set({ alwaysShowLessonTree }),
-  // @ts-expect-error EXPECT
-  umamiWebsiteId: env.NEXT_PUBLIC_UMAMI_WEBSITE_ID,
+  umamiWebsiteId: environment.umamiWebsiteId,
   updateUmamiWebsiteId: async (umamiWebsiteId: string) => set({ umamiWebsiteId }),
-  // @ts-expect-error EXPECT
-  umamiScriptSrc: env.NEXT_PUBLIC_UMAMI_SCRIPT_SRC,
+  umamiScriptSrc: environment.umamiScriptSrc,
   updateUmamiScriptSrc: async (umamiScriptSrc: string) => set({ umamiScriptSrc }),
-  eruda: env.NEXT_PUBLIC_ERUDA,
+  eruda: environment.enableEruda.toString(),
   updateEruda: async (eruda: string) => set({ eruda }),
-  // @ts-expect-error EXPECT
-  baseURL: env.NEXT_PUBLIC_BASEURL,
+  baseURL: environment.apiBaseUrl,
   updateBaseURL: async (baseURL: string) => set({ baseURL }),
-  // @ts-expect-error EXPECT
-  logoHorizontal: env.NEXT_PUBLIC_LOGO_HORIZONTAL,
+  logoHorizontal: environment.logoHorizontal,
   updateLogoHorizontal: async (logoHorizontal: string) => set({ logoHorizontal }),
-  // @ts-expect-error EXPECT
-  logoVertical: env.NEXT_PUBLIC_LOGO_VERTICAL,
+  logoVertical: environment.logoVertical,
   updateLogoVertical: async (logoVertical: string) => set({ logoVertical }),
-  enableWxcode: env.NEXT_PUBLIC_ENABLE_WXCODE || 'false',
+  enableWxcode: environment.enableWechatCode.toString(),
   updateEnableWxcode: async (enableWxcode: string) => set({ enableWxcode }),
-  // @ts-expect-error EXPECT
-  siteUrl: env.NEXT_PUBLIC_SITE_URL,
+  siteUrl: environment.apiBaseUrl,
   updateSiteUrl: async (siteUrl: string) => set({ siteUrl }),
 }));
