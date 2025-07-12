@@ -13,6 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
+import { ErrorWithCode } from '@/lib/request';
+import ErrorDisplay from '@/components/error-display';
+import { useUserStore } from '@/c-store/useUserStore';
 interface ShifuCardProps {
     id: string;
     image: string | undefined;
@@ -59,22 +62,35 @@ const ScriptManagementPage = () => {
 
     const { toast } = useToast();
     const { t } = useTranslation();
+    const isInitialized = useUserStore(state => state.isInitialized);
     const [activeTab, setActiveTab] = useState("all");
     const [shifus, setShifus] = useState<Shifu[]>([]);
     const [loading, setLoading] = useState(false);
-    const [hasMore, setHasMore] = useState(true);
+    const [hasMore, setHasMore] = useState(false);
     const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
+    const [error, setError] = useState<{ message: string; code?: number } | null>(null);
     const pageSize = 30;
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
-
     const fetchShifus = async () => {
         if (loading || !hasMore) return;
 
+        // Wait for user initialization and check if user is logged in
+        const { isInitialized, isLoggedIn } = useUserStore.getState();
+        if (!isInitialized) {
+            // User store not initialized yet, wait
+            return;
+        }
+        
+        if (!isLoggedIn) {
+            const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?redirect=${currentPath}`;
+            return;
+        }
+
         setLoading(true);
         try {
-
             const { items } = await api.getShifuList({
                 page_index: currentPage.current,
                 page_size: pageSize,
@@ -87,8 +103,17 @@ const ScriptManagementPage = () => {
             setShifus(prev => [...prev, ...items]);
             currentPage.current += 1;
             setLoading(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch shifus:", error);
+            setLoading(false);
+            if (error instanceof ErrorWithCode) {
+                // Pass the error code and original message to ErrorDisplay
+                // ErrorDisplay will handle the translation based on error code
+                setError({ message: error.message, code: error.code });
+            } else {
+                // For unknown errors, pass a generic error code
+                setError({ message: error.message || 'Unknown error', code: 0 });
+            }
         }
     };
     const onCreateShifu = async (values: any) => {
@@ -118,6 +143,7 @@ const ScriptManagementPage = () => {
         setShifus([]);
         setHasMore(true);
         currentPage.current = 1;
+        setError(null);
     }, [activeTab]);
 
     useEffect(() => {
@@ -137,6 +163,30 @@ const ScriptManagementPage = () => {
         return () => observer.disconnect();
     }, [hasMore]);
 
+    // Watch for initialization state changes
+    useEffect(() => {
+        if (isInitialized && shifus.length === 0) {
+            fetchShifus();
+        }
+    }, [isInitialized]);
+
+    if (error) {
+        return (
+            <div className="h-full bg-gray-50 p-0">
+                <ErrorDisplay 
+                    errorCode={error.code || 0}
+                    errorMessage={error.message}
+                    onRetry={() => {
+                        setError(null);
+                        setShifus([]);
+                        setHasMore(true);
+                        currentPage.current = 1;
+                        fetchShifus();
+                    }}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="h-full bg-gray-50 p-0">
