@@ -16,7 +16,7 @@ const registerAsGuest = async (): Promise<string> => {
     return tokenData.token;
   }
   const res = await registerTmp({ temp_id: genUuid() });
-  const token = res.data.token;
+  const token = res.token;
   await tokenTool.set({ token, faked: true });
   return token;
 };
@@ -102,7 +102,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       // If already has token, try to get user info
       try {
         const res = await getUserInfo();
-        const userInfo = res.data;
+        const userInfo = res;
 
         // Determine if user is authenticated based on mobile number
         const isAuthenticated = !!userInfo.mobile;
@@ -143,12 +143,12 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       const res = await getUserInfo();
       set(() => ({
         userInfo: {
-          ...res.data
+          ...res
         }
       }));
 
-      if (res.data.language) {
-        i18n.changeLanguage(res.data.language);
+      if (res.language) {
+        i18n.changeLanguage(res.language);
       }
     },
   }))

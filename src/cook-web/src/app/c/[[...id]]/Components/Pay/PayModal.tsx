@@ -16,7 +16,6 @@ import {
 
 import { Button } from '@/components/ui/button';
 
-import { toast } from '@/hooks/use-toast';
 
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
@@ -191,7 +190,7 @@ export const PayModal = ({
     setOriginalPrice('');
 
     const resp = await getCourseInfo(courseId, previewMode);
-    setPrice(resp.data.course_price);
+    setPrice(resp.course_price);
 
     setIsLoading(false);
   }, [courseId, previewMode]);
@@ -227,16 +226,7 @@ export const PayModal = ({
       const { couponCode } = values;
       setCouponCode(couponCode);
       const resp = await applyDiscountCode({ orderId, code: couponCode });
-      // @ts-expect-error EXPECT
-      if (resp.code !== 0) {
-        toast({
-          // @ts-expect-error EXPECT
-          title: resp.message,
-          variant: 'destructive',
-        })
-        return;
-      }
-      refreshOrderQrcode(resp.data.order_id);
+      refreshOrderQrcode(resp.order_id);
       onCouponCodeModalClose();
     },
     [ onCouponCodeModalClose, orderId, refreshOrderQrcode]
