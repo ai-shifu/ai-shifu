@@ -14,6 +14,7 @@ from flaskr.service.shifu.dtos import (
     GotoDTO,
     CheckCodeDTO,
     PhoneDTO,
+    GeneralInputDTO,
 )
 from flaskr.service.profile.dtos import ProfileItemDefinition
 from flaskr.i18n import _
@@ -166,6 +167,7 @@ CONTENT_TYPE = {
     "checkcode": CheckCodeDTO,
     "phone": PhoneDTO,
     "goto": GotoDTO,
+    "general-input": GeneralInputDTO,
 }
 
 

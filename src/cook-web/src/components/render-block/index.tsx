@@ -153,6 +153,18 @@ export const useContentTypes = () => {
         llm: '',
         llm_temperature: '0.40'
       }
+    },
+    {
+      type: 'general-input',
+      name: '泛化输入',
+      properties: {
+        input_placeholder: {
+          lang: {
+            'zh-CN': '请输入您的信息',
+            'en-US': 'Please enter your information'
+          }
+        }
+      }
     }
   ]
 }

@@ -275,6 +275,30 @@ def safe_format_template(template: str, variables: dict) -> str:
     return pattern.sub(replacer, template)
 
 
+def get_user_general_information(app: Flask, user_id: str, course_id: str) -> str:
+    """获取用户的通用个性化信息"""
+    try:
+        from flaskr.service.study.models import UserGeneralInformation
+
+        general_infos = UserGeneralInformation.query.filter(
+            UserGeneralInformation.user_id == user_id,
+            UserGeneralInformation.shifu_id == course_id,
+        ).all()
+
+        if general_infos:
+            # 合并所有个性化信息
+            info_texts = [info.general_information for info in general_infos]
+            combined_info = "；".join(info_texts)
+            app.logger.info(f"找到用户个性化信息: {combined_info}")
+            return combined_info
+        else:
+            app.logger.info("未找到用户个性化信息")
+            return ""
+    except Exception as e:
+        app.logger.error(f"获取用户个性化信息失败: {e}")
+        return ""
+
+
 def get_fmt_prompt(
     app: Flask,
     user_id: str,
@@ -289,6 +313,13 @@ def get_fmt_prompt(
 
     profiles = get_user_profiles(app, user_id, course_id)
     propmpt_keys = list(profiles.keys())
+
+    # 添加用户的个性化信息
+    general_info = get_user_general_information(app, user_id, course_id)
+    if general_info:
+        profiles["sys_general_information"] = general_info
+        propmpt_keys.append("sys_general_information")
+
     if input:
         profiles["sys_user_input"] = input
         propmpt_keys.append("sys_user_input")

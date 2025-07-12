@@ -146,6 +146,11 @@ const convertEventInputModal = ({ type, content, script_id }) => {
       type,
       props: { content, scriptId },
     };
+  } else if (type === RESP_EVENT_TYPE.GENERAL_INPUT) {
+    return {
+      type,
+      props: { content, scriptId },
+    };
   } else if (
     type === RESP_EVENT_TYPE.BUTTONS ||
     type === RESP_EVENT_TYPE.ORDER ||
@@ -362,6 +367,7 @@ export const ChatComponents = forwardRef(
               RESP_EVENT_TYPE.NONBLOCK_ORDER,
               RESP_EVENT_TYPE.USER_LOGIN,
               RESP_EVENT_TYPE.REQUIRE_LOGIN,
+              RESP_EVENT_TYPE.GENERAL_INPUT,
             ].includes(response.type)
           ) {
             trackTrailProgress(scriptId);
@@ -430,7 +436,8 @@ export const ChatComponents = forwardRef(
             } else if (
               response.type === RESP_EVENT_TYPE.INPUT ||
               response.type === RESP_EVENT_TYPE.PHONE ||
-              response.type === RESP_EVENT_TYPE.CHECKCODE
+              response.type === RESP_EVENT_TYPE.CHECKCODE ||
+              response.type === RESP_EVENT_TYPE.GENERAL_INPUT
             ) {
               if (isEnd) {
                 return;

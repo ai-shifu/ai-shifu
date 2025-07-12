@@ -27,6 +27,7 @@ UI_TYPE_PHONE = 306
 UI_TYPE_CHECKCODE = 307
 UI_TYPE_LOGIN = 308
 UI_TYPE_BRANCH = 309
+UI_TYPE_GENERAL_INPUT = 310
 
 # only generate content block
 UI_TYPE_CONTENT = 330
@@ -43,6 +44,7 @@ UI_TYPES = {
     "显示 登录注册框": UI_TYPE_LOGIN,
     "无": UI_TYPE_EMPTY,
     "跳转按钮": UI_TYPE_BRANCH,
+    "泛化输入": UI_TYPE_GENERAL_INPUT,
 }
 
 UI_TYPE_VALUES = {
@@ -55,6 +57,7 @@ UI_TYPE_VALUES = {
     UI_TYPE_LOGIN: "弹出 登录注册框",
     UI_TYPE_EMPTY: "无",
     UI_TYPE_BRANCH: "跳转按钮",
+    UI_TYPE_GENERAL_INPUT: "泛化输入",
 }
 
 LESSON_TYPE_TRIAL = 401

@@ -10,6 +10,7 @@ import Goto from './goto'
 // import GotoView from './view/goto'
 import TextInput from './textinput'
 // import TextInputView from './view/textinput'
+import GeneralInput from './general-input'
 import {RenderBlockContent} from '../render-block/index'
 import { useShifu } from '@/store';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
@@ -36,6 +37,7 @@ const componentMap = {
     login: (props) => <Button {...props} mode="login" />,
     payment: (props) => <Button {...props} mode="payment" />,
     empty: Empty,
+    'general-input': GeneralInput,
 }
 
 const BlockUIPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
@@ -403,6 +405,25 @@ export const useUITypes = () => {
             validate: (data): string => {
                 if (!data.properties.content) {
                     return t('render-ui.content-empty')
+                }
+                return ""
+            }
+        },
+        {
+            type: 'general-input',
+            name: '泛化输入',
+            properties: {
+                "input_placeholder": {
+                    "lang": {
+                        "zh-CN": "请输入您的信息",
+                        "en-US": "Please enter your information"
+                    }
+                }
+            },
+            validate: (data): string => {
+                const p = data.properties
+                if (!p.input_placeholder.lang[i18n.language]) {
+                    return '请输入提示词'
                 }
                 return ""
             }

@@ -27,6 +27,7 @@ export const INTERACTION_TYPE = {
   ASK: 'ask', // 追问
   REQUIRE_LOGIN: 'require_login', // 需要登录
   NONBLOCK_ORDER: 'nonblock_order', // 可以继续的购买框
+  GENERAL_INPUT: 'general-input', // 泛化输入
 };
 
 // 交互组件的输出类型
@@ -43,6 +44,7 @@ export const INTERACTION_OUTPUT_TYPE = {
   ASK: 'ask', // 追问
   REQUIRE_LOGIN: 'require_login', // 需要登录
   LOGIN: 'login', // 登录
+  GENERAL_INPUT: 'general-input', // 泛化输入
 };
 
 // sse 返回的事件类型
@@ -64,6 +66,7 @@ export const RESP_EVENT_TYPE = {
   TEACHER_AVATOR: 'teacher_avatar', //
   REQUIRE_LOGIN: 'require_login', // need to login
   ACTIVE: 'active', // ask activity
+  GENERAL_INPUT: 'general-input', // 泛化输入
 };
 
 // chat message 类型

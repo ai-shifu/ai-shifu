@@ -14,6 +14,7 @@ const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.INPUT]: INTERACTION_OUTPUT_TYPE.TEXT,
   [INTERACTION_TYPE.PHONE]: INTERACTION_OUTPUT_TYPE.PHONE,
   [INTERACTION_TYPE.CHECKCODE]: INTERACTION_OUTPUT_TYPE.CHECKCODE,
+  [INTERACTION_TYPE.GENERAL_INPUT]: INTERACTION_OUTPUT_TYPE.GENERAL_INPUT,
 };
 
 interface ChatInputProps {
@@ -166,4 +167,5 @@ const ChatInputTextMemo = memo(ChatInputText);
 registerInteractionType(INTERACTION_TYPE.INPUT, ChatInputTextMemo);
 registerInteractionType(INTERACTION_TYPE.PHONE, ChatInputTextMemo);
 registerInteractionType(INTERACTION_TYPE.CHECKCODE, ChatInputTextMemo);
+registerInteractionType(INTERACTION_TYPE.GENERAL_INPUT, ChatInputTextMemo);
 export default ChatInputTextMemo;

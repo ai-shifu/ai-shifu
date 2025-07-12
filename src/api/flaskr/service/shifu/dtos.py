@@ -573,6 +573,25 @@ class PhoneDTO(BaseModel):
 
 
 @register_schema_to_swagger
+class GeneralInputDTO(BaseModel):
+    input_placeholder: LabelDTO = Field(
+        ..., description="input placeholder", type=LabelDTO, required=True
+    )
+
+    def __init__(self, input_placeholder: dict[str, str], **kwargs):
+        super().__init__(
+            input_placeholder=LabelDTO(
+                lang=input_placeholder.get("lang", input_placeholder)
+            )
+        )
+
+    def __json__(self):
+        return {
+            "input_placeholder": self.input_placeholder,
+        }
+
+
+@register_schema_to_swagger
 class BlockDTO(BaseModel):
     bid: str = Field(..., description="bid", required=True)
     type: str = Field(..., description="type", required=True)
@@ -585,6 +604,9 @@ class BlockDTO(BaseModel):
         | GotoDTO
         | PaymentDTO
         | LoginDTO
+        | CheckCodeDTO
+        | PhoneDTO
+        | GeneralInputDTO
     ) = Field(..., description="block content", required=True)
     variable_bids: list[str] = Field(..., description="variable bids", required=False)
     resource_bids: list[str] = Field(..., description="resource bids", required=False)
@@ -601,6 +623,9 @@ class BlockDTO(BaseModel):
             | GotoDTO
             | PaymentDTO
             | LoginDTO
+            | CheckCodeDTO
+            | PhoneDTO
+            | GeneralInputDTO
         ),
         variable_bids: list[str],
         resource_bids: list[str],

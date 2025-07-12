@@ -87,3 +87,34 @@ class AICourseAttendAsssotion(db.Model):
         onupdate=func.now(),
         comment="Update time",
     )
+
+
+class UserGeneralInformation(db.Model):
+    __tablename__ = "user_general_information"
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    user_id = Column(
+        String(36), nullable=False, default="", comment="User ID", index=True
+    )
+    general_information = Column(
+        Text, nullable=False, comment="General information content"
+    )
+    shifu_id = Column(
+        String(36), nullable=False, default="", comment="Shifu ID", index=True
+    )
+    shifu_outline_id = Column(
+        String(36), nullable=False, default="", comment="Shifu outline ID", index=True
+    )
+    shifu_block_id = Column(
+        String(36), nullable=False, default="", comment="Shifu block ID", index=True
+    )
+    created_at = Column(
+        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated_at = Column(
+        TIMESTAMP,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )

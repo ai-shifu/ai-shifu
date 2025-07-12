@@ -3,6 +3,7 @@ from typing import Generator
 from flaskr.service.study.ui.input_ask import handle_ask_mode
 from flask import Flask
 
+
 from flaskr.service.common.models import AppException, raise_error
 from flaskr.service.user.models import User
 from flaskr.i18n import _

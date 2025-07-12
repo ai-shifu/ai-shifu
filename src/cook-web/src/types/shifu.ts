@@ -1,4 +1,4 @@
-export type BlockType = | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input';
+export type BlockType = | 'content' | 'button' | 'login' | 'payment' | 'options' | 'goto' | 'input' | 'general-input';
 
 export interface Shifu {
     bid: string;
@@ -164,6 +164,10 @@ export interface InputDTO {
     llm_temperature: number;
 }
 
+export interface GeneralInputDTO {
+    input_placeholder: LabelDTO;
+}
+
 export interface OptionItemDTO {
     label: LabelDTO;
     value: string;
@@ -187,7 +191,7 @@ export interface GotoDTO {
 export interface BlockDTO {
     bid: string;
     type: string;
-    properties: ContentDTO | ButtonDTO | InputDTO | OptionsDTO | GotoDTO;
+    properties: ContentDTO | ButtonDTO | InputDTO | OptionsDTO | GotoDTO | GeneralInputDTO;
     variable_bids: string[];
     resource_bids: string[];
 }
