@@ -58,6 +58,7 @@ export interface UserStoreState {
   userInfo: UserInfo | null;
   isGuest: boolean;
   isLoggedIn: boolean;
+  isInitialized: boolean;
   // Internal methods
   _updateUserStatus: () => void;
   // Public API
