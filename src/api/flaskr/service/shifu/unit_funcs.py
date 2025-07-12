@@ -25,6 +25,7 @@ from flaskr.service.shifu.utils import (
     reorder_outline_tree_and_save,
     mark_outline_to_delete,
 )
+from flaskr.framework.plugin.plugin_manager import extensible
 
 import queue
 
@@ -150,6 +151,7 @@ def create_unit(
         raise_error("SCENARIO.CHAPTER_NOT_FOUND")
 
 
+@extensible
 def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
     with app.app_context():
         unit = (
@@ -200,6 +202,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str) -> OutlineDto:
 
 
 # modify unit
+@extensible
 def modify_unit(
     app,
     user_id: str,
@@ -317,6 +320,7 @@ def modify_unit(
         raise_error("SCENARIO.UNIT_NOT_FOUND")
 
 
+@extensible
 def delete_unit(app, user_id: str, unit_id: str):
     with app.app_context():
         time = datetime.now()

@@ -28,6 +28,7 @@ from .unit_funcs import create_unit
 from .dtos import ReorderOutlineItemDto
 from .adapter import convert_outline_to_reorder_outline_item_dto
 from .const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
+from flaskr.framework.plugin.plugin_manager import extensible
 
 
 # get chapter list
@@ -371,6 +372,7 @@ def update_chapter_order(
 # @date: 2025-04-14
 # get outline tree will return the outline tree of the shifu
 # is used for the shifu outline page in the cook-web
+@extensible
 def get_outline_tree(app, user_id: str, shifu_id: str):
     with app.app_context():
 
@@ -405,6 +407,7 @@ def update_children_lesson_no(node, parent_lesson_no, start_index, user_id, time
         update_children_lesson_no(child, child.outline.lesson_no, 0, user_id, time)
 
 
+@extensible
 def create_outline(
     app,
     user_id: str,
@@ -466,6 +469,7 @@ def convert_reorder_outline_item_dto_to_outline_tree(
     return ret
 
 
+@extensible
 def reorder_outline_tree(
     app, user_id: str, shifu_id: str, outlines: list[ReorderOutlineItemDto]
 ):

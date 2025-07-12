@@ -8,6 +8,7 @@ from ..common.models import raise_error
 from ...common.config import get_config
 from .utils import (
     get_shifu_res_url,
+    parse_shifu_res_bid,
 )
 from .models import ShifuDraftShifu
 
@@ -29,7 +30,12 @@ def create_shifu_draft(
 ):
     """ """
     with app.app_context():
-        shifu_id = generate_id(app)
+
+        if result and result.shifu_id:
+            shifu_id = result.shifu_id
+        else:
+            shifu_id = generate_id(app)
+
         if not shifu_name:
             raise_error("SHIFU.SHIFU_NAME_REQUIRED")
         if len(shifu_name) > 20:
@@ -43,7 +49,6 @@ def create_shifu_draft(
         ).first()
         if existing_shifu:
             raise_error("SHIFU.SHIFU_NAME_ALREADY_EXISTS")
-
         # create a new ShifuDraftShifu object
         shifu_draft = ShifuDraftShifu(
             bid=shifu_id,
@@ -82,35 +87,54 @@ def create_shifu_draft(
 
 
 @extension("get_shifu_info")
-def get_shifu_draft_info(result, app, user_id: str, shifu_id: str):
+@extension("get_shifu_detail")
+def get_shifu_draft_info(result, app, user_id: str, shifu_id: str) -> ShifuDetailDto:
     with app.app_context():
         shifu_draft = ShifuDraftShifu.query.filter_by(
             bid=shifu_id, latest=1, deleted=0
         ).first()
-        if shifu_draft:
-            return ShifuDetailDto(
-                shifu_id=shifu_draft.bid,
-                shifu_name=shifu_draft.title,
-                shifu_description=shifu_draft.description,
-                shifu_avatar=get_shifu_res_url(app, shifu_draft.avatar_res_bid),
-                shifu_keywords=(
-                    shifu_draft.keywords.split(",") if shifu_draft.keywords else []
-                ),
-                shifu_model=shifu_draft.llm,
-                shifu_temperature=shifu_draft.llm_temperature,
-                shifu_price=shifu_draft.price,
-                shifu_url=get_config("WEB_URL", "UNCONFIGURED")
-                + "/c/"
-                + shifu_draft.bid,
-                shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
-                + "/c/"
-                + shifu_draft.bid
-                + "?preview=true",
-            )
-        raise_error("SHIFU.SHIFU_NOT_FOUND")
+        if not shifu_draft:
+            draft_dto: ShifuDetailDto = result
+            shifu_draft = ShifuDraftShifu()
+            shifu_draft.bid = draft_dto.bid
+            shifu_draft.title = draft_dto.name
+            shifu_draft.description = draft_dto.description
+            shifu_draft.avatar_res_bid = parse_shifu_res_bid(draft_dto.avatar)
+            shifu_draft.keywords = ",".join(draft_dto.keywords)
+            shifu_draft.llm = draft_dto.model
+            shifu_draft.llm_temperature = draft_dto.temperature
+            shifu_draft.price = draft_dto.price
+            shifu_draft.latest = 1
+            shifu_draft.version = 1
+            shifu_draft.deleted = 0
+            shifu_draft.created_user_bid = user_id
+            shifu_draft.created_at = datetime.now()
+            shifu_draft.updated_at = datetime.now()
+            shifu_draft.updated_by_user_bid = user_id
+            shifu_draft.deleted = 0
+            db.session.add(shifu_draft)
+            db.session.commit()
+        return ShifuDetailDto(
+            shifu_id=shifu_draft.bid,
+            shifu_name=shifu_draft.title,
+            shifu_description=shifu_draft.description,
+            shifu_avatar=get_shifu_res_url(app, shifu_draft.avatar_res_bid),
+            shifu_keywords=(
+                shifu_draft.keywords.split(",") if shifu_draft.keywords else []
+            ),
+            shifu_model=shifu_draft.llm,
+            shifu_temperature=shifu_draft.llm_temperature,
+            shifu_price=shifu_draft.price,
+            shifu_url=get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu_draft.bid,
+            shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
+            + "/c/"
+            + shifu_draft.bid
+            + "?preview=true",
+        )
 
 
 @extension("save_shifu_info")
+@extension("save_shifu_detail")
 def save_shifu_draft_info(
     result,
     app,
@@ -128,28 +152,66 @@ def save_shifu_draft_info(
         shifu_draft = ShifuDraftShifu.query.filter_by(
             bid=shifu_id, latest=1, deleted=0
         ).first()
-        if shifu_draft:
+        if not shifu_draft:
+            shifu_draft = ShifuDraftShifu(
+                bid=shifu_id,
+                title=shifu_name,
+                description=shifu_description,
+                avatar_res_bid=shifu_avatar,
+                keywords=",".join(shifu_keywords) if shifu_keywords else "",
+                llm=shifu_model,
+                llm_temperature=shifu_temperature,
+                price=shifu_price,
+                latest=1,
+                version=1,
+                deleted=0,
+                created_user_bid=user_id,
+                updated_by_user_bid=user_id,
+            )
+            db.session.add(shifu_draft)
+            db.session.commit()
+        else:
             new_shifu_draft = shifu_draft.clone()
             new_shifu_draft.title = shifu_name
             new_shifu_draft.description = shifu_description
-            new_shifu_draft.avatar_res_bid = shifu_avatar
+            new_shifu_draft.avatar_res_bid = parse_shifu_res_bid(shifu_avatar)
             new_shifu_draft.keywords = (
                 ",".join(shifu_keywords) if shifu_keywords else ""
             )
             new_shifu_draft.llm = shifu_model
             new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
-            new_shifu_draft.latest = 1
-            new_shifu_draft.version = shifu_draft.version + 1
             new_shifu_draft.updated_by_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
-            if not new_shifu_draft.equals(shifu_draft):
+            app.logger.info(
+                f"new_shifu_draft: {new_shifu_draft.id} {new_shifu_draft.version}"
+            )
+            if not new_shifu_draft.eq(shifu_draft):
+                check_text_with_risk_control(
+                    app, shifu_id, user_id, new_shifu_draft.get_str_to_check()
+                )
+                # mark the old version as deleted
+                shifu_draft.latest = 0
                 db.session.add(new_shifu_draft)
                 db.session.commit()
-                return new_shifu_draft
-            else:
-                return shifu_draft
-        raise_error("SHIFU.SHIFU_NOT_FOUND")
+                shifu_draft = new_shifu_draft
+        return ShifuDetailDto(
+            shifu_id=shifu_draft.bid,
+            shifu_name=shifu_draft.title,
+            shifu_description=shifu_draft.description,
+            shifu_avatar=get_shifu_res_url(app, shifu_draft.avatar_res_bid),
+            shifu_keywords=(
+                shifu_draft.keywords.split(",") if shifu_draft.keywords else []
+            ),
+            shifu_model=shifu_draft.llm,
+            shifu_temperature=shifu_draft.llm_temperature,
+            shifu_price=shifu_draft.price,
+            shifu_url=get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu_draft.bid,
+            shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
+            + "/c/"
+            + shifu_draft.bid
+            + "?preview=true",
+        )
 
 
 def get_shifu_draft_list(app, user_id: str, page_index: int, page_size: int):

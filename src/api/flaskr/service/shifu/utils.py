@@ -284,4 +284,10 @@ def get_shifu_res_url(app: Flask, res_bid: str):
     res = Resource.query.filter_by(resource_id=res_bid).first()
     if res:
         return res.url
-    return None
+    return ""
+
+
+def parse_shifu_res_bid(res_url: str):
+    if res_url:
+        return res_url.split("/")[-1]
+    return ""
