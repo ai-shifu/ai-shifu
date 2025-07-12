@@ -26,8 +26,9 @@ import {
 } from "@/components/ui/form";
 import { useTranslation } from 'react-i18next'
 import api from "@/api";
-import { getSiteHost } from "@/config/runtime-config";
+
 import ModelList from "@/components/model-list";
+import { environment } from '@/config/environment';
 
 interface Shifu {
     description: string;
@@ -57,7 +58,7 @@ export default function ShifuSettingDialog({ shifuId, onSave }: { shifuId: strin
         previewUrl: false,
         url: false
     });
-    const SITE_HOST = getSiteHost();
+    const SITE_HOST = environment.apiBaseUrl;
     // Initialize the form with react-hook-form and zod resolver
 
     // Define the validation schema using Zod
