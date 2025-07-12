@@ -6,6 +6,7 @@ from flaskr.service.lesson.const import (
     STATUS_HISTORY,
     STATUS_TO_DELETE,
 )
+from flaskr.service.resource.models import Resource
 from flask import Flask
 from flaskr.dao import db
 from datetime import datetime
@@ -277,3 +278,10 @@ def reorder_outline_tree_and_save(
             db.session.add(new_outline)
         for child in node.children:
             reorder_queue.put(child)
+
+
+def get_shifu_res_url(app: Flask, res_bid: str):
+    res = Resource.query.filter_by(resource_id=res_bid).first()
+    if res:
+        return res.url
+    return None
