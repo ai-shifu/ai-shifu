@@ -46,6 +46,7 @@ function getRuntimeEnv(key: string): string | undefined {
 /**
  * 客户端动态获取API基础URL
  * 在客户端运行时从 /api/config 获取配置
+ * 支持 npm start 后通过环境变量动态配置
  */
 let cachedApiBaseUrl: string = '';
 let configFetchPromise: Promise<string> | null = null;

@@ -101,7 +101,7 @@ export class Request {
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
-        // 客户端：动态获取API基础URL
+        // 客户端：使用缓存的API基础URL，避免重复请求
         const siteHost = await getDynamicApiBaseUrl();
         fullUrl = (siteHost || 'http://localhost:8081') + url;
       } else {
