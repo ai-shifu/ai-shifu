@@ -1,4 +1,4 @@
-import { environment } from '@/config/environment';
+import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
 import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
@@ -10,6 +10,7 @@ import { getStringEnv } from "@/c-utils/envUtils";
 
 // ===== 类型定义 =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
+
 export type StreamRequestConfig = RequestInit & {
   params?: any;
   data?: any;
@@ -127,10 +128,11 @@ export class Request {
     // 处理URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
-              if (typeof window !== 'undefined') {
-          const siteHost = environment.apiBaseUrl;
-          fullUrl = (siteHost || 'http://localhost:8081') + url;
-        } else {
+      if (typeof window !== 'undefined') {
+        // 客户端：使用缓存的API基础URL，避免重复请求
+        const siteHost = await getDynamicApiBaseUrl();
+        fullUrl = (siteHost || 'http://localhost:8081') + url;
+      } else {
         // 服务端渲染时的后备方案
         fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
       }
@@ -311,12 +313,13 @@ const axiosrequest: AxiosInstance = axios.create({
 });
 
 // 请求拦截器
-axiosrequest.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-      // 使用统一的 base URL 获取逻辑，与 Request 类保持一致
-    if (typeof window !== 'undefined') {
-      const siteHost = environment.apiBaseUrl;
-      config.baseURL = siteHost || 'http://localhost:8081';
-    } else {
+axiosrequest.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  // 使用统一的 base URL 获取逻辑，与 Request 类保持一致
+  if (typeof window !== 'undefined') {
+    // 客户端：动态获取API基础URL
+    const siteHost = await getDynamicApiBaseUrl();
+    config.baseURL = siteHost || 'http://localhost:8081';
+  } else {
     // 服务端渲染时的后备方案
     config.baseURL = getStringEnv('baseURL') || 'http://localhost:8081';
   }
@@ -340,13 +343,14 @@ axiosrequest.interceptors.response.use(
 );
 
 // ===== SSE 通信 =====
-export const SendMsg = (
+export const SendMsg = async (
   token: string,
   chatId: string,
   text: string,
   onMessage?: (response: any) => void
-): InstanceType<typeof SSE> => {
-  const source = new SSE(`${getStringEnv('baseURL')}/chat/chat-assistant?token=${token}`, {
+): Promise<InstanceType<typeof SSE>> => {
+  const baseURL = await getDynamicApiBaseUrl();
+  const source = new SSE(`${baseURL}/chat/chat-assistant?token=${token}`, {
     headers: { "Content-Type": "application/json" },
     payload: JSON.stringify({
       token,
