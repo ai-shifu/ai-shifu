@@ -27,6 +27,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
     isGuest: false,
     isLoggedIn: false,
     isInitialized: false,
+    _initializingPromise: null as Promise<void> | null,
 
     // Internal method: Update user status based on token
     _updateUserStatus: () => {
@@ -87,7 +88,13 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         return;
       }
 
-      const tokenData = tokenTool.get();
+      // Prevent concurrent calls
+      if (get()._initializingPromise) {
+        return get()._initializingPromise;
+      }
+
+      const initPromise = (async () => {
+        const tokenData = tokenTool.get();
 
       // If no token, register as guest
       if (!tokenData.token) {
@@ -130,7 +137,18 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         }
       }
 
-      get()._updateUserStatus();
+        get()._updateUserStatus();
+      })();
+
+      // Store the promise to prevent concurrent calls
+      set({ _initializingPromise: initPromise });
+
+      try {
+        await initPromise;
+      } finally {
+        // Clear the promise when done
+        set({ _initializingPromise: null });
+      }
     },
 
     // Public API: Update user information

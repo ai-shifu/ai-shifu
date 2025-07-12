@@ -63,7 +63,6 @@ const ScriptManagementPage = () => {
     const { toast } = useToast();
     const { t } = useTranslation();
     const isInitialized = useUserStore(state => state.isInitialized);
-    const initUser = useUserStore(state => state.initUser);
     const [activeTab, setActiveTab] = useState("all");
     const [shifus, setShifus] = useState<Shifu[]>([]);
     const [loading, setLoading] = useState(false);
@@ -73,6 +72,8 @@ const ScriptManagementPage = () => {
     const pageSize = 30;
     const currentPage = useRef(1);
     const containerRef = useRef(null);
+
+    const fetchShifusRef = useRef<() => Promise<void>>();
 
     const fetchShifus = useCallback(async () => {
         // Get fresh state to avoid stale closure
@@ -118,7 +119,10 @@ const ScriptManagementPage = () => {
                 setError({ message: error.message || 'Unknown error', code: 0 });
             }
         }
-    }, [loading, hasMore, activeTab, pageSize]);
+    }, [loading, hasMore, activeTab]);
+
+    // Store the latest fetchShifus in ref
+    fetchShifusRef.current = fetchShifus;
     const onCreateShifu = async (values: any) => {
         try {
             await api.createShifu(values);
@@ -159,8 +163,8 @@ const ScriptManagementPage = () => {
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && hasMore) {
-                    fetchShifus();
+                if (entries[0].isIntersecting && hasMore && fetchShifusRef.current) {
+                    fetchShifusRef.current();
                 }
             },
             { threshold: 0.1 }
@@ -168,32 +172,18 @@ const ScriptManagementPage = () => {
 
         observer.observe(container);
         return () => observer.disconnect();
-    }, [hasMore, isInitialized, fetchShifus]);
+    }, [hasMore, isInitialized]);
 
-    // Initialize user and then fetch data (similar to /c page logic)
+    // Fetch data when user is initialized and logged in
     useEffect(() => {
-        const initAndFetchData = async () => {
-            // Initialize user state (automatically handles guest or auth)
-            await initUser();
-
-            // After initialization, check if user is logged in and fetch data
-            const { isLoggedIn: currentLoginState } = useUserStore.getState();
-
-            if (currentLoginState && shifus.length === 0 && !loading) {
-                fetchShifus();
-            }
-        };
-
-        if (!isInitialized) {
-            initAndFetchData();
-        } else {
-            // Check fresh login state
+        // UserProvider already handles initUser(), so we only need to fetch data when ready
+        if (isInitialized && fetchShifusRef.current) {
             const { isLoggedIn: currentLoginState } = useUserStore.getState();
             if (currentLoginState && shifus.length === 0 && !loading) {
-                fetchShifus();
+                fetchShifusRef.current();
             }
         }
-    }, [isInitialized, initUser, shifus.length, fetchShifus, loading]);
+    }, [isInitialized, shifus.length, loading]);
 
     if (error) {
         return (
