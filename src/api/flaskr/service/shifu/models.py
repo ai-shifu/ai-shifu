@@ -95,10 +95,16 @@ class ShifuDraftShifu(db.Model):
     __tablename__ = "shifu_draft_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     title = Column(String(100), nullable=False, default="", comment="Shifu title")
-    keywords = Column(String(100), nullable=False, default="", comment="Associated keywords")
+    keywords = Column(
+        String(100), nullable=False, default="", comment="Associated keywords"
+    )
     description = Column(
         String(500), nullable=False, default="", comment="Shifu description"
     )
@@ -169,7 +175,11 @@ class ShifuDraftShifu(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
@@ -236,10 +246,18 @@ class ShifuDraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Outline item business identifier",
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     title = Column(
         String(100),
@@ -318,7 +336,10 @@ class ShifuDraftOutlineItem(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
@@ -328,7 +349,10 @@ class ShifuDraftOutlineItem(db.Model):
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Last updater user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
 
     def clone(self):
@@ -379,13 +403,25 @@ class ShifuDraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Block business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Block business identifier",
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     outline_item_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Outline item business identifier",
     )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
@@ -396,10 +432,16 @@ class ShifuDraftBlock(db.Model):
         comment="Block position within outline",
     )
     variable_bids = Column(
-        String(500), nullable=False, default="", comment="Variable business identifiers used in block"
+        String(500),
+        nullable=False,
+        default="",
+        comment="Variable business identifiers used in block",
     )
     resource_bids = Column(
-        String(500), nullable=False, default="", comment="Resource business identifiers used in block"
+        String(500),
+        nullable=False,
+        default="",
+        comment="Resource business identifiers used in block",
     )
     content = Column(Text, nullable=False, default="", comment="Block content")
     latest = Column(
@@ -425,7 +467,10 @@ class ShifuDraftBlock(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
@@ -475,12 +520,22 @@ class ShifuDraftRawContent(db.Model):
     __tablename__ = "shifu_draft_raw_contents"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     content_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Content business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Content business identifier",
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
-    raw_content = Column(Text, nullable=False, default="", comment="JSON serialized raw content")
+    raw_content = Column(
+        Text, nullable=False, default="", comment="JSON serialized raw content"
+    )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
@@ -491,15 +546,24 @@ class ShifuPublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     title = Column(String(100), nullable=False, default="", comment="Shifu title")
-    keywords = Column(String(100), nullable=False, default="", comment="Associated keywords")
+    keywords = Column(
+        String(100), nullable=False, default="", comment="Associated keywords"
+    )
     description = Column(
         String(500), nullable=False, default="", comment="Shifu description"
     )
     avatar_res_bid = Column(
-        String(32), nullable=False, default="", comment="Avatar resource business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Avatar resource business identifier",
     )
     llm = Column(String(100), nullable=False, default="", comment="LLM model name")
     llm_temperature = Column(
@@ -547,7 +611,11 @@ class ShifuPublishedShifu(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
@@ -557,7 +625,10 @@ class ShifuPublishedShifu(db.Model):
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Last updater user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
 
 
@@ -565,14 +636,27 @@ class ShifuPublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Outline item business identifier",
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
-    title = Column(String(100), nullable=False, default="", comment="Outline item title")
+    title = Column(
+        String(100), nullable=False, default="", comment="Outline item title"
+    )
     parent_bid = Column(
-        String(32), nullable=False, default="", comment="Parent outline item business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Parent outline item business identifier",
     )
     position = Column(
         String(10), nullable=False, default="", comment="Outline position"
@@ -634,7 +718,11 @@ class ShifuPublishedOutlineItem(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
@@ -644,7 +732,10 @@ class ShifuPublishedOutlineItem(db.Model):
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Last updater user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
 
 
@@ -652,13 +743,25 @@ class ShifuPublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Block business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Block business identifier",
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     outline_item_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Outline item business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Outline item business identifier",
     )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
@@ -668,10 +771,16 @@ class ShifuPublishedBlock(db.Model):
         comment="Block position within outline",
     )
     variable_bids = Column(
-        String(500), nullable=False, default="", comment="Variable business identifiers used in block"
+        String(500),
+        nullable=False,
+        default="",
+        comment="Variable business identifiers used in block",
     )
     resource_bids = Column(
-        String(500), nullable=False, default="", comment="Resource business identifiers used in block"
+        String(500),
+        nullable=False,
+        default="",
+        comment="Resource business identifiers used in block",
     )
     content = Column(Text, nullable=False, default="", comment="Block content")
     latest = Column(
@@ -697,7 +806,10 @@ class ShifuPublishedBlock(db.Model):
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
@@ -707,7 +819,10 @@ class ShifuPublishedBlock(db.Model):
         onupdate=func.now(),
     )
     updated_user_bid = Column(
-        String(32), nullable=False, default="", comment="Last updater user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
 
 
@@ -715,15 +830,28 @@ class ShifuPublishedRawContent(db.Model):
     __tablename__ = "shifu_published_raw_contents"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     content_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Content business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Content business identifier",
     )
     shifu_bid = Column(
-        String(32), nullable=False, index=True, default="", comment="Shifu business identifier"
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
-    content = Column(Text, nullable=False, default="", comment="JSON serialized shifu raw content")
+    content = Column(
+        Text, nullable=False, default="", comment="JSON serialized shifu raw content"
+    )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
     )
     created_user_bid = Column(
-        String(32), nullable=False, default="", comment="Creator user business identifier"
+        String(32),
+        nullable=False,
+        default="",
+        comment="Creator user business identifier",
     )
