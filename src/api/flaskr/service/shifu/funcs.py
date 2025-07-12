@@ -38,6 +38,9 @@ from flaskr.api.langfuse import langfuse_client
 import threading
 
 
+from flaskr.framework.plugin.plugin_manager import extensible
+
+
 def get_raw_shifu_list(
     app, user_id: str, page_index: int, page_size: int
 ) -> PageNationDTO:
@@ -158,6 +161,7 @@ def get_shifu_list(
         return get_raw_shifu_list(app, user_id, page_index, page_size)
 
 
+@extensible
 def create_shifu(
     app,
     user_id: str,
@@ -200,6 +204,7 @@ def create_shifu(
         )
 
 
+@extensible
 def get_shifu_info(app, user_id: str, shifu_id: str):
     with app.app_context():
         shifu = (
@@ -234,6 +239,7 @@ def get_shifu_info(app, user_id: str, shifu_id: str):
 
 
 # mark favorite shifu
+@extensible
 def mark_favorite_shifu(app, user_id: str, shifu_id: str):
     with app.app_context():
         existing_favorite_shifu = FavoriteScenario.query.filter_by(
@@ -252,6 +258,7 @@ def mark_favorite_shifu(app, user_id: str, shifu_id: str):
 
 
 # unmark favorite shifu
+@extensible
 def unmark_favorite_shifu(app, user_id: str, shifu_id: str):
     with app.app_context():
         favorite_shifu = FavoriteScenario.query.filter_by(
@@ -264,6 +271,7 @@ def unmark_favorite_shifu(app, user_id: str, shifu_id: str):
         return False
 
 
+@extensible
 def mark_or_unmark_favorite_shifu(app, user_id: str, shifu_id: str, is_favorite: bool):
     if is_favorite:
         return mark_favorite_shifu(app, user_id, shifu_id)
@@ -301,6 +309,7 @@ def _run_summary_with_error_handling(app, shifu_id):
         app.logger.error(f"Failed to generate shifu summary for {shifu_id}: {str(e)}")
 
 
+@extensible
 def publish_shifu(app, user_id, shifu_id: str):
     with app.app_context():
         current_time = datetime.now()
@@ -478,6 +487,7 @@ def publish_shifu(app, user_id, shifu_id: str):
         raise_error("SHIFU.SHIFU_NOT_FOUND")
 
 
+@extensible
 def preview_shifu(app, user_id, shifu_id: str, variables: dict, skip: bool):
     with app.app_context():
         shifu = AICourse.query.filter(AICourse.course_id == shifu_id).first()
@@ -730,6 +740,7 @@ def upload_url(app, user_id: str, url: str) -> str:
             raise_error("FILE.FILE_UPLOAD_FAILED")
 
 
+@extensible
 def get_shifu_detail(app, user_id: str, shifu_id: str):
     with app.app_context():
         shifu = (
@@ -766,6 +777,7 @@ def get_shifu_detail(app, user_id: str, shifu_id: str):
 # @author: yfge
 # @date: 2025-04-14
 # save the shifu detail
+@extensible
 def save_shifu_detail(
     app,
     user_id: str,
@@ -876,7 +888,7 @@ def shifu_permission_verification(
                     auth_types = json.loads(auth.auth_type)
                     # Check whether the passed-in auth_type is in the array
                     result = auth_type in auth_types
-                    redis.set(cache_key, auth.auth_type, cache_key_expire)
+                    redis.set(cache_key, auth_type, cache_key_expire)
                     return result
                 except (json.JSONDecodeError, TypeError):
                     return False
