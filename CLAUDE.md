@@ -120,3 +120,18 @@ Environment variables are managed through `.env` files:
 - Docker: `docker/.env`
 - Local development: individual `.env` files in component directories
 - Key configurations: LLM API keys, database connections, Redis settings
+
+## UI Development Guidelines
+
+### Internationalization (i18n)
+- **ALL user-facing strings MUST use i18n**: Never hardcode any text that will be displayed to users
+- Use translation keys instead of hardcoded strings
+- Examples:
+  - ✅ Correct: `t('errors.no-permission')`
+  - ❌ Wrong: `'您当前没有权限访问此内容'`
+  - ✅ Correct: `t('common.retry', '重试')` (with fallback)
+  - ❌ Wrong: `'重试'`
+- Translation files are located in:
+  - Web app: `src/web/locales/`
+  - Cook web: `src/cook-web/public/locales/`
+- Always add translations for both Chinese (`zh-CN.json`) and English (`en-US.json`)
