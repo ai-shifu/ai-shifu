@@ -3,7 +3,7 @@ export interface RuntimeConfig {
 }
 
 const defaultConfig: RuntimeConfig = {
-  siteHost: 'http://localhost:8081',
+  siteHost: process.env.NEXT_PUBLIC_BASEURL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:8081',
 };
 
 let globalConfig: RuntimeConfig = { ...defaultConfig };

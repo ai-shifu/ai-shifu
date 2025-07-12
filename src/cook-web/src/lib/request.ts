@@ -1,26 +1,23 @@
-/* eslint-disable */
 import { getSiteHost } from "@/config/runtime-config";
-import { fail } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { SSE } from 'sse.js';
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+import { tokenTool } from "@/c-service/storeUtil";
+import i18n from 'i18next';
+import { getStringEnv } from "@/c-utils/envUtils";
 
+// ===== 类型定义 =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
-
-export type StreamRequestConfig = RequestInit & { params?: any; data?: any, parseChunk?: (chunkValue: string) => string };
-
+export type StreamRequestConfig = RequestInit & { 
+  params?: any; 
+  data?: any; 
+  parseChunk?: (chunkValue: string) => string 
+};
 export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
 
+// ===== 错误处理 =====
 export class ErrorWithCode extends Error {
   code: number;
   constructor(message: string, code: number) {
@@ -29,34 +26,75 @@ export class ErrorWithCode extends Error {
   }
 }
 
-function parseJson(text: string) {
+// 统一错误处理函数
+const handleApiError = (error: any, showToast = true) => {
+  if (showToast) {
+    toast({
+      title: error.message || i18n.t("common.networkError"),
+      variant: 'destructive',
+    });
+  }
+  
+  // 派发错误事件 (仅在客户端执行)
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const apiError = new CustomEvent("apiError", { 
+      detail: error, 
+      bubbles: true 
+    });
+    document.dispatchEvent(apiError);
+  }
+};
+
+// 检查响应状态码并处理业务逻辑
+const handleBusinessCode = (response: any) => {
+  if (response.code !== 0) {
+    // 特殊状态码不显示toast
+    if (![1001].includes(response.code)) {
+      handleApiError(response);
+    }
+    
+    // 认证相关错误，跳转登录 (仅在客户端执行)
+    if (typeof window !== 'undefined' && location.pathname !== '/login' && [1001, 1004, 1005].includes(response.code)) {
+      window.location.href = '/login';
+    }
+    
+    // 权限错误 (仅在客户端执行)
+    if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
+      toast({
+        title: '您当前没有权限访问此内容，请联系管理员获取权限',
+        variant: 'destructive',
+      });
+    }
+    
+    return Promise.reject(response);
+  }
+  return response.data || response;
+};
+
+// ===== 工具函数 =====
+const parseJson = (text: string) => {
   try {
-    const result = JSON.parse(text);
-    return result;
-  } catch (e) {
+    return JSON.parse(text);
+  } catch {
     return text;
   }
-}
+};
 
-
-async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
+// 流式读取行迭代器
+async function* makeTextStreamLineIterator(reader: ReadableStreamDefaultReader) {
   const utf8Decoder = new TextDecoder("utf-8");
   let { value: chunk, done: readerDone } = await reader.read();
   chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
   const re = /\r\n|\n|\r/gm;
   let startIndex = 0;
 
-  for (; ;) {
-    // eslint-disable-next-line prefer-const
+  for (;;) {
     const result = re.exec(chunk);
     if (!result) {
-      if (readerDone) {
-        break;
-      }
+      if (readerDone) break;
       const remainder = chunk.substr(startIndex);
       ({ value: chunk, done: readerDone } = await reader.read());
-      chunk =
-        remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+      chunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
       startIndex = re.lastIndex = 0;
       continue;
     }
@@ -64,102 +102,114 @@ async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
     startIndex = re.lastIndex;
   }
   if (startIndex < chunk.length) {
-    // last line didn't end in a newline char
     yield chunk.substr(startIndex);
   }
 }
 
-// 封装请求库
+// ===== Fetch 封装类 =====
 export class Request {
-  defaultConfig: RequestInit = {};
-  baseUrl: string | undefined;
-  token: string | undefined;
-  constructor(defaultConfig = {}) {
+  private defaultConfig: RequestInit = {};
+
+  constructor(defaultConfig: RequestInit = {}) {
     this.defaultConfig = defaultConfig;
   }
-  async prepareConfig(url: string, config: RequestInit) {
+
+  private async prepareConfig(url: string, config: RequestInit) {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
       headers: {
         ...this.defaultConfig.headers,
         ...config.headers,
-        // "X-API-MODE": "admin",
       }
     };
+
+    // 处理URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
         const siteHost = getSiteHost();
-        this.baseUrl = siteHost || 'http://localhost:8081';
-
+        fullUrl = (siteHost || 'http://localhost:8081') + url;
+      } else {
+        // 服务端渲染时的后备方案
+        fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
       }
-      fullUrl = this.baseUrl ? this.baseUrl + url : url;
     }
 
-    this.token = useUserStore.getState().getToken();
-
-    if (this.token) {
+    // 添加认证头
+    const token = useUserStore.getState().getToken();
+    if (token) {
       mergedConfig.headers = {
-        Authorization: `Bearer ${this.token}`,
+        Authorization: `Bearer ${token}`,
+        Token: token,
+        "X-Request-ID": uuidv4().replace(/-/g, ''),
         ...mergedConfig.headers,
-        "Token": this.token,
-        // "X-API-MODE": "admin",
-        "X-Request-ID": uuidv4().replace(/-/g, '')
-      } as any;
+      } as HeadersInit;
     }
 
-    return {
-      url: fullUrl,
-      config: mergedConfig
-    };
+    return { url: fullUrl, config: mergedConfig };
   }
-  // intercept request, handle exceptions uniformly
-  async interceptFetch(url: string, config: RequestConfig) {
+
+  private async interceptFetch(url: string, config: RequestConfig) {
     try {
       const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
       const response = await fetch(fullUrl, mergedConfig);
+      
       if (!response.ok) {
         throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
       }
 
       const res = await response.json();
-      // check if there is a code property, use Object API
+      
+      // 检查业务状态码
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-
-        if (location.pathname == '/login') {
-          return res;
-        }
-        if (location.pathname != '/login' && (res.code == 1001 || res.code == 1005 || res.code == 1004)) {
-            window.location.href = '/login';
-        }
-        if (location.pathname.startsWith('/shifu/') && res.code == 9002) {
-          // todo It should be changed to i18n
-          fail('您当前没有权限访问此内容，请联系管理员获取权限');
-        }
-        if (res.code != 0) {
-          throw new ErrorWithCode(res.message , res.code);
-        }
-
-        if (res.code == 0) {
-          return res.data;
-        }
-
+        if (location.pathname === '/login') return res;
+        return handleBusinessCode(res);
       }
+      
       return res;
     } catch (error: any) {
-      fail(error.message)
+      handleApiError(error);
       throw error;
     }
   }
-  async interceptFetchByStreamLine(url: string, config: StreamRequestConfig, callback?: StreamCallback) {
+
+  // HTTP 方法封装
+  get(url: string, config: RequestConfig = {}) {
+    return this.interceptFetch(url, { method: 'GET', ...config });
+  }
+
+  post(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
+
+  put(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
+
+  delete(url: string, config: RequestConfig = {}) {
+    return this.interceptFetch(url, { method: 'DELETE', ...config });
+  }
+
+  // 流式请求
+  async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
     const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+
     try {
       const { parseChunk, ...rest } = mergedConfig as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...rest,
         method: 'POST',
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
@@ -167,158 +217,169 @@ export class Request {
         throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
       }
 
-      const data = response.body as any;
-      const reader = data.getReader();
-      let done = false;
-      const stop = () => {
-        done = true;
-        controller.abort();
-      };
-      const lines: any = [];
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
 
-      for await (const line of makeTextSteamLineIterator(reader)) {
-        lines.push(line);
-        if (callback) {
-          await callback(done, line, () => {
-            stop();
-          });
-        }
-      }
-      if (callback) {
-        await callback(true, '', () => {
-          stop();
-        });
-      }
-      return lines;
-
-    } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error);
-      throw error;
-    }
-  }
-
-  async interceptFetchByStream(url: string, config: StreamRequestConfig, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
-
-    try {
-      const { parseChunk, ...rest } = mergedConfig as any;
-      const controller = new AbortController();
-      const response = await fetch(fullUrl, {
-        ...rest,
-        method: 'POST',
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status} ${response.statusText}`, response.status);
-      }
-
-      const data = response.body as any;
-      const reader = data.getReader();
       const decoder = new TextDecoder();
       let done = false;
+      let text = '';
+      
       const stop = () => {
         done = true;
         controller.abort();
       };
-      let text = '';
+
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         let chunkValue = decoder.decode(value);
+        
         if (parseChunk) {
           chunkValue = parseChunk(chunkValue);
         }
+        
         text += chunkValue;
+        
         if (callback) {
-          await callback(done, text, () => {
-            stop();
-          });
-        }
-      }
-      const result = parseJson(text);
-      if (typeof result === 'string') {
-        return result;
-      } else if (typeof result === 'object') {
-        if (result.code == 0) {
-          return result.data;
-        } else if (result.code == -1) {
-          throw new ErrorWithCode(result.message, result.code);
-        } else {
-          return result;
+          callback(done, text, stop);
         }
       }
 
+      const result = parseJson(text);
+      if (typeof result === 'object' && result.code !== undefined) {
+        return handleBusinessCode(result);
+      }
+      
+      return result;
     } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error);
+      console.error('Stream request failed:', error);
       throw error;
     }
   }
 
-  // wrap get request
-  get(url: string, config = {}) {
-    return this.interceptFetch(url, {
-      method: 'GET',
-      ...config,
-    } as RequestConfig);
-  }
+  // 按行流式请求
+  async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
+    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
 
-  // wrap post request
-  post(url: string, body = {}, config = {}) {
-    return this.interceptFetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig);
-  }
-
-  stream(url: string, body = {}, config = {}, callback?: StreamCallback) {
-    return this.interceptFetchByStream(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig, callback);
-  }
-
-  streamLine(url: string, body = {}, config = {}, callback?: StreamCallback) {
-    return this.interceptFetchByStreamLine(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig, callback);
-  }
-  async fetch(url: string, config: RequestConfig) {
     try {
-      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+      const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...mergedConfig,
-        method: "POST"
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: controller.signal,
       });
+
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status} ${response.statusText}`, response.status);
+        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
       }
-      return response;
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
+
+      let done = false;
+      const stop = () => {
+        done = true;
+        controller.abort();
+      };
+      
+      const lines: string[] = [];
+
+      for await (const line of makeTextStreamLineIterator(reader)) {
+        lines.push(line);
+        if (callback) {
+          callback(done, line, stop);
+        }
+      }
+      
+      if (callback) {
+        callback(true, '', stop);
+      }
+      
+      return lines;
     } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error.message);
-      fail(error.message);
+      console.error('StreamLine request failed:', error);
       throw error;
     }
   }
-  // wrap other request methods, such as put, delete, etc.
-  // put(url, body = null, config = {}) {}
-  // delete(url, config = {}) {}
 }
 
-// example usage
+// ===== Axios 实例（兼容旧代码）=====
+const axiosrequest: AxiosInstance = axios.create({
+  withCredentials: false,
+  headers: { "Content-Type": "application/json" }
+});
+
+// 请求拦截器
+axiosrequest.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  // 使用统一的 base URL 获取逻辑，与 Request 类保持一致
+  if (typeof window !== 'undefined') {
+    const siteHost = getSiteHost();
+    config.baseURL = siteHost || 'http://localhost:8081';
+  } else {
+    // 服务端渲染时的后备方案
+    config.baseURL = getStringEnv('baseURL') || 'http://localhost:8081';
+  }
+  
+  const token = tokenTool.get().token;
+  if (token) {
+    config.headers.token = token;
+    config.headers["X-Request-ID"] = uuidv4().replace(/-/g, '');
+  }
+  
+  return config;
+});
+
+// 响应拦截器
+axiosrequest.interceptors.response.use(
+  (response: any) => handleBusinessCode(response.data),
+  (error: any) => {
+    handleApiError(error);
+    return Promise.reject(error);
+  }
+);
+
+// ===== SSE 通信 =====
+export const SendMsg = (
+  token: string,
+  chatId: string,
+  text: string,
+  onMessage?: (response: any) => void
+): InstanceType<typeof SSE> => {
+  const source = new SSE(`${getStringEnv('baseURL')}/chat/chat-assistant?token=${token}`, {
+    headers: { "Content-Type": "application/json" },
+    payload: JSON.stringify({
+      token,
+      msg: text,
+      chat_id: chatId,
+    }),
+  });
+
+  source.addEventListener('message', (event: MessageEvent) => {
+    try {
+      const response = JSON.parse(event.data);
+      onMessage?.(response);
+    } catch (e) {
+      console.error('SSE message parse error:', e);
+    }
+  });
+
+  source.addEventListener('error', (event: Event) => {
+    console.error('SSE connection error:', event);
+  });
+
+  source.stream();
+  return source;
+};
+
+// ===== 默认实例导出 =====
 const defaultConfig = {
   headers: {
     'Content-Type': 'application/json',
   },
-  // add other default configuration items
 };
 
 const request = new Request(defaultConfig);
+
+export { axiosrequest };
 export default request;

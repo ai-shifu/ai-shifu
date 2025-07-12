@@ -584,10 +584,10 @@ export const ChatComponents = forwardRef<any, any>(
       setInitRecords(null);
 
       const resp = await getLessonStudyRecord(chapterId);
-      const records = resp.data?.records || [];
-      const teach_avator = resp.data?.teach_avator || null;
+      const records = resp?.records || [];
+      const teach_avator = resp?.teach_avator || null;
       setInitRecords(records);
-      const ui = resp.data?.ui || null;
+      const ui = resp?.ui || null;
 
       if (records && records.length > 0) {
         let lessonId = '';
@@ -649,7 +649,7 @@ export const ChatComponents = forwardRef<any, any>(
       if (ui) {
         initLoadedInteraction(ui);
       }
-      const askUiContent = resp.data?.ask_ui?.content;
+      const askUiContent = resp?.ask_ui?.content;
 
       if (askUiContent) {
         setAskButtonState({

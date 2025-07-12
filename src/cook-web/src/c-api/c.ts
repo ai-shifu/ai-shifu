@@ -1,5 +1,5 @@
 import { SSE } from 'sse.js';
-import request from '@/c-service/Request';
+import request from '@/lib/request';
 import { v4 as uuid4 } from "uuid";
 import { getStringEnv } from '@/c-utils/envUtils';
 const token = getStringEnv('token');
@@ -35,8 +35,5 @@ export const RunScript = (course_id, lesson_id, input, input_type, onMessage) =>
 };
 
 export const getLessonStudyRecord = async (lesson_id) => {
-  return request({
-    url: "/api/study/get_lesson_study_record?lesson_id="+ lesson_id,
-    method: "get",
-  });
+  return request.get("/api/study/get_lesson_study_record?lesson_id="+ lesson_id);
 };

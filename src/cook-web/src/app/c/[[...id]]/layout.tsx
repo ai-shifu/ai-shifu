@@ -200,26 +200,26 @@ export default function ChatLayout({
       if (courseId) {
         try {
           const resp = await getCourseInfo(courseId, isPreviewMode);
-          if (resp.data) {
-            setShowVip(resp.data.course_price > 0);
-            updateCourseName(resp.data.course_name);
-            document.title = resp.data.course_name + ' - AI 师傅'
+          if (resp) {
+            setShowVip(resp.course_price > 0);
+            updateCourseName(resp.course_name);
+            document.title = resp.course_name + ' - AI 师傅'
             const metaDescription = document.querySelector('meta[name="description"]');
             if (metaDescription) {
-              metaDescription.setAttribute('content', resp.data.course_desc);
+              metaDescription.setAttribute('content', resp.course_desc);
             } else {
               const newMetaDescription = document.createElement('meta');
               newMetaDescription.setAttribute('name', 'description');
-              newMetaDescription.setAttribute('content', resp.data.course_desc);
+              newMetaDescription.setAttribute('content', resp.course_desc);
               document.head.appendChild(newMetaDescription);
             }
             const metaKeywords = document.querySelector('meta[name="keywords"]');
             if (metaKeywords) {
-              metaKeywords.setAttribute('content', resp.data.course_keywords);
+              metaKeywords.setAttribute('content', resp.course_keywords);
             } else {
               const newMetaKeywords = document.createElement('meta');
               newMetaKeywords.setAttribute('name', 'keywords');
-              newMetaKeywords.setAttribute('content', resp.data.course_keywords);
+              newMetaKeywords.setAttribute('content', resp.course_keywords);
               document.head.appendChild(newMetaKeywords);
             }
           } else {

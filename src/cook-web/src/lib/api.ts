@@ -49,30 +49,36 @@ export const gen = (option: string) => {
         }
 
         if (method === 'STREAM') {
-            return http.interceptFetchByStream(tarUrl, {
+            return http.stream(tarUrl, body, {
                 ...config,
-                body,
-                method,
             }, callback);
         }
         if (method === 'STREAMLINE') {
-            return http.interceptFetchByStreamLine(tarUrl, {
+            return http.streamLine(tarUrl, body, {
                 ...config,
-                body,
-                method,
             }, callback);
         }
         if (method === 'PROXY') {
-            return http.fetch(tarUrl, {
+            // PROXY method - use direct fetch
+            return fetch(tarUrl, {
                 ...config,
                 body,
-                method,
-            });
+                method: 'GET',
+            }).then(res => res.json());
         }
-        return http.interceptFetch(tarUrl, {
-            ...config,
-            body,
-            method,
-        });
+        
+        // Use appropriate HTTP method
+        if (method === 'GET') {
+            return http.get(tarUrl, config);
+        } else if (method === 'POST') {
+            return http.post(tarUrl, urlParamsMap, config);
+        } else if (method === 'PUT') {
+            return http.put(tarUrl, urlParamsMap, config);
+        } else if (method === 'DELETE') {
+            return http.delete(tarUrl, config);
+        } else {
+            // Fallback to GET for unknown methods
+            return http.get(tarUrl, config);
+        }
     };
 };
