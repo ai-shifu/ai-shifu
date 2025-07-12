@@ -3,7 +3,7 @@ from sqlalchemy import (
     String,
     Integer,
     TIMESTAMP,
-    Decimal,
+    DECIMAL,
     Text,
     SmallInteger,
     DateTime,
@@ -12,6 +12,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 from .consts import ASK_MODE_DEFAULT
+from flaskr.util.compare import compare_decimal
 
 
 class ResourceType:
@@ -109,7 +110,7 @@ class ShifuDraftShifu(db.Model):
     )
     llm = Column(String(100), nullable=False, default="", comment="Specified LLM model")
     llm_temperature = Column(
-        Decimal(10, 2),
+        DECIMAL(10, 2),
         nullable=False,
         default=0,
         comment="Specified temperature for the LLM model",
@@ -133,7 +134,7 @@ class ShifuDraftShifu(db.Model):
         comment="Specified LLM model for ask agent",
     )
     ask_llm_temperature = Column(
-        Decimal(10, 2),
+        DECIMAL(10, 2),
         nullable=False,
         default=0.0,
         comment="Specified LLM temperature for ask agent",
@@ -144,7 +145,7 @@ class ShifuDraftShifu(db.Model):
         default="",
         comment="Specified system prompt for ask agent",
     )
-    price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
+    price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
     latest = Column(
         SmallInteger,
         nullable=False,
@@ -208,7 +209,7 @@ class ShifuDraftShifu(db.Model):
             ask_llm_system_prompt=self.ask_llm_system_prompt,
             price=self.price,
             latest=self.latest,
-            version=self.version + 1,
+            version=self.version + 1,  # new version
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -216,28 +217,21 @@ class ShifuDraftShifu(db.Model):
             updated_by_user_bid=self.updated_by_user_bid,
         )
 
-    def equals(self, other):
+    def eq(self, other):
         return (
             self.bid == other.bid
-            and self.version == other.version
             and self.title == other.title
             and self.keywords == other.keywords
             and self.description == other.description
             and self.avatar_res_bid == other.avatar_res_bid
             and self.llm == other.llm
-            and self.llm_temperature == other.llm_temperature
+            and compare_decimal(self.llm_temperature, other.llm_temperature)
             and self.llm_system_prompt == other.llm_system_prompt
             and self.ask_enabled_status == other.ask_enabled_status
             and self.ask_llm == other.ask_llm
-            and self.ask_llm_temperature == other.ask_llm_temperature
+            and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
-            and self.price == other.price
-            and self.latest == other.latest
-            and self.deleted == other.deleted
-            and self.created_at == other.created_at
-            and self.created_user_bid == other.created_user_bid
-            and self.updated_at == other.updated_at
-            and self.updated_by_user_bid == other.updated_by_user_bid
+            and compare_decimal(self.price, other.price)
         )
 
     def get_str_to_check(self):
@@ -281,7 +275,7 @@ class ShifuDraftOutlineItem(db.Model):
     )
     llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
     llm_temperature = Column(
-        Decimal(10, 2),
+        DECIMAL(10, 2),
         nullable=False,
         default=0,
         comment="Outline llm temperature",
@@ -299,7 +293,7 @@ class ShifuDraftOutlineItem(db.Model):
         String(100), nullable=False, default="", comment="Shifu outline ask llm model"
     )
     ask_llm_temperature = Column(
-        Decimal(10, 2),
+        DECIMAL(10, 2),
         nullable=False,
         default=0.0,
         comment="Shifu outline ask llm temperature",
@@ -373,7 +367,7 @@ class ShifuDraftOutlineItem(db.Model):
             updated_user_bid=self.updated_user_bid,
         )
 
-    def equals(self, other):
+    def eq(self, other):
         return (
             self.bid == other.bid
             and self.shifu_bid == other.shifu_bid
@@ -382,11 +376,11 @@ class ShifuDraftOutlineItem(db.Model):
             and self.position == other.position
             and self.prerequisite_item_bids == other.prerequisite_item_bids
             and self.llm == other.llm
-            and self.llm_temperature == other.llm_temperature
+            and compare_decimal(self.llm_temperature, other.llm_temperature)
             and self.llm_system_prompt == other.llm_system_prompt
             and self.ask_enabled_status == other.ask_enabled_status
             and self.ask_llm == other.ask_llm
-            and self.ask_llm_temperature == other.ask_llm_temperature
+            and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
         )
 
@@ -467,6 +461,35 @@ class ShifuDraftBlock(db.Model):
         comment="Update user bid",
     )
 
+    def eq(self, other):
+        return (
+            self.bid == other.bid
+            and self.shifu_bid == other.shifu_bid
+            and self.outline_bid == other.outline_bid
+            and self.type == other.type
+            and self.position == other.position
+            and self.variable_bids == other.variable_bids
+            and self.resource_bids == other.resource_bids
+            and self.content == other.content
+        )
+
+    def get_str_to_check(self):
+        return f"{self.content}"
+
+    def clone(self):
+        return ShifuDraftBlock(
+            bid=self.bid,
+            shifu_bid=self.shifu_bid,
+            outline_bid=self.outline_bid,
+            type=self.type,
+            position=self.position,
+            variable_bids=self.variable_bids,
+            resource_bids=self.resource_bids,
+            content=self.content,
+            latest=self.latest,
+            version=self.version + 1,
+        )
+
 
 class ShifuDraftHistory(db.Model):
     __tablename__ = "shifu_draft_histories"
@@ -500,7 +523,7 @@ class ShifuPublishedShifu(db.Model):
     )
     llm = Column(String(100), nullable=False, default="", comment="Shifu llm model")
     llm_temperature = Column(
-        Decimal(10, 2), nullable=False, default=0, comment="Shifu llm temperature"
+        DECIMAL(10, 2), nullable=False, default=0, comment="Shifu llm temperature"
     )
     llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Shifu llm system prompt"
@@ -515,12 +538,12 @@ class ShifuPublishedShifu(db.Model):
         String(100), nullable=False, default="", comment="Shifu ask llm model"
     )
     ask_llm_temperature = Column(
-        Decimal(10, 2), nullable=False, default=0.0, comment="Shifu ask llm temperature"
+        DECIMAL(10, 2), nullable=False, default=0.0, comment="Shifu ask llm temperature"
     )
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Shifu ask llm system prompt"
     )
-    price = Column(Decimal(10, 2), nullable=False, default=0, comment="Shifu price")
+    price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
     status = Column(
         SmallInteger,
         nullable=False,
@@ -592,7 +615,7 @@ class ShifuPublishedOutline(db.Model):
     )
     llm = Column(String(100), nullable=False, default="", comment="Outline llm model")
     llm_temperature = Column(
-        Decimal(10, 2),
+        DECIMAL(10, 2),
         nullable=False,
         default=0,
         comment="Shifu outline llm temperature",
@@ -610,7 +633,7 @@ class ShifuPublishedOutline(db.Model):
         String(100), nullable=False, default="", comment="Shifu outline ask llm model"
     )
     ask_llm_temperature = Column(
-        Decimal(10, 2),
+        DECIMAL(10, 2),
         nullable=False,
         default=0.0,
         comment="Shifu outline ask llm temperature",
