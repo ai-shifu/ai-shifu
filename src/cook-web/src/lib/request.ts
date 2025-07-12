@@ -2,9 +2,6 @@ import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
 import { useUserStore } from "@/c-store/useUserStore";
 import { v4 as uuidv4 } from 'uuid';
-import { SSE } from 'sse.js';
-import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
-import { tokenTool } from "@/c-service/storeUtil";
 import i18n from 'i18next';
 import { getStringEnv } from "@/c-utils/envUtils";
 
@@ -62,7 +59,7 @@ const handleBusinessCode = (response: any) => {
     // 权限错误 (仅在客户端执行)
     if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
       toast({
-        title: '您当前没有权限访问此内容，请联系管理员获取权限',
+        title: i18n.t('errors.no-permission', '您当前没有权限访问此内容，请联系管理员获取权限'),
         variant: 'destructive',
       });
     }
@@ -81,31 +78,6 @@ const parseJson = (text: string) => {
   }
 };
 
-// 流式读取行迭代器
-async function* makeTextStreamLineIterator(reader: ReadableStreamDefaultReader) {
-  const utf8Decoder = new TextDecoder("utf-8");
-  let { value: chunk, done: readerDone } = await reader.read();
-  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
-  const re = /\r\n|\n|\r/gm;
-  let startIndex = 0;
-
-  for (;;) {
-    const result = re.exec(chunk);
-    if (!result) {
-      if (readerDone) break;
-      const remainder = chunk.substr(startIndex);
-      ({ value: chunk, done: readerDone } = await reader.read());
-      chunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
-      startIndex = re.lastIndex = 0;
-      continue;
-    }
-    yield chunk.substring(startIndex, result.index);
-    startIndex = re.lastIndex;
-  }
-  if (startIndex < chunk.length) {
-    yield chunk.substr(startIndex);
-  }
-}
 
 // ===== Fetch 封装类 =====
 export class Request {
@@ -279,6 +251,7 @@ export class Request {
       const reader = response.body?.getReader();
       if (!reader) throw new Error('Response body is not readable');
 
+      const utf8Decoder = new TextDecoder("utf-8");
       let done = false;
       const stop = () => {
         done = true;
@@ -286,8 +259,32 @@ export class Request {
       };
 
       const lines: string[] = [];
+      let { value: chunk, done: readerDone } = await reader.read();
+      let decodedChunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+      const re = /\r\n|\n|\r/gm;
+      let startIndex = 0;
 
-      for await (const line of makeTextStreamLineIterator(reader)) {
+      // 流式读取行处理
+      for (;;) {
+        const result = re.exec(decodedChunk);
+        if (!result) {
+          if (readerDone) break;
+          const remainder = decodedChunk.substr(startIndex);
+          ({ value: chunk, done: readerDone } = await reader.read());
+          decodedChunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+          startIndex = re.lastIndex = 0;
+          continue;
+        }
+        const line = decodedChunk.substring(startIndex, result.index);
+        lines.push(line);
+        if (callback) {
+          callback(done, line, stop);
+        }
+        startIndex = re.lastIndex;
+      }
+
+      if (startIndex < decodedChunk.length) {
+        const line = decodedChunk.substr(startIndex);
         lines.push(line);
         if (callback) {
           callback(done, line, stop);
@@ -306,76 +303,6 @@ export class Request {
   }
 }
 
-// ===== Axios 实例（兼容旧代码）=====
-const axiosrequest: AxiosInstance = axios.create({
-  withCredentials: false,
-  headers: { "Content-Type": "application/json" }
-});
-
-// 请求拦截器
-axiosrequest.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
-  // 使用统一的 base URL 获取逻辑，与 Request 类保持一致
-  if (typeof window !== 'undefined') {
-    // 客户端：动态获取API基础URL
-    const siteHost = await getDynamicApiBaseUrl();
-    config.baseURL = siteHost || 'http://localhost:8081';
-  } else {
-    // 服务端渲染时的后备方案
-    config.baseURL = getStringEnv('baseURL') || 'http://localhost:8081';
-  }
-
-  const token = tokenTool.get().token;
-  if (token) {
-    config.headers.token = token;
-    config.headers["X-Request-ID"] = uuidv4().replace(/-/g, '');
-  }
-
-  return config;
-});
-
-// 响应拦截器
-axiosrequest.interceptors.response.use(
-  (response: any) => handleBusinessCode(response.data),
-  (error: any) => {
-    handleApiError(error);
-    return Promise.reject(error);
-  }
-);
-
-// ===== SSE 通信 =====
-export const SendMsg = async (
-  token: string,
-  chatId: string,
-  text: string,
-  onMessage?: (response: any) => void
-): Promise<InstanceType<typeof SSE>> => {
-  const baseURL = await getDynamicApiBaseUrl();
-  const source = new SSE(`${baseURL}/chat/chat-assistant?token=${token}`, {
-    headers: { "Content-Type": "application/json" },
-    payload: JSON.stringify({
-      token,
-      msg: text,
-      chat_id: chatId,
-    }),
-  });
-
-  source.addEventListener('message', (event: MessageEvent) => {
-    try {
-      const response = JSON.parse(event.data);
-      onMessage?.(response);
-    } catch (e) {
-      console.error('SSE message parse error:', e);
-    }
-  });
-
-  source.addEventListener('error', (event: Event) => {
-    console.error('SSE connection error:', event);
-  });
-
-  source.stream();
-  return source;
-};
-
 // ===== 默认实例导出 =====
 const defaultConfig = {
   headers: {
@@ -385,5 +312,4 @@ const defaultConfig = {
 
 const request = new Request(defaultConfig);
 
-export { axiosrequest };
 export default request;

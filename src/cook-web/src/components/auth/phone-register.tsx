@@ -11,7 +11,6 @@ import { Loader2 } from 'lucide-react'
 import { TermsCheckbox } from '@/components/terms-checkbox'
 import apiService from '@/api'
 import { isValidPhoneNumber } from '@/lib/validators'
-import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface PhoneRegisterProps {
@@ -160,7 +159,7 @@ export function PhoneRegister ({ onRegisterSuccess }: PhoneRegisterProps) {
           title: t('login.register-success')
         })
         onRegisterSuccess()
-        setToken(response.data.token)
+        // Token handled via login flow, no need to set manually here
       } else {
         toast({
           title: t('login.verify-failed'),

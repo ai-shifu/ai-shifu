@@ -17,7 +17,7 @@ const registerAsGuest = async (): Promise<string> => {
   }
   const res = await registerTmp({ temp_id: genUuid() });
   const token = res.token;
-  await tokenTool.set({ token, faked: true });
+  tokenTool.set({ token, faked: true });
   return token;
 };
 
@@ -48,7 +48,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
 
     // Public API: Login with user credentials
     login: async (userInfo: any, token: string) => {
-      await tokenTool.set({ token, faked: false });
+      tokenTool.set({ token, faked: false });
       set(() => ({
         userInfo,
       }));
@@ -104,9 +104,9 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         const res = await getUserInfo();
         const userInfo = res;
 
-        // Determine if user is authenticated based on mobile number
-        const isAuthenticated = !!userInfo.mobile;
-        await tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
+        // Determine if user is authenticated based on mobile number or email
+        const isAuthenticated = !!(userInfo.mobile || userInfo.email);
+        tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
 
         set(() => ({
           userInfo,
@@ -117,11 +117,16 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         }
       } catch (err) {
         // @ts-expect-error EXPECT
+        // Only reset to guest if it's a clear authentication error (not network or server issues)
         if ((err.status === 403) || (err.code === 1005) || (err.code === 1001)) {
           await registerAsGuest();
           set(() => ({
             userInfo: null,
           }));
+        } else {
+          // For other errors (network, server errors), preserve existing token state
+          // but still update the status based on token data
+          console.warn('Failed to fetch user info, but preserving login state:', err);
         }
       }
 
