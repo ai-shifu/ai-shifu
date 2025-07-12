@@ -89,8 +89,9 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       }
 
       // Prevent concurrent calls
-      if (get()._initializingPromise) {
-        return get()._initializingPromise;
+      const existingPromise = get()._initializingPromise;
+      if (existingPromise) {
+        return existingPromise;
       }
 
       const initPromise = (async () => {
