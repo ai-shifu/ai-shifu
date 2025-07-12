@@ -148,19 +148,10 @@ export const PayModalM = ({
 
   const onCouponCodeOkClick = useCallback(async () => {
     const resp = await applyDiscountCode({ orderId, code: couponCode });
-    // @ts-expect-error EXPECT
-    if (resp.code !== 0) {
-      toast({
-        // @ts-expect-error EXPECT
-        title: resp.message,
-        variant: 'destructive',
-      })
-      return;
-    }
 
     onCouponCodeModalClose();
 
-    if (resp.data.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+    if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
       setIsCompleted(true);
       onOk();
     }

@@ -1,12 +1,8 @@
-import request from '@/c-service/Request';
+import request from '@/lib/request';
 
 /**
  * 提交反馈
  */
 export const submitFeedback = (feedback) => {
-  return request({
-    url: '/api/user/submit-feedback',
-    method: 'post',
-    data: { feedback }
-  });
+  return request.post('/api/user/submit-feedback', { feedback });
 };

@@ -58,7 +58,7 @@ export const useLessonTree = () => {
     setSelectedLessonId(null);
     const resp = await getLessonTree(useEnvStore.getState().courseId, useSystemStore.getState().previewMode);
 
-    const treeData = resp.data;
+    const treeData = resp;
     if (!treeData) {
       return null;
     }
