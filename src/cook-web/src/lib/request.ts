@@ -1,9 +1,9 @@
+import { useUserStore } from "@/c-store/useUserStore";
+import { getStringEnv } from "@/c-utils/envUtils";
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
-import { useUserStore } from "@/c-store/useUserStore";
-import { v4 as uuidv4 } from 'uuid';
 import i18n from 'i18next';
-import { getStringEnv } from "@/c-utils/envUtils";
+import { v4 as uuidv4 } from 'uuid';
 
 // ===== Type Definitions =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
@@ -176,12 +176,19 @@ export class Request {
     return this.interceptFetch(url, { method: 'DELETE', ...config });
   }
 
+  patch(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
   // Stream request
   async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+    const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
-      const { parseChunk, ...rest } = mergedConfig as any;
+      const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...rest,
@@ -236,12 +243,13 @@ export class Request {
 
   // Stream line by line request
   async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+    const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
+      const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
-        ...mergedConfig,
+        ...rest,
         method: 'POST',
         body: JSON.stringify(body),
         signal: controller.signal,
@@ -272,13 +280,16 @@ export class Request {
         const result = re.exec(decodedChunk);
         if (!result) {
           if (readerDone) break;
-          const remainder = decodedChunk.substr(startIndex);
+          const remainder = decodedChunk.substring(startIndex);
           ({ value: chunk, done: readerDone } = await reader.read());
           decodedChunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
           startIndex = re.lastIndex = 0;
           continue;
         }
-        const line = decodedChunk.substring(startIndex, result.index);
+        let line = decodedChunk.substring(startIndex, result.index);
+        if (parseChunk) {
+          line = parseChunk(line);
+        }
         lines.push(line);
         if (callback) {
           callback(done, line, stop);
@@ -287,7 +298,10 @@ export class Request {
       }
 
       if (startIndex < decodedChunk.length) {
-        const line = decodedChunk.substr(startIndex);
+        let line = decodedChunk.substring(startIndex);
+        if (parseChunk) {
+          line = parseChunk(line);
+        }
         lines.push(line);
         if (callback) {
           callback(done, line, stop);

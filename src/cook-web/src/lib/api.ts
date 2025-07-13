@@ -22,9 +22,9 @@ export const gen = (option: string) => {
         url = apiPrefix + url;
     }
 
-    return function (params: { [x: string]: any }, config: RequestConfig | StreamRequestConfig = {}, callback?: StreamCallback) {
+    return async function (params: { [x: string]: any }, config: RequestConfig | StreamRequestConfig = {}, callback?: StreamCallback) {
         let tarUrl = url;
-        let body;
+        let body: string | undefined;
 
         const urlParams = url.match(/\{([^}]+)\}/g);
         const urlParamsMap = { ...params };
@@ -66,7 +66,7 @@ export const gen = (option: string) => {
                 method: 'GET',
             }).then(res => res.json());
         }
-        
+
         // Use appropriate HTTP method
         if (method === 'GET') {
             return http.get(tarUrl, config);
@@ -76,6 +76,8 @@ export const gen = (option: string) => {
             return http.put(tarUrl, urlParamsMap, config);
         } else if (method === 'DELETE') {
             return http.delete(tarUrl, config);
+        } else if (method === 'PATCH') {
+            return http.patch(tarUrl, urlParamsMap, config);
         } else {
             // Fallback to GET for unknown methods
             return http.get(tarUrl, config);
