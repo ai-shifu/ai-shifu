@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import i18n from 'i18next';
 import { getStringEnv } from "@/c-utils/envUtils";
 
-// ===== 类型定义 =====
+// ===== Type Definitions =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
 
 export type StreamRequestConfig = RequestInit & {
@@ -15,7 +15,7 @@ export type StreamRequestConfig = RequestInit & {
 };
 export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
 
-// ===== 错误处理 =====
+// ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
   constructor(message: string, code: number) {
@@ -24,8 +24,8 @@ export class ErrorWithCode extends Error {
   }
 }
 
-// 统一错误处理函数
-const handleApiError = (error: any, showToast = true) => {
+// Unified error handling function
+const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
       title: error.message || i18n.t("common.networkError"),
@@ -33,7 +33,7 @@ const handleApiError = (error: any, showToast = true) => {
     });
   }
 
-  // 派发错误事件 (仅在客户端执行)
+  // Dispatch error event (only on client side)
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const apiError = new CustomEvent("apiError", {
       detail: error,
@@ -43,33 +43,36 @@ const handleApiError = (error: any, showToast = true) => {
   }
 };
 
-// 检查响应状态码并处理业务逻辑
+// Check response status code and handle business logic
 const handleBusinessCode = (response: any) => {
+  const error = new ErrorWithCode(response.message || i18n.t("common.unknownError"), response.code || -1);
+
   if (response.code !== 0) {
-    // 特殊状态码不显示toast
+    // Special status codes do not show toast
     if (![1001].includes(response.code)) {
-      handleApiError(response);
+      handleApiError(error);
     }
 
-    // 认证相关错误，跳转登录 (仅在客户端执行)
+    // Authentication related errors, redirect to login (only on client side)
     if (typeof window !== 'undefined' && location.pathname !== '/login' && [1001, 1004, 1005].includes(response.code)) {
-      window.location.href = '/login';
+      const currentPath = encodeURIComponent(location.pathname + location.search);
+      window.location.href = `/login?redirect=${currentPath}`;
     }
 
-    // 权限错误 (仅在客户端执行)
+    // Permission error (only on client side)
     if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
       toast({
-        title: i18n.t('errors.no-permission', '您当前没有权限访问此内容，请联系管理员获取权限'),
+        title: i18n.t('errors.no-permission'),
         variant: 'destructive',
       });
     }
 
-    return Promise.reject(response);
+    return Promise.reject(error);
   }
   return response.data || response;
 };
 
-// ===== 工具函数 =====
+// ===== Utility Functions =====
 const parseJson = (text: string) => {
   try {
     return JSON.parse(text);
@@ -79,7 +82,7 @@ const parseJson = (text: string) => {
 };
 
 
-// ===== Fetch 封装类 =====
+// ===== Fetch Wrapper Class =====
 export class Request {
   private defaultConfig: RequestInit = {};
 
@@ -97,20 +100,20 @@ export class Request {
       }
     };
 
-    // 处理URL
+    // Handle URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
-        // 客户端：使用缓存的API基础URL，避免重复请求
+        // Client: use cached API base URL to avoid repeated requests
         const siteHost = await getDynamicApiBaseUrl();
         fullUrl = (siteHost || 'http://localhost:8081') + url;
       } else {
-        // 服务端渲染时的后备方案
+        // Fallback for server-side rendering
         fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
       }
     }
 
-    // 添加认证头
+    // Add authentication headers
     const token = useUserStore.getState().getToken();
     if (token) {
       mergedConfig.headers = {
@@ -135,7 +138,7 @@ export class Request {
 
       const res = await response.json();
 
-      // 检查业务状态码
+      // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
         if (location.pathname === '/login') return res;
         return handleBusinessCode(res);
@@ -148,7 +151,7 @@ export class Request {
     }
   }
 
-  // HTTP 方法封装
+  // HTTP method wrappers
   get(url: string, config: RequestConfig = {}) {
     return this.interceptFetch(url, { method: 'GET', ...config });
   }
@@ -173,7 +176,7 @@ export class Request {
     return this.interceptFetch(url, { method: 'DELETE', ...config });
   }
 
-  // 流式请求
+  // Stream request
   async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
     const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
 
@@ -231,7 +234,7 @@ export class Request {
     }
   }
 
-  // 按行流式请求
+  // Stream line by line request
   async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
     const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
 
@@ -264,7 +267,7 @@ export class Request {
       const re = /\r\n|\n|\r/gm;
       let startIndex = 0;
 
-      // 流式读取行处理
+      // Stream read line processing
       for (;;) {
         const result = re.exec(decodedChunk);
         if (!result) {
@@ -303,7 +306,7 @@ export class Request {
   }
 }
 
-// ===== 默认实例导出 =====
+// ===== Default Instance Export =====
 const defaultConfig = {
   headers: {
     'Content-Type': 'application/json',

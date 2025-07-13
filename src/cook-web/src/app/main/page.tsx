@@ -63,6 +63,7 @@ const ScriptManagementPage = () => {
     const { toast } = useToast();
     const { t } = useTranslation();
     const isInitialized = useUserStore(state => state.isInitialized);
+    const isLoggedIn = useUserStore(state => state.isLoggedIn);
     const [activeTab, setActiveTab] = useState("all");
     const [shifus, setShifus] = useState<Shifu[]>([]);
     const [loading, setLoading] = useState(false);
@@ -76,17 +77,7 @@ const ScriptManagementPage = () => {
     const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
 
     const fetchShifus = useCallback(async () => {
-        // Get fresh state to avoid stale closure
-        const { isLoggedIn: currentLoginState } = useUserStore.getState();
-
         if (loading || !hasMore) return;
-
-        // Check if user is logged in using fresh state
-        if (!currentLoginState) {
-            const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
-            window.location.href = `/login?redirect=${currentPath}`;
-            return;
-        }
 
         setLoading(true);
         try {
@@ -157,10 +148,6 @@ const ScriptManagementPage = () => {
         const container = containerRef.current;
         if (!container || !isInitialized) return;
 
-        // Check current login state instead of using stale closure
-        const { isLoggedIn: currentLoginState } = useUserStore.getState();
-        if (!currentLoginState) return;
-
         const observer = new IntersectionObserver(
             (entries) => {
                 if (entries[0].isIntersecting && hasMore && fetchShifusRef.current) {
@@ -174,16 +161,23 @@ const ScriptManagementPage = () => {
         return () => observer.disconnect();
     }, [hasMore, isInitialized]);
 
-    // Fetch data when user is initialized and logged in
+    // Centralized login check - redirect if not logged in after initialization
     useEffect(() => {
-        // UserProvider already handles initUser(), so we only need to fetch data when ready
+        if (isInitialized && !isLoggedIn) {
+            const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?redirect=${currentPath}`;
+            return;
+        }
+    }, [isInitialized, isLoggedIn]);
+
+    // Fetch data when user is initialized
+    useEffect(() => {
         if (isInitialized && fetchShifusRef.current) {
-            const { isLoggedIn: currentLoginState } = useUserStore.getState();
-            if (currentLoginState && shifus.length === 0 && !loading) {
+            if (shifus.length === 0 && !loading) {
                 fetchShifusRef.current();
             }
         }
-    }, [isInitialized, shifus.length, loading]);
+    }, [isInitialized]);
 
     if (error) {
         return (
