@@ -129,7 +129,7 @@ Environment variables are managed through `.env` files:
 - Examples:
   - ✅ Correct: `t('errors.no-permission')`
   - ❌ Wrong: `'您当前没有权限访问此内容'`
-  - ✅ Correct: `t('common.retry', '重试')` (with fallback)
+  - ✅ Correct: `t('common.retry', 'Retry')` (with fallback)
   - ❌ Wrong: `'重试'`
 - Translation files are located in:
   - Web app: `src/web/public/locales/`
