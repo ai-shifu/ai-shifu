@@ -51,7 +51,7 @@ def create_shifu_draft(
             raise_error("SHIFU.SHIFU_NAME_ALREADY_EXISTS")
         # create a new ShifuDraftShifu object
         shifu_draft = ShifuDraftShifu(
-            bid=shifu_id,
+            shifu_bid=shifu_id,
             title=shifu_name,
             description=shifu_description,
             avatar_res_bid=shifu_image,
@@ -91,7 +91,7 @@ def create_shifu_draft(
 def get_shifu_draft_info(result, app, user_id: str, shifu_id: str) -> ShifuDetailDto:
     with app.app_context():
         shifu_draft = ShifuDraftShifu.query.filter_by(
-            bid=shifu_id, latest=1, deleted=0
+            shifu_bid=shifu_id, latest=1, deleted=0
         ).first()
         if not shifu_draft:
             draft_dto: ShifuDetailDto = result

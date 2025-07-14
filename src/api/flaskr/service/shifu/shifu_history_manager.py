@@ -1,13 +1,13 @@
-from .models import ShifuDraftHistory
+from .models import ShifuDraftRawContent
 
 
 def get_shifu_history(app, user_id: str, shifu_id: str):
     with app.app_context():
         shifu_history = (
-            ShifuDraftHistory.query.filter_by(
-                ShifuDraftHistory.shifu_bid == shifu_id,
+            ShifuDraftRawContent.query.filter_by(
+                ShifuDraftRawContent.shifu_bid == shifu_id,
             )
-            .order_by(ShifuDraftHistory.created_at.desc())
+            .order_by(ShifuDraftRawContent.created_at.desc())
             .first()
         )
         return shifu_history
