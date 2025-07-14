@@ -249,6 +249,18 @@ class ShifuDraftOutlineItem(db.Model):
         default="",
         comment="Outline item title",
     )
+    type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Outline item type: 401=trial, 402=normal",
+    )
+    hidden = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Hidden flag: 0=visible, 1=hidden",
+    )
     parent_bid = Column(
         String(32),
         nullable=False,
@@ -624,7 +636,7 @@ class ShifuPublishedOutlineItem(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
-        comment="Outline item type: 9001=chapter, 9002=section, 9003=block",
+        comment="Outline item type: 401=trial, 402=normal",
     )
     hidden = Column(
         SmallInteger,
