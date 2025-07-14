@@ -692,7 +692,7 @@ class ShifuPublishedOutlineItem(db.Model):
     position = Column(
         String(10), nullable=False, default="", comment="Outline position"
     )
-    pre_outline_bids = Column(
+    prerequisite_item_bids = Column(
         String(500),
         nullable=False,
         default="",
