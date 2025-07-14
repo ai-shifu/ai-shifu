@@ -1,6 +1,5 @@
-import React, { memo, useState } from 'react'
+import React, { memo, useEffect, useState } from 'react'
 import { Input } from '../ui/input'
-import { Plus, Trash } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
     AlertDialog,
@@ -14,10 +13,11 @@ import {
 } from "../ui/alert-dialog"
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash'
-import { ProfileFormItem } from '@/components/profiles'
-import { OptionsDTO, UIBlockDTO } from '@/types/shifu'
+import { OptionsDTO, ProfileItemDefination, UIBlockDTO } from '@/types/shifu'
 import i18n from '@/i18n'
-
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
+import { useShifu } from '@/store'
+import api from '@/api'
 
 const OptionPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
     const prevOptionsSettings = prevProps.data.properties as OptionsDTO
@@ -37,34 +37,17 @@ const OptionPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
 }
 
 export default memo(function Option(props: UIBlockDTO) {
-    const { data } = props;
-    // const [changed, setChanged] = useState(false);
+    const { data, onChanged } = props;
+    const { currentShifu } = useShifu();
     const { t } = useTranslation();
+    const [changed, setChanged] = useState(false);
     const optionsSettings = data.properties as OptionsDTO
-    const [tempValue, setTempValue] = useState<string>(optionsSettings.result_variable_bid);
-    const [tempOptions, setTempOptions] = useState(optionsSettings.options.length === 0 ? [{
-        "value": t('option.button-key'),
-        "label": {
-            "lang": {
-                "zh-CN": t('option.button-name'),
-                "en-US": t('option.button-name')
-            }
-        }
-    }] : optionsSettings.options);
+    const [tempOptions, setTempOptions] = useState(optionsSettings.options);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
-
-    const onButtonValueChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-        setTempOptions(tempOptions.map((option: any, i: number) => {
-            if (i === index) {
-                return {
-                    ...option,
-                    value: e.target.value
-                }
-            }
-            return option;
-        }));
-    }
+    const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
+    const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItemDefination[]>([]);
+    const [variableBid, setVariableBid] = useState<string>(optionsSettings.result_variable_bid);
 
     const onButtonTextChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
         setTempOptions(tempOptions.map((option: any, i: number) => {
@@ -85,32 +68,6 @@ export default memo(function Option(props: UIBlockDTO) {
         }));
     }
 
-    const onAdd = (index: number) => {
-        const newOption = {
-            "label": {
-                "lang": {
-                    "zh-CN": t('option.button-name'),
-                    "en-US": t('option.button-name')
-                },
-
-            },
-            "value": t('option.button-key')
-        }
-        setTempOptions([
-            ...tempOptions.slice(0, index + 1),
-            newOption,
-            ...tempOptions.slice(index + 1)
-        ]);
-    }
-
-    const onDelete = (index: number) => {
-        if (tempOptions.length === 1) {
-            setDeleteIndex(index);
-            setShowDeleteDialog(true);
-        } else {
-            setTempOptions(tempOptions.filter((_: any, i: number) => i !== index));
-        }
-    }
 
     const handleConfirmDelete = () => {
         if (deleteIndex !== null) {
@@ -139,15 +96,66 @@ export default memo(function Option(props: UIBlockDTO) {
             properties: {
                 ...data.properties,
                 options: tempOptions,
-                result_variable_bid: tempValue
+                result_variable_bid: variableBid
             },
-            variable_bids: [tempValue]
+            variable_bids: [variableBid]
         }
         props.onPropertiesChange(updatedProperties);
     }
 
-    const handleProfileChange = (value: string[]) => {
-        setTempValue(value?.[0])
+    const handleValueChange = async (value: string) => {
+        setVariableBid(value);
+        if (!changed) {
+            setChanged(true);
+            onChanged?.(true);
+        }
+        const selectedItem = profileItemDefinations.find((item) => item.profile_id === value);
+        if (selectedItem) {
+            setSelectedProfile(selectedItem);
+            await loadProfileItem(value);
+        }
+    }
+    useEffect(() => {
+        loadProfileItemDefinations();
+    }, [])
+    const loadProfileItem = async (id: string) => {
+        setVariableBid(id);
+        const list = await api.getProfileItemOptionList({
+            parent_id: id
+        })
+        const options = list.map((item) => {
+            const existingOption = tempOptions.find((option) => option.value === item.value);
+            if (existingOption) {
+                return existingOption;
+            }
+            return {
+                value: item.value,
+                label: {
+                    lang: {
+                        "zh-CN": item.value,
+                        "en-US": item.value
+                    }
+                }
+            }
+        })
+
+        console.log("options", options);
+        setTempOptions(options);
+    }
+
+    const loadProfileItemDefinations = async (preserveSelection: boolean = false) => {
+        const list = await api.getProfileItemDefinitions({
+            parent_id: currentShifu?.bid,
+            type: "option"
+        })
+        setProfileItemDefinations(list)
+        if (!preserveSelection && list.length > 0) {
+            const initialSelected = list.find((item) => item.profile_id === variableBid);
+            if (initialSelected) {
+                setSelectedProfile(initialSelected);
+                await loadProfileItem(initialSelected.profile_id);
+            }
+        }
     }
 
     return (
@@ -156,68 +164,48 @@ export default memo(function Option(props: UIBlockDTO) {
                 <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                     {t('option.variable')}
                 </label>
-                <ProfileFormItem value={[tempValue || '']} onChange={handleProfileChange} />
+                <Select
+                    value={selectedProfile?.profile_key || ""}
+                    onValueChange={handleValueChange}
+                    onOpenChange={(open) => {
+                        if (open) {
+                            loadProfileItemDefinations(true);
+                        }
+                    }}
+                >
+                    <SelectTrigger className="h-8 w-[170px]">
+                        <SelectValue>
+                            {selectedProfile?.profile_key || t('option.select-variable')}
+                        </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        {
+                            profileItemDefinations?.map((item) => {
+                                return <SelectItem key={item.profile_key} value={item.profile_id} >{item.profile_key}</SelectItem>
+                            })
+                        }
+                    </SelectContent>
+                </Select>
             </div>
             <div className='flex flex-col space-y-2'>
                 {
-                    tempOptions.length === 0 ? (
-                        <div className='flex flex-row items-center'>
-                            <span className='flex flex-row items-center whitespace-nowrap  w-[70px] shrink-0'>
-                                {t('option.value')}
-                            </span>
-                            <Input className='w-40' placeholder={t('option.variable-placeholder')} value="全部" onChange={(e) => {
-                                const newOption = {
-                                    "label": {
-                                        "lang": {
-                                            "zh-CN": "全部",
-                                            "en-US": "全部"
-                                        },
-                                    },
-                                    "value": e.target.value
-                                };
-                                setTempOptions([newOption]);
-                            }}></Input>
-                            <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
-                                {t('option.title')}
-                            </label>
-                            <Input className='w-40 ml-4' placeholder={t('option.title-placeholder')} value="全部" onChange={(e) => {
-                                const newOption = {
-                                    "label": {
-                                        "lang": {
-                                            "zh-CN": e.target.value,
-                                            "en-US": e.target.value
-                                        },
-                                    },
-                                    "value": "全部"
-                                };
-                                setTempOptions([newOption]);
-                            }}></Input>
-                            <Button className='h-8 w-8' variant="ghost" onClick={() => onAdd(-1)} >
-                                <Plus />
-                            </Button>
-                        </div>
-                    ) : (
+
                         tempOptions.map((option: any, index: number) => {
                             return (
                                 <div key={index} className='flex flex-row items-center'>
                                     <label htmlFor="" className='whitespace-nowrap w-[70px] shrink-0'>
                                         {t('option.value')}
                                     </label>
-                                    <Input value={option.value} className='w-40' onChange={onButtonValueChange.bind(null, index)}></Input>
+                                    <label  >{option.value}</label>
                                     <label htmlFor="" className='whitespace-nowrap w-[50px] shrink-0 ml-4'>
                                         {t('option.title')}
                                     </label>
                                     <Input value={option.label.lang[i18n.language]} className='w-40 ml-4' onChange={onButtonTextChange.bind(null, index)}></Input>
-                                    <Button className='h-8 w-8' variant="ghost" onClick={onAdd.bind(null, index)} >
-                                        <Plus />
-                                    </Button>
-                                    <Button className='h-8 w-8' variant="ghost" onClick={onDelete.bind(null, index)} >
-                                        <Trash />
-                                    </Button>
+
                                 </div>
                             )
                         })
-                    )
+
                 }
             </div>
             <div className='flex flex-row items-center'>
