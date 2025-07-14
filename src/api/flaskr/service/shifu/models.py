@@ -1,4 +1,5 @@
 from sqlalchemy import (
+    UniqueConstraint,
     Column,
     String,
     Integer,
@@ -93,6 +94,9 @@ class AiCourseAuth(db.Model):
 # draft shifu's model
 class ShifuDraftShifu(db.Model):
     __tablename__ = "shifu_draft_shifus"
+    __table_args__ = (
+        UniqueConstraint("shifu_bid", "version", name="uq_shifu_bid_version"),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -244,6 +248,11 @@ class ShifuDraftShifu(db.Model):
 
 class ShifuDraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "outline_item_bid", "version", name="uq_outline_item_bid_version"
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -401,6 +410,9 @@ class ShifuDraftOutlineItem(db.Model):
 
 class ShifuDraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
+    __table_args__ = (
+        UniqueConstraint("block_bid", "version", name="uq_block_bid_version"),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
@@ -516,13 +528,14 @@ class ShifuDraftBlock(db.Model):
         )
 
 
-class ShifuDraftRawContent(db.Model):
-    __tablename__ = "shifu_draft_raw_contents"
+class ShifuLogDraftStruct(db.Model):
+    __tablename__ = "shifu_log_draft_structs"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    content_bid = Column(
+    log_bid = Column(
         String(32),
         nullable=False,
         index=True,
+        unique=True,
         default="",
         comment="Content business identifier",
     )
@@ -533,17 +546,30 @@ class ShifuDraftRawContent(db.Model):
         default="",
         comment="Shifu business identifier",
     )
-    raw_content = Column(
-        Text, nullable=False, default="", comment="JSON serialized raw content"
+    struct = Column(Text, nullable=False, default="", comment="JSON serialized struct")
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+    created_user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Creator user business identifier",
     )
 
 
 # published shifu's model
 class ShifuPublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
+    __table_args__ = (
+        UniqueConstraint("shifu_bid", "version", name="uq_published_shifu_bid_version"),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -634,6 +660,11 @@ class ShifuPublishedShifu(db.Model):
 
 class ShifuPublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "outline_item_bid", "version", name="uq_published_outline_shifu_bid_version"
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -695,12 +726,20 @@ class ShifuPublishedOutlineItem(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
+    type = Column(SmallInteger, nullable=False, default=0, comment="Outline item type")
+    hidden = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Hidden flag: 0=visible, 1=hidden",
+    )
     latest = Column(
         SmallInteger,
         nullable=False,
         default=0,
         comment="Latest version flag: 1=latest, 0=historical",
     )
+
     version = Column(
         Integer,
         nullable=False,
@@ -741,6 +780,11 @@ class ShifuPublishedOutlineItem(db.Model):
 
 class ShifuPublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
+    __table_args__ = (
+        UniqueConstraint(
+            "block_bid", "version", name="uq_published_block_shifu_bid_version"
+        ),
+    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
@@ -826,13 +870,14 @@ class ShifuPublishedBlock(db.Model):
     )
 
 
-class ShifuPublishedRawContent(db.Model):
-    __tablename__ = "shifu_published_raw_contents"
+class ShifuLogPublishedStruct(db.Model):
+    __tablename__ = "shifu_log_published_structs"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    content_bid = Column(
+    log_bid = Column(
         String(32),
         nullable=False,
         index=True,
+        unique=True,
         default="",
         comment="Content business identifier",
     )
@@ -843,8 +888,17 @@ class ShifuPublishedRawContent(db.Model):
         default="",
         comment="Shifu business identifier",
     )
-    content = Column(
-        Text, nullable=False, default="", comment="JSON serialized shifu raw content"
+    struct = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="JSON serialized struct of published shifu",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
