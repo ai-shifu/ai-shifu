@@ -139,7 +139,6 @@ export default memo(function Option(props: UIBlockDTO) {
             }
         })
 
-        console.log("options", options);
         setTempOptions(options);
     }
 
