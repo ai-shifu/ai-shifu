@@ -1,16 +1,6 @@
 import React, { memo, useEffect, useState } from 'react'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "../ui/alert-dialog"
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash'
 import { OptionsDTO, ProfileItemDefination, UIBlockDTO } from '@/types/shifu'
@@ -43,8 +33,6 @@ export default memo(function Option(props: UIBlockDTO) {
     const [changed, setChanged] = useState(false);
     const optionsSettings = data.properties as OptionsDTO
     const [tempOptions, setTempOptions] = useState(optionsSettings.options);
-    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-    const [deleteIndex, setDeleteIndex] = useState<number | null>(null);
     const [selectedProfile, setSelectedProfile] = useState<ProfileItemDefination | null>(null);
     const [profileItemDefinations, setProfileItemDefinations] = useState<ProfileItemDefination[]>([]);
     const [variableBid, setVariableBid] = useState<string>(optionsSettings.result_variable_bid);
@@ -66,15 +54,6 @@ export default memo(function Option(props: UIBlockDTO) {
             }
             return option;
         }));
-    }
-
-
-    const handleConfirmDelete = () => {
-        if (deleteIndex !== null) {
-            setTempOptions(tempOptions.filter((_: any, i: number) => i !== deleteIndex));
-            setShowDeleteDialog(false);
-            setDeleteIndex(null);
-        }
     }
 
     const handleConfirm = () => {
@@ -217,20 +196,6 @@ export default memo(function Option(props: UIBlockDTO) {
                     {t('option.complete')}
                 </Button>
             </div>
-            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t('option.confirm-delete')}</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            {t('option.confirm-delete-description')}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>{t('option.cancel')}</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleConfirmDelete}>{t('option.confirm')}</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
         </div>
     )
 }, OptionPropsEqual)
