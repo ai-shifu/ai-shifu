@@ -156,19 +156,6 @@ class ShifuDraftShifu(db.Model):
         comment="Ask agent LLM system prompt",
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
-    latest = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Latest version flag: 1=latest, 0=historical",
-    )
-    version = Column(
-        Integer,
-        nullable=False,
-        index=True,
-        default=0,
-        comment="Version number. Max number is not always the latest",
-    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -322,19 +309,6 @@ class ShifuDraftOutlineItem(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask mode LLM system prompt"
     )
-    latest = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Latest version flag: 1=latest, 0=historical",
-    )
-    version = Column(
-        Integer,
-        nullable=False,
-        index=True,
-        default=0,
-        comment="Version number. Max number is not always the latest",
-    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -456,19 +430,6 @@ class ShifuDraftBlock(db.Model):
         comment="Resource business identifiers used in block",
     )
     content = Column(Text, nullable=False, default="", comment="Block content")
-    latest = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Latest version flag: 1=latest, 0=historical",
-    )
-    version = Column(
-        Integer,
-        nullable=False,
-        index=True,
-        default=0,
-        comment="Version number. Max number is not always the latest.",
-    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -614,19 +575,6 @@ class ShifuPublishedShifu(db.Model):
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
     price = Column(DECIMAL(10, 2), nullable=False, default=0, comment="Shifu price")
-    latest = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Latest version flag: 1=latest, 0=historical",
-    )
-    version = Column(
-        Integer,
-        nullable=False,
-        index=True,
-        default=0,
-        comment="Version number. Max number is not always the latest",
-    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -733,20 +681,6 @@ class ShifuPublishedOutlineItem(db.Model):
         default=0,
         comment="Hidden flag: 0=visible, 1=hidden",
     )
-    latest = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Latest version flag: 1=latest, 0=historical",
-    )
-
-    version = Column(
-        Integer,
-        nullable=False,
-        index=True,
-        default=0,
-        comment="Version number. Max number is not always the latest",
-    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -827,19 +761,6 @@ class ShifuPublishedBlock(db.Model):
         comment="Resource business identifiers used in block",
     )
     content = Column(Text, nullable=False, default="", comment="Block content")
-    latest = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Latest version flag: 1=latest, 0=historical",
-    )
-    version = Column(
-        Integer,
-        nullable=False,
-        index=True,
-        default=0,
-        comment="Version number. Max number is not always the latest.",
-    )
     deleted = Column(
         SmallInteger,
         nullable=False,
