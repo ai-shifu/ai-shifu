@@ -161,7 +161,7 @@ The Cook Web frontend has been unified to use a single, consistent API request s
 
 1. **Business Layer**: Calls API function (e.g., `api.getUserInfo({})` or `getUserInfo()`)
 2. **API Layer**: Constructs URL, handles parameters, calls Request class
-3. **Request Class**: 
+3. **Request Class**:
    - Adds authentication headers (`useUserStore.getToken()`)
    - Makes fetch request to backend
    - Receives JSON response
@@ -191,7 +191,7 @@ The Cook Web frontend has been unified to use a single, consistent API request s
 Both `/main` and `/c` routes now use identical request infrastructure:
 
 - **Same HTTP Client**: Request class
-- **Same Authentication**: useUserStore token management  
+- **Same Authentication**: useUserStore token management
 - **Same Error Handling**: handleBusinessCode logic
 - **Same Response Format**: Direct business data (no manual `.data` extraction needed)
 
