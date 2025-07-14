@@ -474,7 +474,7 @@ class ShifuDraftBlock(db.Model):
 class ShifuLogDraftStruct(db.Model):
     __tablename__ = "shifu_log_draft_structs"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    log_bid = Column(
+    struct_bid = Column(
         String(32),
         nullable=False,
         index=True,
@@ -489,7 +489,7 @@ class ShifuLogDraftStruct(db.Model):
         default="",
         comment="Shifu business identifier",
     )
-    struct = Column(Text, nullable=False, default="", comment="JSON serialized struct")
+    struct = Column(Text, nullable=False, default="", comment="JSON serialized shifu struct")
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -504,6 +504,19 @@ class ShifuLogDraftStruct(db.Model):
         nullable=False,
         default="",
         comment="Creator user business identifier",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
+    )
+    updated_user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
 
 
@@ -605,6 +618,13 @@ class ShifuPublishedOutlineItem(db.Model):
     title = Column(
         String(100), nullable=False, default="", comment="Outline item title"
     )
+    type = Column(SmallInteger, nullable=False, default=0, comment="Outline item type: 9001=chapter, 9002=section, 9003=block")
+    hidden = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Hidden flag: 0=visible, 1=hidden",
+    )
     parent_bid = Column(
         String(32),
         nullable=False,
@@ -647,13 +667,6 @@ class ShifuPublishedOutlineItem(db.Model):
     )
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
-    )
-    type = Column(SmallInteger, nullable=False, default=0, comment="Outline item type")
-    hidden = Column(
-        SmallInteger,
-        nullable=False,
-        default=0,
-        comment="Hidden flag: 0=visible, 1=hidden",
     )
     deleted = Column(
         SmallInteger,
@@ -763,7 +776,7 @@ class ShifuPublishedBlock(db.Model):
 class ShifuLogPublishedStruct(db.Model):
     __tablename__ = "shifu_log_published_structs"
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    log_bid = Column(
+    struct_bid = Column(
         String(32),
         nullable=False,
         index=True,
@@ -798,4 +811,17 @@ class ShifuLogPublishedStruct(db.Model):
         nullable=False,
         default="",
         comment="Creator user business identifier",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
+    )
+    updated_user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Last updater user business identifier",
     )
