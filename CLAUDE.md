@@ -132,6 +132,6 @@ Environment variables are managed through `.env` files:
   - ✅ Correct: `t('common.retry', '重试')` (with fallback)
   - ❌ Wrong: `'重试'`
 - Translation files are located in:
-  - Web app: `src/web/locales/`
+  - Web app: `src/web/public/locales/`
   - Cook web: `src/cook-web/public/locales/`
 - Always add translations for both Chinese (`zh-CN.json`) and English (`en-US.json`)
