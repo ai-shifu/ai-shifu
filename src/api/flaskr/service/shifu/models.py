@@ -489,7 +489,9 @@ class ShifuLogDraftStruct(db.Model):
         default="",
         comment="Shifu business identifier",
     )
-    struct = Column(Text, nullable=False, default="", comment="JSON serialized shifu struct")
+    struct = Column(
+        Text, nullable=False, default="", comment="JSON serialized shifu struct"
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -618,7 +620,12 @@ class ShifuPublishedOutlineItem(db.Model):
     title = Column(
         String(100), nullable=False, default="", comment="Outline item title"
     )
-    type = Column(SmallInteger, nullable=False, default=0, comment="Outline item type: 9001=chapter, 9002=section, 9003=block")
+    type = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Outline item type: 9001=chapter, 9002=section, 9003=block",
+    )
     hidden = Column(
         SmallInteger,
         nullable=False,
