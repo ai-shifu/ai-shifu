@@ -243,7 +243,7 @@ def save_shifu_draft_detail(
 ):
     with app.app_context():
         shifu_draft = ShifuDraftShifu.query.filter_by(
-            bid=shifu_id, latest=1, deleted=0
+            shifu_bid=shifu_id, latest=1, deleted=0
         ).first()
         if shifu_draft:
             old_check_str = shifu_draft.get_str_to_check()
