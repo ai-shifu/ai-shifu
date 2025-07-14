@@ -1,5 +1,4 @@
 from sqlalchemy import (
-    UniqueConstraint,
     Column,
     String,
     Integer,
@@ -94,9 +93,6 @@ class AiCourseAuth(db.Model):
 # draft shifu's model
 class ShifuDraftShifu(db.Model):
     __tablename__ = "shifu_draft_shifus"
-    __table_args__ = (
-        UniqueConstraint("shifu_bid", "version", name="uq_shifu_bid_version"),
-    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -202,8 +198,6 @@ class ShifuDraftShifu(db.Model):
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
             price=self.price,
-            latest=self.latest,
-            version=self.version + 1,  # new version
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -214,7 +208,6 @@ class ShifuDraftShifu(db.Model):
     def eq(self, other):
         return (
             self.shifu_bid == other.shifu_bid
-            and self.version == other.version
             and self.title == other.title
             and self.keywords == other.keywords
             and self.description == other.description
@@ -235,11 +228,6 @@ class ShifuDraftShifu(db.Model):
 
 class ShifuDraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
-    __table_args__ = (
-        UniqueConstraint(
-            "outline_item_bid", "version", name="uq_outline_item_bid_version"
-        ),
-    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -353,7 +341,6 @@ class ShifuDraftOutlineItem(db.Model):
             ask_llm=self.ask_llm,
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
-            version=self.version + 1,
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -384,9 +371,6 @@ class ShifuDraftOutlineItem(db.Model):
 
 class ShifuDraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
-    __table_args__ = (
-        UniqueConstraint("block_bid", "version", name="uq_block_bid_version"),
-    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
@@ -484,8 +468,6 @@ class ShifuDraftBlock(db.Model):
             variable_bids=self.variable_bids,
             resource_bids=self.resource_bids,
             content=self.content,
-            latest=self.latest,
-            version=self.version + 1,
         )
 
 
@@ -528,9 +510,6 @@ class ShifuLogDraftStruct(db.Model):
 # published shifu's model
 class ShifuPublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
-    __table_args__ = (
-        UniqueConstraint("shifu_bid", "version", name="uq_published_shifu_bid_version"),
-    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -608,11 +587,6 @@ class ShifuPublishedShifu(db.Model):
 
 class ShifuPublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
-    __table_args__ = (
-        UniqueConstraint(
-            "outline_item_bid", "version", name="uq_published_outline_shifu_bid_version"
-        ),
-    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -714,11 +688,6 @@ class ShifuPublishedOutlineItem(db.Model):
 
 class ShifuPublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
-    __table_args__ = (
-        UniqueConstraint(
-            "block_bid", "version", name="uq_published_block_shifu_bid_version"
-        ),
-    )
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
