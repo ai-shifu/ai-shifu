@@ -474,7 +474,7 @@ class ShifuDraftBlock(db.Model):
     def get_str_to_check(self):
         return f"{self.content}"
 
-    def clone(self):
+    def clone(self) -> "ShifuDraftBlock":
         return ShifuDraftBlock(
             block_bid=self.block_bid,
             shifu_bid=self.shifu_bid,

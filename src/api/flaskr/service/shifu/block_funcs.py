@@ -1,3 +1,4 @@
+from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.shifu.dtos import (
     SaveBlockListResultDto,
     BlockDTO,
@@ -36,6 +37,7 @@ import queue
 from flaskr.dao import redis_client
 
 
+@extensible
 def get_block_list(app, user_id: str, outline_id: str) -> list[BlockDTO]:
     with app.app_context():
         lesson = AILesson.query.filter(
@@ -86,6 +88,7 @@ def get_block_list(app, user_id: str, outline_id: str) -> list[BlockDTO]:
     pass
 
 
+@extensible
 def delete_block(app, user_id: str, outline_id: str, block_id: str):
     with app.app_context():
         block = (
@@ -105,6 +108,7 @@ def delete_block(app, user_id: str, outline_id: str, block_id: str):
     pass
 
 
+@extensible
 def get_block(app, user_id: str, outline_id: str, block_id: str) -> BlockDTO:
     with app.app_context():
         block = AILessonScript.query.filter(
@@ -345,6 +349,7 @@ def save_block_list_internal(
         )
 
 
+@extensible
 def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDTO]):
     timeout = 5 * 60
     blocking_timeout = 1
@@ -370,6 +375,7 @@ def save_block_list(app, user_id: str, outline_id: str, block_list: list[BlockDT
     return
 
 
+@extensible
 def add_block(
     app, user_id: str, outline_id: str, block: dict, block_index: int
 ) -> BlockDTO:
@@ -462,6 +468,7 @@ def get_block_by_id(app, block_id: str) -> AILessonScript:
         return block
 
 
+@extensible
 def get_system_block_by_outline_id(app, outline_id: str) -> AILessonScript:
     with app.app_context():
         block = (

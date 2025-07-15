@@ -436,15 +436,11 @@ class ButtonDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        from flask import current_app
-
-        current_app.logger.info(f"label: {label} type: {type(label)}")
-
         super().__init__(label=LabelDTO(lang=label.get("lang", label)))
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
         }
 
 
@@ -477,7 +473,7 @@ class InputDTO(BaseModel):
 
     def __json__(self):
         return {
-            "placeholder": self.placeholder,
+            "placeholder": self.placeholder.__json__(),
             "prompt": self.prompt,
             "result_variable_bids": self.result_variable_bids,
             "llm": self.llm,
@@ -496,7 +492,7 @@ class OptionItemDTO(BaseModel):
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
             "value": self.value,
         }
 
@@ -517,7 +513,7 @@ class OptionsDTO(BaseModel):
     def __json__(self):
         return {
             "result_variable_bid": self.result_variable_bid,
-            "options": self.options,
+            "options": [option.__json__() for option in self.options],
         }
 
 
@@ -555,7 +551,7 @@ class GotoDTO(BaseModel):
 
     def __json__(self):
         return {
-            "conditions": self.conditions,
+            "conditions": [condition.__json__() for condition in self.conditions],
         }
 
 
@@ -568,7 +564,7 @@ class PaymentDTO(BaseModel):
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
         }
 
 
@@ -581,7 +577,7 @@ class LoginDTO(BaseModel):
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
         }
 
 
@@ -598,7 +594,7 @@ class CheckCodeDTO(BaseModel):
 
     def __json__(self):
         return {
-            "placeholder": self.placeholder,
+            "placeholder": self.placeholder.__json__(),
         }
 
 
@@ -615,7 +611,7 @@ class PhoneDTO(BaseModel):
 
     def __json__(self):
         return {
-            "placeholder": self.placeholder,
+            "placeholder": self.placeholder.__json__(),
         }
 
 
@@ -664,7 +660,7 @@ class BlockDTO(BaseModel):
         return {
             "bid": self.bid,
             "type": self.type,
-            "properties": self.block_content,
+            "properties": self.block_content.__json__(),
             "variable_bids": self.variable_bids,
             "resource_bids": self.resource_bids,
         }
