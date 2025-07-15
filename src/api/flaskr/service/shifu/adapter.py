@@ -40,6 +40,19 @@ import json
 from flaskr.service.common import raise_error
 from flaskr.util import generate_id
 import re
+from .models import ShifuDraftBlock
+from .const import (
+    BLOCK_TYPE_VALUES,
+    BLOCK_TYPE_VALUES_REVERSE,
+    BLOCK_TYPE_CONTENT,
+    BLOCK_TYPE_BUTTON,
+    BLOCK_TYPE_INPUT,
+    BLOCK_TYPE_OPTIONS,
+    BLOCK_TYPE_GOTO,
+    BLOCK_TYPE_LOGIN,
+    BLOCK_TYPE_PAYMENT,
+    BLOCK_TYPE_BREAK,
+)
 
 
 # convert outline dict to outline edit dto
@@ -575,3 +588,155 @@ def generate_block_dto_from_model(
         ret[1].bid = generate_id(app)
 
     return ret
+
+
+def check_content_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    if (
+        not block_dto.block_content.content
+        or not block_dto.block_content.content.strip()
+    ):
+        return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
+    return BlockUpdateResultDto(None, None)
+
+
+def check_button_block_dto(block_dto: BlockDTO) -> BlockUpdateResultDto:
+    if not block_dto.block_content.label or not block_dto.block_content.label.lang:
+        return BlockUpdateResultDto(None, _("SHIFU.BUTTON_LABEL_REQUIRED"))
+    return BlockUpdateResultDto(None, None)
+
+
+def check_input_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    content: InputDTO = block_dto.block_content
+    if not content.prompt or not content.prompt.strip():
+        return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_REQUIRED"))
+    if content.result_variable_bids is None or len(content.result_variable_bids) == 0:
+        return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
+    if "json" not in content.prompt.strip().lower():
+        return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED"))
+    for variable_bid in content.result_variable_bids:
+        variable_definition = variable_definition_map.get(variable_bid, None)
+        if variable_definition is None:
+            return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+        if variable_definition.profile_key not in content.prompt.strip().lower():
+            return BlockUpdateResultDto(
+                None, _("SHIFU.TEXT_INPUT_PROMPT_VARIABLE_REQUIRED")
+            )
+    return BlockUpdateResultDto(None, None)
+
+
+def check_options_block_dto(block_dto: BlockDTO) -> BlockUpdateResultDto:
+    content: OptionsDTO = block_dto.block_content
+    if not content.options or len(content.options) == 0:
+        return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_REQUIRED"))
+    if block_dto.variable_bids is None or len(block_dto.variable_bids) == 0:
+        return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_VARIABLE_BIDS_REQUIRED"))
+    if (
+        content.result_variable_bid is None
+        or content.result_variable_bid not in block_dto.variable_bids
+    ):
+        return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+    for option in content.options:
+        if not option.value or not option.value.strip():
+            return BlockUpdateResultDto(None, _("SHIFU.OPTION_VALUE_REQUIRED"))
+        if not option.label or not option.label.lang:
+            return BlockUpdateResultDto(None, _("SHIFU.OPTION_LABEL_REQUIRED"))
+    return BlockUpdateResultDto(None, None)
+
+
+def check_goto_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    content: GotoDTO = block_dto.block_content
+    if not content.conditions or len(content.conditions) == 0:
+        return BlockUpdateResultDto(None, _("SHIFU.GOTO_CONDITIONS_REQUIRED"))
+    if block_dto.variable_bids is None or len(block_dto.variable_bids) == 0:
+        return BlockUpdateResultDto(None, _("SHIFU.GOTO_VARIABLE_BIDS_REQUIRED"))
+    for variable_bid in block_dto.variable_bids:
+        variable_definition = variable_definition_map.get(variable_bid, None)
+        if variable_definition is None:
+            return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+    return BlockUpdateResultDto(None, None)
+
+
+def check_login_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    if not block_dto.block_content.label or not block_dto.block_content.label.lang:
+        return BlockUpdateResultDto(None, _("SHIFU.LOGIN_LABEL_REQUIRED"))
+    return BlockUpdateResultDto(None, None)
+
+
+def check_payment_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    if not block_dto.block_content.label or not block_dto.block_content.label.lang:
+        return BlockUpdateResultDto(None, _("SHIFU.PAYMENT_LABEL_REQUIRED"))
+    return BlockUpdateResultDto(None, None)
+
+
+def check_break_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    return BlockUpdateResultDto(None, None)
+
+
+def check_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
+    func_map = {
+        BLOCK_TYPE_CONTENT: check_content_block_dto,
+        BLOCK_TYPE_BUTTON: check_button_block_dto,
+        BLOCK_TYPE_INPUT: check_input_block_dto,
+        BLOCK_TYPE_OPTIONS: check_options_block_dto,
+        BLOCK_TYPE_GOTO: check_goto_block_dto,
+        BLOCK_TYPE_LOGIN: check_login_block_dto,
+        BLOCK_TYPE_PAYMENT: check_payment_block_dto,
+        BLOCK_TYPE_BREAK: check_break_block_dto,
+    }
+    func = func_map.get(block_dto.type, None)
+    if func is None:
+        raise_error(f"Invalid block type: {block_dto.type}")
+    return func(block_dto, variable_definition_map)
+
+
+def update_block_dto_to_model_internal(
+    block_dto: BlockDTO,
+    block_model: ShifuDraftBlock,
+    variable_definitions: list[ProfileItemDefinition],
+    new_block: bool = False,
+) -> BlockUpdateResultDto:
+    block_type = BLOCK_TYPE_VALUES.get(block_dto.type, None)
+    if block_type is None:
+        raise_error(f"Invalid block type: {block_dto.type}")
+
+    variable_definition_map: dict[str, ProfileItemDefinition] = {
+        variable_definition.profile_id: variable_definition
+        for variable_definition in variable_definitions
+    }
+    if not new_block:
+        result = check_block_dto(block_dto, variable_definition_map)
+        if result.error_message:
+            return result
+
+    block_model.type = block_type
+    block_model.content = json.dumps(block_dto.block_content.__json__())
+    block_model.variable_bids = ",".join(block_dto.variable_bids)
+    block_model.resource_bids = ",".join(block_dto.resource_bids)
+    return BlockUpdateResultDto(None, None)
+
+
+def generate_block_dto_from_model_internal(block_model: ShifuDraftBlock) -> BlockDTO:
+    type = BLOCK_TYPE_VALUES_REVERSE.get(block_model.type, None)
+    if type is None:
+        raise_error(f"Invalid block type: {block_model.type}")
+    block_dto = BlockDTO(
+        bid=block_model.block_bid,
+        block_content=CONTENT_TYPE[type](**json.loads(block_model.content)),
+        variable_bids=block_model.variable_bids.split(","),
+        resource_bids=block_model.resource_bids.split(","),
+    )
+    return block_dto
