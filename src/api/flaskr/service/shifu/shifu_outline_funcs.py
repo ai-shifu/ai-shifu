@@ -321,7 +321,7 @@ def delete_outline(result, app, user_id: str, shifu_id: str, outline_id: str):
     with app.app_context():
         # find the outline to delete
         outline_to_delete = (
-            ShifuDraftOutlineItem.query.filter_by(
+            ShifuDraftOutlineItem.query.filter(
                 ShifuDraftOutlineItem.outline_item_bid == outline_id,
                 ShifuDraftOutlineItem.shifu_bid == shifu_id,
                 ShifuDraftOutlineItem.deleted == 0,

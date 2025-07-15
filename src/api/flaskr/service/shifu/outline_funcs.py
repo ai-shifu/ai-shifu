@@ -370,7 +370,7 @@ def update_chapter_order(
 
         return [
             SimpleOutlineDto(
-                node.outline_id, node.position, node.outline.title, node.children
+                node.outline_id, node.lesson_no, node.outline.lesson_name, node.children
             )
             for node in outlines
         ]

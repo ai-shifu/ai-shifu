@@ -71,7 +71,7 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
                 update_block.position = block.position - 1
                 update_block.updated_at = datetime.now()
                 update_block.updated_user_bid = user_id
-                db.session.add(block)
+                db.session.add(update_block)
         db.session.commit()
         return True
 
@@ -80,6 +80,7 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
 def get_block(result, app, user_id: str, outline_id: str, block_id: str) -> BlockDTO:
     with app.app_context():
         app.logger.info(f"get block: {outline_id}, {block_id}")
+
         return None
 
 
@@ -196,7 +197,7 @@ def add_block(
             block_bid = generate_id(app)
         block_dto = convert_to_blockDTO(block)
         block_index = block_index + 1
-        variable_definitions = get_profile_item_definition_list(app, outline_id)
+        variable_definitions = get_profile_item_definition_list(app, outline.shifu_bid)
         existing_blocks = _get_block_list_internal(app, user_id, outline_id)
         block_model: ShifuDraftBlock = ShifuDraftBlock()
         block_model.outline_item_bid = outline_id

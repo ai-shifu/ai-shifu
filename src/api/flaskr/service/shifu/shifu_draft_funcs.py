@@ -199,7 +199,6 @@ def save_shifu_draft_info(
                     app, shifu_id, user_id, new_shifu_draft.get_str_to_check()
                 )
                 # mark the old version as deleted
-                shifu_draft.latest = 0
                 db.session.add(new_shifu_draft)
                 db.session.commit()
                 shifu_draft = new_shifu_draft
