@@ -147,7 +147,12 @@ def create_unit(
 
             db.session.add(unit)
             db.session.commit()
-            return SimpleOutlineDto(OutlineTreeNode(outline=unit))
+            return SimpleOutlineDto(
+                bid=unit.lesson_id,
+                position=unit.lesson_no,
+                name=unit.lesson_name,
+                children=[],
+            )
         raise_error("SCENARIO.CHAPTER_NOT_FOUND")
 
 

@@ -280,7 +280,7 @@ def reorder_outline_tree_and_save(
             reorder_queue.put(child)
 
 
-def get_shifu_res_url(app: Flask, res_bid: str):
+def get_shifu_res_url(res_bid: str):
     res = Resource.query.filter_by(resource_id=res_bid).first()
     if res:
         return res.url

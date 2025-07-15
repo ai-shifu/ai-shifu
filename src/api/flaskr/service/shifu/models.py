@@ -353,6 +353,8 @@ class ShifuDraftOutlineItem(db.Model):
             ask_llm=self.ask_llm,
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
+            type=self.type,
+            hidden=self.hidden,
             deleted=self.deleted,
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
@@ -369,6 +371,8 @@ class ShifuDraftOutlineItem(db.Model):
             and self.position == other.position
             and self.prerequisite_item_bids == other.prerequisite_item_bids
             and self.llm == other.llm
+            and self.type == other.type
+            and self.hidden == other.hidden
             and compare_decimal(self.llm_temperature, other.llm_temperature)
             and self.llm_system_prompt == other.llm_system_prompt
             and self.ask_enabled_status == other.ask_enabled_status

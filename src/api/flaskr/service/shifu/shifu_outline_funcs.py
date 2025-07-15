@@ -1,6 +1,17 @@
 from flaskr.framework.plugin.plugin_manager import extension
-from .dtos import ReorderOutlineItemDto, SimpleOutlineDto, OutlineDto
-from .const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
+from .dtos import (
+    ReorderOutlineItemDto,
+    SimpleOutlineDto,
+    OutlineDto,
+    ShifuOutlineTreeNode,
+)
+from .const import (
+    UNIT_TYPE_VALUES_REVERSE,
+    UNIT_TYPE_VALUES,
+    UNIT_TYPE_VALUE_TRIAL,
+    UNIT_TYPE_NORMAL,
+    UNIT_TYPE_TRIAL,
+)
 from .models import ShifuDraftOutlineItem
 from ...dao import db
 from ...util.uuid import generate_id
@@ -8,45 +19,7 @@ from ..common.models import raise_error
 from datetime import datetime
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
-
-
-# new outline tree node class, for handling ShifuDraftOutlineItem
-# author: yfge
-# date: 2025-07-13
-# version: 1.0.0
-# description: this class is used to handle ShifuDraftOutlineItem
-# usage:
-# 1. create a new ShifuOutlineTreeNode
-# 2. add a child to the node
-# 3. remove a child from the node
-class ShifuOutlineTreeNode:
-    def __init__(self, outline_item: ShifuDraftOutlineItem):
-        self.outline = outline_item
-        self.children = []
-        if outline_item:
-            self.outline_id = outline_item.bid
-            self.position = outline_item.position
-        else:
-            self.outline_id = ""
-            self.position = ""
-        self.parent_node = None
-
-    def add_child(self, child: "ShifuOutlineTreeNode"):
-        self.children.append(child)
-        child.parent_node = self
-
-    def remove_child(self, child: "ShifuOutlineTreeNode"):
-        child.parent_node = None
-        self.children.remove(child)
-
-    def get_new_position(self):
-        if not self.parent_node:
-            return self.position
-        else:
-            return (
-                self.parent_node.get_new_position()
-                + f"{self.parent_node.children.index(self) + 1:02d}"
-            )
+from .adapter import convert_outline_to_reorder_outline_item_dto
 
 
 # get existing outline items
@@ -57,17 +30,26 @@ class ShifuOutlineTreeNode:
 # usage:
 # 1. get existing outline items
 # 2. sort outline items by position
-def get_existing_outline_items(app, shifu_id: str) -> list[ShifuDraftOutlineItem]:
+def get_existing_outline_items(app, shifu_bid: str) -> list[ShifuDraftOutlineItem]:
     with app.app_context():
-        outline_items = ShifuDraftOutlineItem.query.filter_by(
-            shifu_bid=shifu_id, latest=1, deleted=0
+        sub_query = (
+            db.session.query(db.func.max(ShifuDraftOutlineItem.id))
+            .filter(
+                ShifuDraftOutlineItem.shifu_bid == shifu_bid,
+            )
+            .group_by(ShifuDraftOutlineItem.outline_item_bid)
+        )
+        outline_items = ShifuDraftOutlineItem.query.filter(
+            ShifuDraftOutlineItem.id.in_(sub_query),
+            ShifuDraftOutlineItem.deleted == 0,
         ).all()
+
         return sorted(outline_items, key=lambda x: (len(x.position), x.position))
 
 
 # build outline tree
-def build_outline_tree(app, shifu_id: str) -> list[ShifuOutlineTreeNode]:
-    outline_items = get_existing_outline_items(app, shifu_id)
+def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
+    outline_items = get_existing_outline_items(app, shifu_bid)
     sorted_items = sorted(outline_items, key=lambda x: (len(x.position), x.position))
     outline_tree = []
 
@@ -94,26 +76,17 @@ def build_outline_tree(app, shifu_id: str) -> list[ShifuOutlineTreeNode]:
     return outline_tree
 
 
-# create SimpleOutlineDto helper function
-# author: yfge
-# date: 2025-07-13
-# version: 1.0.0
-# description: this function is used to create SimpleOutlineDto
-# usage:
-# 1. create a new SimpleOutlineDto
-# 2. add a child to the node
-def create_simple_outline_dto(node: ShifuOutlineTreeNode) -> SimpleOutlineDto:
-    """recursively create SimpleOutlineDto"""
-    children = []
-    for child in node.children:
-        children.append(create_simple_outline_dto(child))
-
-    return SimpleOutlineDto(
-        bid=node.outline_id,
-        position=node.position,
-        name=node.outline.title,
-        children=children,
-    )
+def get_outline_tree_dto(
+    outline_tree: list[ShifuOutlineTreeNode],
+) -> list[SimpleOutlineDto]:
+    result = []
+    for node in outline_tree:
+        result.append(
+            SimpleOutlineDto(node.outline_id, node.position, node.outline.title, [])
+        )
+        if node.children:
+            result[-1].children = get_outline_tree_dto(node.children)
+    return result
 
 
 # get outline tree
@@ -126,12 +99,15 @@ def create_simple_outline_dto(node: ShifuOutlineTreeNode) -> SimpleOutlineDto:
 # 2. return outline tree
 # 3. it's a plugin function to get outline tree of new shifu draft
 @extension("get_outline_tree")
-def get_outline_tree(result, app, user_id: str, shifu_id: str):
-    """获取大纲树"""
+def get_outline_tree(
+    result, app, user_id: str, shifu_bid: str
+) -> list[SimpleOutlineDto]:
+    """get outline tree"""
+    app.logger.info(f"get outline tree, user_id: {user_id}, shifu_bid: {shifu_bid}")
     with app.app_context():
-        outline_tree = build_outline_tree(app, shifu_id)
-        outline_tree_dto = [create_simple_outline_dto(node) for node in outline_tree]
-        return outline_tree_dto
+        outline_tree = build_outline_tree(app, shifu_bid)
+        # return result
+        return get_outline_tree_dto(outline_tree)
 
 
 # create outline
@@ -146,7 +122,7 @@ def get_outline_tree(result, app, user_id: str, shifu_id: str):
 # 4. it's a plugin function to create outline of new shifu draft and parallel to create outline of old shifu draft
 @extension("create_outline")
 def create_outline(
-    result,
+    result: SimpleOutlineDto,
     app,
     user_id: str,
     shifu_id: str,
@@ -161,16 +137,25 @@ def create_outline(
     """create outline"""
     with app.app_context():
         # generate new outline id
-        outline_id = generate_id(app)
+        if result and result.bid:
+            outline_bid = result.bid
+        else:
+            outline_bid = generate_id(app)
 
         # validate name length
         if len(outline_name) > 100:
             raise_error("SHIFU.OUTLINE_NAME_TOO_LONG")
 
         # check if name conflicts with other outlines
-        existing_outline = ShifuDraftOutlineItem.query.filter_by(
-            shifu_bid=shifu_id, title=outline_name, latest=1, deleted=0
-        ).first()
+        existing_outline = (
+            ShifuDraftOutlineItem.query.filter(
+                ShifuDraftOutlineItem.shifu_bid == shifu_id,
+                ShifuDraftOutlineItem.title == outline_name,
+                ShifuDraftOutlineItem.deleted == 0,
+            )
+            .order_by(ShifuDraftOutlineItem.id.desc())
+            .first()
+        )
         if existing_outline:
             raise_error("SHIFU.OUTLINE_NAME_ALREADY_EXISTS")
 
@@ -179,7 +164,8 @@ def create_outline(
         if parent_id:
             # child outline
             parent_item = next(
-                (item for item in existing_items if item.bid == parent_id), None
+                (item for item in existing_items if item.outline_item_bid == parent_id),
+                None,
             )
             if not parent_item:
                 raise_error("SHIFU.PARENT_OUTLINE_NOT_FOUND")
@@ -197,10 +183,11 @@ def create_outline(
                 max([int(item.position) for item in root_items]) if root_items else 0
             )
             new_position = f"{max_index + 1:02d}"
+        type = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
 
         # create new outline
         new_outline = ShifuDraftOutlineItem(
-            bid=outline_id,
+            outline_item_bid=outline_bid,
             shifu_bid=shifu_id,
             title=outline_name,
             parent_bid=parent_id or "",
@@ -213,16 +200,16 @@ def create_outline(
             ask_llm="",
             ask_llm_temperature=Decimal("0.3"),
             ask_llm_system_prompt="",
-            latest=1,
-            version=1,
             deleted=0,
             created_user_bid=user_id,
             updated_user_bid=user_id,
+            type=type,
+            hidden=is_hidden,
         )
 
         # risk check
         check_text_with_risk_control(
-            app, outline_id, user_id, f"{outline_name} {system_prompt or ''}"
+            app, outline_bid, user_id, f"{outline_name} {system_prompt or ''}"
         )
 
         # save to database
@@ -230,7 +217,7 @@ def create_outline(
         db.session.commit()
 
         return SimpleOutlineDto(
-            bid=outline_id, position=new_position, name=outline_name, children=[]
+            bid=outline_bid, position=new_position, name=outline_name, children=[]
         )
 
 
@@ -260,12 +247,20 @@ def modify_outline(
     """modify outline"""
     with app.app_context():
         # find existing outline
-        existing_outline = ShifuDraftOutlineItem.query.filter_by(
-            bid=outline_id, shifu_bid=shifu_id, latest=1, deleted=0
-        ).first()
+        existing_outline = (
+            ShifuDraftOutlineItem.query.filter(
+                ShifuDraftOutlineItem.outline_item_bid == outline_id,
+                ShifuDraftOutlineItem.shifu_bid == shifu_id,
+            )
+            .order_by(ShifuDraftOutlineItem.id.desc())
+            .first()
+        )
 
         if not existing_outline:
             raise_error("SHIFU.OUTLINE_NOT_FOUND")
+
+        if existing_outline.deleted == 1:
+            raise_error("SHIFU.OUTLINE_DELETED")
 
         # validate name length
         if len(outline_name) > 100:
@@ -273,10 +268,12 @@ def modify_outline(
 
         # check if name conflicts with other outlines
         name_conflict = (
-            ShifuDraftOutlineItem.query.filter_by(
-                shifu_bid=shifu_id, title=outline_name, latest=1, deleted=0
+            ShifuDraftOutlineItem.query.filter(
+                ShifuDraftOutlineItem.shifu_bid == shifu_id,
+                ShifuDraftOutlineItem.title == outline_name,
+                ShifuDraftOutlineItem.deleted == 0,
             )
-            .filter(ShifuDraftOutlineItem.bid != outline_id)
+            .filter(ShifuDraftOutlineItem.outline_item_bid != outline_id)
             .first()
         )
 
@@ -285,28 +282,19 @@ def modify_outline(
 
         # check if needs update
         old_check_str = existing_outline.get_str_to_check()
-        needs_update = False
+        # create new version
+        new_outline: ShifuDraftOutlineItem = existing_outline.clone()
+        new_outline.title = outline_name
+        new_outline.llm_system_prompt = system_prompt or ""
+        new_outline.updated_user_bid = user_id
+        new_outline.updated_at = datetime.now()
+        # risk check
+        new_check_str = new_outline.get_str_to_check()
+        if old_check_str != new_check_str:
+            check_text_with_risk_control(app, outline_id, user_id, new_check_str)
 
-        if existing_outline.title != outline_name:
-            needs_update = True
-        if existing_outline.llm_system_prompt != (system_prompt or ""):
-            needs_update = True
-
-        if needs_update:
-            # create new version
-            existing_outline.latest = 0
-            new_outline = existing_outline.clone()
-            new_outline.title = outline_name
-            new_outline.llm_system_prompt = system_prompt or ""
-            new_outline.updated_user_bid = user_id
-            new_outline.updated_at = datetime.now()
-
-            # risk check
-            new_check_str = new_outline.get_str_to_check()
-            if old_check_str != new_check_str:
-                check_text_with_risk_control(app, outline_id, user_id, new_check_str)
-
-            # save to database
+        # save to database
+        if not existing_outline.eq(new_outline):
             db.session.add(new_outline)
             db.session.commit()
 
@@ -332,9 +320,15 @@ def delete_outline(result, app, user_id: str, shifu_id: str, outline_id: str):
     """delete outline"""
     with app.app_context():
         # find the outline to delete
-        outline_to_delete = ShifuDraftOutlineItem.query.filter_by(
-            bid=outline_id, shifu_bid=shifu_id, latest=1, deleted=0
-        ).first()
+        outline_to_delete = (
+            ShifuDraftOutlineItem.query.filter_by(
+                ShifuDraftOutlineItem.outline_item_bid == outline_id,
+                ShifuDraftOutlineItem.shifu_bid == shifu_id,
+                ShifuDraftOutlineItem.deleted == 0,
+            )
+            .order_by(ShifuDraftOutlineItem.id.desc())
+            .first()
+        )
 
         if not outline_to_delete:
             raise_error("SHIFU.OUTLINE_NOT_FOUND")
@@ -368,11 +362,16 @@ def delete_outline(result, app, user_id: str, shifu_id: str, outline_id: str):
 
         # mark all related outlines as deleted
         for item_id in ids_to_delete:
-            item = ShifuDraftOutlineItem.query.filter_by(
-                bid=item_id, shifu_bid=shifu_id, latest=1, deleted=0
-            ).first()
+            item = (
+                ShifuDraftOutlineItem.query.filter(
+                    ShifuDraftOutlineItem.outline_item_bid == item_id,
+                    ShifuDraftOutlineItem.shifu_bid == shifu_id,
+                    ShifuDraftOutlineItem.deleted == 0,
+                )
+                .order_by(ShifuDraftOutlineItem.id.desc())
+                .first()
+            )
             if item:
-                item.latest = 0
                 new_item = item.clone()
                 new_item.deleted = 1
                 new_item.updated_user_bid = user_id
@@ -404,10 +403,12 @@ def reorder_outline_tree(
 
         # get existing outlines
         existing_items = get_existing_outline_items(app, shifu_id)
-        existing_items_map = {item.bid: item for item in existing_items}
+        existing_items_map = {item.outline_item_bid: item for item in existing_items}
 
         # rebuild positions
-        def rebuild_positions(outline_dtos, parent_position=""):
+        def rebuild_positions(
+            outline_dtos: list[ReorderOutlineItemDto], parent_position=""
+        ):
             for i, outline_dto in enumerate(outline_dtos):
                 if outline_dto.bid in existing_items_map:
                     item = existing_items_map[outline_dto.bid]
@@ -415,7 +416,6 @@ def reorder_outline_tree(
 
                     if item.position != new_position:
                         # create new version
-                        item.latest = 0
                         new_item = item.clone()
                         new_item.position = new_position
                         new_item.updated_user_bid = user_id
@@ -427,7 +427,8 @@ def reorder_outline_tree(
                     if outline_dto.children:
                         rebuild_positions(outline_dto.children, new_position)
 
-        rebuild_positions(outlines)
+        outline_dtos = convert_outline_to_reorder_outline_item_dto(outlines)
+        rebuild_positions(outline_dtos)
         db.session.commit()
         return True
 
@@ -445,23 +446,26 @@ def reorder_outline_tree(
 def get_unit_by_id(result, app, user_id: str, unit_id: str):
     """get unit by id"""
     with app.app_context():
-        unit = ShifuDraftOutlineItem.query.filter_by(
-            bid=unit_id, latest=1, deleted=0
-        ).first()
+        unit: ShifuDraftOutlineItem = (
+            ShifuDraftOutlineItem.query.filter(
+                ShifuDraftOutlineItem.outline_item_bid == unit_id,
+                ShifuDraftOutlineItem.deleted == 0,
+            )
+            .order_by(ShifuDraftOutlineItem.id.desc())
+            .first()
+        )
 
         if not unit:
             raise_error("SHIFU.UNIT_NOT_FOUND")
-
-        # map type
-        unit_type = UNIT_TYPE_TRIAL  # default to trial type
-        is_hidden = False
+        unit_type: str = UNIT_TYPE_VALUES_REVERSE.get(unit.type, UNIT_TYPE_TRIAL)
+        is_hidden: bool = True if unit.hidden == 1 else False
 
         return OutlineDto(
-            bid=unit.bid,
+            bid=unit.outline_item_bid,
             position=unit.position,
             name=unit.title,
-            description="",  # ShifuDraftOutlineItem has no description field
-            index=0,  # ShifuDraftOutlineItem has no index field
+            description=unit.title,
+            index=unit.position,
             type=unit_type,
             system_prompt=unit.llm_system_prompt,
             is_hidden=is_hidden,
@@ -495,9 +499,14 @@ def modify_unit(
         app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
 
         # find existing unit
-        existing_unit = ShifuDraftOutlineItem.query.filter_by(
-            bid=unit_id, latest=1, deleted=0
-        ).first()
+        existing_unit = (
+            ShifuDraftOutlineItem.query.filter(
+                ShifuDraftOutlineItem.outline_item_bid == unit_id,
+                ShifuDraftOutlineItem.deleted == 0,
+            )
+            .order_by(ShifuDraftOutlineItem.id.desc())
+            .first()
+        )
 
         if not existing_unit:
             raise_error("SHIFU.UNIT_NOT_FOUND")
@@ -508,44 +517,41 @@ def modify_unit(
 
         # check if needs update
         old_check_str = existing_unit.get_str_to_check()
-        needs_update = False
 
-        if unit_name and existing_unit.title != unit_name:
-            needs_update = True
-        if unit_system_prompt and existing_unit.llm_system_prompt != unit_system_prompt:
-            needs_update = True
+        # create new version
+        new_unit: ShifuDraftOutlineItem = existing_unit.clone()
 
-        if needs_update:
-            # create new version
-            existing_unit.latest = 0
-            new_unit = existing_unit.clone()
+        if unit_name:
+            new_unit.title = unit_name
+        if unit_system_prompt:
+            new_unit.llm_system_prompt = unit_system_prompt
+        if unit_is_hidden is True:
+            new_unit.hidden = 1
+        elif unit_is_hidden is False:
+            new_unit.hidden = 0
+        if unit_type:
+            new_unit.type = UNIT_TYPE_VALUES.get(unit_type, UNIT_TYPE_VALUE_TRIAL)
 
-            if unit_name:
-                new_unit.title = unit_name
-            if unit_system_prompt:
-                new_unit.llm_system_prompt = unit_system_prompt
+        new_unit.updated_user_bid = user_id
+        new_unit.updated_at = datetime.now()
 
-            new_unit.updated_user_bid = user_id
-            new_unit.updated_at = datetime.now()
-
+        # save to database
+        if not existing_unit.eq(new_unit):
             # risk check
             new_check_str = new_unit.get_str_to_check()
             if old_check_str != new_check_str:
                 check_text_with_risk_control(app, unit_id, user_id, new_check_str)
-
-            # save to database
+            existing_unit = new_unit
             db.session.add(new_unit)
             db.session.commit()
 
-            existing_unit = new_unit
-
         return OutlineDto(
-            bid=existing_unit.bid,
+            bid=existing_unit.outline_item_bid,
             position=existing_unit.position,
             name=existing_unit.title,
             description=unit_description or "",
             type=unit_type,
-            index=unit_index,
+            index=int(existing_unit.position),
             system_prompt=existing_unit.llm_system_prompt,
             is_hidden=unit_is_hidden,
         )
@@ -565,9 +571,14 @@ def delete_unit(result, app, user_id: str, unit_id: str):
     """delete unit"""
     with app.app_context():
         # find the unit to delete
-        unit_to_delete = ShifuDraftOutlineItem.query.filter_by(
-            bid=unit_id, latest=1, deleted=0
-        ).first()
+        unit_to_delete = (
+            ShifuDraftOutlineItem.query.filter(
+                ShifuDraftOutlineItem.outline_item_bid == unit_id,
+                ShifuDraftOutlineItem.deleted == 0,
+            )
+            .order_by(ShifuDraftOutlineItem.id.desc())
+            .first()
+        )
 
         if not unit_to_delete:
             raise_error("SHIFU.UNIT_NOT_FOUND")
@@ -576,7 +587,7 @@ def delete_unit(result, app, user_id: str, unit_id: str):
         outline_tree = build_outline_tree(app, unit_to_delete.shifu_bid)
 
         # find the node to delete
-        def find_node_by_id(nodes, target_id):
+        def find_node_by_id(nodes: list[ShifuOutlineTreeNode], target_id: str):
             for node in nodes:
                 if node.outline_id == target_id:
                     return node
@@ -591,7 +602,7 @@ def delete_unit(result, app, user_id: str, unit_id: str):
             raise_error("SHIFU.UNIT_NOT_FOUND")
 
         # collect all node ids to delete (including children)
-        def collect_all_node_ids(node):
+        def collect_all_node_ids(node: ShifuOutlineTreeNode):
             ids = [node.outline_id]
             for child in node.children:
                 ids.extend(collect_all_node_ids(child))
@@ -601,17 +612,19 @@ def delete_unit(result, app, user_id: str, unit_id: str):
 
         # mark all related outlines as deleted
         for item_id in ids_to_delete:
-            item = ShifuDraftOutlineItem.query.filter(
-                ShifuDraftOutlineItem.bid == item_id,
-                ShifuDraftOutlineItem.latest == 1,
-                ShifuDraftOutlineItem.deleted == 0,
-            ).first()
+            item: ShifuDraftOutlineItem = (
+                ShifuDraftOutlineItem.query.filter(
+                    ShifuDraftOutlineItem.outline_item_bid == item_id,
+                )
+                .order_by(ShifuDraftOutlineItem.id.desc())
+                .first()
+            )
             if item:
-                item.latest = 0
-                item.deleted = 1
-                item.deleted_at = datetime.now()
-                item.updated_user_bid = user_id
-                item.updated_at = datetime.now()
+                new_item = item.clone()
+                new_item.deleted = 1
+                new_item.updated_user_bid = user_id
+                new_item.updated_at = datetime.now()
+                db.session.add(new_item)
 
         db.session.commit()
         return True
