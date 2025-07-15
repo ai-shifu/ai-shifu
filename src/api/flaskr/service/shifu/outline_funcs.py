@@ -6,7 +6,6 @@ from ...util.uuid import generate_id
 from ..common.models import raise_error
 from ..lesson.const import (
     LESSON_TYPE_TRIAL,
-    LESSON_TYPE_NORMAL,
     STATUS_PUBLISH,
     STATUS_DRAFT,
     STATUS_HISTORY,
@@ -27,7 +26,7 @@ from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from .unit_funcs import create_unit
 from .dtos import ReorderOutlineItemDto
 from .adapter import convert_outline_to_reorder_outline_item_dto
-from .const import UNIT_TYPE_TRIAL, UNIT_TYPE_NORMAL
+from .const import UNIT_TYPE_VALUES, UNIT_TYPE_VALUE_TRIAL, UNIT_TYPE_TRIAL
 from flaskr.framework.plugin.plugin_manager import extensible
 
 
@@ -120,7 +119,12 @@ def create_chapter(
                 db.session.add(new_outline)
 
         db.session.commit()
-        return SimpleOutlineDto(OutlineTreeNode(outline=chapter))
+        return SimpleOutlineDto(
+            bid=chapter.lesson_id,
+            position=chapter.lesson_no,
+            name=chapter.lesson_name,
+            children=[],
+        )
 
 
 # modify chapter
@@ -364,7 +368,12 @@ def update_chapter_order(
         else:
             raise_error("SHIFU.CHAPTER_IDS_NOT_FOUND")
 
-        return [SimpleOutlineDto(node) for node in outlines]
+        return [
+            SimpleOutlineDto(
+                node.outline_id, node.position, node.outline.title, node.children
+            )
+            for node in outlines
+        ]
 
 
 # get outline tree
@@ -377,7 +386,23 @@ def get_outline_tree(app, user_id: str, shifu_id: str):
     with app.app_context():
 
         outlines = get_original_outline_tree(app, shifu_id)
-        outline_tree_dto = [SimpleOutlineDto(node) for node in outlines]
+        outline_tree_dto = [
+            SimpleOutlineDto(
+                node.outline_id,
+                node.lesson_no,
+                node.outline.lesson_name,
+                [
+                    SimpleOutlineDto(
+                        child.outline_id,
+                        child.lesson_no,
+                        child.outline.lesson_name,
+                        child.children,
+                    )
+                    for child in node.children
+                ],
+            )
+            for node in outlines
+        ]
         return outline_tree_dto
 
 
@@ -420,11 +445,7 @@ def create_outline(
     system_prompt: str = None,
     is_hidden: bool = False,
 ) -> SimpleOutlineDto:
-    type_map = {
-        UNIT_TYPE_NORMAL: LESSON_TYPE_NORMAL,
-        UNIT_TYPE_TRIAL: LESSON_TYPE_TRIAL,
-    }
-    chapter_type = type_map.get(outline_type, LESSON_TYPE_TRIAL)
+    chapter_type = UNIT_TYPE_VALUES.get(outline_type, UNIT_TYPE_VALUE_TRIAL)
 
     if parent_id:
         return create_unit(
