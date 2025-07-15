@@ -104,30 +104,37 @@ def save_block_list(
         blocks = _get_block_list_internal(app, user_id, outline_id)
         variable_definitions = get_profile_item_definition_list(app, outline.shifu_bid)
         position = 1
+        error_messages = {}
+        save_block_ids = []
+        save_block_models = []
         for block in block_list:
             block_dto = convert_to_blockDTO(block)
             block_model = next(
                 (b for b in blocks if b.block_bid == block_dto.bid), None
             )
             if block_model is None:
+                block_model.block_bid = generate_id(app)
+                result = update_block_dto_to_model_internal(
+                    block_dto, block_model, variable_definitions, new_block=True
+                )
+                if result.error_message:
+                    error_messages[block_model.block_bid] = result.error_message
+                    continue
                 block_model = ShifuDraftBlock()
                 block_model.outline_item_bid = outline_id
                 block_model.position = position
-                block_model.block_bid = generate_id(app)
                 block_model.deleted = 0
                 block_model.created_at = time
                 block_model.created_user_bid = user_id
                 block_model.updated_at = time
                 block_model.updated_user_bid = user_id
-                result = update_block_dto_to_model_internal(
-                    block_dto, block_model, variable_definitions, new_block=True
-                )
-                if result.error_message:
-                    raise_error(result.error_message)
+
                 check_str = block_model.get_str_to_check()
                 check_text_with_risk_control(
                     app, block_model.block_bid, user_id, check_str
                 )
+                save_block_ids.append(block_model.block_bid)
+                save_block_models.append(block_model)
                 db.session.add(block_model)
             else:
                 new_block = block_model.clone()
@@ -139,15 +146,31 @@ def save_block_list(
                     block_dto, new_block, variable_definitions, new_block=False
                 )
                 if result.error_message:
-                    raise_error(result.error_message)
+                    error_messages[new_block.block_bid] = result.error_message
+                    continue
+                save_block_ids.append(new_block.block_bid)
                 if not new_block.eq(block_model):
                     check_str = new_block.get_str_to_check()
                     check_text_with_risk_control(
                         app, new_block.block_bid, user_id, check_str
                     )
                     db.session.add(new_block)
+                save_block_models.append(new_block)
             position = position + 1
+
+        for block in blocks:
+            if block.block_bid not in save_block_ids:
+                block.deleted = 1
+                block.updated_at = time
+                block.updated_user_bid = user_id
         db.session.commit()
+        return SaveBlockListResultDto(
+            [
+                generate_block_dto_from_model_internal(block_model)
+                for block_model in save_block_models
+            ],
+            error_messages,
+        )
 
 
 @extension("add_block")

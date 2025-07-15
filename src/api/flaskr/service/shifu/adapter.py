@@ -601,7 +601,9 @@ def check_content_block_dto(
     return BlockUpdateResultDto(None, None)
 
 
-def check_button_block_dto(block_dto: BlockDTO) -> BlockUpdateResultDto:
+def check_button_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
     if not block_dto.block_content.label or not block_dto.block_content.label.lang:
         return BlockUpdateResultDto(None, _("SHIFU.BUTTON_LABEL_REQUIRED"))
     return BlockUpdateResultDto(None, None)
@@ -628,7 +630,9 @@ def check_input_block_dto(
     return BlockUpdateResultDto(None, None)
 
 
-def check_options_block_dto(block_dto: BlockDTO) -> BlockUpdateResultDto:
+def check_options_block_dto(
+    block_dto: BlockDTO, variable_definition_map: dict[str, ProfileItemDefinition]
+) -> BlockUpdateResultDto:
     content: OptionsDTO = block_dto.block_content
     if not content.options or len(content.options) == 0:
         return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_REQUIRED"))
