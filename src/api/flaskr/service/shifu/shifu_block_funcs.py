@@ -114,6 +114,7 @@ def save_block_list(
                 (b for b in blocks if b.block_bid == block_dto.bid), None
             )
             if block_model is None:
+                block_model = ShifuDraftBlock()
                 block_model.block_bid = generate_id(app)
                 result = update_block_dto_to_model_internal(
                     block_dto, block_model, variable_definitions, new_block=True
