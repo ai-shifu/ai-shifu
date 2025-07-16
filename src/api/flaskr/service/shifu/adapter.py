@@ -740,7 +740,11 @@ def generate_block_dto_from_model_internal(block_model: ShifuDraftBlock) -> Bloc
     block_dto = BlockDTO(
         bid=block_model.block_bid,
         block_content=CONTENT_TYPE[type](**json.loads(block_model.content)),
-        variable_bids=block_model.variable_bids.split(","),
-        resource_bids=block_model.resource_bids.split(","),
+        variable_bids=(
+            block_model.variable_bids.split(",") if block_model.variable_bids else []
+        ),
+        resource_bids=(
+            block_model.resource_bids.split(",") if block_model.resource_bids else []
+        ),
     )
     return block_dto
