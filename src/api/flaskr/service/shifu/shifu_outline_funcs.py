@@ -20,6 +20,13 @@ from datetime import datetime
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
 from .adapter import convert_outline_to_reorder_outline_item_dto
+from .shifu_history_manager import (
+    save_new_outline_history,
+    save_outline_tree_history,
+    HistoryItem,
+    save_outline_history,
+    delete_outline_history,
+)
 
 
 # get existing outline items
@@ -214,6 +221,10 @@ def create_outline(
 
         # save to database
         db.session.add(new_outline)
+        db.session.flush()
+        save_new_outline_history(
+            app, user_id, shifu_id, outline_bid, new_outline.id, parent_id, max_index
+        )
         db.session.commit()
 
         return SimpleOutlineDto(
@@ -296,6 +307,8 @@ def modify_outline(
         # save to database
         if not existing_outline.eq(new_outline):
             db.session.add(new_outline)
+            db.session.flush()
+            save_outline_history(app, user_id, shifu_id, outline_id, new_outline.id)
             db.session.commit()
 
         return SimpleOutlineDto(
@@ -377,7 +390,7 @@ def delete_outline(result, app, user_id: str, shifu_id: str, outline_id: str):
                 new_item.updated_user_bid = user_id
                 new_item.updated_at = datetime.now()
                 db.session.add(new_item)
-
+        delete_outline_history(app, user_id, shifu_id, outline_id)
         db.session.commit()
         return True
 
@@ -405,9 +418,13 @@ def reorder_outline_tree(
         existing_items = get_existing_outline_items(app, shifu_id)
         existing_items_map = {item.outline_item_bid: item for item in existing_items}
 
+        history_infos = []
+
         # rebuild positions
         def rebuild_positions(
-            outline_dtos: list[ReorderOutlineItemDto], parent_position=""
+            outline_dtos: list[ReorderOutlineItemDto],
+            parent_position="",
+            history_infos: list[HistoryItem] = None,
         ):
             for i, outline_dto in enumerate(outline_dtos):
                 if outline_dto.bid in existing_items_map:
@@ -421,14 +438,30 @@ def reorder_outline_tree(
                         new_item.updated_user_bid = user_id
                         new_item.updated_at = datetime.now()
                         db.session.add(new_item)
+                        db.session.flush()
+                        history_info = HistoryItem(
+                            bid=outline_dto.bid,
+                            id=new_item.id,
+                            type="outline",
+                            children=[],
+                        )
                         existing_items_map[outline_dto.bid] = new_item
+                    else:
+                        history_info = HistoryItem(
+                            bid=outline_dto.bid, id=item.id, type="outline", children=[]
+                        )
+
+                    history_infos.append(history_info)
 
                     # recursively process children
                     if outline_dto.children:
-                        rebuild_positions(outline_dto.children, new_position)
+                        rebuild_positions(
+                            outline_dto.children, new_position, history_info.children
+                        )
 
         outline_dtos = convert_outline_to_reorder_outline_item_dto(outlines)
-        rebuild_positions(outline_dtos)
+        rebuild_positions(outline_dtos, history_infos=history_infos)
+        save_outline_tree_history(app, user_id, shifu_id, history_infos)
         db.session.commit()
         return True
 
@@ -543,6 +576,10 @@ def modify_unit(
                 check_text_with_risk_control(app, unit_id, user_id, new_check_str)
             existing_unit = new_unit
             db.session.add(new_unit)
+            db.session.flush()
+            save_outline_history(
+                app, user_id, existing_unit.shifu_bid, unit_id, new_unit.id
+            )
             db.session.commit()
 
         return OutlineDto(
@@ -625,6 +662,6 @@ def delete_unit(result, app, user_id: str, unit_id: str):
                 new_item.updated_user_bid = user_id
                 new_item.updated_at = datetime.now()
                 db.session.add(new_item)
-
+        delete_outline_history(app, user_id, unit_to_delete.shifu_bid, unit_id)
         db.session.commit()
         return True

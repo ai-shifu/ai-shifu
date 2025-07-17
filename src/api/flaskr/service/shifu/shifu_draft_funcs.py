@@ -11,9 +11,8 @@ from .utils import (
     parse_shifu_res_bid,
 )
 from .models import ShifuDraftShifu
-
 from flaskr.framework.plugin.plugin_manager import extension
-
+from .shifu_history_manager import save_shifu_history
 
 # get latest shifu draft
 
@@ -109,6 +108,9 @@ def create_shifu_draft(
 
         # save to database
         db.session.add(shifu_draft)
+        db.session.flush()
+
+        save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
         db.session.commit()
 
         return ShifuDto(
@@ -144,6 +146,8 @@ def get_shifu_draft_info(result, app, user_id: str, shifu_id: str) -> ShifuDetai
             shifu_draft.updated_by_user_bid = user_id
             shifu_draft.deleted = 0
             db.session.add(shifu_draft)
+            db.session.flush()
+            save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
             db.session.commit()
         return return_shifu_draft_dto(shifu_draft)
 
@@ -180,6 +184,8 @@ def save_shifu_draft_info(
                 updated_by_user_bid=user_id,
             )
             db.session.add(shifu_draft)
+            db.session.flush()
+            save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
             db.session.commit()
         else:
             new_shifu_draft: ShifuDraftShifu = shifu_draft.clone()
@@ -200,6 +206,8 @@ def save_shifu_draft_info(
                 )
                 # mark the old version as deleted
                 db.session.add(new_shifu_draft)
+                db.session.flush()
+                save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
                 db.session.commit()
                 shifu_draft = new_shifu_draft
         return return_shifu_draft_dto(shifu_draft)
