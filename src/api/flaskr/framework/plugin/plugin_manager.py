@@ -89,7 +89,6 @@ def enable_plugin_manager(app: Flask):
 
 def disable_plugin_manager(app: Flask):
     app.logger.info("disable_plugin_manager")
-    global plugin_manager
     if plugin_manager:
         plugin_manager.disable_hot_reload()
         plugin_manager.is_enabled = False
