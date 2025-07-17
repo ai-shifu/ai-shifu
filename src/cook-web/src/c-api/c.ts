@@ -30,7 +30,7 @@ export const RunScript = (course_id, lesson_id, input, input_type, onMessage) =>
   source.onopen = () => {};
   source.close = () => {};
   source.stream();
-  
+
   return source;
 };
 

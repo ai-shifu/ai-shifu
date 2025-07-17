@@ -73,12 +73,12 @@ export const ResetChapterButton = ({
   async function handleConfirm() {
     await resetChapter(chapterId);
     updateLessonId(lessonId);
-    
+
     shifu.resetTools.resetChapter({
       chapter_id: chapterId,
       chapter_name: chapterName,
     });
-    
+
     trackEvent(EVENT_NAMES.RESET_CHAPTER_CONFIRM, {
       chapter_id: chapterId,
       chapter_name: chapterName,
@@ -93,7 +93,7 @@ export const ResetChapterButton = ({
     <>
       <Button
         size="sm"
-        className={cn(className, 'size-max', 'px-2', 'rounded-full')} 
+        className={cn(className, 'size-max', 'px-2', 'rounded-full')}
         onClick={onButtonClick}>
         { t('lesson.reset.resetTitle') }
       </Button>

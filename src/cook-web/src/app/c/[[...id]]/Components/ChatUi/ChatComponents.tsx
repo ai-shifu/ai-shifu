@@ -236,20 +236,20 @@ export const ChatComponents = forwardRef<any, any>(
       }))
     );
 
-    const { 
+    const {
       messages,
       appendMsg,
       setTyping,
       updateMsg,
       resetList,
-      deleteMsg 
+      deleteMsg
     } = useMessages([]);
 
-    const { 
+    const {
       // autoScroll,
       onMessageListScroll,
       scrollToLesson,
-      scrollToBottom 
+      scrollToBottom
     } = useChatComponentsScroll({
       chatRef,
       containerStyle: styles.chatComponents,

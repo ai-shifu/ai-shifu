@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { 
-  ExclamationTriangleIcon, 
+import {
+  ExclamationTriangleIcon,
   XCircleIcon,
   LockClosedIcon,
   WifiIcon,
@@ -52,9 +52,9 @@ const errorIcons: Record<string, React.ReactNode> = {
   general: <ExclamationTriangleIcon className="w-16 h-16 text-orange-500 mx-auto mb-4" />
 };
 
-export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({ 
+export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   errorCode,
-  errorMessage, 
+  errorMessage,
   showDetails = true,
   onRetry,
   customAction
@@ -62,14 +62,14 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   const { t } = useTranslation();
   const router = useRouter();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
-  
+
   const handleLogin = () => {
     const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
     router.push(`/login?redirect=${currentPath}`);
   };
 
   const errorType = getErrorType(errorCode);
-  
+
   // Get title based on error code
   const getTitle = () => {
     switch (errorCode) {
@@ -117,9 +117,9 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   // Determine if login button should be shown
   const shouldShowLoginButton = () => {
     return !isLoggedIn && (
-      errorCode === 401 || 
-      errorCode === 1001 || 
-      errorCode === 1004 || 
+      errorCode === 401 ||
+      errorCode === 1001 ||
+      errorCode === 1004 ||
       errorCode === 1005
     );
   };
@@ -134,7 +134,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         <p className="text-gray-600 mb-2">
           {getFriendlyMessage()}
         </p>
-        
+
         {/* Error details section */}
         {showDetails && (
           <div className="mt-4 p-3 bg-gray-100 rounded-md text-left">
@@ -148,10 +148,10 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
             )}
           </div>
         )}
-        
+
         <div className="flex gap-3 justify-center mt-6">
           {shouldShowLoginButton() && (
-            <Button 
+            <Button
               onClick={handleLogin}
               className="min-w-[120px]"
             >
@@ -159,7 +159,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
             </Button>
           )}
           {onRetry && (
-            <Button 
+            <Button
               onClick={onRetry}
               variant="outline"
               className="min-w-[120px]"
@@ -168,7 +168,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
             </Button>
           )}
           {customAction && (
-            <Button 
+            <Button
               onClick={customAction.onClick}
               variant={onRetry || shouldShowLoginButton() ? 'outline' : 'default'}
               className="min-w-[120px]"

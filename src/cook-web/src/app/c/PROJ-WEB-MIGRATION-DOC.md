@@ -24,7 +24,7 @@
 - `https://github.com/ai-shifu/chatui.git#no-scroll` 内置到了 `ChatUi/ForkChatUI`
   * 官方已经基本不再维护
   * fork 后自行维护成本也较高，想要和 `ai-shifu` 保持图标和样式防止一致的话，从样式方案到图标库、组件库 都要换 - 其实就相当于重写
-  * 放进项目内慢慢逐步往本项目的技术栈迁移是最灵活和可持续维护的方案 
+  * 放进项目内慢慢逐步往本项目的技术栈迁移是最灵活和可持续维护的方案
 
 ## 后期合并操作
 - 重命名 `cook-web` 为 `ui`
@@ -74,6 +74,6 @@ export SITE_HOST="https://cook02.dev.pillowai.cn"
 
 ## 其它事项
 - 统一 **用户相关逻辑**，用户注册、登录、登出、权限拦截等逻辑整理成一个模块，避免分散各处
-- 短期内不要升级到 `Tailwind CSS V4`，之前微信的 WebView 不兼容 V4 里面用到的新特性 
+- 短期内不要升级到 `Tailwind CSS V4`，之前微信的 WebView 不兼容 V4 里面用到的新特性
 - 目前用的包管理器是 `npm`, 换 `pnpm` 会提高不少每次编译打包时 `install` 依赖包的效率，不过设置稍微复杂一点
 - 目前项目配置了 `less-loader`, 似乎不需要依赖这个

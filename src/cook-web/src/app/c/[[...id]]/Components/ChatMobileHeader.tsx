@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 
 import { Button } from '@/components/ui/button'
-import { 
+import {
   CircleEllipsisIcon as MoreIcon,
   CircleX as CloseIcon
 } from 'lucide-react'

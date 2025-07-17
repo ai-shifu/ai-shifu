@@ -65,7 +65,7 @@ export const IndustrySettingModal = ({
                 <FormMessage />
               </FormItem>
             )}
-          /> 
+          />
         </form>
       </Form>
     </SettingBaseModal>
