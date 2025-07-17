@@ -83,6 +83,7 @@ def create_app() -> Flask:
     # enable hot reload
     if app.config.get("ENV") == "development":
         plugin_manager.enable_hot_reload()
+
     return app
 
 
