@@ -13,9 +13,12 @@ class PluginManager:
         self.extensible_generic_functions = {}
         self.hot_reloader = None
         self.plugins = {}
+        self.is_enabled = True
 
     def enable_hot_reload(self):
         """enable the hot reload"""
+        if not self.is_enabled:
+            return
         if not self.hot_reloader:
             self.hot_reloader = PluginHotReloader(self.app)
             self.hot_reloader.start()
@@ -44,6 +47,8 @@ class PluginManager:
 
     def execute_extensions(self, func_name, result, *args, **kwargs):
         self.app.logger.info(f"execute_extensions: {func_name}")
+        if not self.is_enabled:
+            return result
         if func_name in self.extension_functions:
             for func in self.extension_functions[func_name]:
                 result = func(result, *args, **kwargs)
@@ -62,6 +67,8 @@ class PluginManager:
 
     def execute_extensible_generic(self, func_name, result, *args, **kwargs):
         self.app.logger.info(f"execute_extensible_generic: {func_name}")
+        if not self.is_enabled:
+            return result
         if func_name in self.extensible_generic_functions:
             for runc in self.extensible_generic_functions[func_name]:
                 while hasattr(runc, "__wrapped__"):
@@ -77,6 +84,15 @@ def enable_plugin_manager(app: Flask):
     app.logger.info("enable_plugin_manager")
     global plugin_manager
     plugin_manager = PluginManager(app)
+    return app
+
+
+def disable_plugin_manager(app: Flask):
+    app.logger.info("disable_plugin_manager")
+    global plugin_manager
+    if plugin_manager:
+        plugin_manager.disable_hot_reload()
+        plugin_manager.is_enabled = False
     return app
 
 
