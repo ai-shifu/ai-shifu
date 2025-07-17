@@ -18,6 +18,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 from flaskr.service.shifu.shifu_block_funcs import __get_block_list_internal
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.common import get_config
+from flaskr.util import generate_id
 
 
 @extension("publish_shifu")
@@ -27,6 +28,11 @@ def publish_shifu_draft(result, app, user_id: str, shifu_id: str):
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("SHIFU.SHIFU_NOT_FOUND")
+        ShifuPublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
+        ShifuPublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update(
+            {"deleted": 1}
+        )
+        ShifuPublishedBlock.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         shifu_published = ShifuPublishedShifu()
         shifu_published.shifu_bid = shifu_id
         shifu_published.title = shifu_draft.title
@@ -36,7 +42,7 @@ def publish_shifu_draft(result, app, user_id: str, shifu_id: str):
         shifu_published.llm = shifu_draft.llm
         shifu_published.llm_temperature = shifu_draft.llm_temperature
         shifu_published.price = shifu_draft.price
-        shifu_published.updated_by_user_bid = user_id
+        shifu_published.updated_user_bid = user_id
         shifu_published.updated_at = now_time
         db.session.add(shifu_published)
         db.session.flush()
@@ -108,8 +114,8 @@ def publish_shifu_draft(result, app, user_id: str, shifu_id: str):
             publish_outline_item(node, history_item)
 
         shifu_log_published_struct = ShifuLogPublishedStruct()
+        shifu_log_published_struct.struct_bid = generate_id(app)
         shifu_log_published_struct.shifu_bid = shifu_id
-        shifu_log_published_struct.struct_bid = shifu_id
         shifu_log_published_struct.struct = history_item.to_json()
         shifu_log_published_struct.created_user_bid = user_id
         shifu_log_published_struct.created_at = now_time
