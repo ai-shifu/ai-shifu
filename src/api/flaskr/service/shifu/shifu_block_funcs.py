@@ -18,6 +18,10 @@ from flaskr.service.shifu.block_funcs import (
     check_text_with_risk_control,
 )
 from flaskr.util import generate_id
+from .shifu_history_manager import (
+    save_blocks_history,
+    HistoryInfo,
+)
 
 
 def _get_block_list_internal(
@@ -65,6 +69,7 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
         block_model.deleted = 1
         block_model.updated_at = datetime.now()
         block_model.updated_user_bid = user_id
+        blocks_history = []
         for block in blocks:
             if block.position > block_model.position:
                 update_block = block.clone()
@@ -72,6 +77,11 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
                 update_block.updated_at = datetime.now()
                 update_block.updated_user_bid = user_id
                 db.session.add(update_block)
+                db.session.flush()
+                blocks_history.append(
+                    HistoryInfo(bid=block.block_bid, id=update_block.id)
+                )
+        save_blocks_history(app, user_id, outline_id, block_id, blocks_history)
         db.session.commit()
         return True
 
@@ -108,6 +118,8 @@ def save_block_list(
         error_messages = {}
         save_block_ids = []
         save_block_models = []
+        blocks_history = []
+        is_changed = False
         for block in block_list:
             block_dto = convert_to_blockDTO(block)
             block_model = next(
@@ -138,6 +150,11 @@ def save_block_list(
                 save_block_ids.append(block_model.block_bid)
                 save_block_models.append(block_model)
                 db.session.add(block_model)
+                is_changed = True
+                db.session.flush()
+                blocks_history.append(
+                    HistoryInfo(bid=block_model.block_bid, id=block_model.id)
+                )
             else:
                 new_block = block_model.clone()
                 new_block.position = position
@@ -149,6 +166,9 @@ def save_block_list(
                 )
                 if result.error_message:
                     error_messages[new_block.block_bid] = result.error_message
+                    blocks_history.append(
+                        HistoryInfo(bid=new_block.block_bid, id=block_model.id)
+                    )
                     continue
                 save_block_ids.append(new_block.block_bid)
                 if not new_block.eq(block_model):
@@ -157,7 +177,17 @@ def save_block_list(
                         app, new_block.block_bid, user_id, check_str
                     )
                     db.session.add(new_block)
+                    db.session.flush()
+                    is_changed = True
+                    blocks_history.append(
+                        HistoryInfo(bid=new_block.block_bid, id=new_block.id)
+                    )
+                else:
+                    blocks_history.append(
+                        HistoryInfo(bid=block_model.block_bid, id=block_model.id)
+                    )
                 save_block_models.append(new_block)
+
             position = position + 1
 
         for block in blocks:
@@ -165,6 +195,10 @@ def save_block_list(
                 block.deleted = 1
                 block.updated_at = time
                 block.updated_user_bid = user_id
+        if is_changed:
+            save_blocks_history(
+                app, user_id, outline.shifu_bid, outline_id, blocks_history
+            )
         db.session.commit()
         return SaveBlockListResultDto(
             [
@@ -211,8 +245,20 @@ def add_block(
             raise_error(result.error_message)
         check_str = block_model.get_str_to_check()
         check_text_with_risk_control(app, block_model.block_bid, user_id, check_str)
-
+        blocks_history = []
+        db.session.add(block_model)
+        db.session.flush()
         for block in existing_blocks:
+            if block.position < block_index:
+                blocks_history.append(HistoryInfo(bid=block.block_bid, id=block.id))
+                continue
+
+            if block.position == block_index:
+                blocks_history.append(
+                    HistoryInfo(bid=block_model.block_bid, id=block_model.id)
+                )
+                continue
+
             if block.position >= block_index:
                 new_block = block.clone()
                 new_block.position = block.position + 1
@@ -220,7 +266,12 @@ def add_block(
                 new_block.updated_user_bid = user_id
                 new_block.deleted = 0
                 db.session.add(new_block)
-        db.session.add(block_model)
+                db.session.flush()
+                blocks_history.append(
+                    HistoryInfo(bid=new_block.block_bid, id=new_block.id)
+                )
+
+        save_blocks_history(app, user_id, outline.shifu_bid, outline_id, blocks_history)
         db.session.commit()
         return generate_block_dto_from_model_internal(block_model)
 
