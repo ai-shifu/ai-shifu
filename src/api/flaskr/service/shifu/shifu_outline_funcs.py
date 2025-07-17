@@ -37,26 +37,25 @@ from .shifu_history_manager import (
 # usage:
 # 1. get existing outline items
 # 2. sort outline items by position
-def get_existing_outline_items(app, shifu_bid: str) -> list[ShifuDraftOutlineItem]:
-    with app.app_context():
-        sub_query = (
-            db.session.query(db.func.max(ShifuDraftOutlineItem.id))
-            .filter(
-                ShifuDraftOutlineItem.shifu_bid == shifu_bid,
-            )
-            .group_by(ShifuDraftOutlineItem.outline_item_bid)
+def __get_existing_outline_items(shifu_bid: str) -> list[ShifuDraftOutlineItem]:
+    sub_query = (
+        db.session.query(db.func.max(ShifuDraftOutlineItem.id))
+        .filter(
+            ShifuDraftOutlineItem.shifu_bid == shifu_bid,
         )
-        outline_items = ShifuDraftOutlineItem.query.filter(
-            ShifuDraftOutlineItem.id.in_(sub_query),
-            ShifuDraftOutlineItem.deleted == 0,
-        ).all()
+        .group_by(ShifuDraftOutlineItem.outline_item_bid)
+    )
+    outline_items = ShifuDraftOutlineItem.query.filter(
+        ShifuDraftOutlineItem.id.in_(sub_query),
+        ShifuDraftOutlineItem.deleted == 0,
+    ).all()
 
-        return sorted(outline_items, key=lambda x: (len(x.position), x.position))
+    return sorted(outline_items, key=lambda x: (len(x.position), x.position))
 
 
 # build outline tree
 def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
-    outline_items = get_existing_outline_items(app, shifu_bid)
+    outline_items = __get_existing_outline_items(shifu_bid)
     sorted_items = sorted(outline_items, key=lambda x: (len(x.position), x.position))
     outline_tree = []
 
@@ -167,7 +166,7 @@ def create_outline(
             raise_error("SHIFU.OUTLINE_NAME_ALREADY_EXISTS")
 
         # determine position
-        existing_items = get_existing_outline_items(app, shifu_id)
+        existing_items = __get_existing_outline_items(shifu_id)
         if parent_id:
             # child outline
             parent_item = next(
@@ -415,7 +414,7 @@ def reorder_outline_tree(
         )
 
         # get existing outlines
-        existing_items = get_existing_outline_items(app, shifu_id)
+        existing_items = __get_existing_outline_items(shifu_id)
         existing_items_map = {item.outline_item_bid: item for item in existing_items}
 
         history_infos = []

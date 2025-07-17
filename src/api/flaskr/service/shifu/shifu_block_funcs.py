@@ -24,33 +24,30 @@ from .shifu_history_manager import (
 )
 
 
-def _get_block_list_internal(
-    app, user_id: str, outline_id: str
-) -> list[ShifuDraftBlock]:
-    with app.app_context():
-        sub_query = (
-            db.session.query(db.func.max(ShifuDraftBlock.id))
-            .filter(
-                ShifuDraftBlock.outline_item_bid == outline_id,
-            )
-            .group_by(ShifuDraftBlock.block_bid)
+def __get_block_list_internal(outline_id: str) -> list[ShifuDraftBlock]:
+    sub_query = (
+        db.session.query(db.func.max(ShifuDraftBlock.id))
+        .filter(
+            ShifuDraftBlock.outline_item_bid == outline_id,
         )
-        blocks = (
-            ShifuDraftBlock.query.filter(
-                ShifuDraftBlock.id.in_(sub_query),
-                ShifuDraftBlock.deleted == 0,
-            )
-            .order_by(ShifuDraftBlock.position.asc())
-            .all()
+        .group_by(ShifuDraftBlock.block_bid)
+    )
+    blocks = (
+        ShifuDraftBlock.query.filter(
+            ShifuDraftBlock.id.in_(sub_query),
+            ShifuDraftBlock.deleted == 0,
         )
-        return blocks
+        .order_by(ShifuDraftBlock.position.asc())
+        .all()
+    )
+    return blocks
 
 
 @extension("get_block_list")
 def get_block_list(result, app, user_id: str, outline_id: str) -> list[BlockDTO]:
     with app.app_context():
         app.logger.info(f"get block list: {outline_id}")
-        blocks = _get_block_list_internal(app, user_id, outline_id)
+        blocks = __get_block_list_internal(outline_id)
 
         block_dtos = []
         for block in blocks:
@@ -62,7 +59,7 @@ def get_block_list(result, app, user_id: str, outline_id: str) -> list[BlockDTO]
 def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
     with app.app_context():
         app.logger.info(f"delete block: {outline_id}, {block_id}")
-        blocks = _get_block_list_internal(app, user_id, outline_id)
+        blocks = __get_block_list_internal(outline_id)
         block_model = next((b for b in blocks if b.block_bid == block_id), None)
         if block_model is None:
             raise_error("SHIFU.BLOCK_NOT_FOUND")
@@ -95,7 +92,7 @@ def get_block(result, app, user_id: str, outline_id: str, block_id: str) -> Bloc
 
 
 @extension("save_block_list")
-def save_block_list(
+def save_shifu_block_list(
     result, app, user_id: str, outline_id: str, block_list: list[BlockDTO]
 ) -> SaveBlockListResultDto:
     with app.app_context():
@@ -112,7 +109,7 @@ def save_block_list(
             raise_error("SHIFU.OUTLINE_NOT_FOUND")
         if outline.deleted == 1:
             raise_error("SHIFU.OUTLINE_NOT_FOUND")
-        blocks = _get_block_list_internal(app, user_id, outline_id)
+        blocks = __get_block_list_internal(outline_id)
         variable_definitions = get_profile_item_definition_list(app, outline.shifu_bid)
         position = 1
         error_messages = {}
@@ -133,6 +130,7 @@ def save_block_list(
                 )
                 if result.error_message:
                     error_messages[block_model.block_bid] = result.error_message
+
                     continue
                 block_model = ShifuDraftBlock()
                 block_model.outline_item_bid = outline_id
@@ -156,6 +154,7 @@ def save_block_list(
                     HistoryInfo(bid=block_model.block_bid, id=block_model.id)
                 )
             else:
+                save_block_ids.append(block_model.block_bid)
                 new_block = block_model.clone()
                 new_block.position = position
                 new_block.updated_at = time
@@ -170,7 +169,6 @@ def save_block_list(
                         HistoryInfo(bid=new_block.block_bid, id=block_model.id)
                     )
                     continue
-                save_block_ids.append(new_block.block_bid)
                 if not new_block.eq(block_model):
                     check_str = new_block.get_str_to_check()
                     check_text_with_risk_control(
@@ -189,12 +187,14 @@ def save_block_list(
                 save_block_models.append(new_block)
 
             position = position + 1
-
+        app.logger.info(f"save block ids: {save_block_ids}")
         for block in blocks:
             if block.block_bid not in save_block_ids:
+                app.logger.info(f"delete block: {block.block_bid} ,{block.id}")
                 block.deleted = 1
                 block.updated_at = time
                 block.updated_user_bid = user_id
+                is_changed = True
         if is_changed:
             save_blocks_history(
                 app, user_id, outline.shifu_bid, outline_id, blocks_history
@@ -233,7 +233,7 @@ def add_block(
         block_dto = convert_to_blockDTO(block)
         block_index = block_index + 1
         variable_definitions = get_profile_item_definition_list(app, outline.shifu_bid)
-        existing_blocks = _get_block_list_internal(app, user_id, outline_id)
+        existing_blocks = __get_block_list_internal(outline_id)
         block_model: ShifuDraftBlock = ShifuDraftBlock()
         block_model.outline_item_bid = outline_id
         block_model.position = block_index
