@@ -10,7 +10,7 @@ from flaskr.service.shifu.models import (
     ShifuDraftBlock,
     ShifuLogPublishedStruct,
 )
-from flaskr.util.datetime import get_now_time
+from flaskr.util import get_now_time
 from flaskr.service.shifu.shifu_outline_funcs import (
     build_outline_tree,
     ShifuOutlineTreeNode,

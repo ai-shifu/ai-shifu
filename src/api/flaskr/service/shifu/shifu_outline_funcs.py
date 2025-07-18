@@ -14,9 +14,8 @@ from .const import (
 )
 from .models import ShifuDraftOutlineItem
 from ...dao import db
-from ...util.uuid import generate_id
+from ...util import generate_id, get_now_time
 from ..common.models import raise_error
-from datetime import datetime
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
 from .adapter import convert_outline_to_reorder_outline_item_dto
@@ -142,6 +141,7 @@ def create_outline(
 ):
     """create outline"""
     with app.app_context():
+        now_time = get_now_time(app)
         # generate new outline id
         if result and result.bid:
             outline_bid = result.bid
@@ -207,6 +207,8 @@ def create_outline(
             ask_llm_temperature=Decimal("0.3"),
             ask_llm_system_prompt="",
             deleted=0,
+            created_at=now_time,
+            updated_at=now_time,
             created_user_bid=user_id,
             updated_user_bid=user_id,
             type=type,
@@ -257,6 +259,7 @@ def modify_outline(
     """modify outline"""
     with app.app_context():
         # find existing outline
+        now_time = get_now_time(app)
         existing_outline = (
             ShifuDraftOutlineItem.query.filter(
                 ShifuDraftOutlineItem.outline_item_bid == outline_id,
@@ -297,7 +300,7 @@ def modify_outline(
         new_outline.title = outline_name
         new_outline.llm_system_prompt = system_prompt or ""
         new_outline.updated_user_bid = user_id
-        new_outline.updated_at = datetime.now()
+        new_outline.updated_at = now_time
         # risk check
         new_check_str = new_outline.get_str_to_check()
         if old_check_str != new_check_str:
@@ -331,6 +334,7 @@ def modify_outline(
 def delete_outline(result, app, user_id: str, shifu_id: str, outline_id: str):
     """delete outline"""
     with app.app_context():
+        now_time = get_now_time(app)
         # find the outline to delete
         outline_to_delete = (
             ShifuDraftOutlineItem.query.filter(
@@ -384,10 +388,10 @@ def delete_outline(result, app, user_id: str, shifu_id: str, outline_id: str):
                 .first()
             )
             if item:
-                new_item = item.clone()
+                new_item: ShifuDraftOutlineItem = item.clone()
                 new_item.deleted = 1
                 new_item.updated_user_bid = user_id
-                new_item.updated_at = datetime.now()
+                new_item.updated_at = now_time
                 db.session.add(new_item)
         delete_outline_history(app, user_id, shifu_id, outline_id)
         db.session.commit()
@@ -412,6 +416,7 @@ def reorder_outline_tree(
         app.logger.info(
             f"reorder outline tree, user_id: {user_id}, shifu_id: {shifu_id}"
         )
+        now_time = get_now_time(app)
 
         # get existing outlines
         existing_items = __get_existing_outline_items(shifu_id)
@@ -432,10 +437,10 @@ def reorder_outline_tree(
 
                     if item.position != new_position:
                         # create new version
-                        new_item = item.clone()
+                        new_item: ShifuDraftOutlineItem = item.clone()
                         new_item.position = new_position
                         new_item.updated_user_bid = user_id
-                        new_item.updated_at = datetime.now()
+                        new_item.updated_at = now_time
                         db.session.add(new_item)
                         db.session.flush()
                         history_info = HistoryItem(
@@ -529,7 +534,7 @@ def modify_unit(
     """modify unit"""
     with app.app_context():
         app.logger.info(f"modify unit: {unit_id}, name: {unit_name}")
-
+        now_time = get_now_time(app)
         # find existing unit
         existing_unit = (
             ShifuDraftOutlineItem.query.filter(
@@ -565,7 +570,7 @@ def modify_unit(
             new_unit.type = UNIT_TYPE_VALUES.get(unit_type, UNIT_TYPE_VALUE_TRIAL)
 
         new_unit.updated_user_bid = user_id
-        new_unit.updated_at = datetime.now()
+        new_unit.updated_at = now_time
 
         # save to database
         if not existing_unit.eq(new_unit):
@@ -606,6 +611,7 @@ def modify_unit(
 def delete_unit(result, app, user_id: str, unit_id: str):
     """delete unit"""
     with app.app_context():
+        now_time = get_now_time(app)
         # find the unit to delete
         unit_to_delete = (
             ShifuDraftOutlineItem.query.filter(
@@ -656,10 +662,10 @@ def delete_unit(result, app, user_id: str, unit_id: str):
                 .first()
             )
             if item:
-                new_item = item.clone()
+                new_item: ShifuDraftOutlineItem = item.clone()
                 new_item.deleted = 1
                 new_item.updated_user_bid = user_id
-                new_item.updated_at = datetime.now()
+                new_item.updated_at = now_time
                 db.session.add(new_item)
         delete_outline_history(app, user_id, unit_to_delete.shifu_bid, unit_id)
         db.session.commit()
