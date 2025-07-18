@@ -1,4 +1,3 @@
-from flaskr.service.common import raise_error
 from flaskr.service.lesson.models import AICourse
 from flaskr.service.lesson.const import STATUS_DRAFT, STATUS_PUBLISH
 from flaskr.service.shifu.outline_funcs import (
@@ -15,8 +14,11 @@ from flaskr.service.shifu.models import (
     ShifuDraftOutlineItem,
     ShifuDraftBlock,
     ShifuPublishedShifu,
+    ShifuPublishedOutlineItem,
+    ShifuPublishedBlock,
+    ShifuLogPublishedStruct,
 )
-from flaskr.util import get_now_time
+from flaskr.util import get_now_time, generate_id
 from flaskr.dao import db
 from flaskr.service.lesson.models import AILesson
 from flaskr.service.lesson.const import (
@@ -52,7 +54,8 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
             .first()
         )
         if not old_shifu:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
+            app.logger.error(f"shifu not found, shifu_bid: {shifu_bid}")
+            return
         user_id = old_shifu.created_user_id
         new_shifu = ShifuDraftShifu()
         new_shifu.shifu_bid = shifu_bid
@@ -65,7 +68,7 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
         new_shifu.price = old_shifu.course_price
         new_shifu.deleted = 0
         new_shifu.created_user_bid = user_id
-        new_shifu.updated_by_user_bid = user_id
+        new_shifu.updated_user_bid = user_id
         new_shifu.created_at = now_time
         new_shifu.updated_at = now_time
         new_shifu.ask_llm = old_shifu.ask_model
@@ -90,7 +93,7 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
                 f"migrate outline: {old_outline.lesson_id} {old_outline.lesson_no} {old_outline.lesson_name}"
             )
 
-            system_script = (
+            system_script: AILessonScript = (
                 AILessonScript.query.filter(
                     AILessonScript.lesson_id == old_outline.lesson_id,
                     AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
@@ -192,28 +195,187 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
             .order_by(AICourse.id.desc())
             .first()
         )
-        if online_course:
-            new_online_course = ShifuPublishedShifu()
-            new_online_course.shifu_bid = shifu_bid
-            new_online_course.title = new_shifu.title
-            new_online_course.description = new_shifu.description
-            new_online_course.avatar_res_bid = new_shifu.avatar_res_bid
-            new_online_course.keywords = new_shifu.keywords
-            new_online_course.llm = new_shifu.llm
-            new_online_course.llm_temperature = new_shifu.llm_temperature
-            new_online_course.price = new_shifu.price
-            new_online_course.deleted = 0
-            new_online_course.created_user_bid = user_id
-            new_online_course.updated_user_bid = user_id
-            new_online_course.created_at = now_time
-            new_online_course.updated_at = now_time
-            db.session.add(new_online_course)
-            db.session.flush()
-            history_item = HistoryItem(
-                bid=shifu_bid, id=new_online_course.id, type="shifu", children=[]
+        if not online_course:
+            app.logger.info(f"no online course, shifu_bid: {shifu_bid}")
+            db.session.commit()
+            return
+        app.logger.info(f"migrate to publish shifu, shifu_bid: {shifu_bid}")
+        ShifuPublishedShifu.query.filter(
+            ShifuPublishedShifu.shifu_bid == shifu_bid
+        ).update({ShifuPublishedShifu.deleted: 1})
+        ShifuPublishedOutlineItem.query.filter(
+            ShifuPublishedOutlineItem.shifu_bid == shifu_bid
+        ).update({ShifuPublishedOutlineItem.deleted: 1})
+        ShifuPublishedBlock.query.filter(
+            ShifuPublishedBlock.shifu_bid == shifu_bid
+        ).update({ShifuPublishedBlock.deleted: 1})
+        db.session.flush()
+        new_online_course = ShifuPublishedShifu()
+        new_online_course.shifu_bid = shifu_bid
+        new_online_course.title = new_shifu.title
+        new_online_course.description = new_shifu.description
+        new_online_course.avatar_res_bid = new_shifu.avatar_res_bid
+        new_online_course.keywords = new_shifu.keywords
+        new_online_course.llm = new_shifu.llm
+        new_online_course.llm_temperature = new_shifu.llm_temperature
+        new_online_course.price = new_shifu.price
+        new_online_course.deleted = 0
+        new_online_course.created_user_bid = user_id
+        new_online_course.updated_user_bid = user_id
+        new_online_course.created_at = now_time
+        new_online_course.updated_at = now_time
+        db.session.add(new_online_course)
+        db.session.flush()
+        history_item = HistoryItem(
+            bid=shifu_bid, id=new_online_course.id, type="shifu", children=[]
+        )
+        __save_shifu_history(app, user_id, shifu_bid, history_item)
+        outlines: list[AILesson] = (
+            AILesson.query.filter(
+                AILesson.course_id == shifu_bid,
+                AILesson.status == STATUS_PUBLISH,
             )
-            __save_shifu_history(app, user_id, shifu_bid, history_item)
+            .order_by(AILesson.id.desc())
+            .all()
+        )
+        sorted_outlines = sorted(
+            outlines, key=lambda x: (len(x.lesson_no), x.lesson_no)
+        )
+        outline_tree = []
 
+        nodes_map = {}
+        for outline in sorted_outlines:
+            node = OutlineTreeNode(outline)
+            nodes_map[outline.lesson_no] = node
+
+        # 构建树结构
+        for lesson_no, node in nodes_map.items():
+            if len(lesson_no) == 2:
+                # 这是根节点
+                outline_tree.append(node)
+            else:
+                # 找到父节点的lesson_no
+                parent_no = lesson_no[:-2]
+                if parent_no in nodes_map:
+                    parent_node = nodes_map[parent_no]
+                    # 添加到父节点的children列表中
+                    if node not in parent_node.children:  # 避免重复添加
+                        parent_node.add_child(node)
+                else:
+                    app.logger.error(
+                        f"Parent node not found for lesson_no: {lesson_no}"
+                    )
+
+        def migrate_published_outline(node: OutlineTreeNode, history_item: HistoryItem):
+
+            old_outline: AILesson = node.outline
+            app.logger.info(
+                f"migrate published outline: {old_outline.lesson_id} {old_outline.lesson_no} {old_outline.lesson_name}"
+            )
+            system_script: AILessonScript = (
+                AILessonScript.query.filter(
+                    AILessonScript.lesson_id == old_outline.lesson_id,
+                    AILessonScript.script_type == SCRIPT_TYPE_SYSTEM,
+                    AILessonScript.status == STATUS_PUBLISH,
+                )
+                .order_by(AILessonScript.id.desc())
+                .first()
+            )
+            new_published_outline = ShifuPublishedOutlineItem()
+            new_published_outline.outline_item_bid = node.outline_id
+            new_published_outline.shifu_bid = shifu_bid
+            new_published_outline.title = old_outline.lesson_name
+            new_published_outline.type = old_outline.lesson_type
+            new_published_outline.hidden = (
+                old_outline.lesson_type == LESSON_TYPE_BRANCH_HIDDEN
+            )
+            new_published_outline.parent_bid = old_outline.parent_id
+            new_published_outline.position = old_outline.lesson_no
+            new_published_outline.prerequisite_item_bids = ""
+            new_published_outline.llm = old_outline.lesson_default_model
+            new_published_outline.llm_temperature = (
+                old_outline.lesson_default_temperature
+            )
+            if system_script:
+                new_published_outline.llm_system_prompt = system_script.script_prompt
+            else:
+                new_published_outline.llm_system_prompt = ""
+            new_published_outline.ask_enabled_status = old_outline.ask_mode
+            new_published_outline.ask_llm = old_outline.ask_model
+            new_published_outline.ask_llm_temperature = 0.3
+            new_published_outline.ask_llm_system_prompt = old_outline.ask_prompt
+            new_published_outline.deleted = 0
+            new_published_outline.created_at = old_outline.created
+            new_published_outline.updated_at = old_outline.updated
+            new_published_outline.created_user_bid = user_id
+            new_published_outline.updated_user_bid = user_id
+            db.session.add(new_published_outline)
+            db.session.flush()
+            outline_history_item = HistoryItem(
+                bid=new_published_outline.outline_item_bid,
+                id=new_published_outline.id,
+                type="outline",
+                children=[],
+            )
+            history_item.children.append(outline_history_item)
+            if node.children and len(node.children) > 0:
+                for child in node.children:
+                    migrate_published_outline(child, outline_history_item)
+            else:
+
+                old_blocks = (
+                    AILessonScript.query.filter(
+                        AILessonScript.lesson_id == old_outline.lesson_id,
+                        AILessonScript.script_type != SCRIPT_TYPE_SYSTEM,
+                        AILessonScript.status == STATUS_PUBLISH,
+                    )
+                    .order_by(AILessonScript.script_index.asc())
+                    .all()
+                )
+                block_index = 1
+                app.logger.info(f"migrate  blocks: {len(old_blocks)}")
+                for block in old_blocks:
+                    block_dto: BlockDTO = generate_block_dto_from_model(
+                        block, variable_definitions
+                    )[0]
+                    new_block = ShifuPublishedBlock()
+                    new_block.block_bid = block_dto.bid
+                    new_block.outline_item_bid = new_published_outline.outline_item_bid
+                    new_block.position = block_index
+                    new_block.deleted = 0
+                    new_block.created_at = now_time
+                    new_block.created_user_bid = user_id
+                    new_block.updated_at = now_time
+                    new_block.updated_user_bid = user_id
+                    new_block.shifu_bid = shifu_bid
+                    result = update_block_dto_to_model_internal(
+                        block_dto, new_block, variable_definitions, new_block=True
+                    )
+                    if result.error_message:
+                        app.logger.error(
+                            f"Failed to migrate block: {result.error_message}"
+                        )
+                        continue
+                    db.session.add(new_block)
+                    db.session.flush()
+                    outline_history_item.children.append(
+                        HistoryItem(
+                            bid=new_block.block_bid,
+                            id=new_block.id,
+                            type="block",
+                            children=[],
+                        )
+                    )
+                    block_index = block_index + 1
+
+        for node in outline_tree:
+            migrate_published_outline(node, history_item)
+        shifu_log_published_struct = ShifuLogPublishedStruct()
+        shifu_log_published_struct.struct_bid = generate_id(app)
+        shifu_log_published_struct.shifu_bid = shifu_bid
+        shifu_log_published_struct.struct = history_item.to_json()
+        shifu_log_published_struct.created_user_bid = user_id
+        shifu_log_published_struct.created_at = now_time
+        db.session.add(shifu_log_published_struct)
         db.session.commit()
-
         plugin_manager.is_enabled = True

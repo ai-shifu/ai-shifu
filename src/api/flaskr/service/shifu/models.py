@@ -175,7 +175,7 @@ class ShifuDraftShifu(db.Model):
         comment="Last update timestamp",
         onupdate=func.now(),
     )
-    updated_by_user_bid = Column(
+    updated_user_bid = Column(
         String(32),
         nullable=False,
         index=True,
@@ -202,7 +202,7 @@ class ShifuDraftShifu(db.Model):
             created_at=self.created_at,
             created_user_bid=self.created_user_bid,
             updated_at=self.updated_at,
-            updated_by_user_bid=self.updated_by_user_bid,
+            updated_user_bid=self.updated_user_bid,
         )
 
     def eq(self, other):
