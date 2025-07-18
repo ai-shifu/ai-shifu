@@ -1,7 +1,7 @@
 from ...dao import db
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
-from ...util.uuid import generate_id, get_now_time
+from ...util import generate_id, get_now_time
 from ..lesson.const import STATUS_DRAFT
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error
@@ -10,9 +10,10 @@ from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
 )
-from .models import ShifuDraftShifu
+from .models import ShifuDraftShifu, AiCourseAuth
 from flaskr.framework.plugin.plugin_manager import extension
 from .shifu_history_manager import save_shifu_history
+from ..common.dtos import PageNationDTO
 
 # get latest shifu draft
 
@@ -215,17 +216,72 @@ def save_shifu_draft_info(
         return return_shifu_draft_dto(shifu_draft)
 
 
-def get_shifu_draft_list(app, user_id: str, page_index: int, page_size: int):
+@extension("get_shifu_list")
+def get_shifu_draft_list(
+    result, app, user_id: str, page_index: int, page_size: int, is_favorite: bool
+):
     with app.app_context():
-        shifu_drafts = (
-            ShifuDraftShifu.query.filter(
+        page_index = max(page_index, 1)
+        page_size = max(page_size, 1)
+        page_offset = (page_index - 1) * page_size
+
+        created_total = ShifuDraftShifu.query.filter(
+            ShifuDraftShifu.created_user_bid == user_id
+        ).count()
+        shared_total = AiCourseAuth.query.filter(
+            AiCourseAuth.user_id == user_id,
+        ).count()
+        total = created_total + shared_total
+
+        created_subquery = (
+            db.session.query(db.func.max(ShifuDraftShifu.id))
+            .filter(
                 ShifuDraftShifu.created_user_bid == user_id,
                 ShifuDraftShifu.deleted == 0,
             )
-            .order_by(ShifuDraftShifu.created_at.desc())
-            .paginate(page_index, page_size, False)
+            .group_by(ShifuDraftShifu.shifu_bid)
         )
-        return shifu_drafts
+
+        shared_course_ids = (
+            db.session.query(AiCourseAuth.course_id)
+            .filter(AiCourseAuth.user_id == user_id)
+            .subquery()
+        )
+
+        shared_subquery = (
+            db.session.query(db.func.max(ShifuDraftShifu.id))
+            .filter(
+                ShifuDraftShifu.shifu_bid.in_(shared_course_ids),
+                ShifuDraftShifu.deleted == 0,
+            )
+            .group_by(ShifuDraftShifu.shifu_bid)
+        )
+
+        union_subquery = created_subquery.union(shared_subquery).subquery()
+
+        shifu_drafts: list[ShifuDraftShifu] = (
+            db.session.query(ShifuDraftShifu)
+            .filter(ShifuDraftShifu.id.in_(union_subquery))
+            .order_by(ShifuDraftShifu.id.desc())
+            .offset(page_offset)
+            .limit(page_size)
+            .all()
+        )
+
+        infos = [f"{c.shifu_bid} + {c.title} + {c.deleted}\r\n" for c in shifu_drafts]
+        app.logger.info(f"{infos}")
+        shifu_dtos = [
+            ShifuDto(
+                shifu_draft.shifu_bid,
+                shifu_draft.title,
+                shifu_draft.description,
+                shifu_draft.avatar_res_bid,
+                STATUS_DRAFT,
+                False,
+            )
+            for shifu_draft in shifu_drafts
+        ]
+        return PageNationDTO(page_index, page_size, total, shifu_dtos)
 
 
 @extension("save_shifu_detail")

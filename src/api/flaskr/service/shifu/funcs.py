@@ -152,6 +152,7 @@ def get_favorite_shifu_list(
         return PageNationDTO(0, 0, 0, [])
 
 
+@extensible
 def get_shifu_list(
     app, user_id: str, page_index: int, page_size: int, is_favorite: bool
 ) -> PageNationDTO:
