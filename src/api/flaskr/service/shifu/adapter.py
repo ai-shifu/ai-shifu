@@ -625,7 +625,7 @@ def check_input_block_dto(
     if not content.prompt or not content.prompt.strip():
         return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_REQUIRED"))
     if content.result_variable_bids is None or len(content.result_variable_bids) == 0:
-        return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
+        return BlockUpdateResultDto(None, _("SHIFU.RESULT_VARIABLE_BIDS_REQUIRED"))
     if "json" not in content.prompt.strip().lower():
         return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED"))
     for variable_bid in content.result_variable_bids:
