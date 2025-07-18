@@ -278,20 +278,26 @@ def update_block_dto_to_model(
     if block_dto.type == "button":
         block_model.script_ui_type = UI_TYPE_BUTTON
         content: ButtonDTO = block_dto.block_content  # type: ButtonDTO
-        block_model.script_ui_content = json.dumps(content.label.lang)
+        block_model.script_ui_content = json.dumps(
+            content.label.lang, ensure_ascii=False
+        )
 
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "login":
         block_model.script_ui_type = UI_TYPE_LOGIN
         content: LoginDTO = block_dto.block_content  # type: LoginDTO
-        block_model.script_ui_content = json.dumps(content.label.lang)
+        block_model.script_ui_content = json.dumps(
+            content.label.lang, ensure_ascii=False
+        )
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "payment":
         block_model.script_ui_type = UI_TYPE_TO_PAY
         content: PaymentDTO = block_dto.block_content  # type: PaymentDTO
-        block_model.script_ui_content = json.dumps(content.label.lang)
+        block_model.script_ui_content = json.dumps(
+            content.label.lang, ensure_ascii=False
+        )
         return BlockUpdateResultDto(None, None)
 
     if block_dto.type == "options":
@@ -345,7 +351,9 @@ def update_block_dto_to_model(
             or len(content.result_variable_bids) == 0
         ):
             return BlockUpdateResultDto(None, "SHIFU.RESULT_VARIABLE_BIDS_REQUIRED")
-        block_model.script_ui_content = json.dumps(content.placeholder.lang)
+        block_model.script_ui_content = json.dumps(
+            content.placeholder.lang, ensure_ascii=False
+        )
 
         block_model.script_check_prompt = content.prompt
         block_model.script_model = content.llm
@@ -400,7 +408,8 @@ def update_block_dto_to_model(
                     }
                     for condition in content.conditions
                 ],
-            }
+            },
+            ensure_ascii=False,
         )
         return BlockUpdateResultDto(None, None)
 
@@ -727,7 +736,9 @@ def update_block_dto_to_model_internal(
             return result
 
     block_model.type = block_type
-    block_model.content = json.dumps(block_dto.block_content.__json__())
+    block_model.content = json.dumps(
+        block_dto.block_content.__json__(), ensure_ascii=False
+    )
     block_model.variable_bids = ",".join(block_dto.variable_bids)
     block_model.resource_bids = ",".join(block_dto.resource_bids)
     return BlockUpdateResultDto(None, None)

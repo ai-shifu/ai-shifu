@@ -1,8 +1,8 @@
 """add_new_shifu_models
 
-Revision ID: 874cf1d25410
+Revision ID: d9605bb33e67
 Revises: 15cc32aebd22
-Create Date: 2025-07-15 04:12:09.072814
+Create Date: 2025-07-18 08:49:03.300152
 
 """
 
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "874cf1d25410"
+revision = "d9605bb33e67"
 down_revision = "15cc32aebd22"
 branch_labels = None
 depends_on = None
@@ -325,7 +325,7 @@ def upgrade():
             "updated_at", sa.DateTime(), nullable=False, comment="Last update timestamp"
         ),
         sa.Column(
-            "updated_by_user_bid",
+            "updated_user_bid",
             sa.String(length=32),
             nullable=False,
             comment="Last updater user business identifier",
@@ -342,8 +342,8 @@ def upgrade():
             batch_op.f("ix_shifu_draft_shifus_shifu_bid"), ["shifu_bid"], unique=False
         )
         batch_op.create_index(
-            batch_op.f("ix_shifu_draft_shifus_updated_by_user_bid"),
-            ["updated_by_user_bid"],
+            batch_op.f("ix_shifu_draft_shifus_updated_user_bid"),
+            ["updated_user_bid"],
             unique=False,
         )
 
@@ -670,6 +670,116 @@ def upgrade():
             unique=False,
         )
 
+    op.create_table(
+        "shifu_published_shifus",
+        sa.Column("id", mysql.BIGINT(), autoincrement=True, nullable=False),
+        sa.Column(
+            "shifu_bid",
+            sa.String(length=32),
+            nullable=False,
+            comment="Shifu business identifier",
+        ),
+        sa.Column(
+            "title", sa.String(length=100), nullable=False, comment="Shifu title"
+        ),
+        sa.Column(
+            "keywords",
+            sa.String(length=100),
+            nullable=False,
+            comment="Associated keywords",
+        ),
+        sa.Column(
+            "description",
+            sa.String(length=500),
+            nullable=False,
+            comment="Shifu description",
+        ),
+        sa.Column(
+            "avatar_res_bid",
+            sa.String(length=32),
+            nullable=False,
+            comment="Avatar resource business identifier",
+        ),
+        sa.Column(
+            "llm", sa.String(length=100), nullable=False, comment="LLM model name"
+        ),
+        sa.Column(
+            "llm_temperature",
+            sa.DECIMAL(precision=10, scale=2),
+            nullable=False,
+            comment="LLM temperature parameter",
+        ),
+        sa.Column(
+            "llm_system_prompt", sa.Text(), nullable=False, comment="LLM system prompt"
+        ),
+        sa.Column(
+            "ask_enabled_status",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Ask agent status: 5101=default, 5102=disabled, 5103=enabled",
+        ),
+        sa.Column(
+            "ask_llm",
+            sa.String(length=100),
+            nullable=False,
+            comment="Ask agent LLM model",
+        ),
+        sa.Column(
+            "ask_llm_temperature",
+            sa.DECIMAL(precision=10, scale=2),
+            nullable=False,
+            comment="Ask agent LLM temperature",
+        ),
+        sa.Column(
+            "ask_llm_system_prompt",
+            sa.Text(),
+            nullable=False,
+            comment="Ask agent LLM system prompt",
+        ),
+        sa.Column(
+            "price",
+            sa.DECIMAL(precision=10, scale=2),
+            nullable=False,
+            comment="Shifu price",
+        ),
+        sa.Column(
+            "deleted",
+            sa.SmallInteger(),
+            nullable=False,
+            comment="Deletion flag: 0=active, 1=deleted",
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(), nullable=False, comment="Creation timestamp"
+        ),
+        sa.Column(
+            "created_user_bid",
+            sa.String(length=32),
+            nullable=False,
+            comment="Creator user business identifier",
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(), nullable=False, comment="Last update timestamp"
+        ),
+        sa.Column(
+            "updated_user_bid",
+            sa.String(length=32),
+            nullable=False,
+            comment="Last updater user business identifier",
+        ),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    with op.batch_alter_table("shifu_published_shifus", schema=None) as batch_op:
+        batch_op.create_index(
+            batch_op.f("ix_shifu_published_shifus_created_user_bid"),
+            ["created_user_bid"],
+            unique=False,
+        )
+        batch_op.create_index(
+            batch_op.f("ix_shifu_published_shifus_shifu_bid"),
+            ["shifu_bid"],
+            unique=False,
+        )
+
     with op.batch_alter_table("profile_item", schema=None) as batch_op:
         batch_op.alter_column(
             "profile_type",
@@ -767,6 +877,11 @@ def downgrade():
             existing_nullable=False,
         )
 
+    with op.batch_alter_table("shifu_published_shifus", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_shifu_published_shifus_shifu_bid"))
+        batch_op.drop_index(batch_op.f("ix_shifu_published_shifus_created_user_bid"))
+
+    op.drop_table("shifu_published_shifus")
     with op.batch_alter_table("shifu_published_outline_items", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_shifu_published_outline_items_shifu_bid"))
         batch_op.drop_index(
@@ -794,7 +909,7 @@ def downgrade():
 
     op.drop_table("shifu_log_draft_structs")
     with op.batch_alter_table("shifu_draft_shifus", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_shifu_draft_shifus_updated_by_user_bid"))
+        batch_op.drop_index(batch_op.f("ix_shifu_draft_shifus_updated_user_bid"))
         batch_op.drop_index(batch_op.f("ix_shifu_draft_shifus_shifu_bid"))
         batch_op.drop_index(batch_op.f("ix_shifu_draft_shifus_created_user_bid"))
 

@@ -99,7 +99,7 @@ def create_shifu_draft(
             deleted=0,  # not deleted
             created_user_bid=user_id,
             created_at=now_time,
-            updated_by_user_bid=user_id,
+            updated_user_bid=user_id,
             updated_at=now_time,
         )
 
@@ -146,7 +146,7 @@ def get_shifu_draft_info(result, app, user_id: str, shifu_id: str) -> ShifuDetai
             shifu_draft.created_user_bid = user_id
             shifu_draft.created_at = datetime.now()
             shifu_draft.updated_at = datetime.now()
-            shifu_draft.updated_by_user_bid = user_id
+            shifu_draft.updated_user_bid = user_id
             shifu_draft.deleted = 0
             db.session.add(shifu_draft)
             db.session.flush()
@@ -184,7 +184,7 @@ def save_shifu_draft_info(
                 price=shifu_price,
                 deleted=0,
                 created_user_bid=user_id,
-                updated_by_user_bid=user_id,
+                updated_user_bid=user_id,
             )
             db.session.add(shifu_draft)
             db.session.flush()
@@ -201,7 +201,7 @@ def save_shifu_draft_info(
             new_shifu_draft.llm = shifu_model
             new_shifu_draft.llm_temperature = shifu_temperature
             new_shifu_draft.price = shifu_price
-            new_shifu_draft.updated_by_user_bid = user_id
+            new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
             if not new_shifu_draft.eq(shifu_draft):
                 check_text_with_risk_control(
@@ -310,7 +310,7 @@ def save_shifu_draft_detail(
             new_shifu.llm = shifu_model
             new_shifu.price = shifu_price
             new_shifu.llm_temperature = shifu_temperature
-            new_shifu.updated_by_user_bid = user_id
+            new_shifu.updated_user_bid = user_id
             new_shifu.updated_at = datetime.now()
             new_check_str = new_shifu.get_str_to_check()
             if old_check_str != new_check_str:
