@@ -152,19 +152,6 @@ def create_outline(
         if len(outline_name) > 100:
             raise_error("SHIFU.OUTLINE_NAME_TOO_LONG")
 
-        # check if name conflicts with other outlines
-        existing_outline = (
-            ShifuDraftOutlineItem.query.filter(
-                ShifuDraftOutlineItem.shifu_bid == shifu_id,
-                ShifuDraftOutlineItem.title == outline_name,
-                ShifuDraftOutlineItem.deleted == 0,
-            )
-            .order_by(ShifuDraftOutlineItem.id.desc())
-            .first()
-        )
-        if existing_outline:
-            raise_error("SHIFU.OUTLINE_NAME_ALREADY_EXISTS")
-
         # determine position
         existing_items = __get_existing_outline_items(shifu_id)
         if parent_id:
@@ -278,20 +265,6 @@ def modify_outline(
         # validate name length
         if len(outline_name) > 100:
             raise_error("SHIFU.OUTLINE_NAME_TOO_LONG")
-
-        # check if name conflicts with other outlines
-        name_conflict = (
-            ShifuDraftOutlineItem.query.filter(
-                ShifuDraftOutlineItem.shifu_bid == shifu_id,
-                ShifuDraftOutlineItem.title == outline_name,
-                ShifuDraftOutlineItem.deleted == 0,
-            )
-            .filter(ShifuDraftOutlineItem.outline_item_bid != outline_id)
-            .first()
-        )
-
-        if name_conflict:
-            raise_error("SHIFU.OUTLINE_NAME_ALREADY_EXISTS")
 
         # check if needs update
         old_check_str = existing_outline.get_str_to_check()
