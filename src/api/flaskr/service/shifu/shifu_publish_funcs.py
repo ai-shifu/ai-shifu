@@ -65,6 +65,9 @@ def publish_shifu_draft(result, app, user_id: str, shifu_id: str):
             outline_item.ask_enabled_status = draft_outline_item.ask_enabled_status
             outline_item.ask_llm = draft_outline_item.ask_llm
             outline_item.ask_llm_temperature = draft_outline_item.ask_llm_temperature
+            outline_item.ask_llm_system_prompt = (
+                draft_outline_item.ask_llm_system_prompt
+            )
             outline_item.created_user_bid = user_id
             outline_item.created_at = now_time
             outline_item.updated_user_bid = user_id
