@@ -318,5 +318,7 @@ def save_shifu_draft_detail(
             if not shifu_draft.eq(new_shifu):
                 app.logger.info("shifu_draft is not equal to new_shifu,save new_shifu")
                 db.session.add(new_shifu)
+                db.session.flush()
+                save_shifu_history(app, user_id, shifu_id, new_shifu.id)
             db.session.commit()
             return return_shifu_draft_dto(new_shifu)
