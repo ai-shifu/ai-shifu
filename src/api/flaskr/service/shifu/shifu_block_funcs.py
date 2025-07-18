@@ -1,4 +1,3 @@
-from datetime import datetime
 from flaskr.framework.plugin.plugin_manager import extension
 from flaskr.dao import db
 from flaskr.service.shifu.dtos import (
@@ -17,7 +16,8 @@ from flaskr.service.shifu.block_funcs import (
     get_profile_item_definition_list,
     check_text_with_risk_control,
 )
-from flaskr.util import generate_id
+from flaskr.util import generate_id, get_now_time
+
 from .shifu_history_manager import (
     save_blocks_history,
     HistoryInfo,
@@ -60,18 +60,20 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
     with app.app_context():
         app.logger.info(f"delete block: {outline_id}, {block_id}")
         blocks = __get_block_list_internal(outline_id)
+        now_time = get_now_time(app)
         block_model = next((b for b in blocks if b.block_bid == block_id), None)
         if block_model is None:
             raise_error("SHIFU.BLOCK_NOT_FOUND")
         block_model.deleted = 1
-        block_model.updated_at = datetime.now()
+        block_model.updated_at = now_time
         block_model.updated_user_bid = user_id
         blocks_history = []
+
         for block in blocks:
             if block.position > block_model.position:
                 update_block = block.clone()
                 update_block.position = block.position - 1
-                update_block.updated_at = datetime.now()
+                update_block.updated_at = now_time
                 update_block.updated_user_bid = user_id
                 db.session.add(update_block)
                 db.session.flush()
@@ -97,7 +99,7 @@ def save_shifu_block_list(
 ) -> SaveBlockListResultDto:
     with app.app_context():
         app.logger.info(f"save block list: {outline_id}, {block_list}")
-        time = datetime.now()
+        now_time = get_now_time(app)
         outline: ShifuDraftOutlineItem = (
             ShifuDraftOutlineItem.query.filter(
                 ShifuDraftOutlineItem.outline_item_bid == outline_id,
@@ -136,9 +138,9 @@ def save_shifu_block_list(
                 block_model.outline_item_bid = outline_id
                 block_model.position = position
                 block_model.deleted = 0
-                block_model.created_at = time
+                block_model.created_at = now_time
                 block_model.created_user_bid = user_id
-                block_model.updated_at = time
+                block_model.updated_at = now_time
                 block_model.updated_user_bid = user_id
 
                 check_str = block_model.get_str_to_check()
@@ -157,7 +159,7 @@ def save_shifu_block_list(
                 save_block_ids.append(block_model.block_bid)
                 new_block = block_model.clone()
                 new_block.position = position
-                new_block.updated_at = time
+                new_block.updated_at = now_time
                 new_block.updated_user_bid = user_id
                 new_block.deleted = 0
                 result = update_block_dto_to_model_internal(
@@ -192,7 +194,7 @@ def save_shifu_block_list(
             if block.block_bid not in save_block_ids:
                 app.logger.info(f"delete block: {block.block_bid} ,{block.id}")
                 block.deleted = 1
-                block.updated_at = time
+                block.updated_at = now_time
                 block.updated_user_bid = user_id
                 is_changed = True
         if is_changed:
@@ -214,7 +216,7 @@ def add_block(
     result: BlockDTO, app, user_id: str, outline_id: str, block: dict, block_index: int
 ) -> BlockDTO:
     with app.app_context():
-        time = datetime.now()
+        now_time = get_now_time(app)
         outline: ShifuDraftOutlineItem = (
             ShifuDraftOutlineItem.query.filter(
                 ShifuDraftOutlineItem.outline_item_bid == outline_id,
@@ -238,6 +240,10 @@ def add_block(
         block_model.outline_item_bid = outline_id
         block_model.position = block_index
         block_model.block_bid = block_bid
+        block_model.created_at = now_time
+        block_model.created_user_bid = user_id
+        block_model.updated_at = now_time
+        block_model.updated_user_bid = user_id
         result = update_block_dto_to_model_internal(
             block_dto, block_model, variable_definitions, new_block=True
         )
@@ -262,7 +268,7 @@ def add_block(
             if block.position >= block_index:
                 new_block = block.clone()
                 new_block.position = block.position + 1
-                new_block.updated_at = time
+                new_block.updated_at = now_time
                 new_block.updated_user_bid = user_id
                 new_block.deleted = 0
                 db.session.add(new_block)
