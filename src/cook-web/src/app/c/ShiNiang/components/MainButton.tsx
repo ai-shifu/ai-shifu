@@ -4,7 +4,7 @@ import { forwardRef, memo, ReactNode } from 'react';
 import clsx from 'clsx';
 import { Button, ButtonProps } from '@/components/ui/button';
 
-interface MainButtonProps extends Omit<ButtonProps, 'shape'> {
+interface MainButtonProps extends ButtonProps {
   height?: number;
   shape?: 'round' | 'square';
   width?: number | string;
@@ -13,13 +13,15 @@ interface MainButtonProps extends Omit<ButtonProps, 'shape'> {
 
 export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>((props, ref) => {
   const { height = 40, shape = 'round', width, className, style, children, ...rest } = props;
-
+  
+  // 将 shape 转换为对应的 className
+  const shapeClass = shape === 'square' ? 'rounded-md' : 'rounded-full';
+  
   return (
     <Button
       ref={ref}
       {...rest}
-      shape={shape}
-      className={clsx(styles.mainButton, className)}
+      className={clsx(styles.mainButton, shapeClass, className)}
       style={{ width, height, ...style }}>
       {children}
     </Button>
