@@ -81,7 +81,9 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
                 blocks_history.append(
                     HistoryInfo(bid=block.block_bid, id=update_block.id)
                 )
-        save_blocks_history(app, user_id, outline_id, block_id, blocks_history)
+        save_blocks_history(
+            app, user_id, block_model.shifu_bid, outline_id, blocks_history
+        )
         db.session.commit()
         return True
 
@@ -129,13 +131,15 @@ def save_shifu_block_list(
                 block_model = ShifuDraftBlock()
                 block_model.block_bid = generate_id(app)
                 result = update_block_dto_to_model_internal(
-                    block_dto, block_model, variable_definitions, new_block=True
+                    block_dto,
+                    block_model,
+                    variable_definitions,
+                    new_block=True,
                 )
                 if result.error_message:
                     error_messages[block_model.block_bid] = result.error_message
 
                     continue
-                block_model = ShifuDraftBlock()
                 block_model.outline_item_bid = outline_id
                 block_model.position = position
                 block_model.deleted = 0
