@@ -32,6 +32,7 @@ from flaskr.service.shifu.adapter import BlockDTO, update_block_dto_to_model_int
 from flaskr.service.shifu.shifu_history_manager import __save_shifu_history
 from flaskr.service.lesson.const import SCRIPT_TYPE_SYSTEM
 from flaskr.service.lesson.models import AILessonScript
+from flaskr.service.shifu.utils import parse_shifu_res_bid
 
 
 def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
@@ -61,7 +62,7 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
         new_shifu.shifu_bid = shifu_bid
         new_shifu.title = old_shifu.course_name
         new_shifu.description = old_shifu.course_desc
-        new_shifu.avatar_res_bid = old_shifu.course_teacher_avatar
+        new_shifu.avatar_res_bid = parse_shifu_res_bid(old_shifu.course_teacher_avatar)
         new_shifu.keywords = old_shifu.course_keywords
         new_shifu.llm = old_shifu.course_default_model
         new_shifu.llm_temperature = old_shifu.course_default_temperature

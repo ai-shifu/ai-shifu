@@ -10,7 +10,6 @@ from flaskr.service.shifu.models import (
     ShifuDraftBlock,
     ShifuLogPublishedStruct,
 )
-from flaskr.util import get_now_time
 from flaskr.service.shifu.shifu_outline_funcs import (
     build_outline_tree,
     ShifuOutlineTreeNode,
@@ -19,12 +18,13 @@ from flaskr.service.shifu.shifu_block_funcs import __get_block_list_internal
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.common import get_config
 from flaskr.util import generate_id
+from datetime import datetime
 
 
 @extension("publish_shifu")
 def publish_shifu_draft(result, app, user_id: str, shifu_id: str):
     with app.app_context():
-        now_time = get_now_time(app)
+        now_time = datetime.now()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("SHIFU.SHIFU_NOT_FOUND")
