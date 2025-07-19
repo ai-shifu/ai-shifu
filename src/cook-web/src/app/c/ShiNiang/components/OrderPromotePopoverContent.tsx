@@ -20,11 +20,10 @@ const OrderPromotePopoverContent = ({ payload, onCancelButtonClick, onOkButtonCl
             style={{ height: 26 }}>
             {payload.pop_up_cancel_text}
           </Button>
-          {/* @ts-expect-error EXPECT */}
           <MainButton
             className={styles.payBtn}
             onClick={onOkButtonClick}
-            shape="default"
+            shape="round"
             height={26}
           >
             {payload.pop_up_confirm_text}
