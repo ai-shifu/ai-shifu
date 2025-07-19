@@ -14,7 +14,7 @@ export async function GET() {
     enableWechatCode: environment.enableWechatCode,
 
     // ===== UI Configuration =====
-    alwaysShowLessonTree: environment.alwaysShowLessonTree.toString(),
+    alwaysShowLessonTree: environment.alwaysShowLessonTree,
     logoHorizontal: environment.logoHorizontal,
     logoVertical: environment.logoVertical,
 
@@ -23,7 +23,7 @@ export async function GET() {
     umamiWebsiteId: environment.umamiWebsiteId,
 
     // ===== Development Tools =====
-    enableEruda: environment.enableEruda.toString(),
+    enableEruda: environment.enableEruda,
   };
 
   return NextResponse.json(config);
