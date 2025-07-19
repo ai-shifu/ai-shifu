@@ -16,12 +16,13 @@ from flaskr.service.shifu.block_funcs import (
     get_profile_item_definition_list,
     check_text_with_risk_control,
 )
-from flaskr.util import generate_id, get_now_time
+from flaskr.util import generate_id
 
 from .shifu_history_manager import (
     save_blocks_history,
     HistoryInfo,
 )
+from datetime import datetime
 
 
 def __get_block_list_internal(outline_id: str) -> list[ShifuDraftBlock]:
@@ -60,7 +61,7 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
     with app.app_context():
         app.logger.info(f"delete block: {outline_id}, {block_id}")
         blocks = __get_block_list_internal(outline_id)
-        now_time = get_now_time(app)
+        now_time = datetime.now()
         block_model = next((b for b in blocks if b.block_bid == block_id), None)
         if block_model is None:
             raise_error("SHIFU.BLOCK_NOT_FOUND")
@@ -99,7 +100,7 @@ def save_shifu_block_list(
 ) -> SaveBlockListResultDto:
     with app.app_context():
         app.logger.info(f"save block list: {outline_id}, {block_list}")
-        now_time = get_now_time(app)
+        now_time = datetime.now()
         outline: ShifuDraftOutlineItem = (
             ShifuDraftOutlineItem.query.filter(
                 ShifuDraftOutlineItem.outline_item_bid == outline_id,
@@ -216,7 +217,7 @@ def add_block(
     result: BlockDTO, app, user_id: str, outline_id: str, block: dict, block_index: int
 ) -> BlockDTO:
     with app.app_context():
-        now_time = get_now_time(app)
+        now_time = datetime.now()
         outline: ShifuDraftOutlineItem = (
             ShifuDraftOutlineItem.query.filter(
                 ShifuDraftOutlineItem.outline_item_bid == outline_id,

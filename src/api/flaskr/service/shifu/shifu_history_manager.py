@@ -4,8 +4,8 @@ from pydantic import BaseModel
 from .models import ShifuLogDraftStruct
 from flaskr.dao import db
 from flaskr.util import generate_id
-from flaskr.util.datetime import get_now_time
 import queue
+from datetime import datetime
 
 """
 save shifu history to database
@@ -78,7 +78,7 @@ def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
 def __save_shifu_history(
     app: Flask, user_id: str, shifu_bid: str, history: HistoryItem
 ):
-    now = get_now_time(app)
+    now = datetime.now()
     shifu_history = ShifuLogDraftStruct(
         struct_bid=generate_id(app),
         shifu_bid=shifu_bid,

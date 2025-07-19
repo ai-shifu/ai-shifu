@@ -1,7 +1,7 @@
 from ...dao import db
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
-from ...util import generate_id, get_now_time
+from ...util import generate_id
 from ..lesson.const import STATUS_DRAFT
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error
@@ -65,7 +65,7 @@ def create_shifu_draft(
 ):
     """ """
     with app.app_context():
-        now_time = get_now_time()
+        now_time = datetime.now()
         if result and result.bid:
             shifu_id = result.bid
         else:
