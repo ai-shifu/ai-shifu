@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import DOMPurify from 'dompurify';
 import styles from './ActiveMessage.module.scss';
 import { shifu } from '../config/config';
 import ToPayButton from './ToPayButton';
@@ -25,7 +26,7 @@ const ActiveMessage = ({
       <div className={styles.activeContainer}>
         <div className={styles.activeWrapper}>
           <div>
-            <span dangerouslySetInnerHTML={{ __html: msg }}></span>{' '}
+            <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg) }}></span>{' '}
             {button && <ToPayButton onClick={_onButtonClick}>{button}</ToPayButton>}
           </div>
         </div>
