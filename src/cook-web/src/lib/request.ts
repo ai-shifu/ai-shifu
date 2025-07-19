@@ -134,8 +134,8 @@ export class Request {
 
       if (!response.ok) {
         const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment 
-          ? `Request failed with status ${response.status}` 
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
           : 'Network request failed';
         throw new ErrorWithCode(errorMessage, response.status);
       }
@@ -203,8 +203,8 @@ export class Request {
 
       if (!response.ok) {
         const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment 
-          ? `Request failed with status ${response.status}` 
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
           : 'Network request failed';
         throw new ErrorWithCode(errorMessage, response.status);
       }
@@ -265,8 +265,8 @@ export class Request {
 
       if (!response.ok) {
         const isDevelopment = process.env.NODE_ENV === 'development';
-        const errorMessage = isDevelopment 
-          ? `Request failed with status ${response.status}` 
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
           : 'Network request failed';
         throw new ErrorWithCode(errorMessage, response.status);
       }
