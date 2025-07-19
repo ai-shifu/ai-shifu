@@ -13,10 +13,10 @@ interface MainButtonProps extends ButtonProps {
 
 export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>((props, ref) => {
   const { height = 40, shape = 'round', width, className, style, children, ...rest } = props;
-  
+
   // 将 shape 转换为对应的 className
   const shapeClass = shape === 'square' ? 'rounded-md' : 'rounded-full';
-  
+
   return (
     <Button
       ref={ref}
