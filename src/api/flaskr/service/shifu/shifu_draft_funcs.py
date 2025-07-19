@@ -132,26 +132,7 @@ def get_shifu_draft_info(result, app, user_id: str, shifu_id: str) -> ShifuDetai
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
-            draft_dto: ShifuDetailDto = result
-            shifu_draft = ShifuDraftShifu()
-            shifu_draft.shifu_bid = draft_dto.bid
-            shifu_draft.title = draft_dto.name
-            shifu_draft.description = draft_dto.description
-            shifu_draft.avatar_res_bid = parse_shifu_res_bid(draft_dto.avatar)
-            shifu_draft.keywords = ",".join(draft_dto.keywords)
-            shifu_draft.llm = draft_dto.model
-            shifu_draft.llm_temperature = draft_dto.temperature
-            shifu_draft.price = draft_dto.price
-            shifu_draft.deleted = 0
-            shifu_draft.created_user_bid = user_id
-            shifu_draft.created_at = datetime.now()
-            shifu_draft.updated_at = datetime.now()
-            shifu_draft.updated_user_bid = user_id
-            shifu_draft.deleted = 0
-            db.session.add(shifu_draft)
-            db.session.flush()
-            save_shifu_history(app, user_id, shifu_id, shifu_draft.id)
-            db.session.commit()
+            raise_error("SHIFU.SHIFU_NOT_FOUND")
         return return_shifu_draft_dto(shifu_draft)
 
 
