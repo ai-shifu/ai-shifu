@@ -85,12 +85,11 @@ const NavigatorTitleRightArea = ({ payload }) => {
   return (
     <>
       {!hasPay ? (
-        // @ts-expect-error EXPECT
-        <Popover className={styles.navigatorTitleRightAreaPopover}>
+        <Popover>
           <PopoverTrigger>
                <ToPayButton onClick={onPayButtonClick}>{payload.title}</ToPayButton>
           </PopoverTrigger>
-          <PopoverContent>
+          <PopoverContent className={styles.navigatorTitleRightAreaPopover}>
             {/* @ts-expect-error EXPECT */}
           <OrderPromotePopoverContent
               payload={payload}
