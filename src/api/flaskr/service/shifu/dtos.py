@@ -1,5 +1,5 @@
 from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.service.shifu.utils import OutlineTreeNode
+from flaskr.service.shifu.models import ShifuDraftOutlineItem
 from flaskr.service.profile.dtos import (
     TextProfileDto,
     SelectProfileDto,
@@ -142,15 +142,23 @@ class SimpleOutlineDto(BaseModel):
 
     def __init__(
         self,
-        node: OutlineTreeNode,
+        bid: str,
+        position: str,
+        name: str,
+        children: list,
     ):
         super().__init__(
-            bid=node.outline_id,
-            position=node.lesson_no,
-            name=node.outline.lesson_name,
+            bid=bid,
+            position=position,
+            name=name,
             children=(
-                [SimpleOutlineDto(child) for child in node.children]
-                if node.children
+                [
+                    SimpleOutlineDto(
+                        child.bid, child.position, child.name, child.children
+                    )
+                    for child in children
+                ]
+                if children
                 else []
             ),
         )
@@ -162,6 +170,45 @@ class SimpleOutlineDto(BaseModel):
             "name": self.name,
             "children": self.children,
         }
+
+
+# new outline tree node class, for handling ShifuDraftOutlineItem
+# author: yfge
+# date: 2025-07-13
+# version: 1.0.0
+# description: this class is used to handle ShifuDraftOutlineItem
+# usage:
+# 1. create a new ShifuOutlineTreeNode
+# 2. add a child to the node
+# 3. remove a child from the node
+class ShifuOutlineTreeNode:
+    def __init__(self, outline_item: ShifuDraftOutlineItem):
+        self.outline = outline_item
+        self.children = []
+        if outline_item:
+            self.outline_id = outline_item.outline_item_bid
+            self.position = outline_item.position
+        else:
+            self.outline_id = ""
+            self.position = ""
+        self.parent_node = None
+
+    def add_child(self, child: "ShifuOutlineTreeNode"):
+        self.children.append(child)
+        child.parent_node = self
+
+    def remove_child(self, child: "ShifuOutlineTreeNode"):
+        child.parent_node = None
+        self.children.remove(child)
+
+    def get_new_position(self):
+        if not self.parent_node:
+            return self.position
+        else:
+            return (
+                self.parent_node.get_new_position()
+                + f"{self.parent_node.children.index(self) + 1:02d}"
+            )
 
 
 @register_schema_to_swagger
@@ -389,15 +436,11 @@ class ButtonDTO(BaseModel):
     label: LabelDTO = Field(..., description="label", required=True)
 
     def __init__(self, label: dict[str, str], **kwargs):
-        from flask import current_app
-
-        current_app.logger.info(f"label: {label} type: {type(label)}")
-
         super().__init__(label=LabelDTO(lang=label.get("lang", label)))
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
         }
 
 
@@ -430,7 +473,7 @@ class InputDTO(BaseModel):
 
     def __json__(self):
         return {
-            "placeholder": self.placeholder,
+            "placeholder": self.placeholder.__json__(),
             "prompt": self.prompt,
             "result_variable_bids": self.result_variable_bids,
             "llm": self.llm,
@@ -449,7 +492,7 @@ class OptionItemDTO(BaseModel):
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
             "value": self.value,
         }
 
@@ -470,7 +513,7 @@ class OptionsDTO(BaseModel):
     def __json__(self):
         return {
             "result_variable_bid": self.result_variable_bid,
-            "options": self.options,
+            "options": [option.__json__() for option in self.options],
         }
 
 
@@ -508,7 +551,7 @@ class GotoDTO(BaseModel):
 
     def __json__(self):
         return {
-            "conditions": self.conditions,
+            "conditions": [condition.__json__() for condition in self.conditions],
         }
 
 
@@ -521,7 +564,7 @@ class PaymentDTO(BaseModel):
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
         }
 
 
@@ -534,7 +577,7 @@ class LoginDTO(BaseModel):
 
     def __json__(self):
         return {
-            "label": self.label,
+            "label": self.label.__json__(),
         }
 
 
@@ -551,7 +594,7 @@ class CheckCodeDTO(BaseModel):
 
     def __json__(self):
         return {
-            "placeholder": self.placeholder,
+            "placeholder": self.placeholder.__json__(),
         }
 
 
@@ -568,7 +611,7 @@ class PhoneDTO(BaseModel):
 
     def __json__(self):
         return {
-            "placeholder": self.placeholder,
+            "placeholder": self.placeholder.__json__(),
         }
 
 
@@ -617,7 +660,7 @@ class BlockDTO(BaseModel):
         return {
             "bid": self.bid,
             "type": self.type,
-            "properties": self.block_content,
+            "properties": self.block_content.__json__(),
             "variable_bids": self.variable_bids,
             "resource_bids": self.resource_bids,
         }
