@@ -133,7 +133,11 @@ export class Request {
       const response = await fetch(fullUrl, mergedConfig);
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment 
+          ? `Request failed with status ${response.status}` 
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const res = await response.json();
@@ -198,7 +202,11 @@ export class Request {
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment 
+          ? `Request failed with status ${response.status}` 
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const reader = response.body?.getReader();
@@ -256,7 +264,11 @@ export class Request {
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment 
+          ? `Request failed with status ${response.status}` 
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const reader = response.body?.getReader();
