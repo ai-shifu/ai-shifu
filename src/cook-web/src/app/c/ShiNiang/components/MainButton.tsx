@@ -13,7 +13,7 @@ interface MainButtonProps extends Omit<ButtonProps, 'shape'> {
 
 export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>((props, ref) => {
   const { height = 40, shape = 'round', width, className, style, children, ...rest } = props;
-  
+
   return (
     <Button
       ref={ref}
