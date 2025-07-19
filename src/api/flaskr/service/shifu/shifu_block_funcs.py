@@ -141,6 +141,7 @@ def save_shifu_block_list(
 
                     continue
                 block_model.outline_item_bid = outline_id
+                block_model.shifu_bid = outline.shifu_bid
                 block_model.position = position
                 block_model.deleted = 0
                 block_model.created_at = now_time
@@ -249,6 +250,7 @@ def add_block(
         block_model.created_user_bid = user_id
         block_model.updated_at = now_time
         block_model.updated_user_bid = user_id
+        block_model.shifu_bid = outline.shifu_bid
         result = update_block_dto_to_model_internal(
             block_dto, block_model, variable_definitions, new_block=True
         )
