@@ -165,7 +165,10 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
                     new_block.updated_user_bid = user_id
                     new_block.shifu_bid = shifu_bid
                     result = update_block_dto_to_model_internal(
-                        block_dto, new_block, variable_definitions, new_block=True
+                        block_dto,
+                        new_block,
+                        variable_definitions,
+                        new_block=True,
                     )
                     if result.error_message:
                         app.logger.error(
@@ -350,7 +353,10 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
                     new_block.updated_user_bid = user_id
                     new_block.shifu_bid = shifu_bid
                     result = update_block_dto_to_model_internal(
-                        block_dto, new_block, variable_definitions, new_block=True
+                        block_dto,
+                        new_block,
+                        variable_definitions,
+                        new_block=True,
                     )
                     if result.error_message:
                         app.logger.error(
