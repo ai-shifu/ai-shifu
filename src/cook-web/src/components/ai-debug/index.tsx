@@ -18,12 +18,13 @@ import CMEditor, { getProfileKeyListFromContent } from '@/components/cm-editor'
 import ModelList from '@/components/model-list'
 import api from '@/api'
 import { ChevronDown, ChevronUp, Copy, Minus, Plus, Trash2 } from 'lucide-react'
-import { getSiteHost } from '@/config/runtime-config'
-import { getToken } from '@/local/local'
+
+import { useUserStore } from '@/c-store/useUserStore'
 import { v4 as uuidv4 } from 'uuid'
 import Loading from '../loading'
 import { useTranslation } from 'react-i18next'
 import { ContentDTO } from '@/types/shifu'
+import { environment } from '@/config/environment';
 
 async function* makeTextSteamLineIterator (reader: ReadableStreamDefaultReader) {
   const utf8Decoder = new TextDecoder('utf-8')
@@ -61,7 +62,8 @@ async function* makeTextSteamLineIterator (reader: ReadableStreamDefaultReader) 
 const AIModelDialog = ({ blockId, open, onOpenChange }) => {
   console.log('AIModelDialog', blockId)
   const { t } = useTranslation()
-  const SITE_HOST = getSiteHost()
+  const SITE_HOST = environment.apiBaseUrl
+  const { getToken } = useUserStore()
   const {
     blockProperties,
     blocks,
@@ -125,7 +127,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     try {
       const controller = new AbortController()
       abortRefs.current[rowIndex * colCount + index] = controller
-      const token = await getToken()
+      const token = getToken()
       const response = await fetch(url, {
         method: 'POST',
         headers: {

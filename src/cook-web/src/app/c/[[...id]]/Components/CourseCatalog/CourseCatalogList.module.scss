@@ -1,0 +1,47 @@
+.courseCatalogList {
+  height: 100%;
+  display: flex;
+  padding: 10px 20px;
+  flex-flow: column nowrap;
+  box-sizing: border-box;
+  position: relative;
+
+  .titleRow {
+    flex: 0 0 auto;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-between;
+    align-items: center;
+
+    .titleArea {
+      display: flex;
+      flex-flow: row nowrap;
+      align-items: center;
+      flex: 1 1 0;
+      overflow: hidden;
+
+      .icon {
+        width: 16px;
+      }
+
+      .titleName {
+        margin-left: 12px;
+        font-weight: var(--font-weight-bold);
+        color: var(--font-color-main);
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        padding-right: 0.5em;
+      }
+    }
+
+    .chapterCount {
+      font-size: var(--font-size-5);
+      color: var(--color-8);
+    }
+  }
+
+  .listRow {
+    margin-top: 5px;
+  }
+}

@@ -10,7 +10,6 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import apiService from '@/api'
 import { isValidEmail } from '@/lib/validators'
-import { setToken } from '@/local/local'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface ForgotPasswordCombinedProps {
@@ -146,7 +145,7 @@ export function ForgotPasswordCombined ({
       })
 
       if (response.code == 0) {
-        setToken(response.data.token)
+        // Token handled via login flow, no need to set manually here
         toast({
           title: t('login.verification-success'),
           description: t('login.please-set-new-password')

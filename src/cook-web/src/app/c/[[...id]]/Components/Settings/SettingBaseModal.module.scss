@@ -1,0 +1,22 @@
+.SettingBaseModal {
+  :global(.ant-modal-body) {
+    padding: 10px 16px 10px 16px;
+    color: var(--font-color-main);
+  }
+
+  .header {
+    font-size: var(--font-size-2);
+    font-weight: var(--font-weight-2);
+    text-align: center;
+    padding-bottom: 30px;
+  }
+
+  .btnWrapper {
+    margin-top: 40px;
+  }
+
+  .modalWrapper {
+    box-sizing: border-box;
+    padding: 20px 28px;
+  }
+}

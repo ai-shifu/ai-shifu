@@ -1,26 +1,21 @@
-/* eslint-disable */
-import { getSiteHost } from "@/config/runtime-config";
-import { fail } from '@/hooks/use-toast';
-import { getToken } from "@/local/local";
+import { useUserStore } from "@/c-store/useUserStore";
+import { getStringEnv } from "@/c-utils/envUtils";
+import { getDynamicApiBaseUrl } from '@/config/environment';
+import { toast } from '@/hooks/use-toast';
+import i18n from 'i18next';
 import { v4 as uuidv4 } from 'uuid';
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
+// ===== Type Definitions =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
 
-export type StreamRequestConfig = RequestInit & { params?: any; data?: any, parseChunk?: (chunkValue: string) => string };
-
+export type StreamRequestConfig = RequestInit & {
+  params?: any;
+  data?: any;
+  parseChunk?: (chunkValue: string) => string
+};
 export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
 
+// ===== Error Handling =====
 export class ErrorWithCode extends Error {
   code: number;
   constructor(message: string, code: number) {
@@ -29,296 +24,321 @@ export class ErrorWithCode extends Error {
   }
 }
 
-function parseJson(text: string) {
+// Unified error handling function
+const handleApiError = (error: ErrorWithCode, showToast = true) => {
+  if (showToast) {
+    toast({
+      title: error.message || i18n.t("common.networkError"),
+      variant: 'destructive',
+    });
+  }
+
+  // Dispatch error event (only on client side)
+  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    const apiError = new CustomEvent("apiError", {
+      detail: error,
+      bubbles: true
+    });
+    document.dispatchEvent(apiError);
+  }
+};
+
+// Check response status code and handle business logic
+const handleBusinessCode = (response: any) => {
+  const error = new ErrorWithCode(response.message || i18n.t("common.unknownError"), response.code || -1);
+
+  if (response.code !== 0) {
+    // Special status codes do not show toast
+    if (![1001].includes(response.code)) {
+      handleApiError(error);
+    }
+
+    // Authentication related errors, redirect to login (only on client side)
+    if (typeof window !== 'undefined' && location.pathname !== '/login' && [1001, 1004, 1005].includes(response.code)) {
+      const currentPath = encodeURIComponent(location.pathname + location.search);
+      window.location.href = `/login?redirect=${currentPath}`;
+    }
+
+    // Permission error (only on client side)
+    if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
+      toast({
+        title: i18n.t('errors.no-permission'),
+        variant: 'destructive',
+      });
+    }
+
+    return Promise.reject(error);
+  }
+  return response.data || response;
+};
+
+// ===== Utility Functions =====
+const parseJson = (text: string) => {
   try {
-    const result = JSON.parse(text);
-    return result;
-  } catch (e) {
+    return JSON.parse(text);
+  } catch {
     return text;
   }
-}
+};
 
 
-async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
-  const utf8Decoder = new TextDecoder("utf-8");
-  let { value: chunk, done: readerDone } = await reader.read();
-  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
-  const re = /\r\n|\n|\r/gm;
-  let startIndex = 0;
-
-  for (; ;) {
-    // eslint-disable-next-line prefer-const
-    const result = re.exec(chunk);
-    if (!result) {
-      if (readerDone) {
-        break;
-      }
-      const remainder = chunk.substr(startIndex);
-      ({ value: chunk, done: readerDone } = await reader.read());
-      chunk =
-        remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
-      startIndex = re.lastIndex = 0;
-      continue;
-    }
-    yield chunk.substring(startIndex, result.index);
-    startIndex = re.lastIndex;
-  }
-  if (startIndex < chunk.length) {
-    // last line didn't end in a newline char
-    yield chunk.substr(startIndex);
-  }
-}
-
-// 封装请求库
+// ===== Fetch Wrapper Class =====
 export class Request {
-  defaultConfig: RequestInit = {};
-  baseUrl: string | undefined;
-  token: string | undefined;
-  constructor(defaultConfig = {}) {
+  private defaultConfig: RequestInit = {};
+
+  constructor(defaultConfig: RequestInit = {}) {
     this.defaultConfig = defaultConfig;
   }
-  async prepareConfig(url: string, config: RequestInit) {
+
+  private async prepareConfig(url: string, config: RequestInit) {
     const mergedConfig = {
       ...this.defaultConfig,
       ...config,
       headers: {
         ...this.defaultConfig.headers,
         ...config.headers,
-        // "X-API-MODE": "admin",
       }
     };
+
+    // Handle URL
     let fullUrl = url;
     if (!url.startsWith('http')) {
       if (typeof window !== 'undefined') {
-        const siteHost = getSiteHost();
-        this.baseUrl = siteHost || 'http://localhost:8081';
-
+        // Client: use cached API base URL to avoid repeated requests
+        const siteHost = await getDynamicApiBaseUrl();
+        fullUrl = (siteHost || 'http://localhost:8081') + url;
+      } else {
+        // Fallback for server-side rendering
+        fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
       }
-      fullUrl = this.baseUrl ? this.baseUrl + url : url;
     }
 
-    this.token = await getToken();
-
-    if (this.token) {
+    // Add authentication headers
+    const token = useUserStore.getState().getToken();
+    if (token) {
       mergedConfig.headers = {
-        Authorization: `Bearer ${this.token}`,
+        Authorization: `Bearer ${token}`,
+        Token: token,
+        "X-Request-ID": uuidv4().replace(/-/g, ''),
         ...mergedConfig.headers,
-        "Token": this.token,
-        // "X-API-MODE": "admin",
-        "X-Request-ID": uuidv4().replace(/-/g, '')
-      } as any;
+      } as HeadersInit;
     }
 
-    return {
-      url: fullUrl,
-      config: mergedConfig
-    };
+    return { url: fullUrl, config: mergedConfig };
   }
-  // intercept request, handle exceptions uniformly
-  async interceptFetch(url: string, config: RequestConfig) {
+
+  private async interceptFetch(url: string, config: RequestConfig) {
     try {
       const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
       const response = await fetch(fullUrl, mergedConfig);
+
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const res = await response.json();
-      // check if there is a code property, use Object API
+
+      // Check business status code
       if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-
-        if (location.pathname == '/login') {
-          return res;
-        }
-        if (location.pathname != '/login' && (res.code == 1001 || res.code == 1005 || res.code == 1004)) {
-            window.location.href = '/login';
-        }
-        if (location.pathname.startsWith('/shifu/') && res.code == 9002) {
-          // todo It should be changed to i18n
-          fail('您当前没有权限访问此内容，请联系管理员获取权限');
-        }
-        if (res.code != 0) {
-          throw new ErrorWithCode(res.message , res.code);
-        }
-
-        if (res.code == 0) {
-          return res.data;
-        }
-
+        if (location.pathname === '/login') return res;
+        return handleBusinessCode(res);
       }
+
       return res;
     } catch (error: any) {
-      fail(error.message)
-      throw error;
-    }
-  }
-  async interceptFetchByStreamLine(url: string, config: StreamRequestConfig, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
-    try {
-      const { parseChunk, ...rest } = mergedConfig as any;
-      const controller = new AbortController();
-      const response = await fetch(fullUrl, {
-        ...rest,
-        method: 'POST',
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status}`, response.status);
-      }
-
-      const data = response.body as any;
-      const reader = data.getReader();
-      let done = false;
-      const stop = () => {
-        done = true;
-        controller.abort();
-      };
-      const lines: any = [];
-
-      for await (const line of makeTextSteamLineIterator(reader)) {
-        lines.push(line);
-        if (callback) {
-          await callback(done, line, () => {
-            stop();
-          });
-        }
-      }
-      if (callback) {
-        await callback(true, '', () => {
-          stop();
-        });
-      }
-      return lines;
-
-    } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error);
+      handleApiError(error);
       throw error;
     }
   }
 
-  async interceptFetchByStream(url: string, config: StreamRequestConfig, callback?: StreamCallback) {
-    const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+  // HTTP method wrappers
+  get(url: string, config: RequestConfig = {}) {
+    return this.interceptFetch(url, { method: 'GET', ...config });
+  }
+
+  post(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
+
+  put(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
+
+  delete(url: string, config: RequestConfig = {}) {
+    return this.interceptFetch(url, { method: 'DELETE', ...config });
+  }
+
+  patch(url: string, body: any = {}, config: RequestConfig = {}) {
+    return this.interceptFetch(url, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      ...config,
+    });
+  }
+  // Stream request
+  async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
+    const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
-      const { parseChunk, ...rest } = mergedConfig as any;
+      const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...rest,
         method: 'POST',
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status} ${response.statusText}`, response.status);
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
       }
 
-      const data = response.body as any;
-      const reader = data.getReader();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
+
       const decoder = new TextDecoder();
       let done = false;
+      let text = '';
+
       const stop = () => {
         done = true;
         controller.abort();
       };
-      let text = '';
+
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         let chunkValue = decoder.decode(value);
+
         if (parseChunk) {
           chunkValue = parseChunk(chunkValue);
         }
+
         text += chunkValue;
+
         if (callback) {
-          await callback(done, text, () => {
-            stop();
-          });
+          callback(done, text, stop);
         }
       }
+
       const result = parseJson(text);
-      if (typeof result === 'string') {
-        return result;
-      } else if (typeof result === 'object') {
-        if (result.code == 0) {
-          return result.data;
-        } else if (result.code == -1) {
-          throw new ErrorWithCode(result.message, result.code);
-        } else {
-          return result;
+      if (typeof result === 'object' && result.code !== undefined) {
+        return handleBusinessCode(result);
+      }
+
+      return result;
+    } catch (error: any) {
+      console.error('Stream request failed:', error);
+      throw error;
+    }
+  }
+
+  // Stream line by line request
+  async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
+    const { url: fullUrl } = await this.prepareConfig(url, config);
+
+    try {
+      const { parseChunk, ...rest } = config as any;
+      const controller = new AbortController();
+      const response = await fetch(fullUrl, {
+        ...rest,
+        method: 'POST',
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        const errorMessage = isDevelopment
+          ? `Request failed with status ${response.status}`
+          : 'Network request failed';
+        throw new ErrorWithCode(errorMessage, response.status);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Response body is not readable');
+
+      const utf8Decoder = new TextDecoder("utf-8");
+      let done = false;
+      const stop = () => {
+        done = true;
+        controller.abort();
+      };
+
+      const lines: string[] = [];
+      let { value: chunk, done: readerDone } = await reader.read();
+      let decodedChunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+      const re = /\r\n|\n|\r/gm;
+      let startIndex = 0;
+
+      // Stream read line processing
+      for (;;) {
+        const result = re.exec(decodedChunk);
+        if (!result) {
+          if (readerDone) break;
+          const remainder = decodedChunk.substring(startIndex);
+          ({ value: chunk, done: readerDone } = await reader.read());
+          decodedChunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+          startIndex = re.lastIndex = 0;
+          continue;
+        }
+        let line = decodedChunk.substring(startIndex, result.index);
+        if (parseChunk) {
+          line = parseChunk(line);
+        }
+        lines.push(line);
+        if (callback) {
+          callback(done, line, stop);
+        }
+        startIndex = re.lastIndex;
+      }
+
+      if (startIndex < decodedChunk.length) {
+        let line = decodedChunk.substring(startIndex);
+        if (parseChunk) {
+          line = parseChunk(line);
+        }
+        lines.push(line);
+        if (callback) {
+          callback(done, line, stop);
         }
       }
 
-    } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error);
-      throw error;
-    }
-  }
-
-  // wrap get request
-  get(url: string, config = {}) {
-    return this.interceptFetch(url, {
-      method: 'GET',
-      ...config,
-    } as RequestConfig);
-  }
-
-  // wrap post request
-  post(url: string, body = {}, config = {}) {
-    return this.interceptFetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig);
-  }
-
-  stream(url: string, body = {}, config = {}, callback?: StreamCallback) {
-    return this.interceptFetchByStream(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig, callback);
-  }
-
-  streamLine(url: string, body = {}, config = {}, callback?: StreamCallback) {
-    return this.interceptFetchByStreamLine(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      ...config,
-    } as RequestConfig, callback);
-  }
-  async fetch(url: string, config: RequestConfig) {
-    try {
-      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
-      const response = await fetch(fullUrl, {
-        ...mergedConfig,
-        method: "POST"
-      });
-      if (!response.ok) {
-        throw new ErrorWithCode(`Request failed with status ${response.status} ${response.statusText}`, response.status);
+      if (callback) {
+        callback(true, '', stop);
       }
-      return response;
+
+      return lines;
     } catch (error: any) {
-      // handle exceptions, such as reporting errors, displaying error prompts, etc.
-      console.error('Request failed:', error.message);
-      fail(error.message);
+      console.error('StreamLine request failed:', error);
       throw error;
     }
   }
-  // wrap other request methods, such as put, delete, etc.
-  // put(url, body = null, config = {}) {}
-  // delete(url, config = {}) {}
 }
 
-// example usage
+// ===== Default Instance Export =====
 const defaultConfig = {
   headers: {
     'Content-Type': 'application/json',
   },
-  // add other default configuration items
 };
 
 const request = new Request(defaultConfig);
+
 export default request;

@@ -5,30 +5,17 @@ import { ChevronUpIcon, HeartIcon, LogOut } from "lucide-react";
 import Social from "../social";
 import { useEffect, useState } from "react";
 import api from '@/api'
-import { setToken } from "@/local/local";
 import { useTranslation } from 'react-i18next';
 import LanguageSelect from '@/components/language-select';
 import i18n from '@/i18n';
-interface UserInfo {
-    user_id: string;
-    username: string;
-    name: string;
-    email: string;
-    mobile: string;
-    state: string;
-    openid: string;
-    language: string;
-    avatar: string;
-
-
-}
+import { useUserStore } from '@/c-store/useUserStore';
 
 
 
 const UserProfileCard = () => {
     const { t } = useTranslation();
-    const [profile, setProfile] = useState<UserInfo>();
     const [language, setLanguage] = useState<string>(i18n.language);
+    const { logout, userInfo, isInitialized } = useUserStore();
 
     const normalizeLanguage = (lang: string): string => {
         const supportedLanguages = Object.values(i18n.options.fallbackLng || {}).flat();
@@ -39,15 +26,13 @@ const UserProfileCard = () => {
         return 'en-US';
     }
 
-    const init = async () => {
-        const res = await api.getUserInfo({});
-        setProfile(res);
-        const normalizedLang = normalizeLanguage(res.language);
-        setLanguage(normalizedLang);
-    }
+    // Use userInfo from store instead of making API call
     useEffect(() => {
-        init();
-    }, [])
+        if (isInitialized && userInfo?.language) {
+            const normalizedLang = normalizeLanguage(userInfo.language);
+            setLanguage(normalizedLang);
+        }
+    }, [isInitialized, userInfo?.language]);
 
     useEffect(() => {
         if (language !== i18n.language) {
@@ -55,7 +40,7 @@ const UserProfileCard = () => {
         }
     }, [language]);
 
-    if (!profile) {
+    if (!isInitialized || !userInfo) {
         return null;
     }
 
@@ -84,10 +69,10 @@ const UserProfileCard = () => {
                     </Avatar>
                     <div className="flex-1">
                         <div className="font-medium">
-                            {profile.name}
+                            {userInfo.name}
                         </div>
                         <div className="text-sm text-gray-500">
-                            {profile.email}
+                            {userInfo.email}
                         </div>
                     </div>
                     <ChevronUpIcon className="w-4 h-4 text-gray-500 transition-transform duration-200 group-data-[state=open]:rotate-180" />
@@ -101,10 +86,10 @@ const UserProfileCard = () => {
                     </Avatar>
                     <div>
                         <div className="font-medium">
-                            {profile.name}
+                            {userInfo.name}
                         </div>
                         <div className="text-sm text-gray-500">
-                            {profile.email}
+                            {userInfo.email}
                         </div>
                     </div>
                 </div>
@@ -150,8 +135,7 @@ const UserProfileCard = () => {
                 <hr />
                 <div
                     onClick={() => {
-                        setToken('')
-                        window.location.href = '/login'
+                        logout()
                     }}
                     className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer"
                 >

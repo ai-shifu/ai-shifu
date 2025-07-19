@@ -1,0 +1,12 @@
+.settingHeader {
+  height: 60px;
+  padding: 0 30px;
+  display: flex;
+  align-items: center;
+  background: rgba(248, 251, 252, 0.8);
+  backdrop-filter: blur(15px);
+}
+
+.clickable {
+  cursor: pointer;
+}

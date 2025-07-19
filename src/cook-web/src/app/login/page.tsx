@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Card,
@@ -18,12 +18,15 @@ import { EmailRegister } from '@/components/auth/email-register'
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
 import { FeedbackForm } from '@/components/auth//feedback-form'
 import Image from 'next/image'
-import { setToken } from '@/local/local'
+import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png'
 import LanguageSelect from '@/components/language-select'
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
-export default function AuthPage () {
+
+
+
+export default function AuthPage() {
   const router = useRouter()
   const [authMode, setAuthMode] = useState<
     'login' | 'register' | 'forgot-password' | 'feedback'
@@ -33,8 +36,16 @@ export default function AuthPage () {
     'phone'
   )
   const [language, setLanguage] = useState(browserLanguage)
+
+  const searchParams = useSearchParams()
   const handleAuthSuccess = () => {
-    router.push('/main')
+    let redirect = searchParams.get('redirect')
+    if (!redirect || redirect.charAt(0) !== '/') {
+      redirect = '/c'
+    }
+    // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
+    // router.push('/main')
+    router.replace(redirect)
   }
 
   const handleForgotPassword = () => {
@@ -50,9 +61,6 @@ export default function AuthPage () {
   }
 
   const { t } = useTranslation();
-  useEffect(() => {
-    setToken('')
-  }, [])
 
   useEffect(() => {
     i18n.changeLanguage(language)
@@ -66,17 +74,17 @@ export default function AuthPage () {
           <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
             <Image
               className='dark:invert'
-              src='/logo.svg'
+              src={logoHorizontal}
               alt='AI-Shifu'
-              width={140}
-              height={30}
+              width={180}
+              height={40}
               priority
             />
 
-          <div className='absolute top-0 right-0'>
-          <LanguageSelect language={language} onSetLanguage={setLanguage} variant='login' />
-        </div>
-        </h2>
+            <div className='absolute top-0 right-0'>
+              <LanguageSelect language={language} onSetLanguage={setLanguage} variant='login' />
+            </div>
+          </h2>
         </div>
         <Card>
           <CardHeader>
@@ -156,10 +164,12 @@ export default function AuthPage () {
                 </TabsList>
 
                 <TabsContent value='phone'>
+                  {/* TODO: FIXME */}
                   <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
 
                 <TabsContent value='email'>
+                  {/* TODO: FIXME */}
                   <EmailRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
               </Tabs>

@@ -1,0 +1,40 @@
+.filingModal {
+  font-size: var(--font-size-5);
+  padding: 10px;
+  line-height: 2em;
+
+
+  :global(.ant-modal-content) {
+    padding: 0;
+  }
+
+  .miitLink, .miitLink:visited {
+    text-decoration: none;
+    color: var(--font-color-main);
+  }
+
+  .gonganRow {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+
+    .beianIcon {
+      width: 12px;
+      margin-right: 3px;
+    }
+  }
+
+
+  .btnGroup {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: space-between;
+
+    .actionBtn {
+      padding: 0;
+      font-size: var(--font-size-5);
+      color: var(--color-2);
+    }
+  }
+}

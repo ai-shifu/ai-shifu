@@ -11,15 +11,15 @@ import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
 
+import { type ClassValue } from "clsx"
+import { cn } from '@/lib/utils'
 
 type languageProps = {
-  variant?: 'login' | 'standard'
+    variant?: 'login' | 'standard'
     language?: string
+    contentClassName?: ClassValue
     onSetLanguage?: (value: string) => void
   }
-
-
-
 
 export default function LanguageSelect(props: languageProps) {
     const { t, i18n: i18nInstance } = useTranslation();
@@ -38,15 +38,15 @@ export default function LanguageSelect(props: languageProps) {
     }
 
     return (
-        <Select value={language} onValueChange={handleSetLanguage} >
+      <Select value={language} onValueChange={handleSetLanguage}>
         <SelectTrigger className={triggerClass}>
         <GlobeIcon className='w-4 h-4 mr-1' />
           <SelectValue className='hidden' placeholder={t('langName')} />
         </SelectTrigger>
-        <SelectContent>
-        {Object.entries(languages).map(([code, label]) => (
-              <SelectItem key={code} value={code}>{label}</SelectItem>
-            ))}
+        <SelectContent className={cn(props.contentClassName)}>
+          {Object.entries(languages).map(([code, label]) => (
+            <SelectItem key={code} value={code}>{label}</SelectItem>
+          ))}
         </SelectContent>
       </Select>
     )

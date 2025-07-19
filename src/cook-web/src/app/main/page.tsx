@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PlusIcon, StarIcon as StarOutlineIcon, RectangleStackIcon as RectangleStackOutlineIcon } from '@heroicons/react/24/outline';
 import { TrophyIcon, RectangleStackIcon, StarIcon } from '@heroicons/react/24/solid';
 import api from "@/api";
@@ -13,6 +13,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
+import { ErrorWithCode } from '@/lib/request';
+import ErrorDisplay from '@/components/error-display';
+import { useUserStore } from '@/c-store/useUserStore';
 interface ShifuCardProps {
     id: string;
     image: string | undefined;
@@ -59,21 +62,25 @@ const ScriptManagementPage = () => {
 
     const { toast } = useToast();
     const { t } = useTranslation();
+    const isInitialized = useUserStore(state => state.isInitialized);
+    const isLoggedIn = useUserStore(state => state.isLoggedIn);
     const [activeTab, setActiveTab] = useState("all");
     const [shifus, setShifus] = useState<Shifu[]>([]);
     const [loading, setLoading] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [showCreateShifuModal, setShowCreateShifuModal] = useState(false);
+    const [error, setError] = useState<{ message: string; code?: number } | null>(null);
     const pageSize = 30;
     const currentPage = useRef(1);
     const containerRef = useRef(null);
 
-    const fetchShifus = async () => {
+    const fetchShifusRef = useRef<(() => Promise<void>) | null>(null);
+
+    const fetchShifus = useCallback(async () => {
         if (loading || !hasMore) return;
 
         setLoading(true);
         try {
-
             const { items } = await api.getShifuList({
                 page_index: currentPage.current,
                 page_size: pageSize,
@@ -83,13 +90,30 @@ const ScriptManagementPage = () => {
                 setHasMore(false);
             }
 
-            setShifus(prev => [...prev, ...items]);
+            setShifus(prev => {
+                // 避免重复数据
+                const existingIds = new Set(prev.map(shifu => shifu.bid));
+                const newItems = items.filter((item: Shifu) => !existingIds.has(item.bid));
+                return [...prev, ...newItems];
+            });
             currentPage.current += 1;
             setLoading(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to fetch shifus:", error);
+            setLoading(false);
+            if (error instanceof ErrorWithCode) {
+                // Pass the error code and original message to ErrorDisplay
+                // ErrorDisplay will handle the translation based on error code
+                setError({ message: error.message, code: error.code });
+            } else {
+                // For unknown errors, pass a generic error code
+                setError({ message: error.message || 'Unknown error', code: 0 });
+            }
         }
-    };
+    }, [loading, hasMore, activeTab]);
+
+    // Store the latest fetchShifus in ref
+    fetchShifusRef.current = fetchShifus;
     const onCreateShifu = async (values: any) => {
         try {
             await api.createShifu(values);
@@ -117,16 +141,17 @@ const ScriptManagementPage = () => {
         setShifus([]);
         setHasMore(true);
         currentPage.current = 1;
+        setError(null);
     }, [activeTab]);
 
     useEffect(() => {
         const container = containerRef.current;
-        if (!container) return;
+        if (!container || !isInitialized) return;
 
         const observer = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && hasMore) {
-                    fetchShifus();
+                if (entries[0].isIntersecting && hasMore && fetchShifusRef.current) {
+                    fetchShifusRef.current();
                 }
             },
             { threshold: 0.1 }
@@ -134,8 +159,43 @@ const ScriptManagementPage = () => {
 
         observer.observe(container);
         return () => observer.disconnect();
-    }, [hasMore]);
+    }, [hasMore, isInitialized]);
 
+    // Centralized login check - redirect if not logged in after initialization
+    useEffect(() => {
+        if (isInitialized && !isLoggedIn) {
+            const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.href = `/login?redirect=${currentPath}`;
+            return;
+        }
+    }, [isInitialized, isLoggedIn]);
+
+    // Fetch data when user is initialized
+    useEffect(() => {
+        if (isInitialized && fetchShifusRef.current) {
+            if (shifus.length === 0 && !loading) {
+                fetchShifusRef.current();
+            }
+        }
+    }, [isInitialized]);
+
+    if (error) {
+        return (
+            <div className="h-full bg-gray-50 p-0">
+                <ErrorDisplay
+                    errorCode={error.code || 0}
+                    errorMessage={error.message}
+                    onRetry={() => {
+                        setError(null);
+                        setShifus([]);
+                        setHasMore(true);
+                        currentPage.current = 1;
+                        fetchShifus();
+                    }}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="h-full bg-gray-50 p-0">
