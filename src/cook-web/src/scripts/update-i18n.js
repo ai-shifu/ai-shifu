@@ -2,7 +2,7 @@ const fs = require('fs'); // eslint-disable-line
 const path = require('path'); // eslint-disable-line
 
 function getAllFiles(dir, files = []) {
-  try{
+  try {
     fs.readdirSync(dir).forEach(file => {
       const fullPath = path.join(dir, file);
       if (fs.statSync(fullPath).isDirectory()) {
@@ -21,10 +21,12 @@ function getAllFiles(dir, files = []) {
 }
 
 function extractKeysFromFile(filePath) {
-  try{
+  try {
     const content = fs.readFileSync(filePath, 'utf8');
-    const regex = /(?:{)?\s*t\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"]\s*(?:,\s*\{[^}]*\})?\s*\)(?:})?/g;
-    let match, keys = [];
+    const regex =
+      /(?:{)?\s*t\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"]\s*(?:,\s*\{[^}]*\})?\s*\)(?:})?/g;
+    let match,
+      keys = [];
     while ((match = regex.exec(content)) !== null) {
       keys.push(match[1]);
     }
@@ -56,7 +58,11 @@ function buildNestedJson(keys, langMark) {
 
 function mergeJson(base, patch) {
   for (const k in patch) {
-    if (typeof patch[k] === 'object' && patch[k] !== null && !Array.isArray(patch[k])) {
+    if (
+      typeof patch[k] === 'object' &&
+      patch[k] !== null &&
+      !Array.isArray(patch[k])
+    ) {
       if (!base[k]) base[k] = {};
       mergeJson(base[k], patch[k]);
     } else {
@@ -125,11 +131,11 @@ const files = getAllFiles(ROOT_DIR);
 const allKeys = Array.from(new Set(files.flatMap(extractKeysFromFile)));
 
 fs.readdirSync(LOCALE_DIR).forEach(file => {
-  if (file.endsWith('.json') &&  file !== 'languages.json') {
+  if (file.endsWith('.json') && file !== 'languages.json') {
     const langFile = path.join(LOCALE_DIR, file);
     const langMark = `@${file}`;
     let baseJson = {};
-    try{
+    try {
       if (fs.existsSync(langFile)) {
         baseJson = JSON.parse(fs.readFileSync(langFile, 'utf8'));
       }

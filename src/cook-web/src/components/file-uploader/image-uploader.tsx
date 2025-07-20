@@ -1,59 +1,60 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { useState, useRef, useEffect } from 'react'
-import { Upload } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
-import { uploadFile } from '@/lib/file'
-import { useToast } from '@/hooks/use-toast'
-import { useTranslation } from 'react-i18next'
-import api from '@/api'
+import { useState, useRef, useEffect } from 'react';
+import { Upload } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { uploadFile } from '@/lib/file';
+import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
+import api from '@/api';
 import { environment } from '@/config/environment';
 
 type ImageResource = {
-  resourceUrl?: string
-  resourceTitle?: string
-  resourceScale?: number
-}
+  resourceUrl?: string;
+  resourceTitle?: string;
+  resourceScale?: number;
+};
 type ImageUploaderProps = {
-  value?: ImageResource
-  onChange?: (resource: ImageResource) => void
-}
+  value?: ImageResource;
+  onChange?: (resource: ImageResource) => void;
+};
 // FIXME: from config
-const agiImgUrlRegexp = /^https?:\/\/(?:resource\.ai-shifu\.cn)\/[a-f0-9]{32}(?:\/?|\.[a-z]{3,4})?$/i
+const agiImgUrlRegexp =
+  /^https?:\/\/(?:resource\.ai-shifu\.cn)\/[a-f0-9]{32}(?:\/?|\.[a-z]{3,4})?$/i;
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
-  const { t } = useTranslation()
-  const [resourceUrl, setResourceUrl] = useState<string>('')
-  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '')
-  const [isUploading, setIsUploading] = useState<boolean>(false)
+  const { t } = useTranslation();
+  const [resourceUrl, setResourceUrl] = useState<string>('');
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '');
+  const [isUploading, setIsUploading] = useState<boolean>(false);
   const [resourceTitle, setResourceTitle] = useState<string>(
-    value?.resourceTitle || ''
-  )
+    value?.resourceTitle || '',
+  );
   const [resourceScale, setResourceScale] = useState<number>(
-    value?.resourceScale || 100
-  )
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const resourceInputRef = useRef<HTMLInputElement>(null)
-  const siteHost = environment.apiBaseUrl
-  const { toast } = useToast()
+    value?.resourceScale || 100,
+  );
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const resourceInputRef = useRef<HTMLInputElement>(null);
+  const siteHost = environment.apiBaseUrl;
+  const { toast } = useToast();
 
   const resetState = () => {
-    setResourceUrl('')
-    setInputUrl('')
-    setResourceTitle('')
-    setResourceScale(100)
+    setResourceUrl('');
+    setInputUrl('');
+    setResourceTitle('');
+    setResourceScale(100);
     if (resourceInputRef.current) {
-      resourceInputRef.current.value = ''
+      resourceInputRef.current.value = '';
     }
-  }
+  };
 
   // 修改uploadImage函数中加载图片后的处理
   const uploadImage = async (file: File) => {
-    setIsUploading(true)
+    setIsUploading(true);
     try {
       const response = await uploadFile(
         file,
@@ -61,107 +62,107 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
         undefined,
         undefined,
         progress => {
-          setUploadProgress(progress)
-        }
-      )
+          setUploadProgress(progress);
+        },
+      );
 
       if (!response.ok) {
         throw new Error(
-          `${t('file-uploader.upload-failed')}: ${response.statusText}`
-        )
+          `${t('file-uploader.upload-failed')}: ${response.statusText}`,
+        );
       }
 
-      const res = await response.json()
+      const res = await response.json();
       if (res.code !== 0) {
-        throw new Error(res.message)
+        throw new Error(res.message);
       }
 
       if (!response.ok) {
-        throw new Error(t('file-uploader.upload-failed'))
+        throw new Error(t('file-uploader.upload-failed'));
       }
-      setResourceUrl(res.data)
-      setResourceTitle(file.name)
-      setResourceScale(100)
-      const img = new Image()
-      img.src = res.data
+      setResourceUrl(res.data);
+      setResourceTitle(file.name);
+      setResourceScale(100);
+      const img = new Image();
+      img.src = res.data;
     } catch (error) {
-      console.error('Error uploading image:', error)
-      alert(t('file-uploader.failed-to-upload-image'))
+      console.error('Error uploading image:', error);
+      alert(t('file-uploader.failed-to-upload-image'));
     } finally {
-      setIsUploading(false)
+      setIsUploading(false);
     }
-  }
+  };
 
   const handleUrlUpload = async () => {
-    if (!inputUrl) return
+    if (!inputUrl) return;
     try {
-      new URL(inputUrl)
+      new URL(inputUrl);
     } catch (error) {
-      console.error('Error uploading image:', error)
+      console.error('Error uploading image:', error);
       toast({
         title: t('file-uploader.check-image-url'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
     if (agiImgUrlRegexp.test(inputUrl)) {
-      setResourceUrl(inputUrl)
+      setResourceUrl(inputUrl);
     } else {
-      setIsUploading(true)
-      try{
-      const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
-        console.error('Error uploading image:', err)
-        toast({
-          title: t('file-uploader.check-image-url'),
-          variant: 'destructive'
-        })
-      })
-      setResourceUrl(url)
-      setResourceTitle('')
-      setResourceScale(100)
+      setIsUploading(true);
+      try {
+        const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
+          console.error('Error uploading image:', err);
+          toast({
+            title: t('file-uploader.check-image-url'),
+            variant: 'destructive',
+          });
+        });
+        setResourceUrl(url);
+        setResourceTitle('');
+        setResourceScale(100);
       } catch (error) {
-        console.error('Error uploading image:', error)
+        console.error('Error uploading image:', error);
         toast({
           title: t('file-uploader.check-image-url'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       } finally {
-        setIsUploading(false)
+        setIsUploading(false);
       }
-      return
+      return;
     }
-  }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      uploadImage(file)
+      uploadImage(file);
     }
-  }
+  };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    const resource = e.dataTransfer.files?.[0]
+    e.preventDefault();
+    const resource = e.dataTransfer.files?.[0];
     if (resource) {
-      uploadImage(resource)
+      uploadImage(resource);
     }
-  }
+  };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-  }
+    e.preventDefault();
+  };
 
   useEffect(() => {
     onChange?.({
       resourceUrl,
       resourceTitle,
-      resourceScale
-    })
-  }, [resourceUrl, resourceTitle, resourceScale])
+      resourceScale,
+    });
+  }, [resourceUrl, resourceTitle, resourceScale]);
 
   useEffect(() => {
-    handleUrlUpload()
-  }, [])
+    handleUrlUpload();
+  }, []);
 
   return (
     <div className='space-y-6'>
@@ -259,9 +260,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                 step={10}
                 value={resourceScale}
                 onChange={e => {
-                  const value = Number(e.target.value)
+                  const value = Number(e.target.value);
                   if (!isNaN(value) && value >= 1 && value <= 100) {
-                    setResourceScale(value)
+                    setResourceScale(value);
                   }
                 }}
                 placeholder='100'
@@ -280,6 +281,6 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
         </div>
       )}
     </div>
-  )
-}
-export default ImageUploader
+  );
+};
+export default ImageUploader;

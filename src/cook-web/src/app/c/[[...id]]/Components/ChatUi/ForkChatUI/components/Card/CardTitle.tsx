@@ -8,14 +8,19 @@ export type CardTitleProps = {
   center?: boolean;
 };
 
-export const CardTitle: React.FC<CardTitleProps> = (props) => {
+export const CardTitle: React.FC<CardTitleProps> = props => {
   // @ts-expect-error EXPECT
   const { className, title, subtitle, center, children, ...other } = props;
   return (
-    <div className={clsx('CardTitle', { 'CardTitle--center': center }, className)} {...other}>
-      {title && <h5 className="CardTitle-title">{title}</h5>}
-      {children && typeof children === 'string' && <h5 className="CardTitle-title">{children}</h5>}
-      {subtitle && <p className="CardTitle-subtitle">{subtitle}</p>}
+    <div
+      className={clsx('CardTitle', { 'CardTitle--center': center }, className)}
+      {...other}
+    >
+      {title && <h5 className='CardTitle-title'>{title}</h5>}
+      {children && typeof children === 'string' && (
+        <h5 className='CardTitle-title'>{children}</h5>
+      )}
+      {subtitle && <p className='CardTitle-subtitle'>{subtitle}</p>}
       {children && typeof children !== 'string' && children}
     </div>
   );

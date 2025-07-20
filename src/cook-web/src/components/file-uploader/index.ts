@@ -1,2 +1,2 @@
-import ImageUploader from './image-uploader'
-export { ImageUploader }
+import ImageUploader from './image-uploader';
+export { ImageUploader };

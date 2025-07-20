@@ -10,11 +10,14 @@ export type FormProps = {
 
 export const ThemeContext = React.createContext('');
 
-export const Form: React.FC<FormProps> = (props) => {
+export const Form: React.FC<FormProps> = props => {
   const { className, theme = '', children, ...other } = props;
   return (
     <ThemeContext.Provider value={theme}>
-      <form className={clsx('Form', { 'is-light': theme === 'light' }, className)} {...other}>
+      <form
+        className={clsx('Form', { 'is-light': theme === 'light' }, className)}
+        {...other}
+      >
         {children}
       </form>
     </ThemeContext.Provider>

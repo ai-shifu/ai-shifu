@@ -8,7 +8,7 @@ import Image from 'next/image';
 import LogoWithText from '@/c-components/logo/LogoWithText';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
-import imgExpand from '@/c-assets/newchat/light/icon16-expand.png'
+import imgExpand from '@/c-assets/newchat/light/icon16-expand.png';
 
 export const NavHeader = ({
   className = '',
@@ -40,11 +40,17 @@ export const NavHeader = ({
         className,
         styles.navHeader,
         isCollapse ? styles.collapse : '',
-        mobileStyle ? styles.mobile : ''
+        mobileStyle ? styles.mobile : '',
       )}
     >
-      <div className={styles.logoArea} onClick={onLogoAreaClick}>
-        <LogoWithText direction= {isCollapse ? "col" : "row"} size={30} />
+      <div
+        className={styles.logoArea}
+        onClick={onLogoAreaClick}
+      >
+        <LogoWithText
+          direction={isCollapse ? 'col' : 'row'}
+          size={30}
+        />
       </div>
 
       {showCollapseBtn && (
@@ -63,7 +69,10 @@ export const NavHeader = ({
         </div>
       )}
       {showCloseBtn && (
-        <div className={styles.actionBtn} onClick={onClose}>
+        <div
+          className={styles.actionBtn}
+          onClick={onClose}
+        >
           X
         </div>
       )}

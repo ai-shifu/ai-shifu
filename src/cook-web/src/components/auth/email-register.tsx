@@ -1,303 +1,303 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
-import { TermsCheckbox } from '@/components/terms-checkbox'
-import apiService from '@/api'
-import { isValidEmail, checkPasswordStrength } from '@/lib/validators'
-import { PasswordStrengthIndicator } from './password-strength-indicator'
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import { TermsCheckbox } from '@/components/terms-checkbox';
+import apiService from '@/api';
+import { isValidEmail, checkPasswordStrength } from '@/lib/validators';
+import { PasswordStrengthIndicator } from './password-strength-indicator';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface EmailRegisterProps {
-  onRegisterSuccess: () => void
+  onRegisterSuccess: () => void;
 }
 
-export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [isSendingCode, setIsSendingCode] = useState(false)
-  const [isVerifying, setIsVerifying] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [email, setEmail] = useState('')
-  const [emailOtp, setEmailOtp] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [step, setStep] = useState<'verify' | 'password'>('verify')
-  const [countdown, setCountdown] = useState(0)
-  const [showOtpInput, setShowOtpInput] = useState(false)
+export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [step, setStep] = useState<'verify' | 'password'>('verify');
+  const [countdown, setCountdown] = useState(0);
+  const [showOtpInput, setShowOtpInput] = useState(false);
 
-  const [emailError, setEmailError] = useState('')
-  const [otpError, setOtpError] = useState('')
-  const [passwordError, setPasswordError] = useState('')
-  const [confirmPasswordError, setConfirmPasswordError] = useState('')
+  const [emailError, setEmailError] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const { t } = useTranslation();
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     feedback: [] as string[],
-    isValid: false
-  })
+    isValid: false,
+  });
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'))
-      return false
+      setEmailError(t('login.email-empty'));
+      return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'))
-      return false
+      setEmailError(t('login.email-error'));
+      return false;
     }
 
-    setEmailError('')
-    return true
-  }
+    setEmailError('');
+    return true;
+  };
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError(t('login.otp-error'))
-      return false
+      setOtpError(t('login.otp-error'));
+      return false;
     }
 
-    setOtpError('')
-    return true
-  }
+    setOtpError('');
+    return true;
+  };
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError(t('login.password-error'))
-      return false
+      setPasswordError(t('login.password-error'));
+      return false;
     }
 
-    const strength = checkPasswordStrength(password)
-    setPasswordStrength(strength)
+    const strength = checkPasswordStrength(password);
+    setPasswordStrength(strength);
 
     if (!strength.isValid) {
-      return false
+      return false;
     }
 
-    setPasswordError('')
-    return true
-  }
+    setPasswordError('');
+    return true;
+  };
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError(t('login.confirm-password-error'))
-      return false
+      setConfirmPasswordError(t('login.confirm-password-error'));
+      return false;
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError(t('login.confirm-password-error'))
-      return false
+      setConfirmPasswordError(t('login.confirm-password-error'));
+      return false;
     }
 
-    setConfirmPasswordError('')
-    return true
-  }
+    setConfirmPasswordError('');
+    return true;
+  };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setEmail(value)
+    const value = e.target.value;
+    setEmail(value);
     if (value) {
-      validateEmail(value)
+      validateEmail(value);
     } else {
-      setEmailError('')
+      setEmailError('');
     }
-  }
+  };
 
   const handleOtpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setEmailOtp(value)
+    const value = e.target.value;
+    setEmailOtp(value);
     if (value) {
-      validateOtp(value)
+      validateOtp(value);
     } else {
-      setOtpError('')
+      setOtpError('');
     }
-  }
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPassword(value)
-    validatePassword(value)
+    const value = e.target.value;
+    setPassword(value);
+    validatePassword(value);
 
     if (confirmPassword) {
-      validateConfirmPassword(confirmPassword)
+      validateConfirmPassword(confirmPassword);
     }
-  }
+  };
 
   const handleConfirmPasswordChange = (
-    e: React.ChangeEvent<HTMLInputElement>
+    e: React.ChangeEvent<HTMLInputElement>,
   ) => {
-    const value = e.target.value
-    setConfirmPassword(value)
+    const value = e.target.value;
+    setConfirmPassword(value);
     if (value) {
-      validateConfirmPassword(value)
+      validateConfirmPassword(value);
     } else {
-      setConfirmPasswordError('')
+      setConfirmPasswordError('');
     }
-  }
+  };
 
   const handleSendEmailOtp = async () => {
     if (!validateEmail(email)) {
-      return
+      return;
     }
 
     if (!termsAccepted) {
       toast({
         title: t('login.terms-error'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     try {
-      setIsSendingCode(true)
-      setIsLoading(true)
+      setIsSendingCode(true);
+      setIsLoading(true);
 
       const response = await apiService.sendMailCode({
-        mail: email
-      })
+        mail: email,
+      });
 
-      if (response.code==0) {
-        setShowOtpInput(true)
-        setCountdown(60)
+      if (response.code == 0) {
+        setShowOtpInput(true);
+        setCountdown(60);
         const timer = setInterval(() => {
           setCountdown(prevCountdown => {
             if (prevCountdown <= 1) {
-              clearInterval(timer)
-              return 0
+              clearInterval(timer);
+              return 0;
             }
-            return prevCountdown - 1
-          })
-        }, 1000)
+            return prevCountdown - 1;
+          });
+        }, 1000);
 
         toast({
           title: t('login.otp-sent'),
-          description: t('login.please-check-your-email')
-        })
+          description: t('login.please-check-your-email'),
+        });
       } else {
         toast({
           title: t('login.send-otp-failed'),
           description: response.msg || t('login.please-try-again-later'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.send-otp-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsSendingCode(false)
-      setIsLoading(false)
+      setIsSendingCode(false);
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleVerifyEmailOtp = async () => {
     if (!validateEmail(email)) {
-      return
+      return;
     }
 
     if (!validateOtp(emailOtp)) {
-      return
+      return;
     }
 
     if (!termsAccepted) {
       toast({
         title: t('login.terms-error'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     try {
-      setIsVerifying(true)
-      setIsLoading(true)
+      setIsVerifying(true);
+      setIsLoading(true);
 
       const response = await apiService.verifyMailCode({
         mail: email,
         mail_code: emailOtp,
-        language: i18n.language
-      })
-      if (response.code==0) {
+        language: i18n.language,
+      });
+      if (response.code == 0) {
         // Token handled via login flow, no need to set manually here
-        setStep('password')
-        setPassword('')
-        setConfirmPassword('')
-        setPasswordError('')
-        setConfirmPasswordError('')
+        setStep('password');
+        setPassword('');
+        setConfirmPassword('');
+        setPasswordError('');
+        setConfirmPasswordError('');
         setPasswordStrength({
           score: 0,
           feedback: [],
-          isValid: false
-        })
+          isValid: false,
+        });
         toast({
           title: t('login.email-verified'),
-          description: t('login.please-set-your-password')
-        })
+          description: t('login.please-set-your-password'),
+        });
       } else {
         toast({
           title: t('login.verification-failed'),
           description: t('login.otp-error'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.verification-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsVerifying(false)
-      setIsLoading(false)
+      setIsVerifying(false);
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleCompleteEmailRegistration = async () => {
-    const isPasswordValid = validatePassword(password)
-    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword)
+    const isPasswordValid = validatePassword(password);
+    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
     if (!isPasswordValid || !isConfirmPasswordValid) {
-      return
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await apiService.setPassword({
         mail: email,
         raw_password: password,
-      })
+      });
 
-      if (response.code==0) {
+      if (response.code == 0) {
         toast({
-          title: t('login.register-success')
-        })
-        onRegisterSuccess()
+          title: t('login.register-success'),
+        });
+        onRegisterSuccess();
       } else {
         toast({
           title: t('login.register-failed'),
           description: t('login.please-try-again-later'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.register-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className='space-y-4'>
@@ -326,19 +326,14 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
                 placeholder={t('login.otp-placeholder')}
                 value={emailOtp}
                 onChange={handleOtpChange}
-                disabled={isLoading || !email || !!emailError ||  !showOtpInput}
+                disabled={isLoading || !email || !!emailError || !showOtpInput}
                 className={`flex-1 ${
                   otpError ? 'border-red-500 focus-visible:ring-red-500' : ''
                 }`}
               />
               <Button
                 onClick={handleSendEmailOtp}
-                disabled={
-                  isLoading ||
-                  !email ||
-                  !!emailError ||
-                  countdown > 0
-                }
+                disabled={isLoading || !email || !!emailError || countdown > 0}
                 className='whitespace-nowrap h-8'
               >
                 {isSendingCode && !showOtpInput ? (
@@ -399,9 +394,7 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
                 passwordError ? 'border-red-500 focus-visible:ring-red-500' : ''
               }
             />
-            <PasswordStrengthIndicator
-              feedback={passwordStrength.feedback}
-            />
+            <PasswordStrengthIndicator feedback={passwordStrength.feedback} />
             {passwordError && (
               <p className='text-xs text-red-500'>{passwordError}</p>
             )}
@@ -460,5 +453,5 @@ export function EmailRegister ({ onRegisterSuccess }: EmailRegisterProps) {
         </div>
       )}
     </div>
-  )
+  );
 }

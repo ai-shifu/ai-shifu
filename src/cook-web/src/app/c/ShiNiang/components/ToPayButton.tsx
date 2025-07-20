@@ -18,7 +18,7 @@ const ToPayButton = ({
     >
       {children}
     </Button>
-  )
+  );
 };
 
 export default memo(ToPayButton);

@@ -33,7 +33,7 @@
   z-index: -1;
   width: 100%;
   height: 100%;
-  transition: .3s;
+  transition: 0.3s;
 }
 
 .RecorderToast-wave-1,
@@ -73,7 +73,7 @@
   color: var(--gray-dark);
   line-height: 36px;
   text-align: center;
-  transition: .3s;
+  transition: 0.3s;
   user-select: none;
   -webkit-touch-callout: none;
 }

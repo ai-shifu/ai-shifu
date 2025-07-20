@@ -128,19 +128,19 @@
   transform: translate3d(0, 100%, 0);
   transition: 0.3s;
 
-  &[data-bg-color="gray"] {
+  &[data-bg-color='gray'] {
     background: var(--gray-7);
   }
 
-  &[data-height="80"] {
+  &[data-height='80'] {
     height: 80vh;
   }
 
-  &[data-height="60"] {
+  &[data-height='60'] {
     height: 60vh;
   }
 
-  &[data-height="40"] {
+  &[data-height='40'] {
     height: 40vh;
   }
 }

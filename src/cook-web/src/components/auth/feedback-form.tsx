@@ -1,121 +1,121 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
-import apiService from '@/api'
-import { isValidEmail } from '@/lib/validators'
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import apiService from '@/api';
+import { isValidEmail } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 
 interface FeedbackFormProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
-export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
-  const { toast } = useToast()
-  const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [content, setContent] = useState('')
-  const [emailError, setEmailError] = useState('')
-  const [contentError, setContentError] = useState('')
+export function FeedbackForm({ onComplete }: FeedbackFormProps) {
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [content, setContent] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [contentError, setContentError] = useState('');
   const { t } = useTranslation();
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'))
-      return false
+      setEmailError(t('login.email-empty'));
+      return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'))
-      return false
+      setEmailError(t('login.email-error'));
+      return false;
     }
 
-    setEmailError('')
-    return true
-  }
+    setEmailError('');
+    return true;
+  };
 
   const validateContent = (content: string) => {
     if (!content) {
-      setContentError(t('login.content-empty'))
-      return false
+      setContentError(t('login.content-empty'));
+      return false;
     }
 
     if (content.length < 10) {
-      setContentError(t('login.content-error'))
-      return false
+      setContentError(t('login.content-error'));
+      return false;
     }
 
-    setContentError('')
-    return true
-  }
+    setContentError('');
+    return true;
+  };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setEmail(value)
+    const value = e.target.value;
+    setEmail(value);
     if (value) {
-      validateEmail(value)
+      validateEmail(value);
     } else {
-      setEmailError('')
+      setEmailError('');
     }
-  }
+  };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value
-    setContent(value)
+    const value = e.target.value;
+    setContent(value);
     if (value) {
-      validateContent(value)
+      validateContent(value);
     } else {
-      setContentError('')
+      setContentError('');
     }
-  }
+  };
 
   const handleSubmit = async () => {
-    const isEmailValid = validateEmail(email)
-    const isContentValid = validateContent(content)
+    const isEmailValid = validateEmail(email);
+    const isContentValid = validateContent(content);
 
     if (!isEmailValid || !isContentValid) {
-      return
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await apiService.submitFeedback({
         mail: email,
-        feedback: content
-      })
+        feedback: content,
+      });
       if (response.code) {
-        return
+        return;
       }
       if (response) {
         toast({
           title: t('login.feedback-submitted'),
-          description: t('login.feedback-submitted-description')
-        })
-        onComplete()
+          description: t('login.feedback-submitted-description'),
+        });
+        onComplete();
       } else {
         toast({
           title: t('login.submit-failed'),
           description: response.msg || t('login.network-error'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.submit-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className='space-y-4'>
@@ -159,10 +159,14 @@ export function FeedbackForm ({ onComplete }: FeedbackFormProps) {
         />
         {contentError && <p className='text-xs text-red-500'>{contentError}</p>}
       </div>
-      <Button className='w-full h-8' onClick={handleSubmit} disabled={isLoading}>
+      <Button
+        className='w-full h-8'
+        onClick={handleSubmit}
+        disabled={isLoading}
+      >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
         {t('login.submit-feedback')}
       </Button>
     </div>
-  )
+  );
 }

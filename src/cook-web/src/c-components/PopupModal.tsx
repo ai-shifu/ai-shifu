@@ -17,7 +17,7 @@ export const PopupModal = ({
 
   // 点击其他区域关闭弹出窗口
   const handleClickOutside = useCallback(
-    (event) => {
+    event => {
       // @ts-expect-error EXPECT
       if (popupRef.current && !popupRef.current.contains(event.target)) {
         // `data-scroll-locked` indicates that another overlay is active, so the menu cannot be closed directly.
@@ -27,7 +27,7 @@ export const PopupModal = ({
         }
       }
     },
-    [onClose]
+    [onClose],
   );
 
   // 监听点击事件
@@ -44,9 +44,11 @@ export const PopupModal = ({
       style={wrapStyle}
     >
       {open && (
-        <div style={style}
-        className={styles.popupModal}
-        ref={popupRef}>
+        <div
+          style={style}
+          className={styles.popupModal}
+          ref={popupRef}
+        >
           {children}
         </div>
       )}

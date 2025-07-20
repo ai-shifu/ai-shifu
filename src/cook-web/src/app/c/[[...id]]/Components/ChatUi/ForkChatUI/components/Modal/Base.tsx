@@ -34,7 +34,7 @@ function clearModal() {
   }
 }
 
-export const Base: React.FC<ModalProps> = (props) => {
+export const Base: React.FC<ModalProps> = props => {
   const {
     baseClass,
     active,
@@ -92,7 +92,11 @@ export const Base: React.FC<ModalProps> = (props) => {
   const isPopup = baseClass === 'Popup';
 
   return createPortal(
-    <div className={clsx(baseClass, className, { active: isShow })} ref={wrapper} tabIndex={-1}>
+    <div
+      className={clsx(baseClass, className, { active: isShow })}
+      ref={wrapper}
+      tabIndex={-1}
+    >
       {backdrop && (
         <Backdrop
           active={isShow}
@@ -100,36 +104,49 @@ export const Base: React.FC<ModalProps> = (props) => {
         />
       )}
       <div
-        className={clsx(`${baseClass}-dialog`, { 'pb-safe': isPopup && !actions })}
+        className={clsx(`${baseClass}-dialog`, {
+          'pb-safe': isPopup && !actions,
+        })}
         data-bg-color={bgColor}
         data-height={isPopup && height ? height : undefined}
-        role="dialog"
+        role='dialog'
         aria-labelledby={titleId}
         aria-modal
       >
         <div className={`${baseClass}-content`}>
           <div className={`${baseClass}-header`}>
-            <h5 className={`${baseClass}-title`} id={titleId}>
+            <h5
+              className={`${baseClass}-title`}
+              id={titleId}
+            >
               {title}
             </h5>
             {showClose && onClose && (
               <IconButton
                 className={`${baseClass}-close`}
-                icon="close"
-                size="lg"
+                icon='close'
+                size='lg'
                 onClick={onClose}
-                aria-label="关闭"
+                aria-label='关闭'
               />
             )}
           </div>
-          <div className={clsx(`${baseClass}-body`, { overflow })}>{children}</div>
+          <div className={clsx(`${baseClass}-body`, { overflow })}>
+            {children}
+          </div>
           {actions && (
             <div
               className={`${baseClass}-footer ${baseClass}-footer--${vertical ? 'v' : 'h'}`}
               data-variant={btnVariant || 'round'}
             >
-              {actions.map((item) => (
-                <Button size="lg" block={isPopup} variant={btnVariant} {...item} key={item.label} />
+              {actions.map(item => (
+                <Button
+                  size='lg'
+                  block={isPopup}
+                  variant={btnVariant}
+                  {...item}
+                  key={item.label}
+                />
               ))}
             </div>
           )}

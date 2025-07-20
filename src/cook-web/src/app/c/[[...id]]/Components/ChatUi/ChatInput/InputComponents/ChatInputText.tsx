@@ -8,9 +8,8 @@ import {
   INTERACTION_TYPE,
 } from '@/c-constants/courseConstants';
 
-
 import { registerInteractionType } from '../interactionRegistry';
-import iconSend from '@/c-assets/newchat/light/icon-send.png'
+import iconSend from '@/c-assets/newchat/light/icon-send.png';
 import Image from 'next/image';
 
 const OUTPUT_TYPE_MAP = {
@@ -32,7 +31,14 @@ interface ChatInputProps {
   };
 }
 
-export const ChatInputText = ({ onClick, initialValue, onInputChange, type, disabled = false, props = {} }: ChatInputProps) => {
+export const ChatInputText = ({
+  onClick,
+  initialValue,
+  onInputChange,
+  type,
+  disabled = false,
+  props = {},
+}: ChatInputProps) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
   const [input, setInput] = useState(initialValue || '');
 
@@ -52,8 +58,8 @@ export const ChatInputText = ({ onClick, initialValue, onInputChange, type, disa
     if (input.trim() === '') {
       toast({
         title: t('chat.chatInputWarn'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -151,15 +157,22 @@ export const ChatInputText = ({ onClick, initialValue, onInputChange, type, disa
             onKeyDown={handleKeyDown}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
-            enterKeyHint="send"
-            autoComplete="off"
+            enterKeyHint='send'
+            autoComplete='off'
             spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-            data-gramm="false"
+            autoCapitalize='off'
+            autoCorrect='off'
+            data-gramm='false'
             suppressContentEditableWarning={true}
           />
-          <Image src={iconSend.src} width={24} height={24} alt="" className={styles.sendIcon} onClick={onSendClick} />
+          <Image
+            src={iconSend.src}
+            width={24}
+            height={24}
+            alt=''
+            className={styles.sendIcon}
+            onClick={onSendClick}
+          />
         </div>
       </div>
     </div>

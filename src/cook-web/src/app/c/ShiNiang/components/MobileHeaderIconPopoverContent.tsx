@@ -16,12 +16,12 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     orderPromotePopoverOpen,
     updateOrderPromotePopoverOpen,
   } = usePayStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       hasPay: state.hasPay,
       updateHasPay: state.updateHasPay,
       orderPromotePopoverOpen: state.orderPromotePopoverOpen,
       updateOrderPromotePopoverOpen: state.updateOrderPromotePopoverOpen,
-    }))
+    })),
   );
   // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
@@ -32,13 +32,13 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     } else {
       onClose?.();
     }
-  }, [onClose, onOpen, orderPromotePopoverOpen])
+  }, [onClose, onOpen, orderPromotePopoverOpen]);
 
   const onOkButtonClick = useCallback(() => {
     if (!hasPay) {
       // @ts-expect-error EXPECT
       shifu.payTools.openPay({});
-      trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' })
+      trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
   }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);
@@ -46,7 +46,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
   const onCancelButtonClick = useCallback(() => {
     updateOrderPromotePopoverOpen(false);
     onClose?.();
-  }, [onClose, updateOrderPromotePopoverOpen])
+  }, [onClose, updateOrderPromotePopoverOpen]);
 
   useEffect(() => {
     const onEventHandler = () => {
@@ -55,7 +55,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
 
     customEvents.addEventListener(
       EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-      onEventHandler
+      onEventHandler,
     );
 
     const onModalOk = () => {
@@ -67,17 +67,16 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     return () => {
       customEvents.removeEventListener(
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-        onEventHandler
+        onEventHandler,
       );
       // @ts-expect-error EXPECT
       shifu.events.removeEventListener(
         // @ts-expect-error EXPECT
         shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk
+        onModalOk,
       );
     };
   }, [onOpen, updateHasPay, updateOrderPromotePopoverOpen]);
-
 
   return (
     <>

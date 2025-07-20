@@ -1,171 +1,197 @@
-"use client"
+'use client';
 
-import type React from "react"
+import type React from 'react';
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react"
-import apiService from "@/api"
-import { checkPasswordStrength } from "@/lib/validators"
-import { PasswordStrengthIndicator } from "./password-strength-indicator"
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import apiService from '@/api';
+import { checkPasswordStrength } from '@/lib/validators';
+import { PasswordStrengthIndicator } from './password-strength-indicator';
 import { useTranslation } from 'react-i18next';
 interface ForgotPasswordResetProps {
-  email: string
-  onBack: () => void
-  onComplete: () => void
+  email: string;
+  onBack: () => void;
+  onComplete: () => void;
 }
 
-export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswordResetProps) {
-   const { toast } = useToast()
-   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false)
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [passwordError, setPasswordError] = useState("")
-  const [confirmPasswordError, setConfirmPasswordError] = useState("")
+export function ForgotPasswordReset({
+  email,
+  onBack,
+  onComplete,
+}: ForgotPasswordResetProps) {
+  const { toast } = useToast();
+  const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(false);
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     feedback: [] as string[],
     isValid: false,
-  })
+  });
 
   const validatePassword = (password: string) => {
     if (!password) {
       // setPasswordError("请输入密码")
-      return false
+      return false;
     }
 
-    const strength = checkPasswordStrength(password)
-    setPasswordStrength(strength)
+    const strength = checkPasswordStrength(password);
+    setPasswordStrength(strength);
 
     if (!strength.isValid) {
       // setPasswordError("密码强度不足")
-      return false
+      return false;
     }
 
-    setPasswordError("")
-    return true
-  }
+    setPasswordError('');
+    return true;
+  };
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError(t('login.please-confirm-password'))
-      return false
+      setConfirmPasswordError(t('login.please-confirm-password'));
+      return false;
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError(t('login.password-not-match'))
-      return false
+      setConfirmPasswordError(t('login.password-not-match'));
+      return false;
     }
 
-    setConfirmPasswordError("")
-    return true
-  }
+    setConfirmPasswordError('');
+    return true;
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPassword(value)
-    validatePassword(value)
+    const value = e.target.value;
+    setPassword(value);
+    validatePassword(value);
 
     if (confirmPassword) {
-      validateConfirmPassword(confirmPassword)
+      validateConfirmPassword(confirmPassword);
     }
-  }
+  };
 
-  const handleConfirmPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setConfirmPassword(value)
+  const handleConfirmPasswordChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const value = e.target.value;
+    setConfirmPassword(value);
     if (value) {
-      validateConfirmPassword(value)
+      validateConfirmPassword(value);
     } else {
-      setConfirmPasswordError("")
+      setConfirmPasswordError('');
     }
-  }
+  };
 
   const handleResetPassword = async () => {
-    const isPasswordValid = validatePassword(password)
-    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword)
+    const isPasswordValid = validatePassword(password);
+    const isConfirmPasswordValid = validateConfirmPassword(confirmPassword);
 
     if (!isPasswordValid || !isConfirmPasswordValid) {
-      return
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await apiService.setPassword({
         mail: email,
         raw_password: password,
-      })
-
+      });
 
       if (response.code == 0) {
         toast({
           title: t('login.password-reset'),
           description: t('login.please-use-new-password'),
-        })
-        onComplete()
+        });
+        onComplete();
       } else {
         toast({
           title: t('login.reset-password-failed'),
           description: t('login.please-try-again-later'),
-          variant: "destructive",
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.reset-password-failed'),
         description: error.message || t('login.network-error'),
-        variant: "destructive",
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="new-password" className={passwordError ? "text-red-500" : ""}>
+    <div className='space-y-4'>
+      <div className='space-y-2'>
+        <Label
+          htmlFor='new-password'
+          className={passwordError ? 'text-red-500' : ''}
+        >
           {t('login.new-password')}
         </Label>
         <Input
-          id="new-password"
-          type="password"
+          id='new-password'
+          type='password'
           placeholder={t('login.new-password-placeholder')}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}
-          className={passwordError ? "border-red-500 focus-visible:ring-red-500" : ""}
+          className={
+            passwordError ? 'border-red-500 focus-visible:ring-red-500' : ''
+          }
         />
         <PasswordStrengthIndicator feedback={passwordStrength.feedback} />
-        {passwordError && <p className="text-xs text-red-500">{passwordError}</p>}
+        {passwordError && (
+          <p className='text-xs text-red-500'>{passwordError}</p>
+        )}
       </div>
-      <div className="space-y-2">
-        <Label htmlFor="confirm-new-password" className={confirmPasswordError ? "text-red-500" : ""}>
+      <div className='space-y-2'>
+        <Label
+          htmlFor='confirm-new-password'
+          className={confirmPasswordError ? 'text-red-500' : ''}
+        >
           {t('login.confirm-new-password')}
         </Label>
         <Input
-          id="confirm-new-password"
-          type="password"
+          id='confirm-new-password'
+          type='password'
           placeholder={t('login.confirm-new-password-placeholder')}
           value={confirmPassword}
           onChange={handleConfirmPasswordChange}
           disabled={isLoading}
-          className={confirmPasswordError ? "border-red-500 focus-visible:ring-red-500" : ""}
+          className={
+            confirmPasswordError
+              ? 'border-red-500 focus-visible:ring-red-500'
+              : ''
+          }
         />
-        {confirmPasswordError && <p className="text-xs text-red-500">{confirmPasswordError}</p>}
+        {confirmPasswordError && (
+          <p className='text-xs text-red-500'>{confirmPasswordError}</p>
+        )}
       </div>
-      <div className="flex justify-between">
-        <Button className="h-8" variant="outline" onClick={onBack} disabled={isLoading}>
+      <div className='flex justify-between'>
+        <Button
+          className='h-8'
+          variant='outline'
+          onClick={onBack}
+          disabled={isLoading}
+        >
           {t('login.back')}
         </Button>
         <Button
           onClick={handleResetPassword}
-          className="h-8"
+          className='h-8'
           disabled={
             isLoading ||
             !password ||
@@ -175,10 +201,10 @@ export function ForgotPasswordReset({ email, onBack, onComplete }: ForgotPasswor
             !passwordStrength.isValid
           }
         >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
           {t('login.reset-password')}
         </Button>
       </div>
     </div>
-  )
+  );
 }

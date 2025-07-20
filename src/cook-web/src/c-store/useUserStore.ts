@@ -8,7 +8,6 @@ import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
 
-
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
   const tokenData = tokenTool.get();
@@ -21,7 +20,10 @@ const registerAsGuest = async (): Promise<string> => {
   return token;
 };
 
-export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
+export const useUserStore = create<
+  UserStoreState,
+  [['zustand/subscribeWithSelector', never]]
+>(
   subscribeWithSelector((set, get) => ({
     userInfo: null,
     isGuest: false,
@@ -97,46 +99,49 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       const initPromise = (async () => {
         const tokenData = tokenTool.get();
 
-      // If no token, register as guest
-      if (!tokenData.token) {
-        await registerAsGuest();
-        set(() => ({
-          userInfo: null,
-        }));
-        get()._updateUserStatus();
-        return;
-      }
-
-      // If already has token, try to get user info
-      try {
-        const res = await getUserInfo();
-        const userInfo = res;
-
-        // Determine if user is authenticated based on mobile number or email
-        const isAuthenticated = !!(userInfo.mobile || userInfo.email);
-        tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
-
-        set(() => ({
-          userInfo,
-        }));
-
-        if (userInfo.language) {
-          i18n.changeLanguage(userInfo.language);
-        }
-      } catch (err) {
-        // @ts-expect-error EXPECT
-        // Only reset to guest if it's a clear authentication error (not network or server issues)
-        if ((err.status === 403) || (err.code === 1005) || (err.code === 1001)) {
+        // If no token, register as guest
+        if (!tokenData.token) {
           await registerAsGuest();
           set(() => ({
             userInfo: null,
           }));
-        } else {
-          // For other errors (network, server errors), preserve existing token state
-          // but still update the status based on token data
-          console.warn('Failed to fetch user info, but preserving login state:', err);
+          get()._updateUserStatus();
+          return;
         }
-      }
+
+        // If already has token, try to get user info
+        try {
+          const res = await getUserInfo();
+          const userInfo = res;
+
+          // Determine if user is authenticated based on mobile number or email
+          const isAuthenticated = !!(userInfo.mobile || userInfo.email);
+          tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
+
+          set(() => ({
+            userInfo,
+          }));
+
+          if (userInfo.language) {
+            i18n.changeLanguage(userInfo.language);
+          }
+        } catch (err) {
+          // @ts-expect-error EXPECT
+          // Only reset to guest if it's a clear authentication error (not network or server issues)
+          if (err.status === 403 || err.code === 1005 || err.code === 1001) {
+            await registerAsGuest();
+            set(() => ({
+              userInfo: null,
+            }));
+          } else {
+            // For other errors (network, server errors), preserve existing token state
+            // but still update the status based on token data
+            console.warn(
+              'Failed to fetch user info, but preserving login state:',
+              err,
+            );
+          }
+        }
 
         get()._updateUserStatus();
       })();
@@ -153,12 +158,12 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
     },
 
     // Public API: Update user information
-    updateUserInfo: (userInfo) => {
-      set((state) => ({
+    updateUserInfo: userInfo => {
+      set(state => ({
         userInfo: {
           ...state.userInfo,
           ...userInfo,
-        }
+        },
       }));
     },
 
@@ -167,13 +172,13 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       const res = await getUserInfo();
       set(() => ({
         userInfo: {
-          ...res
-        }
+          ...res,
+        },
       }));
 
       if (res.language) {
         i18n.changeLanguage(res.language);
       }
     },
-  }))
+  })),
 );

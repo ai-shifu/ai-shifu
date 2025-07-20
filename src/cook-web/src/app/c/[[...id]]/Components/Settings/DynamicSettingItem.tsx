@@ -3,13 +3,13 @@ import SettingInputElement from './SettingInputElement';
 import SettingRadioElement from './SettingRadioElement';
 
 export const DynamicSettingItem = ({ settingItem, onChange, className }) => {
-  const _onInputChange = (e) => {
+  const _onInputChange = e => {
     onChange(settingItem.key, e.target.value);
   };
 
-  const _onRaidoChange = (e) => {
+  const _onRaidoChange = e => {
     onChange(settingItem.key, e);
-  }
+  };
 
   return (
     <>
@@ -22,18 +22,20 @@ export const DynamicSettingItem = ({ settingItem, onChange, className }) => {
           value={settingItem.value}
         />
       )}
-      {settingItem.type === 'select' && <SettingRadioElement
+      {settingItem.type === 'select' && (
+        <SettingRadioElement
           title={settingItem.label}
           // @ts-expect-error EXPECT
           placeholder={settingItem.label}
           onChange={_onRaidoChange}
           className={className}
           value={settingItem.value}
-          options={settingItem.items.map((option) => ({
+          options={settingItem.items.map(option => ({
             label: option,
             value: option,
           }))}
-      />}
+        />
+      )}
     </>
   );
 };

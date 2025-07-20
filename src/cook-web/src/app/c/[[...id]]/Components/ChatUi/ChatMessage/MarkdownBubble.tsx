@@ -15,10 +15,10 @@ import classNames from 'classnames';
 
 import CopyButton from './CopyButton';
 
-export const MarkdownBubble = (props) => {
+export const MarkdownBubble = props => {
   const { mobileStyle, onImageLoaded } = props;
 
-  const onCopy = (content) => {
+  const onCopy = content => {
     navigator.clipboard.writeText(content);
   };
 
@@ -35,7 +35,7 @@ export const MarkdownBubble = (props) => {
               const match = /language-(\w+)/.exec(className || '');
               return !inline && match ? (
                 <div
-                  className="markdown-code_block"
+                  className='markdown-code_block'
                   style={{
                     position: 'relative',
                   }}

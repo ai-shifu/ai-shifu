@@ -57,21 +57,20 @@ const api = {
   updateUserInfo: 'POST /user/update_info',
   updateChapterOrder: 'POST /shifu/update-chapter-order',
 
-
   getModelList: 'GET /llm/model-list',
   getSystemPrompt: 'GET /llm/get-system-prompt',
   debugPrompt: 'GET /llm/debug-prompt',
 
   // resource api start
-  getVideoInfo:'POST /shifu/get-video-info',
-  upfileByUrl:'POST /shifu/url-upfile',
+  getVideoInfo: 'POST /shifu/get-video-info',
+  upfileByUrl: 'POST /shifu/url-upfile',
   // resource api end
 
   // profile
 
   saveProfile: 'POST /profiles/save-profile-item',
   deleteProfile: 'POST /profiles/delete-profile-item',
-  getProfileList: 'GET /profiles/get-profile-item-definitions'
-}
+  getProfileList: 'GET /profiles/get-profile-item-definitions',
+};
 
-export default api
+export default api;

@@ -14,7 +14,7 @@ export default function useQuickReplies(initialState: QuickReplies = []) {
   }, [quickReplies]);
 
   const prepend = (list: QuickReplies) => {
-    setQuickReplies((prev) => [...list, ...prev]);
+    setQuickReplies(prev => [...list, ...prev]);
   };
 
   // prepend、replace 后立即 save 只会保存上一个状态

@@ -8,12 +8,17 @@ export type IconProps = React.SVGProps<SVGSVGElement> & {
   spin?: boolean;
 };
 
-export const Icon: React.FC<IconProps> = (props) => {
+export const Icon: React.FC<IconProps> = props => {
   const { type, className, spin, name, ...other } = props;
-  const ariaProps = typeof name === 'string' ? { 'aria-label': name } : { 'aria-hidden': true };
+  const ariaProps =
+    typeof name === 'string' ? { 'aria-label': name } : { 'aria-hidden': true };
 
   return (
-    <svg className={clsx('Icon', { 'is-spin': spin }, className)} {...ariaProps} {...other}>
+    <svg
+      className={clsx('Icon', { 'is-spin': spin }, className)}
+      {...ariaProps}
+      {...other}
+    >
       <use xlinkHref={`#icon-${type}`} />
     </svg>
   );

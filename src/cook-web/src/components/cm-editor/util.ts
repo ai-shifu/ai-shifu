@@ -1,7 +1,7 @@
 import {
   type CompletionContext,
-  type CompletionResult
-} from '@codemirror/autocomplete'
+  type CompletionResult,
+} from '@codemirror/autocomplete';
 import {
   EditorView,
   Decoration,
@@ -9,108 +9,108 @@ import {
   ViewPlugin,
   ViewUpdate,
   MatchDecorator,
-  WidgetType
-} from '@codemirror/view'
-import { SelectedOption } from './type'
-import './index.css'
-import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject'
-import { getI18n } from 'react-i18next'
+  WidgetType,
+} from '@codemirror/view';
+import { SelectedOption } from './type';
+import './index.css';
+import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject';
+import { getI18n } from 'react-i18next';
 
-const profileRegexp = /<span\s+data-tag="profile"[^>]*>\{(\w+)\}<\/span>/gi
+const profileRegexp = /<span\s+data-tag="profile"[^>]*>\{(\w+)\}<\/span>/gi;
 const biliVideoContextRegexp =
-  /<span\s+data-tag="video"[^>]*data-url="([^"]+)"[^>]*data-title="([^"]+)"[^>]*>([^<]+)<\/span>/gi
+  /<span\s+data-tag="video"[^>]*data-url="([^"]+)"[^>]*data-title="([^"]+)"[^>]*>([^<]+)<\/span>/gi;
 const agiImgContextRegexp =
-  /<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi
+  /<span\s+data-tag="image"[^>]*data-url="([^"]*)"[^>]*data-title="([^"]*)"[^>]*data-scale="([^"]*)"[^>]*>([^<]+)<\/span>/gi;
 
 const getProfileKeyListFromContent = (content: string): string[] => {
-  if (!content) return []
-  const keys = new Set<string>()
+  if (!content) return [];
+  const keys = new Set<string>();
   for (const match of content?.matchAll(profileRegexp)) {
-    keys.add(match[1])
+    keys.add(match[1]);
   }
-  return Array.from(new Set(keys))
-}
+  return Array.from(new Set(keys));
+};
 
 // get value from content
 const parseContentInfo = (
   type: SelectedOption,
-  dataset: { title: string; url: string; scale: string }
+  dataset: { title: string; url: string; scale: string },
 ) => {
   switch (type) {
     case SelectedOption.Profile:
-      return dataset.title
+      return dataset.title;
     case SelectedOption.Image:
       return {
         resourceUrl: dataset.url,
         resourceTitle: dataset.title,
-        resourceScale: dataset.scale
-      }
+        resourceScale: dataset.scale,
+      };
 
     case SelectedOption.Video:
       return {
         resourceUrl: dataset.url,
-        resourceTitle: dataset.title
-      }
+        resourceTitle: dataset.title,
+      };
   }
-}
+};
 
 class PlaceholderWidget extends WidgetType {
-  constructor (
+  constructor(
     private text: string,
     private dataset: any,
     private styleClass: string,
     private type: SelectedOption,
-    private view: EditorView
+    private view: EditorView,
   ) {
-    super()
+    super();
   }
 
-  getPosition () {
-    let from = -1
-    let to = -1
-    const decorations = this.view.state.facet(EditorView.decorations)
+  getPosition() {
+    let from = -1;
+    let to = -1;
+    const decorations = this.view.state.facet(EditorView.decorations);
     for (const deco of decorations) {
-      const decoSet = typeof deco === 'function' ? deco(this.view) : deco
+      const decoSet = typeof deco === 'function' ? deco(this.view) : deco;
       decoSet.between(
         0,
         this.view.state.doc.length,
         (start: number, end: number, decoration: Decoration) => {
           if (decoration.spec.widget === this) {
-            from = start
-            to = end
-            return false
+            from = start;
+            to = end;
+            return false;
           }
-        }
-      )
-      if (from !== -1) break
+        },
+      );
+      if (from !== -1) break;
     }
     if (from !== -1 && to !== -1) {
-      return [from, to]
+      return [from, to];
     }
   }
 
-  toDOM () {
-    const container = document.createElement('span')
-    container.className = this.styleClass
-    const span = document.createElement('span')
-    span.textContent = this.text
-    span.dataset['tag'] = this.dataset.tag || ''
-    span.dataset['url'] = this.dataset.url || ''
-    span.dataset['title'] = this.dataset.title || ''
-    const icon = document.createElement('span')
-    icon.className = 'tag-icon'
-    icon.innerHTML = '✕'
+  toDOM() {
+    const container = document.createElement('span');
+    container.className = this.styleClass;
+    const span = document.createElement('span');
+    span.textContent = this.text;
+    span.dataset['tag'] = this.dataset.tag || '';
+    span.dataset['url'] = this.dataset.url || '';
+    span.dataset['title'] = this.dataset.title || '';
+    const icon = document.createElement('span');
+    icon.className = 'tag-icon';
+    icon.innerHTML = '✕';
     icon.addEventListener('click', e => {
-      e.stopPropagation()
-      const [from, to] = this.getPosition() ?? [-1, -1]
+      e.stopPropagation();
+      const [from, to] = this.getPosition() ?? [-1, -1];
       if (from !== -1 && to !== -1) {
         this.view.dispatch({
-          changes: { from, to, insert: '' }
-        })
+          changes: { from, to, insert: '' },
+        });
       }
-    })
+    });
     span.addEventListener('click', () => {
-      const [from, to] = this.getPosition() ?? [-1, -1]
+      const [from, to] = this.getPosition() ?? [-1, -1];
       const event = new CustomEvent('globalTagClick', {
         detail: {
           view: this.view,
@@ -121,18 +121,18 @@ class PlaceholderWidget extends WidgetType {
               ? span.textContent?.replace(/[{}]/g, '')
               : span.textContent,
           from,
-          to
-        }
-      })
-      window.dispatchEvent(event)
-    })
-    container.appendChild(span)
-    container.appendChild(icon)
-    return container
+          to,
+        },
+      });
+      window.dispatchEvent(event);
+    });
+    container.appendChild(span);
+    container.appendChild(icon);
+    return container;
   }
 
-  ignoreEvent () {
-    return false
+  ignoreEvent() {
+    return false;
   }
 }
 
@@ -144,14 +144,14 @@ const profileMatcher = new MatchDecorator({
         match[1],
         {
           tag: 'profile',
-          title: match[1]
+          title: match[1],
         },
         'tag-profile',
         SelectedOption.Profile,
-        view
-      )
-    })
-})
+        view,
+      ),
+    }),
+});
 
 const imageUrlMatcher = new MatchDecorator({
   regexp: agiImgContextRegexp,
@@ -163,14 +163,14 @@ const imageUrlMatcher = new MatchDecorator({
           tag: 'image',
           url: match?.[1],
           title: match?.[2],
-          scale: match?.[3]
+          scale: match?.[3],
         },
         'tag-image',
         SelectedOption.Image,
-        view
-      )
-    })
-})
+        view,
+      ),
+    }),
+});
 
 const biliUrlMatcher = new MatchDecorator({
   regexp: biliVideoContextRegexp,
@@ -181,92 +181,92 @@ const biliUrlMatcher = new MatchDecorator({
         {
           tag: 'video',
           url: match?.[1],
-          title: match?.[2]
+          title: match?.[2],
         },
         'tag-video',
         SelectedOption.Video,
-        view
-      )
-    })
-})
+        view,
+      ),
+    }),
+});
 
 const variablePlaceholders = ViewPlugin.fromClass(
   class {
-    placeholders: DecorationSet
-    constructor (view: EditorView) {
-      this.placeholders = profileMatcher.createDeco(view)
+    placeholders: DecorationSet;
+    constructor(view: EditorView) {
+      this.placeholders = profileMatcher.createDeco(view);
     }
-    update (update: ViewUpdate) {
-      this.placeholders = profileMatcher.updateDeco(update, this.placeholders)
+    update(update: ViewUpdate) {
+      this.placeholders = profileMatcher.updateDeco(update, this.placeholders);
     }
   },
   {
     decorations: instance => instance.placeholders,
     provide: plugin =>
       EditorView.atomicRanges.of(view => {
-        return view.plugin(plugin)?.placeholders || Decoration.none
-      })
-  }
-)
+        return view.plugin(plugin)?.placeholders || Decoration.none;
+      }),
+  },
+);
 
 const imgPlaceholders = ViewPlugin.fromClass(
   class {
-    placeholders: DecorationSet
-    constructor (view: EditorView) {
-      this.placeholders = imageUrlMatcher.createDeco(view)
+    placeholders: DecorationSet;
+    constructor(view: EditorView) {
+      this.placeholders = imageUrlMatcher.createDeco(view);
     }
-    update (update: ViewUpdate) {
-      this.placeholders = imageUrlMatcher.updateDeco(update, this.placeholders)
+    update(update: ViewUpdate) {
+      this.placeholders = imageUrlMatcher.updateDeco(update, this.placeholders);
     }
   },
   {
     decorations: instance => instance.placeholders,
     provide: plugin =>
       EditorView.atomicRanges.of(view => {
-        return view.plugin(plugin)?.placeholders || Decoration.none
-      })
-  }
-)
+        return view.plugin(plugin)?.placeholders || Decoration.none;
+      }),
+  },
+);
 
 const videoPlaceholders = ViewPlugin.fromClass(
   class {
-    placeholders: DecorationSet
-    constructor (view: EditorView) {
-      this.placeholders = biliUrlMatcher.createDeco(view)
+    placeholders: DecorationSet;
+    constructor(view: EditorView) {
+      this.placeholders = biliUrlMatcher.createDeco(view);
     }
-    update (update: ViewUpdate) {
-      this.placeholders = biliUrlMatcher.updateDeco(update, this.placeholders)
+    update(update: ViewUpdate) {
+      this.placeholders = biliUrlMatcher.updateDeco(update, this.placeholders);
     }
   },
   {
     decorations: instance => instance.placeholders,
     provide: plugin =>
       EditorView.atomicRanges.of(view => {
-        return view.plugin(plugin)?.placeholders || Decoration.none
-      })
-  }
-)
+        return view.plugin(plugin)?.placeholders || Decoration.none;
+      }),
+  },
+);
 
-function createSlashCommands (
-  onSelectOption: (selectedOption: SelectedOption) => void
+function createSlashCommands(
+  onSelectOption: (selectedOption: SelectedOption) => void,
 ) {
-  const t = getI18n()?.t
+  const t = getI18n()?.t;
   return (context: CompletionContext): CompletionResult | null => {
-    const word = context.matchBefore(/\/(\w*)$/)
-    if (!word) return null
+    const word = context.matchBefore(/\/(\w*)$/);
+    if (!word) return null;
 
     const handleSelect = (
       view: EditorView,
       _: any,
       from: number,
       to: number,
-      selectedOption: SelectedOption
+      selectedOption: SelectedOption,
     ) => {
       view.dispatch({
-        changes: { from, to, insert: '' }
-      })
-      onSelectOption(selectedOption)
-    }
+        changes: { from, to, insert: '' },
+      });
+      onSelectOption(selectedOption);
+    };
 
     return {
       from: word.from,
@@ -275,25 +275,25 @@ function createSlashCommands (
         {
           label: t('cm-editor.variable'),
           apply: (view, _, from, to) => {
-            handleSelect(view, _, from, to, SelectedOption.Profile)
-          }
+            handleSelect(view, _, from, to, SelectedOption.Profile);
+          },
         },
         {
           label: t('cm-editor.image'),
           apply: (view, _, from, to) => {
-            handleSelect(view, _, from, to, SelectedOption.Image)
-          }
+            handleSelect(view, _, from, to, SelectedOption.Image);
+          },
         },
         {
           label: t('cm-editor.video'),
           apply: (view, _, from, to) => {
-            handleSelect(view, _, from, to, SelectedOption.Video)
-          }
-        }
+            handleSelect(view, _, from, to, SelectedOption.Video);
+          },
+        },
       ],
-      filter: false
-    }
-  }
+      filter: false,
+    };
+  };
 }
 
 export {
@@ -304,5 +304,5 @@ export {
   videoPlaceholders,
   createSlashCommands,
   parseContentInfo,
-  getProfileKeyListFromContent
-}
+  getProfileKeyListFromContent,
+};

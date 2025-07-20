@@ -13,13 +13,13 @@ import imgUser from '@/c-assets/newchat/light/user.png';
 export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
-  const userInfo = useUserStore((state) => state.userInfo);
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const userInfo = useUserStore(state => state.userInfo);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const avatar = userInfo?.avatar || imgUser.src;
 
   const htmlRef = useRef(null);
 
-  const containElement = (elem) => {
+  const containElement = elem => {
     // @ts-expect-error EXPECT
     return htmlRef.current && htmlRef.current.contains(elem);
   };
@@ -29,15 +29,12 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
 
   return (
     <div
-      className={clsx(
-        styles.navFooter,
-        isCollapse ? styles.collapse : ''
-      )}
+      className={clsx(styles.navFooter, isCollapse ? styles.collapse : '')}
       onClick={onClick}
       ref={htmlRef}
     >
       <div className={styles.userSection}>
-        <Avatar className="w-9 h-9">
+        <Avatar className='w-9 h-9'>
           <AvatarImage src={avatar} />
         </Avatar>
         <div className={styles.userName}>

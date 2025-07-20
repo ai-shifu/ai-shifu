@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState } from 'react';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 export const TrackingVisit = () => {
@@ -10,6 +10,6 @@ export const TrackingVisit = () => {
     setOk(true);
   }
   return null;
-}
+};
 
 export default TrackingVisit;

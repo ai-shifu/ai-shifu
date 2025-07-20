@@ -7,10 +7,9 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+} from '@/components/ui/breadcrumb';
 
-
-import { cn } from "@/lib/utils"
+import { cn } from '@/lib/utils';
 
 import { useTranslation } from 'react-i18next';
 
@@ -21,13 +20,16 @@ export const SettingHeader = ({ className, onHomeClick }) => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <span className={styles.clickable} onClick={onHomeClick}>
+            <span
+              className={styles.clickable}
+              onClick={onHomeClick}
+            >
               {t('settings.home')}
             </span>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <span>{t("settings.settingTite")}</span>
+            <span>{t('settings.settingTite')}</span>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

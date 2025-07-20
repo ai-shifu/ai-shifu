@@ -9,27 +9,41 @@ export type CheckboxGroupProps = {
   name?: string;
   disabled?: boolean;
   block?: boolean;
-  onChange: (value: CheckboxValue[], event: React.ChangeEvent<HTMLInputElement>) => void;
+  onChange: (
+    value: CheckboxValue[],
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => void;
 };
 
-export const CheckboxGroup: React.FC<CheckboxGroupProps> = (props) => {
+export const CheckboxGroup: React.FC<CheckboxGroupProps> = props => {
   const { className, options, value, name, disabled, block, onChange } = props;
 
-  function handleChange(val: CheckboxValue, e: React.ChangeEvent<HTMLInputElement>) {
-    const newValue = e.target.checked ? value.concat(val) : value.filter((item) => item !== val);
+  function handleChange(
+    val: CheckboxValue,
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) {
+    const newValue = e.target.checked
+      ? value.concat(val)
+      : value.filter(item => item !== val);
     onChange(newValue, e);
   }
 
   return (
-    <div className={clsx('CheckboxGroup', { 'CheckboxGroup--block': block }, className)}>
-      {options.map((item) => (
+    <div
+      className={clsx(
+        'CheckboxGroup',
+        { 'CheckboxGroup--block': block },
+        className,
+      )}
+    >
+      {options.map(item => (
         <Checkbox
           label={item.label || item.value}
           value={item.value}
           name={name}
           checked={value.includes(item.value)}
           disabled={'disabled' in item ? item.disabled : disabled}
-          onChange={(e) => {
+          onChange={e => {
             handleChange(item.value, e);
           }}
           key={item.value}

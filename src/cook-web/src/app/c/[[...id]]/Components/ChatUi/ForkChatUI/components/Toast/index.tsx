@@ -3,7 +3,13 @@ import { mountComponent } from '../../utils/mountComponent';
 import { Toast, ToastProps } from './Toast';
 
 function show(content: string, type: ToastProps['type'], duration = 2000) {
-  mountComponent(<Toast content={content} type={type} duration={duration} />);
+  mountComponent(
+    <Toast
+      content={content}
+      type={type}
+      duration={duration}
+    />,
+  );
 }
 
 export const toast = {

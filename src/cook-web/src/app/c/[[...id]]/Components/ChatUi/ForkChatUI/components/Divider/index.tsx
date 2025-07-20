@@ -6,13 +6,17 @@ export type DividerProps = {
   position?: 'center' | 'left' | 'right';
 };
 
-export const Divider: React.FC<DividerProps> = (props) => {
+export const Divider: React.FC<DividerProps> = props => {
   // @ts-expect-error EXPECT
   const { className, position = 'center', children, ...other } = props;
   return (
     <div
-      className={clsx('Divider', !!children && `Divider--text-${position}`, className)}
-      role="separator"
+      className={clsx(
+        'Divider',
+        !!children && `Divider--text-${position}`,
+        className,
+      )}
+      role='separator'
       {...other}
     >
       {children}

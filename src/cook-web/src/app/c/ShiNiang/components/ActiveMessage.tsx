@@ -26,8 +26,12 @@ const ActiveMessage = ({
       <div className={styles.activeContainer}>
         <div className={styles.activeWrapper}>
           <div>
-            <span dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg) }}></span>{' '}
-            {button && <ToPayButton onClick={_onButtonClick}>{button}</ToPayButton>}
+            <span
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg) }}
+            ></span>{' '}
+            {button && (
+              <ToPayButton onClick={_onButtonClick}>{button}</ToPayButton>
+            )}
           </div>
         </div>
       </div>

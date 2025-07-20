@@ -1,52 +1,52 @@
-'use client'
+'use client';
 
-import type React from 'react'
-import { useState, useEffect } from 'react'
-import { Badge } from '@/components/ui/badge'
-import { X } from 'lucide-react'
-import ProfileSelectModal from './profile-select-modal'
-import useProfiles from './useProfiles'
-import type { Profile } from '@/components/profiles/type'
+import type React from 'react';
+import { useState, useEffect } from 'react';
+import { Badge } from '@/components/ui/badge';
+import { X } from 'lucide-react';
+import ProfileSelectModal from './profile-select-modal';
+import useProfiles from './useProfiles';
+import type { Profile } from '@/components/profiles/type';
 
 interface ProfileFormItemProps {
-  value: string[]
-  onChange?: (value: string[]) => void
+  value: string[];
+  onChange?: (value: string[]) => void;
 }
 
-export default function ProfileFormItem ({
+export default function ProfileFormItem({
   value,
-  onChange
+  onChange,
 }: ProfileFormItemProps) {
-  const [selectedProfiles, setSelectedProfiles] = useState<Profile[] | []>([])
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [systemProfiles, customProfiles] = useProfiles()
+  const [selectedProfiles, setSelectedProfiles] = useState<Profile[] | []>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [systemProfiles, customProfiles] = useProfiles();
 
   const handleAddProfile = (profile: Profile) => {
-    setIsDialogOpen(false)
+    setIsDialogOpen(false);
     if (
       profile.profile_id &&
       !selectedProfiles.find(item => item.profile_id === profile.profile_id)
     ) {
-      const currentProfiles = [...selectedProfiles, profile]
-      setSelectedProfiles(currentProfiles)
-      onChange?.(currentProfiles.map(profile => profile.profile_id || ''))
+      const currentProfiles = [...selectedProfiles, profile];
+      setSelectedProfiles(currentProfiles);
+      onChange?.(currentProfiles.map(profile => profile.profile_id || ''));
     }
-  }
+  };
 
   const handleRemoveProfileKey = (index: number) => {
-    const currentProfiles = [...selectedProfiles]
-    currentProfiles.splice(index, 1)
-    setSelectedProfiles(currentProfiles)
-    onChange?.(currentProfiles.map(profile => profile.profile_id || ''))
-  }
+    const currentProfiles = [...selectedProfiles];
+    currentProfiles.splice(index, 1);
+    setSelectedProfiles(currentProfiles);
+    onChange?.(currentProfiles.map(profile => profile.profile_id || ''));
+  };
 
   useEffect(() => {
-    const profiles = [...(systemProfiles || []), ...(customProfiles || [])]
+    const profiles = [...(systemProfiles || []), ...(customProfiles || [])];
     const selectedProfiles = profiles.filter(
-      profile => profile?.profile_id && value?.includes(profile.profile_id)
-    )
-    setSelectedProfiles(selectedProfiles)
-  }, [JSON.stringify(systemProfiles), JSON.stringify(customProfiles)])
+      profile => profile?.profile_id && value?.includes(profile.profile_id),
+    );
+    setSelectedProfiles(selectedProfiles);
+  }, [JSON.stringify(systemProfiles), JSON.stringify(customProfiles)]);
 
   return (
     <div className='py-2 flex items-center justify-between gap-6'>
@@ -77,5 +77,5 @@ export default function ProfileFormItem ({
         />
       )}
     </div>
-  )
+  );
 }

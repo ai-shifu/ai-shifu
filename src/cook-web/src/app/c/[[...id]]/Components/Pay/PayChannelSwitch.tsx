@@ -1,7 +1,7 @@
 import styles from './PayChannelSwitch.module.scss';
 
 import { memo } from 'react';
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 import Image from 'next/image';
@@ -30,14 +30,21 @@ export const PayChannelSwitchItem = memo(
   }) => {
     const _onClick = () => {
       onClick?.({ channel });
-    }
+    };
     return (
-      <div className={cn(styles.channelSwitchItem, selected && styles.selected) } onClick={_onClick}>
-        <Image className={styles.channelIcon} src={selected ? iconSelected : icon} alt={text} />
+      <div
+        className={cn(styles.channelSwitchItem, selected && styles.selected)}
+        onClick={_onClick}
+      >
+        <Image
+          className={styles.channelIcon}
+          src={selected ? iconSelected : icon}
+          alt={text}
+        />
         <div className={styles.channelText}>{text}</div>
       </div>
     );
-  }
+  },
 );
 PayChannelSwitchItem.displayName = 'PayChannelSwitchItem';
 
@@ -45,7 +52,7 @@ export const PayChannelSwitch = ({
   channel = PAY_CHANNEL_WECHAT,
   onChange = () => {},
 }) => {
-  const {t} = useTranslation();
+  const { t } = useTranslation();
   return (
     <div className={styles.channelSwitch}>
       <PayChannelSwitchItem

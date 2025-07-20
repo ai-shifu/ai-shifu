@@ -16,9 +16,9 @@ if (typeof window !== 'undefined') {
     .use(initReactI18next)
     .init({
       fallbackLng: {
-        'en': ['en-US'],
-        'zh': ['zh-CN'],
-        'default': ['en-US']
+        en: ['en-US'],
+        zh: ['zh-CN'],
+        default: ['en-US'],
       },
       lng: browserLanguage,
       backend: {
@@ -32,8 +32,8 @@ if (typeof window !== 'undefined') {
       supportedLngs: ['en-US', 'zh-CN'],
       nonExplicitSupportedLngs: false,
       react: {
-        useSuspense: false
-      }
+        useSuspense: false,
+      },
     });
 }
 

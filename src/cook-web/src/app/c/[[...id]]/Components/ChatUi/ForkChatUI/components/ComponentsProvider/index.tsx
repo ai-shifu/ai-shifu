@@ -12,7 +12,7 @@ import {
 export { useComponents } from './useComponents';
 export type { ComponentsProviderProps, ComponentsMap };
 
-export const ComponentsProvider: React.FC<ComponentsProviderProps> = (props) => {
+export const ComponentsProvider: React.FC<ComponentsProviderProps> = props => {
   // @ts-expect-error EXPECT
   const { components, children } = props;
   const componentsRef = React.useRef<ComponentsMap>({ ...components });
@@ -32,7 +32,10 @@ export const ComponentsProvider: React.FC<ComponentsProviderProps> = (props) => 
     return componentsRef.current.hasOwnProperty(code);
   }
 
-  function getComponent(code: string, callback: GetComponentCallback = () => {}) {
+  function getComponent(
+    code: string,
+    callback: GetComponentCallback = () => {},
+  ) {
     const comp = componentsRef.current[code];
 
     // no component
@@ -83,7 +86,9 @@ export const ComponentsProvider: React.FC<ComponentsProviderProps> = (props) => 
   }
 
   return (
-    <ComponentsContext.Provider value={{ addComponent, hasComponent, getComponent }}>
+    <ComponentsContext.Provider
+      value={{ addComponent, hasComponent, getComponent }}
+    >
       {children}
     </ComponentsContext.Provider>
   );

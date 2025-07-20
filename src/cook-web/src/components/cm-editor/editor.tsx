@@ -1,17 +1,17 @@
-'use client'
+'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react'
-import CodeMirror from '@uiw/react-codemirror'
-import { autocompletion } from '@codemirror/autocomplete'
-import { EditorView } from '@codemirror/view'
-import CustomDialog from './components/custom-dialog'
-import EditorContext from './editor-context'
-import type { Profile } from '@/components/profiles/type'
-import ImageInject from './components/image-inject'
-import VideoInject from './components/video-inject'
-import ProfileInject from './components/profile-inject'
-import { SelectedOption, IEditorContext } from './type'
-import './index.css'
+import { useState, useCallback, useRef, useEffect } from 'react';
+import CodeMirror from '@uiw/react-codemirror';
+import { autocompletion } from '@codemirror/autocomplete';
+import { EditorView } from '@codemirror/view';
+import CustomDialog from './components/custom-dialog';
+import EditorContext from './editor-context';
+import type { Profile } from '@/components/profiles/type';
+import ImageInject from './components/image-inject';
+import VideoInject from './components/video-inject';
+import ProfileInject from './components/profile-inject';
+import { SelectedOption, IEditorContext } from './type';
+import './index.css';
 
 import {
   variablePlaceholders,
@@ -19,57 +19,57 @@ import {
   videoPlaceholders,
   createSlashCommands,
   parseContentInfo,
-  getProfileKeyListFromContent
-} from './util'
-import { useTranslation } from 'react-i18next'
+  getProfileKeyListFromContent,
+} from './util';
+import { useTranslation } from 'react-i18next';
 
 type EditorProps = {
-  content?: string
-  isEdit?: boolean
-  onChange?: (value: string, variables: string[], isEdit: boolean) => void
-  onBlur?: () => void
-}
+  content?: string;
+  isEdit?: boolean;
+  onChange?: (value: string, variables: string[], isEdit: boolean) => void;
+  onBlur?: () => void;
+};
 
 const Editor: React.FC<EditorProps> = ({
   content = '',
   isEdit,
   onChange,
-  onBlur
+  onBlur,
 }) => {
-  const { t } = useTranslation()
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const { t } = useTranslation();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState<SelectedOption>(
-    SelectedOption.Empty
-  )
-  const [selectContentInfo, setSelectContentInfo] = useState<any>()
-  const editorViewRef = useRef<EditorView | null>(null)
+    SelectedOption.Empty,
+  );
+  const [selectContentInfo, setSelectContentInfo] = useState<any>();
+  const editorViewRef = useRef<EditorView | null>(null);
 
   const editorContextValue: IEditorContext = {
     selectedOption: SelectedOption.Empty,
     setSelectedOption,
     dialogOpen,
     setDialogOpen,
-  }
+  };
 
   const onSelectedOption = useCallback((selectedOption: SelectedOption) => {
-    setDialogOpen(true)
-    setSelectedOption(selectedOption)
-  }, [])
+    setDialogOpen(true);
+    setSelectedOption(selectedOption);
+  }, []);
 
   const insertText = useCallback(
     (text: string) => {
-      if (!editorViewRef.current) return
+      if (!editorViewRef.current) return;
 
-      const { state, dispatch } = editorViewRef.current
-      const from = state.selection.main.from
+      const { state, dispatch } = editorViewRef.current;
+      const from = state.selection.main.from;
 
       dispatch({
         changes: { from, insert: text },
-        selection: { anchor: from + text.length }
-      })
+        selection: { anchor: from + text.length },
+      });
     },
-    [editorViewRef]
-  )
+    [editorViewRef],
+  );
 
   const deleteSelectedContent = useCallback(() => {
     if (
@@ -77,129 +77,129 @@ const Editor: React.FC<EditorProps> = ({
       !editorViewRef.current ||
       selectContentInfo.from === -1
     )
-      return
+      return;
 
-    const { from, to } = selectContentInfo
-    const { dispatch } = editorViewRef.current
+    const { from, to } = selectContentInfo;
+    const { dispatch } = editorViewRef.current;
 
     dispatch({
-      changes: { from, to, insert: '' }
-    })
-  }, [selectContentInfo, editorViewRef])
+      changes: { from, to, insert: '' },
+    });
+  }, [selectContentInfo, editorViewRef]);
 
   const handleSelectProfile = useCallback(
     (profile: Profile) => {
-      const textToInsert = `<span data-tag="profile">{${profile.profile_key}}</span>`
+      const textToInsert = `<span data-tag="profile">{${profile.profile_key}}</span>`;
       if (selectContentInfo?.type === SelectedOption.Profile) {
-        deleteSelectedContent()
-        if (!editorViewRef.current) return
+        deleteSelectedContent();
+        if (!editorViewRef.current) return;
 
-        const { dispatch } = editorViewRef.current
+        const { dispatch } = editorViewRef.current;
         dispatch({
-          changes: { from: selectContentInfo.from, insert: textToInsert }
-        })
+          changes: { from: selectContentInfo.from, insert: textToInsert },
+        });
       } else {
-        insertText(textToInsert)
+        insertText(textToInsert);
       }
-      setDialogOpen(false)
+      setDialogOpen(false);
     },
-    [insertText, selectedOption]
-  )
+    [insertText, selectedOption],
+  );
 
   const handleSelectImage = useCallback(
     ({
       resourceUrl,
       resourceTitle,
-      resourceScale
+      resourceScale,
     }: {
-      resourceUrl?: string
-      resourceTitle?: string
-      resourceScale?: number
+      resourceUrl?: string;
+      resourceTitle?: string;
+      resourceScale?: number;
     }) => {
       // const textToInsert = resourceUrl
-      const textToInsert = `<span data-tag="image" data-url="${resourceUrl}" data-title="${resourceTitle}" data-scale="${resourceScale}">${resourceTitle}</span>`
+      const textToInsert = `<span data-tag="image" data-url="${resourceUrl}" data-title="${resourceTitle}" data-scale="${resourceScale}">${resourceTitle}</span>`;
       if (selectContentInfo?.type === SelectedOption.Image) {
-        deleteSelectedContent()
-        if (!editorViewRef.current) return
-        const { dispatch } = editorViewRef.current
+        deleteSelectedContent();
+        if (!editorViewRef.current) return;
+        const { dispatch } = editorViewRef.current;
         dispatch({
-          changes: { from: selectContentInfo.from, insert: textToInsert }
-        })
+          changes: { from: selectContentInfo.from, insert: textToInsert },
+        });
       } else {
-        insertText(textToInsert)
+        insertText(textToInsert);
       }
-      setDialogOpen(false)
+      setDialogOpen(false);
     },
-    [insertText, selectedOption]
-  )
+    [insertText, selectedOption],
+  );
 
   const handleSelectVideo = useCallback(
     ({
       resourceUrl,
-      resourceTitle
+      resourceTitle,
     }: {
-      resourceUrl: string
-      resourceTitle: string
+      resourceUrl: string;
+      resourceTitle: string;
     }) => {
       // const textToInsert = resourceUrl
-      const textToInsert = `<span data-tag="video" data-url="${resourceUrl}" data-title="${resourceTitle}">${resourceTitle}</span>`
+      const textToInsert = `<span data-tag="video" data-url="${resourceUrl}" data-title="${resourceTitle}">${resourceTitle}</span>`;
       if (selectContentInfo?.type === SelectedOption.Video) {
-        deleteSelectedContent()
-        if (!editorViewRef.current) return
-        const { dispatch } = editorViewRef.current
+        deleteSelectedContent();
+        if (!editorViewRef.current) return;
+        const { dispatch } = editorViewRef.current;
         dispatch({
-          changes: { from: selectContentInfo.from, insert: textToInsert }
-        })
+          changes: { from: selectContentInfo.from, insert: textToInsert },
+        });
       } else {
-        insertText(textToInsert)
+        insertText(textToInsert);
       }
-      setDialogOpen(false)
+      setDialogOpen(false);
     },
-    [insertText, selectedOption]
-  )
+    [insertText, selectedOption],
+  );
 
   const slashCommandsExtension = useCallback(() => {
     return autocompletion({
-      override: [createSlashCommands(onSelectedOption)]
-    })
-  }, [onSelectedOption])
+      override: [createSlashCommands(onSelectedOption)],
+    });
+  }, [onSelectedOption]);
 
   const handleEditorUpdate = useCallback((view: EditorView) => {
-    editorViewRef.current = view
-  }, [])
+    editorViewRef.current = view;
+  }, []);
 
   const handleTagClick = useCallback((event: any) => {
-    event.stopPropagation()
-    const { type, from, to, dataset } = event.detail
-    const value = parseContentInfo(type, dataset)
+    event.stopPropagation();
+    const { type, from, to, dataset } = event.detail;
+    const value = parseContentInfo(type, dataset);
     setSelectContentInfo({
       type,
       value,
       from,
-      to
-    })
-    setSelectedOption(type)
-    setDialogOpen(true)
-  }, [])
+      to,
+    });
+    setSelectedOption(type);
+    setDialogOpen(true);
+  }, []);
 
   useEffect(() => {
     if (!dialogOpen) {
-      setSelectedOption(SelectedOption.Empty)
-      setSelectContentInfo(null)
+      setSelectedOption(SelectedOption.Empty);
+      setSelectContentInfo(null);
     }
-  }, [dialogOpen])
+  }, [dialogOpen]);
 
   useEffect(() => {
     const handleWrap = (e: any) => {
       if (e.detail.view === editorViewRef.current) {
         handleTagClick(e);
       }
-    }
-    window.addEventListener('globalTagClick', handleWrap)
+    };
+    window.addEventListener('globalTagClick', handleWrap);
     return () => {
-      window.removeEventListener('globalTagClick', handleWrap)
-    }
-  }, [])
+      window.removeEventListener('globalTagClick', handleWrap);
+    };
+  }, []);
 
   return (
     <>
@@ -214,15 +214,15 @@ const Editor: React.FC<EditorProps> = ({
                 imgPlaceholders,
                 videoPlaceholders,
                 EditorView.updateListener.of(update => {
-                  handleEditorUpdate(update.view)
-                })
+                  handleEditorUpdate(update.view);
+                }),
               ]}
               basicSetup={{
                 lineNumbers: false,
                 syntaxHighlighting: false,
                 highlightActiveLine: false,
                 highlightActiveLineGutter: false,
-                foldGutter: false
+                foldGutter: false,
               }}
               className='rounded-md'
               placeholder={t('cm-editor.input-slash-to-insert-content')}
@@ -230,7 +230,11 @@ const Editor: React.FC<EditorProps> = ({
               theme='light'
               minHeight='2rem'
               onChange={(value: string) => {
-                onChange?.(value, getProfileKeyListFromContent(value), isEdit || false)
+                onChange?.(
+                  value,
+                  getProfileKeyListFromContent(value),
+                  isEdit || false,
+                );
               }}
               onBlur={onBlur}
             />
@@ -262,7 +266,7 @@ const Editor: React.FC<EditorProps> = ({
         )}
       </EditorContext.Provider>
     </>
-  )
-}
+  );
+};
 
-export default Editor
+export default Editor;

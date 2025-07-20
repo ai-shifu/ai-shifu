@@ -11,7 +11,8 @@ export type InputVariant = 'outline' | 'filled' | 'flushed';
 
 export type InputRef = HTMLInputElement | HTMLTextAreaElement;
 
-export interface InputProps extends Omit<React.InputHTMLAttributes<InputRef>, 'onChange'> {
+export interface InputProps
+  extends Omit<React.InputHTMLAttributes<InputRef>, 'onChange'> {
   variant?: InputVariant;
   rows?: number;
   minRows?: number;
@@ -111,7 +112,9 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
       if (onChange) {
         const valueFromEvent = e.target.value;
         const shouldTrim = maxLength && valueFromEvent.length > maxLength;
-        const val = shouldTrim ? valueFromEvent.substr(0, maxLength) : valueFromEvent;
+        const val = shouldTrim
+          ? valueFromEvent.substr(0, maxLength)
+          : valueFromEvent;
         onChange(val, e);
       }
     },
@@ -136,7 +139,9 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
     return (
       <div className={clsx('InputWrapper', { 'has-counter': showCount })}>
         {input}
-        {showCount && <div className="Input-counter">{getCount(value, maxLength)}</div>}
+        {showCount && (
+          <div className='Input-counter'>{getCount(value, maxLength)}</div>
+        )}
       </div>
     );
   }

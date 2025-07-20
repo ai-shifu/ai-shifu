@@ -12,10 +12,13 @@ export type FormItemProps = {
   children?: React.ReactNode;
 };
 
-export const FormItem: React.FC<FormItemProps> = (props) => {
+export const FormItem: React.FC<FormItemProps> = props => {
   const { label, help, required, invalid, hidden, children } = props;
   return (
-    <div className={clsx('FormItem', { required, 'is-invalid': invalid })} hidden={hidden}>
+    <div
+      className={clsx('FormItem', { required, 'is-invalid': invalid })}
+      hidden={hidden}
+    >
       {/* @ts-expect-error EXPECT */}
       {label && <Label>{label}</Label>}
       {children}

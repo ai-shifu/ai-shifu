@@ -9,7 +9,7 @@ export type ClickOutsideProps = {
   mouseEvent?: 'click' | 'mousedown' | 'mouseup';
 };
 
-export const ClickOutside: React.FC<ClickOutsideProps> = (props) => {
+export const ClickOutside: React.FC<ClickOutsideProps> = props => {
   // @ts-expect-error EXPECT
   const { children, onClick, mouseEvent = 'mouseup', ...others } = props;
   const wrapper = useRef<HTMLDivElement>(null!);
@@ -32,7 +32,10 @@ export const ClickOutside: React.FC<ClickOutsideProps> = (props) => {
   });
 
   return (
-    <div ref={wrapper} {...others}>
+    <div
+      ref={wrapper}
+      {...others}
+    >
       {children}
     </div>
   );

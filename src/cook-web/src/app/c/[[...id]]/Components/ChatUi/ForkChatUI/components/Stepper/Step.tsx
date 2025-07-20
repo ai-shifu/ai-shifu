@@ -26,7 +26,7 @@ function renderDot(status?: StepStatus) {
     };
     return <Icon type={iconMap[status]} />;
   }
-  return <div className="Step-dot" />;
+  return <div className='Step-dot' />;
 }
 
 export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
@@ -58,16 +58,16 @@ export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
       data-status={status}
       {...other}
     >
-      <div className="Step-icon">{renderDot(status)}</div>
-      <div className="Step-line" />
-      <div className="Step-content">
+      <div className='Step-icon'>{renderDot(status)}</div>
+      <div className='Step-line' />
+      <div className='Step-content'>
         {title && (
-          <div className="Step-title">
+          <div className='Step-title'>
             {title && <span>{title}</span>}
             {subTitle && <small>{subTitle}</small>}
           </div>
         )}
-        {desc && <div className="Step-desc">{desc}</div>}
+        {desc && <div className='Step-desc'>{desc}</div>}
         {children}
       </div>
     </li>

@@ -11,16 +11,16 @@ export const SettingInputElement = ({
   placeholder = '',
   title = '',
   className = '',
-  maxLength = null
+  maxLength = null,
 }) => {
   const [_value, _setValue] = useState(value);
 
   const onInputChanged = useCallback(
-    (e) => {
+    e => {
       _setValue(e.target.value);
       onChange?.(e);
     },
-    [onChange]
+    [onChange],
   );
 
   useEffect(() => {
@@ -44,4 +44,4 @@ export const SettingInputElement = ({
   );
 };
 
-export default memo(SettingInputElement)
+export default memo(SettingInputElement);

@@ -32,14 +32,20 @@ export const QuickReply = (props: QuickReplyProps) => {
         new: item.isNew,
         highlight: item.isHighlight,
       })}
-      type="button"
+      type='button'
       data-code={item.code}
       aria-label={`快捷短语: ${item.name}，双击发送`}
       onClick={handleClick}
     >
-      <div className="QuickReply-inner">
+      <div className='QuickReply-inner'>
         {item.icon && <Icon type={item.icon} />}
-        {item.img && <Image className="QuickReply-img" src={item.img} alt="" />}
+        {item.img && (
+          <Image
+            className='QuickReply-img'
+            src={item.img}
+            alt=''
+          />
+        )}
         <span>{item.name}</span>
       </div>
     </button>

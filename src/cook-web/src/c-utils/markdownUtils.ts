@@ -1,12 +1,11 @@
-
-export const fixMarkdown = (text) => {
+export const fixMarkdown = text => {
   return fixCode(text);
 };
 
 /**
  * fix markdown code block ``` key after enter not normal
  */
-export const fixCode = (text) => {
+export const fixCode = text => {
   return text.replace(/``` /g, '```\n');
 };
 

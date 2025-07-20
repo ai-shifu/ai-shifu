@@ -8,7 +8,7 @@ export type RadioProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: RadioValue;
 };
 
-export const Radio: React.FC<RadioProps> = (props) => {
+export const Radio: React.FC<RadioProps> = props => {
   const { className, label, checked, disabled, onChange, ...other } = props;
 
   return (
@@ -19,15 +19,15 @@ export const Radio: React.FC<RadioProps> = (props) => {
       })}
     >
       <input
-        type="radio"
-        className="Radio-input"
+        type='radio'
+        className='Radio-input'
         checked={checked}
         disabled={disabled}
         onChange={onChange}
         {...other}
       />
       {/* <span className="Radio-icon" /> */}
-      <span className="Radio-text">{label}</span>
+      <span className='Radio-text'>{label}</span>
     </label>
   );
 };

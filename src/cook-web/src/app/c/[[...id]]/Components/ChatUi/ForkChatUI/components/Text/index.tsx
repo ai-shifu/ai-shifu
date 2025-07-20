@@ -10,8 +10,16 @@ export interface TextProps {
   children?: React.ReactNode;
 }
 
-export const Text: React.FC<TextProps> = (props) => {
-  const { as: Element = 'div', className, align, breakWord, truncate, children, ...other } = props;
+export const Text: React.FC<TextProps> = props => {
+  const {
+    as: Element = 'div',
+    className,
+    align,
+    breakWord,
+    truncate,
+    children,
+    ...other
+  } = props;
   const ellipsis = Number.isInteger(truncate);
 
   const cls = clsx(
@@ -27,7 +35,11 @@ export const Text: React.FC<TextProps> = (props) => {
   const style = ellipsis ? { WebkitLineClamp: truncate } : null;
 
   return (
-    <Element className={cls} style={style} {...other}>
+    <Element
+      className={cls}
+      style={style}
+      {...other}
+    >
       {children}
     </Element>
   );

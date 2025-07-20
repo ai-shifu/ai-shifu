@@ -11,7 +11,7 @@ type TabItemProps = {
   children: React.ReactNode;
 };
 
-const TabItem: React.FC<TabItemProps> = (props) => {
+const TabItem: React.FC<TabItemProps> = props => {
   const { active, index, children, onClick, ...others } = props;
 
   function handleClick(e: React.MouseEvent) {
@@ -19,11 +19,11 @@ const TabItem: React.FC<TabItemProps> = (props) => {
   }
 
   return (
-    <div className="Tabs-navItem">
+    <div className='Tabs-navItem'>
       <button
         className={clsx('Tabs-navLink', { active })}
-        type="button"
-        role="tab"
+        type='button'
+        role='tab'
         aria-selected={active}
         onClick={handleClick}
         {...others}
@@ -40,11 +40,15 @@ type TabsPaneProps = {
   children?: React.ReactNode;
 };
 
-const TabsPane: React.FC<TabsPaneProps> = (props) => {
+const TabsPane: React.FC<TabsPaneProps> = props => {
   const { active, children, ...others } = props;
 
   return (
-    <div className={clsx('Tabs-pane', { active })} {...others} role="tabpanel">
+    <div
+      className={clsx('Tabs-pane', { active })}
+      {...others}
+      role='tabpanel'
+    >
       {children}
     </div>
   );
@@ -59,8 +63,15 @@ export type TabsProps = {
   children?: React.ReactNode;
 };
 
-export const Tabs: React.FC<TabsProps> = (props) => {
-  const { className, index: oIndex = 0, scrollable, hideNavIfOnlyOne, children, onChange } = props;
+export const Tabs: React.FC<TabsProps> = props => {
+  const {
+    className,
+    index: oIndex = 0,
+    scrollable,
+    hideNavIfOnlyOne,
+    children,
+    onChange,
+  } = props;
   const [pointerStyles, setPointerStyles] = useState({});
   const [index, setIndex] = useState(oIndex || 0);
   const indexRef = useRef(index);
@@ -97,7 +108,11 @@ export const Tabs: React.FC<TabsProps> = (props) => {
 
     if (item.props.children) {
       contents.push(
-        <TabsPane active={active} key={id} id={id}>
+        <TabsPane
+          active={active}
+          key={id}
+          id={id}
+        >
           {item.props.children}
         </TabsPane>,
       );
@@ -118,7 +133,8 @@ export const Tabs: React.FC<TabsProps> = (props) => {
     const text = currentNav.querySelector('span');
     if (!text) return;
 
-    const { offsetWidth: navWidth, offsetLeft: navOffsetLeft } = currentNav as HTMLElement;
+    const { offsetWidth: navWidth, offsetLeft: navOffsetLeft } =
+      currentNav as HTMLElement;
     const { width: textWidth } = text.getBoundingClientRect();
     const pointerWidth = Math.max(textWidth - 16, 26);
     // 中心位的偏移量
@@ -162,14 +178,23 @@ export const Tabs: React.FC<TabsProps> = (props) => {
   const needNav = headers.length > (hideNavIfOnlyOne ? 1 : 0);
 
   return (
-    <div className={clsx('Tabs', { 'Tabs--scrollable': scrollable }, className)}>
+    <div
+      className={clsx('Tabs', { 'Tabs--scrollable': scrollable }, className)}
+    >
       {needNav && (
-        <div className="Tabs-nav" role="tablist" ref={navRef}>
+        <div
+          className='Tabs-nav'
+          role='tablist'
+          ref={navRef}
+        >
           {headers}
-          <span className="Tabs-navPointer" style={pointerStyles} />
+          <span
+            className='Tabs-navPointer'
+            style={pointerStyles}
+          />
         </div>
       )}
-      <div className="Tabs-content">{contents}</div>
+      <div className='Tabs-content'>{contents}</div>
     </div>
   );
 };

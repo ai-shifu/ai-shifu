@@ -12,17 +12,22 @@ export interface ToastProps {
 function renderIcon(type: ToastProps['type']) {
   switch (type) {
     case 'success':
-      return <Icon type="check-circle" />;
+      return <Icon type='check-circle' />;
     case 'error':
-      return <Icon type="warning-circle" />;
+      return <Icon type='warning-circle' />;
     case 'loading':
-      return <Icon type="spinner" spin />;
+      return (
+        <Icon
+          type='spinner'
+          spin
+        />
+      );
     default:
       return null;
   }
 }
 
-export const Toast: React.FC<ToastProps> = (props) => {
+export const Toast: React.FC<ToastProps> = props => {
   const { content, type, duration, onUnmount } = props;
   const [show, setShow] = useState(false);
 
@@ -46,13 +51,16 @@ export const Toast: React.FC<ToastProps> = (props) => {
     <div
       className={clsx('Toast', { show })}
       data-type={type}
-      role="alert"
-      aria-live="assertive"
-      aria-atomic="true"
+      role='alert'
+      aria-live='assertive'
+      aria-atomic='true'
     >
-      <div className="Toast-content" role="presentation">
+      <div
+        className='Toast-content'
+        role='presentation'
+      >
         {renderIcon(type)}
-        <p className="Toast-message">{content}</p>
+        <p className='Toast-message'>{content}</p>
       </div>
     </div>
   );

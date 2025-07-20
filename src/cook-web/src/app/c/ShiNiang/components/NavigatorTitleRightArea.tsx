@@ -1,6 +1,10 @@
 import { memo, useEffect, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import styles from './NavigatorTitleRightArea.module.scss';
 import { customEvents, EVENT_TYPE } from '../events/event';
 import { shifu } from '../config/config';
@@ -16,12 +20,12 @@ const NavigatorTitleRightArea = ({ payload }) => {
     // orderPromotePopoverOpen,
     updateOrderPromotePopoverOpen,
   } = usePayStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       hasPay: state.hasPay,
       updateHasPay: state.updateHasPay,
       orderPromotePopoverOpen: state.orderPromotePopoverOpen,
       updateOrderPromotePopoverOpen: state.updateOrderPromotePopoverOpen,
-    }))
+    })),
   );
 
   // const { frameLayout } = shifu.stores.useUiLayoutStore(
@@ -54,7 +58,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
 
     customEvents.addEventListener(
       EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-      onEventHandler
+      onEventHandler,
     );
     // @ts-expect-error EXPECT
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
@@ -62,13 +66,13 @@ const NavigatorTitleRightArea = ({ payload }) => {
     return () => {
       customEvents.removeEventListener(
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
-        onEventHandler
+        onEventHandler,
       );
       // @ts-expect-error EXPECT
       shifu.events.removeEventListener(
         // @ts-expect-error EXPECT
         shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk
+        onModalOk,
       );
     };
   }, [updateHasPay, updateOrderPromotePopoverOpen]);
@@ -87,11 +91,13 @@ const NavigatorTitleRightArea = ({ payload }) => {
       {!hasPay ? (
         <Popover>
           <PopoverTrigger>
-               <ToPayButton onClick={onPayButtonClick}>{payload.title}</ToPayButton>
+            <ToPayButton onClick={onPayButtonClick}>
+              {payload.title}
+            </ToPayButton>
           </PopoverTrigger>
           <PopoverContent className={styles.navigatorTitleRightAreaPopover}>
             {/* @ts-expect-error EXPECT */}
-          <OrderPromotePopoverContent
+            <OrderPromotePopoverContent
               payload={payload}
               onCancelButtonClick={onPopoverClose}
               onOkButtonClick={onUnlockAllClick}

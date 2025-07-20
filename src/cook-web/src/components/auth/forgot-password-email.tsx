@@ -1,94 +1,97 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
-import apiService from '@/api'
-import { isValidEmail } from '@/lib/validators'
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import apiService from '@/api';
+import { isValidEmail } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface ForgotPasswordEmailProps {
-  onNext: (email: string) => void
+  onNext: (email: string) => void;
 }
 
-export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
-  const { toast } = useToast()
+export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
+  const { toast } = useToast();
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [emailError, setEmailError] = useState('')
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-error'))
-      return false
+      setEmailError(t('login.email-error'));
+      return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'))
-      return false
+      setEmailError(t('login.email-error'));
+      return false;
     }
 
-    setEmailError('')
-    return true
-  }
+    setEmailError('');
+    return true;
+  };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setEmail(value)
+    const value = e.target.value;
+    setEmail(value);
     if (value) {
-      validateEmail(value)
+      validateEmail(value);
     } else {
-      setEmailError('')
+      setEmailError('');
     }
-  }
+  };
 
   const handleSendOtp = async () => {
     if (!validateEmail(email)) {
-      return
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await apiService.sendMailCode({
         mail: email,
-        language: i18n.language
-      })
+        language: i18n.language,
+      });
 
-      if (response.code==0) {
+      if (response.code == 0) {
         toast({
           title: t('login.code-sent'),
-          description: t('login.please-check-your-email')
-        })
-        onNext(email)
+          description: t('login.please-check-your-email'),
+        });
+        onNext(email);
       } else {
         toast({
           title: t('login.send-otp-failed'),
           description: t('login.please-try-again-later'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.send-otp-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className='space-y-4'>
       <div className='space-y-2'>
-        <Label htmlFor='email' className={emailError ? 'text-red-500' : ''}>
+        <Label
+          htmlFor='email'
+          className={emailError ? 'text-red-500' : ''}
+        >
           {t('login.email')}
         </Label>
         <Input
@@ -114,5 +117,5 @@ export function ForgotPasswordEmail ({ onNext }: ForgotPasswordEmailProps) {
         {t('login.get-otp')}
       </Button>
     </div>
-  )
+  );
 }

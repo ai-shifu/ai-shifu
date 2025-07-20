@@ -6,10 +6,13 @@ export type TreeProps = {
   children?: React.ReactNode;
 };
 
-export const Tree: React.FC<TreeProps> = (props) => {
+export const Tree: React.FC<TreeProps> = props => {
   const { className, children } = props;
   return (
-    <div className={clsx('Tree', className)} role="tree">
+    <div
+      className={clsx('Tree', className)}
+      role='tree'
+    >
       {children}
     </div>
   );

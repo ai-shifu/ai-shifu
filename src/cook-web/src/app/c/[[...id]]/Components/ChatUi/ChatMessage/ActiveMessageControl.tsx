@@ -6,7 +6,12 @@ const ActiveMessageControl = ({ msg, action, button, recordId }) => {
 
   return Control ? (
     <>
-      <Control msg={msg} action={action} button={button} recordId={recordId} />
+      <Control
+        msg={msg}
+        action={action}
+        button={button}
+        recordId={recordId}
+      />
     </>
   ) : (
     <></>

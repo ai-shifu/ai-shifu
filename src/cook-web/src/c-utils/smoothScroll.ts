@@ -11,9 +11,7 @@ export function smoothScroll({ el, to, duration = 500, scrollLeft = false }) {
   }
 
   function animate() {
-
     el[attr] += step;
-
 
     if (++count < frames) {
       requestAnimationFrame(animate);

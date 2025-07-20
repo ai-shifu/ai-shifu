@@ -14,8 +14,14 @@ const LocaleContext = React.createContext<ILocaleContext>(undefined!);
 const DEFAULT_LOCALE = 'en-US';
 
 // @ts-expect-error EXPECT
-const LocaleProvider: React.FC<ILocaleContext> = ({ locale, locales, children }) => (
-  <LocaleContext.Provider value={{ locale, locales }}>{children}</LocaleContext.Provider>
+const LocaleProvider: React.FC<ILocaleContext> = ({
+  locale,
+  locales,
+  children,
+}) => (
+  <LocaleContext.Provider value={{ locale, locales }}>
+    {children}
+  </LocaleContext.Provider>
 );
 
 // @ts-expect-error EXPECT
@@ -27,7 +33,8 @@ const useLocale = (comp?: string, fallback?: any) => {
   const localeContext = useContext(LocaleContext);
   const { locale, locales } = localeContext || {};
   const defaultStrings =
-    (locale && (defaultLocales as ILocales)[locale]) || defaultLocales[DEFAULT_LOCALE];
+    (locale && (defaultLocales as ILocales)[locale]) ||
+    defaultLocales[DEFAULT_LOCALE];
   let strings = locales ? { ...defaultStrings, ...locales } : defaultStrings;
 
   if (!localeContext && fallback) {

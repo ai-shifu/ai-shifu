@@ -1,142 +1,148 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
-import { TermsCheckbox } from '@/components/terms-checkbox'
-import apiService from '@/api'
-import { isValidEmail } from '@/lib/validators'
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
+import { TermsCheckbox } from '@/components/terms-checkbox';
+import apiService from '@/api';
+import { isValidEmail } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
-import { useUserStore } from '@/c-store/useUserStore'
+import { useUserStore } from '@/c-store/useUserStore';
 
-import type { UserInfo } from '@/c-types'
+import type { UserInfo } from '@/c-types';
 
 interface EmailLoginProps {
-  onLoginSuccess: (userInfo: UserInfo) => void
-  onForgotPassword: () => void
+  onLoginSuccess: (userInfo: UserInfo) => void;
+  onForgotPassword: () => void;
 }
 
-export function EmailLogin ({
+export function EmailLogin({
   onLoginSuccess,
-  onForgotPassword
+  onForgotPassword,
 }: EmailLoginProps) {
-  const { toast } = useToast()
-  const { login } = useUserStore()
-  const [isLoading, setIsLoading] = useState(false)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [emailError, setEmailError] = useState('')
-  const [passwordError, setPasswordError] = useState('')
+  const { toast } = useToast();
+  const { login } = useUserStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
   const { t } = useTranslation();
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'))
-      return false
+      setEmailError(t('login.email-empty'));
+      return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'))
-      return false
+      setEmailError(t('login.email-error'));
+      return false;
     }
 
-    setEmailError('')
-    return true
-  }
+    setEmailError('');
+    return true;
+  };
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError(t('login.password-error'))
-      return false
+      setPasswordError(t('login.password-error'));
+      return false;
     }
 
-    setPasswordError('')
-    return true
-  }
+    setPasswordError('');
+    return true;
+  };
 
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setEmail(value)
+    const value = e.target.value;
+    setEmail(value);
     if (value) {
-      validateEmail(value)
+      validateEmail(value);
     } else {
-      setEmailError('')
+      setEmailError('');
     }
-  }
+  };
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPassword(value)
+    const value = e.target.value;
+    setPassword(value);
     if (value) {
-      validatePassword(value)
+      validatePassword(value);
     } else {
-      setPasswordError('')
+      setPasswordError('');
     }
-  }
+  };
 
   const handlePasswordLogin = async () => {
-    const isEmailValid = validateEmail(email)
-    const isPasswordValid = validatePassword(password)
+    const isEmailValid = validateEmail(email);
+    const isPasswordValid = validatePassword(password);
 
     if (!isEmailValid || !isPasswordValid) {
-      return
+      return;
     }
 
     if (!termsAccepted) {
       toast({
         title: t('login.terms-error'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
-      const username = email
+      const username = email;
 
       const response = await apiService.login({
         username,
-        password
-      })
+        password,
+      });
 
-      if (response.code==0) {
+      if (response.code == 0) {
         toast({
-          title: t('login.login-success')
-        })
-        await login(response.data.userInfo, response.data.token)
-        onLoginSuccess(response.data.userInfo)
+          title: t('login.login-success'),
+        });
+        await login(response.data.userInfo, response.data.token);
+        onLoginSuccess(response.data.userInfo);
       }
 
-      if (response.code == 1001 || response.code == 1005 || response.code === 1003 ) {
+      if (
+        response.code == 1001 ||
+        response.code == 1005 ||
+        response.code === 1003
+      ) {
         toast({
           title: t('login.login-failed'),
           description: t('login.username-or-password-error'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
-
     } catch (error: any) {
       toast({
         title: t('login.login-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className='space-y-4'>
       <div className='space-y-2'>
-        <Label htmlFor='email' className={emailError ? 'text-red-500' : ''}>
+        <Label
+          htmlFor='email'
+          className={emailError ? 'text-red-500' : ''}
+        >
           {t('login.email')}
         </Label>
         <Input
@@ -199,5 +205,5 @@ export function EmailLogin ({
         {t('login.login')}
       </Button>
     </div>
-  )
+  );
 }

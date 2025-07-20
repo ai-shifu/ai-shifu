@@ -7,7 +7,7 @@ import PopupModal from '@/c-components/PopupModal';
 import { Button } from '@/components/ui/button';
 
 import Image from 'next/image';
-import imgBeian from '@/c-assets/newchat/light/beian.png'
+import imgBeian from '@/c-assets/newchat/light/beian.png';
 
 export const FillingModal = ({
   open,
@@ -16,7 +16,7 @@ export const FillingModal = ({
   onFeedbackClick,
   className,
 }) => {
-  const { t } = useTranslation('translation', {keyPrefix: 'c'});
+  const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
   return (
     // @ts-expect-error EXPECT
@@ -32,9 +32,9 @@ export const FillingModal = ({
         <div>
           <a
             className={styles.miitLink}
-            href="https://beian.miit.gov.cn/"
-            target="_blank"
-            rel="noreferrer"
+            href='https://beian.miit.gov.cn/'
+            target='_blank'
+            rel='noreferrer'
           >
             {t('navigation.icp')}
           </a>
@@ -49,7 +49,7 @@ export const FillingModal = ({
         </div>
         <div className={styles.btnGroup}>
           <Button
-            variant="link"
+            variant='link'
             className={styles.actionBtn}
             onClick={onFeedbackClick}
           >
@@ -57,7 +57,7 @@ export const FillingModal = ({
           </Button>
           <div>|</div>
           <Button
-            variant="link"
+            variant='link'
             className={styles.actionBtn}
             onClick={() => {
               window.open('/useragreement');
@@ -67,7 +67,7 @@ export const FillingModal = ({
           </Button>
           <div>|</div>
           <Button
-            variant="link"
+            variant='link'
             className={styles.actionBtn}
             onClick={() => {
               window.open('/privacypolicy');

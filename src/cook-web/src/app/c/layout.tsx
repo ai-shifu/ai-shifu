@@ -1,4 +1,4 @@
-'use client'
+'use client';
 
 // Probably don't need this.
 // import 'core-js/full';
@@ -12,7 +12,7 @@ import { useEffect } from 'react';
 export default function ChatLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   useEffect(() => {
     // 在客户端运行时安装插件
@@ -23,9 +23,5 @@ export default function ChatLayout({
     }
   }, []);
 
-  return (
-    <>
-      { children }
-    </>
-  )
+  return <>{children}</>;
 }

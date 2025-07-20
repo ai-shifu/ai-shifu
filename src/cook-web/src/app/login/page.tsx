@@ -1,74 +1,70 @@
-'use client'
+'use client';
 
-import { useEffect, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle
-} from '@/components/ui/card'
-import { PhoneLogin } from '@/components/auth/phone-login'
-import { EmailLogin } from '@/components/auth/email-login'
-import { PhoneRegister } from '@/components/auth/phone-register'
-import { EmailRegister } from '@/components/auth/email-register'
-import { ForgotPasswordForm } from '@/components/auth/forgot-password-form'
-import { FeedbackForm } from '@/components/auth//feedback-form'
-import Image from 'next/image'
-import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png'
-import LanguageSelect from '@/components/language-select'
+  CardTitle,
+} from '@/components/ui/card';
+import { PhoneLogin } from '@/components/auth/phone-login';
+import { EmailLogin } from '@/components/auth/email-login';
+import { PhoneRegister } from '@/components/auth/phone-register';
+import { EmailRegister } from '@/components/auth/email-register';
+import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
+import { FeedbackForm } from '@/components/auth//feedback-form';
+import Image from 'next/image';
+import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
 
-
-
 export default function AuthPage() {
-  const router = useRouter()
+  const router = useRouter();
   const [authMode, setAuthMode] = useState<
     'login' | 'register' | 'forgot-password' | 'feedback'
-  >('login')
-  const [loginMethod, setLoginMethod] = useState<'phone' | 'password'>('phone')
+  >('login');
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'password'>('phone');
   const [registerMethod, setRegisterMethod] = useState<'phone' | 'email'>(
-    'phone'
-  )
-  const [language, setLanguage] = useState(browserLanguage)
+    'phone',
+  );
+  const [language, setLanguage] = useState(browserLanguage);
 
-  const searchParams = useSearchParams()
+  const searchParams = useSearchParams();
   const handleAuthSuccess = () => {
-    let redirect = searchParams.get('redirect')
+    let redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/c'
+      redirect = '/c';
     }
     // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
     // router.push('/main')
-    router.replace(redirect)
-  }
+    router.replace(redirect);
+  };
 
   const handleForgotPassword = () => {
-    setAuthMode('forgot-password')
-  }
+    setAuthMode('forgot-password');
+  };
 
   const handleFeedback = () => {
-    setAuthMode('feedback')
-  }
+    setAuthMode('feedback');
+  };
 
   const handleBackToLogin = () => {
-    setAuthMode('login')
-  }
+    setAuthMode('login');
+  };
 
   const { t } = useTranslation();
 
   useEffect(() => {
-    i18n.changeLanguage(language)
-
-  }, [language])
+    i18n.changeLanguage(language);
+  }, [language]);
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
-
       <div className='w-full max-w-md space-y-2'>
         <div className='flex flex-col items-center relative'>
           <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
@@ -82,7 +78,11 @@ export default function AuthPage() {
             />
 
             <div className='absolute top-0 right-0'>
-              <LanguageSelect language={language} onSetLanguage={setLanguage} variant='login' />
+              <LanguageSelect
+                language={language}
+                onSetLanguage={setLanguage}
+                variant='login'
+              />
             </div>
           </h2>
         </div>
@@ -90,7 +90,9 @@ export default function AuthPage() {
           <CardHeader>
             {authMode === 'login' && (
               <>
-                <CardTitle className='text-xl text-center'>{t('login.title')}</CardTitle>
+                <CardTitle className='text-xl text-center'>
+                  {t('login.title')}
+                </CardTitle>
                 <CardDescription className='text-sm text-center'>
                   {t('login.description')}
                 </CardDescription>
@@ -98,7 +100,9 @@ export default function AuthPage() {
             )}
             {authMode === 'register' && (
               <>
-                <CardTitle className='text-xl text-center'>{t('login.register')}</CardTitle>
+                <CardTitle className='text-xl text-center'>
+                  {t('login.register')}
+                </CardTitle>
                 <CardDescription className='text-sm text-center'>
                   {t('login.register-description')}
                 </CardDescription>
@@ -106,7 +110,9 @@ export default function AuthPage() {
             )}
             {authMode === 'forgot-password' && (
               <>
-                <CardTitle className='text-xl text-center'>{t('login.forgot-password')}</CardTitle>
+                <CardTitle className='text-xl text-center'>
+                  {t('login.forgot-password')}
+                </CardTitle>
                 <CardDescription className='text-sm text-center'>
                   {t('login.forgot-password')}
                 </CardDescription>
@@ -114,13 +120,14 @@ export default function AuthPage() {
             )}
             {authMode === 'feedback' && (
               <>
-                <CardTitle className='text-xl text-center'>{t('login.feedback')}</CardTitle>
+                <CardTitle className='text-xl text-center'>
+                  {t('login.feedback')}
+                </CardTitle>
                 <CardDescription className='text-sm text-center'>
                   {t('login.feedback')}
                 </CardDescription>
               </>
             )}
-
           </CardHeader>
 
           <CardContent>
@@ -159,8 +166,12 @@ export default function AuthPage() {
                 className='w-full'
               >
                 <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>{t('login.phone-register')}</TabsTrigger>
-                  <TabsTrigger value='email'>{t('login.email-register')}</TabsTrigger>
+                  <TabsTrigger value='phone'>
+                    {t('login.phone-register')}
+                  </TabsTrigger>
+                  <TabsTrigger value='email'>
+                    {t('login.email-register')}
+                  </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value='phone'>
@@ -231,10 +242,7 @@ export default function AuthPage() {
             )}
           </CardFooter>
         </Card>
-
-
-
       </div>
     </div>
-  )
+  );
 }

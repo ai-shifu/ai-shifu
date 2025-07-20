@@ -3,7 +3,7 @@ import styles from './BirthdaySettingModal.module.scss';
 import { useState, memo } from 'react';
 import SettingBaseModal from './SettingBaseModal';
 
-import { Calendar } from "@/components/ui/calendar"
+import { Calendar } from '@/components/ui/calendar';
 import { useTranslation } from 'react-i18next';
 
 export const BirthdaySettingModal = ({
@@ -12,7 +12,7 @@ export const BirthdaySettingModal = ({
   onOk,
   currentBirthday,
 }) => {
-  const { t } = useTranslation('translation', {keyPrefix: 'c'});
+  const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
   const [value] = useState(currentBirthday || new Date('2000-01-01'));
   const onOkClick = () => {
@@ -38,7 +38,7 @@ export const BirthdaySettingModal = ({
     >
       <Calendar
         mode='single'
-        className="rounded-lg"
+        className='rounded-lg'
       />
     </SettingBaseModal>
   );

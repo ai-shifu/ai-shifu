@@ -30,11 +30,11 @@ export const ChatUi = ({
 }) => {
   const { frameLayout } = useContext(AppContext);
   const { skip, updateSkip, previewMode } = useSystemStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       skip: state.skip,
       updateSkip: state.updateSkip,
-      previewMode: state.previewMode
-    }))
+      previewMode: state.previewMode,
+    })),
   );
   const { t } = useTranslation();
 
@@ -46,7 +46,7 @@ export const ChatUi = ({
     <div
       className={cn(
         styles.ChatUi,
-        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : ''
+        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
       )}
     >
       {

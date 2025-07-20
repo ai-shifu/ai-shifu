@@ -10,39 +10,52 @@ export type StepperProps = {
   children?: React.ReactNode;
 };
 
-export const Stepper = React.forwardRef<HTMLUListElement, StepperProps>((props, ref) => {
-  const { className, current = 0, status, inverted, children, ...other } = props;
+export const Stepper = React.forwardRef<HTMLUListElement, StepperProps>(
+  (props, ref) => {
+    const {
+      className,
+      current = 0,
+      status,
+      inverted,
+      children,
+      ...other
+    } = props;
 
-  const childrenArray = React.Children.toArray(children);
-  const steps = childrenArray.map((child, index) => {
-    const state: StepProps = {
-      index,
-      active: false,
-      completed: false,
-      disabled: false,
-    };
+    const childrenArray = React.Children.toArray(children);
+    const steps = childrenArray.map((child, index) => {
+      const state: StepProps = {
+        index,
+        active: false,
+        completed: false,
+        disabled: false,
+      };
 
-    if (current === index) {
-      state.active = true;
-      state.status = status;
-    } else if (current > index) {
-      state.completed = true;
-    } else {
-      state.disabled = !inverted;
-      state.completed = inverted;
-    }
+      if (current === index) {
+        state.active = true;
+        state.status = status;
+      } else if (current > index) {
+        state.completed = true;
+      } else {
+        state.disabled = !inverted;
+        state.completed = inverted;
+      }
 
-    return React.isValidElement(child)
-      // @ts-expect-error EXPECT
-      ? React.cloneElement(child, { ...state, ...child.props })
-      : null;
-  });
+      return React.isValidElement(child)
+        ? // @ts-expect-error EXPECT
+          React.cloneElement(child, { ...state, ...child.props })
+        : null;
+    });
 
-  return (
-    <ul className={clsx('Stepper', className)} ref={ref} {...other}>
-      {steps}
-    </ul>
-  );
-});
+    return (
+      <ul
+        className={clsx('Stepper', className)}
+        ref={ref}
+        {...other}
+      >
+        {steps}
+      </ul>
+    );
+  },
+);
 
 Stepper.displayName = 'Stepper';

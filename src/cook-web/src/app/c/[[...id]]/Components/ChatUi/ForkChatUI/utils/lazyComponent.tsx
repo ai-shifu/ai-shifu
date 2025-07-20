@@ -1,7 +1,9 @@
 import React from 'react';
 import { importScript } from './importScript';
 
-export type LazyComponentResult = React.LazyExoticComponent<React.ComponentType<any>> & {
+export type LazyComponentResult = React.LazyExoticComponent<
+  React.ComponentType<any>
+> & {
   WrappedComponent?: React.ComponentType<any>;
 };
 
@@ -15,7 +17,9 @@ export function lazyComponent(
     importScript(url, name)
       .then((res: any) => {
         if (!res.default) {
-          throw new Error(`Failed to import ${name} component: no default export`);
+          throw new Error(
+            `Failed to import ${name} component: no default export`,
+          );
         }
 
         ret.WrappedComponent = res.default || res;

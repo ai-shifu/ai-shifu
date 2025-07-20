@@ -1,4 +1,4 @@
-import './ForkChatUI/styles/index.scss'
+import './ForkChatUI/styles/index.scss';
 import styles from './ChatComponents.module.scss';
 
 import {
@@ -13,14 +13,17 @@ import {
 } from 'react';
 import { cn } from '@/lib/utils';
 
-
 import useMessages from './ForkChatUI/hooks/useMessages';
-import { Chat } from './ForkChatUI/components/Chat'
+import { Chat } from './ForkChatUI/components/Chat';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 
-import { ThumbsUp, ThumbsDown } from 'lucide-react'
+import { ThumbsUp, ThumbsDown } from 'lucide-react';
 
-import { runScript, getLessonStudyRecord, scriptContentOperation } from '@/c-api/study';
+import {
+  runScript,
+  getLessonStudyRecord,
+  scriptContentOperation,
+} from '@/c-api/study';
 import { genUuid } from '@/c-utils/common';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea';
 import { AppContext } from '@/c-components/AppContext';
@@ -57,7 +60,6 @@ import { convertKeysToCamelCase } from '@/c-utils/objUtils';
 import { useShallow } from 'zustand/react/shallow';
 
 import logoColor120 from '@/c-assets/logos/logo-color-120.png';
-
 
 const USER_ROLE = {
   TEACHER: '老师',
@@ -152,7 +154,7 @@ const convertEventInputModal = ({ type, content, script_id }) => {
     type === RESP_EVENT_TYPE.NONBLOCK_ORDER ||
     type === RESP_EVENT_TYPE.REQUIRE_LOGIN
   ) {
-    const getBtnType = (type) => {
+    const getBtnType = type => {
       if (type === INTERACTION_TYPE.ORDER) {
         return INTERACTION_TYPE.ORDER;
       }
@@ -189,14 +191,14 @@ export const ChatComponents = forwardRef<any, any>(
     {
       className,
       lessonUpdate,
-      onGoChapter = () => { },
+      onGoChapter = () => {},
       chapterId,
       lessonId,
       onPurchased,
       chapterUpdate,
       updateSelectedLesson,
     },
-    ref
+    ref,
   ) => {
     // const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
@@ -231,25 +233,19 @@ export const ChatComponents = forwardRef<any, any>(
     const chatRef = useRef(null);
 
     const { updateResetedChapterId } = useCourseStore(
-      useShallow((state) => ({
+      useShallow(state => ({
         updateResetedChapterId: state.updateResetedChapterId,
-      }))
+      })),
     );
 
-    const {
-      messages,
-      appendMsg,
-      setTyping,
-      updateMsg,
-      resetList,
-      deleteMsg
-    } = useMessages([]);
+    const { messages, appendMsg, setTyping, updateMsg, resetList, deleteMsg } =
+      useMessages([]);
 
     const {
       // autoScroll,
       onMessageListScroll,
       scrollToLesson,
-      scrollToBottom
+      scrollToBottom,
     } = useChatComponentsScroll({
       chatRef,
       containerStyle: styles.chatComponents,
@@ -260,11 +256,11 @@ export const ChatComponents = forwardRef<any, any>(
 
     const lastMsgRef = useRef(null);
     const { initUser, updateUserInfo, refreshUserInfo } = useUserStore(
-      useShallow((state) => ({
+      useShallow(state => ({
         initUser: state.initUser,
         updateUserInfo: state.updateUserInfo,
         refreshUserInfo: state.refreshUserInfo,
-      }))
+      })),
     );
 
     const {
@@ -309,7 +305,7 @@ export const ChatComponents = forwardRef<any, any>(
       );
     };
 
-    const initLoadedInteraction = useCallback((ui) => {
+    const initLoadedInteraction = useCallback(ui => {
       const nextInputModal = convertEventInputModal(ui);
       setInputDisabled(false);
       // @ts-expect-error EXPECT
@@ -342,12 +338,12 @@ export const ChatComponents = forwardRef<any, any>(
           updateSelectedLesson(content.lesson_id);
         }
       },
-      [chatId, lessonUpdate, updateSelectedLesson]
+      [chatId, lessonUpdate, updateSelectedLesson],
     );
 
     const nextStep = useCallback(
       ({ chatId, lessonId, val, type, scriptId }) => {
-        setAskButtonState((v) => ({
+        setAskButtonState(v => ({
           ...v,
           askMode: false,
         }));
@@ -357,8 +353,7 @@ export const ChatComponents = forwardRef<any, any>(
         let lastLessonId = messageLessonId;
         let lastActiveMsg = null;
 
-        runScript(chatId, lessonId, val, type, scriptId, async (response) => {
-
+        runScript(chatId, lessonId, val, type, scriptId, async response => {
           if (response.type === RESP_EVENT_TYPE.TEACHER_AVATOR) {
             teach_avator = response.content;
           }
@@ -389,7 +384,7 @@ export const ChatComponents = forwardRef<any, any>(
                 const currText = fixMarkdownStream(
                   // @ts-expect-error EXPECT
                   lastMsg.content,
-                  response.content
+                  response.content,
                 );
                 // @ts-expect-error EXPECT
                 lastMsg.content = lastMsg.content + currText;
@@ -535,7 +530,9 @@ export const ChatComponents = forwardRef<any, any>(
                 visible: content.visible,
               });
             }
-          } catch (e) { console.log(e) }
+          } catch (e) {
+            console.log(e);
+          }
         });
       },
       [
@@ -549,9 +546,8 @@ export const ChatComponents = forwardRef<any, any>(
         updateMsg,
         updateUserInfo,
         userInfo,
-      ]
+      ],
     );
-
 
     useEffect(() => {
       if (!loadedData) {
@@ -604,7 +600,7 @@ export const ChatComponents = forwardRef<any, any>(
                 id: `lesson-${newLessonId}`,
                 script_type: CHAT_MESSAGE_TYPE.LESSON_SEPARATOR,
                 logid: v.id,
-              })
+              }),
             );
           }
 
@@ -635,7 +631,7 @@ export const ChatComponents = forwardRef<any, any>(
               logid: v.id,
             },
             userInfo,
-            teach_avator
+            teach_avator,
           );
           // @ts-expect-error EXPECT
           appendMsg(newMessage);
@@ -681,8 +677,8 @@ export const ChatComponents = forwardRef<any, any>(
 
     useEffect(() => {
       return useCourseStore.subscribe(
-        (state) => state.resetedChapterId,
-        (curr) => {
+        state => state.resetedChapterId,
+        curr => {
           if (!curr) {
             return;
           }
@@ -695,32 +691,30 @@ export const ChatComponents = forwardRef<any, any>(
           } else {
             return;
           }
-        }
+        },
       );
     });
 
     useEffect(() => {
       return useUserStore.subscribe(
-        (state) => state.isLoggedIn,
+        state => state.isLoggedIn,
         () => {
           setLoadedChapterId(chapterId);
           resetAndLoadData();
-        }
+        },
       );
     }, [chapterId, resetAndLoadData]);
 
     useEffect(() => {
       if (window.ztDebug) {
-        window.ztDebug.resend = () => {
-
-        };
+        window.ztDebug.resend = () => {};
 
         window.ztDebug.resendX = (
           chatId,
           lessonId,
           val,
           type,
-          scriptId = null
+          scriptId = null,
         ) => {
           nextStep({
             chatId,
@@ -780,7 +774,7 @@ export const ChatComponents = forwardRef<any, any>(
         scrollToBottom,
         setTyping,
         userInfo,
-      ]
+      ],
     );
 
     const onPayModalOk = useCallback(() => {
@@ -792,31 +786,34 @@ export const ChatComponents = forwardRef<any, any>(
 
     const [interactionTypes, setInteractionTypes] = useState({});
 
-
     const renderMessageContentOperation = useCallback(
-      (msg) => {
+      msg => {
         const likeClick = async () => {
-          setInteractionTypes((prevTypes) => {
+          setInteractionTypes(prevTypes => {
             const currentType = prevTypes[msg.id] ?? msg.interaction_type;
             const updatedTypes = {
               ...prevTypes,
               [msg.id]: currentType === 1 ? 0 : 1,
             };
 
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(
+              () => {},
+            );
             return updatedTypes;
           });
         };
 
         const disClick = async () => {
-          setInteractionTypes((prevTypes) => {
+          setInteractionTypes(prevTypes => {
             const currentType = prevTypes[msg.id] ?? msg.interaction_type;
             const updatedTypes = {
               ...prevTypes,
               [msg.id]: currentType === 2 ? 0 : 2,
             };
 
-            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(() => { });
+            scriptContentOperation(msg.logid, updatedTypes[msg.id]).then(
+              () => {},
+            );
             return updatedTypes;
           });
         };
@@ -827,24 +824,35 @@ export const ChatComponents = forwardRef<any, any>(
         return (
           <div className={styles.messageContentOperation}>
             {currentInteractionType === 1 ? (
-              <ThumbsUp className={cn('text-blue-500', 'w-5', 'h-5')} onClick={likeClick} />
+              <ThumbsUp
+                className={cn('text-blue-500', 'w-5', 'h-5')}
+                onClick={likeClick}
+              />
             ) : (
-              <ThumbsUp className={cn('text-gray-400', 'w-5', 'h-5')} onClick={likeClick} />
+              <ThumbsUp
+                className={cn('text-gray-400', 'w-5', 'h-5')}
+                onClick={likeClick}
+              />
             )}
             {currentInteractionType === 2 ? (
-              <ThumbsDown className={cn('text-blue-500', 'w-5', 'h-5', 'cursor-pointer')} onClick={disClick} />
+              <ThumbsDown
+                className={cn('text-blue-500', 'w-5', 'h-5', 'cursor-pointer')}
+                onClick={disClick}
+              />
             ) : (
-              <ThumbsDown className={cn('text-gray-400', 'w-5', 'h-5')} onClick={disClick} />
+              <ThumbsDown
+                className={cn('text-gray-400', 'w-5', 'h-5')}
+                onClick={disClick}
+              />
             )}
           </div>
         );
       },
-      [interactionTypes, setInteractionTypes]
+      [interactionTypes, setInteractionTypes],
     );
 
-
     const renderMessageContent = useCallback(
-      (msg) => {
+      msg => {
         const { content, type, ext } = msg;
         if (type === CHAT_MESSAGE_TYPE.LESSON_SEPARATOR) {
           return <></>;
@@ -862,13 +870,15 @@ export const ChatComponents = forwardRef<any, any>(
                 mobileStyle={mobileStyle}
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
-              {((msg.isComplete || msg.logid) && msg.position == 'left') && renderMessageContentOperation(msg)}
+              {(msg.isComplete || msg.logid) &&
+                msg.position == 'left' &&
+                renderMessageContentOperation(msg)}
             </div>
           );
         }
         return <></>;
       },
-      [isStreaming, mobileStyle, renderMessageContentOperation]
+      [isStreaming, mobileStyle, renderMessageContentOperation],
     );
 
     const onChatInputSend = useCallback(
@@ -919,7 +929,7 @@ export const ChatComponents = forwardRef<any, any>(
 
         handleSend(type, display, val, scriptId);
       },
-      [handleSend, onGoChapter, onLoginModalOpen, onPayModalOpen, trackEvent]
+      [handleSend, onGoChapter, onLoginModalOpen, onPayModalOpen, trackEvent],
     );
 
     useImperativeHandle(ref, () => ({}));
@@ -943,7 +953,7 @@ export const ChatComponents = forwardRef<any, any>(
     // }, [handleSend, refreshUserInfo, t]);
 
     useEffect(() => {
-      const onGoToNavigationNode = (e) => {
+      const onGoToNavigationNode = e => {
         const { chapterId, lessonId } = e.detail;
 
         if (chapterId !== loadedChapterId) {
@@ -956,20 +966,22 @@ export const ChatComponents = forwardRef<any, any>(
 
       events.addEventListener(
         BZ_EVENT_NAMES.GO_TO_NAVIGATION_NODE,
-        onGoToNavigationNode
+        onGoToNavigationNode,
       );
 
       return () => {
         events.removeEventListener(
           BZ_EVENT_NAMES.GO_TO_NAVIGATION_NODE,
-          onGoToNavigationNode
+          onGoToNavigationNode,
         );
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
         // @ts-expect-error EXPECT
-        const messageIndex = messages.findIndex(msg => msg.id === lastMsgRef.current.id);
+        const messageIndex = messages.findIndex(
+          msg => msg.id === lastMsgRef.current.id,
+        );
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
         } else if (messageIndex !== messages.length - 1) {
@@ -985,7 +997,7 @@ export const ChatComponents = forwardRef<any, any>(
         className={cn(
           styles.chatComponents,
           className,
-          mobileStyle ? styles.mobile : ''
+          mobileStyle ? styles.mobile : '',
         )}
         ref={chatRef}
       >
@@ -1034,7 +1046,7 @@ export const ChatComponents = forwardRef<any, any>(
               payload={{}}
             />
           ))}
-          {/* TODO: FIXME */}
+        {/* TODO: FIXME */}
         {/* {loginModalOpen && (
           <LoginModal
             open={loginModalOpen}
@@ -1045,7 +1057,7 @@ export const ChatComponents = forwardRef<any, any>(
         {showActionControl && getActionControl()}
       </div>
     );
-  }
+  },
 );
 
 ChatComponents.displayName = 'ChatComponents';

@@ -11,22 +11,33 @@ interface MainButtonProps extends ButtonProps {
   children?: ReactNode;
 }
 
-export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>((props, ref) => {
-  const { height = 40, shape = 'round', width, className, style, children, ...rest } = props;
+export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>(
+  (props, ref) => {
+    const {
+      height = 40,
+      shape = 'round',
+      width,
+      className,
+      style,
+      children,
+      ...rest
+    } = props;
 
-  // 将 shape 转换为对应的 className
-  const shapeClass = shape === 'square' ? 'rounded-md' : 'rounded-full';
+    // 将 shape 转换为对应的 className
+    const shapeClass = shape === 'square' ? 'rounded-md' : 'rounded-full';
 
-  return (
-    <Button
-      ref={ref}
-      {...rest}
-      className={clsx(styles.mainButton, shapeClass, className)}
-      style={{ width, height, ...style }}>
-      {children}
-    </Button>
-  );
-});
+    return (
+      <Button
+        ref={ref}
+        {...rest}
+        className={clsx(styles.mainButton, shapeClass, className)}
+        style={{ width, height, ...style }}
+      >
+        {children}
+      </Button>
+    );
+  },
+);
 
 MainButton.displayName = 'MainButton';
 

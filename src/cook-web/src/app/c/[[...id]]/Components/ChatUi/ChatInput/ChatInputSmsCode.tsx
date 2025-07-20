@@ -3,7 +3,7 @@ import styles from './ChatInputSmsCode.module.scss';
 import { useState } from 'react';
 
 // import { Input } from '@ai-shifu/chatui';
-import { Input } from '../ForkChatUI/components/Input'
+import { Input } from '../ForkChatUI/components/Input';
 import SubButton from '@/c-components/SubButton';
 import { INTERACTION_OUTPUT_TYPE } from '@/c-constants/courseConstants';
 
@@ -17,28 +17,28 @@ export const ChatInputSmsCode = ({ onClick }) => {
     if (inputData === '' || !/^\d{4}$/.test(inputData)) {
       toast({
         title: '请输入4位短信验证码',
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     onClick?.(INTERACTION_OUTPUT_TYPE.CHECKCODE, true, inputData);
     setInput('');
-  }
+  };
 
   return (
     // @ts-expect-error EXPECT
-  <div styles={styles.ChatInputSmsCode}>
+    <div styles={styles.ChatInputSmsCode}>
       <div className={styles.inputForm}>
         <div className={styles.inputWrapper}>
           <Input
             maxLength={4}
-            type="text"
+            type='text'
             value={input}
             onChange={v => setInput(v)}
-            placeholder=""
+            placeholder=''
             className={styles.inputField}
-            onKeyDown={(e) => {
+            onKeyDown={e => {
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 onSendClick();
@@ -47,11 +47,17 @@ export const ChatInputSmsCode = ({ onClick }) => {
           />
         </div>
         {/* @ts-expect-error EXPECT */}
-        <SubButton onClick={onSendClick} width={100} height={32} style={{ marginLeft: '15px' }} >
+        <SubButton
+          onClick={onSendClick}
+          width={100}
+          height={32}
+          style={{ marginLeft: '15px' }}
+        >
           提交
         </SubButton>
       </div>
-  </div>);
-}
+    </div>
+  );
+};
 
 export default ChatInputSmsCode;

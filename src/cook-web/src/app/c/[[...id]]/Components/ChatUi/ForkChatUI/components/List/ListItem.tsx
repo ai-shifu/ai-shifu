@@ -18,11 +18,24 @@ interface ListItemPropsWithLink extends ListItemPropsBase {
 
 export type ListItemProps = ListItemPropsBase | ListItemPropsWithLink;
 
-export const ListItem: React.FC<ListItemProps> = (props) => {
-  const { className, as: Element = 'div', content, rightIcon, children, onClick, ...other } = props;
+export const ListItem: React.FC<ListItemProps> = props => {
+  const {
+    className,
+    as: Element = 'div',
+    content,
+    rightIcon,
+    children,
+    onClick,
+    ...other
+  } = props;
   return (
-    <Element className={clsx('ListItem', className)} onClick={onClick} role="listitem" {...other}>
-      <div className="ListItem-content">{content || children}</div>
+    <Element
+      className={clsx('ListItem', className)}
+      onClick={onClick}
+      role='listitem'
+      {...other}
+    >
+      <div className='ListItem-content'>{content || children}</div>
       {rightIcon && <Icon type={rightIcon} />}
     </Element>
   );

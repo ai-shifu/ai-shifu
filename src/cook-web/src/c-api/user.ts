@@ -11,7 +11,12 @@ import { useSystemStore } from '@/c-store/useSystemStore';
  * @returns
  */
 export const register = ({ username, password, mobile, email }) => {
-  return request.post('/api/user/register', { username, password, email, mobile });
+  return request.post('/api/user/register', {
+    username,
+    password,
+    email,
+    mobile,
+  });
 };
 
 /**
@@ -32,26 +37,30 @@ export const getUserInfo = () => {
   return request.get('/api/user/info');
 };
 
-
 /**
  *
  */
-export const updateUserInfo = (name) => {
+export const updateUserInfo = name => {
   return request.post('/api/user/update_info', { name });
 };
 
-
 export const updatePassword = (old_password, new_password) => {
-  return request.post('/api/user/update_password', { old_password, new_password });
+  return request.post('/api/user/update_password', {
+    old_password,
+    new_password,
+  });
 };
 
-export const requireResetPasswordCode = (username) => {
+export const requireResetPasswordCode = username => {
   return request.post('/api/user/require_reset_code', { username });
 };
 
-
 export const resetPassword = (username, new_password, code) => {
-  return request.post('/api/user/reset_password', { username, new_password, code });
+  return request.post('/api/user/reset_password', {
+    username,
+    new_password,
+    code,
+  });
 };
 
 /**
@@ -62,9 +71,18 @@ export const resetPassword = (username, new_password, code) => {
  * https://agiclass.feishu.cn/docx/WyXhdgeVzoKVqDx1D4wc0eMknmg
  */
 export const registerTmp = ({ temp_id }) => {
-  const { channel: source, wechatCode: wxcode,language } = useSystemStore.getState();
+  const {
+    channel: source,
+    wechatCode: wxcode,
+    language,
+  } = useSystemStore.getState();
 
-  return request.post('/api/user/require_tmp', { temp_id, source, wxcode,language });
+  return request.post('/api/user/require_tmp', {
+    temp_id,
+    source,
+    wxcode,
+    language,
+  });
 };
 
 /**
@@ -79,7 +97,7 @@ export const updateWxcode = ({ wxcode }) => {
 /**
  * 获取图形验证码
  */
-export const genCheckCode = (mobile) => {
+export const genCheckCode = mobile => {
   return request.post('/api/user/generate_chk_code', { mobile });
 };
 
@@ -93,8 +111,10 @@ export const sendSmsCode = ({ mobile, check_code }) => {
 };
 
 // 获取用户详细信息
-export const getUserProfile = (courseId) => {
-  return request.get('/api/user/get_profile', { params: { course_id: courseId } });
+export const getUserProfile = courseId => {
+  return request.get('/api/user/get_profile', {
+    params: { course_id: courseId },
+  });
 };
 
 // 上传头像
@@ -102,20 +122,19 @@ export const uploadAvatar = ({ avatar }) => {
   const formData = new FormData();
   formData.append('avatar', avatar);
   return request.post('/api/user/upload_avatar', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
 
 // 更新用户详细信息
 export const updateUserProfile = (data, courseId) => {
   return request.post('/api/user/update_profile', {
-    "profiles": data,
-    "course_id": courseId
+    profiles: data,
+    course_id: courseId,
   });
 };
 
-
 // submit feedback
-export const submitFeedback = (feedback) => {
-  return request.post('/api/user/submit-feedback', {feedback});
+export const submitFeedback = feedback => {
+  return request.post('/api/user/submit-feedback', { feedback });
 };

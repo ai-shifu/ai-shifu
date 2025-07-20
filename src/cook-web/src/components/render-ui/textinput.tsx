@@ -1,72 +1,73 @@
-import React, { useState } from 'react'
-import { Input } from '../ui/input'
-import { Editor } from '@/components/cm-editor'
-import InputNumber from '@/components/input-number'
-import ModelList from '@/components/model-list'
-import { Button } from '../ui/button'
-import { useTranslation } from 'react-i18next'
-import { memo } from 'react'
-import _ from 'lodash'
-import { ProfileFormItem } from '@/components/profiles'
-import { InputDTO, UIBlockDTO } from '@/types/shifu'
-import i18n from '@/i18n'
+import React, { useState } from 'react';
+import { Input } from '../ui/input';
+import { Editor } from '@/components/cm-editor';
+import InputNumber from '@/components/input-number';
+import ModelList from '@/components/model-list';
+import { Button } from '../ui/button';
+import { useTranslation } from 'react-i18next';
+import { memo } from 'react';
+import _ from 'lodash';
+import { ProfileFormItem } from '@/components/profiles';
+import { InputDTO, UIBlockDTO } from '@/types/shifu';
+import i18n from '@/i18n';
 
-const TextInputPropsEqual = (
-  prevProps: UIBlockDTO,
-  nextProps: UIBlockDTO
-) => {
-  const prevInputSettings = prevProps.data.properties as InputDTO
-  const nextInputSettings = nextProps.data.properties as InputDTO
+const TextInputPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
+  const prevInputSettings = prevProps.data.properties as InputDTO;
+  const nextInputSettings = nextProps.data.properties as InputDTO;
   if (!_.isEqual(prevProps.data, nextProps.data)) {
-    return false
+    return false;
   }
   if (!_.isEqual(prevInputSettings.prompt, nextInputSettings.prompt)) {
-    return false
+    return false;
   }
-  if (!_.isEqual(prevInputSettings.placeholder, nextInputSettings.placeholder)) {
-    return false
+  if (
+    !_.isEqual(prevInputSettings.placeholder, nextInputSettings.placeholder)
+  ) {
+    return false;
   }
-  return true
-}
+  return true;
+};
 
 function TextInput(props: UIBlockDTO) {
-  const { data, onChanged } = props
-  const [tempProperties, setTempProperties] = useState(data.properties as InputDTO)
-  const [changed, setChanged] = useState(false)
-  const { t } = useTranslation()
+  const { data, onChanged } = props;
+  const [tempProperties, setTempProperties] = useState(
+    data.properties as InputDTO,
+  );
+  const [changed, setChanged] = useState(false);
+  const { t } = useTranslation();
   const onValueChange = (value: string) => {
     if (!changed) {
-      setChanged(true)
-      onChanged?.(true)
+      setChanged(true);
+      onChanged?.(true);
     }
     setTempProperties({
       ...tempProperties,
-      prompt: value
-    })
-  }
+      prompt: value,
+    });
+  };
 
   const onModelChange = (value: string) => {
     setTempProperties({
       ...tempProperties,
-      llm: value
-    })
-  }
+      llm: value,
+    });
+  };
 
   const onTemperatureChange = (value: number) => {
     setTempProperties({
       ...tempProperties,
-      llm_temperature: value
-    })
-  }
+      llm_temperature: value,
+    });
+  };
 
   const handleProfileChange = (value: string[]) => {
-    console.log('handleProfileChange', value)
+    console.log('handleProfileChange', value);
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,
-      result_variable_bids: value
-    })
-  }
+      result_variable_bids: value,
+    });
+  };
 
   const onInputPlaceholderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTempProperties({
@@ -75,24 +76,27 @@ function TextInput(props: UIBlockDTO) {
         ...tempProperties.placeholder,
         lang: {
           'zh-CN': e.target.value,
-          'en-US': e.target.value
-        }
-      }
-    })
-  }
+          'en-US': e.target.value,
+        },
+      },
+    });
+  };
 
   const handleConfirm = () => {
     props.onPropertiesChange({
       ...data,
       properties: tempProperties,
-      variable_bids: tempProperties.result_variable_bids
-    })
-  }
+      variable_bids: tempProperties.result_variable_bids,
+    });
+  };
 
   return (
     <div className='flex flex-col space-y-2 w-full'>
       <div className='flex flex-row items-center space-x-1'>
-        <label htmlFor='' className='whitespace-nowrap w-[70px] shrink-0'>
+        <label
+          htmlFor=''
+          className='whitespace-nowrap w-[70px] shrink-0'
+        >
           {t('textinput.input-placeholder')}
         </label>
         <Input
@@ -102,7 +106,10 @@ function TextInput(props: UIBlockDTO) {
         ></Input>
       </div>
       <div className='flex flex-row items-center space-x-1'>
-        <label htmlFor='' className='whitespace-nowrap w-[70px] shrink-0'>
+        <label
+          htmlFor=''
+          className='whitespace-nowrap w-[70px] shrink-0'
+        >
           {t('textinput.input-name')}
         </label>
         <ProfileFormItem
@@ -111,7 +118,10 @@ function TextInput(props: UIBlockDTO) {
         />
       </div>
       <div className='flex flex-row items-center space-x-1'>
-        <label htmlFor='' className='whitespace-nowrap w-[70px] shrink-0'>
+        <label
+          htmlFor=''
+          className='whitespace-nowrap w-[70px] shrink-0'
+        >
           {t('textinput.prompt')}
         </label>
         <div className='w-full rounded-md border bg-background px-1 py-1'>
@@ -127,7 +137,10 @@ function TextInput(props: UIBlockDTO) {
         </div>
       </div>
       <div className='flex flex-row items-center space-x-1'>
-        <label htmlFor='' className='whitespace-nowrap w-[70px] shrink-0'>
+        <label
+          htmlFor=''
+          className='whitespace-nowrap w-[70px] shrink-0'
+        >
           {t('textinput.model')}
         </label>
         <ModelList
@@ -137,7 +150,10 @@ function TextInput(props: UIBlockDTO) {
         />
       </div>
       <div className='flex flex-row items-center space-x-1 w-[275px]'>
-        <label htmlFor='' className='whitespace-nowrap w-[70px] shrink-0'>
+        <label
+          htmlFor=''
+          className='whitespace-nowrap w-[70px] shrink-0'
+        >
           {t('textinput.temperature')}
         </label>
         <InputNumber
@@ -151,12 +167,15 @@ function TextInput(props: UIBlockDTO) {
       </div>
       <div className='flex flex-row items-center'>
         <span className='flex flex-row items-center whitespace-nowrap w-[70px] shrink-0'></span>
-        <Button className='h-8 w-20' onClick={handleConfirm}>
+        <Button
+          className='h-8 w-20'
+          onClick={handleConfirm}
+        >
           {t('textinput.complete')}
         </Button>
       </div>
     </div>
-  )
+  );
 }
 
-export default memo(TextInput, TextInputPropsEqual)
+export default memo(TextInput, TextInputPropsEqual);

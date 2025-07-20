@@ -34,14 +34,19 @@ const QuickReplies = (props: QuickRepliesProps) => {
 
   return (
     <ScrollView
-      className="QuickReplies"
+      className='QuickReplies'
       data={items}
-      itemKey="name"
+      itemKey='name'
       ref={scroller}
       data-visible={visible}
       onScroll={scrollEvent ? onScroll : undefined}
       renderItem={(item: QuickReplyItemProps, index) => (
-        <QuickReply item={item} index={index} onClick={onClick} key={item.name} />
+        <QuickReply
+          item={item}
+          index={index}
+          onClick={onClick}
+          key={item.name}
+        />
       )}
     />
   );

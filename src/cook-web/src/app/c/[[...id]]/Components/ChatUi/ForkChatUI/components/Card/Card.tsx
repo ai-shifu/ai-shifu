@@ -10,19 +10,26 @@ export interface CardProps {
   children?: React.ReactNode;
 }
 
-export const Card = React.forwardRef<HTMLDivElement, CardProps>((props, ref) => {
-  const { className, size, fluid, children, ...other } = props;
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  (props, ref) => {
+    const { className, size, fluid, children, ...other } = props;
 
-  return (
-    <div
-      className={clsx('Card', size && `Card--${size}`, { 'Card--fluid': fluid }, className)}
-      data-fluid={fluid}
-      {...other}
-      ref={ref}
-    >
-      {children}
-    </div>
-  );
-});
+    return (
+      <div
+        className={clsx(
+          'Card',
+          size && `Card--${size}`,
+          { 'Card--fluid': fluid },
+          className,
+        )}
+        data-fluid={fluid}
+        {...other}
+        ref={ref}
+      >
+        {children}
+      </div>
+    );
+  },
+);
 
 Card.displayName = 'Card';

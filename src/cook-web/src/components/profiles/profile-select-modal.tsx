@@ -1,39 +1,46 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
-} from '@/components/ui/dialog'
-import { Plus } from 'lucide-react'
-import ProfileSelect from './profile-select'
-import type { Profile } from '@/components/profiles/type'
-import { useTranslation } from 'react-i18next'
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Plus } from 'lucide-react';
+import ProfileSelect from './profile-select';
+import type { Profile } from '@/components/profiles/type';
+import { useTranslation } from 'react-i18next';
 
 interface ProfileSelectModalProps {
-  isDialogOpen: boolean
-  setIsDialogOpen: React.Dispatch<React.SetStateAction<boolean>>
-  onAddProfile: (profile: Profile) => void
+  isDialogOpen: boolean;
+  setIsDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onAddProfile: (profile: Profile) => void;
 }
 
-export default function ProfileSelectModal ({
+export default function ProfileSelectModal({
   isDialogOpen,
   setIsDialogOpen,
-  onAddProfile
+  onAddProfile,
 }: ProfileSelectModalProps) {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
   const handleProfileSelect = (profile: Profile) => {
-    onAddProfile(profile)
-  }
+    onAddProfile(profile);
+  };
   return (
-    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+    <Dialog
+      open={isDialogOpen}
+      onOpenChange={setIsDialogOpen}
+    >
       <DialogTrigger asChild>
-        <Button variant={'outline'} size='sm' className='h-8'>
+        <Button
+          variant={'outline'}
+          size='sm'
+          className='h-8'
+        >
           <Plus className='h-4 w-4 mr-1' />
           {t('profile-select-modal.add')}
         </Button>
@@ -47,5 +54,5 @@ export default function ProfileSelectModal ({
         </div>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

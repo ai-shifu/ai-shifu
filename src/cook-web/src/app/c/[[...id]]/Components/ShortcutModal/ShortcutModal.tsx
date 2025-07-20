@@ -14,17 +14,17 @@ import { shortcutKeys } from '@/c-service/shortcut';
 const ShortcutModal = ({ open, onClose }) => {
   // const { mobileStyle } = useContext(AppContext);
   const { inMacOs } = useUiLayoutStore(
-    useShallow((state) => ({ inMacOs: state.inMacOs }))
+    useShallow(state => ({ inMacOs: state.inMacOs })),
   );
-  const { t } = useTranslation('translation', { keyPrefix: 'c'});
+  const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
-  const shortcutKeysOptions = shortcutKeys.map((v) => ({
+  const shortcutKeysOptions = shortcutKeys.map(v => ({
     id: v.id,
     title: t(`common.shortcut.title.${v.id}`),
-    keys: (inMacOs ? v.macKeys : v.keys).map((v) => {
-      return t(`common.shortcut.key.${v}`)
+    keys: (inMacOs ? v.macKeys : v.keys).map(v => {
+      return t(`common.shortcut.key.${v}`);
     }),
-  }))
+  }));
 
   const getShortcutKey = (keyText, index) => {
     const isSingleText = keyText.length === 1;
@@ -34,7 +34,7 @@ const ShortcutModal = ({ open, onClose }) => {
         key={index}
         className={clsx(
           styles.shortcutKey,
-          isSingleText ? styles.singleText : styles.multiText
+          isSingleText ? styles.singleText : styles.multiText,
         )}
       >
         {keyText}
@@ -44,19 +44,23 @@ const ShortcutModal = ({ open, onClose }) => {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(open) => {
-        if (!open) {
-          onClose()
-        }
-      }}>
+      <Dialog
+        open={open}
+        onOpenChange={open => {
+          if (!open) {
+            onClose();
+          }
+        }}
+      >
         <DialogContent>
-          <div className={styles.shortcutTitle}>
-            键盘快捷方式
-          </div>
+          <div className={styles.shortcutTitle}>键盘快捷方式</div>
           <div className={styles.shortcutContent}>
-            {shortcutKeysOptions.map((option) => {
+            {shortcutKeysOptions.map(option => {
               return (
-                <div className={styles.shortcutRow} key={option.title}>
+                <div
+                  className={styles.shortcutRow}
+                  key={option.title}
+                >
                   <div className={styles.rowTitle}>{option.title}</div>
                   <div className={styles.rowKeys}>
                     {option.keys.map((v, i) => {

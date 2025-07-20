@@ -46,18 +46,25 @@ export const ComposerInput = ({
   }, [inputRef]);
 
   return (
-    <div className={clsx({ 'S--invisible': invisible })} ref={wrapRef}>
+    <div
+      className={clsx({ 'S--invisible': invisible })}
+      ref={wrapRef}
+    >
       <Input
-        className="Composer-input"
+        className='Composer-input'
         rows={1}
         autoSize
-        enterKeyHint="send"
+        enterKeyHint='send'
         onPaste={onImageSend ? handlePaste : undefined}
         ref={inputRef}
         {...rest}
       />
       {pastedImage && (
-        <SendConfirm file={pastedImage} onCancel={handleImageCancel} onSend={handleImageSend} />
+        <SendConfirm
+          file={pastedImage}
+          onCancel={handleImageCancel}
+          onSend={handleImageSend}
+        />
       )}
     </div>
   );

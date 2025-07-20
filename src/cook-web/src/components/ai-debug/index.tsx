@@ -1,191 +1,198 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Collapsible,
   CollapsibleContent,
-  CollapsibleTrigger
-} from '@/components/ui/collapsible'
-import { XMarkIcon } from '@heroicons/react/24/outline'
-import { useShifu } from '@/store'
-import CMEditor, { getProfileKeyListFromContent } from '@/components/cm-editor'
-import ModelList from '@/components/model-list'
-import api from '@/api'
-import { ChevronDown, ChevronUp, Copy, Minus, Plus, Trash2 } from 'lucide-react'
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { XMarkIcon } from '@heroicons/react/24/outline';
+import { useShifu } from '@/store';
+import CMEditor, { getProfileKeyListFromContent } from '@/components/cm-editor';
+import ModelList from '@/components/model-list';
+import api from '@/api';
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Minus,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 
-import { useUserStore } from '@/c-store/useUserStore'
-import { v4 as uuidv4 } from 'uuid'
-import Loading from '../loading'
-import { useTranslation } from 'react-i18next'
-import { ContentDTO } from '@/types/shifu'
+import { useUserStore } from '@/c-store/useUserStore';
+import { v4 as uuidv4 } from 'uuid';
+import Loading from '../loading';
+import { useTranslation } from 'react-i18next';
+import { ContentDTO } from '@/types/shifu';
 import { environment } from '@/config/environment';
 
-async function* makeTextSteamLineIterator (reader: ReadableStreamDefaultReader) {
-  const utf8Decoder = new TextDecoder('utf-8')
+async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
+  const utf8Decoder = new TextDecoder('utf-8');
   // let response = await fetch(fileURL);
   // let reader = response.body.getReader();
-  let { value: chunk, done: readerDone } = await reader.read()
-  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : ''
+  let { value: chunk, done: readerDone } = await reader.read();
+  chunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : '';
 
-  const re = /\r\n|\n|\r/gm
-  let startIndex = 0
+  const re = /\r\n|\n|\r/gm;
+  let startIndex = 0;
 
   for (;;) {
     // eslint-disable-next-line prefer-const
-    let result = re.exec(chunk)
+    let result = re.exec(chunk);
     if (!result) {
       if (readerDone) {
-        break
+        break;
       }
-      const remainder = chunk.substring(startIndex)
-      ;({ value: chunk, done: readerDone } = await reader.read())
+      const remainder = chunk.substring(startIndex);
+      ({ value: chunk, done: readerDone } = await reader.read());
       chunk =
-        remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : '')
-      startIndex = re.lastIndex = 0
-      continue
+        remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : '');
+      startIndex = re.lastIndex = 0;
+      continue;
     }
-    yield chunk.substring(startIndex, result.index)
-    startIndex = re.lastIndex
+    yield chunk.substring(startIndex, result.index);
+    startIndex = re.lastIndex;
   }
   if (startIndex < chunk.length) {
     // last line didn't end in a newline char
-    yield chunk.substr(startIndex)
+    yield chunk.substr(startIndex);
   }
 }
 
 const AIModelDialog = ({ blockId, open, onOpenChange }) => {
-  console.log('AIModelDialog', blockId)
-  const { t } = useTranslation()
-  const SITE_HOST = environment.apiBaseUrl
-  const { getToken } = useUserStore()
+  console.log('AIModelDialog', blockId);
+  const { t } = useTranslation();
+  const SITE_HOST = environment.apiBaseUrl;
+  const { getToken } = useUserStore();
   const {
     blockProperties,
     blocks,
-    actions
+    actions,
     // profileItemDefinations
-  } = useShifu()
-  const [systemPrompt, setSystemPrompt] = useState('')
-  const [userPrompt, setUserPrompt] = useState('')
-  const [systemPromptOpen, setSystemPromptOpen] = useState(false)
-  const [userPromptOpen, setUserPromptOpen] = useState(true)
-  const [colCount, setColCount] = useState(2)
-  const [rowCount, setRowCount] = useState(300)
-  const [profiles, setProfiles] = useState<string[]>([])
+  } = useShifu();
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [userPrompt, setUserPrompt] = useState('');
+  const [systemPromptOpen, setSystemPromptOpen] = useState(false);
+  const [userPromptOpen, setUserPromptOpen] = useState(true);
+  const [colCount, setColCount] = useState(2);
+  const [rowCount, setRowCount] = useState(300);
+  const [profiles, setProfiles] = useState<string[]>([]);
   // const [model, setModel] = useState('');
   const [models, setModels] = useState<
     { model: string; temperature: number }[]
-  >([{ model: 'gpt-4o-mini', temperature: 0.7 }])
-  const [results, setResults] = useState<string[]>([])
-  const [runing, setRuning] = useState(false)
-  const abortRefs = useRef<AbortController[]>([])
+  >([{ model: 'gpt-4o-mini', temperature: 0.7 }]);
+  const [results, setResults] = useState<string[]>([]);
+  const [runing, setRuning] = useState(false);
+  const abortRefs = useRef<AbortController[]>([]);
 
-  const [variables, setVariables] = useState({})
+  const [variables, setVariables] = useState({});
   const init = async () => {
-    const block = blocks.find(item => item.bid === blockId)
+    const block = blocks.find(item => item.bid === blockId);
     if (block) {
       const sysPrompt = await api.getSystemPrompt({
-        block_id: blockId
-      })
-      setSystemPrompt(sysPrompt)
-      const contentProp = block.properties as ContentDTO
+        block_id: blockId,
+      });
+      setSystemPrompt(sysPrompt);
+      const contentProp = block.properties as ContentDTO;
       if (contentProp.llm_enabled == false) {
-        setUserPrompt(contentProp.content)
+        setUserPrompt(contentProp.content);
       } else if (contentProp.llm_enabled == true) {
-        setUserPrompt(contentProp.content)
-        setProfiles(block.variable_bids || [])
+        setUserPrompt(contentProp.content);
+        setProfiles(block.variable_bids || []);
         setModels([
           {
             model: contentProp.llm,
-            temperature: contentProp.llm_temperature
-          }
-        ])
+            temperature: contentProp.llm_temperature,
+          },
+        ]);
       }
     }
-  }
+  };
   const abort = async () => {
     abortRefs.current.forEach(controller => {
       if (controller) {
-        controller.abort()
+        controller.abort();
       }
-    })
-  }
+    });
+  };
   const onOpenChangeHandle = open => {
-    onOpenChange(open)
-  }
+    onOpenChange(open);
+  };
   const fetchStream = async (
     url: string,
     data: any,
     index: number,
-    rowIndex: number
+    rowIndex: number,
   ) => {
     try {
-      const controller = new AbortController()
-      abortRefs.current[rowIndex * colCount + index] = controller
-      const token = getToken()
+      const controller = new AbortController();
+      abortRefs.current[rowIndex * colCount + index] = controller;
+      const token = getToken();
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
           Token: token,
-          'X-Request-ID': uuidv4().replace(/-/g, '')
+          'X-Request-ID': uuidv4().replace(/-/g, ''),
         },
         body: JSON.stringify(data),
-        signal: controller.signal
-      })
+        signal: controller.signal,
+      });
 
       if (!response.body) {
-        throw new Error('No response body')
+        throw new Error('No response body');
       }
 
-      const reader = response.body.getReader()
+      const reader = response.body.getReader();
 
-      const lines: string[] = []
+      const lines: string[] = [];
       for await (const line of makeTextSteamLineIterator(reader)) {
         if (!(line as string).startsWith('data:')) {
-          continue
+          continue;
         }
-        lines.push(line)
+        lines.push(line);
         if (!line || line.includes('[DONE]')) {
-          continue
+          continue;
         }
-        const json: any = line.replace(/^data:/, '')
-        const data = JSON.parse(json)
+        const json: any = line.replace(/^data:/, '');
+        const data = JSON.parse(json);
         if (data.type === 'text') {
-          const position = rowIndex * colCount + index
+          const position = rowIndex * colCount + index;
           setResults(prev => {
-            const newResults = [...prev]
-            newResults[position] = newResults[position] + data.content
-            return newResults
-          })
+            const newResults = [...prev];
+            newResults[position] = newResults[position] + data.content;
+            return newResults;
+          });
         } else if (data.type === 'text_end') {
         }
       }
     } catch (error) {
-      console.error('Error in fetchStream:', error)
-      throw error
+      console.error('Error in fetchStream:', error);
+      throw error;
     }
-  }
+  };
   const onDebug = async () => {
     if (runing) {
-      await abort()
-      setRuning(false)
-      return
+      await abort();
+      setRuning(false);
+      return;
     }
-    setResults([])
+    setResults([]);
 
-    const totalResults = models.length * colCount
-    setResults(new Array(totalResults).fill(''))
-    abortRefs.current = new Array(totalResults).fill(null)
-    setRuning(true)
+    const totalResults = models.length * colCount;
+    setResults(new Array(totalResults).fill(''));
+    abortRefs.current = new Array(totalResults).fill(null);
+    setRuning(true);
     for (let i = 0; i < models.length; i++) {
-      const { model, temperature } = models[i]
+      const { model, temperature } = models[i];
 
       const promises = Array.from({ length: colCount }, (_, colIndex) =>
         fetchStream(
@@ -197,82 +204,91 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
             block_prompt: userPrompt,
             block_system_prompt: systemPrompt,
             block_temperature: temperature,
-            block_variables: variables
+            block_variables: variables,
           },
           colIndex,
-          i
-        )
-      )
+          i,
+        ),
+      );
 
-      await Promise.all(promises)
+      await Promise.all(promises);
     }
-    setRuning(false)
-  }
+    setRuning(false);
+  };
   const onCopy = (index: number) => {
-    const model = models[index]
-    setModels([...models, model])
-  }
+    const model = models[index];
+    setModels([...models, model]);
+  };
   const setModel = (index: number, model: string) => {
-    const newModels = [...models]
+    const newModels = [...models];
     newModels[index] = {
       ...newModels[index],
-      model: model
-    }
-    setModels(newModels)
-  }
+      model: model,
+    };
+    setModels(newModels);
+  };
   const setTemperature = (index: number, temperature: number) => {
-    const newModels = [...models]
+    const newModels = [...models];
     newModels[index] = {
       ...newModels[index],
-      temperature: temperature
-    }
-    setModels(newModels)
-  }
+      temperature: temperature,
+    };
+    setModels(newModels);
+  };
   const onRemove = (index: number) => {
-    const newModels = [...models]
-    newModels.splice(index, 1)
-    setModels(newModels)
-  }
+    const newModels = [...models];
+    newModels.splice(index, 1);
+    setModels(newModels);
+  };
   const onProfileValue = (name: string, value: string) => {
     setVariables(state => {
       return {
         ...state,
-        [name]: value
-      }
-    })
-  }
+        [name]: value,
+      };
+    });
+  };
   const updateBlock = async () => {
-
-
-    console.log('updateBlock', blockProperties[blockId].properties)
-    console.log('updateBlock', userPrompt)
-    console.log('updateBlock', models[0].model)
-    console.log('updateBlock', models[0].temperature)
-    actions.updateBlockProperties(blockId,
-      {
-        ...blockProperties[blockId],
-        properties: {
-          content: userPrompt,
-          llm_enabled: true,
-          llm: models[0].model,
-          llm_temperature: models[0].temperature
-        }
-      }
-    )
-    onOpenChange(false)
-  }
+    console.log('updateBlock', blockProperties[blockId].properties);
+    console.log('updateBlock', userPrompt);
+    console.log('updateBlock', models[0].model);
+    console.log('updateBlock', models[0].temperature);
+    actions.updateBlockProperties(blockId, {
+      ...blockProperties[blockId],
+      properties: {
+        content: userPrompt,
+        llm_enabled: true,
+        llm: models[0].model,
+        llm_temperature: models[0].temperature,
+      },
+    });
+    onOpenChange(false);
+  };
 
   useEffect(() => {
-    init()
-  }, [])
+    init();
+  }, []);
   useEffect(() => {
-    setProfiles(Array.from(new Set([...getProfileKeyListFromContent(systemPrompt),...getProfileKeyListFromContent(userPrompt)])))
-  }, [systemPrompt, userPrompt])
+    setProfiles(
+      Array.from(
+        new Set([
+          ...getProfileKeyListFromContent(systemPrompt),
+          ...getProfileKeyListFromContent(userPrompt),
+        ]),
+      ),
+    );
+  }, [systemPrompt, userPrompt]);
   return (
-    <Dialog open={open} onOpenChange={onOpenChangeHandle}>
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChangeHandle}
+    >
       <DialogContent className='flex flex-col sm:max-w-[600px] md:max-w-[800px] max-h-[90vh] overflow-y-auto text-sm'>
         <div className='absolute right-4 top-4 cursor-pointer'>
-          <XMarkIcon className='h-4 w-4' onClick={() => onOpenChange(false)} />
+          <XMarkIcon
+            className='h-4 w-4'
+            onClick={() => onOpenChange(false)}
+          />
         </div>
         <DialogHeader className='text-center'>
           <DialogTitle className='text-xl font-bold px-2'>
@@ -364,7 +380,10 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
             </div>
             {models?.map((model, i) => {
               return (
-                <div key={model.model + i} className='grid grid-cols-2 gap-4'>
+                <div
+                  key={model.model + i}
+                  className='grid grid-cols-2 gap-4'
+                >
                   <ModelList
                     className='h-8'
                     value={model.model}
@@ -388,12 +407,12 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                       disabled={model.temperature <= 0}
                       className='h-8 w-8 shrink-0'
                       onClick={() => {
-                        const val = Number(model.temperature)
+                        const val = Number(model.temperature);
                         if (val <= 0) {
-                          setTemperature(i, 0)
-                          return
+                          setTemperature(i, 0);
+                          return;
                         }
-                        setTemperature(i, Number((val - 0.1).toFixed(1)))
+                        setTemperature(i, Number((val - 0.1).toFixed(1)));
                       }}
                     >
                       <Minus className='h-4 w-4' />
@@ -404,12 +423,12 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                       disabled={model.temperature >= 1}
                       className='h-8 w-8 shrink-0'
                       onClick={() => {
-                        const val = Number(model.temperature)
+                        const val = Number(model.temperature);
                         if (val >= 1) {
-                          setTemperature(i, 1)
-                          return
+                          setTemperature(i, 1);
+                          return;
                         }
-                        setTemperature(i, Number((val + 0.1).toFixed(1)))
+                        setTemperature(i, Number((val + 0.1).toFixed(1)));
                       }}
                     >
                       <Plus className='h-4 w-4' />
@@ -432,16 +451,22 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                     </Button>
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
           <div>
             {profiles?.map(item => {
               return (
-                <div key={item} className='grid grid-cols-2 gap-4'>
+                <div
+                  key={item}
+                  className='grid grid-cols-2 gap-4'
+                >
                   <div>
                     <div className='mb-1 text-sm'>{t('ai-debug.variable')}</div>
-                    <Input value={item} readOnly />
+                    <Input
+                      value={item}
+                      readOnly
+                    />
                   </div>
                   <div>
                     <div className='mb-1 text-sm'>
@@ -452,7 +477,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                     />
                   </div>
                 </div>
-              )
+              );
             })}
           </div>
 
@@ -472,10 +497,10 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                   className='h-8 w-8 shrink-0'
                   onClick={() => {
                     if (colCount <= 1) {
-                      setColCount(1)
-                      return
+                      setColCount(1);
+                      return;
                     }
-                    setColCount(colCount - 1)
+                    setColCount(colCount - 1);
                   }}
                 >
                   <Minus className='h-4 w-4' />
@@ -485,7 +510,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                   size='icon'
                   className='h-8 w-8 shrink-0'
                   onClick={() => {
-                    setColCount(colCount + 1)
+                    setColCount(colCount + 1);
                   }}
                 >
                   <Plus className='h-4 w-4' />
@@ -521,11 +546,14 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
           </div>
           <div className='flex flex-col gap-4'>
             {models?.map((model, modelIndex) => (
-              <div key={model.model + modelIndex} className='space-y-2'>
+              <div
+                key={model.model + modelIndex}
+                className='space-y-2'
+              >
                 <div
                   className='grid gap-4'
                   style={{
-                    gridTemplateColumns: `repeat(${colCount}, 1fr)`
+                    gridTemplateColumns: `repeat(${colCount}, 1fr)`,
                   }}
                 >
                   {results
@@ -549,7 +577,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
         </div>
       </DialogContent>
     </Dialog>
-  )
-}
+  );
+};
 
-export default AIModelDialog
+export default AIModelDialog;

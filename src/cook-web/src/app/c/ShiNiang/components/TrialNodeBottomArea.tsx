@@ -9,16 +9,16 @@ import { useCallback } from 'react';
 
 const TrialNodeBottomArea = ({ payload }) => {
   const { hasPay, updateHasPay } = usePayStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       hasPay: state.hasPay,
       updateHasPay: state.updateHasPay,
-    }))
+    })),
   );
 
   // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
-  const onClick = useCallback( () => {
+  const onClick = useCallback(() => {
     // @ts-expect-error EXPECT
     shifu.payTools.openPay({});
     trackEvent(EVENT_NAMES.POP_PAY, { from: 'left-nav-banner' });
@@ -33,8 +33,11 @@ const TrialNodeBottomArea = ({ payload }) => {
 
     return () => {
       // @ts-expect-error EXPECT
-      shifu.events.removeEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
-    }
+      shifu.events.removeEventListener(
+        shifu.EventTypes.PAY_MODAL_OK,
+        onModalOk,
+      );
+    };
   }, [updateHasPay]);
 
   return hasPay ? (
@@ -44,7 +47,7 @@ const TrialNodeBottomArea = ({ payload }) => {
       <ToPayButton
         className={styles.trialNodeBottomArea}
         onClick={onClick}
-        height="48px"
+        height='48px'
       >
         <div className={styles.buttonContent}>
           <div className={styles.row1}>{payload.banner_info}</div>

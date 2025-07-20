@@ -1,7 +1,7 @@
 import styles from './MainMenuModal.module.scss';
 
 import { memo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 
 import {
@@ -13,7 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from '@/components/ui/alert-dialog';
 
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
@@ -26,12 +26,12 @@ import { shifu } from '@/c-service/Shifu';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 import Image from 'next/image';
-import imgUserInfo from '@/c-assets/newchat/light/userInfo.png'
-import imgPersonal from '@/c-assets/newchat/light/personal.png'
-import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png'
-import imgSignIn from '@/c-assets/newchat/light/signin.png'
+import imgUserInfo from '@/c-assets/newchat/light/userInfo.png';
+import imgPersonal from '@/c-assets/newchat/light/personal.png';
+import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
+import imgSignIn from '@/c-assets/newchat/light/signin.png';
 
-import LanguageSelect from '@/components/language-select'
+import LanguageSelect from '@/components/language-select';
 
 const MainMenuModal = ({
   open,
@@ -46,10 +46,10 @@ const MainMenuModal = ({
 
   const htmlRef = useRef(null);
   const { isLoggedIn, logout } = useUserStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       logout: state.logout,
       isLoggedIn: state.isLoggedIn,
-    }))
+    })),
   );
 
   // const languageDrowdownContainer = (triggerNode) => {
@@ -111,30 +111,29 @@ const MainMenuModal = ({
     shifu.loginTools.openLogin();
   };
 
-  const onLooutClick = (evt) => {
+  const onLooutClick = evt => {
     setLogoutConfirmOpen(true);
     // @ts-expect-error EXPECT
-    onClose?.(evt)
+    onClose?.(evt);
   };
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const onLogoutConfirm = async () => {
-     await logout();
-     setLogoutConfirmOpen(false);
+    await logout();
+    setLogoutConfirmOpen(false);
   };
 
   return (
     <>
-       <AlertDialog
+      <AlertDialog
         open={logoutConfirmOpen}
-        onOpenChange={(open) => setLogoutConfirmOpen(open)}>
+        onOpenChange={open => setLogoutConfirmOpen(open)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              { t('user.confirmLogoutTitle') }
-            </AlertDialogTitle>
+            <AlertDialogTitle>{t('user.confirmLogoutTitle')}</AlertDialogTitle>
             <AlertDialogDescription>
-              { t('user.confirmLogoutContent') }
+              {t('user.confirmLogoutContent')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -150,28 +149,41 @@ const MainMenuModal = ({
         open={open}
         onClose={onClose}
         wrapStyle={{ ...style }}
-        className={cn(className, styles.mainMenuModalWrapper, mobileStyle && styles.mobile)}
+        className={cn(
+          className,
+          styles.mainMenuModalWrapper,
+          mobileStyle && styles.mobile,
+        )}
       >
-        <div className={styles.mainMenuModal} ref={htmlRef}>
-          <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onUserInfoClick}>
+        <div
+          className={styles.mainMenuModal}
+          ref={htmlRef}
+        >
+          <div
+            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            onClick={onUserInfoClick}
+          >
             <Image
               className={styles.rowIcon}
               width={16}
               height={16}
               src={imgUserInfo.src}
-              alt=""
+              alt=''
             />
             <div className={styles.rowTitle}>
               {t('menus.navigationMenus.basicInfo')}
             </div>
           </div>
-          <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={_onPersonalInfoClick}>
+          <div
+            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            onClick={_onPersonalInfoClick}
+          >
             <Image
               className={styles.rowIcon}
               width={16}
               height={16}
               src={imgPersonal.src}
-              alt=""
+              alt=''
             />
             <div className={styles.rowTitle}>
               {t('menus.navigationMenus.personalInfo')}
@@ -183,7 +195,7 @@ const MainMenuModal = ({
               className={cn(
                 styles.mainMenuModalRow,
                 styles.languageRowInner,
-                'px-2.5'
+                'px-2.5',
               )}
             >
               <div className={styles.languageRowLeft}>
@@ -192,36 +204,42 @@ const MainMenuModal = ({
                   width={16}
                   height={16}
                   src={imgMultiLanguage.src}
-                  alt=""
+                  alt=''
                 />
                 <div className={styles.rowTitle}>
                   {t('menus.navigationMenus.language')}
                 </div>
               </div>
               <div className={styles.languageRowRight}>
-                <LanguageSelect contentClassName="z-[1001]" />
+                <LanguageSelect contentClassName='z-[1001]' />
               </div>
             </div>
           </div>
           {!isLoggedIn ? (
-            <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onLoginClick}>
+            <div
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={onLoginClick}
+            >
               <Image
                 className={styles.rowIcon}
                 width={16}
                 height={16}
                 src={imgSignIn.src}
-                alt=""
+                alt=''
               />
               <div className={styles.rowTitle}>{t('user.login')}</div>
             </div>
           ) : (
-            <div className={cn(styles.mainMenuModalRow, 'px-2.5')} onClick={onLooutClick}>
+            <div
+              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              onClick={onLooutClick}
+            >
               <Image
                 className={styles.rowIcon}
                 width={16}
                 height={16}
                 src={imgSignIn.src}
-                alt=""
+                alt=''
               />
               <div className={styles.rowTitle}>{t('user.logout')}</div>
             </div>

@@ -12,18 +12,45 @@ export interface NoticeProps {
 }
 
 export const Notice = (props: NoticeProps) => {
-  const { content, closable = true, leftIcon = 'bullhorn', onClick, onClose } = props;
+  const {
+    content,
+    closable = true,
+    leftIcon = 'bullhorn',
+    onClick,
+    onClose,
+  } = props;
 
   return (
-    <div className="Notice" role="alert" aria-atomic aria-live="assertive">
-      {leftIcon && <Icon className="Notice-icon" type={leftIcon} />}
-      <div className="Notice-content" onClick={onClick}>
-        <Text className="Notice-text" truncate>
+    <div
+      className='Notice'
+      role='alert'
+      aria-atomic
+      aria-live='assertive'
+    >
+      {leftIcon && (
+        <Icon
+          className='Notice-icon'
+          type={leftIcon}
+        />
+      )}
+      <div
+        className='Notice-content'
+        onClick={onClick}
+      >
+        <Text
+          className='Notice-text'
+          truncate
+        >
           {content}
         </Text>
       </div>
       {closable && (
-        <IconButton className="Notice-close" icon="close" onClick={onClose} aria-label="关闭通知" />
+        <IconButton
+          className='Notice-close'
+          icon='close'
+          onClick={onClose}
+          aria-label='关闭通知'
+        />
       )}
     </div>
   );

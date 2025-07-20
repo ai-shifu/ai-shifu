@@ -9,9 +9,16 @@ export type CardMediaProps = {
   image?: string;
 };
 
-export const CardMedia: React.FC<CardMediaProps> = (props) => {
+export const CardMedia: React.FC<CardMediaProps> = props => {
   // @ts-expect-error EXPECT
-  const { className, aspectRatio = 'square', color, image, children, ...other } = props;
+  const {
+    className,
+    aspectRatio = 'square',
+    color,
+    image,
+    children,
+    ...other
+  } = props;
 
   const bgStyle = {
     backgroundColor: color || undefined,
@@ -32,7 +39,11 @@ export const CardMedia: React.FC<CardMediaProps> = (props) => {
       {...other}
     >
       {children && (
-        <Flex className="CardMedia-content" direction="column" center>
+        <Flex
+          className='CardMedia-content'
+          direction='column'
+          center
+        >
           {children}
         </Flex>
       )}

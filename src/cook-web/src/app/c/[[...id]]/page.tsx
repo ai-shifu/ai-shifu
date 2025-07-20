@@ -16,13 +16,19 @@ import {
 } from '@/c-constants/uiConstants';
 import { EVENT_NAMES, events } from './events';
 
-import { useEnvStore, useUserStore, useCourseStore, useUiLayoutStore, useSystemStore } from '@/c-store';
+import {
+  useEnvStore,
+  useUserStore,
+  useCourseStore,
+  useUiLayoutStore,
+  useSystemStore,
+} from '@/c-store';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from '@/components/ui/skeleton';
 import { AppContext } from './Components/AppContext';
 import NavDrawer from './Components/NavDrawer/NavDrawer';
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
@@ -44,12 +50,12 @@ export default function ChatPage() {
   /**
    * User info and init part
    */
-  const userInfo = useUserStore((state) => state.userInfo);
-  const { isLoggedIn, initUser } = useUserStore((state) => state);
+  const userInfo = useUserStore(state => state.userInfo);
+  const { isLoggedIn, initUser } = useUserStore(state => state);
   const [initialized, setInitialized] = useState(false);
 
   const { wechatCode } = useSystemStore(
-    useShallow((state) => ({ wechatCode: state.wechatCode }))
+    useShallow(state => ({ wechatCode: state.wechatCode })),
   );
 
   const initAndCheckLogin = useCallback(async () => {
@@ -76,7 +82,7 @@ export default function ChatPage() {
   /**
    * UI layout part
    */
-  const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
+  const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
 
   // check the frame layout
@@ -100,15 +106,13 @@ export default function ChatPage() {
     initOpen: mobileStyle ? false : true,
   });
 
-  const {
-    open: feedbackModalOpen,
-    onClose: onFeedbackModalClose,
-  } = useDisclosure();
+  const { open: feedbackModalOpen, onClose: onFeedbackModalClose } =
+    useDisclosure();
 
   /**
    * Lesson part
    */
-  let courseId = ''
+  let courseId = '';
   const params = useParams();
   if (params?.id?.[0]) {
     courseId = params.id[0];
@@ -148,23 +152,22 @@ export default function ChatPage() {
     }
   }, [i18n.language, tree, currentLanguage, reloadTree]);
 
+  const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } =
+    useCourseStore(
+      useShallow(state => ({
+        courseName: state.courseName,
+        lessonId: state.lessonId,
+        updateLessonId: state.updateLessonId,
+        chapterId: state.chapterId,
+        updateChapterId: state.updateChapterId,
+      })),
+    );
 
-
-  const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } = useCourseStore(
-    useShallow((state) => ({
-      courseName: state.courseName,
-      lessonId: state.lessonId,
-      updateLessonId: state.updateLessonId,
-      chapterId: state.chapterId,
-      updateChapterId: state.updateChapterId,
-    }))
-  );
-
-  useEffect(()=>{
-    if(selectedLessonId){
+  useEffect(() => {
+    if (selectedLessonId) {
       updateLessonId(selectedLessonId);
     }
-  },[selectedLessonId, updateLessonId]);
+  }, [selectedLessonId, updateLessonId]);
 
   const loadData = useCallback(async () => {
     await loadTree(chapterId, lessonId);
@@ -178,9 +181,17 @@ export default function ChatPage() {
     }
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
-
   // TODO: REMOVE
-  console.log('chapterId: ', chapterId, 'lessonId: ', lessonId, 'initialized: ', initialized, 'loadedChapterId: ', loadedChapterId);
+  console.log(
+    'chapterId: ',
+    chapterId,
+    'lessonId: ',
+    lessonId,
+    'initialized: ',
+    initialized,
+    'loadedChapterId: ',
+    loadedChapterId,
+  );
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
@@ -202,7 +213,7 @@ export default function ChatPage() {
           chapterId: chapter.id,
           lessonId: id,
         },
-      })
+      }),
     );
 
     if (mobileStyle) {
@@ -211,13 +222,13 @@ export default function ChatPage() {
   };
 
   const onLessonUpdate = useCallback(
-    (val) => {
+    val => {
       updateLesson(val.id, val);
     },
-    [updateLesson]
+    [updateLesson],
   );
 
-  const onGoChapter = async (id) => {
+  const onGoChapter = async id => {
     updateChapterId(id);
   };
 
@@ -225,7 +236,7 @@ export default function ChatPage() {
     ({ id, status, status_value }) => {
       updateChapterStatus(id, { status, status_value });
     },
-    [updateChapterStatus]
+    [updateChapterStatus],
   );
 
   const fetchData = useCallback(async () => {
@@ -238,7 +249,7 @@ export default function ChatPage() {
         }
       }
     }
-  }, [ tree, getCurrElement, updateLessonId, updateChapterId ]);
+  }, [tree, getCurrElement, updateLessonId, updateChapterId]);
 
   useEffect(() => {
     if (initialized) {
@@ -260,12 +271,12 @@ export default function ChatPage() {
     reloadTree();
   }, [reloadTree]);
 
-  const _onPayModalCancel = useCallback((e) => {
+  const _onPayModalCancel = useCallback(e => {
     setPayModalOpen(false);
     shifu.payTools.emitPayModalCancel(e);
   }, []);
 
-  const _onPayModalOk = useCallback((e) => {
+  const _onPayModalOk = useCallback(e => {
     setPayModalOpen(false);
     shifu.payTools.emitPayModalOk(e);
   }, []);
@@ -315,25 +326,22 @@ export default function ChatPage() {
   //   }
   // }, [loginOkHandlerData, reloadTree]);
 
-
   // const onFeedbackClick = useCallback(() => {
   //   onFeedbackModalOpen();
   // }, [onFeedbackModalOpen]);
 
-
   // listen global event
   useEffect(() => {
-    const resetChapterEventHandler = async (e) => {
+    const resetChapterEventHandler = async e => {
       await reloadTree(e.detail.chapter_id);
       onGoChapter(e.detail.chapter_id);
-
     };
     const eventHandler = () => {
       // setLoginModalOpen(true);
-      gotoLogin()
+      gotoLogin();
     };
 
-    const payEventHandler = (e) => {
+    const payEventHandler = e => {
       const { type = '', payload = {} } = e.detail;
       setPayModalState({ type, payload });
       setPayModalOpen(true);
@@ -342,53 +350,53 @@ export default function ChatPage() {
 
     shifu.events.addEventListener(
       shifu.EventTypes.OPEN_LOGIN_MODAL,
-      eventHandler
+      eventHandler,
     );
 
     shifu.events.addEventListener(
       shifu.EventTypes.OPEN_PAY_MODAL,
-      payEventHandler
+      payEventHandler,
     );
 
     shifu.events.addEventListener(
       shifu.EventTypes.RESET_CHAPTER,
-      resetChapterEventHandler
+      resetChapterEventHandler,
     );
 
     return () => {
       shifu.events.removeEventListener(
         shifu.EventTypes.OPEN_LOGIN_MODAL,
-        eventHandler
+        eventHandler,
       );
 
       shifu.events.removeEventListener(
         shifu.EventTypes.OPEN_PAY_MODAL,
-        payEventHandler
+        payEventHandler,
       );
 
       shifu.events.removeEventListener(
         shifu.EventTypes.RESET_CHAPTER,
-        resetChapterEventHandler
+        resetChapterEventHandler,
       );
     };
   }, []);
 
-
   return (
     <div className={clsx(styles.newChatPage)}>
-      <AppContext.Provider value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}>
-
+      <AppContext.Provider
+        value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}
+      >
         {!initialized ? (
-          <div className="flex flex-col space-y-6 p-6 container mx-auto">
-            <Skeleton className="h-[125px] rounded-xl" />
-            <div className="space-y-4">
-              <Skeleton className="h-6" />
-              <Skeleton className="h-6" />
-              <Skeleton className="h-6" />
-              <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="h-6" />
-              <Skeleton className="h-6" />
-              <Skeleton className="h-6 w-3/4" />
+          <div className='flex flex-col space-y-6 p-6 container mx-auto'>
+            <Skeleton className='h-[125px] rounded-xl' />
+            <div className='space-y-4'>
+              <Skeleton className='h-6' />
+              <Skeleton className='h-6' />
+              <Skeleton className='h-6' />
+              <Skeleton className='h-6 w-1/3' />
+              <Skeleton className='h-6' />
+              <Skeleton className='h-6' />
+              <Skeleton className='h-6 w-3/4' />
             </div>
           </div>
         ) : null}
@@ -402,10 +410,9 @@ export default function ChatPage() {
             }}
             lessonTree={tree}
             selectedLessonId={selectedLessonId || ''}
-            onChapterCollapse={(id) => toggleCollapse({ id })}
+            onChapterCollapse={id => toggleCollapse({ id })}
             onLessonSelect={onLessonSelect}
             onTryLessonSelect={onTryLessonSelect}
-
             onBasicInfoClick={onGoToSettingBasic}
             onPersonalInfoClick={onGoToSettingPersonal}
           />
@@ -448,18 +455,16 @@ export default function ChatPage() {
         ) : null}
 
         {payModalOpen && !mobileStyle ? (
-            <PayModal
-              open={payModalOpen}
-              onCancel={_onPayModalCancel}
-              onOk={_onPayModalOk}
-              type={payModalState.type}
-              payload={payModalState.payload}
-            />
+          <PayModal
+            open={payModalOpen}
+            onCancel={_onPayModalCancel}
+            onOk={_onPayModalOk}
+            type={payModalState.type}
+            payload={payModalState.payload}
+          />
         ) : null}
 
-        { initialized ? (
-          <TrackingVisit />
-        ) : null}
+        {initialized ? <TrackingVisit /> : null}
 
         {mobileStyle ? (
           <ChatMobileHeader

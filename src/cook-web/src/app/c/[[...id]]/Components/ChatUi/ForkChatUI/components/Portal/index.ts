@@ -18,7 +18,7 @@ function getEl(el: Container) {
   return typeof el === 'function' ? el() : el.current || el;
 }
 
-export const Portal: React.FC<PortalProps> = (props) => {
+export const Portal: React.FC<PortalProps> = props => {
   const { children, container = document.body, onRendered } = props;
   const [mountNode, setMountNode] = useState<Element | null>(null);
 

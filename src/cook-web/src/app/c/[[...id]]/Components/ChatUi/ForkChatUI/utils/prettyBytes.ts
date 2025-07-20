@@ -12,4 +12,4 @@ const prettyBytes = (bytes: number, decimals?: number) => {
   return `${parseFloat((bytes / k ** i).toFixed(dm))} ${UNITS[i]}`;
 };
 
-export default prettyBytes
+export default prettyBytes;

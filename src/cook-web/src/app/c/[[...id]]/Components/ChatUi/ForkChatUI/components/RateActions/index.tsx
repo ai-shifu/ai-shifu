@@ -12,7 +12,7 @@ export type RateActionsProps = {
   onClick: (value: string) => void;
 };
 
-export const RateActions: React.FC<RateActionsProps> = (props) => {
+export const RateActions: React.FC<RateActionsProps> = props => {
   const { trans } = useLocale('RateActions', {
     up: '赞同',
     down: '反对',
@@ -37,13 +37,13 @@ export const RateActions: React.FC<RateActionsProps> = (props) => {
   }
 
   return (
-    <div className="RateActions">
+    <div className='RateActions'>
       {value !== DOWN && (
         <IconButton
           className={clsx('RateBtn', { active: value === UP })}
           title={upTitle}
           data-type={UP}
-          icon="thumbs-up"
+          icon='thumbs-up'
           onClick={handleUpClick}
         />
       )}
@@ -52,7 +52,7 @@ export const RateActions: React.FC<RateActionsProps> = (props) => {
           className={clsx('RateBtn', { active: value === DOWN })}
           title={downTitle}
           data-type={DOWN}
-          icon="thumbs-down"
+          icon='thumbs-down'
           onClick={handleDownClick}
         />
       )}

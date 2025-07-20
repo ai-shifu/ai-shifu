@@ -9,7 +9,7 @@ import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
 import TrialNodeOuter from './TrialNodeOuter';
 
 import Image from 'next/image';
-import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png'
+import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png';
 
 export const CourseCatalogList = ({
   courseName = '',
@@ -24,13 +24,13 @@ export const CourseCatalogList = ({
 }) => {
   const { t } = useTranslation();
   const [trialNodePosition, setTrialNodePosition] = useState(
-    TRAIL_NODE_POSITION.NORMAL
+    TRAIL_NODE_POSITION.NORMAL,
   );
   const [trialNodePayload, setTrialNodePayload] = useState(null);
 
   const getRightAreaControl = useCallback(() => {
     const Control = shifu.getControl(
-      shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA
+      shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA,
     );
 
     return Control && bannerInfo ? <Control payload={bannerInfo} /> : <></>;
@@ -39,13 +39,13 @@ export const CourseCatalogList = ({
   useEffect(() => {
     setTrialNodePayload(
       // @ts-expect-error EXPECT
-      catalogs.find((c) => !!c.bannerInfo)?.bannerInfo || null
+      catalogs.find(c => !!c.bannerInfo)?.bannerInfo || null,
     );
   }, [catalogs]);
 
-  const onNodePositionChange = (position) => {
+  const onNodePositionChange = position => {
     setTrialNodePosition(position);
-  }
+  };
 
   return (
     <>
@@ -64,12 +64,12 @@ export const CourseCatalogList = ({
           {getRightAreaControl()}
         </div>
         <div className={styles.listRow}>
-          {catalogs.map((catalog) => {
+          {catalogs.map(catalog => {
             return (
               // @ts-expect-error EXPECT
               <div key={catalog.id}>
                 <CourseCatalog
-                // @ts-expect-error EXPECT
+                  // @ts-expect-error EXPECT
                   key={catalog.id}
                   // @ts-expect-error EXPECT
                   id={catalog.id}

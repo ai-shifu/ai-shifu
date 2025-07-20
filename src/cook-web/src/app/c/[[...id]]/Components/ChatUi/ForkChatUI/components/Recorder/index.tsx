@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useRef, useImperativeHandle, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useImperativeHandle,
+  useCallback,
+} from 'react';
 import clsx from 'clsx';
 import { Flex } from '../Flex';
 import { Icon } from '../Icon';
@@ -36,100 +42,132 @@ export interface RecorderProps {
   ref?: React.MutableRefObject<RecorderHandle>;
 }
 
-export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>((props, ref) => {
-  const { volume, onStart, onEnd, onCancel } = props;
-  const [status, setStatus] = useState('inited');
-  const btnRef = useRef<HTMLDivElement>(null);
-  const { trans } = useLocale('Recorder');
+export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
+  (props, ref) => {
+    const { volume, onStart, onEnd, onCancel } = props;
+    const [status, setStatus] = useState('inited');
+    const btnRef = useRef<HTMLDivElement>(null);
+    const { trans } = useLocale('Recorder');
 
-  const doEnd = useCallback(() => {
-    const duration = Date.now() - ts;
-    if (onEnd) {
-      onEnd({ duration });
-    }
-  }, [onEnd]);
-
-  useImperativeHandle(ref, () => ({
-    stop() {
-      setStatus('inited');
-      doEnd();
-      ts = 0;
-    },
-  }));
-
-  useEffect(() => {
-    const wrapper = btnRef.current!;
-
-    function handleTouchStart(e: TouchEvent) {
-      if (e.cancelable) {
-        e.preventDefault();
+    const doEnd = useCallback(() => {
+      const duration = Date.now() - ts;
+      if (onEnd) {
+        onEnd({ duration });
       }
-      const touch0 = e.touches[0];
-      startY = touch0.pageY;
-      ts = Date.now();
-      setStatus('recording');
+    }, [onEnd]);
 
-      if (onStart) {
-        onStart();
-      }
-    }
-
-    function handleTouchMove(e: TouchEvent) {
-      if (!ts) return;
-      const nowY = e.touches[0].pageY;
-      const isCancel = startY - nowY > MOVE_INTERVAL;
-      setStatus(isCancel ? 'willCancel' : 'recording');
-    }
-
-    function handleTouchEnd(e: TouchEvent) {
-      if (!ts) return;
-      const endY = e.changedTouches[0].pageY;
-      const isRecording = startY - endY < MOVE_INTERVAL;
-
-      setStatus('inited');
-
-      if (isRecording) {
+    useImperativeHandle(ref, () => ({
+      stop() {
+        setStatus('inited');
         doEnd();
-      } else if (onCancel) {
-        onCancel();
+        ts = 0;
+      },
+    }));
+
+    useEffect(() => {
+      const wrapper = btnRef.current!;
+
+      function handleTouchStart(e: TouchEvent) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+        const touch0 = e.touches[0];
+        startY = touch0.pageY;
+        ts = Date.now();
+        setStatus('recording');
+
+        if (onStart) {
+          onStart();
+        }
       }
-    }
 
-    wrapper.addEventListener('touchstart', handleTouchStart, listenerOptsWithoutPassive);
-    wrapper.addEventListener('touchmove', handleTouchMove, listenerOpts);
-    wrapper.addEventListener('touchend', handleTouchEnd);
-    wrapper.addEventListener('touchcancel', handleTouchEnd);
+      function handleTouchMove(e: TouchEvent) {
+        if (!ts) return;
+        const nowY = e.touches[0].pageY;
+        const isCancel = startY - nowY > MOVE_INTERVAL;
+        setStatus(isCancel ? 'willCancel' : 'recording');
+      }
 
-    return () => {
-      wrapper.removeEventListener('touchstart', handleTouchStart);
-      wrapper.removeEventListener('touchmove', handleTouchMove);
-      wrapper.removeEventListener('touchend', handleTouchEnd);
-      wrapper.removeEventListener('touchcancel', handleTouchEnd);
-    };
-  }, [doEnd, onCancel, onStart]);
+      function handleTouchEnd(e: TouchEvent) {
+        if (!ts) return;
+        const endY = e.changedTouches[0].pageY;
+        const isRecording = startY - endY < MOVE_INTERVAL;
 
-  const isCancel = status === 'willCancel';
-  const wavesStyle = { transform: `scale(${(volume || 1) / 100 + 1})` };
+        setStatus('inited');
 
-  return (
-    <div className={clsx('Recorder', { 'Recorder--cancel': isCancel })} ref={btnRef}>
-      {status !== 'inited' && (
-        <Flex className="RecorderToast" direction="column" center>
-          <div className="RecorderToast-waves" hidden={status !== 'recording'} style={wavesStyle}>
-            <Icon className="RecorderToast-wave-1" type="hexagon" />
-            <Icon className="RecorderToast-wave-2" type="hexagon" />
-            <Icon className="RecorderToast-wave-3" type="hexagon" />
-          </div>
-          <Icon className="RecorderToast-icon" type={isCancel ? 'cancel' : 'mic'} />
-          <span>{trans(isCancel ? 'release2cancel' : 'releaseOrSwipe')}</span>
-        </Flex>
-      )}
-      <div className="Recorder-btn" role="button" aria-label={trans('hold2talk')}>
-        <span>{trans(btnTextMap[status])}</span>
+        if (isRecording) {
+          doEnd();
+        } else if (onCancel) {
+          onCancel();
+        }
+      }
+
+      wrapper.addEventListener(
+        'touchstart',
+        handleTouchStart,
+        listenerOptsWithoutPassive,
+      );
+      wrapper.addEventListener('touchmove', handleTouchMove, listenerOpts);
+      wrapper.addEventListener('touchend', handleTouchEnd);
+      wrapper.addEventListener('touchcancel', handleTouchEnd);
+
+      return () => {
+        wrapper.removeEventListener('touchstart', handleTouchStart);
+        wrapper.removeEventListener('touchmove', handleTouchMove);
+        wrapper.removeEventListener('touchend', handleTouchEnd);
+        wrapper.removeEventListener('touchcancel', handleTouchEnd);
+      };
+    }, [doEnd, onCancel, onStart]);
+
+    const isCancel = status === 'willCancel';
+    const wavesStyle = { transform: `scale(${(volume || 1) / 100 + 1})` };
+
+    return (
+      <div
+        className={clsx('Recorder', { 'Recorder--cancel': isCancel })}
+        ref={btnRef}
+      >
+        {status !== 'inited' && (
+          <Flex
+            className='RecorderToast'
+            direction='column'
+            center
+          >
+            <div
+              className='RecorderToast-waves'
+              hidden={status !== 'recording'}
+              style={wavesStyle}
+            >
+              <Icon
+                className='RecorderToast-wave-1'
+                type='hexagon'
+              />
+              <Icon
+                className='RecorderToast-wave-2'
+                type='hexagon'
+              />
+              <Icon
+                className='RecorderToast-wave-3'
+                type='hexagon'
+              />
+            </div>
+            <Icon
+              className='RecorderToast-icon'
+              type={isCancel ? 'cancel' : 'mic'}
+            />
+            <span>{trans(isCancel ? 'release2cancel' : 'releaseOrSwipe')}</span>
+          </Flex>
+        )}
+        <div
+          className='Recorder-btn'
+          role='button'
+          aria-label={trans('hold2talk')}
+        >
+          <span>{trans(btnTextMap[status])}</span>
+        </div>
       </div>
-    </div>
-  );
-});
-
+    );
+  },
+);
 
 Recorder.displayName = 'Recorder';

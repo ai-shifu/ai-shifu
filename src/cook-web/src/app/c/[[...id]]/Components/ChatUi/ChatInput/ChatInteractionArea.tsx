@@ -57,14 +57,14 @@ export const ChatInteractionArea = ({
   };
 
   const resizeChange = useCallback(
-    (e) => {
+    e => {
       // @ts-expect-error EXPECT
       onSizeChange?.({
         width: e.contentRect.width,
         height: e.contentRect.height,
       });
     },
-    [onSizeChange]
+    [onSizeChange],
   );
 
   const handleAskClick = () => {
@@ -79,7 +79,7 @@ export const ChatInteractionArea = ({
   };
 
   useEffect(() => {
-    const resize = new ResizeObserver((e) => {
+    const resize = new ResizeObserver(e => {
       if (!Array.isArray(e) || !e.length) return;
       for (const ent of e) {
         resizeChange(ent);
@@ -107,9 +107,9 @@ export const ChatInteractionArea = ({
             {/* Display input box based on state */}
             {isInputVisible && (
               <ChatInputText
-                id="askInput"
+                id='askInput'
                 onClick={onSendAsk}
-                type="text"
+                type='text'
                 // @ts-expect-error EXPECT
                 props={{ content: t('chat.askContent') }}
                 visible={isInputVisible}

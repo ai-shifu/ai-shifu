@@ -10,7 +10,7 @@ export function mountComponent(Comp: React.ReactElement, root = document.body) {
   const Clone = React.cloneElement(Comp, {
     // @ts-expect-error EXPECT
     onUnmount() {
-      rootContainer.unmount()
+      rootContainer.unmount();
       root.removeChild(div);
     },
   });

@@ -10,7 +10,7 @@ export const useWechat = () => {
       resolve();
     }
     // @ts-expect-error EXPECT
-    if (typeof WeixinJSBridge == "undefined") {
+    if (typeof WeixinJSBridge == 'undefined') {
       if (document.addEventListener) {
         document.addEventListener('WeixinJSBridgeReady', onBridgeReady, false);
         // @ts-expect-error EXPECT
@@ -25,7 +25,7 @@ export const useWechat = () => {
     }
   });
 
-  const runInJsBridge = (callback) => {
+  const runInJsBridge = callback => {
     if (!inWechat()) {
       return;
     }
@@ -33,22 +33,18 @@ export const useWechat = () => {
     jsBridegetReady.then(callback);
   };
 
-  const payByJsApi = async (payData) => {
+  const payByJsApi = async payData => {
     return new Promise((resolve, reject) => {
       runInJsBridge(() => {
-          // @ts-expect-error EXPECT
-          WeixinJSBridge.invoke(
-            'getBrandWCPayRequest',
-            payData,
-            function (res) {
-              if (res.err_msg === 'get_brand_wcpay_request:ok') {
-                // @ts-expect-error EXPECT
-                resolve();
-              } else {
-                reject(res.err_msg);
-              }
-            }
-          );
+        // @ts-expect-error EXPECT
+        WeixinJSBridge.invoke('getBrandWCPayRequest', payData, function (res) {
+          if (res.err_msg === 'get_brand_wcpay_request:ok') {
+            // @ts-expect-error EXPECT
+            resolve();
+          } else {
+            reject(res.err_msg);
+          }
+        });
       });
     });
   };

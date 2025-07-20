@@ -1,40 +1,46 @@
-"use client"
+'use client';
 
-import { useState } from "react"
-import { ForgotPasswordCombined } from "@/components/auth/forgot-password-combined"
-import { ForgotPasswordReset } from "@/components/auth/forgot-password-reset"
-import { useToast } from "@/hooks/use-toast";
+import { useState } from 'react';
+import { ForgotPasswordCombined } from '@/components/auth/forgot-password-combined';
+import { ForgotPasswordReset } from '@/components/auth/forgot-password-reset';
+import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 interface ForgotPasswordFormProps {
-  onComplete: () => void
+  onComplete: () => void;
 }
 
 export function ForgotPasswordForm({ onComplete }: ForgotPasswordFormProps) {
   const { t } = useTranslation();
-   const { toast } = useToast()
-  const [step, setStep] = useState<"verify" | "reset">("verify")
-  const [email, setEmail] = useState("")
+  const { toast } = useToast();
+  const [step, setStep] = useState<'verify' | 'reset'>('verify');
+  const [email, setEmail] = useState('');
 
   const handleVerifyNext = (email: string) => {
-    setEmail(email)
-    setStep("reset")
-  }
+    setEmail(email);
+    setStep('reset');
+  };
 
   const handleComplete = () => {
     toast({
       title: t('login.password-reset'),
       description: t('login.please-use-new-password'),
-    })
-    onComplete()
-  }
+    });
+    onComplete();
+  };
 
   return (
-    <div className="space-y-4">
-      {step === "verify" && <ForgotPasswordCombined onNext={handleVerifyNext} />}
+    <div className='space-y-4'>
+      {step === 'verify' && (
+        <ForgotPasswordCombined onNext={handleVerifyNext} />
+      )}
 
-      {step === "reset" && (
-        <ForgotPasswordReset email={email} onBack={() => setStep("verify")} onComplete={handleComplete} />
+      {step === 'reset' && (
+        <ForgotPasswordReset
+          email={email}
+          onBack={() => setStep('verify')}
+          onComplete={handleComplete}
+        />
       )}
     </div>
-  )
+  );
 }

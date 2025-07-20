@@ -32,7 +32,11 @@ export const AvatarSettingModal = ({
 
   return (
     // @ts-expect-error EXPECT
-    <SettingBaseModal open={open} onClose={onClose} onOk={onOkClick}>
+    <SettingBaseModal
+      open={open}
+      onClose={onClose}
+      onOk={onOkClick}
+    >
       <div className={styles.avatarSettingModalWrapper}>
         <div className={styles.avatarSettingModal}>
           <Cropper

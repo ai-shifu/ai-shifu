@@ -4,7 +4,8 @@ interface LazyComponentBaseProps {
   [k: string]: any;
 }
 
-export interface LazyComponentPropsWithComponent extends LazyComponentBaseProps {
+export interface LazyComponentPropsWithComponent
+  extends LazyComponentBaseProps {
   component: React.ComponentType | null;
 }
 
@@ -18,4 +19,6 @@ export interface LazyComponentPropsWithCode extends LazyComponentBaseProps {
   onLoad?: (e: LazyComponentOnLoadParams) => void;
 }
 
-export type LazyComponentProps = LazyComponentPropsWithComponent | LazyComponentPropsWithCode;
+export type LazyComponentProps =
+  | LazyComponentPropsWithComponent
+  | LazyComponentPropsWithCode;

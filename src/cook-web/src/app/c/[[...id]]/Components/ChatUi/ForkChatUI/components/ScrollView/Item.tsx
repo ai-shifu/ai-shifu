@@ -6,7 +6,10 @@ export type ScrollViewEffect = 'slide' | 'fade' | '';
 export type ScrollViewItemProps = {
   item: any;
   effect?: ScrollViewEffect;
-  onIntersect?: (item?: any, entry?: IntersectionObserverEntry) => boolean | void;
+  onIntersect?: (
+    item?: any,
+    entry?: IntersectionObserverEntry,
+  ) => boolean | void;
   children?: React.ReactNode;
 };
 
@@ -14,7 +17,7 @@ const observerOptions = {
   threshold: [0, 0.1],
 };
 
-export const Item: React.FC<ScrollViewItemProps> = (props) => {
+export const Item: React.FC<ScrollViewItemProps> = props => {
   const { item, effect, children, onIntersect } = props;
   const itemRef = useRef<HTMLDivElement>(null);
 

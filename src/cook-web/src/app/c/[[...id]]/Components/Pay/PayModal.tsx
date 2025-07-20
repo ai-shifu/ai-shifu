@@ -3,19 +3,15 @@ import styles from './PayModal.module.scss';
 import { memo, useState, useCallback, useEffect } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 import Image from 'next/image';
-import { LoaderIcon, LoaderCircleIcon } from 'lucide-react'
+import { LoaderIcon, LoaderCircleIcon } from 'lucide-react';
 
 import { QRCodeSVG } from 'qrcode.react';
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 import { Button } from '@/components/ui/button';
-
 
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
@@ -45,12 +41,16 @@ const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
 
 const CompletedSection = memo(() => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c'});
+  const { t } = useTranslation('translation', { keyPrefix: 'c' });
   return (
     <div className={styles.completedSection}>
       <div className={styles.title}>{t('pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
-        <Image className={styles.paySuccessBg} src={paySucessBg.src} alt="" />
+        <Image
+          className={styles.paySuccessBg}
+          src={paySucessBg.src}
+          alt=''
+        />
       </div>
       <PayModalFooter />
     </div>
@@ -65,7 +65,7 @@ export const PayModal = ({
   type = '',
   payload = {},
 }) => {
-  const { t } = useTranslation('translation', {keyPrefix: 'c'});
+  const { t } = useTranslation('translation', { keyPrefix: 'c' });
   const [isLoading, setIsLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -82,14 +82,14 @@ export const PayModal = ({
   const [originalPrice, setOriginalPrice] = useState('');
   const [priceItems, setPriceItems] = useState([]);
 
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const { previewMode } = useSystemStore(
-    useShallow((state) => ({ previewMode: state.previewMode }))
+    useShallow(state => ({ previewMode: state.previewMode })),
   );
 
   const initOrderUniform = useCallback(
-    async (courseId) => {
+    async courseId => {
       if (type === 'active') {
         // @ts-expect-error EXPECT
         return initActiveOrder({
@@ -100,7 +100,7 @@ export const PayModal = ({
         return initOrder(courseId);
       }
     },
-    [payload, type]
+    [payload, type],
   );
 
   useInterval(
@@ -121,14 +121,14 @@ export const PayModal = ({
       }
 
       setOriginalPrice(resp.price);
-      setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
+      setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
       setPrice(resp.value_to_pay);
     },
-    isLoggedIn ? interval : null
+    isLoggedIn ? interval : null,
   );
 
   const refreshOrderQrcode = useCallback(
-    async (orderId) => {
+    async orderId => {
       if (orderId) {
         const { data: qrcodeResp } = await getPayUrl({
           channel: payChannel,
@@ -145,7 +145,7 @@ export const PayModal = ({
         }
       }
     },
-    [payChannel]
+    [payChannel],
   );
 
   const courseId = getStringEnv('courseId');
@@ -160,7 +160,7 @@ export const PayModal = ({
     setOriginalPrice('');
     const { data: resp } = await initOrderUniform(courseId);
     setPrice(resp.value_to_pay);
-    setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
+    setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
     const orderId = resp.order_id;
     setOrderId(orderId);
     setOriginalPrice(resp.price);
@@ -222,17 +222,17 @@ export const PayModal = ({
   }, [onCouponCodeModalOpen]);
 
   const onCouponCodeOk = useCallback(
-    async (values) => {
+    async values => {
       const { couponCode } = values;
       setCouponCode(couponCode);
       const resp = await applyDiscountCode({ orderId, code: couponCode });
       refreshOrderQrcode(resp.order_id);
       onCouponCodeModalClose();
     },
-    [ onCouponCodeModalClose, orderId, refreshOrderQrcode]
+    [onCouponCodeModalClose, orderId, refreshOrderQrcode],
   );
 
-  const onPayChannelSelectChange = useCallback((e) => {
+  const onPayChannelSelectChange = useCallback(e => {
     setPayChannel(e.channel);
   }, []);
 
@@ -259,10 +259,14 @@ export const PayModal = ({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={handleOpenChange}>
+      <Dialog
+        open={open}
+        onOpenChange={handleOpenChange}
+      >
         <DialogContent
-        className={cn(styles.payModal, 'w-[700px] h-[588px]')}
-        onPointerDownOutside={(evt) => evt.preventDefault()}>
+          className={cn(styles.payModal, 'w-[700px] h-[588px]')}
+          onPointerDownOutside={evt => evt.preventDefault()}
+        >
           {!initLoading && (
             <div className={styles.payModalContent}>
               <div
@@ -278,7 +282,7 @@ export const PayModal = ({
                     <div
                       className={cn(
                         styles.price,
-                        (isLoading || isTimeout) && styles.disabled
+                        (isLoading || isTimeout) && styles.disabled,
                       )}
                     >
                       <span className={styles.priceSign}>￥</span>
@@ -286,15 +290,26 @@ export const PayModal = ({
                     </div>
                   </div>
                   {originalPrice && (
-                    <div className={styles.originalPriceWrapper} style={{ visibility: originalPrice === price ? 'hidden' : 'visible' }}>
-                      <div className={styles.originalPrice}>{originalPrice}</div>
+                    <div
+                      className={styles.originalPriceWrapper}
+                      style={{
+                        visibility:
+                          originalPrice === price ? 'hidden' : 'visible',
+                      }}
+                    >
+                      <div className={styles.originalPrice}>
+                        {originalPrice}
+                      </div>
                     </div>
                   )}
                   {priceItems && priceItems.length > 0 && (
                     <div className={styles.priceItemsWrapper}>
                       {priceItems.map((item, index) => {
                         return (
-                          <div className={styles.priceItem} key={index}>
+                          <div
+                            className={styles.priceItem}
+                            key={index}
+                          >
                             <div className={styles.priceItemName}>
                               {/* @ts-expect-error EXPECT */}
                               {item.price_name}
@@ -322,7 +337,10 @@ export const PayModal = ({
                               <LoaderIcon className='animation-spin' />
                             ) : null}
                             {qrcodeStatus === 'error' ? (
-                              <Button variant="outline" onClick={onQrcodeRefresh}>
+                              <Button
+                                variant='outline'
+                                onClick={onQrcodeRefresh}
+                              >
                                 <LoaderCircleIcon />
                                 点击刷新
                               </Button>
@@ -339,7 +357,7 @@ export const PayModal = ({
                       </div>
                       <div className={styles.couponCodeWrapper}>
                         <Button
-                          variant="link"
+                          variant='link'
                           onClick={onCouponCodeClick}
                           className={styles.couponCodeButton}
                         >
@@ -351,9 +369,7 @@ export const PayModal = ({
                     </>
                   ) : (
                     <div className={styles.loginButtonWrapper}>
-                      <Button onClick={onLoginButtonClick}>
-                        登录
-                      </Button>
+                      <Button onClick={onLoginButtonClick}>登录</Button>
                     </div>
                   )}
                   <PayModalFooter className={styles.payModalFooter} />

@@ -1,7 +1,8 @@
-
 import React from 'react';
 
-export type ReactChangeEvent = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>;
+export type ReactChangeEvent = React.ChangeEvent<
+  HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+>;
 export type ReactMouseEvent = React.MouseEvent<HTMLElement, MouseEvent>;
 export type ReactKeyboardEvent = React.KeyboardEvent<HTMLElement>;
 

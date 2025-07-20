@@ -1,94 +1,99 @@
 /** inject Video to mc-editor */
-import Button from '@/components/button'
-import { Input } from '@/components/ui/input'
-import React, { useState, useRef, useEffect } from 'react'
-import { useTranslation } from 'react-i18next'
-import api from '@/api'
+import Button from '@/components/button';
+import { Input } from '@/components/ui/input';
+import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import api from '@/api';
 
 type VideoInjectProps = {
   value?: {
-    resourceTitle?: string
-    resourceUrl?: string
-  }
+    resourceTitle?: string;
+    resourceUrl?: string;
+  };
   onSelect: ({
     resourceUrl,
-    resourceTitle
+    resourceTitle,
   }: {
-    resourceUrl: string
-    resourceTitle: string
-  }) => void
-}
+    resourceUrl: string;
+    resourceTitle: string;
+  }) => void;
+};
 
 const biliVideoUrlRegexp =
-  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+\/?)/i
+  /(https?:\/\/(?:www\.|m\.)?bilibili\.com\/video\/\S+\/?)/i;
 
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
-  const { t } = useTranslation()
-  const [title, setTitle] = useState(value?.resourceTitle || t('common.video-title'))
-  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '')
-  const [embedUrl, setEmbedUrl] = useState('')
-  const iframeRef = useRef<HTMLIFrameElement>(null)
-  const lastUrlRef = useRef('')
-  const [errorTips, setErrorTips] = useState('')
+  const { t } = useTranslation();
+  const [title, setTitle] = useState(
+    value?.resourceTitle || t('common.video-title'),
+  );
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '');
+  const [embedUrl, setEmbedUrl] = useState('');
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const lastUrlRef = useRef('');
+  const [errorTips, setErrorTips] = useState('');
 
   const isValidBilibiliUrl = (url: string) => {
-    return biliVideoUrlRegexp.test(url)
-  }
+    return biliVideoUrlRegexp.test(url);
+  };
 
   const generateEmbedUrl = (url: string) => {
-    const encoded = encodeURIComponent(url)
-    return `https://if-cdn.com/api/iframe?url=${encoded}&key=a68bac8b6624d46b6d0ba46e5b3f8971`
-  }
+    const encoded = encodeURIComponent(url);
+    return `https://if-cdn.com/api/iframe?url=${encoded}&key=a68bac8b6624d46b6d0ba46e5b3f8971`;
+  };
 
   const handleRun = () => {
-    setErrorTips('')
+    setErrorTips('');
     if (!isValidBilibiliUrl(inputUrl)) {
-      setErrorTips(t('common.please-input-valid-bilibili-url'))
-      return
+      setErrorTips(t('common.please-input-valid-bilibili-url'));
+      return;
     }
 
-    const newEmbedUrl = generateEmbedUrl(inputUrl)
+    const newEmbedUrl = generateEmbedUrl(inputUrl);
 
     if (lastUrlRef.current === newEmbedUrl) {
-      checkVideoPlayback()
-      return
+      checkVideoPlayback();
+      return;
     }
 
-    api.getVideoInfo({ url: inputUrl }).then(res => {
-      setTitle(res.title)
-    }).catch(err => {
-      console.log('err', err)
-      setErrorTips(t('common.please-input-valid-bilibili-url'))
-    })
+    api
+      .getVideoInfo({ url: inputUrl })
+      .then(res => {
+        setTitle(res.title);
+      })
+      .catch(err => {
+        console.log('err', err);
+        setErrorTips(t('common.please-input-valid-bilibili-url'));
+      });
 
-    setEmbedUrl(newEmbedUrl)
-    lastUrlRef.current = newEmbedUrl
-  }
+    setEmbedUrl(newEmbedUrl);
+    lastUrlRef.current = newEmbedUrl;
+  };
 
   const handleSelect = () => {
     if (inputUrl) {
       try {
-        const returnUrlObj = new URL(inputUrl)
+        const returnUrlObj = new URL(inputUrl);
         onSelect({
           resourceUrl: returnUrlObj.origin + returnUrlObj.pathname,
-          resourceTitle: title
-        })
+          resourceTitle: title,
+        });
       } catch (error) {
-        console.log('error', error)
-        onSelect({ resourceUrl: inputUrl, resourceTitle: title })
+        console.log('error', error);
+        onSelect({ resourceUrl: inputUrl, resourceTitle: title });
       }
     }
-  }
+  };
 
   const checkVideoPlayback = () => {
-    if (!iframeRef.current) return
-  }
+    if (!iframeRef.current) return;
+  };
 
   useEffect(() => {
     if (embedUrl) {
-      setTimeout(checkVideoPlayback, 2000)
+      setTimeout(checkVideoPlayback, 2000);
     }
-  }, [embedUrl])
+  }, [embedUrl]);
 
   return (
     <div>
@@ -100,11 +105,17 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
           placeholder={t('common.please-input-bilibili-url')}
           autoComplete='off'
         />
-        <Button className='h-8' onClick={handleRun}>
+        <Button
+          className='h-8'
+          onClick={handleRun}
+        >
           {t('common.run')}
         </Button>
         {embedUrl && (
-          <Button className='h-8' onClick={handleSelect}>
+          <Button
+            className='h-8'
+            onClick={handleSelect}
+          >
             {t('common.use-resource')}
           </Button>
         )}
@@ -125,7 +136,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
             style={{
               position: 'relative',
               paddingTop: '56.25%',
-              marginTop: 16
+              marginTop: 16,
             }}
           >
             <iframe
@@ -137,7 +148,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
                 width: '100%',
                 height: '100%',
                 position: 'absolute',
-                border: 0
+                border: 0,
               }}
               allowFullScreen
               allow='autoplay; encrypted-media'
@@ -147,7 +158,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
         </div>
       )}
     </div>
-  )
-}
-export { biliVideoUrlRegexp }
-export default VideoInject
+  );
+};
+export { biliVideoUrlRegexp };
+export default VideoInject;

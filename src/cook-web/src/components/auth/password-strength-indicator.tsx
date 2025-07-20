@@ -1,15 +1,17 @@
 // import { getPasswordStrengthColor, getPasswordStrengthText } from "@/lib/validators"
 
 interface PasswordStrengthIndicatorProps {
-  feedback: string[]
+  feedback: string[];
 }
 
-export function PasswordStrengthIndicator({ feedback }: PasswordStrengthIndicatorProps) {
+export function PasswordStrengthIndicator({
+  feedback,
+}: PasswordStrengthIndicatorProps) {
   // const strengthText = getPasswordStrengthText(score)
   // const strengthColor = getPasswordStrengthColor(score)
 
   return (
-    <div className="space-y-2">
+    <div className='space-y-2'>
       {/* <div className="flex items-center justify-between">
         <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
@@ -20,12 +22,12 @@ export function PasswordStrengthIndicator({ feedback }: PasswordStrengthIndicato
         <span className="text-xs ml-2 min-w-[60px] text-right">{strengthText}</span>
       </div> */}
       {feedback.length > 0 && (
-        <ul className="text-xs text-red-500 space-y-1">
+        <ul className='text-xs text-red-500 space-y-1'>
           {feedback.map((item, index) => (
             <li key={index}>{item}</li>
           ))}
         </ul>
       )}
     </div>
-  )
+  );
 }

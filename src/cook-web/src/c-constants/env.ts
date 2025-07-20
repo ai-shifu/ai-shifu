@@ -1,1 +1,1 @@
-export const tempToken = ".";
+export const tempToken = '.';

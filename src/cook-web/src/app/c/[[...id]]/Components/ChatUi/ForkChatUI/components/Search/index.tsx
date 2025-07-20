@@ -15,7 +15,9 @@ export interface SearchProps extends Omit<InputProps, 'value'> {
   showSearch?: boolean;
   onSearch?: (
     query: string,
-    event: React.KeyboardEvent<HTMLInputElement> | React.MouseEvent<HTMLButtonElement, MouseEvent>,
+    event:
+      | React.KeyboardEvent<HTMLInputElement>
+      | React.MouseEvent<HTMLButtonElement, MouseEvent>,
   ) => void;
   onChange?: (value: string) => void;
   onClear?: () => void;
@@ -59,7 +61,9 @@ export const Search = ({
     }
   };
 
-  const handleSearchClick = (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+  const handleSearchClick = (
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>,
+  ) => {
     if (onSearch) {
       onSearch(query, e);
     }
@@ -67,21 +71,32 @@ export const Search = ({
 
   return (
     <div className={clsx('Search', className)}>
-      <Icon className="Search-icon" type="search" />
+      <Icon
+        className='Search-icon'
+        type='search'
+      />
       <Input
-        className="Search-input"
-        type="search"
+        className='Search-input'
+        type='search'
         value={query}
-        enterKeyHint="search"
+        enterKeyHint='search'
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         {...other}
       />
       {clearable && query && (
-        <IconButton className="Search-clear" icon="x-circle-fill" onClick={handleClear} />
+        <IconButton
+          className='Search-clear'
+          icon='x-circle-fill'
+          onClick={handleClear}
+        />
       )}
       {showSearch && (
-        <Button className="Search-btn" color="primary" onClick={handleSearchClick}>
+        <Button
+          className='Search-btn'
+          color='primary'
+          onClick={handleSearchClick}
+        >
           {trans('search')}
         </Button>
       )}

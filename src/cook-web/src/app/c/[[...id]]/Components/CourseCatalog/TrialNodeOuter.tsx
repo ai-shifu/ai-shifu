@@ -37,7 +37,10 @@ const TrialNodeOuter = ({ nodePosition, payload }) => {
   }, [nodePosition]);
 
   return (
-    <div className={`${styles.trialNodeOuter} ${getClassName()}`} style={getStyle()}>
+    <div
+      className={`${styles.trialNodeOuter} ${getClassName()}`}
+      style={getStyle()}
+    >
       {getTrialNodeAreaControl()}
     </div>
   );

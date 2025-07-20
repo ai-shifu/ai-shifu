@@ -1,7 +1,7 @@
-import styles from "./SubButton.module.scss";
+import styles from './SubButton.module.scss';
 
-import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const SubButton = ({
   disabled,

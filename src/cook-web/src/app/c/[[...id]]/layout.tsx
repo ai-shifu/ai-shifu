@@ -14,10 +14,18 @@ import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import { getCourseInfo } from '@/c-api/course';
 import { selectDefaultLanguage } from '@/c-constants/userConstants';
-import { EnvStoreState, SystemStoreState, CourseStoreState } from '@/c-types/store';
+import {
+  EnvStoreState,
+  SystemStoreState,
+  CourseStoreState,
+} from '@/c-types/store';
 
-import { useEnvStore, useCourseStore, UserProvider, useUserStore } from "@/c-store"
-
+import {
+  useEnvStore,
+  useCourseStore,
+  UserProvider,
+  useUserStore,
+} from '@/c-store';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -44,9 +52,7 @@ const initializeEnvData = async (): Promise<void> => {
         const data = await res.json();
         await updateCourseId(data?.courseId || '');
         await updateAppId(data?.wechatAppId || '');
-        await updateAlwaysShowLessonTree(
-          data?.alwaysShowLessonTree || 'false'
-        );
+        await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
         await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
         await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
         await updateEruda(data?.enableEruda || 'false');
@@ -57,11 +63,12 @@ const initializeEnvData = async (): Promise<void> => {
         await updateSiteUrl(data?.siteHost || '');
       }
     } catch (error) {
-      console.error(error)
+      console.error(error);
     } finally {
-      const { umamiWebsiteId, umamiScriptSrc } = useEnvStore.getState() as EnvStoreState;
+      const { umamiWebsiteId, umamiScriptSrc } =
+        useEnvStore.getState() as EnvStoreState;
       if (getBoolEnv('eruda')) {
-        import('eruda').then((eruda) => eruda.default.init());
+        import('eruda').then(eruda => eruda.default.init());
       }
 
       const loadUmamiScript = (): void => {
@@ -84,11 +91,10 @@ const initializeEnvData = async (): Promise<void> => {
   await fetchEnvData();
 };
 
-
 export default function ChatLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   const { i18n } = useTranslation();
 
@@ -115,19 +121,23 @@ export default function ChatLayout({
   } = useSystemStore() as SystemStoreState;
 
   const browserLanguage = selectDefaultLanguage(
-    navigator.language || navigator.languages[0]
+    navigator.language || navigator.languages[0],
   );
 
   const [language] = useState(browserLanguage);
 
   const courseId = useEnvStore((state: EnvStoreState) => state.courseId);
-  const updateCourseId = useEnvStore((state: EnvStoreState) => state.updateCourseId);
-  const enableWxcode = useEnvStore((state: EnvStoreState) => state.enableWxcode);
+  const updateCourseId = useEnvStore(
+    (state: EnvStoreState) => state.updateCourseId,
+  );
+  const enableWxcode = useEnvStore(
+    (state: EnvStoreState) => state.enableWxcode,
+  );
 
   const { updateCourseName } = useCourseStore(
     useShallow((state: CourseStoreState) => ({
       updateCourseName: state.updateCourseName,
-    }))
+    })),
   );
 
   const { userInfo, initUser } = useUserStore();
@@ -144,7 +154,9 @@ export default function ChatLayout({
   // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
   const currChannel = params.channel || '';
-  const isPreviewMode = params.preview ? params.preview.toLowerCase() === 'true' : false;
+  const isPreviewMode = params.preview
+    ? params.preview.toLowerCase() === 'true'
+    : false;
   const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
 
   if (channel !== currChannel) {
@@ -203,8 +215,10 @@ export default function ChatLayout({
           if (resp) {
             setShowVip(resp.course_price > 0);
             updateCourseName(resp.course_name);
-            document.title = resp.course_name + ' - AI 师傅'
-            const metaDescription = document.querySelector('meta[name="description"]');
+            document.title = resp.course_name + ' - AI 师傅';
+            const metaDescription = document.querySelector(
+              'meta[name="description"]',
+            );
             if (metaDescription) {
               metaDescription.setAttribute('content', resp.course_desc);
             } else {
@@ -213,7 +227,9 @@ export default function ChatLayout({
               newMetaDescription.setAttribute('content', resp.course_desc);
               document.head.appendChild(newMetaDescription);
             }
-            const metaKeywords = document.querySelector('meta[name="keywords"]');
+            const metaKeywords = document.querySelector(
+              'meta[name="keywords"]',
+            );
             if (metaKeywords) {
               metaKeywords.setAttribute('content', resp.course_keywords);
             } else {
@@ -226,13 +242,19 @@ export default function ChatLayout({
             window.location.href = '/404';
           }
         } catch (error) {
-          console.log(error)
+          console.log(error);
           window.location.href = '/404';
         }
       }
     };
     fetchCourseInfo();
-  }, [courseId, envDataInitialized, setShowVip, updateCourseName, isPreviewMode]);
+  }, [
+    courseId,
+    envDataInitialized,
+    setShowVip,
+    updateCourseName,
+    isPreviewMode,
+  ]);
 
   useEffect(() => {
     if (!envDataInitialized) return;
@@ -246,9 +268,5 @@ export default function ChatLayout({
     initUser();
   }, [envDataInitialized, checkWxcode, initUser]);
 
-  return (
-    <UserProvider>
-      {children}
-    </UserProvider>
-  )
+  return <UserProvider>{children}</UserProvider>;
 }

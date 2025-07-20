@@ -6,7 +6,7 @@ afterEach(cleanup);
 
 describe('utils/style', () => {
   it('should have the transform style', () => {
-    const { getByTestId } = render(<div data-testid="foo" />);
+    const { getByTestId } = render(<div data-testid='foo' />);
     const foo = getByTestId('foo');
 
     setTransform(foo, 'translate(1px,2px)');
@@ -15,7 +15,7 @@ describe('utils/style', () => {
   });
 
   it('should have the transform style', () => {
-    const { getByTestId } = render(<div data-testid="foo" />);
+    const { getByTestId } = render(<div data-testid='foo' />);
     const foo = getByTestId('foo');
 
     setTransition(foo, '1s');

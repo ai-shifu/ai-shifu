@@ -37,7 +37,12 @@ export interface FlexProps extends React.HTMLAttributes<HTMLElement> {
   inline?: boolean;
   direction?: 'row' | 'row-reverse' | 'column' | 'column-reverse';
   wrap?: 'nowrap' | 'wrap' | 'wrap-reverse';
-  justify?: 'flex-start' | 'flex-end' | 'center' | 'space-between' | 'space-around';
+  justify?:
+    | 'flex-start'
+    | 'flex-end'
+    | 'center'
+    | 'space-between'
+    | 'space-around';
   justifyContent?: FlexProps['justify'];
   align?: 'flex-start' | 'flex-end' | 'center';
   alignItems?: FlexProps['align'];

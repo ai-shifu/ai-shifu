@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
 import Image from 'next/image';
 import { Flex, FlexItem } from '../Flex';
@@ -64,13 +64,20 @@ export const Goods = React.forwardRef<GoodsRef, GoodsProps>((props, ref) => {
 
   const infos = (
     <>
-      <Text as="h4" truncate={isOrder ? 2 : true} className="Goods-name">
+      <Text
+        as='h4'
+        truncate={isOrder ? 2 : true}
+        className='Goods-name'
+      >
         {name}
       </Text>
-      <Text className="Goods-desc">{desc}</Text>
-      <div className="Goods-tags">
-        {tags.map((t) => (
-          <Tag color="primary" key={t.name}>
+      <Text className='Goods-desc'>{desc}</Text>
+      <div className='Goods-tags'>
+        {tags.map(t => (
+          <Tag
+            color='primary'
+            key={t.name}
+          >
             {t.name}
           </Tag>
         ))}
@@ -79,17 +86,22 @@ export const Goods = React.forwardRef<GoodsRef, GoodsProps>((props, ref) => {
   );
 
   const priceProps = { currency, locale };
-  const priceCont = price != null && <Price price={price} {...priceProps} />;
+  const priceCont = price != null && (
+    <Price
+      price={price}
+      {...priceProps}
+    />
+  );
 
   const countUnit = (
-    <div className="Goods-countUnit">
+    <div className='Goods-countUnit'>
       {count && (
-        <span className="Goods-count">
+        <span className='Goods-count'>
           &times;
           {count}
         </span>
       )}
-      {unit && <span className="Goods-unit">{unit}</span>}
+      {unit && <span className='Goods-unit'>{unit}</span>}
     </div>
   );
 
@@ -97,13 +109,25 @@ export const Goods = React.forwardRef<GoodsRef, GoodsProps>((props, ref) => {
     infos
   ) : (
     <>
-      {action && <IconButton className="Goods-buyBtn" icon="cart" {...action} />}
+      {action && (
+        <IconButton
+          className='Goods-buyBtn'
+          icon='cart'
+          {...action}
+        />
+      )}
       {infos}
-      <Flex alignItems="flex-end">
+      <Flex alignItems='flex-end'>
         <FlexItem>
           {priceCont}
-          {originalPrice && <Price price={originalPrice} original {...priceProps} />}
-          {meta && <span className="Goods-meta">{meta}</span>}
+          {originalPrice && (
+            <Price
+              price={originalPrice}
+              original
+              {...priceProps}
+            />
+          )}
+          {meta && <span className='Goods-meta'>{meta}</span>}
         </FlexItem>
         {countUnit}
       </Flex>
@@ -111,18 +135,34 @@ export const Goods = React.forwardRef<GoodsRef, GoodsProps>((props, ref) => {
   );
 
   return (
-    <Flex className={cn('Goods', className)} data-type={type} ref={ref} {...other}>
-      {img && <Image className="Goods-img" src={img} alt={name} />}
-      <FlexItem className="Goods-main">
+    <Flex
+      className={cn('Goods', className)}
+      data-type={type}
+      ref={ref}
+      {...other}
+    >
+      {img && (
+        <Image
+          className='Goods-img'
+          src={img}
+          alt={name}
+        />
+      )}
+      <FlexItem className='Goods-main'>
         {mainCont}
         {children}
       </FlexItem>
       {isOrder && (
-        <div className="Goods-aside">
+        <div className='Goods-aside'>
           {priceCont}
           {countUnit}
-          <span className="Goods-status">{status}</span>
-          {action && <Button className="Goods-detailBtn" {...action} />}
+          <span className='Goods-status'>{status}</span>
+          {action && (
+            <Button
+              className='Goods-detailBtn'
+              {...action}
+            />
+          )}
         </div>
       )}
     </Flex>

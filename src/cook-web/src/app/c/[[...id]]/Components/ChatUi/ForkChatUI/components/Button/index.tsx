@@ -2,7 +2,8 @@ import React from 'react';
 import clsx from 'clsx';
 import { Icon } from '../Icon';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   className?: string;
   label?: string;
   color?: 'primary';
@@ -56,14 +57,17 @@ export const Button = (props: ButtonProps) => {
         },
         className,
       )}
-      type="button"
+      type='button'
       disabled={disabled}
       onClick={handleClick}
       {...other}
     >
       {icon && (
-        <span className="Btn-icon">
-          <Icon type={icon} spin={loading} />
+        <span className='Btn-icon'>
+          <Icon
+            type={icon}
+            spin={loading}
+          />
         </span>
       )}
       {label || children}

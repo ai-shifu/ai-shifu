@@ -29,12 +29,19 @@ const TrialNodeBottomArea = ({
     return containerHeight > 0 && containerScrollTop > offsetToScroller;
   }, [containerHeight, containerScrollTop, offsetToScroller]);
 
-  const isStickBottom = useCallback( () => {
+  const isStickBottom = useCallback(() => {
     return (
-      !isStickTop() && containerHeight > 0 &&
+      !isStickTop() &&
+      containerHeight > 0 &&
       offsetToScroller + currHeight > containerScrollTop + containerHeight
     );
-  }, [containerHeight, containerScrollTop, currHeight, isStickTop, offsetToScroller]);
+  }, [
+    containerHeight,
+    containerScrollTop,
+    currHeight,
+    isStickTop,
+    offsetToScroller,
+  ]);
 
   useEffect(() => {
     if (normalAreaRef.current) {
@@ -55,11 +62,21 @@ const TrialNodeBottomArea = ({
         onNodePositionChange?.(position);
       }
     }
-  }, [containerHeight, containerScrollTop, isStickBottom, isStickTop, nodePosition, onNodePositionChange]);
+  }, [
+    containerHeight,
+    containerScrollTop,
+    isStickBottom,
+    isStickTop,
+    nodePosition,
+    onNodePositionChange,
+  ]);
 
   return (
     <>
-      <div className={styles.normalArea} ref={normalAreaRef}>
+      <div
+        className={styles.normalArea}
+        ref={normalAreaRef}
+      >
         {getTrialNodeAreaControl()}
       </div>
     </>

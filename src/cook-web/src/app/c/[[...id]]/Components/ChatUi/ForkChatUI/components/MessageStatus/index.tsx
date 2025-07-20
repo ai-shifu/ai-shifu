@@ -73,11 +73,21 @@ export const MessageStatus = ({
 
   if (type) {
     return (
-      <div className="MessageStatus" data-status={type}>
+      <div
+        className='MessageStatus'
+        data-status={type}
+      >
         {type === 'fail' ? (
-          <IconButton icon="warning-circle-fill" onClick={handleRetry} />
+          <IconButton
+            icon='warning-circle-fill'
+            onClick={handleRetry}
+          />
         ) : (
-          <Icon type="spinner" spin onClick={handleRetry} />
+          <Icon
+            type='spinner'
+            spin
+            onClick={handleRetry}
+          />
         )}
       </div>
     );

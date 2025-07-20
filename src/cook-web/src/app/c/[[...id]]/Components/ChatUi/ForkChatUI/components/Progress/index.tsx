@@ -8,27 +8,29 @@ export type ProgressProps = {
   children?: React.ReactNode;
 };
 
-export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>((props, ref) => {
-  const { className, value, status, children, ...other } = props;
+export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
+  (props, ref) => {
+    const { className, value, status, children, ...other } = props;
 
-  return (
-    <div
-      className={clsx('Progress', status && `Progress--${status}`, className)}
-      ref={ref}
-      {...other}
-    >
+    return (
       <div
-        className="Progress-bar"
-        role="progressbar"
-        style={{ width: `${value}%` }}
-        aria-valuenow={value}
-        aria-valuemin={0}
-        aria-valuemax={100}
+        className={clsx('Progress', status && `Progress--${status}`, className)}
+        ref={ref}
+        {...other}
       >
-        {children}
+        <div
+          className='Progress-bar'
+          role='progressbar'
+          style={{ width: `${value}%` }}
+          aria-valuenow={value}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
+          {children}
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+);
 
 Progress.displayName = 'Progress';

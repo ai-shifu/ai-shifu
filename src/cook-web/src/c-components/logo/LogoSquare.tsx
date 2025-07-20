@@ -1,9 +1,9 @@
 import { Avatar, AvatarImage } from '@/components/ui/avatar';
-import imgLogo64 from '@/c-assets/logos/logo64.png'
+import imgLogo64 from '@/c-assets/logos/logo64.png';
 
 export const LogoSquare = ({
   // size = 64,
-  style = {}
+  style = {},
 }) => {
   return (
     <Avatar style={style}>

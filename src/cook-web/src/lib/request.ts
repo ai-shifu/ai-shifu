@@ -1,5 +1,5 @@
-import { useUserStore } from "@/c-store/useUserStore";
-import { getStringEnv } from "@/c-utils/envUtils";
+import { useUserStore } from '@/c-store/useUserStore';
+import { getStringEnv } from '@/c-utils/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/use-toast';
 import i18n from 'i18next';
@@ -11,9 +11,13 @@ export type RequestConfig = RequestInit & { params?: any; data?: any };
 export type StreamRequestConfig = RequestInit & {
   params?: any;
   data?: any;
-  parseChunk?: (chunkValue: string) => string
+  parseChunk?: (chunkValue: string) => string;
 };
-export type StreamCallback = (done: boolean, text: string, abort: () => void) => void;
+export type StreamCallback = (
+  done: boolean,
+  text: string,
+  abort: () => void,
+) => void;
 
 // ===== Error Handling =====
 export class ErrorWithCode extends Error {
@@ -28,16 +32,16 @@ export class ErrorWithCode extends Error {
 const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
-      title: error.message || i18n.t("common.networkError"),
+      title: error.message || i18n.t('common.networkError'),
       variant: 'destructive',
     });
   }
 
   // Dispatch error event (only on client side)
   if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const apiError = new CustomEvent("apiError", {
+    const apiError = new CustomEvent('apiError', {
       detail: error,
-      bubbles: true
+      bubbles: true,
     });
     document.dispatchEvent(apiError);
   }
@@ -45,7 +49,10 @@ const handleApiError = (error: ErrorWithCode, showToast = true) => {
 
 // Check response status code and handle business logic
 const handleBusinessCode = (response: any) => {
-  const error = new ErrorWithCode(response.message || i18n.t("common.unknownError"), response.code || -1);
+  const error = new ErrorWithCode(
+    response.message || i18n.t('common.unknownError'),
+    response.code || -1,
+  );
 
   if (response.code !== 0) {
     // Special status codes do not show toast
@@ -54,13 +61,23 @@ const handleBusinessCode = (response: any) => {
     }
 
     // Authentication related errors, redirect to login (only on client side)
-    if (typeof window !== 'undefined' && location.pathname !== '/login' && [1001, 1004, 1005].includes(response.code)) {
-      const currentPath = encodeURIComponent(location.pathname + location.search);
+    if (
+      typeof window !== 'undefined' &&
+      location.pathname !== '/login' &&
+      [1001, 1004, 1005].includes(response.code)
+    ) {
+      const currentPath = encodeURIComponent(
+        location.pathname + location.search,
+      );
       window.location.href = `/login?redirect=${currentPath}`;
     }
 
     // Permission error (only on client side)
-    if (typeof window !== 'undefined' && location.pathname.startsWith('/shifu/') && response.code === 9002) {
+    if (
+      typeof window !== 'undefined' &&
+      location.pathname.startsWith('/shifu/') &&
+      response.code === 9002
+    ) {
       toast({
         title: i18n.t('errors.no-permission'),
         variant: 'destructive',
@@ -81,7 +98,6 @@ const parseJson = (text: string) => {
   }
 };
 
-
 // ===== Fetch Wrapper Class =====
 export class Request {
   private defaultConfig: RequestInit = {};
@@ -97,7 +113,7 @@ export class Request {
       headers: {
         ...this.defaultConfig.headers,
         ...config.headers,
-      }
+      },
     };
 
     // Handle URL
@@ -119,7 +135,7 @@ export class Request {
       mergedConfig.headers = {
         Authorization: `Bearer ${token}`,
         Token: token,
-        "X-Request-ID": uuidv4().replace(/-/g, ''),
+        'X-Request-ID': uuidv4().replace(/-/g, ''),
         ...mergedConfig.headers,
       } as HeadersInit;
     }
@@ -129,7 +145,10 @@ export class Request {
 
   private async interceptFetch(url: string, config: RequestConfig) {
     try {
-      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(url, config);
+      const { url: fullUrl, config: mergedConfig } = await this.prepareConfig(
+        url,
+        config,
+      );
       const response = await fetch(fullUrl, mergedConfig);
 
       if (!response.ok) {
@@ -188,7 +207,12 @@ export class Request {
     });
   }
   // Stream request
-  async stream(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
+  async stream(
+    url: string,
+    body: any = {},
+    config: StreamRequestConfig = {},
+    callback?: StreamCallback,
+  ) {
     const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
@@ -250,7 +274,12 @@ export class Request {
   }
 
   // Stream line by line request
-  async streamLine(url: string, body: any = {}, config: StreamRequestConfig = {}, callback?: StreamCallback) {
+  async streamLine(
+    url: string,
+    body: any = {},
+    config: StreamRequestConfig = {},
+    callback?: StreamCallback,
+  ) {
     const { url: fullUrl } = await this.prepareConfig(url, config);
 
     try {
@@ -274,7 +303,7 @@ export class Request {
       const reader = response.body?.getReader();
       if (!reader) throw new Error('Response body is not readable');
 
-      const utf8Decoder = new TextDecoder("utf-8");
+      const utf8Decoder = new TextDecoder('utf-8');
       let done = false;
       const stop = () => {
         done = true;
@@ -283,7 +312,9 @@ export class Request {
 
       const lines: string[] = [];
       let { value: chunk, done: readerDone } = await reader.read();
-      let decodedChunk = chunk ? utf8Decoder.decode(chunk, { stream: true }) : "";
+      let decodedChunk = chunk
+        ? utf8Decoder.decode(chunk, { stream: true })
+        : '';
       const re = /\r\n|\n|\r/gm;
       let startIndex = 0;
 
@@ -294,7 +325,9 @@ export class Request {
           if (readerDone) break;
           const remainder = decodedChunk.substring(startIndex);
           ({ value: chunk, done: readerDone } = await reader.read());
-          decodedChunk = remainder + (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
+          decodedChunk =
+            remainder +
+            (chunk ? utf8Decoder.decode(chunk, { stream: true }) : '');
           startIndex = re.lastIndex = 0;
           continue;
         }

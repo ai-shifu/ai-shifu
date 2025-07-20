@@ -43,7 +43,7 @@ export const POPUP_WINDOW_STATE_FILING = 1;
 const NAV_DRAWER_MAX_WIDTH = '280px';
 const NAV_DRAWER_COLLAPSE_WIDTH = '60px';
 
-const calcNavWidth = (frameLayout) => {
+const calcNavWidth = frameLayout => {
   if (frameLayout === FRAME_LAYOUT_MOBILE) {
     return '100%';
   }
@@ -70,7 +70,7 @@ const NavDrawer = ({
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const [isCollapse, setIsCollapse] = useState(false);
 
@@ -90,7 +90,7 @@ const NavDrawer = ({
     onClose: onMainModalClose,
   } = useDisclosure();
 
-  const onBodyScroll = (e) => {
+  const onBodyScroll = e => {
     setBodyScrollTop(e.target.scrollTop);
   };
 
@@ -103,14 +103,14 @@ const NavDrawer = ({
   }, [isCollapse]);
 
   const mainModalCloseHandler = useCallback(
-    (e) => {
+    e => {
       // @ts-expect-error EXPECT
       if (footerRef.current && footerRef.current.containElement(e.target)) {
         return;
       }
       onMainModalClose();
     },
-    [onMainModalClose]
+    [onMainModalClose],
   );
 
   const onFooterClick = useCallback(() => {
@@ -124,7 +124,7 @@ const NavDrawer = ({
     <div
       className={clsx(
         styles.navDrawerWrapper,
-        mobileStyle ? styles.mobile : ''
+        mobileStyle ? styles.mobile : '',
       )}
       style={{ width: isCollapse ? COLLAPSE_WIDTH : calcNavWidth(frameLayout) }}
     >
@@ -142,7 +142,8 @@ const NavDrawer = ({
             onScroll={onBodyScroll}
             ref={bodyRef}
           >
-            {!isCollapse && (isLoggedIn || alwaysShowLessonTree ? (
+            {!isCollapse &&
+              (isLoggedIn || alwaysShowLessonTree ? (
                 <CourseCatalogList
                   courseName={courseName}
                   selectedLessonId={selectedLessonId}

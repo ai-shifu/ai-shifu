@@ -58,7 +58,7 @@ function formatDate(date: IDate, locale: TimeLocale): string {
     mm: padStart($d.getMinutes()),
   };
 
-  return format.replace(REGEX_FORMAT, (match) => dates[match]);
+  return format.replace(REGEX_FORMAT, match => dates[match]);
 }
 
 export default formatDate;

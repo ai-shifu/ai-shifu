@@ -10,7 +10,7 @@ const testCache = {
       // @ts-expect-error EXPECT
       window.addEventListener('test', null, opts);
     } catch (e) {
-      console.log(e)
+      console.log(e);
       // No support
     }
     return supportsPassive;

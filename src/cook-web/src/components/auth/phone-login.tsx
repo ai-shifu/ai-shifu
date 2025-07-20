@@ -1,178 +1,179 @@
-'use client'
+'use client';
 
-import type React from 'react'
+import type React from 'react';
 
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Loader2 } from 'lucide-react'
-import { useToast } from '@/hooks/use-toast'
-import { TermsCheckbox } from '@/components/terms-checkbox'
-import apiService from '@/api'
-import { isValidPhoneNumber } from '@/lib/validators'
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { TermsCheckbox } from '@/components/terms-checkbox';
+import apiService from '@/api';
+import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { useUserStore } from '@/c-store/useUserStore'
+import { useUserStore } from '@/c-store/useUserStore';
 
-import type { UserInfo } from '@/c-types'
+import type { UserInfo } from '@/c-types';
 interface PhoneLoginProps {
-  onLoginSuccess: (userInfo: UserInfo) => void
+  onLoginSuccess: (userInfo: UserInfo) => void;
 }
 
-export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
-
-  const { toast } = useToast()
-  const { login } = useUserStore()
-  const [isLoading, setIsLoading] = useState(false)
-  const [phoneNumber, setPhoneNumber] = useState('')
-  const [phoneOtp, setPhoneOtp] = useState('')
-  const [showOtpInput, setShowOtpInput] = useState(false)
-  const [termsAccepted, setTermsAccepted] = useState(false)
-  const [countdown, setCountdown] = useState(0)
-  const [phoneError, setPhoneError] = useState('')
+export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
+  const { toast } = useToast();
+  const { login } = useUserStore();
+  const [isLoading, setIsLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneOtp, setPhoneOtp] = useState('');
+  const [showOtpInput, setShowOtpInput] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+  const [phoneError, setPhoneError] = useState('');
   const { t } = useTranslation();
   const validatePhone = (phone: string) => {
     if (!phone) {
-      setPhoneError(t('login.phone-empty'))
-      return false
+      setPhoneError(t('login.phone-empty'));
+      return false;
     }
 
     if (!isValidPhoneNumber(phone)) {
-      setPhoneError(t('login.phone-error'))
-      return false
+      setPhoneError(t('login.phone-error'));
+      return false;
     }
 
-    setPhoneError('')
-    return true
-  }
+    setPhoneError('');
+    return true;
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPhoneNumber(value)
+    const value = e.target.value;
+    setPhoneNumber(value);
     if (value) {
-      validatePhone(value)
+      validatePhone(value);
     } else {
-      setPhoneError('')
+      setPhoneError('');
     }
-  }
+  };
 
   const handleSendOtp = async () => {
     if (!validatePhone(phoneNumber)) {
-      return
+      return;
     }
 
     if (!termsAccepted) {
       toast({
         title: t('login.terms-error'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await apiService.sendSmsCode({
         mobile: phoneNumber,
-        language: i18n.language
-      })
-      if (response.code==0) {
-        setShowOtpInput(true)
-        setCountdown(60)
+        language: i18n.language,
+      });
+      if (response.code == 0) {
+        setShowOtpInput(true);
+        setCountdown(60);
         const timer = setInterval(() => {
           setCountdown(prevCountdown => {
             if (prevCountdown <= 1) {
-              clearInterval(timer)
-              return 0
+              clearInterval(timer);
+              return 0;
             }
-            return prevCountdown - 1
-          })
-        }, 1000)
+            return prevCountdown - 1;
+          });
+        }, 1000);
 
         toast({
           title: t('login.otp-sent'),
-          description: t('login.please-check-your-phone-sms')
-        })
+          description: t('login.please-check-your-phone-sms'),
+        });
       } else {
         toast({
           title: t('login.send-otp-failed'),
           description: response.msg || t('login.network-error'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
     } catch (error: any) {
       toast({
         title: t('login.send-otp-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   const handleVerifyOtp = async () => {
     if (!phoneOtp) {
       toast({
         title: t('login.otp-error'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     if (!termsAccepted) {
       toast({
         title: t('login.terms-error'),
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
     try {
-      setIsLoading(true)
+      setIsLoading(true);
 
       const response = await apiService.verifySmsCode({
         mobile: phoneNumber,
         sms_code: phoneOtp,
-        language: i18n.language
-      })
+        language: i18n.language,
+      });
 
       if (response.code == 0) {
         toast({
-          title: t('login.login-success')
-        })
-        await login(response.data.userInfo, response.data.token)
-        onLoginSuccess(response.data.userInfo)
+          title: t('login.login-success'),
+        });
+        await login(response.data.userInfo, response.data.token);
+        onLoginSuccess(response.data.userInfo);
       } else if (response.code == 1003) {
         toast({
           title: t('login.verification-failed'),
           description: t('login.otp-expired'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       } else {
         toast({
           title: t('login.verification-failed'),
           description: t('login.otp-error'),
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       }
-
     } catch (error: any) {
       toast({
         title: t('login.verification-failed'),
         description: error.message || t('login.network-error'),
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className='space-y-4'>
       <div className='space-y-2'>
-        <Label htmlFor='phone' className={phoneError ? 'text-red-500' : ''}>
+        <Label
+          htmlFor='phone'
+          className={phoneError ? 'text-red-500' : ''}
+        >
           {t('login.phone')}
         </Label>
         <Input
@@ -232,5 +233,5 @@ export function PhoneLogin ({ onLoginSuccess }: PhoneLoginProps) {
         </Button>
       )}
     </div>
-  )
+  );
 }

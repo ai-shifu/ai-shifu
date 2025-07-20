@@ -1,5 +1,7 @@
 .toPayButton {
-  transition: background-color 0.4s ease-out, box-shadow 0.4s ease-out;
+  transition:
+    background-color 0.4s ease-out,
+    box-shadow 0.4s ease-out;
 
   &:hover {
     box-shadow: 0 1px 8px rgba(247, 224, 190, 0.8);

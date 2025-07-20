@@ -10,7 +10,7 @@ import { usePayStore } from '../stores/usePayStore';
 const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
   const [isShow] = useState(true);
   const { updateHasPay } = usePayStore(
-    useShallow((state) => ({ updateHasPay: state.updateHasPay }))
+    useShallow(state => ({ updateHasPay: state.updateHasPay })),
   );
 
   const onPayModalOk = () => {
@@ -20,17 +20,22 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
 
   const onNonBlockPayModalClose = () => {
     customEvents.dispatchEvent(
-      new CustomEvent(EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED, { detail: {} })
+      new CustomEvent(EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED, { detail: {} }),
     );
     // @ts-expect-error EXPECT
-    onComplete?.(shifu.constants.INTERACTION_OUTPUT_TYPE.CONTINUE, payload.label, payload.scriptId);
+    onComplete?.(
+      shifu.constants.INTERACTION_OUTPUT_TYPE.CONTINUE,
+      payload.label,
+      payload.scriptId,
+    );
     onClose?.();
   };
 
   return (
     <>
       {/* @ts-expect-error EXPECT */}
-      {isShow && (shifu.getConfig().mobileStyle ? (
+      {isShow &&
+        (shifu.getConfig().mobileStyle ? (
           <PayModalM
             open={isShow}
             onCancel={onNonBlockPayModalClose}

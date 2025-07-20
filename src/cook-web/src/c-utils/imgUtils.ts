@@ -1,13 +1,13 @@
-export const createImage = (url) =>
+export const createImage = url =>
   new Promise((resolve, reject) => {
     const image = new Image();
     image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', (error) => reject(error));
+    image.addEventListener('error', error => reject(error));
     image.setAttribute('crossOrigin', 'anonymous'); // needed to avoid cross-origin issues on CodeSandbox
     image.src = url;
   });
 
-export const getRadianAngle = (degreeValue) => {
+export const getRadianAngle = degreeValue => {
   return (degreeValue * Math.PI) / 180;
 };
 
@@ -29,7 +29,7 @@ export const genCroppedImg = async (
   imageSrc,
   pixelCrop,
   rotation = 0,
-  flip = { horizontal: false, vertical: false }
+  flip = { horizontal: false, vertical: false },
 ) => {
   const image = await createImage(imageSrc);
   const canvas = document.createElement('canvas');
@@ -47,7 +47,7 @@ export const genCroppedImg = async (
     image.width,
     // @ts-expect-error EXPECT
     image.height,
-    rotation
+    rotation,
   );
 
   // set canvas size to match the bounding box
@@ -86,11 +86,11 @@ export const genCroppedImg = async (
     0,
     0,
     pixelCrop.width,
-    pixelCrop.height
+    pixelCrop.height,
   );
 
-  return new Promise((resolve) => {
-    croppedCanvas.toBlob((blob) => {
+  return new Promise(resolve => {
+    croppedCanvas.toBlob(blob => {
       // @ts-expect-error EXPECT
       const file = new File([blob], 'image.png', {});
       resolve(file);
@@ -98,18 +98,19 @@ export const genCroppedImg = async (
   });
 };
 
-
 /**
  * convert file to data url
  * DataURLs format: data:[<mediatype>][;base64],<data>
  * reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs
  */
-export const convertFileToDataUrl = async (file) => {
+export const convertFileToDataUrl = async file => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     // @ts-expect-error EXPECT
-    reader.addEventListener('load', (e) => { resolve(e.target.result); });
-    reader.addEventListener('error', (err) => reject(err));
+    reader.addEventListener('load', e => {
+      resolve(e.target.result);
+    });
+    reader.addEventListener('error', err => reject(err));
 
     reader.readAsDataURL(file);
   });

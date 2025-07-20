@@ -1,7 +1,7 @@
 import styles from './SettingSelectElement.module.scss';
 
 import { memo } from 'react';
-import { ChevronDownIcon } from 'lucide-react'
+import { ChevronDownIcon } from 'lucide-react';
 import clsx from 'clsx';
 
 export const SettingSelectElement = ({
@@ -19,7 +19,7 @@ export const SettingSelectElement = ({
       <div className={styles.title}>{value && title}</div>
       <div className={styles.inputWrapper}>
         <input
-          type="text"
+          type='text'
           className={styles.inputElement}
           placeholder={placeholder}
           readOnly={true}

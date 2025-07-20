@@ -10,7 +10,10 @@ export const Time: React.FC<TimeProps> = ({ date }) => {
   const { trans } = useLocale('Time');
 
   return (
-    <time className="Time" dateTime={new Date(date).toJSON()}>
+    <time
+      className='Time'
+      dateTime={new Date(date).toJSON()}
+    >
       {formatDate(date, trans())}
     </time>
   );

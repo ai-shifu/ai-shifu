@@ -4,10 +4,10 @@ import { Base, ModalProps } from './Base';
 
 export const Confirm: React.FC<ModalProps> = ({ className, ...other }) => (
   <Base
-    baseClass="Modal"
+    baseClass='Modal'
     className={clsx('Confirm', className)}
     showClose={false}
-    btnVariant="outline"
+    btnVariant='outline'
     {...other}
   />
 );

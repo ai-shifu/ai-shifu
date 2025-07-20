@@ -4,13 +4,17 @@ import clsx from 'clsx';
 import { memo, useCallback } from 'react';
 import Image from 'next/image';
 
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-} from "@/components/ui/navigation-menu"
+} from '@/components/ui/navigation-menu';
 import { Button } from '@/components/ui/button';
 
 import FeedbackModal from '@/app/c/[[...id]]/Components/FeedbackModal/FeedbackModal';
@@ -56,7 +60,11 @@ const GlobalInfoButton = ({ className }) => {
   } = useDisclosure();
 
   const onContactUsClick = useCallback(() => {
-    window.open('https://zhentouai.feishu.cn/share/base/form/shrcnwp8SRl1ghzia4fBG08VYkh', '_blank', 'noopener,noreferrer');
+    window.open(
+      'https://zhentouai.feishu.cn/share/base/form/shrcnwp8SRl1ghzia4fBG08VYkh',
+      '_blank',
+      'noopener,noreferrer',
+    );
     onPopoverClose();
   }, [onPopoverClose]);
 
@@ -101,43 +109,54 @@ const GlobalInfoButton = ({ className }) => {
       onClick: () => {
         onPopoverClose();
         onShortcutModalOpen();
-      }
+      },
     },
   ];
 
   const { inMacOs } = useUiLayoutStore(
-    useShallow((state) => ({ inMacOs: state.inMacOs }))
+    useShallow(state => ({ inMacOs: state.inMacOs })),
   );
 
-  useHotkeys(genHotKeyIdentifier(SHORTCUT_IDS.SHORTCUT, inMacOs), () => {
-    onPopoverClose();
-    onShortcutModalOpen();
-  }, []);
+  useHotkeys(
+    genHotKeyIdentifier(SHORTCUT_IDS.SHORTCUT, inMacOs),
+    () => {
+      onPopoverClose();
+      onShortcutModalOpen();
+    },
+    [],
+  );
 
   return (
     <>
       <Popover
         open={popoverOpen}
-        onOpenChange={(open) => {
+        onOpenChange={open => {
           if (!open) {
-            onPopoverClose()
+            onPopoverClose();
           }
-        }}>
-      <PopoverContent side='right'>
-        <div className={styles.popoverContent}>
+        }}
+      >
+        <PopoverContent side='right'>
+          <div className={styles.popoverContent}>
             {/* <Menu items={menuItems} selectable={false} /> */}
             <NavigationMenu orientation='vertical'>
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  {menuItems.map((item) => {
+                  {menuItems.map(item => {
                     return (
-                      <NavigationMenuLink key={item.key} asChild>
-                        <Button variant='link' onClick={item.onClick}>
+                      <NavigationMenuLink
+                        key={item.key}
+                        asChild
+                      >
+                        <Button
+                          variant='link'
+                          onClick={item.onClick}
+                        >
                           {item.icon}
                           {item.label}
                         </Button>
                       </NavigationMenuLink>
-                    )
+                    );
                   })}
                 </NavigationMenuItem>
               </NavigationMenuList>
@@ -153,9 +172,9 @@ const GlobalInfoButton = ({ className }) => {
               <div className={styles.policyInfoRow}>
                 <a
                   className={styles.miitLink}
-                  href="https://beian.miit.gov.cn/"
-                  target="_blank"
-                  rel="noreferrer"
+                  href='https://beian.miit.gov.cn/'
+                  target='_blank'
+                  rel='noreferrer'
                 >
                   {t('navigation.icp')}
                 </a>
@@ -175,9 +194,10 @@ const GlobalInfoButton = ({ className }) => {
         </PopoverContent>
         <PopoverTrigger asChild>
           <button
-            type="button"
+            type='button'
             className={clsx(styles.globalInfoButton, className)}
-            onClick={onPopoverToggle}>
+            onClick={onPopoverToggle}
+          >
             <InfoIcon />
           </button>
         </PopoverTrigger>

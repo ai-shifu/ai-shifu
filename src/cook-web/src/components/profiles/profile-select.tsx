@@ -1,14 +1,14 @@
 /** inject profile to mc-editor */
-'use client'
-import React, { useState, useCallback } from 'react'
-import { Edit, Plus, Trash2, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import type { Profile } from '@/components/profiles/type'
-import ProfileSave from './profile-save'
-import api from '@/api'
-import useProfiles from './useProfiles'
+'use client';
+import React, { useState, useCallback } from 'react';
+import { Edit, Plus, Trash2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import type { Profile } from '@/components/profiles/type';
+import ProfileSave from './profile-save';
+import api from '@/api';
+import useProfiles from './useProfiles';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,65 +18,65 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
-  AlertDialogTitle
-} from '@/components/ui/alert-dialog'
-import { useTranslation } from 'react-i18next'
-import { useShifu } from '@/store'
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useTranslation } from 'react-i18next';
+import { useShifu } from '@/store';
 
 interface ProfileSelectProps {
-  value?: string
-  onSelect?: (profile: Profile) => void
+  value?: string;
+  onSelect?: (profile: Profile) => void;
 }
 
 const ProfileSelect: React.FC<ProfileSelectProps> = ({
   value,
-  onSelect = () => {}
+  onSelect = () => {},
 }) => {
-  const { t } = useTranslation()
-  const [saveOpen, setSaveOpen] = useState<boolean>(false)
-  const [editingProfile, setEditingProfile] = useState<Profile | undefined>()
-  const [hoveredId, setHoveredId] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState(value || '')
-  const [refreshFlag, setRefreshFlag] = useState(0)
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
-  const [deleteProfileId, setDeleteProfileId] = useState<string | null>(null)
-  const { currentShifu } = useShifu()
+  const { t } = useTranslation();
+  const [saveOpen, setSaveOpen] = useState<boolean>(false);
+  const [editingProfile, setEditingProfile] = useState<Profile | undefined>();
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState(value || '');
+  const [refreshFlag, setRefreshFlag] = useState(0);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deleteProfileId, setDeleteProfileId] = useState<string | null>(null);
+  const { currentShifu } = useShifu();
 
   const handleDeleteProfile = useCallback(async (id: string) => {
-    setDeleteProfileId(id)
-    setShowDeleteDialog(true)
-  }, [])
+    setDeleteProfileId(id);
+    setShowDeleteDialog(true);
+  }, []);
 
   const handleConfirmDelete = async () => {
     if (deleteProfileId) {
       const res = await api.deleteProfile({
-        profile_id: deleteProfileId
-      })
+        profile_id: deleteProfileId,
+      });
       if (res) {
-        setRefreshFlag(refreshFlag + 1)
+        setRefreshFlag(refreshFlag + 1);
       }
-      setShowDeleteDialog(false)
-      setDeleteProfileId(null)
+      setShowDeleteDialog(false);
+      setDeleteProfileId(null);
     }
-  }
+  };
 
   const [systemProfiles, customProfiles] = useProfiles({
     searchTerm,
-    refreshFlag
-  })
+    refreshFlag,
+  });
 
   const handleSaveProfile = (isEdit: boolean, profile?: Profile) => {
     if (isEdit && profile) {
-      setEditingProfile(profile)
+      setEditingProfile(profile);
     } else {
-      setEditingProfile(undefined)
+      setEditingProfile(undefined);
     }
-    setSaveOpen(true)
-  }
+    setSaveOpen(true);
+  };
 
   const handleProfileSaveSuccess = () => {
-    setRefreshFlag(refreshFlag + 1)
-  }
+    setRefreshFlag(refreshFlag + 1);
+  };
 
   return (
     <div className='space-y-4 text-xs'>
@@ -187,8 +187,8 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                             size='icon'
                             className='h-6 w-6'
                             onClick={e => {
-                              e.stopPropagation()
-                              handleSaveProfile(true, profile)
+                              e.stopPropagation();
+                              handleSaveProfile(true, profile);
                             }}
                           >
                             <Edit className='h-4 w-4' />
@@ -198,10 +198,10 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                             size='icon'
                             className='h-6 w-6'
                             onClick={e => {
-                              e.stopPropagation()
+                              e.stopPropagation();
                               handleDeleteProfile(
-                                profile.profile_id as unknown as string
-                              )
+                                profile.profile_id as unknown as string,
+                              );
                             }}
                           >
                             <Trash2 className='h-4 w-4' />
@@ -238,12 +238,15 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
         onSaveSuccess={handleProfileSaveSuccess}
       />
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+      >
         <AlertDialogOverlay
           className='fixed inset-0 bg-black/50 z-[50]'
           onClick={e => {
-            e.preventDefault()
-            e.stopPropagation()
+            e.preventDefault();
+            e.stopPropagation();
           }}
         />
         <AlertDialogContent className='z-[51]'>
@@ -262,6 +265,6 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
         </AlertDialogContent>
       </AlertDialog>
     </div>
-  )
-}
-export default ProfileSelect
+  );
+};
+export default ProfileSelect;

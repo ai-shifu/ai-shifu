@@ -1,17 +1,20 @@
-import request from "@/lib/request";
+import request from '@/lib/request';
 
 export const testPurchaseOrder = ({ orderId }) => {
   return request.post('/api/order/order-test', { order_id: orderId });
 };
 
 // 创建订单
-export const initOrder = (course_id) => {
+export const initOrder = course_id => {
   return request.post('/api/order/init-order', { course_id });
 };
 
 // 获取支付链接
 export const getPayUrl = ({ channel, orderId }) => {
-  return request.post('/api/order/reqiure-to-pay', { channel, order_id: orderId });
+  return request.post('/api/order/reqiure-to-pay', {
+    channel,
+    order_id: orderId,
+  });
 };
 
 // 查询订单
@@ -34,4 +37,4 @@ export const initActiveOrder = ({ recordId, action, courseId }) => {
     action,
     record_id: recordId,
   });
-}
+};

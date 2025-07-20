@@ -10,12 +10,12 @@ interface SendButtonProps {
 export const SendButton = ({ disabled, onClick }: SendButtonProps) => {
   const { trans } = useLocale('Composer');
   return (
-    <div className="Composer-actions">
+    <div className='Composer-actions'>
       <Button
-        className="Composer-sendBtn"
+        className='Composer-sendBtn'
         disabled={disabled}
         onMouseDown={onClick}
-        color="primary"
+        color='primary'
       >
         {trans('send')}
       </Button>

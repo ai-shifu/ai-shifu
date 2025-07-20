@@ -6,7 +6,7 @@ export const mockUserData = {
     userInfo: null,
     isGuest: true,
     isLoggedIn: false,
-    token: { token: 'fake-token-123', faked: true }
+    token: { token: 'fake-token-123', faked: true },
   },
 
   // Registered user
@@ -17,11 +17,11 @@ export const mockUserData = {
       avatar: 'https://example.com/avatar.jpg',
       phone: '+1234567890',
       language: 'en',
-      email: 'john@example.com'
+      email: 'john@example.com',
     } as UserInfo,
     isGuest: false,
     isLoggedIn: true,
-    token: { token: 'valid-token-123', faked: false }
+    token: { token: 'valid-token-123', faked: false },
   },
 
   // Creator user
@@ -35,11 +35,11 @@ export const mockUserData = {
       email: 'jane@example.com',
       role: 'creator',
       is_creator: true,
-      can_create: true
+      can_create: true,
     } as UserInfo,
     isGuest: false,
     isLoggedIn: true,
-    token: { token: 'valid-token-456', faked: false }
+    token: { token: 'valid-token-456', faked: false },
   },
 
   // Admin user
@@ -53,11 +53,11 @@ export const mockUserData = {
       email: 'admin@example.com',
       role: 'admin',
       is_admin: true,
-      can_create: true
+      can_create: true,
     } as UserInfo,
     isGuest: false,
     isLoggedIn: true,
-    token: { token: 'valid-token-789', faked: false }
+    token: { token: 'valid-token-789', faked: false },
   },
 
   // Creator with alternative flags
@@ -69,11 +69,11 @@ export const mockUserData = {
       phone: '+1234567893',
       language: 'en',
       email: 'creator@example.com',
-      is_creator: true
+      is_creator: true,
     } as UserInfo,
     isGuest: false,
     isLoggedIn: true,
-    token: { token: 'valid-token-alt', faked: false }
+    token: { token: 'valid-token-alt', faked: false },
   },
 
   // Admin with alternative flags
@@ -85,11 +85,11 @@ export const mockUserData = {
       phone: '+1234567894',
       language: 'en',
       email: 'admin-alt@example.com',
-      is_admin: true
+      is_admin: true,
     } as UserInfo,
     isGuest: false,
     isLoggedIn: true,
-    token: { token: 'valid-token-admin', faked: false }
+    token: { token: 'valid-token-admin', faked: false },
   },
 
   // Premium user
@@ -101,11 +101,11 @@ export const mockUserData = {
       phone: '+1234567895',
       language: 'en',
       email: 'premium@example.com',
-      premium: true
+      premium: true,
     } as UserInfo,
     isGuest: false,
     isLoggedIn: true,
-    token: { token: 'valid-token-premium', faked: false }
+    token: { token: 'valid-token-premium', faked: false },
   },
 
   // User with no login check
@@ -113,19 +113,19 @@ export const mockUserData = {
     userInfo: null,
     isGuest: false,
     isLoggedIn: false,
-    token: { token: null, faked: true }
-  }
+    token: { token: null, faked: true },
+  },
 };
 
 export const mockTokenTool = {
   get: jest.fn(),
-  set: jest.fn()
+  set: jest.fn(),
 };
 
 export const mockUserStore = {
   getState: jest.fn(),
   subscribe: jest.fn(),
-  destroy: jest.fn()
+  destroy: jest.fn(),
 };
 
 export const createMockUserStore = (userData: any) => ({
@@ -136,5 +136,5 @@ export const createMockUserStore = (userData: any) => ({
   logout: jest.fn(),
   login: jest.fn(),
   setProfile: jest.fn(),
-  fetchProfile: jest.fn()
+  fetchProfile: jest.fn(),
 });

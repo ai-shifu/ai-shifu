@@ -3,7 +3,7 @@ import { Modal } from '../Modal';
 import { Flex } from '../Flex';
 import { useLocale } from '../LocaleProvider';
 
-import Image from 'next/image'
+import Image from 'next/image';
 
 export type SendConfirmProps = {
   file: Blob;
@@ -11,7 +11,7 @@ export type SendConfirmProps = {
   onSend: () => void;
 };
 
-export const SendConfirm: React.FC<SendConfirmProps> = (props) => {
+export const SendConfirm: React.FC<SendConfirmProps> = props => {
   const { file, onCancel, onSend } = props;
   const [img, setImg] = useState('');
   const { trans } = useLocale('SendConfirm');
@@ -28,7 +28,7 @@ export const SendConfirm: React.FC<SendConfirmProps> = (props) => {
 
   return (
     <Modal
-      className="SendConfirm"
+      className='SendConfirm'
       title={trans('title')}
       active={!!img}
       vertical={false}
@@ -44,8 +44,14 @@ export const SendConfirm: React.FC<SendConfirmProps> = (props) => {
         },
       ]}
     >
-      <Flex className="SendConfirm-inner" center>
-        <Image src={img} alt="" />
+      <Flex
+        className='SendConfirm-inner'
+        center
+      >
+        <Image
+          src={img}
+          alt=''
+        />
       </Flex>
     </Modal>
   );

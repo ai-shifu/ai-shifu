@@ -16,5 +16,5 @@ files.forEach(file => {
 
 fs.writeFileSync(
   path.join(localesDir, 'languages.json'),
-  JSON.stringify(langMap, null, 2)
+  JSON.stringify(langMap, null, 2),
 );

@@ -1,4 +1,4 @@
- const ar_EG = {
+const ar_EG = {
   BackBottom: {
     newMsgOne: '{n} رسالة جديدة',
     newMsgOther: '{n} رسالة جديدة',

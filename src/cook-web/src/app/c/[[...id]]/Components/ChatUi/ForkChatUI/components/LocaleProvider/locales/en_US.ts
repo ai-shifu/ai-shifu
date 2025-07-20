@@ -5,7 +5,9 @@ const en_US = {
     bottom: 'Bottom',
   },
   Time: {
-    weekdays: 'Sunday_Monday_Tuesday_Wednesday_Thursday_Friday_Saturday'.split('_'),
+    weekdays: 'Sunday_Monday_Tuesday_Wednesday_Thursday_Friday_Saturday'.split(
+      '_',
+    ),
     formats: {
       LT: 'HH:mm',
       lll: 'M/D/YYYY HH:mm',
@@ -36,4 +38,4 @@ const en_US = {
   },
 };
 
-export default en_US
+export default en_US;

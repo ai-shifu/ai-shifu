@@ -218,7 +218,10 @@ function getDebugErudaEnabled(): boolean {
 /**
  * Converts string boolean values to actual booleans
  */
-function getBooleanValue(value: string | undefined, defaultValue: boolean = false): boolean {
+function getBooleanValue(
+  value: string | undefined,
+  defaultValue: boolean = false,
+): boolean {
   if (value === undefined) return defaultValue;
   return value.toLowerCase() === 'true';
 }

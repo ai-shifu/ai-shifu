@@ -24,4 +24,4 @@ export const removeParamFromUrl = (url, paramsToRemove) => {
   }
 
   return urlObj.toString();
-}
+};

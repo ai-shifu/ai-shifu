@@ -5,7 +5,7 @@ import {
   XCircleIcon,
   LockClosedIcon,
   WifiIcon,
-  ShieldExclamationIcon
+  ShieldExclamationIcon,
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
@@ -45,11 +45,17 @@ const getErrorType = (code: number): string => {
 };
 
 const errorIcons: Record<string, React.ReactNode> = {
-  permission: <LockClosedIcon className="w-16 h-16 text-yellow-500 mx-auto mb-4" />,
-  auth: <ShieldExclamationIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />,
-  network: <WifiIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />,
-  'not-found': <XCircleIcon className="w-16 h-16 text-gray-500 mx-auto mb-4" />,
-  general: <ExclamationTriangleIcon className="w-16 h-16 text-orange-500 mx-auto mb-4" />
+  permission: (
+    <LockClosedIcon className='w-16 h-16 text-yellow-500 mx-auto mb-4' />
+  ),
+  auth: (
+    <ShieldExclamationIcon className='w-16 h-16 text-red-500 mx-auto mb-4' />
+  ),
+  network: <WifiIcon className='w-16 h-16 text-red-500 mx-auto mb-4' />,
+  'not-found': <XCircleIcon className='w-16 h-16 text-gray-500 mx-auto mb-4' />,
+  general: (
+    <ExclamationTriangleIcon className='w-16 h-16 text-orange-500 mx-auto mb-4' />
+  ),
 };
 
 export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
@@ -57,14 +63,16 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   errorMessage,
   showDetails = true,
   onRetry,
-  customAction
+  customAction,
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const handleLogin = () => {
-    const currentPath = encodeURIComponent(window.location.pathname + window.location.search);
+    const currentPath = encodeURIComponent(
+      window.location.pathname + window.location.search,
+    );
     router.push(`/login?redirect=${currentPath}`);
   };
 
@@ -116,44 +124,47 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 
   // Determine if login button should be shown
   const shouldShowLoginButton = () => {
-    return !isLoggedIn && (
-      errorCode === 401 ||
-      errorCode === 1001 ||
-      errorCode === 1004 ||
-      errorCode === 1005
+    return (
+      !isLoggedIn &&
+      (errorCode === 401 ||
+        errorCode === 1001 ||
+        errorCode === 1004 ||
+        errorCode === 1005)
     );
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-8">
-      <div className="text-center max-w-md">
+    <div className='flex flex-col items-center justify-center h-full min-h-[400px] p-8'>
+      <div className='text-center max-w-md'>
         {errorIcons[errorType]}
-        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+        <h2 className='text-xl font-semibold text-gray-900 mb-2'>
           {getTitle()}
         </h2>
-        <p className="text-gray-600 mb-2">
-          {getFriendlyMessage()}
-        </p>
+        <p className='text-gray-600 mb-2'>{getFriendlyMessage()}</p>
 
         {/* Error details section */}
         {showDetails && (
-          <div className="mt-4 p-3 bg-gray-100 rounded-md text-left">
-            <p className="text-sm text-gray-700 font-mono">
-              <span className="font-semibold">{t('c.errors.error-code')}:</span> {errorCode}
+          <div className='mt-4 p-3 bg-gray-100 rounded-md text-left'>
+            <p className='text-sm text-gray-700 font-mono'>
+              <span className='font-semibold'>{t('c.errors.error-code')}:</span>{' '}
+              {errorCode}
             </p>
             {errorMessage && (
-              <p className="text-sm text-gray-700 font-mono mt-1">
-                <span className="font-semibold">{t('c.errors.error-message')}:</span> {errorMessage}
+              <p className='text-sm text-gray-700 font-mono mt-1'>
+                <span className='font-semibold'>
+                  {t('c.errors.error-message')}:
+                </span>{' '}
+                {errorMessage}
               </p>
             )}
           </div>
         )}
 
-        <div className="flex gap-3 justify-center mt-6">
+        <div className='flex gap-3 justify-center mt-6'>
           {shouldShowLoginButton() && (
             <Button
               onClick={handleLogin}
-              className="min-w-[120px]"
+              className='min-w-[120px]'
             >
               {t('c.user.login')}
             </Button>
@@ -161,8 +172,8 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
           {onRetry && (
             <Button
               onClick={onRetry}
-              variant="outline"
-              className="min-w-[120px]"
+              variant='outline'
+              className='min-w-[120px]'
             >
               {t('common.retry')}
             </Button>
@@ -170,8 +181,10 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
           {customAction && (
             <Button
               onClick={customAction.onClick}
-              variant={onRetry || shouldShowLoginButton() ? 'outline' : 'default'}
-              className="min-w-[120px]"
+              variant={
+                onRetry || shouldShowLoginButton() ? 'outline' : 'default'
+              }
+              className='min-w-[120px]'
             >
               {customAction.label}
             </Button>

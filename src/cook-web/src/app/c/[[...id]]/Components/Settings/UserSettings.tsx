@@ -32,11 +32,11 @@ export const UserSettings = ({
   onClose,
   isBasicInfo = false,
 }) => {
-  const courseId = useEnvStore((state) => state.courseId);
+  const courseId = useEnvStore(state => state.courseId);
   const { refreshUserInfo } = useUserStore(
-    useShallow((state) => ({
+    useShallow(state => ({
       refreshUserInfo: state.refreshUserInfo,
-    }))
+    })),
   );
 
   const { t, i18n } = useTranslation('translation', { keyPrefix: 'c' });
@@ -77,7 +77,7 @@ export const UserSettings = ({
       key: 'birth',
       value: birth,
     });
-    dynFormData.forEach((v) => {
+    dynFormData.forEach(v => {
       // @ts-expect-error EXPECT
       data.push({
         // @ts-expect-error EXPECT
@@ -89,21 +89,30 @@ export const UserSettings = ({
     await updateUserProfile(data, courseId);
     await refreshUserInfo();
     onClose();
-  }, [avatar, birth, dynFormData, nickName, onClose, refreshUserInfo, sex, courseId]);
+  }, [
+    avatar,
+    birth,
+    dynFormData,
+    nickName,
+    onClose,
+    refreshUserInfo,
+    sex,
+    courseId,
+  ]);
 
   const onNickNameChanged = useCallback(
-    (e) => {
+    e => {
       setNickName(e.target.value);
     },
-    [setNickName]
+    [setNickName],
   );
 
   const onSexSettingModalOk = useCallback(
-    (e) => {
+    e => {
       setSex(e.sex);
       setSexSettingModalOpen(false);
     },
-    [setSex]
+    [setSex],
   );
 
   const onSexSelectClick = useCallback(() => {
@@ -128,10 +137,10 @@ export const UserSettings = ({
 
   const loadData = useCallback(async () => {
     // TODO: FIXME
-    const userInfo = await api.getUserInfo({})
+    const userInfo = await api.getUserInfo({});
     if (userInfo) {
-      setNickName(userInfo.name || userInfo.username || userInfo.email)
-      setAvatar(userInfo.avatar)
+      setNickName(userInfo.name || userInfo.username || userInfo.email);
+      setAvatar(userInfo.avatar);
     }
     // const { data: respData } = await getUserProfile(courseId);
     // respData.forEach((v) => {
@@ -148,18 +157,17 @@ export const UserSettings = ({
     // setDynFormData(respData.filter((v) => (!fixed_keys.includes(v.key) && !hidden_keys.includes(v.key))));
   }, []);
 
-
   useEffect(() => {
     loadData();
-  },[i18n.language,loadData]);
+  }, [i18n.language, loadData]);
 
   const onChangeAvatarChanged = useCallback(({ dataUrl }) => {
     setAvatar(dataUrl);
   }, []);
 
   const onDynamicSettingItemChange = useCallback((key, value) => {
-    setDynFormData((prev) => {
-      return prev.map((v) => {
+    setDynFormData(prev => {
+      return prev.map(v => {
         // @ts-expect-error EXPECT
         if (v.key === key) {
           // @ts-expect-error EXPECT
@@ -192,7 +200,10 @@ export const UserSettings = ({
               }
             >
               {/* @ts-expect-error EXPECT */}
-              <ChangeAvatar image={avatar} onChange={onChangeAvatarChanged} />
+              <ChangeAvatar
+                image={avatar}
+                onChange={onChangeAvatarChanged}
+              />
               <div className={styles.basicInfoTitle}>
                 {t('settings.basicInfo')}
               </div>
@@ -240,7 +251,7 @@ export const UserSettings = ({
                 // @ts-expect-error EXPECT
                 maxLength={10}
               />
-              {dynFormData.map((item) => {
+              {dynFormData.map(item => {
                 return (
                   <DynamicSettingItem
                     // @ts-expect-error EXPECT
@@ -258,7 +269,8 @@ export const UserSettings = ({
           <div className={styles.centerWrapper}>
             <Button
               className={styles.saveBtn}
-              onClick={onSaveSettingsClick}>
+              onClick={onSaveSettingsClick}
+            >
               保存
             </Button>
           </div>

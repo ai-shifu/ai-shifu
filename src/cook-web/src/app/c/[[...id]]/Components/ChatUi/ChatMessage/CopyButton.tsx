@@ -27,8 +27,12 @@ export const CopyButton = ({ content }) => {
 
   return (
     <Button
-      className={clsx(styles.copyButton, hasCopy ? styles.copyed : '', 'border-dashed')}
-      variant="outline"
+      className={clsx(
+        styles.copyButton,
+        hasCopy ? styles.copyed : '',
+        'border-dashed',
+      )}
+      variant='outline'
       onClick={onCopyClick}
     >
       <CopyIcon />

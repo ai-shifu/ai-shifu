@@ -8,42 +8,42 @@
 
 ### 1. 核心API配置 (Core API Configuration)
 
-| 变量名 | 用途 | 默认值 |
-|--------|------|--------|
+| 变量名                     | 用途       | 默认值                  |
+| -------------------------- | ---------- | ----------------------- |
 | `NEXT_PUBLIC_API_BASE_URL` | API基础URL | `http://localhost:8081` |
 
 ### 2. 课程配置 (Course Configuration)
 
-| 变量名 | 用途 | 默认值 |
-|--------|------|--------|
+| 变量名                          | 用途       | 默认值   |
+| ------------------------------- | ---------- | -------- |
 | `NEXT_PUBLIC_DEFAULT_COURSE_ID` | 默认课程ID | 空字符串 |
 
 ### 3. 微信集成 (WeChat Integration)
 
-| 变量名 | 用途 | 默认值 |
-|--------|------|--------|
-| `NEXT_PUBLIC_WECHAT_APP_ID` | 微信App ID | 空字符串 |
-| `NEXT_PUBLIC_WECHAT_CODE_ENABLED` | 是否启用微信码 | `true` |
+| 变量名                            | 用途           | 默认值   |
+| --------------------------------- | -------------- | -------- |
+| `NEXT_PUBLIC_WECHAT_APP_ID`       | 微信App ID     | 空字符串 |
+| `NEXT_PUBLIC_WECHAT_CODE_ENABLED` | 是否启用微信码 | `true`   |
 
 ### 4. UI配置 (UI Configuration)
 
-| 变量名 | 用途 | 默认值 |
-|--------|------|--------|
-| `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 | `false` |
-| `NEXT_PUBLIC_UI_LOGO_HORIZONTAL` | 水平Logo URL | 空字符串 |
-| `NEXT_PUBLIC_UI_LOGO_VERTICAL` | 垂直Logo URL | 空字符串 |
+| 变量名                                   | 用途               | 默认值   |
+| ---------------------------------------- | ------------------ | -------- |
+| `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 | `false`  |
+| `NEXT_PUBLIC_UI_LOGO_HORIZONTAL`         | 水平Logo URL       | 空字符串 |
+| `NEXT_PUBLIC_UI_LOGO_VERTICAL`           | 垂直Logo URL       | 空字符串 |
 
 ### 5. 分析统计 (Analytics)
 
-| 变量名 | 用途 | 默认值 |
-|--------|------|--------|
-| `NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT` | Umami统计脚本URL | 空字符串 |
-| `NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID` | Umami站点ID | 空字符串 |
+| 变量名                                | 用途             | 默认值   |
+| ------------------------------------- | ---------------- | -------- |
+| `NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT`  | Umami统计脚本URL | 空字符串 |
+| `NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID` | Umami站点ID      | 空字符串 |
 
 ### 6. 开发调试 (Development & Debugging)
 
-| 变量名 | 用途 | 默认值 |
-|--------|------|--------|
+| 变量名                            | 用途                  | 默认值  |
+| --------------------------------- | --------------------- | ------- |
 | `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED` | 是否启用Eruda调试工具 | `false` |
 
 ## 使用方式
@@ -84,27 +84,29 @@ export async function GET() {
 
 ```json
 {
-    "apiBaseUrl": "http://127.0.0.1:5800",
-    "courseId": "ca3265b045e84774b8d845a4c3c5b0a3",
-    "wechatAppId": "wx973eb6079c64d030",
-    "enableWechatCode": true,
-    "alwaysShowLessonTree": "true",
-    "logoHorizontal": "",
-    "logoVertical": "",
-    "umamiScriptSrc": "https://umami.ai-shifu.com/script.js",
-    "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
-    "enableEruda": "false"
+  "apiBaseUrl": "http://127.0.0.1:5800",
+  "courseId": "ca3265b045e84774b8d845a4c3c5b0a3",
+  "wechatAppId": "wx973eb6079c64d030",
+  "enableWechatCode": true,
+  "alwaysShowLessonTree": "true",
+  "logoHorizontal": "",
+  "logoVertical": "",
+  "umamiScriptSrc": "https://umami.ai-shifu.com/script.js",
+  "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
+  "enableEruda": "false"
 }
 ```
 
 ## 路由配置说明
 
 ### `/c/[[...id]]` 路由
+
 - **配置获取方式**：通过 `/api/config` API
 - **用途**：课程学习页面，需要完整的配置信息
 - **包含配置**：课程ID、微信配置、UI配置、统计配置等
 
 ### `/main` 路由
+
 - **配置获取方式**：直接使用 `environment` 模块
 - **用途**：师傅列表页面，主要需要API基础URL
 - **包含配置**：API基础URL（用于API请求）
@@ -114,6 +116,7 @@ export async function GET() {
 ### 环境变量配置
 
 Docker 部署不受影响：
+
 - 环境变量在运行时通过 Docker 的 `-e` 参数或 `docker-compose.yml` 传入
 - 构建时不需要环境变量，运行时才会读取
 - 环境配置模块会自动处理变量读取
@@ -133,51 +136,68 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 ### 完成的工作
 
 #### 1. 统一环境变量管理
+
 ✅ **创建了统一的环境配置模块** (`src/config/environment.ts`)
+
 - 集中管理所有环境变量
 - 提供类型安全的接口
 
 #### 2. 解决重复和命名不一致问题
+
 ✅ **合并了重复的环境变量**：
+
 - `SITE_HOST`, `NEXT_PUBLIC_BASEURL`, `NEXT_PUBLIC_SITE_URL` → `NEXT_PUBLIC_API_BASE_URL`
 - 统一了API基础URL的获取逻辑
 
 ✅ **标准化了命名规范**：
+
 - 所有变量使用 `NEXT_PUBLIC_` 前缀
 - 按功能分类：`UI_`, `ANALYTICS_`, `DEBUG_` 等
 - 布尔值变量使用 `_ENABLED` 后缀
 
 #### 3. 清理了分散的配置文件
+
 ✅ **删除了重复的配置文件**：
+
 - 删除了 `src/config/runtime-config.ts`
 - 删除了 `src/config/site.ts`
 - 统一使用 `src/config/environment.ts`
 
 #### 4. 修复了类型错误
+
 ✅ **修复了所有TypeScript类型错误**：
+
 - 统一了接口定义
 - 修复了属性访问错误
 - 确保了类型安全
 
 #### 5. 修复了API配置重复问题
+
 ✅ **修复了 `/api/config` 路由的数据重复问题**：
+
 - 移除了重复字段，避免数据重复
 - 现在只返回一份干净的配置数据
 
 #### 6. 修复了配置数据映射问题
+
 ✅ **修复了配置数据字段映射**：
+
 - 更新了 `/c/[[...id]]/layout.tsx` 中的字段映射
 - 使用新的字段名（如 `courseId` 而不是 `NEXT_PUBLIC_COURSE_ID`）
 - 确保所有组件都能正确获取配置
 
 #### 7. 路由配置优化
+
 ✅ **优化了不同路由的配置获取**：
+
 - `/c/[[...id]]` 路由：通过 `/api/config` 获取完整配置
 - `/main` 路由：直接使用 `environment` 模块，无需额外API调用
 - 根据路由需求选择合适的配置获取方式
 
 #### 8. 移除向后兼容性
+
 ✅ **移除了所有向后兼容性代码**：
+
 - 移除了环境变量名称的fallback逻辑
 - 移除了API响应中的兼容字段
 - 移除了 `legacyEnv` 对象
@@ -185,20 +205,20 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 
 ### 环境变量迁移映射
 
-| 旧变量名 | 新变量名 | 说明 |
-|---------|---------|------|
-| `SITE_HOST` | `NEXT_PUBLIC_API_BASE_URL` | API基础URL |
-| `NEXT_PUBLIC_BASEURL` | `NEXT_PUBLIC_API_BASE_URL` | API基础URL |
-| `NEXT_PUBLIC_SITE_URL` | `NEXT_PUBLIC_API_BASE_URL` | API基础URL |
-| `NEXT_PUBLIC_COURSE_ID` | `NEXT_PUBLIC_DEFAULT_COURSE_ID` | 默认课程ID |
-| `NEXT_PUBLIC_APP_ID` | `NEXT_PUBLIC_WECHAT_APP_ID` | 微信App ID |
-| `NEXT_PUBLIC_ENABLE_WXCODE` | `NEXT_PUBLIC_WECHAT_CODE_ENABLED` | 是否启用微信码 |
+| 旧变量名                              | 新变量名                                 | 说明               |
+| ------------------------------------- | ---------------------------------------- | ------------------ |
+| `SITE_HOST`                           | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
+| `NEXT_PUBLIC_BASEURL`                 | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
+| `NEXT_PUBLIC_SITE_URL`                | `NEXT_PUBLIC_API_BASE_URL`               | API基础URL         |
+| `NEXT_PUBLIC_COURSE_ID`               | `NEXT_PUBLIC_DEFAULT_COURSE_ID`          | 默认课程ID         |
+| `NEXT_PUBLIC_APP_ID`                  | `NEXT_PUBLIC_WECHAT_APP_ID`              | 微信App ID         |
+| `NEXT_PUBLIC_ENABLE_WXCODE`           | `NEXT_PUBLIC_WECHAT_CODE_ENABLED`        | 是否启用微信码     |
 | `NEXT_PUBLIC_ALWAYS_SHOW_LESSON_TREE` | `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 |
-| `NEXT_PUBLIC_LOGO_HORIZONTAL` | `NEXT_PUBLIC_UI_LOGO_HORIZONTAL` | 水平Logo |
-| `NEXT_PUBLIC_LOGO_VERTICAL` | `NEXT_PUBLIC_UI_LOGO_VERTICAL` | 垂直Logo |
-| `NEXT_PUBLIC_UMAMI_SCRIPT_SRC` | `NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT` | Umami脚本 |
-| `NEXT_PUBLIC_UMAMI_WEBSITE_ID` | `NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID` | Umami站点ID |
-| `NEXT_PUBLIC_ERUDA` | `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED` | 是否启用Eruda |
+| `NEXT_PUBLIC_LOGO_HORIZONTAL`         | `NEXT_PUBLIC_UI_LOGO_HORIZONTAL`         | 水平Logo           |
+| `NEXT_PUBLIC_LOGO_VERTICAL`           | `NEXT_PUBLIC_UI_LOGO_VERTICAL`           | 垂直Logo           |
+| `NEXT_PUBLIC_UMAMI_SCRIPT_SRC`        | `NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT`     | Umami脚本          |
+| `NEXT_PUBLIC_UMAMI_WEBSITE_ID`        | `NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID`    | Umami站点ID        |
+| `NEXT_PUBLIC_ERUDA`                   | `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED`        | 是否启用Eruda      |
 
 ## 优势
 
@@ -225,6 +245,7 @@ docker run -e NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com \
 ## 环境变量文件示例
 
 ### 开发环境 (.env.local)
+
 ```bash
 # ===== Core API Configuration =====
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:5800
@@ -250,6 +271,7 @@ NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 ```
 
 ### 生产环境 (docker.env.example)
+
 ```bash
 # ===== Core API Configuration =====
 NEXT_PUBLIC_API_BASE_URL=https://api.your-domain.com

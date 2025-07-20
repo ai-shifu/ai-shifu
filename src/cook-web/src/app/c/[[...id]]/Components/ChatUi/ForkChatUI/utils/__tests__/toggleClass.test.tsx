@@ -13,7 +13,7 @@ describe('utils/toggleClass', () => {
   });
 
   it('should add a class', () => {
-    const { getByTestId } = render(<div data-testid="foo" />);
+    const { getByTestId } = render(<div data-testid='foo' />);
     const foo = getByTestId('foo');
 
     toggleClass('test1', true, foo);
@@ -22,7 +22,12 @@ describe('utils/toggleClass', () => {
   });
 
   it('should have the transform style', () => {
-    const { getByTestId } = render(<div className="test1 test2" data-testid="foo" />);
+    const { getByTestId } = render(
+      <div
+        className='test1 test2'
+        data-testid='foo'
+      />,
+    );
     const foo = getByTestId('foo');
 
     toggleClass('test1', false, foo);

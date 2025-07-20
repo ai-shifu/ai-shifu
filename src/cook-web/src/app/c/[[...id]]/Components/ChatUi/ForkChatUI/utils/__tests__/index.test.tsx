@@ -20,7 +20,7 @@ describe('utils/index', () => {
   });
 
   it('should return element offset height to force the reflow', () => {
-    const { getByTestId } = render(<div data-testid="foo" />);
+    const { getByTestId } = render(<div data-testid='foo' />);
     const foo = getByTestId('foo');
 
     expect(reflow(foo)).toBe(0);

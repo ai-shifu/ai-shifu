@@ -12,4 +12,9 @@ const style = {
   whiteSpace: 'nowrap',
 };
 
-export const VisuallyHidden = (props: any) => <span style={style} {...props} />;
+export const VisuallyHidden = (props: any) => (
+  <span
+    style={style}
+    {...props}
+  />
+);

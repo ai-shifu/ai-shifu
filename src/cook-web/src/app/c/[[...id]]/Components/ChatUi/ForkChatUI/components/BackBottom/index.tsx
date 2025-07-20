@@ -13,7 +13,10 @@ export const BackBottom = ({ count, onClick, onDidMount }: BackBottomProps) => {
   const { trans } = useLocale('BackBottom');
   let text = trans('bottom');
   if (count) {
-    text = trans(count === 1 ? 'newMsgOne' : 'newMsgOther').replace('{n}', count);
+    text = trans(count === 1 ? 'newMsgOne' : 'newMsgOther').replace(
+      '{n}',
+      count,
+    );
   }
 
   useEffect(() => {
@@ -23,10 +26,13 @@ export const BackBottom = ({ count, onClick, onDidMount }: BackBottomProps) => {
   }, [onDidMount]);
 
   return (
-    <div className="BackBottom">
-      <Button className="slide-in-right-item" onClick={onClick}>
+    <div className='BackBottom'>
+      <Button
+        className='slide-in-right-item'
+        onClick={onClick}
+      >
         {text}
-        <Icon type="chevron-double-down" />
+        <Icon type='chevron-double-down' />
       </Button>
     </div>
   );

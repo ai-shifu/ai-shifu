@@ -4,7 +4,10 @@ import { Item, ScrollViewItemProps } from './Item';
 import { IconButton } from '../IconButton';
 import canUse from '../../utils/canUse';
 
-export type ScrollViewProps<T> = Pick<ScrollViewItemProps, 'effect' | 'onIntersect'> & {
+export type ScrollViewProps<T> = Pick<
+  ScrollViewItemProps,
+  'effect' | 'onIntersect'
+> & {
   data: Array<T>;
   renderItem: (item: T, index: number) => React.ReactNode;
   className?: string;
@@ -21,7 +24,10 @@ export interface ScrollViewHandle {
   scrollTo: (coord: { x?: number; y?: number }) => void;
 }
 
-export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps<any>>((props, ref) => {
+export const ScrollView = React.forwardRef<
+  ScrollViewHandle,
+  ScrollViewProps<any>
+>((props, ref) => {
   const {
     className,
     fullWidth,
@@ -52,7 +58,8 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps<any
     (item: any, index: number) => {
       let key;
       if (itemKey) {
-        key = typeof itemKey === 'function' ? itemKey(item, index) : item[itemKey];
+        key =
+          typeof itemKey === 'function' ? itemKey(item, index) : item[itemKey];
       }
       return key || index;
     },
@@ -86,14 +93,18 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps<any
     >
       {hasControls && (
         <IconButton
-          className="ScrollView-control"
-          icon="chevron-left"
-          aria-label="Previous"
+          className='ScrollView-control'
+          icon='chevron-left'
+          aria-label='Previous'
           onClick={handlePrev}
         />
       )}
-      <div className="ScrollView-scroller" ref={scrollerRef} onScroll={onScroll}>
-        <div className="ScrollView-inner">
+      <div
+        className='ScrollView-scroller'
+        ref={scrollerRef}
+        onScroll={onScroll}
+      >
+        <div className='ScrollView-inner'>
           {data.map((item, i) => (
             <Item
               item={item}
@@ -105,7 +116,11 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps<any
             </Item>
           ))}
           {children ? (
-            <Item item={{}} effect={effect} onIntersect={onIntersect}>
+            <Item
+              item={{}}
+              effect={effect}
+              onIntersect={onIntersect}
+            >
               {children}
             </Item>
           ) : null}
@@ -113,9 +128,9 @@ export const ScrollView = React.forwardRef<ScrollViewHandle, ScrollViewProps<any
       </div>
       {hasControls && (
         <IconButton
-          className="ScrollView-control"
-          icon="chevron-right"
-          aria-label="Next"
+          className='ScrollView-control'
+          icon='chevron-right'
+          aria-label='Next'
           onClick={handleNext}
         />
       )}

@@ -8,7 +8,7 @@ export type CheckboxProps = React.InputHTMLAttributes<HTMLInputElement> & {
   label?: CheckboxValue;
 };
 
-export const Checkbox: React.FC<CheckboxProps> = (props) => {
+export const Checkbox: React.FC<CheckboxProps> = props => {
   const { className, label, checked, disabled, onChange, ...other } = props;
   return (
     <label
@@ -18,15 +18,15 @@ export const Checkbox: React.FC<CheckboxProps> = (props) => {
       })}
     >
       <input
-        type="checkbox"
-        className="Checkbox-input"
+        type='checkbox'
+        className='Checkbox-input'
         checked={checked}
         disabled={disabled}
         onChange={onChange}
         {...other}
       />
       {/* <span className="Checkbox-icon" /> */}
-      <span className="Checkbox-text">{label}</span>
+      <span className='Checkbox-text'>{label}</span>
     </label>
   );
 };

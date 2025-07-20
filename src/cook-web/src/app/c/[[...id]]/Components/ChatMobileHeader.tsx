@@ -1,15 +1,19 @@
 import styles from './ChatMobileHeader.module.scss';
 
 import { memo } from 'react';
-import { cn } from '@/lib/utils'
+import { cn } from '@/lib/utils';
 
-import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from '@/components/ui/popover';
 
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui/button';
 import {
   CircleEllipsisIcon as MoreIcon,
-  CircleX as CloseIcon
-} from 'lucide-react'
+  CircleX as CloseIcon,
+} from 'lucide-react';
 
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import LogoWithText from '@/c-components/logo/LogoWithText';
@@ -29,13 +33,16 @@ export const ChatMobileHeader = ({
   } = useDisclosure();
 
   const hasPopoverContentControl = shifu.hasControl(
-    shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER
+    shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
 
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>
       {iconPopoverPayload && (
-        <div className="hidden" style={{display: "none"}}>
+        <div
+          className='hidden'
+          style={{ display: 'none' }}
+        >
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
             onOpen={onIconPopoverOpen}
@@ -43,7 +50,10 @@ export const ChatMobileHeader = ({
           />
         </div>
       )}
-      <LogoWithText direction="row" size={30} />
+      <LogoWithText
+        direction='row'
+        size={30}
+      />
       <Popover open={iconPopoverOpen && hasPopoverContentControl}>
         <PopoverTrigger asChild>
           <Button onClick={onSettingClick}>
@@ -51,11 +61,11 @@ export const ChatMobileHeader = ({
           </Button>
         </PopoverTrigger>
         <PopoverContent className={styles.iconButtonPopover}>
-            <MobileHeaderIconPopover
-              payload={iconPopoverPayload}
-              onOpen={onIconPopoverOpen}
-              onClose={onIconPopoverClose}
-            />
+          <MobileHeaderIconPopover
+            payload={iconPopoverPayload}
+            onOpen={onIconPopoverOpen}
+            onClose={onIconPopoverClose}
+          />
         </PopoverContent>
       </Popover>
     </div>

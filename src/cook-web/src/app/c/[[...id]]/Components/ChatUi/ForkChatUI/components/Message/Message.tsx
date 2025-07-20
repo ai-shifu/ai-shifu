@@ -56,27 +56,55 @@ export interface MessageProps {
 
 const Message = (props: MessageProps) => {
   const { renderMessageContent = () => null, ...msg } = props;
-  const { type, content, user = {}, _id: id, position = 'left', hasTime = true, createdAt } = msg;
+  const {
+    type,
+    content,
+    user = {},
+    _id: id,
+    position = 'left',
+    hasTime = true,
+    createdAt,
+  } = msg;
   const { name, avatar } = user;
 
   if (type === 'system') {
-    return <SystemMessage content={content.text} action={content.action} />;
+    return (
+      <SystemMessage
+        content={content.text}
+        action={content.action}
+      />
+    );
   }
 
   const isRL = position === 'right' || position === 'left';
 
   return (
-    <div className={clsx('Message', position)} data-id={id} data-type={type}>
+    <div
+      className={clsx('Message', position)}
+      data-id={id}
+      data-type={type}
+    >
       {hasTime && createdAt && (
-        <div className="Message-meta">
+        <div className='Message-meta'>
           <Time date={createdAt} />
         </div>
       )}
-      <div className="Message-main">
-        {isRL && avatar && <Avatar src={avatar} alt={name} url={user.url} />}
-        <div className="Message-inner">
-          {isRL && name && <div className="Message-author">{name}</div>}
-          <div className="Message-content" role="alert" aria-live="assertive" aria-atomic="false">
+      <div className='Message-main'>
+        {isRL && avatar && (
+          <Avatar
+            src={avatar}
+            alt={name}
+            url={user.url}
+          />
+        )}
+        <div className='Message-inner'>
+          {isRL && name && <div className='Message-author'>{name}</div>}
+          <div
+            className='Message-content'
+            role='alert'
+            aria-live='assertive'
+            aria-atomic='false'
+          >
             {type === 'typing' ? <Typing /> : renderMessageContent(msg)}
           </div>
         </div>

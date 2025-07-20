@@ -3,32 +3,32 @@ import store from 'store';
 const TOKEN_KEY = 'token';
 const TOKEN_FAKED_KEY = 'token_faked';
 
-const createStore = (key) => {
+const createStore = key => {
   return {
     get: () => {
       return store.get(key);
     },
-    set: (v) => {
+    set: v => {
       store.set(key, v);
     },
     remove: () => {
       store.remove(key);
-    }
+    },
   };
 };
 
-const createBoolStore = (key) => {
+const createBoolStore = key => {
   return {
     get: () => {
       return !!parseInt(store.get(key));
     },
-    set: (v) => {
+    set: v => {
       const val = v ? 1 : 0;
       store.set(key, val);
     },
     remove: () => {
       store.remove(key);
-    }
+    },
   };
 };
 
@@ -47,5 +47,5 @@ export const tokenTool = {
   remove: () => {
     tokenStore.remove();
     tokenFakedStore.remove();
-  }
+  },
 };

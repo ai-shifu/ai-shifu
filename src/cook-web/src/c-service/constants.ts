@@ -6,5 +6,5 @@ export const languages = [
   {
     value: 'en-US',
     label: 'English',
-  }
-]
+  },
+];

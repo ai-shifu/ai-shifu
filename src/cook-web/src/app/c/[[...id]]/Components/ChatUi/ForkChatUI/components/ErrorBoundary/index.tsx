@@ -43,7 +43,13 @@ export class ErrorBoundary extends React.Component<
 
     if (errorInfo) {
       if (FallbackComponent) {
-        return <FallbackComponent error={error!} errorInfo={errorInfo} {...rest} />;
+        return (
+          <FallbackComponent
+            error={error!}
+            errorInfo={errorInfo}
+            {...rest}
+          />
+        );
       }
 
       return null;

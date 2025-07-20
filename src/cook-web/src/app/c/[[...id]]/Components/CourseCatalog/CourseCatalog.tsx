@@ -9,7 +9,7 @@ import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 
 import { cn } from '@/lib/utils';
 
-import { ChevronDownIcon } from 'lucide-react'
+import { ChevronDownIcon } from 'lucide-react';
 
 export const CourseCatalog = ({
   id = 0,
@@ -22,15 +22,14 @@ export const CourseCatalog = ({
   onLessonSelect = () => {},
   onTrySelect,
 }) => {
-
   const _onTrySelect = useCallback(
     ({ id: lessonId }) => {
       onTrySelect?.({ chapterId: id, lessonId });
     },
-    [id, onTrySelect]
+    [id, onTrySelect],
   );
 
-  const onResetButtonClick = useCallback((e) => {
+  const onResetButtonClick = useCallback(e => {
     e.stopPropagation();
   }, []);
 
@@ -45,13 +44,17 @@ export const CourseCatalog = ({
       className={cn(
         styles.courseCatalog,
         collapse && styles.collapse,
-        mobileStyle && styles.mobile
+        mobileStyle && styles.mobile,
       )}
     >
-      <div className={styles.titleRow} onClick={onTitleRowClick}>
+      <div
+        className={styles.titleRow}
+        onClick={onTitleRowClick}
+      >
         <div className={styles.leftSection}>{name}</div>
         <div className={styles.rightSection}>
-          {status === LESSON_STATUS_VALUE.LEARNING || status === LESSON_STATUS_VALUE.COMPLETED ? (
+          {status === LESSON_STATUS_VALUE.LEARNING ||
+          status === LESSON_STATUS_VALUE.COMPLETED ? (
             // @ts-expect-error EXPECT
             <ResetChapterButton
               onClick={onResetButtonClick}
@@ -60,15 +63,15 @@ export const CourseCatalog = ({
               // @ts-expect-error EXPECT
               lessonId={lessons?.[0]?.id}
             />
-          ) : null }
+          ) : null}
           <ChevronDownIcon className={styles.collapseBtn} />
         </div>
       </div>
       <div className={styles.sectionList}>
-        {lessons.map((e) => {
+        {lessons.map(e => {
           return (
             <CourseSection
-            // @ts-expect-error EXPECT
+              // @ts-expect-error EXPECT
               key={e.id}
               // @ts-expect-error EXPECT
               id={e.id}
