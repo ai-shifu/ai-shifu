@@ -15,8 +15,8 @@ const OrderPromotePopoverContent = ({ payload, onCancelButtonClick, onOkButtonCl
         <div className={styles.descRow1}>{payload.pop_up_title}</div>
         <div className={styles.descRow2}>{payload.pop_up_content}</div>
         <div className={styles.buttonRow}>
-          <Button 
-            onClick={onCancelButtonClick} 
+          <Button
+            onClick={onCancelButtonClick}
             style={{ height: 26 }}>
             {payload.pop_up_cancel_text}
           </Button>

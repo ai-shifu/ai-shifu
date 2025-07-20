@@ -24,7 +24,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SHORTCUT_IDS, genHotKeyIdentifier } from '@/c-service/shortcut';
 
-import { 
+import {
   InfoIcon,
   MailIcon,
   MessageSquareWarningIcon,
@@ -161,7 +161,7 @@ const GlobalInfoButton = ({ className }) => {
                 </a>
               </div>
               <div className={clsx(styles.gonganRow, styles.policyInfoRow)}>
-                <Image 
+                <Image
                   src={beianIcon.src}
                   width={12}
                   height={14}

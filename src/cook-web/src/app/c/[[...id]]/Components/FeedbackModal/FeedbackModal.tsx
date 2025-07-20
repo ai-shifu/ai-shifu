@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { cn } from '@/lib/utils'
 
-import { 
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -97,7 +97,7 @@ export const FeedbackModal = ({ open, onClose }) => {
                   </FormItem>
                 )}
               />
-              
+
               <DialogFooter>
                   <Button type="submit" className={cn('w-full', styles.okBtn)}>
                      {t('feedback.feedbackSubmit')}

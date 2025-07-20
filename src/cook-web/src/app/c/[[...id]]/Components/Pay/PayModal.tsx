@@ -260,7 +260,7 @@ export const PayModal = ({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent 
+        <DialogContent
         className={cn(styles.payModal, 'w-[700px] h-[588px]')}
         onPointerDownOutside={(evt) => evt.preventDefault()}>
           {!initLoading && (

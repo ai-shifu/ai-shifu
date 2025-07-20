@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { 
+import {
   Dialog,
   DialogContent,
   DialogFooter,
@@ -58,8 +58,8 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(_onOk)}>
-          <DialogContent 
-            className={cn(styles.couponCodeModal, 'w-96')} 
+          <DialogContent
+            className={cn(styles.couponCodeModal, 'w-96')}
             onPointerDownOutside={(evt) => evt.preventDefault()}>
             <DialogHeader>
               <DialogTitle>

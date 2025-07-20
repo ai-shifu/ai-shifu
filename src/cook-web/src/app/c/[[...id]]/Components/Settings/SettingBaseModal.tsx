@@ -23,7 +23,7 @@ export const SettingBaseModal = ({
   header = (t, title) => <div className={styles.header}>{title}</div>,
 }) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
-  
+
   const { mobileStyle } = useContext(AppContext);
 
   function handleOpenChange(open: boolean) {

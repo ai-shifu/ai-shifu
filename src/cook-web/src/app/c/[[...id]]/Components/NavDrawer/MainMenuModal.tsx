@@ -125,8 +125,8 @@ const MainMenuModal = ({
 
   return (
     <>
-       <AlertDialog 
-        open={logoutConfirmOpen} 
+       <AlertDialog
+        open={logoutConfirmOpen}
         onOpenChange={(open) => setLogoutConfirmOpen(open)}>
         <AlertDialogContent>
           <AlertDialogHeader>

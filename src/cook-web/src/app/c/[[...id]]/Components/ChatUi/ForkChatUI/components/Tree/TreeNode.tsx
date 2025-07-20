@@ -29,9 +29,9 @@ export const TreeNode: React.FC<TreeNodeProps> = (props) => {
     }
   }
   return (
-    <div 
-    className="TreeNode" 
-    // role="treeitem" 
+    <div
+    className="TreeNode"
+    // role="treeitem"
     aria-expanded={expand}>
       {
         <div

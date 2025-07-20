@@ -44,8 +44,8 @@ export const PopupModal = ({
       style={wrapStyle}
     >
       {open && (
-        <div style={style} 
-        className={styles.popupModal} 
+        <div style={style}
+        className={styles.popupModal}
         ref={popupRef}>
           {children}
         </div>

@@ -30,7 +30,7 @@ const TrialNodeBottomArea = ({ payload }) => {
     };
     // @ts-expect-error EXPECT
     shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
-    
+
     return () => {
       // @ts-expect-error EXPECT
       shifu.events.removeEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);

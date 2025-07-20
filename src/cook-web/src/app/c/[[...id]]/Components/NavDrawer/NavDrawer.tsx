@@ -80,7 +80,7 @@ const NavDrawer = ({
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
-  
+
   const footerRef = useRef(null);
   const bodyRef = useRef(null);
 

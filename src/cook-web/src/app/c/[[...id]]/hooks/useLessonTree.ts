@@ -10,7 +10,7 @@ export const checkChapterCanLearning = ({ status_value }) => {
   const canLearn = status_value === LESSON_STATUS_VALUE.LEARNING ||
     status_value === LESSON_STATUS_VALUE.COMPLETED ||
     status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING;
-    
+
   return canLearn
 };
 
@@ -24,7 +24,7 @@ export const useLessonTree = () => {
     if (!tree || !selectedLessonId) {
       return { catalog: null, lesson: null }
     }
-    
+
     for (const catalog of tree.catalogs) {
       const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
       if (lesson) {
@@ -136,14 +136,14 @@ export const useLessonTree = () => {
     }
     // 设置 collapse 状态
     await newTree?.catalogs.forEach(c => {
-      
+
       const oldCatalog = tree?.catalogs.find(oc => oc.id === c.id);
 
       if (oldCatalog) {
         c.collapse = oldCatalog.collapse;
       }
     });
-    
+
     setTree(newTree);
     return newTree;
   }, [loadTreeInner, tree, initialSelectedChapter, setSelectedState]);
@@ -151,7 +151,7 @@ export const useLessonTree = () => {
   const loadTree = useCallback(async (chapterId = '', lessonId = '') => {
     let newTree: { bannerInfo?: any; catalogs: any[]; } | null = null;
     if (!tree) {
-      
+
       newTree = await loadTreeInner();
     } else {
       newTree = tree;
@@ -168,7 +168,7 @@ export const useLessonTree = () => {
 
   const updateSelectedLesson = async (lessonId, forceExpand = false) => {
     setSelectedLessonId(lessonId);
-    
+
     setTree(old => {
       if (!old) {
         return null;
@@ -192,7 +192,7 @@ export const useLessonTree = () => {
     if (!tree) {
       return;
     }
-    
+
     const ca = tree.catalogs.find(c => c.id === catalogId);
     if (!ca) {
       return;
@@ -222,7 +222,7 @@ export const useLessonTree = () => {
   };
 
   const updateLesson = (id, val) => {
-    
+
     setTree(old => {
       if (!old) {
         return null;
@@ -247,7 +247,7 @@ export const useLessonTree = () => {
   };
 
   const updateChapterStatus = (id, { status, status_value }) => {
-    
+
     setTree(old => {
       if (!old) {
         return null;
@@ -286,7 +286,7 @@ export const useLessonTree = () => {
 
     let from = '';
     let to = '';
-    
+
     for (const catalog of tree.catalogs) {
       const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
 

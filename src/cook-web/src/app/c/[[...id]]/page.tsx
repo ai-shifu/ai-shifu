@@ -55,7 +55,7 @@ export default function ChatPage() {
   const initAndCheckLogin = useCallback(async () => {
     // Initialize user state (automatically handles guest or auth)
     await initUser();
-    
+
     if (inWechat() && wechatCode && isLoggedIn) {
       await updateWxcode({ wxcode: wechatCode });
     }
@@ -140,7 +140,7 @@ export default function ChatPage() {
   } = useLessonTree();
 
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
-  
+
   useEffect(() => {
     if (tree && i18n.language !== currentLanguage) {
       setCurrentLanguage(i18n.language);
@@ -148,7 +148,7 @@ export default function ChatPage() {
     }
   }, [i18n.language, tree, currentLanguage, reloadTree]);
 
-  
+
 
   const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } = useCourseStore(
     useShallow((state) => ({
@@ -405,7 +405,7 @@ export default function ChatPage() {
             onChapterCollapse={(id) => toggleCollapse({ id })}
             onLessonSelect={onLessonSelect}
             onTryLessonSelect={onTryLessonSelect}
-            
+
             onBasicInfoClick={onGoToSettingBasic}
             onPersonalInfoClick={onGoToSettingPersonal}
           />

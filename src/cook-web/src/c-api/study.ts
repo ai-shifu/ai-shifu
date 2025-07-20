@@ -28,7 +28,7 @@ export const runScript = (course_id, lesson_id, input, input_type, script_id, on
       console.log(e);
     }
   };
-  
+
   source.onerror = () => {};
   source.onclose = () => {};
   source.onopen = () => {};

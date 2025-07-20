@@ -75,9 +75,9 @@ export const ScrollView = () => {
   return <div className={styles.ScrollView} onWheel={onWheel}>
     {buffer.map((item, index) => {
       return (
-      <div 
-        key={item.key} 
-        className={cn(styles.scrollItem)} 
+      <div
+        key={item.key}
+        className={cn(styles.scrollItem)}
         style={{ transform: `translateY(${getTranslateY(index)}px)`, zIndex: getZIndex(index)}}>
         {item.value}
       </div>
