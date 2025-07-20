@@ -69,6 +69,7 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
         block_model.updated_at = now_time
         block_model.updated_user_bid = user_id
         blocks_history = []
+        shifu_bid = block_model.shifu_bid
 
         for block in blocks:
             if block.position > block_model.position:
@@ -81,9 +82,7 @@ def delete_block(result, app, user_id: str, outline_id: str, block_id: str):
                 blocks_history.append(
                     HistoryInfo(bid=block.block_bid, id=update_block.id)
                 )
-        save_blocks_history(
-            app, user_id, block_model.shifu_bid, outline_id, blocks_history
-        )
+        save_blocks_history(app, user_id, shifu_bid, outline_id, blocks_history)
         db.session.commit()
         return True
 
