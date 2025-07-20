@@ -141,6 +141,8 @@ class AdminUser(db.Model):
     user_sex = Column(Integer, nullable=True, default=0, comment="user sex")
     user_birth = Column(Date, nullable=True, default="2003-1-1", comment="user birth")
     user_avatar = Column(String(255), nullable=True, default="", comment="user avatar")
+    is_admin = Column(Boolean, nullable=False, default=False, comment="is admin")
+    is_creator = Column(Boolean, nullable=False, default=False, comment="is creator")
     user_language = Column(
         String(30), nullable=True, default="zh-CN", comment="user language"
     )
