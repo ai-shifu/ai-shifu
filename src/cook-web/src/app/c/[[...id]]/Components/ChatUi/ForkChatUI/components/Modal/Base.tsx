@@ -136,7 +136,9 @@ export const Base: React.FC<ModalProps> = props => {
           </div>
           {actions && (
             <div
-              className={`${baseClass}-footer ${baseClass}-footer--${vertical ? 'v' : 'h'}`}
+              className={`${baseClass}-footer ${baseClass}-footer--${
+                vertical ? 'v' : 'h'
+              }`}
               data-variant={btnVariant || 'round'}
             >
               {actions.map(item => (
