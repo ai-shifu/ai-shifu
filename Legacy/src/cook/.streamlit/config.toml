@@ -1,5 +1,0 @@
-[server]
-enableStaticServing = true
-allowedOrigins = [
-    "*"
-]
