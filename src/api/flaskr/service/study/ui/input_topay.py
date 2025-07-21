@@ -28,6 +28,8 @@ def handle_input_to_pay(
         if not title:
             title = _("COMMON.CHECKOUT")
         title = get_script_ui_label(app, title)
+        if not title or title == "":
+            title = _("COMMON.CHECKOUT")
         btn = [{"label": title, "value": order.order_id}]
         return ScriptDTO("order", {"buttons": btn}, script_info.script_id)
     else:

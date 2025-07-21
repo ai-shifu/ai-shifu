@@ -27,6 +27,8 @@ def handle_require_login(
     if not title:
         title = _("COMMON.LOGIN")
     title = get_script_ui_label(app, title)
+    if not title or title == "":
+        title = _("COMMON.LOGIN")
     btn = [
         {
             "label": title,

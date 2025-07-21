@@ -21,6 +21,7 @@ from flaskr.dao import db
 from flaskr.service.user.models import User
 from flaskr.util.uuid import generate_id
 from flaskr.service.study.utils import get_script_ui_label
+from flaskr.i18n import _
 
 
 @register_ui_handler(UI_TYPE_BRANCH)
@@ -106,9 +107,12 @@ def handle_input_branch(
                 branch_value, jump_rule
             )
         )
+    msg = get_script_ui_label(app, script_info.script_ui_content)
+    if not msg or msg == "":
+        msg = _("COMMON.CONTINUE")
     btn = [
         {
-            "label": get_script_ui_label(app, script_info.script_ui_content),
+            "label": msg,
             "value": script_info.script_ui_content,
             "type": INPUT_TYPE_BRANCH,
         }

@@ -27,6 +27,8 @@ def handle_input_content(
         msg = _("COMMON.CONTINUE")  # Assign default message if msg is empty
 
     msg = get_script_ui_label(app, msg)
+    if not msg or msg == "":
+        msg = _("COMMON.CONTINUE")
 
     btn = [
         {

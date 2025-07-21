@@ -6,6 +6,7 @@ from flaskr.service.study.plugin import register_ui_handler
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
 from flaskr.service.study.utils import get_script_ui_label
+from flaskr.i18n import _
 
 
 @register_ui_handler(UI_TYPE_INPUT)
@@ -18,9 +19,12 @@ def handle_input_text(
     trace,
     trace_args,
 ) -> ScriptDTO:
+    msg = get_script_ui_label(app, script_info.script_ui_content)
+    if not msg or msg == "":
+        msg = _("COMMON.INPUT")
     return ScriptDTO(
         "input",
-        {"content": get_script_ui_label(app, script_info.script_ui_content)},
+        {"content": msg},
         script_info.lesson_id,
         script_info.script_id,
     )

@@ -908,7 +908,7 @@ def get_script_ui_label(app, text):
         for k, v in text.items():
             if v and v != "":
                 return v
-    if text.startswith("{"):
+    if text and text.strip().startswith("{"):
         try:
             json_obj = json.loads(text)
             label = json_obj.get(get_current_language(), "")
