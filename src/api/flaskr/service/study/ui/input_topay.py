@@ -25,10 +25,8 @@ def handle_input_to_pay(
     order = init_buy_record(app, user_info.user_id, attend.course_id)
     if order.status != BUY_STATUS_SUCCESS:
         title = script_info.script_ui_content
-        if not title:
-            title = _("COMMON.CHECKOUT")
         title = get_script_ui_label(app, title)
-        if not title or title == "":
+        if not title:
             title = _("COMMON.CHECKOUT")
         btn = [{"label": title, "value": order.order_id}]
         return ScriptDTO("order", {"buttons": btn}, script_info.script_id)

@@ -22,7 +22,7 @@ def handle_input_phone(
     trace_args,
 ) -> ScriptDTO:
     msg = get_script_ui_label(app, script_info.script_ui_content)
-    if not msg or msg == "":
+    if not msg:
         msg = _("COMMON.PHONE")
     return ScriptDTO(
         INPUT_TYPE_PHONE,

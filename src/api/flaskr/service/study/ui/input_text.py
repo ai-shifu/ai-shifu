@@ -20,7 +20,7 @@ def handle_input_text(
     trace_args,
 ) -> ScriptDTO:
     msg = get_script_ui_label(app, script_info.script_ui_content)
-    if not msg or msg == "":
+    if not msg:
         msg = _("COMMON.INPUT")
     return ScriptDTO(
         "input",
