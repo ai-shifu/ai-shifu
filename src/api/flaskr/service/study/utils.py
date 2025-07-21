@@ -901,6 +901,7 @@ def check_script_is_last_script(
 
 
 def get_script_ui_label(app, text):
+    app.logger.info("text:{}".format(text))
     if isinstance(text, dict):
         label = text.get(get_current_language(), "")
         return label
@@ -908,6 +909,7 @@ def get_script_ui_label(app, text):
         try:
             json_obj = json.loads(text)
             label = json_obj.get(get_current_language(), "")
+
             return label
         except Exception:
             return text
