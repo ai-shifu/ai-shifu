@@ -16,7 +16,6 @@ export interface AvatarProps {
 }
 
 export const Avatar: React.FC<AvatarProps> = props => {
-  // @ts-expect-error EXPECT
   const {
     className,
     src,
@@ -24,6 +23,7 @@ export const Avatar: React.FC<AvatarProps> = props => {
     url,
     size = 'md',
     shape = 'circle',
+    // @ts-expect-error EXPECT
     children,
   } = props;
 

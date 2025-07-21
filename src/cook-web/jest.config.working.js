@@ -4,9 +4,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
-  testMatch: [
-    '<rootDir>/src/__tests__/**/*.{js,jsx,ts,tsx}',
-  ],
+  testMatch: ['<rootDir>/src/__tests__/**/*.{js,jsx,ts,tsx}'],
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
   },
@@ -16,4 +14,4 @@ module.exports = {
     '!src/**/*.d.ts',
     '!src/__tests__/**',
   ],
-}
+};

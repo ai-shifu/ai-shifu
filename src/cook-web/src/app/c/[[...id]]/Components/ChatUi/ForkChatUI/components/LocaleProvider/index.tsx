@@ -13,10 +13,10 @@ type ILocaleContext = {
 const LocaleContext = React.createContext<ILocaleContext>(undefined!);
 const DEFAULT_LOCALE = 'en-US';
 
-// @ts-expect-error EXPECT
 const LocaleProvider: React.FC<ILocaleContext> = ({
   locale,
   locales,
+  // @ts-expect-error EXPECT
   children,
 }) => (
   <LocaleContext.Provider value={{ locale, locales }}>

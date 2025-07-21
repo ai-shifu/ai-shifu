@@ -3,7 +3,7 @@ import createMDX from '@next/mdx';
 import type { NextConfig } from 'next';
 
 const withMDX = createMDX({
-  extension: /\.mdx?$/,          // 同时支持 .md / .mdx，按需改
+  extension: /\.mdx?$/, // 同时支持 .md / .mdx，按需改
   options: {
     // remarkPlugins: [],
     // rehypePlugins: [],
@@ -12,9 +12,7 @@ const withMDX = createMDX({
 
 const nextConfig: NextConfig = {
   async redirects() {
-    return [
-      { source: '/', destination: '/main', permanent: true },
-    ];
+    return [{ source: '/', destination: '/main', permanent: true }];
   },
 
   // 仅 Turbopack dev 时生效

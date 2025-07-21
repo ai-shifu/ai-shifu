@@ -978,8 +978,8 @@ export const ChatComponents = forwardRef<any, any>(
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
     useEffect(() => {
       if (lastMsgRef.current) {
-        // @ts-expect-error EXPECT
         const messageIndex = messages.findIndex(
+          // @ts-expect-error EXPECT
           msg => msg.id === lastMsgRef.current.id,
         );
         if (messageIndex === -1) {

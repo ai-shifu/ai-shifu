@@ -106,8 +106,8 @@ export const genCroppedImg = async (
 export const convertFileToDataUrl = async file => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    // @ts-expect-error EXPECT
     reader.addEventListener('load', e => {
+      // @ts-expect-error EXPECT
       resolve(e.target.result);
     });
     reader.addEventListener('error', err => reject(err));

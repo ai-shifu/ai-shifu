@@ -22,8 +22,8 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
     customEvents.dispatchEvent(
       new CustomEvent(EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED, { detail: {} }),
     );
-    // @ts-expect-error EXPECT
     onComplete?.(
+      // @ts-expect-error EXPECT
       shifu.constants.INTERACTION_OUTPUT_TYPE.CONTINUE,
       payload.label,
       payload.scriptId,
@@ -33,8 +33,8 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
 
   return (
     <>
-      {/* @ts-expect-error EXPECT */}
       {isShow &&
+        // @ts-expect-error EXPECT
         (shifu.getConfig().mobileStyle ? (
           <PayModalM
             open={isShow}
