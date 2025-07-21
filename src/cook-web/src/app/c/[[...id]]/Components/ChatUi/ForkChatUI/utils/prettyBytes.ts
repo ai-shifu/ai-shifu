@@ -1,4 +1,4 @@
-const UNITS = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+const UNITS = ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"];
 const k = 1024;
 
 const prettyBytes = (bytes: number, decimals?: number) => {

@@ -4,20 +4,20 @@ import React, {
   useRef,
   useCallback,
   useImperativeHandle,
-} from 'react';
-import clsx from 'clsx';
-import { setTransform } from '../../utils/style';
-import { Icon } from '../Icon';
-import { Flex } from '../Flex';
-import { Button } from '../Button';
-import canUse from '../../utils/canUse';
-import smoothScroll from '../../utils/smoothScroll';
+} from "react";
+import clsx from "clsx";
+import { setTransform } from "../../utils/style";
+import { Icon } from "../Icon";
+import { Flex } from "../Flex";
+import { Button } from "../Button";
+import canUse from "../../utils/canUse";
+import smoothScroll from "../../utils/smoothScroll";
 
-const canPassive = canUse('passiveListener');
+const canPassive = canUse("passiveListener");
 const listenerOpts = canPassive ? { passive: true } : false;
 const listenerOptsWithoutPassive = canPassive ? { passive: false } : false;
 
-type PullToRefreshStatus = 'pending' | 'pull' | 'active' | 'loading';
+type PullToRefreshStatus = "pending" | "pull" | "active" | "loading";
 
 export interface PullToRefreshProps {
   distance?: number;
@@ -40,7 +40,7 @@ export interface ScrollToEndOptions {
 }
 
 interface PTRScrollToOptions extends ScrollToEndOptions {
-  y: number | '100%';
+  y: number | "100%";
 }
 
 export interface PullToRefreshHandle {
@@ -58,19 +58,13 @@ export const PullToRefresh = React.forwardRef<
     loadingDistance = 30,
     maxDistance,
     distanceRatio = 2,
-    loadMoreText = '点击加载更多',
+    loadMoreText = "点击加载更多",
     children,
     onScroll,
     onRefresh,
     renderIndicator = (status: PullToRefreshStatus) => {
-      if (status === 'active' || status === 'loading') {
-        return (
-          <Icon
-            className='PullToRefresh-spinner'
-            type='spinner'
-            spin
-          />
-        );
+      if (status === "active" || status === "loading") {
+        return <Icon className="PullToRefresh-spinner" type="spinner" spin />;
       }
       return null;
     },
@@ -80,7 +74,7 @@ export const PullToRefresh = React.forwardRef<
   const contentRef = useRef<HTMLDivElement>(null);
 
   const [distance, setDistance] = useState(0);
-  const [status, setStatus] = useState<PullToRefreshStatus>('pending');
+  const [status, setStatus] = useState<PullToRefreshStatus>("pending");
   const [dropped, setDropped] = useState(false);
   const [disabled, setDisabled] = useState(!props.onRefresh);
   const sharedRef = useRef<any>({});
@@ -88,7 +82,7 @@ export const PullToRefresh = React.forwardRef<
   const timer1 = useRef<ReturnType<typeof setTimeout>>(null);
   const timer2 = useRef<ReturnType<typeof setTimeout>>(null);
 
-  const useFallback = !canUse('touch');
+  const useFallback = !canUse("touch");
 
   useEffect(() => {
     statusRef.current = status;
@@ -107,7 +101,7 @@ export const PullToRefresh = React.forwardRef<
     if (!scroller) return;
 
     const offsetTop =
-      y === '100%' ? scroller.scrollHeight - scroller.offsetHeight : y;
+      y === "100%" ? scroller.scrollHeight - scroller.offsetHeight : y;
 
     if (animated) {
       smoothScroll({
@@ -122,14 +116,14 @@ export const PullToRefresh = React.forwardRef<
 
   const scrollToEnd = useCallback(
     ({ animated = true }: ScrollToEndOptions = {}) => {
-      scrollTo({ y: '100%', animated });
+      scrollTo({ y: "100%", animated });
     },
     [],
   );
 
   const reset = useCallback(() => {
     setDistance(0);
-    setStatus('pending');
+    setStatus("pending");
     setContentStyle(0);
   }, []);
 
@@ -138,12 +132,12 @@ export const PullToRefresh = React.forwardRef<
 
     if (!scroller) return;
 
-    setStatus('loading');
+    setStatus("loading");
 
     try {
       const sh = scroller.scrollHeight;
 
-      onRefresh!().then(res => {
+      onRefresh!().then((res) => {
         const handleOffset = () => {
           scrollTo({
             y: scroller.scrollHeight - sh - 50,
@@ -176,7 +170,7 @@ export const PullToRefresh = React.forwardRef<
       wrapperRef.current && wrapperRef.current.scrollTop <= 0;
 
     if (sharedRef.current.canPull) {
-      setStatus('pull');
+      setStatus("pull");
       setDropped(false);
     }
   };
@@ -187,7 +181,7 @@ export const PullToRefresh = React.forwardRef<
 
       const { canPull, startY } = sharedRef.current;
 
-      if (!canPull || currentY < startY || statusRef.current === 'loading')
+      if (!canPull || currentY < startY || statusRef.current === "loading")
         return;
 
       let dist = (currentY - startY) / distanceRatio;
@@ -203,7 +197,7 @@ export const PullToRefresh = React.forwardRef<
 
         setContentStyle(dist);
         setDistance(dist);
-        setStatus(dist >= oDistance ? 'active' : 'pull');
+        setStatus(dist >= oDistance ? "active" : "pull");
       }
     },
     [distanceRatio, maxDistance, oDistance],
@@ -212,7 +206,7 @@ export const PullToRefresh = React.forwardRef<
   const touchEnd = useCallback(() => {
     setDropped(true);
 
-    if (statusRef.current === 'active') {
+    if (statusRef.current === "active") {
       handleLoadMore();
     } else {
       reset();
@@ -225,24 +219,24 @@ export const PullToRefresh = React.forwardRef<
     if (!wrapper || useFallback) return;
 
     if (disabled) {
-      wrapper.removeEventListener('touchstart', touchStart);
-      wrapper.removeEventListener('touchmove', touchMove);
-      wrapper.removeEventListener('touchend', touchEnd);
-      wrapper.removeEventListener('touchcancel', touchEnd);
+      wrapper.removeEventListener("touchstart", touchStart);
+      wrapper.removeEventListener("touchmove", touchMove);
+      wrapper.removeEventListener("touchend", touchEnd);
+      wrapper.removeEventListener("touchcancel", touchEnd);
     } else {
-      wrapper.addEventListener('touchstart', touchStart, listenerOpts);
+      wrapper.addEventListener("touchstart", touchStart, listenerOpts);
       wrapper.addEventListener(
-        'touchmove',
+        "touchmove",
         touchMove,
         listenerOptsWithoutPassive,
       );
-      wrapper.addEventListener('touchend', touchEnd);
-      wrapper.addEventListener('touchcancel', touchEnd);
+      wrapper.addEventListener("touchend", touchEnd);
+      wrapper.addEventListener("touchcancel", touchEnd);
     }
   }, [disabled, touchEnd, touchMove, useFallback]);
 
   useEffect(() => {
-    if (status === 'loading' && !useFallback) {
+    if (status === "loading" && !useFallback) {
       setContentStyle(loadingDistance);
     }
   }, [loadingDistance, status, useFallback]);
@@ -259,30 +253,23 @@ export const PullToRefresh = React.forwardRef<
   );
 
   return (
-    <div
-      className='PullToRefresh'
-      ref={wrapperRef}
-      onScroll={onScroll}
-    >
-      <div className='PullToRefresh-inner'>
+    <div className="PullToRefresh" ref={wrapperRef} onScroll={onScroll}>
+      <div className="PullToRefresh-inner">
         <div
-          className={clsx('PullToRefresh-content', {
-            'PullToRefresh-transition': dropped,
+          className={clsx("PullToRefresh-content", {
+            "PullToRefresh-transition": dropped,
           })}
           ref={contentRef}
         >
-          <div className='PullToRefresh-indicator'>
+          <div className="PullToRefresh-indicator">
             {renderIndicator(status, distance)}
           </div>
           {!disabled && useFallback && (
-            <Flex
-              className='PullToRefresh-fallback'
-              center
-            >
+            <Flex className="PullToRefresh-fallback" center>
               {renderIndicator(status, oDistance)}
               <Button
-                className='PullToRefresh-loadMore'
-                variant='text'
+                className="PullToRefresh-loadMore"
+                variant="text"
                 onClick={handleLoadMore}
               >
                 {loadMoreText}
@@ -296,4 +283,4 @@ export const PullToRefresh = React.forwardRef<
   );
 });
 
-PullToRefresh.displayName = 'PullToRefresh';
+PullToRefresh.displayName = "PullToRefresh";

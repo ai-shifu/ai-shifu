@@ -1,8 +1,8 @@
 /**
  * File upload utility functions
  */
-import { useUserStore } from '@/c-store/useUserStore';
-import { v4 as uuidv4 } from 'uuid';
+import { useUserStore } from "@/c-store/useUserStore";
+import { v4 as uuidv4 } from "uuid";
 
 /**
  * Upload a file to the server using FormData and fetch
@@ -24,7 +24,7 @@ export const uploadFile = async (
   const formData = new FormData();
 
   // Append the file to the FormData
-  formData.append('file', file);
+  formData.append("file", file);
 
   // Append any additional parameters
   if (params) {
@@ -34,11 +34,11 @@ export const uploadFile = async (
   }
 
   // If we have a progress callback and the browser supports XMLHttpRequest
-  if (onProgress && typeof XMLHttpRequest !== 'undefined') {
+  if (onProgress && typeof XMLHttpRequest !== "undefined") {
     return new Promise(async (resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
-      xhr.open('POST', url);
+      xhr.open("POST", url);
 
       // Get token
       const token = useUserStore.getState().getToken();
@@ -52,12 +52,12 @@ export const uploadFile = async (
 
       // Add token headers
       if (token) {
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.setRequestHeader('Token', token);
-        xhr.setRequestHeader('X-Request-ID', uuidv4().replace(/-/g, ''));
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+        xhr.setRequestHeader("Token", token);
+        xhr.setRequestHeader("X-Request-ID", uuidv4().replace(/-/g, ""));
       }
 
-      xhr.upload.addEventListener('progress', event => {
+      xhr.upload.addEventListener("progress", (event) => {
         if (event.lengthComputable) {
           const progress = Math.round((event.loaded / event.total) * 100);
           onProgress(progress);
@@ -72,11 +72,11 @@ export const uploadFile = async (
             headers: new Headers(
               xhr
                 .getAllResponseHeaders()
-                .split('\r\n')
+                .split("\r\n")
                 .filter(Boolean)
                 .reduce(
                   (acc, header) => {
-                    const [key, value] = header.split(': ');
+                    const [key, value] = header.split(": ");
                     acc[key.toLowerCase()] = value;
                     return acc;
                   },
@@ -91,7 +91,7 @@ export const uploadFile = async (
       };
 
       xhr.onerror = () => {
-        reject(new Error('Network Error'));
+        reject(new Error("Network Error"));
       };
 
       xhr.send(formData);
@@ -110,13 +110,13 @@ export const uploadFile = async (
         ...mergedHeaders,
         Authorization: `Bearer ${token}`,
         Token: token,
-        'X-API-MODE': 'admin',
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
+        "X-API-MODE": "admin",
+        "X-Request-ID": uuidv4().replace(/-/g, ""),
       };
     }
 
     const requestOptions: RequestInit = {
-      method: 'POST',
+      method: "POST",
       body: formData,
       headers: mergedHeaders,
     };
@@ -137,7 +137,7 @@ export const uploadFile = async (
 export const uploadMultipleFiles = async (
   files: File[],
   url: string,
-  fieldName: string = 'files',
+  fieldName: string = "files",
   params?: Record<string, string>,
   headers?: Record<string, string>,
 ): Promise<Response> => {
@@ -167,13 +167,13 @@ export const uploadMultipleFiles = async (
       ...mergedHeaders,
       Authorization: `Bearer ${token}`,
       Token: token,
-      'X-API-MODE': 'admin',
-      'X-Request-ID': uuidv4().replace(/-/g, ''),
+      "X-API-MODE": "admin",
+      "X-Request-ID": uuidv4().replace(/-/g, ""),
     };
   }
 
   const requestOptions: RequestInit = {
-    method: 'POST',
+    method: "POST",
     body: formData,
     headers: mergedHeaders,
   };

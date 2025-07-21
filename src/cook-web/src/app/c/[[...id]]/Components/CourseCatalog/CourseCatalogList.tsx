@@ -1,25 +1,25 @@
 // 课程目录
-import { memo, useCallback, useState, useEffect } from 'react';
-import styles from './CourseCatalogList.module.scss';
-import { useTranslation } from 'react-i18next';
-import { shifu } from '@/c-service/Shifu';
-import TrialNodeBottomArea from './TrialNodeBottomArea';
-import CourseCatalog from './CourseCatalog';
-import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
-import TrialNodeOuter from './TrialNodeOuter';
+import { memo, useCallback, useState, useEffect } from "react";
+import styles from "./CourseCatalogList.module.scss";
+import { useTranslation } from "react-i18next";
+import { shifu } from "@/c-service/Shifu";
+import TrialNodeBottomArea from "./TrialNodeBottomArea";
+import CourseCatalog from "./CourseCatalog";
+import { TRAIL_NODE_POSITION } from "./TrialNodeBottomArea";
+import TrialNodeOuter from "./TrialNodeOuter";
 
-import Image from 'next/image';
-import imgCourseList from '@/c-assets/newchat/light/icon16-course-list.png';
+import Image from "next/image";
+import imgCourseList from "@/c-assets/newchat/light/icon16-course-list.png";
 
 export const CourseCatalogList = ({
-  courseName = '',
+  courseName = "",
   catalogs = [],
   containerScrollTop = 0,
   containerHeight = 0,
   onChapterCollapse,
   onLessonSelect,
   onTryLessonSelect,
-  selectedLessonId = '',
+  selectedLessonId = "",
   bannerInfo = null,
 }) => {
   const { t } = useTranslation();
@@ -39,11 +39,11 @@ export const CourseCatalogList = ({
   useEffect(() => {
     setTrialNodePayload(
       // @ts-expect-error EXPECT
-      catalogs.find(c => !!c.bannerInfo)?.bannerInfo || null,
+      catalogs.find((c) => !!c.bannerInfo)?.bannerInfo || null,
     );
   }, [catalogs]);
 
-  const onNodePositionChange = position => {
+  const onNodePositionChange = (position) => {
     setTrialNodePosition(position);
   };
 
@@ -57,14 +57,14 @@ export const CourseCatalogList = ({
               width={16}
               height={16}
               src={imgCourseList.src}
-              alt={t('navigation.courseList')}
+              alt={t("navigation.courseList")}
             />
             <div className={styles.titleName}>{courseName}</div>
           </div>
           {getRightAreaControl()}
         </div>
         <div className={styles.listRow}>
-          {catalogs.map(catalog => {
+          {catalogs.map((catalog) => {
             return (
               // @ts-expect-error EXPECT
               <div key={catalog.id}>

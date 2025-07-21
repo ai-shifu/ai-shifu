@@ -8,25 +8,25 @@
   margin-right: 8px;
   color: var(--gray-2);
 
-  &[data-type='pdf'] {
+  &[data-type="pdf"] {
     color: var(--red);
   }
 
-  &[data-type*='doc'] {
+  &[data-type*="doc"] {
     color: var(--blue);
   }
 
-  &[data-type*='ppt'],
-  &[data-type='key'] {
+  &[data-type*="ppt"],
+  &[data-type="key"] {
     color: var(--orange);
   }
 
-  &[data-type*='xls'] {
+  &[data-type*="xls"] {
     color: var(--green);
   }
 
-  &[data-type='rar'],
-  &[data-type='zip'] {
+  &[data-type="rar"],
+  &[data-type="zip"] {
     color: var(--brand-1);
   }
 

@@ -1,27 +1,27 @@
-import styles from './ShortcutModal.module.scss';
-import { memo } from 'react';
-import { useShallow } from 'zustand/react/shallow';
-import clsx from 'clsx';
+import styles from "./ShortcutModal.module.scss";
+import { memo } from "react";
+import { useShallow } from "zustand/react/shallow";
+import clsx from "clsx";
 // import { Modal } from 'antd';
-import { Dialog, DialogContent } from '@radix-ui/react-dialog';
+import { Dialog, DialogContent } from "@radix-ui/react-dialog";
 
 // import { AppContext } from '@/c-components/AppContext';
 // import { calModalWidth } from '@/c-utils/common';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
-import { useTranslation } from 'react-i18next';
-import { shortcutKeys } from '@/c-service/shortcut';
+import { useUiLayoutStore } from "@/c-store/useUiLayoutStore";
+import { useTranslation } from "react-i18next";
+import { shortcutKeys } from "@/c-service/shortcut";
 
 const ShortcutModal = ({ open, onClose }) => {
   // const { mobileStyle } = useContext(AppContext);
   const { inMacOs } = useUiLayoutStore(
-    useShallow(state => ({ inMacOs: state.inMacOs })),
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
 
-  const shortcutKeysOptions = shortcutKeys.map(v => ({
+  const shortcutKeysOptions = shortcutKeys.map((v) => ({
     id: v.id,
     title: t(`common.shortcut.title.${v.id}`),
-    keys: (inMacOs ? v.macKeys : v.keys).map(v => {
+    keys: (inMacOs ? v.macKeys : v.keys).map((v) => {
       return t(`common.shortcut.key.${v}`);
     }),
   }));
@@ -46,7 +46,7 @@ const ShortcutModal = ({ open, onClose }) => {
     <>
       <Dialog
         open={open}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             onClose();
           }
@@ -55,12 +55,9 @@ const ShortcutModal = ({ open, onClose }) => {
         <DialogContent>
           <div className={styles.shortcutTitle}>键盘快捷方式</div>
           <div className={styles.shortcutContent}>
-            {shortcutKeysOptions.map(option => {
+            {shortcutKeysOptions.map((option) => {
               return (
-                <div
-                  className={styles.shortcutRow}
-                  key={option.title}
-                >
+                <div className={styles.shortcutRow} key={option.title}>
                   <div className={styles.rowTitle}>{option.title}</div>
                   <div className={styles.rowKeys}>
                     {option.keys.map((v, i) => {

@@ -1,13 +1,13 @@
-import '@testing-library/jest-dom';
+import "@testing-library/jest-dom";
 
 // Mock Next.js router
-jest.mock('next/router', () => ({
+jest.mock("next/router", () => ({
   useRouter() {
     return {
-      route: '/',
-      pathname: '/',
+      route: "/",
+      pathname: "/",
       query: {},
-      asPath: '/',
+      asPath: "/",
       push: jest.fn(),
       pop: jest.fn(),
       reload: jest.fn(),
@@ -22,7 +22,7 @@ jest.mock('next/router', () => ({
       isFallback: false,
       isLocaleDomain: true,
       isReady: true,
-      defaultLocale: 'en',
+      defaultLocale: "en",
       domainLocales: [],
       isPreview: false,
     };
@@ -30,9 +30,9 @@ jest.mock('next/router', () => ({
 }));
 
 // Mock i18next
-jest.mock('i18next', () => ({
+jest.mock("i18next", () => ({
   changeLanguage: jest.fn(),
-  t: key => key,
+  t: (key) => key,
 }));
 
 // Global test utilities
@@ -46,15 +46,15 @@ global.ResizeObserver = jest.fn().mockImplementation(() => ({
 delete window.location;
 window.location = {
   assign: jest.fn(),
-  href: 'http://localhost:3000',
-  pathname: '/',
-  search: '',
-  hash: '',
-  origin: 'http://localhost:3000',
-  protocol: 'http:',
-  host: 'localhost:3000',
-  hostname: 'localhost',
-  port: '3000',
+  href: "http://localhost:3000",
+  pathname: "/",
+  search: "",
+  hash: "",
+  origin: "http://localhost:3000",
+  protocol: "http:",
+  host: "localhost:3000",
+  hostname: "localhost",
+  port: "3000",
   reload: jest.fn(),
   replace: jest.fn(),
 };
@@ -64,8 +64,8 @@ const originalError = console.error;
 beforeAll(() => {
   console.error = (...args) => {
     if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
+      typeof args[0] === "string" &&
+      args[0].includes("Warning: ReactDOM.render is no longer supported")
     ) {
       return;
     }

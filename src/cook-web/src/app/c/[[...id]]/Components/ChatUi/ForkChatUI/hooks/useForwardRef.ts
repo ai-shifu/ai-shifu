@@ -1,4 +1,4 @@
-import { useEffect, useRef, ForwardedRef } from 'react';
+import { useEffect, useRef, ForwardedRef } from "react";
 
 export default function useForwardRef<T>(ref: ForwardedRef<T>) {
   const targetRef = useRef<T>(null);
@@ -6,7 +6,7 @@ export default function useForwardRef<T>(ref: ForwardedRef<T>) {
   useEffect(() => {
     if (!ref) return;
 
-    if (typeof ref === 'function') {
+    if (typeof ref === "function") {
       ref(targetRef.current);
     } else {
       ref.current = targetRef.current;

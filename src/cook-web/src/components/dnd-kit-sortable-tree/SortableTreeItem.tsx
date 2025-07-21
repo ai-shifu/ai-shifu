@@ -1,14 +1,14 @@
-import React, { CSSProperties, HTMLAttributes, useMemo } from 'react';
+import React, { CSSProperties, HTMLAttributes, useMemo } from "react";
 import {
   AnimateLayoutChanges,
   UseSortableArguments,
   useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-import { getIsOverParent, iOS } from './utilities';
-import type { FlattenedItem, TreeItem, TreeItemComponentType } from './types';
-import { UniqueIdentifier } from '@dnd-kit/core';
+import { getIsOverParent, iOS } from "./utilities";
+import type { FlattenedItem, TreeItem, TreeItemComponentType } from "./types";
+import { UniqueIdentifier } from "@dnd-kit/core";
 
 export interface TreeItemProps<T> extends HTMLAttributes<HTMLLIElement> {
   childCount?: number;
@@ -43,7 +43,7 @@ type SortableTreeItemProps<
   id: string;
   TreeItemComponent: TreeItemComponentType<T, TElement>;
   disableSorting?: boolean;
-  sortableProps?: Omit<UseSortableArguments, 'id'>;
+  sortableProps?: Omit<UseSortableArguments, "id">;
   keepGhostInPlace?: boolean;
 };
 

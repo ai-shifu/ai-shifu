@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import Button from './button';
+import Button from "./button";
 // import ButtonView from './view/button'
-import Option from './option';
+import Option from "./option";
 // import OptionView from './view/option'
-import SingleInput from './input';
+import SingleInput from "./input";
 // import InputView from './view/input'
-import Goto from './goto';
+import Goto from "./goto";
 // import GotoView from './view/goto'
-import TextInput from './textinput';
+import TextInput from "./textinput";
 // import TextInputView from './view/textinput'
-import { RenderBlockContent } from '../render-block/index';
-import { useShifu } from '@/store';
+import { RenderBlockContent } from "../render-block/index";
+import { useShifu } from "@/store";
 import {
   Select,
   SelectContent,
@@ -19,10 +19,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
-import { ChevronDown } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { cn } from '@/lib/utils';
+} from "../ui/select";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,13 +32,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
-import { useTranslation } from 'react-i18next';
-import { memo } from 'react';
-import Empty from './empty';
-import _ from 'lodash';
-import { BlockDTO, UIBlockDTO } from '@/types/shifu';
-import i18n from '@/i18n';
+} from "../ui/alert-dialog";
+import { useTranslation } from "react-i18next";
+import { memo } from "react";
+import Empty from "./empty";
+import _ from "lodash";
+import { BlockDTO, UIBlockDTO } from "@/types/shifu";
+import i18n from "@/i18n";
 const componentMap = {
   content: RenderBlockContent,
   input: TextInput,
@@ -49,18 +49,8 @@ const componentMap = {
   code: SingleInput,
   option: Option,
   textinput: TextInput,
-  login: props => (
-    <Button
-      {...props}
-      mode='login'
-    />
-  ),
-  payment: props => (
-    <Button
-      {...props}
-      mode='payment'
-    />
-  ),
+  login: (props) => <Button {...props} mode="login" />,
+  payment: (props) => <Button {...props} mode="payment" />,
   empty: Empty,
 };
 
@@ -92,13 +82,13 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
     blockProperties,
     currentShifu,
   } = useShifu();
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const UITypes = useUITypes();
   const handleChanged = (changed: boolean) => {
     onChanged?.(changed);
   };
 
-  const onPropertiesChange = async properties => {
+  const onPropertiesChange = async (properties) => {
     const p = {
       ...blockProperties,
       [id]: {
@@ -106,8 +96,8 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
         ...properties,
       },
     };
-    const ut = UITypes.find(p => p.type === data.type);
-    setError('');
+    const ut = UITypes.find((p) => p.type === data.type);
+    setError("");
     const err = ut?.validate?.(properties);
     if (err) {
       setError(err);
@@ -115,7 +105,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
     }
     await actions.updateBlockProperties(id, properties);
 
-    const newBlocks = blocks.map(b =>
+    const newBlocks = blocks.map((b) =>
       b.bid === id ? { ...b, properties: properties } : b,
     );
     const newBlockTypes = {
@@ -128,13 +118,13 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
         newBlocks,
         newBlockTypes,
         p,
-        currentShifu?.bid || '',
+        currentShifu?.bid || "",
       );
     }
   };
 
   useEffect(() => {
-    setError('');
+    setError("");
   }, [data.type]);
 
   const Ele = componentMap[data.type];
@@ -154,7 +144,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
           isChanged: false,
         }}
       />
-      {error && <div className='text-red-500 text-sm px-0 pb-2'>{error}</div>}
+      {error && <div className="text-red-500 text-sm px-0 pb-2">{error}</div>}
     </>
   );
 }, BlockUIPropsEqual);
@@ -179,11 +169,11 @@ export const RenderBlockUI = memo(
     } = useShifu();
 
     if (expanded === undefined) {
-      expanded = block.type === 'content' ? true : false;
+      expanded = block.type === "content" ? true : false;
     }
     const [expand, setExpand] = useState(expanded);
     const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-    const [pendingType, setPendingType] = useState('');
+    const [pendingType, setPendingType] = useState("");
     const [isChanged, setIsChanged] = useState(false);
     const { t } = useTranslation();
     const UITypes = useUITypes();
@@ -194,7 +184,7 @@ export const RenderBlockUI = memo(
 
     const handleTypeChange = async (type: string) => {
       handleExpandChange(true);
-      const opt = UITypes.find(p => p.type === type);
+      const opt = UITypes.find((p) => p.type === type);
       const p = {
         ...blockProperties,
         [block.bid]: {
@@ -207,12 +197,12 @@ export const RenderBlockUI = memo(
         bid: block.bid,
         type: type,
         variable_bids: [],
-        result_variable_bid: '',
+        result_variable_bid: "",
         properties: opt?.properties || {},
       });
       setIsChanged(false);
 
-      const newBlocks = blocks.map(b =>
+      const newBlocks = blocks.map((b) =>
         b.bid === block.bid
           ? { ...b, type: type, properties: opt?.properties || {} }
           : b,
@@ -227,7 +217,7 @@ export const RenderBlockUI = memo(
           newBlocks,
           newBlockTypes,
           p,
-          currentShifu?.bid || '',
+          currentShifu?.bid || "",
         );
       }
     };
@@ -253,8 +243,8 @@ export const RenderBlockUI = memo(
       }
     };
 
-    const onPropertiesChange = properties => {
-      console.log('onPropertiesChange', properties);
+    const onPropertiesChange = (properties) => {
+      console.log("onPropertiesChange", properties);
     };
 
     const handleBlockEditChange = (isEdit: boolean) => {
@@ -263,30 +253,27 @@ export const RenderBlockUI = memo(
 
     return (
       <>
-        <div className='bg-[#F8F8F8] rounded-md p-2 space-y-1'>
+        <div className="bg-[#F8F8F8] rounded-md p-2 space-y-1">
           <div
-            className='flex flex-row items-center justify-between py-1 cursor-pointer'
+            className="flex flex-row items-center justify-between py-1 cursor-pointer"
             onClick={() => handleExpandChange(!expand)}
           >
-            <div className='flex flex-row items-center space-x-1'>
-              <span className='w-[70px]'>{t('render-ui.user-operation')}</span>
+            <div className="flex flex-row items-center space-x-1">
+              <span className="w-[70px]">{t("render-ui.user-operation")}</span>
               <Select
                 value={blockProperties[block.bid].type}
                 onValueChange={onUITypeChange.bind(null, block.bid)}
               >
-                <SelectTrigger className='h-8 w-[120px]'>
+                <SelectTrigger className="h-8 w-[120px]">
                   <SelectValue
-                    placeholder={t('render-ui.select-placeholder')}
+                    placeholder={t("render-ui.select-placeholder")}
                   />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    {UITypes.map(item => {
+                    {UITypes.map((item) => {
                       return (
-                        <SelectItem
-                          key={item.type}
-                          value={item.type}
-                        >
+                        <SelectItem key={item.type} value={item.type}>
                           {item.name}
                         </SelectItem>
                       );
@@ -297,19 +284,19 @@ export const RenderBlockUI = memo(
             </div>
 
             <div
-              className='flex flex-row items-center space-x-1 cursor-pointer'
+              className="flex flex-row items-center space-x-1 cursor-pointer"
               onClick={() => handleExpandChange(!expand)}
             >
               <ChevronDown
                 className={cn(
-                  'h-5 w-5 transition-transform duration-200 ease-in-out',
-                  expand ? 'rotate-180' : '',
+                  "h-5 w-5 transition-transform duration-200 ease-in-out",
+                  expand ? "rotate-180" : "",
                 )}
               />
-              {expand ? t('render-ui.collapse') : t('render-ui.expand')}
+              {expand ? t("render-ui.collapse") : t("render-ui.expand")}
             </div>
           </div>
-          <div className={cn('space-y-1', expand ? 'block' : 'hidden')}>
+          <div className={cn("space-y-1", expand ? "block" : "hidden")}>
             {blockProperties[block.bid] && (
               <BlockUI
                 id={block.bid}
@@ -331,16 +318,16 @@ export const RenderBlockUI = memo(
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {t('render-ui.confirm-change')}
+                {t("render-ui.confirm-change")}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {t('render-ui.confirm-change-description')}
+                {t("render-ui.confirm-change-description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('render-ui.cancel')}</AlertDialogCancel>
+              <AlertDialogCancel>{t("render-ui.cancel")}</AlertDialogCancel>
               <AlertDialogAction onClick={handleConfirmChange}>
-                {t('render-ui.confirm')}
+                {t("render-ui.confirm")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -355,7 +342,7 @@ export const RenderBlockUI = memo(
     );
   },
 );
-RenderBlockUI.displayName = 'RenderBlockUI';
+RenderBlockUI.displayName = "RenderBlockUI";
 
 export default RenderBlockUI;
 
@@ -363,124 +350,124 @@ export const useUITypes = () => {
   const { t } = useTranslation();
   return [
     {
-      type: 'button',
-      name: t('render-ui.button'),
+      type: "button",
+      name: t("render-ui.button"),
       properties: {
         label: {
           lang: {
-            'zh-CN': t('render-ui.button-name'),
-            'en-US': t('render-ui.button-name'),
+            "zh-CN": t("render-ui.button-name"),
+            "en-US": t("render-ui.button-name"),
           },
         },
       },
     },
     {
-      type: 'options',
-      name: t('render-ui.option'),
+      type: "options",
+      name: t("render-ui.option"),
       properties: {
         options: [
           {
             label: {
               lang: {
-                'zh-CN': t('render-ui.button-name'),
-                'en-US': t('render-ui.button-name'),
+                "zh-CN": t("render-ui.button-name"),
+                "en-US": t("render-ui.button-name"),
               },
             },
-            value: t('render-ui.button-key'),
+            value: t("render-ui.button-key"),
           },
         ],
       },
       validate: (data): string => {
         if (data.properties.options.length === 0) {
-          return t('render-ui.option-buttons-empty');
+          return t("render-ui.option-buttons-empty");
         }
         for (let i = 0; i < data.properties.options.length; i++) {
           const item = data.properties.options[i];
-          if (!item.value || item.label.lang[i18n.language] == '') {
-            return t('render-ui.option-button-empty');
+          if (!item.value || item.label.lang[i18n.language] == "") {
+            return t("render-ui.option-button-empty");
           }
         }
-        return '';
+        return "";
       },
     },
     {
-      type: 'goto',
-      name: t('render-ui.goto'),
+      type: "goto",
+      name: t("render-ui.goto"),
       properties: {
         conditions: [
           {
-            value: '',
-            destination_type: '',
-            destination_bid: '',
+            value: "",
+            destination_type: "",
+            destination_bid: "",
           },
         ],
       },
     },
     {
-      type: 'input',
-      name: t('render-ui.textinput'),
+      type: "input",
+      name: t("render-ui.textinput"),
 
       properties: {
         placeholder: {
           lang: {
-            'zh-CN': '',
-            'en-US': '',
+            "zh-CN": "",
+            "en-US": "",
           },
         },
-        prompt: '',
+        prompt: "",
         result_variable_bids: [],
-        llm: '',
-        llm_temperature: '0.40',
+        llm: "",
+        llm_temperature: "0.40",
       },
       validate: (data): string => {
         const p = data.properties;
 
         if (!p.placeholder.lang[i18n.language]) {
-          return t('render-ui.textinput-placeholder-empty');
+          return t("render-ui.textinput-placeholder-empty");
         }
         if (!p?.prompt) {
-          return t('render-ui.textinput-prompt-empty');
+          return t("render-ui.textinput-prompt-empty");
         }
-        if (typeof p?.llm_temperature == 'undefined') {
-          return t('render-ui.textinput-temperature-empty');
+        if (typeof p?.llm_temperature == "undefined") {
+          return t("render-ui.textinput-temperature-empty");
         }
-        return '';
+        return "";
       },
     },
     {
-      type: 'login',
-      name: t('render-ui.login'),
+      type: "login",
+      name: t("render-ui.login"),
       properties: {
         lang: {
-          'zh-CN': '',
-          'en-US': '',
+          "zh-CN": "",
+          "en-US": "",
         },
       },
     },
     {
-      type: 'payment',
-      name: t('render-ui.payment'),
+      type: "payment",
+      name: t("render-ui.payment"),
       properties: {
         lang: {
-          'zh-CN': '',
-          'en-US': '',
+          "zh-CN": "",
+          "en-US": "",
         },
       },
     },
     {
-      type: 'content',
-      name: t('render-ui.content'),
+      type: "content",
+      name: t("render-ui.content"),
       properties: {
-        content: '',
-        llm: '',
+        content: "",
+        llm: "",
         llm_temperature: 0.4,
         llm_enabled: true,
       },
       validate: (data): string => {
         if (!data.properties.content) {
-          return t('render-ui.content-empty');
+          return t("render-ui.content-empty");
         }
-        return '';
+        return "";
       },
     },
   ];

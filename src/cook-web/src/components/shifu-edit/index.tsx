@@ -1,9 +1,9 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import type { DropTargetMonitor } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
-import { Button } from '@/components/ui/button';
+"use client";
+import React, { useState, useEffect } from "react";
+import { DndProvider, useDrag, useDrop } from "react-dnd";
+import type { DropTargetMonitor } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { Button } from "@/components/ui/button";
 import {
   Plus,
   GripVertical,
@@ -12,15 +12,15 @@ import {
   BugPlay,
   Settings2,
   ListCollapse,
-} from 'lucide-react';
-import { useShifu } from '@/store';
-import { useUserStore } from '@/c-store';
-import OutlineTree from '@/components/outline-tree';
-import '@mdxeditor/editor/style.css';
-import Header from '../header';
-import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu';
-import RenderBlockUI from '../render-ui';
-import AIDebugDialog from '@/components/ai-debug';
+} from "lucide-react";
+import { useShifu } from "@/store";
+import { useUserStore } from "@/c-store";
+import OutlineTree from "@/components/outline-tree";
+import "@mdxeditor/editor/style.css";
+import Header from "../header";
+import { BlockDTO, BlockType, ContentDTO } from "@/types/shifu";
+import RenderBlockUI from "../render-ui";
+import AIDebugDialog from "@/components/ai-debug";
 
 import {
   AlertDialog,
@@ -31,11 +31,11 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
-import AddBlock from '@/components/add-block';
-import Loading from '../loading';
-import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
+} from "../ui/alert-dialog";
+import AddBlock from "@/components/add-block";
+import Loading from "../loading";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 interface DragItem {
   id: string;
   index: number;
@@ -80,7 +80,7 @@ const DraggableBlock = ({
     void,
     { handlerId: string | symbol | null }
   >({
-    accept: 'BLOCK',
+    accept: "BLOCK",
     collect(monitor) {
       return {
         handlerId: monitor.getHandlerId(),
@@ -121,12 +121,12 @@ const DraggableBlock = ({
     void,
     { isDragging: boolean }
   >({
-    type: 'BLOCK',
+    type: "BLOCK",
     item: () => {
       return { id, index };
     },
     canDrag: !disabled,
-    collect: monitor => ({
+    collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),
   });
@@ -150,94 +150,94 @@ const DraggableBlock = ({
       ref={ref}
       style={{ opacity: isDragging ? 0.5 : 1 }}
       data-handler-id={handlerId}
-      className='group'
+      className="group"
     >
       <div
         ref={dragRef}
         style={{
-          border: error ? '1px solid #ff4d4f' : '1px solid #ddd',
-          padding: '1rem',
-          backgroundColor: '#fff',
-          borderRadius: '8px',
-          position: 'relative',
+          border: error ? "1px solid #ff4d4f" : "1px solid #ddd",
+          padding: "1rem",
+          backgroundColor: "#fff",
+          borderRadius: "8px",
+          position: "relative",
         }}
       >
         <div
           onMouseLeave={handleMouseLeave}
-          className='group-hover:opacity-100 opacity-0 cursor-grab'
+          className="group-hover:opacity-100 opacity-0 cursor-grab"
           style={{
             zIndex: 100,
-            position: 'absolute',
-            top: '0',
-            left: '-56px',
+            position: "absolute",
+            top: "0",
+            left: "-56px",
           }}
         >
-          <div className='p-2 h-8 w-16 flex items-center justify-center border color-[#999] rounded'>
+          <div className="p-2 h-8 w-16 flex items-center justify-center border color-[#999] rounded">
             <SquarePen
-              className='text-gray-500'
+              className="text-gray-500"
               onMouseEnter={handleMouseEnter}
             />
             <GripVertical
-              className='text-gray-500'
+              className="text-gray-500"
               onMouseEnter={handleMouseEnter}
             />
           </div>
 
           <div
-            className='shadow-md rounded-lg w-48 p-2 transition-all'
+            className="shadow-md rounded-lg w-48 p-2 transition-all"
             style={{
-              position: 'absolute',
-              left: '0px',
+              position: "absolute",
+              left: "0px",
               zIndex: 51,
-              display: `${showMenu ? 'block' : 'none'}`,
-              border: '1px solid #f3f4f6',
-              backgroundColor: '#fff',
+              display: `${showMenu ? "block" : "none"}`,
+              border: "1px solid #f3f4f6",
+              backgroundColor: "#fff",
             }}
           >
-            <div className='flex flex-col gap-2 text-sm'>
-              {type === 'content' && (
-                <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                  {llmEnabled ? t('shifu.ai-block') : t('shifu.regular-block')}
+            <div className="flex flex-col gap-2 text-sm">
+              {type === "content" && (
+                <div className="px-3 py-1.5 text-gray-500 text-lg">
+                  {llmEnabled ? t("shifu.ai-block") : t("shifu.regular-block")}
                 </div>
               )}
-              {type === 'content' && (
+              {type === "content" && (
                 <div
-                  className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
+                  className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
                   onClick={() => {
                     onClickChangeType?.(id, !llmEnabled);
                     setLlmEnabled(!llmEnabled);
                   }}
                 >
-                  <Settings2 className='h-4 w-4' />
+                  <Settings2 className="h-4 w-4" />
                   {llmEnabled
-                    ? t('shifu.setting-regular-block')
-                    : t('shifu.setting-ai-block')}
+                    ? t("shifu.setting-regular-block")
+                    : t("shifu.setting-ai-block")}
                 </div>
               )}
-              {type === 'content' && llmEnabled && (
+              {type === "content" && llmEnabled && (
                 <div
-                  className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
+                  className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer"
                   onClick={() => onClickDebug?.(id)}
                 >
-                  <BugPlay className='h-4 w-4' />
-                  {t('shifu.debug')}
+                  <BugPlay className="h-4 w-4" />
+                  {t("shifu.debug")}
                 </div>
               )}
               <div
-                className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer'
+                className="flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer"
                 onClick={() => onClickRemove?.(id)}
               >
-                <Trash2 className='h-4 w-4' />
-                {t('shifu.delete')}
+                <Trash2 className="h-4 w-4" />
+                {t("shifu.delete")}
               </div>
             </div>
           </div>
         </div>
         {error && (
           <div
-            className='mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm'
-            role='alert'
-            aria-live='polite'
+            className="mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm"
+            role="alert"
+            aria-live="polite"
           >
             {error}
           </div>
@@ -250,7 +250,7 @@ const DraggableBlock = ({
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
-  const profile = useUserStore(state => state.userInfo);
+  const profile = useUserStore((state) => state.userInfo);
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
     {},
   );
@@ -276,30 +276,30 @@ const ScriptEditor = ({ id }: { id: string }) => {
   } = useShifu();
 
   const [debugBlockInfo, setDebugBlockInfo] = useState({
-    blockId: '',
+    blockId: "",
     visible: false,
   });
 
   const [removeBlockInfo, setRemoveBlockInfo] = useState({
-    blockId: '',
+    blockId: "",
     visible: false,
   });
 
-  const [newBlockId, setNewBlockId] = useState('');
+  const [newBlockId, setNewBlockId] = useState("");
 
   const onAddChapter = () => {
     actions.addChapter({
-      parent_bid: '',
-      bid: 'new_chapter',
-      id: 'new_chapter',
+      parent_bid: "",
+      bid: "new_chapter",
+      id: "new_chapter",
       name: ``,
       children: [],
-      position: '',
+      position: "",
       depth: 0,
     });
     setTimeout(() => {
-      document.getElementById('new_chapter')?.scrollIntoView({
-        behavior: 'smooth',
+      document.getElementById("new_chapter")?.scrollIntoView({
+        behavior: "smooth",
       });
     }, 800);
   };
@@ -309,7 +309,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   const onDebugBlockClose = () => {
-    setDebugBlockInfo({ blockId: '', visible: false });
+    setDebugBlockInfo({ blockId: "", visible: false });
   };
 
   const onRemove = async (id: string) => {
@@ -319,8 +319,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const handleConfirmDelete = async (id: string | undefined) => {
     if (!id) return;
     try {
-      await actions.removeBlock(id, currentShifu?.bid || '');
-      setRemoveBlockInfo({ blockId: '', visible: false });
+      await actions.removeBlock(id, currentShifu?.bid || "");
+      setRemoveBlockInfo({ blockId: "", visible: false });
     } catch (error) {
       console.error(error);
     }
@@ -328,9 +328,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const onAddBlock = async (index: number, type: BlockType, bid: string) => {
     const blockId = await actions.addBlock(index, type, bid);
-    if (blockId && ['content', 'input', 'goto', 'options'].includes(type)) {
+    if (blockId && ["content", "input", "goto", "options"].includes(type)) {
       setNewBlockId(blockId);
-      setExpandedBlocks(prev => ({
+      setExpandedBlocks((prev) => ({
         ...prev,
         [blockId]: true,
       }));
@@ -338,19 +338,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   useEffect(() => {
-    console.log('newBlockId', newBlockId);
+    console.log("newBlockId", newBlockId);
     if (newBlockId && expandedBlocks[newBlockId] === false) {
-      console.log('setExpandedBlocks', newBlockId);
-      setExpandedBlocks(prev => ({
+      console.log("setExpandedBlocks", newBlockId);
+      setExpandedBlocks((prev) => ({
         ...prev,
         [newBlockId]: true,
       }));
-      setNewBlockId('');
+      setNewBlockId("");
     }
   }, [newBlockId, expandedBlocks]);
 
   useEffect(() => {
-    console.log('expandedBlocks', expandedBlocks);
+    console.log("expandedBlocks", expandedBlocks);
   }, [expandedBlocks]);
 
   const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
@@ -363,7 +363,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       },
     });
 
-    actions.saveBlocks(currentShifu?.bid || '');
+    actions.saveBlocks(currentShifu?.bid || "");
   };
 
   useEffect(() => {
@@ -374,54 +374,54 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [id]);
 
   return (
-    <div className='flex flex-col h-screen bg-gray-50'>
+    <div className="flex flex-col h-screen bg-gray-50">
       <Header />
       <div
-        className='flex-1 container mx-auto px-10'
+        className="flex-1 container mx-auto px-10"
         style={{
-          height: 'calc(100vh - 50px)',
-          overflowY: 'auto',
+          height: "calc(100vh - 50px)",
+          overflowY: "auto",
         }}
       >
         <div
-          className='my-2'
+          className="my-2"
           style={{
-            position: 'fixed',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
+            position: "fixed",
+            borderRadius: "8px",
+            overflow: "hidden",
+            display: "flex",
+            flexDirection: "column",
             top: 48,
             bottom: 0,
             zIndex: 1,
           }}
         >
-          <div className='px-3 flex items-center justify-between gap-3'>
+          <div className="px-3 flex items-center justify-between gap-3">
             <div
               onClick={() => setFoldOutlineTree(!foldOutlineTree)}
-              className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
+              className="rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200"
             >
-              <ListCollapse className='h-5 w-5' />
+              <ListCollapse className="h-5 w-5" />
             </div>
             {!foldOutlineTree && (
               <Button
-                variant='outline'
-                className='h-8 bottom-0 left-4 flex-1'
-                size='sm'
+                variant="outline"
+                className="h-8 bottom-0 left-4 flex-1"
+                size="sm"
                 onClick={onAddChapter}
               >
                 <Plus />
-                {t('shifu.new_chapter')}
+                {t("shifu.new_chapter")}
               </Button>
             )}
           </div>
 
           {!foldOutlineTree && (
-            <div className='p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]'>
-              <ol className=' text-sm'>
+            <div className="p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]">
+              <ol className=" text-sm">
                 <OutlineTree
                   items={chapters}
-                  onChange={newChapters => {
+                  onChange={(newChapters) => {
                     actions.setChapters([...newChapters]);
                   }}
                 />
@@ -431,14 +431,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
         </div>
 
         <div
-          className='flex-1 overflow-auto relative text-sm'
+          className="flex-1 overflow-auto relative text-sm"
           style={{
             paddingLeft: foldOutlineTree ? 80 : 260,
           }}
         >
-          <div className='my-2 bg-white p-8 gap-4 flex flex-col rounded shadow-md'>
+          <div className="my-2 bg-white p-8 gap-4 flex flex-col rounded shadow-md">
             {isLoading ? (
-              <div className='h-40 flex items-center justify-center'>
+              <div className="h-40 flex items-center justify-center">
                 <Loading />
               </div>
             ) : (
@@ -462,7 +462,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           newBlocks,
                           blockContentTypes,
                           blockProperties,
-                          currentShifu?.bid || '',
+                          currentShifu?.bid || "",
                         );
                       }}
                       onClickChangeType={onChangeBlockType}
@@ -473,12 +473,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     >
                       <div
                         id={block.bid}
-                        className='relative flex flex-col gap-2 '
+                        className="relative flex flex-col gap-2 "
                       >
                         <RenderBlockUI
                           block={block}
-                          onExpandChange={expanded => {
-                            setExpandedBlocks(prev => ({
+                          onExpandChange={(expanded) => {
+                            setExpandedBlocks((prev) => ({
                               ...prev,
                               [block.bid]: expanded,
                             }));
@@ -497,7 +497,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   ))}
                 </DndProvider>
                 {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
-                  <div className='flex flex-row items-center justify-start h-6'>
+                  <div className="flex flex-row items-center justify-start h-6">
                     <AddBlock
                       onAdd={(type: BlockType) => {
                         onAddBlock(1, type, id);
@@ -530,18 +530,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('render-block.confirm-delete')}
+              {t("render-block.confirm-delete")}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('render-block.confirm-delete-description')}
+              {t("render-block.confirm-delete-description")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('render-block.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t("render-block.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleConfirmDelete(removeBlockInfo.blockId)}
             >
-              {t('render-block.confirm')}
+              {t("render-block.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

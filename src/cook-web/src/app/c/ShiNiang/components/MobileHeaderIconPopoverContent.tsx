@@ -1,13 +1,13 @@
-import { memo } from 'react';
-import styles from './MobileHeaderIconPopoverContent.module.scss';
-import { useShallow } from 'zustand/react/shallow';
+import { memo } from "react";
+import styles from "./MobileHeaderIconPopoverContent.module.scss";
+import { useShallow } from "zustand/react/shallow";
 
-import { customEvents, EVENT_TYPE } from '../events/event';
-import { usePayStore } from '../stores/usePayStore';
-import { shifu } from '../config/config';
-import OrderPromotePopoverContent from './OrderPromotePopoverContent';
-import { useEffect } from 'react';
-import { useCallback } from 'react';
+import { customEvents, EVENT_TYPE } from "../events/event";
+import { usePayStore } from "../stores/usePayStore";
+import { shifu } from "../config/config";
+import OrderPromotePopoverContent from "./OrderPromotePopoverContent";
+import { useEffect } from "react";
+import { useCallback } from "react";
 
 const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
   const {
@@ -16,7 +16,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     orderPromotePopoverOpen,
     updateOrderPromotePopoverOpen,
   } = usePayStore(
-    useShallow(state => ({
+    useShallow((state) => ({
       hasPay: state.hasPay,
       updateHasPay: state.updateHasPay,
       orderPromotePopoverOpen: state.orderPromotePopoverOpen,
@@ -38,7 +38,7 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     if (!hasPay) {
       // @ts-expect-error EXPECT
       shifu.payTools.openPay({});
-      trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
+      trackEvent(EVENT_NAMES.POP_PAY, { from: "popconfirm-pay-btn" });
     }
     updateOrderPromotePopoverOpen(false);
   }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);

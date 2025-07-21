@@ -1,10 +1,10 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Icon } from '../Icon';
-import { IconButton } from '../IconButton';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { Icon } from "../Icon";
+import { IconButton } from "../IconButton";
 
-export type IMessageStatus = 'pending' | 'sent' | 'fail';
+export type IMessageStatus = "pending" | "sent" | "fail";
 
-type StatusType = '' | 'loading' | 'fail';
+type StatusType = "" | "loading" | "fail";
 
 export interface MessageStatusProps {
   status: IMessageStatus;
@@ -21,17 +21,17 @@ export const MessageStatus = ({
   onRetry,
   onChange,
 }: MessageStatusProps) => {
-  const [type, setType] = useState<StatusType>('');
+  const [type, setType] = useState<StatusType>("");
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
   const failTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   const doTimeout = useCallback(() => {
     loadingTimerRef.current = setTimeout(() => {
-      setType('loading');
+      setType("loading");
     }, delay);
 
     failTimerRef.current = setTimeout(() => {
-      setType('fail');
+      setType("fail");
     }, maxDelay);
   }, [delay, maxDelay]);
 
@@ -46,12 +46,12 @@ export const MessageStatus = ({
 
   useEffect(() => {
     clear();
-    if (status === 'pending') {
+    if (status === "pending") {
       doTimeout();
-    } else if (status === 'sent') {
-      setType('');
-    } else if (status === 'fail') {
-      setType('fail');
+    } else if (status === "sent") {
+      setType("");
+    } else if (status === "fail") {
+      setType("fail");
     }
 
     return clear;
@@ -64,7 +64,7 @@ export const MessageStatus = ({
   }, [onChange, type]);
 
   function handleRetry() {
-    setType('loading');
+    setType("loading");
     doTimeout();
     if (onRetry) {
       onRetry();
@@ -73,21 +73,11 @@ export const MessageStatus = ({
 
   if (type) {
     return (
-      <div
-        className='MessageStatus'
-        data-status={type}
-      >
-        {type === 'fail' ? (
-          <IconButton
-            icon='warning-circle-fill'
-            onClick={handleRetry}
-          />
+      <div className="MessageStatus" data-status={type}>
+        {type === "fail" ? (
+          <IconButton icon="warning-circle-fill" onClick={handleRetry} />
         ) : (
-          <Icon
-            type='spinner'
-            spin
-            onClick={handleRetry}
-          />
+          <Icon type="spinner" spin onClick={handleRetry} />
         )}
       </div>
     );

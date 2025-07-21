@@ -1,10 +1,10 @@
-import React from 'react';
-import { Input } from '../ui/input';
-import { useTranslation } from 'react-i18next';
-import { memo } from 'react';
-import _ from 'lodash';
-import { UIBlockDTO, InputDTO } from '@/types/shifu';
-import i18n from '@/i18n';
+import React from "react";
+import { Input } from "../ui/input";
+import { useTranslation } from "react-i18next";
+import { memo } from "react";
+import _ from "lodash";
+import { UIBlockDTO, InputDTO } from "@/types/shifu";
+import i18n from "@/i18n";
 
 const SingleInputPropsEqual = (
   prevProps: UIBlockDTO,
@@ -59,7 +59,7 @@ export default memo(function SingleInput(props: UIBlockDTO) {
     e: React.ChangeEvent<HTMLInputElement>,
     field: string,
   ) => {
-    if (field === 'prompt') {
+    if (field === "prompt") {
       props.onPropertiesChange({
         ...data,
         properties: {
@@ -79,27 +79,27 @@ export default memo(function SingleInput(props: UIBlockDTO) {
   };
 
   return (
-    <div className='flex flex-col space-y-2'>
-      <div className='flex flex-row space-x-1 items-center'>
-        <span className='flex flex-row whitespace-nowrap'>
-          {t('input.input-placeholder')}
+    <div className="flex flex-col space-y-2">
+      <div className="flex flex-row space-x-1 items-center">
+        <span className="flex flex-row whitespace-nowrap">
+          {t("input.input-placeholder")}
         </span>
         <Input
-          className='h-8 w-40'
+          className="h-8 w-40"
           value={inputSettings.placeholder.lang[i18n.language]}
-          onChange={e => onValueChange(e, 'placeholder')}
-          placeholder={t('input.input-placeholder')}
+          onChange={(e) => onValueChange(e, "placeholder")}
+          placeholder={t("input.input-placeholder")}
         />
       </div>
-      <div className='flex flex-row space-x-1 items-center'>
-        <span className='flex flex-row whitespace-nowrap'>
-          {t('input.input-name')}
+      <div className="flex flex-row space-x-1 items-center">
+        <span className="flex flex-row whitespace-nowrap">
+          {t("input.input-name")}
         </span>
         <Input
-          className='h-8 w-40'
+          className="h-8 w-40"
           value={inputSettings.prompt}
-          onChange={e => onValueChange(e, 'prompt')}
-          placeholder={t('input.input-name')}
+          onChange={(e) => onValueChange(e, "prompt")}
+          placeholder={t("input.input-name")}
         />
       </div>
     </div>

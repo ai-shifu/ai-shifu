@@ -1,12 +1,12 @@
-import React, { useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import clsx from 'clsx';
-import useMount from '../../hooks/useMount';
-import { Backdrop } from '../Backdrop';
-import { IconButton } from '../IconButton';
-import { Button, ButtonProps } from '../Button';
-import useNextId from '../../hooks/useNextId';
-import toggleClass from '../../utils/toggleClass';
+import React, { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
+import clsx from "clsx";
+import useMount from "../../hooks/useMount";
+import { Backdrop } from "../Backdrop";
+import { IconButton } from "../IconButton";
+import { Button, ButtonProps } from "../Button";
+import useNextId from "../../hooks/useNextId";
+import toggleClass from "../../utils/toggleClass";
 
 export type ModalProps = {
   active?: boolean;
@@ -16,12 +16,12 @@ export type ModalProps = {
   titleId?: string;
   showClose?: boolean;
   autoFocus?: boolean;
-  backdrop?: boolean | 'static';
+  backdrop?: boolean | "static";
   height?: number | string;
   overflow?: boolean;
   actions?: ButtonProps[];
   vertical?: boolean;
-  btnVariant?: ButtonProps['variant'];
+  btnVariant?: ButtonProps["variant"];
   bgColor?: string;
   onClose?: () => void;
   onBackdropClick?: () => void;
@@ -29,12 +29,12 @@ export type ModalProps = {
 };
 
 function clearModal() {
-  if (!document.querySelector('.Modal') && !document.querySelector('.Popup')) {
-    toggleClass('S--modalOpen', false);
+  if (!document.querySelector(".Modal") && !document.querySelector(".Popup")) {
+    toggleClass("S--modalOpen", false);
   }
 }
 
-export const Base: React.FC<ModalProps> = props => {
+export const Base: React.FC<ModalProps> = (props) => {
   const {
     baseClass,
     active,
@@ -54,7 +54,7 @@ export const Base: React.FC<ModalProps> = props => {
     onClose,
   } = props;
 
-  const mid = useNextId('modal-');
+  const mid = useNextId("modal-");
   const titleId = props.titleId || mid;
 
   const wrapper = useRef<HTMLDivElement>(null);
@@ -70,7 +70,7 @@ export const Base: React.FC<ModalProps> = props => {
 
   useEffect(() => {
     if (isShow) {
-      toggleClass('S--modalOpen', isShow);
+      toggleClass("S--modalOpen", isShow);
     }
   }, [isShow]);
 
@@ -89,7 +89,7 @@ export const Base: React.FC<ModalProps> = props => {
 
   if (!didMount) return null;
 
-  const isPopup = baseClass === 'Popup';
+  const isPopup = baseClass === "Popup";
 
   return createPortal(
     <div
@@ -105,29 +105,26 @@ export const Base: React.FC<ModalProps> = props => {
       )}
       <div
         className={clsx(`${baseClass}-dialog`, {
-          'pb-safe': isPopup && !actions,
+          "pb-safe": isPopup && !actions,
         })}
         data-bg-color={bgColor}
         data-height={isPopup && height ? height : undefined}
-        role='dialog'
+        role="dialog"
         aria-labelledby={titleId}
         aria-modal
       >
         <div className={`${baseClass}-content`}>
           <div className={`${baseClass}-header`}>
-            <h5
-              className={`${baseClass}-title`}
-              id={titleId}
-            >
+            <h5 className={`${baseClass}-title`} id={titleId}>
               {title}
             </h5>
             {showClose && onClose && (
               <IconButton
                 className={`${baseClass}-close`}
-                icon='close'
-                size='lg'
+                icon="close"
+                size="lg"
                 onClick={onClose}
-                aria-label='关闭'
+                aria-label="关闭"
               />
             )}
           </div>
@@ -137,13 +134,13 @@ export const Base: React.FC<ModalProps> = props => {
           {actions && (
             <div
               className={`${baseClass}-footer ${baseClass}-footer--${
-                vertical ? 'v' : 'h'
+                vertical ? "v" : "h"
               }`}
-              data-variant={btnVariant || 'round'}
+              data-variant={btnVariant || "round"}
             >
-              {actions.map(item => (
+              {actions.map((item) => (
                 <Button
-                  size='lg'
+                  size="lg"
                   block={isPopup}
                   variant={btnVariant}
                   {...item}

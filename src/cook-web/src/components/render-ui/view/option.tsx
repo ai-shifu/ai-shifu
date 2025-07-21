@@ -1,7 +1,7 @@
-import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { memo } from 'react';
-import _ from 'lodash';
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { memo } from "react";
+import _ from "lodash";
 interface OptionViewProps {
   properties: {
     option_name: string;
@@ -61,18 +61,18 @@ export default memo(function OptionView(props: OptionViewProps) {
   const { properties } = props;
   const { t } = useTranslation();
   return (
-    <div className='flex flex-col space-y-2'>
-      <div className='flex flex-row items-center space-x-1'>
-        <span className='whitespace-nowrap'>{t('option.option-name')}</span>
-        <div className='px-3 py-2 bg-gray-50 rounded-md'>
+    <div className="flex flex-col space-y-2">
+      <div className="flex flex-row items-center space-x-1">
+        <span className="whitespace-nowrap">{t("option.option-name")}</span>
+        <div className="px-3 py-2 bg-gray-50 rounded-md">
           {properties.option_name}
         </div>
       </div>
-      <div className='flex flex-row flex-wrap gap-2'>
+      <div className="flex flex-row flex-wrap gap-2">
         {properties.buttons.map((button, index) => (
           <button
             key={index}
-            className='px-4 py-2 bg-gray-100 text-gray-700 rounded-md cursor-default'
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md cursor-default"
             disabled
           >
             {button.properties.button_name}

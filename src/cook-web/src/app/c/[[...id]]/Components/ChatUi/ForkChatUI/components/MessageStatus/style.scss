@@ -2,13 +2,13 @@
   align-self: center;
   margin-right: $gutter;
 
-  &[data-status='loading'] {
+  &[data-status="loading"] {
     .Icon {
       color: var(--gray-4);
     }
   }
 
-  &[data-status='fail'] {
+  &[data-status="fail"] {
     .IconBtn {
       color: #ff5959;
     }

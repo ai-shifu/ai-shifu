@@ -1,12 +1,12 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
-export type CardSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+export type CardSize = "xs" | "sm" | "md" | "lg" | "xl";
 
 export interface CardProps {
   className?: string;
   size?: CardSize;
-  fluid?: boolean | 'order';
+  fluid?: boolean | "order";
   children?: React.ReactNode;
 }
 
@@ -17,9 +17,9 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
     return (
       <div
         className={clsx(
-          'Card',
+          "Card",
           size && `Card--${size}`,
-          { 'Card--fluid': fluid },
+          { "Card--fluid": fluid },
           className,
         )}
         data-fluid={fluid}
@@ -32,4 +32,4 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(
   },
 );
 
-Card.displayName = 'Card';
+Card.displayName = "Card";

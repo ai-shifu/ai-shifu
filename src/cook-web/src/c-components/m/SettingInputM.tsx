@@ -1,7 +1,7 @@
-import styles from './SettingInputM.module.scss';
-import { useState, useEffect } from 'react';
+import styles from "./SettingInputM.module.scss";
+import { useState, useEffect } from "react";
 
-import { Input } from '@/components/ui/input';
+import { Input } from "@/components/ui/input";
 
 export const SettingInputM = ({
   title,
@@ -12,13 +12,13 @@ export const SettingInputM = ({
 }) => {
   const [_value, setValue] = useState(value);
   const [isError, setIsError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     setValue(value);
   }, [value]);
 
-  const _onChange = val => {
+  const _onChange = (val) => {
     setIsError(false);
     setValue(val);
     onChange?.(val);
@@ -29,7 +29,7 @@ export const SettingInputM = ({
       setIsError(false);
     }
 
-    rules.some(r => {
+    rules.some((r) => {
       // @ts-expect-error EXPECT
       const ret = r.validator(_value);
 
@@ -47,7 +47,7 @@ export const SettingInputM = ({
     <div className={styles.settingInputM}>
       <div
         className={styles.title}
-        style={{ visibility: _value ? 'visible' : 'hidden' }}
+        style={{ visibility: _value ? "visible" : "hidden" }}
       >
         {title}
       </div>
@@ -64,7 +64,7 @@ export const SettingInputM = ({
       </div>
       <div
         className={styles.errorMessage}
-        style={{ visibility: isError ? 'visible' : 'hidden' }}
+        style={{ visibility: isError ? "visible" : "hidden" }}
       >
         {errorMessage}
       </div>

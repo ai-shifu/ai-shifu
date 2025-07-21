@@ -1,1 +1,1 @@
-export { Typing } from './Typing';
+export { Typing } from "./Typing";

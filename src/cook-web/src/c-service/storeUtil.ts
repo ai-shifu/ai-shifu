@@ -1,14 +1,14 @@
-import store from 'store';
+import store from "store";
 
-const TOKEN_KEY = 'token';
-const TOKEN_FAKED_KEY = 'token_faked';
+const TOKEN_KEY = "token";
+const TOKEN_FAKED_KEY = "token_faked";
 
-const createStore = key => {
+const createStore = (key) => {
   return {
     get: () => {
       return store.get(key);
     },
-    set: v => {
+    set: (v) => {
       store.set(key, v);
     },
     remove: () => {
@@ -17,12 +17,12 @@ const createStore = key => {
   };
 };
 
-const createBoolStore = key => {
+const createBoolStore = (key) => {
   return {
     get: () => {
       return !!parseInt(store.get(key));
     },
-    set: v => {
+    set: (v) => {
       const val = v ? 1 : 0;
       store.set(key, val);
     },

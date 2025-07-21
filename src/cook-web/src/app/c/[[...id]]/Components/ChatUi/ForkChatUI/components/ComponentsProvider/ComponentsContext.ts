@@ -1,5 +1,5 @@
-import React from 'react';
-import { ComponentsContextInterface } from './interface';
+import React from "react";
+import { ComponentsContextInterface } from "./interface";
 
 export const ComponentsContext =
   React.createContext<ComponentsContextInterface>({

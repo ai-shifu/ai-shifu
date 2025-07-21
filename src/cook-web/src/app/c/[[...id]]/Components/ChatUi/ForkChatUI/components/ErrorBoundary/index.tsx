@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export interface ErrorBoundaryState {
   error: Error | null;
@@ -44,11 +44,7 @@ export class ErrorBoundary extends React.Component<
     if (errorInfo) {
       if (FallbackComponent) {
         return (
-          <FallbackComponent
-            error={error!}
-            errorInfo={errorInfo}
-            {...rest}
-          />
+          <FallbackComponent error={error!} errorInfo={errorInfo} {...rest} />
         );
       }
 

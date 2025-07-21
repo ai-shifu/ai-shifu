@@ -1,16 +1,16 @@
-import styles from './ChatInputText.module.scss';
-import { useEffect, useRef, useState, memo } from 'react';
-import { useTranslation } from 'react-i18next';
+import styles from "./ChatInputText.module.scss";
+import { useEffect, useRef, useState, memo } from "react";
+import { useTranslation } from "react-i18next";
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from "@/hooks/use-toast";
 import {
   INTERACTION_OUTPUT_TYPE,
   INTERACTION_TYPE,
-} from '@/c-constants/courseConstants';
+} from "@/c-constants/courseConstants";
 
-import { registerInteractionType } from '../interactionRegistry';
-import iconSend from '@/c-assets/newchat/light/icon-send.png';
-import Image from 'next/image';
+import { registerInteractionType } from "../interactionRegistry";
+import iconSend from "@/c-assets/newchat/light/icon-send.png";
+import Image from "next/image";
 
 const OUTPUT_TYPE_MAP = {
   [INTERACTION_TYPE.INPUT]: INTERACTION_OUTPUT_TYPE.TEXT,
@@ -39,15 +39,15 @@ export const ChatInputText = ({
   disabled = false,
   props = {},
 }: ChatInputProps) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
-  const [input, setInput] = useState(initialValue || '');
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
+  const [input, setInput] = useState(initialValue || "");
 
   useEffect(() => {
-    setInput(initialValue || '');
+    setInput(initialValue || "");
   }, [initialValue]);
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const placeholder = props?.content?.content || t('chat.chatInputPlaceholder');
+  const placeholder = props?.content?.content || t("chat.chatInputPlaceholder");
   // @ts-expect-error EXPECT
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -55,19 +55,19 @@ export const ChatInputText = ({
     if (disabled) {
       return;
     }
-    if (input.trim() === '') {
+    if (input.trim() === "") {
       toast({
-        title: t('chat.chatInputWarn'),
-        variant: 'destructive',
+        title: t("chat.chatInputWarn"),
+        variant: "destructive",
       });
       return;
     }
 
     onClick?.(outputType, true, input.trim());
-    setInput('');
+    setInput("");
 
     if (textareaRef.current) {
-      textareaRef.current.style.height = '24px';
+      textareaRef.current.style.height = "24px";
     }
   };
 
@@ -87,7 +87,7 @@ export const ChatInputText = ({
       textarea.value = currentPlaceholder;
     }
 
-    textarea.style.height = 'auto';
+    textarea.style.height = "auto";
     const computed = window.getComputedStyle(textarea);
     const padding =
       parseFloat(computed.paddingTop) + parseFloat(computed.paddingBottom);
@@ -95,7 +95,7 @@ export const ChatInputText = ({
     textarea.style.height = `${newHeight}px`;
 
     if (!currentValue) {
-      textarea.value = '';
+      textarea.value = "";
       textarea.placeholder = currentPlaceholder;
     }
 
@@ -132,7 +132,7 @@ export const ChatInputText = ({
       return;
     }
 
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       if (e.shiftKey) {
         return;
       } else {
@@ -157,19 +157,19 @@ export const ChatInputText = ({
             onKeyDown={handleKeyDown}
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
-            enterKeyHint='send'
-            autoComplete='off'
+            enterKeyHint="send"
+            autoComplete="off"
             spellCheck={false}
-            autoCapitalize='off'
-            autoCorrect='off'
-            data-gramm='false'
+            autoCapitalize="off"
+            autoCorrect="off"
+            data-gramm="false"
             suppressContentEditableWarning={true}
           />
           <Image
             src={iconSend.src}
             width={24}
             height={24}
-            alt=''
+            alt=""
             className={styles.sendIcon}
             onClick={onSendClick}
           />

@@ -27,7 +27,7 @@
       color: var(--color-4);
     }
 
-    :global(.Message[data-type='lessonSeparator']) {
+    :global(.Message[data-type="lessonSeparator"]) {
       height: 0;
       overflow: hidden;
     }

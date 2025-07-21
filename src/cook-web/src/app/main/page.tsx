@@ -1,29 +1,29 @@
-'use client';
+"use client";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   PlusIcon,
   StarIcon as StarOutlineIcon,
   RectangleStackIcon as RectangleStackOutlineIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
 import {
   TrophyIcon,
   RectangleStackIcon,
   StarIcon,
-} from '@heroicons/react/24/solid';
-import api from '@/api';
-import { Shifu } from '@/types/shifu';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { CreateShifuDialog } from '@/components/create-shifu-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
-import Loading from '@/components/loading';
-import { useTranslation } from 'react-i18next';
-import { ErrorWithCode } from '@/lib/request';
-import ErrorDisplay from '@/components/error-display';
-import { useUserStore } from '@/c-store/useUserStore';
+} from "@heroicons/react/24/solid";
+import api from "@/api";
+import { Shifu } from "@/types/shifu";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { CreateShifuDialog } from "@/components/create-shifu-dialog";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+import Loading from "@/components/loading";
+import { useTranslation } from "react-i18next";
+import { ErrorWithCode } from "@/lib/request";
+import ErrorDisplay from "@/components/error-display";
+import { useUserStore } from "@/c-store/useUserStore";
 interface ShifuCardProps {
   id: string;
   image: string | undefined;
@@ -42,29 +42,29 @@ const ShifuCard = ({
   const router = useRouter();
   return (
     <Card
-      className='w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1rem)] cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out'
+      className="w-full md:w-[calc(50%-1rem)] lg:w-[calc(33.33%-1rem)] cursor-pointer rounded-xl bg-background hover:scale-105 transition-all duration-200 ease-in-out"
       onClick={() => router.push(`/shifu/${id}`)}
     >
-      <CardContent className='p-4 cursor-pointer'>
-        <div className='flex flex-row items-center justify-between'>
-          <div className='flex flex-row items-center mb-2'>
-            <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
+      <CardContent className="p-4 cursor-pointer">
+        <div className="flex flex-row items-center justify-between">
+          <div className="flex flex-row items-center mb-2">
+            <div className="p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0">
               {image && (
                 <img
                   src={image}
-                  alt='recipe'
-                  className='w-full h-full object-cover rounded-lg'
+                  alt="recipe"
+                  className="w-full h-full object-cover rounded-lg"
                 />
               )}
-              {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
+              {!image && <TrophyIcon className="w-6 h-6 text-primary" />}
             </div>
 
-            <h3 className='font-medium text-gray-900 leading-5'>{title}</h3>
+            <h3 className="font-medium text-gray-900 leading-5">{title}</h3>
           </div>
-          {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
+          {isFavorite && <StarIcon className="w-5 h-5 text-yellow-400" />}
         </div>
         <div>
-          <p className='mt-1 text-sm text-gray-500 line-clamp-3'>
+          <p className="mt-1 text-sm text-gray-500 line-clamp-3">
             {description}
           </p>
         </div>
@@ -76,9 +76,9 @@ const ShifuCard = ({
 const ScriptManagementPage = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
-  const isInitialized = useUserStore(state => state.isInitialized);
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
-  const [activeTab, setActiveTab] = useState('all');
+  const isInitialized = useUserStore((state) => state.isInitialized);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
+  const [activeTab, setActiveTab] = useState("all");
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -100,15 +100,15 @@ const ScriptManagementPage = () => {
       const { items } = await api.getShifuList({
         page_index: currentPage.current,
         page_size: pageSize,
-        is_favorite: activeTab === 'favorites',
+        is_favorite: activeTab === "favorites",
       });
       if (items.length < pageSize) {
         setHasMore(false);
       }
 
-      setShifus(prev => {
+      setShifus((prev) => {
         // 避免重复数据
-        const existingIds = new Set(prev.map(shifu => shifu.bid));
+        const existingIds = new Set(prev.map((shifu) => shifu.bid));
         const newItems = items.filter(
           (item: Shifu) => !existingIds.has(item.bid),
         );
@@ -117,7 +117,7 @@ const ScriptManagementPage = () => {
       currentPage.current += 1;
       setLoading(false);
     } catch (error: any) {
-      console.error('Failed to fetch shifus:', error);
+      console.error("Failed to fetch shifus:", error);
       setLoading(false);
       if (error instanceof ErrorWithCode) {
         // Pass the error code and original message to ErrorDisplay
@@ -125,7 +125,7 @@ const ScriptManagementPage = () => {
         setError({ message: error.message, code: error.code });
       } else {
         // For unknown errors, pass a generic error code
-        setError({ message: error.message || 'Unknown error', code: 0 });
+        setError({ message: error.message || "Unknown error", code: 0 });
       }
     }
   }, [loading, hasMore, activeTab]);
@@ -136,8 +136,8 @@ const ScriptManagementPage = () => {
     try {
       await api.createShifu(values);
       toast({
-        title: t('common.create-success'),
-        description: t('common.create-success-description'),
+        title: t("common.create-success"),
+        description: t("common.create-success-description"),
       });
       setShifus([]);
       setHasMore(true);
@@ -146,10 +146,10 @@ const ScriptManagementPage = () => {
       setShowCreateShifuModal(false);
     } catch (error) {
       toast({
-        title: t('common.create-failed'),
+        title: t("common.create-failed"),
         description:
-          error instanceof Error ? error.message : t('common.unknown-error'),
-        variant: 'destructive',
+          error instanceof Error ? error.message : t("common.unknown-error"),
+        variant: "destructive",
       });
     }
   };
@@ -168,7 +168,7 @@ const ScriptManagementPage = () => {
     if (!container || !isInitialized) return;
 
     const observer = new IntersectionObserver(
-      entries => {
+      (entries) => {
         if (entries[0].isIntersecting && hasMore && fetchShifusRef.current) {
           fetchShifusRef.current();
         }
@@ -202,7 +202,7 @@ const ScriptManagementPage = () => {
 
   if (error) {
     return (
-      <div className='h-full bg-gray-50 p-0'>
+      <div className="h-full bg-gray-50 p-0">
         <ErrorDisplay
           errorCode={error.code || 0}
           errorMessage={error.message}
@@ -219,21 +219,17 @@ const ScriptManagementPage = () => {
   }
 
   return (
-    <div className='h-full bg-gray-50 p-0'>
-      <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
-        <div className='flex justify-between items-center mb-5'>
-          <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('common.shifu')}
+    <div className="h-full bg-gray-50 p-0">
+      <div className="max-w-7xl mx-auto h-full overflow-hidden flex flex-col">
+        <div className="flex justify-between items-center mb-5">
+          <h1 className="text-2xl font-semibold text-gray-900">
+            {t("common.shifu")}
           </h1>
         </div>
-        <div className='flex space-x-3 mb-5'>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={handleCreateShifuModal}
-          >
-            <PlusIcon className='w-5 h-5 mr-1' />
-            {t('common.create-blank-shifu')}
+        <div className="flex space-x-3 mb-5">
+          <Button size="sm" variant="outline" onClick={handleCreateShifuModal}>
+            <PlusIcon className="w-5 h-5 mr-1" />
+            {t("common.create-blank-shifu")}
           </Button>
           <CreateShifuDialog
             open={showCreateShifuModal}
@@ -241,62 +237,58 @@ const ScriptManagementPage = () => {
             onSubmit={onCreateShifu}
           />
         </div>
-        <Tabs
-          defaultValue='all'
-          className='mb-0'
-          onValueChange={setActiveTab}
-        >
-          <TabsList className='bg-stone-50 px-0'>
-            <TabsTrigger value='all'>
-              {activeTab == 'all' && (
-                <RectangleStackIcon className='w-5 h-5 mr-1 text-primary' />
+        <Tabs defaultValue="all" className="mb-0" onValueChange={setActiveTab}>
+          <TabsList className="bg-stone-50 px-0">
+            <TabsTrigger value="all">
+              {activeTab == "all" && (
+                <RectangleStackIcon className="w-5 h-5 mr-1 text-primary" />
               )}
-              {activeTab != 'all' && (
-                <RectangleStackOutlineIcon className='w-5 h-5 mr-1' />
+              {activeTab != "all" && (
+                <RectangleStackOutlineIcon className="w-5 h-5 mr-1" />
               )}
-              {t('common.all')}
+              {t("common.all")}
             </TabsTrigger>
-            <TabsTrigger value='favorites'>
-              {activeTab == 'favorites' && (
-                <StarIcon className='w-5 h-5 mr-1 text-primary' />
+            <TabsTrigger value="favorites">
+              {activeTab == "favorites" && (
+                <StarIcon className="w-5 h-5 mr-1 text-primary" />
               )}
-              {activeTab != 'favorites' && (
-                <StarOutlineIcon className='w-5 h-5 mr-1' />
+              {activeTab != "favorites" && (
+                <StarOutlineIcon className="w-5 h-5 mr-1" />
               )}
-              {t('common.favorites')}
+              {t("common.favorites")}
             </TabsTrigger>
           </TabsList>
           <TabsContent
-            value='all'
-            className=' flex-1 overflow-auto'
+            value="all"
+            className=" flex-1 overflow-auto"
           ></TabsContent>
-          <TabsContent value='favorites'></TabsContent>
+          <TabsContent value="favorites"></TabsContent>
         </Tabs>
-        <div className='flex-1 overflow-auto'>
-          <div className='flex flex-wrap gap-4'>
-            {shifus.map(shifu => (
+        <div className="flex-1 overflow-auto">
+          <div className="flex flex-wrap gap-4">
+            {shifus.map((shifu) => (
               <ShifuCard
-                id={shifu.bid + ''}
+                id={shifu.bid + ""}
                 key={shifu.bid}
                 image={shifu.avatar}
-                title={shifu.name || ''}
-                description={shifu.description || ''}
+                title={shifu.name || ""}
+                description={shifu.description || ""}
                 isFavorite={shifu.is_favorite || false}
               />
             ))}
           </div>
           <div
             ref={containerRef}
-            className='w-full h-10 flex items-center justify-center'
+            className="w-full h-10 flex items-center justify-center"
           >
             {loading && <Loading />}
             {!hasMore && shifus.length > 0 && (
-              <p className='text-gray-500 text-sm'>
-                {t('common.no-more-shifus')}
+              <p className="text-gray-500 text-sm">
+                {t("common.no-more-shifus")}
               </p>
             )}
             {!loading && !hasMore && shifus.length == 0 && (
-              <p className='text-gray-500 text-sm'>{t('common.no-shifus')}</p>
+              <p className="text-gray-500 text-sm">{t("common.no-shifus")}</p>
             )}
           </div>
         </div>

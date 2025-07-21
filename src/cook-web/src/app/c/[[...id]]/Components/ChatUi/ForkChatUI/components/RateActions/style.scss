@@ -16,14 +16,14 @@
     margin-top: 9px;
   }
 
-  &[data-type='up'] {
+  &[data-type="up"] {
     &:hover,
     &.active {
       color: var(--brand-1);
     }
   }
 
-  &[data-type='down'] {
+  &[data-type="down"] {
     &:hover,
     &.active {
       color: var(--blue);

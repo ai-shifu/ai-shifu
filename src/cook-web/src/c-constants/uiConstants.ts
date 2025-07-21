@@ -16,7 +16,7 @@ export const FRAME_LAYOUT_PC_WIDTH = 1080;
 export const FRAME_LAYOUT_PAD_INTENSIVE_WIDTH = 800;
 export const FRAME_LAYOUT_MOBILE_WIDTH = 430;
 
-export const calcFrameLayout = selector => {
+export const calcFrameLayout = (selector) => {
   const elem = document.querySelector(selector);
   if (!elem) {
     return FRAME_LAYOUT_PC;
@@ -38,13 +38,13 @@ export const calcFrameLayout = selector => {
 /**
  * 主题
  */
-export const THEME_LIGHT = 'light';
-export const THEME_DARK = 'dark';
+export const THEME_LIGHT = "light";
+export const THEME_DARK = "dark";
 
 export const inWechat = () => {
   const ua = navigator.userAgent.toLowerCase();
   // @ts-expect-error EXPECT
-  const isWXWork = ua.match(/wxwork/i) === 'wxwork';
+  const isWXWork = ua.match(/wxwork/i) === "wxwork";
   const isWeixin = !isWXWork && /MicroMessenger/i.test(ua);
 
   return isWeixin;
@@ -53,9 +53,9 @@ export const inWechat = () => {
 // 微信登录跳转
 export const wechatLogin = ({
   appId,
-  redirectUrl = '',
-  scope = 'snsapi_base',
-  state = '',
+  redirectUrl = "",
+  scope = "snsapi_base",
+  state = "",
 }) => {
   const _redirectUrl = encodeURIComponent(redirectUrl || window.location.href);
   const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${_redirectUrl}&response_type=code&scope=${scope}&state=${state}#wechat_redirect`;

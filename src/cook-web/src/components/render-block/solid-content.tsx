@@ -1,5 +1,5 @@
-import CMEditor from '@/components/cm-editor';
-import { ContentDTO, UIBlockDTO } from '@/types/shifu';
+import CMEditor from "@/components/cm-editor";
+import { ContentDTO, UIBlockDTO } from "@/types/shifu";
 
 export default function SolidContent(props: UIBlockDTO) {
   const { data } = props;
@@ -9,7 +9,7 @@ export default function SolidContent(props: UIBlockDTO) {
       content={content}
       isEdit={props.isEdit}
       // onBlur={props.onBlur}
-      onChange={value => {
+      onChange={(value) => {
         props.onPropertiesChange({
           ...props.data,
           properties: { ...props.data.properties, content: value },

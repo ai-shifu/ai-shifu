@@ -4,14 +4,14 @@ import React, {
   useRef,
   useImperativeHandle,
   useCallback,
-} from 'react';
-import clsx from 'clsx';
-import { Flex } from '../Flex';
-import { Icon } from '../Icon';
-import { useLocale } from '../LocaleProvider';
-import canUse from '../../utils/canUse';
+} from "react";
+import clsx from "clsx";
+import { Flex } from "../Flex";
+import { Icon } from "../Icon";
+import { useLocale } from "../LocaleProvider";
+import canUse from "../../utils/canUse";
 
-const canPassive = canUse('passiveListener');
+const canPassive = canUse("passiveListener");
 const listenerOpts = canPassive ? { passive: true } : false;
 const listenerOptsWithoutPassive = canPassive ? { passive: false } : false;
 const MOVE_INTERVAL = 80;
@@ -21,9 +21,9 @@ interface ButtonTextMap {
 }
 
 const btnTextMap: ButtonTextMap = {
-  inited: 'hold2talk',
-  recording: 'release2send',
-  willCancel: 'release2send',
+  inited: "hold2talk",
+  recording: "release2send",
+  willCancel: "release2send",
 };
 
 let ts = 0;
@@ -45,9 +45,9 @@ export interface RecorderProps {
 export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
   (props, ref) => {
     const { volume, onStart, onEnd, onCancel } = props;
-    const [status, setStatus] = useState('inited');
+    const [status, setStatus] = useState("inited");
     const btnRef = useRef<HTMLDivElement>(null);
-    const { trans } = useLocale('Recorder');
+    const { trans } = useLocale("Recorder");
 
     const doEnd = useCallback(() => {
       const duration = Date.now() - ts;
@@ -58,7 +58,7 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
 
     useImperativeHandle(ref, () => ({
       stop() {
-        setStatus('inited');
+        setStatus("inited");
         doEnd();
         ts = 0;
       },
@@ -74,7 +74,7 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
         const touch0 = e.touches[0];
         startY = touch0.pageY;
         ts = Date.now();
-        setStatus('recording');
+        setStatus("recording");
 
         if (onStart) {
           onStart();
@@ -85,7 +85,7 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
         if (!ts) return;
         const nowY = e.touches[0].pageY;
         const isCancel = startY - nowY > MOVE_INTERVAL;
-        setStatus(isCancel ? 'willCancel' : 'recording');
+        setStatus(isCancel ? "willCancel" : "recording");
       }
 
       function handleTouchEnd(e: TouchEvent) {
@@ -93,7 +93,7 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
         const endY = e.changedTouches[0].pageY;
         const isRecording = startY - endY < MOVE_INTERVAL;
 
-        setStatus('inited');
+        setStatus("inited");
 
         if (isRecording) {
           doEnd();
@@ -103,65 +103,52 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
       }
 
       wrapper.addEventListener(
-        'touchstart',
+        "touchstart",
         handleTouchStart,
         listenerOptsWithoutPassive,
       );
-      wrapper.addEventListener('touchmove', handleTouchMove, listenerOpts);
-      wrapper.addEventListener('touchend', handleTouchEnd);
-      wrapper.addEventListener('touchcancel', handleTouchEnd);
+      wrapper.addEventListener("touchmove", handleTouchMove, listenerOpts);
+      wrapper.addEventListener("touchend", handleTouchEnd);
+      wrapper.addEventListener("touchcancel", handleTouchEnd);
 
       return () => {
-        wrapper.removeEventListener('touchstart', handleTouchStart);
-        wrapper.removeEventListener('touchmove', handleTouchMove);
-        wrapper.removeEventListener('touchend', handleTouchEnd);
-        wrapper.removeEventListener('touchcancel', handleTouchEnd);
+        wrapper.removeEventListener("touchstart", handleTouchStart);
+        wrapper.removeEventListener("touchmove", handleTouchMove);
+        wrapper.removeEventListener("touchend", handleTouchEnd);
+        wrapper.removeEventListener("touchcancel", handleTouchEnd);
       };
     }, [doEnd, onCancel, onStart]);
 
-    const isCancel = status === 'willCancel';
+    const isCancel = status === "willCancel";
     const wavesStyle = { transform: `scale(${(volume || 1) / 100 + 1})` };
 
     return (
       <div
-        className={clsx('Recorder', { 'Recorder--cancel': isCancel })}
+        className={clsx("Recorder", { "Recorder--cancel": isCancel })}
         ref={btnRef}
       >
-        {status !== 'inited' && (
-          <Flex
-            className='RecorderToast'
-            direction='column'
-            center
-          >
+        {status !== "inited" && (
+          <Flex className="RecorderToast" direction="column" center>
             <div
-              className='RecorderToast-waves'
-              hidden={status !== 'recording'}
+              className="RecorderToast-waves"
+              hidden={status !== "recording"}
               style={wavesStyle}
             >
-              <Icon
-                className='RecorderToast-wave-1'
-                type='hexagon'
-              />
-              <Icon
-                className='RecorderToast-wave-2'
-                type='hexagon'
-              />
-              <Icon
-                className='RecorderToast-wave-3'
-                type='hexagon'
-              />
+              <Icon className="RecorderToast-wave-1" type="hexagon" />
+              <Icon className="RecorderToast-wave-2" type="hexagon" />
+              <Icon className="RecorderToast-wave-3" type="hexagon" />
             </div>
             <Icon
-              className='RecorderToast-icon'
-              type={isCancel ? 'cancel' : 'mic'}
+              className="RecorderToast-icon"
+              type={isCancel ? "cancel" : "mic"}
             />
-            <span>{trans(isCancel ? 'release2cancel' : 'releaseOrSwipe')}</span>
+            <span>{trans(isCancel ? "release2cancel" : "releaseOrSwipe")}</span>
           </Flex>
         )}
         <div
-          className='Recorder-btn'
-          role='button'
-          aria-label={trans('hold2talk')}
+          className="Recorder-btn"
+          role="button"
+          aria-label={trans("hold2talk")}
         >
           <span>{trans(btnTextMap[status])}</span>
         </div>
@@ -170,4 +157,4 @@ export const Recorder = React.forwardRef<RecorderHandle, RecorderProps>(
   },
 );
 
-Recorder.displayName = 'Recorder';
+Recorder.displayName = "Recorder";

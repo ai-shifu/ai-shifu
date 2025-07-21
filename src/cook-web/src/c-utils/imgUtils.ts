@@ -1,13 +1,13 @@
-export const createImage = url =>
+export const createImage = (url) =>
   new Promise((resolve, reject) => {
     const image = new Image();
-    image.addEventListener('load', () => resolve(image));
-    image.addEventListener('error', error => reject(error));
-    image.setAttribute('crossOrigin', 'anonymous'); // needed to avoid cross-origin issues on CodeSandbox
+    image.addEventListener("load", () => resolve(image));
+    image.addEventListener("error", (error) => reject(error));
+    image.setAttribute("crossOrigin", "anonymous"); // needed to avoid cross-origin issues on CodeSandbox
     image.src = url;
   });
 
-export const getRadianAngle = degreeValue => {
+export const getRadianAngle = (degreeValue) => {
   return (degreeValue * Math.PI) / 180;
 };
 
@@ -32,8 +32,8 @@ export const genCroppedImg = async (
   flip = { horizontal: false, vertical: false },
 ) => {
   const image = await createImage(imageSrc);
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
 
   if (!ctx) {
     return null;
@@ -65,8 +65,8 @@ export const genCroppedImg = async (
   // @ts-expect-error EXPECT
   ctx.drawImage(image, 0, 0);
 
-  const croppedCanvas = document.createElement('canvas');
-  const croppedCtx = croppedCanvas.getContext('2d');
+  const croppedCanvas = document.createElement("canvas");
+  const croppedCtx = croppedCanvas.getContext("2d");
 
   if (!croppedCtx) {
     return null;
@@ -89,10 +89,10 @@ export const genCroppedImg = async (
     pixelCrop.height,
   );
 
-  return new Promise(resolve => {
-    croppedCanvas.toBlob(blob => {
+  return new Promise((resolve) => {
+    croppedCanvas.toBlob((blob) => {
       // @ts-expect-error EXPECT
-      const file = new File([blob], 'image.png', {});
+      const file = new File([blob], "image.png", {});
       resolve(file);
     });
   });
@@ -103,14 +103,14 @@ export const genCroppedImg = async (
  * DataURLs format: data:[<mediatype>][;base64],<data>
  * reference: https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs
  */
-export const convertFileToDataUrl = async file => {
+export const convertFileToDataUrl = async (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.addEventListener('load', e => {
+    reader.addEventListener("load", (e) => {
       // @ts-expect-error EXPECT
       resolve(e.target.result);
     });
-    reader.addEventListener('error', err => reject(err));
+    reader.addEventListener("error", (err) => reject(err));
 
     reader.readAsDataURL(file);
   });

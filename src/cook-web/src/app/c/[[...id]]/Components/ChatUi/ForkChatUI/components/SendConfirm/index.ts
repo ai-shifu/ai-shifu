@@ -1,1 +1,1 @@
-export { SendConfirm } from './SendConfirm';
+export { SendConfirm } from "./SendConfirm";

@@ -51,7 +51,7 @@
 ### 在组件中使用
 
 ```typescript
-import { environment } from '@/config/environment';
+import { environment } from "@/config/environment";
 
 // 获取API基础URL
 const apiUrl = environment.apiBaseUrl;
@@ -67,7 +67,7 @@ const wechatEnabled = environment.enableWechatCode;
 ### 在API路由中使用
 
 ```typescript
-import { environment } from '@/config/environment';
+import { environment } from "@/config/environment";
 
 export async function GET() {
   return NextResponse.json({

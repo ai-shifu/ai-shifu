@@ -1,18 +1,18 @@
-import styles from './CouponCodeModal.module.scss';
+import styles from "./CouponCodeModal.module.scss";
 
-import { useCallback, memo } from 'react';
-import { cn } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
+import { useCallback, memo } from "react";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 import {
   Form,
@@ -20,25 +20,25 @@ import {
   FormField,
   FormItem,
   FormMessage,
-} from '@/components/ui/form';
+} from "@/components/ui/form";
 
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
 
   const formSchema = z.object({
     couponCode: z.string().min(1, {
-      message: t('groupon.grouponInputMsg'),
+      message: t("groupon.grouponInputMsg"),
     }),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      couponCode: '',
+      couponCode: "",
     },
   });
 
@@ -58,28 +58,25 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
   }
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={handleOpenChange}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(_onOk)}>
           <DialogContent
-            className={cn(styles.couponCodeModal, 'w-96')}
-            onPointerDownOutside={evt => evt.preventDefault()}
+            className={cn(styles.couponCodeModal, "w-96")}
+            onPointerDownOutside={(evt) => evt.preventDefault()}
           >
             <DialogHeader>
-              <DialogTitle>{t('groupon.grouponTitle')}</DialogTitle>
+              <DialogTitle>{t("groupon.grouponTitle")}</DialogTitle>
             </DialogHeader>
 
             <FormField
               control={form.control}
-              name='couponCode'
+              name="couponCode"
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder={t('groupon.grouponPlaceholder')}
+                      placeholder={t("groupon.grouponPlaceholder")}
                       {...field}
                     />
                   </FormControl>
@@ -89,7 +86,7 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
             />
 
             <DialogFooter>
-              <Button type='submit'>提交</Button>
+              <Button type="submit">提交</Button>
             </DialogFooter>
           </DialogContent>
         </form>

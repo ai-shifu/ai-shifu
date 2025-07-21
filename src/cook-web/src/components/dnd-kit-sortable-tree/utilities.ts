@@ -1,11 +1,11 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { arrayMove } from '@dnd-kit/sortable';
+import { arrayMove } from "@dnd-kit/sortable";
 
-import type { FlattenedItem, TreeItem, TreeItems } from './types';
-import { UniqueIdentifier } from '@dnd-kit/core';
+import type { FlattenedItem, TreeItem, TreeItems } from "./types";
+import { UniqueIdentifier } from "@dnd-kit/core";
 
 export const iOS =
-  typeof window !== 'undefined'
+  typeof window !== "undefined"
     ? /iPad|iPhone|iPod/.test(navigator.platform)
     : false;
 
@@ -94,14 +94,14 @@ export function getProjection<T>(
   ): FlattenedItem<T> | null | undefined {
     if (!parent) {
       const rootCanHaveChildren =
-        typeof canRootHaveChildren === 'function'
+        typeof canRootHaveChildren === "function"
           ? canRootHaveChildren(dragItem)
           : canRootHaveChildren;
       if (rootCanHaveChildren === false) return undefined;
       return parent;
     }
     const canHaveChildren =
-      typeof parent.canHaveChildren === 'function'
+      typeof parent.canHaveChildren === "function"
         ? parent.canHaveChildren(dragItem)
         : parent.canHaveChildren;
     if (canHaveChildren === false)
@@ -151,9 +151,9 @@ export function flattenTree<T extends Record<string, any>>(
 export function buildTree<T extends Record<string, any>>(
   flattenedItems: FlattenedItem<T>[],
 ): TreeItems<T> {
-  const root: TreeItem<T> = { id: 'root', children: [] } as any;
+  const root: TreeItem<T> = { id: "root", children: [] } as any;
   const nodes: Record<string, TreeItem<T>> = { [root.id]: root };
-  const items = flattenedItems.map(item => ({ ...item, children: [] }));
+  const items = flattenedItems.map((item) => ({ ...item, children: [] }));
 
   for (const item of items) {
     const { id } = item;
@@ -267,7 +267,7 @@ export function removeChildrenOf<T>(
 ) {
   const excludeParentIds = [...ids];
 
-  return items.filter(item => {
+  return items.filter((item) => {
     if (item.parentId && excludeParentIds.includes(item.parentId)) {
       if (item.children?.length) {
         excludeParentIds.push(item.id);

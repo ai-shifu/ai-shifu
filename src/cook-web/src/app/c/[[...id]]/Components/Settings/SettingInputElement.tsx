@@ -1,22 +1,22 @@
-import { useState } from 'react';
-import styles from './SettingInputElement.module.scss';
-import classNames from 'classnames';
-import { useCallback } from 'react';
-import { useEffect } from 'react';
-import { memo } from 'react';
+import { useState } from "react";
+import styles from "./SettingInputElement.module.scss";
+import classNames from "classnames";
+import { useCallback } from "react";
+import { useEffect } from "react";
+import { memo } from "react";
 
 export const SettingInputElement = ({
-  value = '',
+  value = "",
   onChange,
-  placeholder = '',
-  title = '',
-  className = '',
+  placeholder = "",
+  title = "",
+  className = "",
   maxLength = null,
 }) => {
   const [_value, _setValue] = useState(value);
 
   const onInputChanged = useCallback(
-    e => {
+    (e) => {
       _setValue(e.target.value);
       onChange?.(e);
     },

@@ -6,9 +6,9 @@ declare global {
 
 export function importScript(url: string, name: string) {
   return new Promise((resolve, reject) => {
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.async = true;
-    script.crossOrigin = 'anonymous';
+    script.crossOrigin = "anonymous";
 
     const destroy = () => {
       if (script.parentNode) {

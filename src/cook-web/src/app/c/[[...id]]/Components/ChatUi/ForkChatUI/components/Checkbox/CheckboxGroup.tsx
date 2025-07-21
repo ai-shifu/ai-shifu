@@ -1,6 +1,6 @@
-import React from 'react';
-import clsx from 'clsx';
-import { Checkbox, CheckboxProps, CheckboxValue } from './Checkbox';
+import React from "react";
+import clsx from "clsx";
+import { Checkbox, CheckboxProps, CheckboxValue } from "./Checkbox";
 
 export type CheckboxGroupProps = {
   className?: string;
@@ -15,7 +15,7 @@ export type CheckboxGroupProps = {
   ) => void;
 };
 
-export const CheckboxGroup: React.FC<CheckboxGroupProps> = props => {
+export const CheckboxGroup: React.FC<CheckboxGroupProps> = (props) => {
   const { className, options, value, name, disabled, block, onChange } = props;
 
   function handleChange(
@@ -24,26 +24,26 @@ export const CheckboxGroup: React.FC<CheckboxGroupProps> = props => {
   ) {
     const newValue = e.target.checked
       ? value.concat(val)
-      : value.filter(item => item !== val);
+      : value.filter((item) => item !== val);
     onChange(newValue, e);
   }
 
   return (
     <div
       className={clsx(
-        'CheckboxGroup',
-        { 'CheckboxGroup--block': block },
+        "CheckboxGroup",
+        { "CheckboxGroup--block": block },
         className,
       )}
     >
-      {options.map(item => (
+      {options.map((item) => (
         <Checkbox
           label={item.label || item.value}
           value={item.value}
           name={name}
           checked={value.includes(item.value)}
-          disabled={'disabled' in item ? item.disabled : disabled}
-          onChange={e => {
+          disabled={"disabled" in item ? item.disabled : disabled}
+          onChange={(e) => {
             handleChange(item.value, e);
           }}
           key={item.value}

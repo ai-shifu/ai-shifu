@@ -1,20 +1,20 @@
-const fs = require('fs'); // eslint-disable-line
-const path = require('path'); // eslint-disable-line
+const fs = require("fs"); // eslint-disable-line
+const path = require("path"); // eslint-disable-line
 
-const localesDir = path.join(__dirname, '../../public/locales');
+const localesDir = path.join(__dirname, "../../public/locales");
 const files = fs.readdirSync(localesDir);
 const langMap = {};
 
-files.forEach(file => {
-  if (file.endsWith('.json')) {
-    const code = file.replace('.json', '');
-    const content = fs.readFileSync(path.join(localesDir, file), 'utf-8');
+files.forEach((file) => {
+  if (file.endsWith(".json")) {
+    const code = file.replace(".json", "");
+    const content = fs.readFileSync(path.join(localesDir, file), "utf-8");
     const json = JSON.parse(content);
     langMap[code] = json.langName;
   }
 });
 
 fs.writeFileSync(
-  path.join(localesDir, 'languages.json'),
+  path.join(localesDir, "languages.json"),
   JSON.stringify(langMap, null, 2),
 );

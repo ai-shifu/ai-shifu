@@ -1,14 +1,14 @@
-import { memo, useCallback, useState } from 'react';
-import { cn } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
+import { memo, useCallback, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
-import { useShallow } from 'zustand/react/shallow';
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useShallow } from "zustand/react/shallow";
+import { useCourseStore } from "@/c-store/useCourseStore";
 
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { shifu } from '@/c-service/Shifu';
+import { useTracking, EVENT_NAMES } from "@/c-common/hooks/useTracking";
+import { shifu } from "@/c-service/Shifu";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 
 export const ResetChapterButton = ({
   className,
@@ -26,20 +26,20 @@ export const ResetChapterButton = ({
   onClick,
   onConfirm,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
   const { trackEvent } = useTracking();
 
   const [showConfirm, setShowConfirm] = useState(false);
 
   const { resetChapter, updateLessonId } = useCourseStore(
-    useShallow(state => ({
+    useShallow((state) => ({
       resetChapter: state.resetChapter,
       updateLessonId: state.updateLessonId,
     })),
   );
 
   const onButtonClick = useCallback(
-    async e => {
+    async (e) => {
       setShowConfirm(true);
       // Modal.confirm({
       //   title: t('lesson.reset.resetConfirmTitle'),
@@ -91,25 +91,22 @@ export const ResetChapterButton = ({
   return (
     <>
       <Button
-        size='sm'
-        className={cn(className, 'size-max', 'px-2', 'rounded-full')}
+        size="sm"
+        className={cn(className, "size-max", "px-2", "rounded-full")}
         onClick={onButtonClick}
       >
-        {t('lesson.reset.resetTitle')}
+        {t("lesson.reset.resetTitle")}
       </Button>
-      <Dialog
-        open={showConfirm}
-        onOpenChange={open => setShowConfirm(open)}
-      >
+      <Dialog open={showConfirm} onOpenChange={(open) => setShowConfirm(open)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('lesson.reset.resetConfirmTitle')}</DialogTitle>
+            <DialogTitle>{t("lesson.reset.resetConfirmTitle")}</DialogTitle>
             <DialogDescription>
-              {t('lesson.reset.resetConfirmContent')}
+              {t("lesson.reset.resetConfirmContent")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={handleConfirm}>{t('common.ok')}</Button>
+            <Button onClick={handleConfirm}>{t("common.ok")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

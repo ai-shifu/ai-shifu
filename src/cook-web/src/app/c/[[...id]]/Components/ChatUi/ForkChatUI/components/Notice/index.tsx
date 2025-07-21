@@ -1,7 +1,7 @@
-import React from 'react';
-import { Icon } from '../Icon';
-import { IconButton } from '../IconButton';
-import { Text } from '../Text';
+import React from "react";
+import { Icon } from "../Icon";
+import { IconButton } from "../IconButton";
+import { Text } from "../Text";
 
 export interface NoticeProps {
   content: string;
@@ -15,41 +15,25 @@ export const Notice = (props: NoticeProps) => {
   const {
     content,
     closable = true,
-    leftIcon = 'bullhorn',
+    leftIcon = "bullhorn",
     onClick,
     onClose,
   } = props;
 
   return (
-    <div
-      className='Notice'
-      role='alert'
-      aria-atomic
-      aria-live='assertive'
-    >
-      {leftIcon && (
-        <Icon
-          className='Notice-icon'
-          type={leftIcon}
-        />
-      )}
-      <div
-        className='Notice-content'
-        onClick={onClick}
-      >
-        <Text
-          className='Notice-text'
-          truncate
-        >
+    <div className="Notice" role="alert" aria-atomic aria-live="assertive">
+      {leftIcon && <Icon className="Notice-icon" type={leftIcon} />}
+      <div className="Notice-content" onClick={onClick}>
+        <Text className="Notice-text" truncate>
           {content}
         </Text>
       </div>
       {closable && (
         <IconButton
-          className='Notice-close'
-          icon='close'
+          className="Notice-close"
+          icon="close"
           onClick={onClose}
-          aria-label='关闭通知'
+          aria-label="关闭通知"
         />
       )}
     </div>

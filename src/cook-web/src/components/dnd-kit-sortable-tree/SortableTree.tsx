@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-'use client';
+"use client";
 import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-} from 'react';
+} from "react";
 import {
   Announcements,
   closestCenter,
@@ -23,13 +23,13 @@ import {
   UniqueIdentifier,
   useSensor,
   useSensors,
-} from '@dnd-kit/core';
-import { CSS } from '@dnd-kit/utilities';
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import {
   arrayMove,
   SortableContext,
   UseSortableArguments,
-} from '@dnd-kit/sortable';
+} from "@dnd-kit/sortable";
 
 import {
   buildTree,
@@ -39,16 +39,16 @@ import {
   removeChildrenOf,
   removeItem,
   setProperty,
-} from './utilities';
+} from "./utilities";
 import type {
   FlattenedItem,
   ItemChangedReason,
   SensorContext,
   TreeItemComponentType,
   TreeItems,
-} from './types';
-import { SortableTreeItem } from './SortableTreeItem';
-import { customListSortingStrategy } from './SortingStrategy';
+} from "./types";
+import { SortableTreeItem } from "./SortableTreeItem";
+import { customListSortingStrategy } from "./SortingStrategy";
 
 export type SortableTreeProps<
   TData extends Record<string, any>,
@@ -66,7 +66,7 @@ export type SortableTreeProps<
   disableSorting?: boolean;
   dropAnimation?: DropAnimation | null;
   dndContextProps?: React.ComponentProps<typeof DndContext>;
-  sortableProps?: Omit<UseSortableArguments, 'id'>;
+  sortableProps?: Omit<UseSortableArguments, "id">;
   keepGhostInPlace?: boolean;
   canRootHaveChildren?: boolean | ((dragItem: FlattenedItem<TData>) => boolean);
 };
@@ -90,7 +90,7 @@ export const dropAnimationDefaultConfig: DropAnimation = {
       },
     ];
   },
-  easing: 'ease-out',
+  easing: "ease-out",
   sideEffects({ active }) {
     active.node.animate([{ opacity: 0 }, { opacity: 1 }], {
       duration: defaultDropAnimation.duration,
@@ -180,7 +180,7 @@ export function SortableTree<
     (id: string) => {
       const item = findItemDeep(itemsRef.current, id)!;
       onItemsChanged(removeItem(itemsRef.current, id), {
-        type: 'removed',
+        type: "removed",
         item,
       });
     },
@@ -191,11 +191,11 @@ export function SortableTree<
     function handleCollapse(id: string) {
       const item = findItemDeep(itemsRef.current, id)!;
       onItemsChanged(
-        setProperty(itemsRef.current, id, 'collapsed', ((value: boolean) => {
+        setProperty(itemsRef.current, id, "collapsed", ((value: boolean) => {
           return !value;
         }) as any),
         {
-          type: item.collapsed ? 'collapsed' : 'expanded',
+          type: item.collapsed ? "collapsed" : "expanded",
           item: item,
         },
       );
@@ -209,13 +209,13 @@ export function SortableTree<
         return `Picked up ${active.id}.`;
       },
       onDragMove({ active, over }) {
-        return getMovementAnnouncement('onDragMove', active.id, over?.id);
+        return getMovementAnnouncement("onDragMove", active.id, over?.id);
       },
       onDragOver({ active, over }) {
-        return getMovementAnnouncement('onDragOver', active.id, over?.id);
+        return getMovementAnnouncement("onDragOver", active.id, over?.id);
       },
       onDragEnd({ active, over }) {
-        return getMovementAnnouncement('onDragEnd', active.id, over?.id);
+        return getMovementAnnouncement("onDragEnd", active.id, over?.id);
       },
       onDragCancel({ active }) {
         return `Moving was cancelled. ${active.id} was dropped in its original position.`;
@@ -248,7 +248,7 @@ export function SortableTree<
             : customListSortingStrategy(strategyCallback)
         }
       >
-        {flattenedItems.map(item => {
+        {flattenedItems.map((item) => {
           return (
             <SortableTreeItem
               {...rest}
@@ -300,7 +300,7 @@ export function SortableTree<
       });
     }
 
-    document.body.style.setProperty('cursor', 'grabbing');
+    document.body.style.setProperty("cursor", "grabbing");
   }
 
   function handleDragMove({ delta }: DragMoveEvent) {
@@ -361,7 +361,7 @@ export function SortableTree<
         };
       }
       const newItems = buildTree(sortedItems);
-      const newActiveItem = sortedItems.find(x => x.id === active.id)!;
+      const newActiveItem = sortedItems.find((x) => x.id === active.id)!;
       // const currentParent = newActiveItem.parentId
       //   ? sortedItems.find((x) => x.id === newActiveItem.parentId)!
       //   : null;
@@ -373,7 +373,7 @@ export function SortableTree<
       //   Without `setTimeout` when you drop the node the list gets scrolled to the bottom.
       setTimeout(() =>
         onItemsChanged(newItems, {
-          type: 'dropped',
+          type: "dropped",
           draggedItem: newActiveItem,
           draggedFromParent: draggedFromParent,
           droppedToParent: droppedToParent || null,
@@ -392,7 +392,7 @@ export function SortableTree<
     setOffsetLeft(0);
     setCurrentPosition(null);
 
-    document.body.style.setProperty('cursor', '');
+    document.body.style.setProperty("cursor", "");
   }
 
   function getMovementAnnouncement(
@@ -401,7 +401,7 @@ export function SortableTree<
     overId?: UniqueIdentifier,
   ) {
     if (overId && projected) {
-      if (eventName !== 'onDragEnd') {
+      if (eventName !== "onDragEnd") {
         if (
           currentPosition &&
           projected.parentId === currentPosition.parentId &&
@@ -424,8 +424,8 @@ export function SortableTree<
       const previousItem = sortedItems[overIndex - 1];
 
       let announcement;
-      const movedVerb = eventName === 'onDragEnd' ? 'dropped' : 'moved';
-      const nestedVerb = eventName === 'onDragEnd' ? 'dropped' : 'nested';
+      const movedVerb = eventName === "onDragEnd" ? "dropped" : "moved";
+      const nestedVerb = eventName === "onDragEnd" ? "dropped" : "nested";
 
       if (!previousItem) {
         const nextItem = sortedItems[overIndex + 1];

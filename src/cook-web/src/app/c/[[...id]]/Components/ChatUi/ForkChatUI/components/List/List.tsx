@@ -1,5 +1,5 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export type ListProps = {
   className?: string;
@@ -7,12 +7,12 @@ export type ListProps = {
   children?: React.ReactNode;
 };
 
-export const List: React.FC<ListProps> = props => {
+export const List: React.FC<ListProps> = (props) => {
   const { bordered = false, className, children } = props;
   return (
     <div
-      className={clsx('List', { 'List--bordered': bordered }, className)}
-      role='list'
+      className={clsx("List", { "List--bordered": bordered }, className)}
+      role="list"
     >
       {children}
     </div>

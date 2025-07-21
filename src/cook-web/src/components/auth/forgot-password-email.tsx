@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import type React from 'react';
+import type React from "react";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import apiService from '@/api';
-import { isValidEmail } from '@/lib/validators';
-import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import apiService from "@/api";
+import { isValidEmail } from "@/lib/validators";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 interface ForgotPasswordEmailProps {
   onNext: (email: string) => void;
 }
@@ -20,21 +20,21 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
   const { toast } = useToast();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [emailError, setEmailError] = useState('');
+  const [email, setEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t("login.email-error"));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t("login.email-error"));
       return false;
     }
 
-    setEmailError('');
+    setEmailError("");
     return true;
   };
 
@@ -44,7 +44,7 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
     if (value) {
       validateEmail(value);
     } else {
-      setEmailError('');
+      setEmailError("");
     }
   };
 
@@ -63,22 +63,22 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
 
       if (response.code == 0) {
         toast({
-          title: t('login.code-sent'),
-          description: t('login.please-check-your-email'),
+          title: t("login.code-sent"),
+          description: t("login.please-check-your-email"),
         });
         onNext(email);
       } else {
         toast({
-          title: t('login.send-otp-failed'),
-          description: t('login.please-try-again-later'),
-          variant: 'destructive',
+          title: t("login.send-otp-failed"),
+          description: t("login.please-try-again-later"),
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.send-otp-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
+        title: t("login.send-otp-failed"),
+        description: error.message || t("login.network-error"),
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -86,35 +86,32 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
   };
 
   return (
-    <div className='space-y-4'>
-      <div className='space-y-2'>
-        <Label
-          htmlFor='email'
-          className={emailError ? 'text-red-500' : ''}
-        >
-          {t('login.email')}
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email" className={emailError ? "text-red-500" : ""}>
+          {t("login.email")}
         </Label>
         <Input
-          id='email'
-          type='email'
-          placeholder={t('login.email-placeholder')}
+          id="email"
+          type="email"
+          placeholder={t("login.email-placeholder")}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
           className={
-            emailError ? 'border-red-500 focus-visible:ring-red-500' : ''
+            emailError ? "border-red-500 focus-visible:ring-red-500" : ""
           }
         />
-        {emailError && <p className='text-xs text-red-500'>{emailError}</p>}
+        {emailError && <p className="text-xs text-red-500">{emailError}</p>}
       </div>
 
       <Button
-        className='w-full h-8'
+        className="w-full h-8"
         onClick={handleSendOtp}
         disabled={isLoading || !email || !!emailError}
       >
-        {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('login.get-otp')}
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+        {t("login.get-otp")}
       </Button>
     </div>
   );

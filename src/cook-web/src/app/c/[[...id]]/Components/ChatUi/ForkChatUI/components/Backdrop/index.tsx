@@ -1,5 +1,5 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export interface BackdropProps {
   className?: string;
@@ -11,9 +11,9 @@ export const Backdrop = (props: BackdropProps) => {
   const { className, active, onClick, ...rest } = props;
   return (
     <div
-      className={clsx('Backdrop', className, { active })}
+      className={clsx("Backdrop", className, { active })}
       onClick={onClick}
-      role='button'
+      role="button"
       tabIndex={-1}
       aria-hidden
       {...rest}

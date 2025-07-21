@@ -1,9 +1,9 @@
-import { memo } from 'react';
-import { Button } from '@/components/ui/button';
-import { TrophyIcon } from 'lucide-react';
-import MainButton from './MainButton';
-import styles from './OrderPromotePopoverContent.module.scss';
-import classNames from 'classnames';
+import { memo } from "react";
+import { Button } from "@/components/ui/button";
+import { TrophyIcon } from "lucide-react";
+import MainButton from "./MainButton";
+import styles from "./OrderPromotePopoverContent.module.scss";
+import classNames from "classnames";
 
 const OrderPromotePopoverContent = ({
   payload,
@@ -14,22 +14,19 @@ const OrderPromotePopoverContent = ({
   return (
     <div className={classNames(styles.orderPromotePopoverContent, className)}>
       <div className={styles.leftColumn}>
-        <TrophyIcon className='text-amber-400 text-2xl' />
+        <TrophyIcon className="text-amber-400 text-2xl" />
       </div>
       <div className={styles.rightColumn}>
         <div className={styles.descRow1}>{payload.pop_up_title}</div>
         <div className={styles.descRow2}>{payload.pop_up_content}</div>
         <div className={styles.buttonRow}>
-          <Button
-            onClick={onCancelButtonClick}
-            style={{ height: 26 }}
-          >
+          <Button onClick={onCancelButtonClick} style={{ height: 26 }}>
             {payload.pop_up_cancel_text}
           </Button>
           <MainButton
             className={styles.payBtn}
             onClick={onOkButtonClick}
-            shape='round'
+            shape="round"
             height={26}
           >
             {payload.pop_up_confirm_text}

@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import type React from 'react';
+import type React from "react";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import apiService from '@/api';
-import { isValidEmail } from '@/lib/validators';
-import { useTranslation } from 'react-i18next';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import apiService from "@/api";
+import { isValidEmail } from "@/lib/validators";
+import { useTranslation } from "react-i18next";
 
 interface FeedbackFormProps {
   onComplete: () => void;
@@ -20,38 +20,38 @@ interface FeedbackFormProps {
 export function FeedbackForm({ onComplete }: FeedbackFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [content, setContent] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [contentError, setContentError] = useState('');
+  const [email, setEmail] = useState("");
+  const [content, setContent] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [contentError, setContentError] = useState("");
   const { t } = useTranslation();
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'));
+      setEmailError(t("login.email-empty"));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t("login.email-error"));
       return false;
     }
 
-    setEmailError('');
+    setEmailError("");
     return true;
   };
 
   const validateContent = (content: string) => {
     if (!content) {
-      setContentError(t('login.content-empty'));
+      setContentError(t("login.content-empty"));
       return false;
     }
 
     if (content.length < 10) {
-      setContentError(t('login.content-error'));
+      setContentError(t("login.content-error"));
       return false;
     }
 
-    setContentError('');
+    setContentError("");
     return true;
   };
 
@@ -61,7 +61,7 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
     if (value) {
       validateEmail(value);
     } else {
-      setEmailError('');
+      setEmailError("");
     }
   };
 
@@ -71,7 +71,7 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
     if (value) {
       validateContent(value);
     } else {
-      setContentError('');
+      setContentError("");
     }
   };
 
@@ -95,22 +95,22 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
       }
       if (response) {
         toast({
-          title: t('login.feedback-submitted'),
-          description: t('login.feedback-submitted-description'),
+          title: t("login.feedback-submitted"),
+          description: t("login.feedback-submitted-description"),
         });
         onComplete();
       } else {
         toast({
-          title: t('login.submit-failed'),
-          description: response.msg || t('login.network-error'),
-          variant: 'destructive',
+          title: t("login.submit-failed"),
+          description: response.msg || t("login.network-error"),
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.submit-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
+        title: t("login.submit-failed"),
+        description: error.message || t("login.network-error"),
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -118,54 +118,54 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
   };
 
   return (
-    <div className='space-y-4'>
-      <div className='space-y-2'>
+    <div className="space-y-4">
+      <div className="space-y-2">
         <Label
-          htmlFor='feedback-email'
-          className={emailError ? 'text-red-500' : ''}
+          htmlFor="feedback-email"
+          className={emailError ? "text-red-500" : ""}
         >
-          {t('login.your-email')}
+          {t("login.your-email")}
         </Label>
         <Input
-          id='feedback-email'
-          type='email'
-          placeholder={t('login.email-placeholder')}
+          id="feedback-email"
+          type="email"
+          placeholder={t("login.email-placeholder")}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
           className={
-            emailError ? 'border-red-500 focus-visible:ring-red-500' : ''
+            emailError ? "border-red-500 focus-visible:ring-red-500" : ""
           }
         />
-        {emailError && <p className='text-xs text-red-500'>{emailError}</p>}
+        {emailError && <p className="text-xs text-red-500">{emailError}</p>}
       </div>
-      <div className='space-y-2'>
+      <div className="space-y-2">
         <Label
-          htmlFor='feedback-content'
-          className={contentError ? 'text-red-500' : ''}
+          htmlFor="feedback-content"
+          className={contentError ? "text-red-500" : ""}
         >
-          {t('login.feedback-content')}
+          {t("login.feedback-content")}
         </Label>
         <Textarea
-          id='feedback-content'
-          placeholder={t('login.content-placeholder')}
+          id="feedback-content"
+          placeholder={t("login.content-placeholder")}
           rows={5}
           value={content}
           onChange={handleContentChange}
           disabled={isLoading}
           className={
-            contentError ? 'border-red-500 focus-visible:ring-red-500' : ''
+            contentError ? "border-red-500 focus-visible:ring-red-500" : ""
           }
         />
-        {contentError && <p className='text-xs text-red-500'>{contentError}</p>}
+        {contentError && <p className="text-xs text-red-500">{contentError}</p>}
       </div>
       <Button
-        className='w-full h-8'
+        className="w-full h-8"
         onClick={handleSubmit}
         disabled={isLoading}
       >
-        {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('login.submit-feedback')}
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+        {t("login.submit-feedback")}
       </Button>
     </div>
   );

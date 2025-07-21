@@ -1,10 +1,10 @@
 /* eslint-disable react/display-name */
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import clsx from 'clsx';
-import React, { forwardRef } from 'react';
-import type { TreeItemComponentProps, FlattenedItem } from '../../types';
-import './FolderTreeItemWrapper.css';
+import clsx from "clsx";
+import React, { forwardRef } from "react";
+import type { TreeItemComponentProps, FlattenedItem } from "../../types";
+import "./FolderTreeItemWrapper.css";
 
 function flattenParents<T>(
   parent: FlattenedItem<T> | null,
@@ -52,54 +52,51 @@ export const FolderTreeItemWrapper = forwardRef<
     <li
       {...rest}
       className={clsx(
-        'dnd-sortable-tree_folder_wrapper',
-        clone && 'dnd-sortable-tree_folder_clone',
-        ghost && 'dnd-sortable-tree_folder_ghost',
-        disableSelection && 'dnd-sortable-tree_folder_disable-selection',
-        disableInteraction && 'dnd-sortable-tree_folder_disable-interaction',
+        "dnd-sortable-tree_folder_wrapper",
+        clone && "dnd-sortable-tree_folder_clone",
+        ghost && "dnd-sortable-tree_folder_ghost",
+        disableSelection && "dnd-sortable-tree_folder_disable-selection",
+        disableInteraction && "dnd-sortable-tree_folder_disable-interaction",
         className,
       )}
       ref={wrapperRef}
       style={style}
     >
-      {flattenedParents.map(item => (
+      {flattenedParents.map((item) => (
         <div
           key={item.id}
           className={
             item.isLast
-              ? 'dnd-sortable-tree_folder_line-last'
-              : 'dnd-sortable-tree_folder_line'
+              ? "dnd-sortable-tree_folder_line-last"
+              : "dnd-sortable-tree_folder_line"
           }
         />
       ))}
       <div
         className={
           isLast
-            ? 'dnd-sortable-tree_folder_line-to_self-last'
-            : 'dnd-sortable-tree_folder_line-to_self'
+            ? "dnd-sortable-tree_folder_line-to_self-last"
+            : "dnd-sortable-tree_folder_line-to_self"
         }
       />
       {manualDrag && showDragHandle && !disableSorting && (
-        <div
-          className={'dnd-sortable-tree_folder_handle'}
-          {...handleProps}
-        />
+        <div className={"dnd-sortable-tree_folder_handle"} {...handleProps} />
       )}
       {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount && (
         <button
-          onClick={e => {
+          onClick={(e) => {
             e.preventDefault();
             onCollapse?.();
           }}
           className={clsx(
-            'dnd-sortable-tree_folder_tree-item-collapse_button',
+            "dnd-sortable-tree_folder_tree-item-collapse_button",
             collapsed &&
-              'dnd-sortable-tree_folder_tree-item-collapse_button-collapsed',
+              "dnd-sortable-tree_folder_tree-item-collapse_button-collapsed",
           )}
         />
       )}
       <div
-        className={clsx('dnd-sortable-tree_folder_tree-item', contentClassName)}
+        className={clsx("dnd-sortable-tree_folder_tree-item", contentClassName)}
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
         onClick={disableCollapseOnItemClick ? undefined : onCollapse}

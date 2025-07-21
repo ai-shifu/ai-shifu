@@ -28,21 +28,21 @@ const parseDate = (date: IDate) => {
 
 const getWeeHours = () => new Date(new Date().setHours(0, 0, 0, 0));
 
-const padStart = (n: number) => (n <= 9 ? '0' : '') + n;
+const padStart = (n: number) => (n <= 9 ? "0" : "") + n;
 
 const getFormat = (date: Date) => {
   const diff = getWeeHours().getTime() - date.getTime();
 
   if (diff < 0) {
-    return 'LT'; // 今天
+    return "LT"; // 今天
   }
   if (diff < MS_A_DAY) {
-    return 'YT'; // 昨天
+    return "YT"; // 昨天
   }
   if (diff < MS_A_WEEK) {
-    return 'WT'; // 这周
+    return "WT"; // 这周
   }
-  return 'lll';
+  return "lll";
 };
 
 function formatDate(date: IDate, locale: TimeLocale): string {
@@ -58,7 +58,7 @@ function formatDate(date: IDate, locale: TimeLocale): string {
     mm: padStart($d.getMinutes()),
   };
 
-  return format.replace(REGEX_FORMAT, match => dates[match]);
+  return format.replace(REGEX_FORMAT, (match) => dates[match]);
 }
 
 export default formatDate;

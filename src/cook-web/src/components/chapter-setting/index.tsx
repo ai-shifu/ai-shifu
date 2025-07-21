@@ -1,20 +1,20 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Editor } from '@/components/cm-editor';
-import api from '@/api';
-import Loading from '../loading';
+} from "@/components/ui/dialog";
+import { Button } from "@/components/button";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Editor } from "@/components/cm-editor";
+import api from "@/api";
+import Loading from "../loading";
 
-import { useTranslation } from 'react-i18next';
-import { useShifu } from '@/store';
+import { useTranslation } from "react-i18next";
+import { useShifu } from "@/store";
 
 const ChapterSettingsDialog = ({
   outlineBid,
@@ -27,8 +27,8 @@ const ChapterSettingsDialog = ({
 }) => {
   const { currentShifu } = useShifu();
   const { t } = useTranslation();
-  const [chapterType, setChapterType] = useState('normal');
-  const [systemPrompt, setSystemPrompt] = useState('');
+  const [chapterType, setChapterType] = useState("normal");
+  const [systemPrompt, setSystemPrompt] = useState("");
   const [hideChapter, setHideChapter] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -57,8 +57,8 @@ const ChapterSettingsDialog = ({
 
   useEffect(() => {
     if (!open) {
-      setChapterType('formal');
-      setSystemPrompt('');
+      setChapterType("formal");
+      setSystemPrompt("");
       setHideChapter(true);
     } else {
       init();
@@ -69,12 +69,12 @@ const ChapterSettingsDialog = ({
   return (
     <Dialog
       open={open}
-      onOpenChange={newOpen => {
+      onOpenChange={(newOpen) => {
         if (
-          document.activeElement?.tagName === 'INPUT' ||
-          document.activeElement?.tagName === 'TEXTAREA' ||
-          document.activeElement?.getAttribute('role') === 'radio' ||
-          document.activeElement?.getAttribute('role') === 'checkbox'
+          document.activeElement?.tagName === "INPUT" ||
+          document.activeElement?.tagName === "TEXTAREA" ||
+          document.activeElement?.getAttribute("role") === "radio" ||
+          document.activeElement?.getAttribute("role") === "checkbox"
         ) {
           return;
         }
@@ -82,103 +82,91 @@ const ChapterSettingsDialog = ({
       }}
     >
       <DialogContent
-        className='sm:max-w-lg lg:max-w-[70vw] bg-gray-100'
-        onPointerDown={e => {
+        className="sm:max-w-lg lg:max-w-[70vw] bg-gray-100"
+        onPointerDown={(e) => {
           e.stopPropagation();
         }}
       >
         <DialogHeader>
-          <DialogTitle className='text-lg font-medium'>
-            {t('chapter-setting.title')}
+          <DialogTitle className="text-lg font-medium">
+            {t("chapter-setting.title")}
           </DialogTitle>
         </DialogHeader>
         {loading && (
-          <div className='flex justify-center items-center h-24'>
+          <div className="flex justify-center items-center h-24">
             <Loading />
           </div>
         )}
         {!loading && (
-          <div className='space-y-6 py-4'>
-            <div className='flex items-center space-x-4'>
-              <div className='w-24 text-sm'>
-                {t('chapter-setting.chapter-type')}
+          <div className="space-y-6 py-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-24 text-sm">
+                {t("chapter-setting.chapter-type")}
               </div>
               <RadioGroup
                 value={chapterType}
                 onValueChange={setChapterType}
-                className='flex space-x-6'
+                className="flex space-x-6"
               >
-                <div className='flex items-center space-x-2'>
-                  <RadioGroupItem
-                    value='normal'
-                    id='formal'
-                  />
-                  <Label htmlFor='formal'>
-                    {t('chapter-setting.formal-chapter')}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="normal" id="formal" />
+                  <Label htmlFor="formal">
+                    {t("chapter-setting.formal-chapter")}
                   </Label>
                 </div>
-                <div className='flex items-center space-x-2'>
-                  <RadioGroupItem
-                    value='trial'
-                    id='trial'
-                  />
-                  <Label htmlFor='trial'>
-                    {t('chapter-setting.trial-chapter')}
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="trial" id="trial" />
+                  <Label htmlFor="trial">
+                    {t("chapter-setting.trial-chapter")}
                   </Label>
                 </div>
               </RadioGroup>
             </div>
 
-            <div className='flex space-x-4'>
-              <div className='w-24 text-sm mt-2'>
-                {t('chapter-setting.system-prompt')}
+            <div className="flex space-x-4">
+              <div className="w-24 text-sm mt-2">
+                {t("chapter-setting.system-prompt")}
               </div>
-              <div className='w-full rounded-md border bg-background px-1 py-1'>
+              <div className="w-full rounded-md border bg-background px-1 py-1">
                 <div
                   style={{
-                    minHeight: '72px',
-                    maxHeight: '480px',
-                    overflowY: 'auto',
+                    minHeight: "72px",
+                    maxHeight: "480px",
+                    overflowY: "auto",
                   }}
                 >
                   <Editor
                     content={systemPrompt}
-                    onChange={value => setSystemPrompt(value)}
+                    onChange={(value) => setSystemPrompt(value)}
                     isEdit={true}
                   />
                 </div>
               </div>
             </div>
 
-            <div className='flex items-center space-x-4'>
-              <div className='w-24 text-sm'>
-                {t('chapter-setting.is-hidden')}
+            <div className="flex items-center space-x-4">
+              <div className="w-24 text-sm">
+                {t("chapter-setting.is-hidden")}
               </div>
-              <div className='flex items-center space-x-2'>
+              <div className="flex items-center space-x-2">
                 <Checkbox
-                  id='hideChapter'
+                  id="hideChapter"
                   checked={hideChapter}
                   onCheckedChange={setHideChapter as any}
                 />
-                <Label htmlFor='hideChapter'>
-                  {t('chapter-setting.hide-chapter')}
+                <Label htmlFor="hideChapter">
+                  {t("chapter-setting.hide-chapter")}
                 </Label>
               </div>
             </div>
           </div>
         )}
-        <div className='flex justify-end space-x-2 pt-4'>
-          <Button
-            variant='outline'
-            onClick={() => onOpenChange?.(false)}
-          >
-            {t('common.cancel')}
+        <div className="flex justify-end space-x-2 pt-4">
+          <Button variant="outline" onClick={() => onOpenChange?.(false)}>
+            {t("common.cancel")}
           </Button>
-          <Button
-            disabled={loading}
-            onClick={onConfirm}
-          >
-            {t('common.confirm')}
+          <Button disabled={loading} onClick={onConfirm}>
+            {t("common.confirm")}
           </Button>
         </div>
       </DialogContent>

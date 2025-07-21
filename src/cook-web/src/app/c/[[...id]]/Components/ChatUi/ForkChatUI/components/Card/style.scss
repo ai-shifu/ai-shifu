@@ -30,7 +30,7 @@
   }
 }
 
-.Card[data-fluid='order'] {
+.Card[data-fluid="order"] {
   max-width: 360px;
 }
 
@@ -44,7 +44,7 @@
   &:after {
     display: block;
     height: 0;
-    content: '';
+    content: "";
   }
 
   &--wide {

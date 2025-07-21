@@ -1,10 +1,10 @@
-import { memo, useEffect, useState, useCallback } from 'react';
-import AskButtonInner from './AskButtonInner';
-import { shifu } from '@/c-service/Shifu';
-import { useShallow } from 'zustand/react/shallow';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
-import { useHotkeys } from 'react-hotkeys-hook';
-import { SHORTCUT_IDS, genHotKeyIdentifier } from '@/c-service/shortcut';
+import { memo, useEffect, useState, useCallback } from "react";
+import AskButtonInner from "./AskButtonInner";
+import { shifu } from "@/c-service/Shifu";
+import { useShallow } from "zustand/react/shallow";
+import { useUiLayoutStore } from "@/c-store/useUiLayoutStore";
+import { useHotkeys } from "react-hotkeys-hook";
+import { SHORTCUT_IDS, genHotKeyIdentifier } from "@/c-service/shortcut";
 
 const AskButton = ({
   className,
@@ -40,7 +40,7 @@ const AskButton = ({
   }, [isNoLimited, total, used]);
 
   const { inMacOs } = useUiLayoutStore(
-    useShallow(state => ({ inMacOs: state.inMacOs })),
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
 
   useHotkeys(

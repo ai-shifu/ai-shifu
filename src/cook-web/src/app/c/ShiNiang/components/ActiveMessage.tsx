@@ -1,19 +1,19 @@
-import { memo } from 'react';
-import DOMPurify from 'dompurify';
-import styles from './ActiveMessage.module.scss';
-import { shifu } from '../config/config';
-import ToPayButton from './ToPayButton';
+import { memo } from "react";
+import DOMPurify from "dompurify";
+import styles from "./ActiveMessage.module.scss";
+import { shifu } from "../config/config";
+import ToPayButton from "./ToPayButton";
 
 const ActiveMessage = ({
-  msg = '',
-  action = '',
-  recordId = '',
-  button = '',
+  msg = "",
+  action = "",
+  recordId = "",
+  button = "",
 }) => {
   const _onButtonClick = () => {
     // @ts-expect-error EXPECT
     shifu.payTools.openPay({
-      type: 'active',
+      type: "active",
       payload: {
         action,
         recordId,
@@ -28,7 +28,7 @@ const ActiveMessage = ({
           <div>
             <span
               dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(msg) }}
-            ></span>{' '}
+            ></span>{" "}
             {button && (
               <ToPayButton onClick={_onButtonClick}>{button}</ToPayButton>
             )}

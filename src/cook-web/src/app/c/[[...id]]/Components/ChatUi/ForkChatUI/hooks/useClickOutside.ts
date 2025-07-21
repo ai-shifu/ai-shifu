@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 export default function useClickOutside<T extends HTMLElement = any>(
   handler: (event: any) => void,
-  eventName: string = 'click',
+  eventName: string = "click",
 ) {
   const ref = useRef<T>(null);
 

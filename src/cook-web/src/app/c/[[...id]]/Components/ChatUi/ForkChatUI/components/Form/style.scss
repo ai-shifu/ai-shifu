@@ -25,7 +25,7 @@
 
   &.required {
     .Label::after {
-      content: '*';
+      content: "*";
       display: inline-block;
       color: var(--red);
       font-size: $font-size-sm;

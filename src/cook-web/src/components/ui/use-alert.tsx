@@ -1,5 +1,5 @@
-'use client';
-import React from 'react';
+"use client";
+import React from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,7 +9,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
 interface AlertOptions {
   title: string;
@@ -34,10 +34,10 @@ const AlertContext = React.createContext<AlertContextType | undefined>(
 export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = React.useState(false);
   const [options, setOptions] = React.useState<AlertOptions>({
-    title: '',
-    description: '',
-    confirmText: 'Ok',
-    cancelText: 'Cancel',
+    title: "",
+    description: "",
+    confirmText: "Ok",
+    cancelText: "Cancel",
   });
 
   const showAlert = React.useCallback((options: AlertOptions) => {
@@ -62,10 +62,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   return (
     <AlertContext.Provider value={{ open, options, showAlert, hideAlert }}>
       {children}
-      <AlertDialog
-        open={open}
-        onOpenChange={setOpen}
-      >
+      <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{options.title}</AlertDialogTitle>
@@ -74,17 +71,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel
-              className='h-8'
-              onClick={handleCancel}
-            >
-              {options.cancelText || 'Cancel'}
+            <AlertDialogCancel className="h-8" onClick={handleCancel}>
+              {options.cancelText || "Cancel"}
             </AlertDialogCancel>
-            <AlertDialogAction
-              className='h-8'
-              onClick={handleConfirm}
-            >
-              {options.confirmText || 'Confirm'}
+            <AlertDialogAction className="h-8" onClick={handleConfirm}>
+              {options.confirmText || "Confirm"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -96,7 +87,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 export function useAlert() {
   const context = React.useContext(AlertContext);
   if (!context) {
-    throw new Error('useAlert must be used within an AlertProvider');
+    throw new Error("useAlert must be used within an AlertProvider");
   }
   return context;
 }

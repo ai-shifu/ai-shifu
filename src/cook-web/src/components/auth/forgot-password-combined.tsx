@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import type React from 'react';
+import type React from "react";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import apiService from '@/api';
-import { isValidEmail } from '@/lib/validators';
-import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import apiService from "@/api";
+import { isValidEmail } from "@/lib/validators";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 interface ForgotPasswordCombinedProps {
   onNext: (email: string, otp: string) => void;
 }
@@ -24,35 +24,35 @@ export function ForgotPasswordCombined({
   const [isLoading, setIsLoading] = useState(false);
   const [isSendingCode, setIsSendingCode] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [email, setEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [emailError, setEmailError] = useState('');
-  const [otpError, setOtpError] = useState('');
+  const [email, setEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [otpError, setOtpError] = useState("");
   const [countdown, setCountdown] = useState(0);
   const [codeSent, setCodeSent] = useState(false);
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'));
+      setEmailError(t("login.email-empty"));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t("login.email-error"));
       return false;
     }
 
-    setEmailError('');
+    setEmailError("");
     return true;
   };
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError(t('login.otp-error'));
+      setOtpError(t("login.otp-error"));
       return false;
     }
 
-    setOtpError('');
+    setOtpError("");
     return true;
   };
 
@@ -62,7 +62,7 @@ export function ForgotPasswordCombined({
     if (value) {
       validateEmail(value);
     } else {
-      setEmailError('');
+      setEmailError("");
     }
   };
 
@@ -72,7 +72,7 @@ export function ForgotPasswordCombined({
     if (value) {
       validateOtp(value);
     } else {
-      setOtpError('');
+      setOtpError("");
     }
   };
 
@@ -93,7 +93,7 @@ export function ForgotPasswordCombined({
         setCodeSent(true);
         setCountdown(60);
         const timer = setInterval(() => {
-          setCountdown(prevCountdown => {
+          setCountdown((prevCountdown) => {
             if (prevCountdown <= 1) {
               clearInterval(timer);
               return 0;
@@ -103,21 +103,21 @@ export function ForgotPasswordCombined({
         }, 1000);
 
         toast({
-          title: t('login.otp-sent'),
-          description: t('login.please-check-your-email'),
+          title: t("login.otp-sent"),
+          description: t("login.please-check-your-email"),
         });
       } else {
         toast({
-          title: t('login.send-otp-failed'),
-          description: t('login.please-try-again-later'),
-          variant: 'destructive',
+          title: t("login.send-otp-failed"),
+          description: t("login.please-try-again-later"),
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.send-otp-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
+        title: t("login.send-otp-failed"),
+        description: error.message || t("login.network-error"),
+        variant: "destructive",
       });
     } finally {
       setIsSendingCode(false);
@@ -146,22 +146,22 @@ export function ForgotPasswordCombined({
       if (response.code == 0) {
         // Token handled via login flow, no need to set manually here
         toast({
-          title: t('login.verification-success'),
-          description: t('login.please-set-new-password'),
+          title: t("login.verification-success"),
+          description: t("login.please-set-new-password"),
         });
         onNext(email, otp);
       } else {
         toast({
-          title: t('login.verification-failed'),
-          description: t('login.otp-error'),
-          variant: 'destructive',
+          title: t("login.verification-failed"),
+          description: t("login.otp-error"),
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.verification-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
+        title: t("login.verification-failed"),
+        description: error.message || t("login.network-error"),
+        variant: "destructive",
       });
     } finally {
       setIsVerifying(false);
@@ -170,72 +170,66 @@ export function ForgotPasswordCombined({
   };
 
   return (
-    <div className='space-y-4'>
-      <div className='space-y-2'>
-        <Label
-          htmlFor='email'
-          className={emailError ? 'text-red-500' : ''}
-        >
-          {t('login.email')}
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="email" className={emailError ? "text-red-500" : ""}>
+          {t("login.email")}
         </Label>
-        <div className='flex space-x-2'>
+        <div className="flex space-x-2">
           <Input
-            id='email'
-            type='email'
-            placeholder={t('login.email-placeholder')}
+            id="email"
+            type="email"
+            placeholder={t("login.email-placeholder")}
             value={email}
             onChange={handleEmailChange}
             disabled={isLoading}
             className={`flex-1 ${
-              emailError ? 'border-red-500 focus-visible:ring-red-500' : ''
+              emailError ? "border-red-500 focus-visible:ring-red-500" : ""
             }`}
           />
           <Button
             onClick={handleSendOtp}
             disabled={isLoading || !email || !!emailError || countdown > 0}
-            className='whitespace-nowrap h-8'
+            className="whitespace-nowrap h-8"
           >
             {isSendingCode ? (
-              <Loader2 className='h-4 w-4 animate-spin mr-2' />
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
             ) : countdown > 0 ? (
-              t('login.seconds-later', { count: countdown })
+              t("login.seconds-later", { count: countdown })
             ) : (
-              t('login.get-otp')
+              t("login.get-otp")
             )}
           </Button>
         </div>
-        {emailError && <p className='text-xs text-red-500'>{emailError}</p>}
+        {emailError && <p className="text-xs text-red-500">{emailError}</p>}
       </div>
 
-      <div className='space-y-2'>
-        <Label
-          htmlFor='otp'
-          className={otpError ? 'text-red-500' : ''}
-        >
-          {t('login.otp')}
+      <div className="space-y-2">
+        <Label htmlFor="otp" className={otpError ? "text-red-500" : ""}>
+          {t("login.otp")}
         </Label>
         <Input
-          id='otp'
-          placeholder={t('login.otp-placeholder')}
+          id="otp"
+          placeholder={t("login.otp-placeholder")}
           value={otp}
           onChange={handleOtpChange}
           disabled={isLoading || !codeSent}
           className={
-            otpError ? 'border-red-500 focus-visible:ring-red-500' : ''
+            otpError ? "border-red-500 focus-visible:ring-red-500" : ""
           }
         />
-        {otpError && <p className='text-xs text-red-500'>{otpError}</p>}
+        {otpError && <p className="text-xs text-red-500">{otpError}</p>}
       </div>
 
       <Button
-        className='w-full h-8'
+        className="w-full h-8"
         onClick={handleVerifyOtp}
         disabled={
           isLoading || !email || !!emailError || !otp || !!otpError || !codeSent
         }
       >
-        {isVerifying ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('login.next')}
+        {isVerifying ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+        {t("login.next")}
       </Button>
     </div>
   );

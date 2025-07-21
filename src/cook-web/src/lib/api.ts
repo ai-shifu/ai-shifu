@@ -2,8 +2,8 @@ import http, {
   RequestConfig,
   StreamCallback,
   StreamRequestConfig,
-} from './request';
-const apiPrefix = '/api';
+} from "./request";
+const apiPrefix = "/api";
 
 const objectToQueryString = (obj: any) => {
   const params = new URLSearchParams();
@@ -14,15 +14,15 @@ const objectToQueryString = (obj: any) => {
 };
 export const gen = (option: string) => {
   let url = option;
-  let method = 'GET';
+  let method = "GET";
 
-  const paramsArray = option.split(' ');
+  const paramsArray = option.split(" ");
   if (paramsArray.length === 2) {
     method = paramsArray[0];
     url = paramsArray[1];
   }
 
-  if (!url.startsWith('http')) {
+  if (!url.startsWith("http")) {
     url = apiPrefix + url;
   }
 
@@ -37,14 +37,14 @@ export const gen = (option: string) => {
     const urlParams = url.match(/\{([^}]+)\}/g);
     const urlParamsMap = { ...params };
     if (urlParams) {
-      urlParams.forEach(param => {
-        const key = param.replace('{', '').replace('}', '');
+      urlParams.forEach((param) => {
+        const key = param.replace("{", "").replace("}", "");
         tarUrl = tarUrl.replace(param, urlParamsMap[key] || param);
         delete urlParamsMap[key];
       });
     }
 
-    if (method === 'GET') {
+    if (method === "GET") {
       if (urlParamsMap && Object.keys(urlParamsMap).length > 0) {
         const queryString = objectToQueryString(urlParamsMap);
         tarUrl = `${tarUrl}?${queryString}`;
@@ -55,7 +55,7 @@ export const gen = (option: string) => {
       }
     }
 
-    if (method === 'STREAM') {
+    if (method === "STREAM") {
       return http.stream(
         tarUrl,
         body,
@@ -65,7 +65,7 @@ export const gen = (option: string) => {
         callback,
       );
     }
-    if (method === 'STREAMLINE') {
+    if (method === "STREAMLINE") {
       return http.streamLine(
         tarUrl,
         body,
@@ -75,25 +75,25 @@ export const gen = (option: string) => {
         callback,
       );
     }
-    if (method === 'PROXY') {
+    if (method === "PROXY") {
       // PROXY method - use direct fetch
       return fetch(tarUrl, {
         ...config,
         body,
-        method: 'GET',
-      }).then(res => res.json());
+        method: "GET",
+      }).then((res) => res.json());
     }
 
     // Use appropriate HTTP method
-    if (method === 'GET') {
+    if (method === "GET") {
       return http.get(tarUrl, config);
-    } else if (method === 'POST') {
+    } else if (method === "POST") {
       return http.post(tarUrl, urlParamsMap, config);
-    } else if (method === 'PUT') {
+    } else if (method === "PUT") {
       return http.put(tarUrl, urlParamsMap, config);
-    } else if (method === 'DELETE') {
+    } else if (method === "DELETE") {
       return http.delete(tarUrl, config);
-    } else if (method === 'PATCH') {
+    } else if (method === "PATCH") {
       return http.patch(tarUrl, urlParamsMap, config);
     } else {
       // Fallback to GET for unknown methods

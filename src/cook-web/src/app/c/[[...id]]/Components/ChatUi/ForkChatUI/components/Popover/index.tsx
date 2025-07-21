@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
-import clsx from 'clsx';
-import useMount from '../../hooks/useMount';
-import useClickOutside from '../../hooks/useClickOutside';
-import useWindowResize from '../../hooks/useWindowResize';
+import React, { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
+import clsx from "clsx";
+import useMount from "../../hooks/useMount";
+import useClickOutside from "../../hooks/useClickOutside";
+import useWindowResize from "../../hooks/useWindowResize";
 
 export type PopoverProps = {
   className?: string;
@@ -13,9 +13,9 @@ export type PopoverProps = {
   children?: React.ReactNode;
 };
 
-export const Popover: React.FC<PopoverProps> = props => {
+export const Popover: React.FC<PopoverProps> = (props) => {
   const { className, active, target, children, onClose } = props;
-  const wrapper = useClickOutside(onClose, 'mousedown');
+  const wrapper = useClickOutside(onClose, "mousedown");
   const { didMount, isShow } = useMount({ active, ref: wrapper });
   const [style, setStyle] = useState({});
 
@@ -44,16 +44,13 @@ export const Popover: React.FC<PopoverProps> = props => {
 
   return createPortal(
     <div
-      className={clsx('Popover', className, { active: isShow })}
+      className={clsx("Popover", className, { active: isShow })}
       ref={wrapper}
       style={style}
     >
-      <div className='Popover-body'>{children}</div>
-      <svg
-        className='Popover-arrow'
-        viewBox='0 0 9 5'
-      >
-        <polygon points='0,0 5,5, 9,0' />
+      <div className="Popover-body">{children}</div>
+      <svg className="Popover-arrow" viewBox="0 0 9 5">
+        <polygon points="0,0 5,5, 9,0" />
       </svg>
     </div>,
     document.body,

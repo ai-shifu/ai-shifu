@@ -1,5 +1,5 @@
-import React from 'react';
-import { importScript } from './importScript';
+import React from "react";
+import { importScript } from "./importScript";
 
 export type LazyComponentResult = React.LazyExoticComponent<
   React.ComponentType<any>

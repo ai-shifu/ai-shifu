@@ -1,7 +1,7 @@
-import React, { useState, useRef } from 'react';
-import clsx from 'clsx';
+import React, { useState, useRef } from "react";
+import clsx from "clsx";
 
-import Image from 'next/image';
+import Image from "next/image";
 
 export type VideoProps = React.VideoHTMLAttributes<HTMLVideoElement> & {
   className?: string;
@@ -14,7 +14,7 @@ export type VideoProps = React.VideoHTMLAttributes<HTMLVideoElement> & {
   onCoverLoad?: (event: React.SyntheticEvent<HTMLImageElement, Event>) => void;
 };
 
-export const Video: React.FC<VideoProps> = props => {
+export const Video: React.FC<VideoProps> = (props) => {
   const {
     className,
     src,
@@ -64,23 +64,23 @@ export const Video: React.FC<VideoProps> = props => {
   return (
     <div
       className={clsx(
-        'Video',
-        `Video--${paused ? 'paused' : 'playing'}`,
+        "Video",
+        `Video--${paused ? "paused" : "playing"}`,
         className,
       )}
       style={style}
     >
       {hasCover && (
         <Image
-          className='Video-cover'
+          className="Video-cover"
           src={cover}
           onLoad={onCoverLoad}
-          alt=''
+          alt=""
         />
       )}
-      {hasDuration && <span className='Video-duration'>{duration}</span>}
+      {hasDuration && <span className="Video-duration">{duration}</span>}
       <video
-        className='Video-video'
+        className="Video-video"
         src={src}
         ref={videoRef}
         hidden={hasCover}
@@ -94,11 +94,11 @@ export const Video: React.FC<VideoProps> = props => {
       </video>
       {hasCover && (
         <button
-          className={clsx('Video-playBtn', { paused })}
-          type='button'
+          className={clsx("Video-playBtn", { paused })}
+          type="button"
           onClick={handleClick}
         >
-          <span className='Video-playIcon' />
+          <span className="Video-playIcon" />
         </button>
       )}
     </div>

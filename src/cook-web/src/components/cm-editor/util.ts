@@ -1,7 +1,7 @@
 import {
   type CompletionContext,
   type CompletionResult,
-} from '@codemirror/autocomplete';
+} from "@codemirror/autocomplete";
 import {
   EditorView,
   Decoration,
@@ -10,11 +10,11 @@ import {
   ViewUpdate,
   MatchDecorator,
   WidgetType,
-} from '@codemirror/view';
-import { SelectedOption } from './type';
-import './index.css';
-import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject';
-import { getI18n } from 'react-i18next';
+} from "@codemirror/view";
+import { SelectedOption } from "./type";
+import "./index.css";
+import { biliVideoUrlRegexp } from "@/components/cm-editor/components/video-inject";
+import { getI18n } from "react-i18next";
 
 const profileRegexp = /<span\s+data-tag="profile"[^>]*>\{(\w+)\}<\/span>/gi;
 const biliVideoContextRegexp =
@@ -70,7 +70,7 @@ class PlaceholderWidget extends WidgetType {
     let to = -1;
     const decorations = this.view.state.facet(EditorView.decorations);
     for (const deco of decorations) {
-      const decoSet = typeof deco === 'function' ? deco(this.view) : deco;
+      const decoSet = typeof deco === "function" ? deco(this.view) : deco;
       decoSet.between(
         0,
         this.view.state.doc.length,
@@ -90,35 +90,35 @@ class PlaceholderWidget extends WidgetType {
   }
 
   toDOM() {
-    const container = document.createElement('span');
+    const container = document.createElement("span");
     container.className = this.styleClass;
-    const span = document.createElement('span');
+    const span = document.createElement("span");
     span.textContent = this.text;
-    span.dataset['tag'] = this.dataset.tag || '';
-    span.dataset['url'] = this.dataset.url || '';
-    span.dataset['title'] = this.dataset.title || '';
-    const icon = document.createElement('span');
-    icon.className = 'tag-icon';
-    icon.innerHTML = '✕';
-    icon.addEventListener('click', e => {
+    span.dataset["tag"] = this.dataset.tag || "";
+    span.dataset["url"] = this.dataset.url || "";
+    span.dataset["title"] = this.dataset.title || "";
+    const icon = document.createElement("span");
+    icon.className = "tag-icon";
+    icon.innerHTML = "✕";
+    icon.addEventListener("click", (e) => {
       e.stopPropagation();
       const [from, to] = this.getPosition() ?? [-1, -1];
       if (from !== -1 && to !== -1) {
         this.view.dispatch({
-          changes: { from, to, insert: '' },
+          changes: { from, to, insert: "" },
         });
       }
     });
-    span.addEventListener('click', () => {
+    span.addEventListener("click", () => {
       const [from, to] = this.getPosition() ?? [-1, -1];
-      const event = new CustomEvent('globalTagClick', {
+      const event = new CustomEvent("globalTagClick", {
         detail: {
           view: this.view,
           type: this.type,
           dataset: this.dataset,
           content:
             this.type === SelectedOption.Profile
-              ? span.textContent?.replace(/[{}]/g, '')
+              ? span.textContent?.replace(/[{}]/g, "")
               : span.textContent,
           from,
           to,
@@ -143,10 +143,10 @@ const profileMatcher = new MatchDecorator({
       widget: new PlaceholderWidget(
         match[1],
         {
-          tag: 'profile',
+          tag: "profile",
           title: match[1],
         },
-        'tag-profile',
+        "tag-profile",
         SelectedOption.Profile,
         view,
       ),
@@ -160,12 +160,12 @@ const imageUrlMatcher = new MatchDecorator({
       widget: new PlaceholderWidget(
         match?.[4],
         {
-          tag: 'image',
+          tag: "image",
           url: match?.[1],
           title: match?.[2],
           scale: match?.[3],
         },
-        'tag-image',
+        "tag-image",
         SelectedOption.Image,
         view,
       ),
@@ -179,11 +179,11 @@ const biliUrlMatcher = new MatchDecorator({
       widget: new PlaceholderWidget(
         match?.[3],
         {
-          tag: 'video',
+          tag: "video",
           url: match?.[1],
           title: match?.[2],
         },
-        'tag-video',
+        "tag-video",
         SelectedOption.Video,
         view,
       ),
@@ -201,9 +201,9 @@ const variablePlaceholders = ViewPlugin.fromClass(
     }
   },
   {
-    decorations: instance => instance.placeholders,
-    provide: plugin =>
-      EditorView.atomicRanges.of(view => {
+    decorations: (instance) => instance.placeholders,
+    provide: (plugin) =>
+      EditorView.atomicRanges.of((view) => {
         return view.plugin(plugin)?.placeholders || Decoration.none;
       }),
   },
@@ -220,9 +220,9 @@ const imgPlaceholders = ViewPlugin.fromClass(
     }
   },
   {
-    decorations: instance => instance.placeholders,
-    provide: plugin =>
-      EditorView.atomicRanges.of(view => {
+    decorations: (instance) => instance.placeholders,
+    provide: (plugin) =>
+      EditorView.atomicRanges.of((view) => {
         return view.plugin(plugin)?.placeholders || Decoration.none;
       }),
   },
@@ -239,9 +239,9 @@ const videoPlaceholders = ViewPlugin.fromClass(
     }
   },
   {
-    decorations: instance => instance.placeholders,
-    provide: plugin =>
-      EditorView.atomicRanges.of(view => {
+    decorations: (instance) => instance.placeholders,
+    provide: (plugin) =>
+      EditorView.atomicRanges.of((view) => {
         return view.plugin(plugin)?.placeholders || Decoration.none;
       }),
   },
@@ -263,7 +263,7 @@ function createSlashCommands(
       selectedOption: SelectedOption,
     ) => {
       view.dispatch({
-        changes: { from, to, insert: '' },
+        changes: { from, to, insert: "" },
       });
       onSelectOption(selectedOption);
     };
@@ -273,19 +273,19 @@ function createSlashCommands(
       to: word.to,
       options: [
         {
-          label: t('cm-editor.variable'),
+          label: t("cm-editor.variable"),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Profile);
           },
         },
         {
-          label: t('cm-editor.image'),
+          label: t("cm-editor.image"),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Image);
           },
         },
         {
-          label: t('cm-editor.video'),
+          label: t("cm-editor.video"),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Video);
           },

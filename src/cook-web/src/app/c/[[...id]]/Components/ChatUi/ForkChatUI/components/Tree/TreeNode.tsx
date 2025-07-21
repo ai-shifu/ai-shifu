@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import clsx from 'clsx';
-import { Icon } from '../Icon';
+import React, { useState } from "react";
+import clsx from "clsx";
+import { Icon } from "../Icon";
 
 export type TreeNodeProps = {
   title: string;
@@ -11,7 +11,7 @@ export type TreeNodeProps = {
   children: any[]; // FIXME
 };
 
-export const TreeNode: React.FC<TreeNodeProps> = props => {
+export const TreeNode: React.FC<TreeNodeProps> = (props) => {
   const { title, content, link, children = [], onClick, onExpand } = props;
   const [expand, setExpand] = useState(false);
   const hasChildren = children.length > 0;
@@ -30,23 +30,23 @@ export const TreeNode: React.FC<TreeNodeProps> = props => {
   }
   return (
     <div
-      className='TreeNode'
+      className="TreeNode"
       // role="treeitem"
       aria-expanded={expand}
     >
       {
         <div
-          className='TreeNode-title'
+          className="TreeNode-title"
           onClick={handleTitleClick}
           // role="treeitem"
           aria-expanded={expand}
           tabIndex={0}
         >
-          <span className='TreeNode-title-text'>{title}</span>
+          <span className="TreeNode-title-text">{title}</span>
           {hasChildren ? (
             <Icon
-              className='TreeNode-title-icon'
-              type={expand ? 'chevron-up' : 'chevron-down'}
+              className="TreeNode-title-icon"
+              type={expand ? "chevron-up" : "chevron-down"}
             />
           ) : null}
         </div>
@@ -54,13 +54,13 @@ export const TreeNode: React.FC<TreeNodeProps> = props => {
       {hasChildren
         ? children.map((t, j) => (
             <div
-              className={clsx('TreeNode-children', {
-                'TreeNode-children-active': expand,
+              className={clsx("TreeNode-children", {
+                "TreeNode-children-active": expand,
               })}
               key={j}
             >
               <div
-                className='TreeNode-title TreeNode-children-title'
+                className="TreeNode-title TreeNode-children-title"
                 onClick={() =>
                   onClick({
                     ...t,
@@ -71,7 +71,7 @@ export const TreeNode: React.FC<TreeNodeProps> = props => {
                 }
                 // role="treeitem"
               >
-                <span className='TreeNode-title-text'>{t.title}</span>
+                <span className="TreeNode-title-text">{t.title}</span>
               </div>
             </div>
           ))

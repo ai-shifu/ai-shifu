@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { useState } from "react";
+import { useTracking, EVENT_NAMES } from "@/c-common/hooks/useTracking";
 
 export const TrackingVisit = () => {
   const [ok, setOk] = useState(false);

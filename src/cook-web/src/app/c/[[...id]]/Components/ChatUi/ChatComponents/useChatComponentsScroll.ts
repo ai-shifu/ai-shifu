@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { smoothScroll } from '@/c-utils/smoothScroll';
+import { useCallback, useState } from "react";
+import { smoothScroll } from "@/c-utils/smoothScroll";
 
 const SCROLL_BOTTOM_THROTTLE = 50;
 
@@ -15,21 +15,21 @@ export const useChatComponentsScroll = ({
 
   const startAutoScroll = useCallback(() => {
     setAutoScroll(true);
-    if (messages.length && messages[messages.length - 1].position === 'pop') {
+    if (messages.length && messages[messages.length - 1].position === "pop") {
       deleteMsg(messages[messages.length - 1]._id);
     }
   }, [deleteMsg, messages]);
 
   const stopAutoScroll = useCallback(() => {
     setAutoScroll(false);
-    if (messages.length && messages[messages.length - 1].position === 'pop') {
+    if (messages.length && messages[messages.length - 1].position === "pop") {
       return;
     }
-    appendMsg({ type: 'loading', position: 'pop' });
+    appendMsg({ type: "loading", position: "pop" });
   }, [appendMsg, messages]);
 
   const onMessageListScroll = useCallback(
-    e => {
+    (e) => {
       const scrollWrapper = e.target;
       const inner = scrollWrapper.children[0];
       const currentScrollTop = Math.max(0, scrollWrapper.scrollTop);
@@ -70,7 +70,7 @@ export const useChatComponentsScroll = ({
   );
 
   const scrollToLesson = useCallback(
-    lessonId => {
+    (lessonId) => {
       if (!chatRef.current) {
         return;
       }

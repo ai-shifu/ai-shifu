@@ -1,5 +1,5 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export interface PriceProps {
   price: number;
@@ -10,8 +10,8 @@ export interface PriceProps {
 }
 
 const canFormat =
-  'Intl' in window &&
-  typeof Intl.NumberFormat.prototype.formatToParts === 'function';
+  "Intl" in window &&
+  typeof Intl.NumberFormat.prototype.formatToParts === "function";
 
 export const Price = React.forwardRef<HTMLDivElement, PriceProps>(
   (props, ref) => {
@@ -20,7 +20,7 @@ export const Price = React.forwardRef<HTMLDivElement, PriceProps>(
 
     if (locale && currency && canFormat) {
       parts = new Intl.NumberFormat(locale, {
-        style: 'currency',
+        style: "currency",
         currency,
       }).formatToParts(price);
     } else {
@@ -28,28 +28,25 @@ export const Price = React.forwardRef<HTMLDivElement, PriceProps>(
     }
 
     if (!parts) {
-      const decimal = '.';
+      const decimal = ".";
       const [integer, fraction] = `${price}`.split(decimal);
       parts = [
-        { type: 'currency', value: currency },
-        { type: 'integer', value: integer },
-        { type: 'decimal', value: fraction && decimal },
-        { type: 'fraction', value: fraction },
+        { type: "currency", value: currency },
+        { type: "integer", value: integer },
+        { type: "decimal", value: fraction && decimal },
+        { type: "fraction", value: fraction },
       ];
     }
 
     return (
       <div
-        className={clsx('Price', { 'Price--original': original }, className)}
+        className={clsx("Price", { "Price--original": original }, className)}
         ref={ref}
         {...other}
       >
         {parts.map((t, i) =>
           t.value ? (
-            <span
-              className={`Price-${t.type}`}
-              key={i}
-            >
+            <span className={`Price-${t.type}`} key={i}>
               {t.value}
             </span>
           ) : null,
@@ -59,4 +56,4 @@ export const Price = React.forwardRef<HTMLDivElement, PriceProps>(
   },
 );
 
-Price.displayName = 'Price';
+Price.displayName = "Price";

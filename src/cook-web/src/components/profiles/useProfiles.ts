@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import type { Profile } from './type';
-import { useShifu } from '@/store';
-import api from '@/api';
+import { useState, useEffect } from "react";
+import type { Profile } from "./type";
+import { useShifu } from "@/store";
+import api from "@/api";
 
 type useProfileParams = {
   searchTerm?: string;
@@ -20,16 +20,16 @@ const useProfiles = (props?: useProfileParams) => {
   };
 
   const getProfilesByType = (profiles: Profile[] | undefined) => {
-    const filteredProfiles = profiles?.filter(profile =>
+    const filteredProfiles = profiles?.filter((profile) =>
       profile.profile_key
         .toLowerCase()
-        .includes(searchTerm?.toLowerCase() || ''),
+        .includes(searchTerm?.toLowerCase() || ""),
     );
     const systemProfiles = filteredProfiles?.filter(
-      v => v.profile_scope === 'system',
+      (v) => v.profile_scope === "system",
     );
     const customProfiles = filteredProfiles?.filter(
-      v => v.profile_scope === 'user',
+      (v) => v.profile_scope === "user",
     );
     return [systemProfiles, customProfiles];
   };

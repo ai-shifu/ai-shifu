@@ -1,10 +1,10 @@
 /* eslint-disable react/display-name */
 /* eslint-disable @typescript-eslint/no-empty-object-type */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import clsx from 'clsx';
-import React, { forwardRef } from 'react';
-import type { TreeItemComponentProps } from '../../types';
-import './SimpleTreeItemWrapper.css';
+import clsx from "clsx";
+import React, { forwardRef } from "react";
+import type { TreeItemComponentProps } from "../../types";
+import "./SimpleTreeItemWrapper.css";
 
 export const SimpleTreeItemWrapper = forwardRef<
   HTMLDivElement,
@@ -45,11 +45,11 @@ export const SimpleTreeItemWrapper = forwardRef<
       ref={wrapperRef}
       {...rest}
       className={clsx(
-        'dnd-sortable-tree_simple_wrapper',
-        clone && 'dnd-sortable-tree_simple_clone',
-        ghost && 'dnd-sortable-tree_simple_ghost',
-        disableSelection && 'dnd-sortable-tree_simple_disable-selection',
-        disableInteraction && 'dnd-sortable-tree_simple_disable-interaction',
+        "dnd-sortable-tree_simple_wrapper",
+        clone && "dnd-sortable-tree_simple_clone",
+        ghost && "dnd-sortable-tree_simple_ghost",
+        disableSelection && "dnd-sortable-tree_simple_disable-selection",
+        disableInteraction && "dnd-sortable-tree_simple_disable-interaction",
         className,
       )}
       style={{
@@ -58,20 +58,17 @@ export const SimpleTreeItemWrapper = forwardRef<
       }}
     >
       <div
-        className={clsx('dnd-sortable-tree_simple_tree-item', contentClassName)}
+        className={clsx("dnd-sortable-tree_simple_tree-item", contentClassName)}
         ref={ref}
         {...(manualDrag ? undefined : handleProps)}
         onClick={disableCollapseOnItemClick ? undefined : onCollapse}
       >
         {!disableSorting && showDragHandle !== false && (
-          <div
-            className={'dnd-sortable-tree_simple_handle'}
-            {...handleProps}
-          />
+          <div className={"dnd-sortable-tree_simple_handle"} {...handleProps} />
         )}
         {!manualDrag && !hideCollapseButton && !!onCollapse && !!childCount && (
           <button
-            onClick={e => {
+            onClick={(e) => {
               if (!disableCollapseOnItemClick) {
                 return;
               }
@@ -79,9 +76,9 @@ export const SimpleTreeItemWrapper = forwardRef<
               onCollapse?.();
             }}
             className={clsx(
-              'dnd-sortable-tree_simple_tree-item-collapse_button',
+              "dnd-sortable-tree_simple_tree-item-collapse_button",
               collapsed &&
-                'dnd-sortable-tree_folder_simple-item-collapse_button-collapsed',
+                "dnd-sortable-tree_folder_simple-item-collapse_button-collapsed",
             )}
           />
         )}

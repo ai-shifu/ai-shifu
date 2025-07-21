@@ -1,31 +1,31 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 const mapDirection = {
-  row: 'Flex--d-r',
-  'row-reverse': 'Flex--d-rr',
-  column: 'Flex--d-c',
-  'column-reverse': 'Flex--d-cr',
+  row: "Flex--d-r",
+  "row-reverse": "Flex--d-rr",
+  column: "Flex--d-c",
+  "column-reverse": "Flex--d-cr",
 };
 
 const mapWrap = {
-  nowrap: 'Flex--w-n',
-  wrap: 'Flex--w-w',
-  'wrap-reverse': 'Flex--w-wr',
+  nowrap: "Flex--w-n",
+  wrap: "Flex--w-w",
+  "wrap-reverse": "Flex--w-wr",
 };
 
 const mapJustify = {
-  'flex-start': 'Flex--jc-fs',
-  'flex-end': 'Flex--jc-fe',
-  center: 'Flex--jc-c',
-  'space-between': 'Flex--jc-sb',
-  'space-around': 'Flex--jc-sa',
+  "flex-start": "Flex--jc-fs",
+  "flex-end": "Flex--jc-fe",
+  center: "Flex--jc-c",
+  "space-between": "Flex--jc-sb",
+  "space-around": "Flex--jc-sa",
 };
 
 const mapAlign = {
-  'flex-start': 'Flex--ai-fs',
-  'flex-end': 'Flex--ai-fe',
-  center: 'Flex--ai-c',
+  "flex-start": "Flex--ai-fs",
+  "flex-end": "Flex--ai-fe",
+  center: "Flex--ai-c",
 };
 
 export type As<T = any> = React.ElementType<T>;
@@ -35,23 +35,23 @@ export interface FlexProps extends React.HTMLAttributes<HTMLElement> {
   className?: string;
   center?: boolean;
   inline?: boolean;
-  direction?: 'row' | 'row-reverse' | 'column' | 'column-reverse';
-  wrap?: 'nowrap' | 'wrap' | 'wrap-reverse';
+  direction?: "row" | "row-reverse" | "column" | "column-reverse";
+  wrap?: "nowrap" | "wrap" | "wrap-reverse";
   justify?:
-    | 'flex-start'
-    | 'flex-end'
-    | 'center'
-    | 'space-between'
-    | 'space-around';
-  justifyContent?: FlexProps['justify'];
-  align?: 'flex-start' | 'flex-end' | 'center';
-  alignItems?: FlexProps['align'];
+    | "flex-start"
+    | "flex-end"
+    | "center"
+    | "space-between"
+    | "space-around";
+  justifyContent?: FlexProps["justify"];
+  align?: "flex-start" | "flex-end" | "center";
+  alignItems?: FlexProps["align"];
   children?: React.ReactNode;
 }
 
 export const Flex = React.forwardRef<HTMLElement, FlexProps>((props, ref) => {
   const {
-    as: Element = 'div',
+    as: Element = "div",
     className,
     inline,
     center,
@@ -68,14 +68,14 @@ export const Flex = React.forwardRef<HTMLElement, FlexProps>((props, ref) => {
   return (
     <Element
       className={clsx(
-        'Flex',
+        "Flex",
         direction && mapDirection[direction],
         justify && mapJustify[justify],
         align && mapAlign[align],
         wrap && mapWrap[wrap],
         {
-          'Flex--inline': inline,
-          'Flex--center': center,
+          "Flex--inline": inline,
+          "Flex--center": center,
         },
         className,
       )}
@@ -87,4 +87,4 @@ export const Flex = React.forwardRef<HTMLElement, FlexProps>((props, ref) => {
   );
 });
 
-Flex.displayName = 'Flex';
+Flex.displayName = "Flex";

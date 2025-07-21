@@ -1,11 +1,11 @@
-'use client';
+"use client";
 // import { useShifu } from '@/store'
-import AI from './ai';
-import SolidContent from './solid-content';
-import { useState, memo } from 'react';
-import { useTranslation } from 'react-i18next';
-import _ from 'lodash';
-import { ContentDTO, UIBlockDTO } from '@/types/shifu';
+import AI from "./ai";
+import SolidContent from "./solid-content";
+import { useState, memo } from "react";
+import { useTranslation } from "react-i18next";
+import _ from "lodash";
+import { ContentDTO, UIBlockDTO } from "@/types/shifu";
 
 const RenderBlockContentPropsEqual = (
   prevProps: UIBlockDTO,
@@ -35,9 +35,9 @@ export const RenderBlockContent = memo(function RenderBlockContent(
   const { data } = props;
   const properties = data.properties as ContentDTO;
 
-  const [error] = useState('');
+  const [error] = useState("");
 
-  const onPropertiesChange = async properties => {
+  const onPropertiesChange = async (properties) => {
     props.onPropertiesChange(properties);
   };
 
@@ -45,7 +45,7 @@ export const RenderBlockContent = memo(function RenderBlockContent(
   const Ele = properties.llm_enabled ? AI : SolidContent;
 
   return (
-    <div className='bg-[#F5F5F4]'>
+    <div className="bg-[#F5F5F4]">
       <div>
         <Ele
           {...props}
@@ -53,12 +53,12 @@ export const RenderBlockContent = memo(function RenderBlockContent(
           onPropertiesChange={onPropertiesChange}
         />
       </div>
-      {error && <div className='text-red-500 text-sm px-2 pb-2'>{error}</div>}
+      {error && <div className="text-red-500 text-sm px-2 pb-2">{error}</div>}
     </div>
   );
 }, RenderBlockContentPropsEqual);
 
-RenderBlockContent.displayName = 'RenderBlockContent';
+RenderBlockContent.displayName = "RenderBlockContent";
 
 export default RenderBlockContent;
 
@@ -66,96 +66,96 @@ export const useContentTypes = () => {
   const { t } = useTranslation();
   return [
     {
-      type: 'content',
-      name: t('render-ui.content'),
+      type: "content",
+      name: t("render-ui.content"),
       properties: {
-        content: '',
+        content: "",
         llm_enabled: true,
-        llm: '',
-        llm_temperature: '0.40',
+        llm: "",
+        llm_temperature: "0.40",
       },
     },
     {
-      type: 'button',
-      name: t('render-ui.button'),
+      type: "button",
+      name: t("render-ui.button"),
       properties: {
         label: {
           lang: {
-            'zh-CN': '继续',
-            'en-US': 'Continue',
+            "zh-CN": "继续",
+            "en-US": "Continue",
           },
         },
       },
     },
     {
-      type: 'login',
-      name: t('render-ui.login'),
+      type: "login",
+      name: t("render-ui.login"),
       properties: {
         label: {
           lang: {
-            'zh-CN': '登录',
-            'en-US': 'Login',
+            "zh-CN": "登录",
+            "en-US": "Login",
           },
         },
       },
     },
     {
-      type: 'payment',
-      name: t('render-ui.payment'),
+      type: "payment",
+      name: t("render-ui.payment"),
       properties: {
         label: {
           lang: {
-            'zh-CN': '支付',
-            'en-US': 'Payment',
+            "zh-CN": "支付",
+            "en-US": "Payment",
           },
         },
       },
     },
     {
-      type: 'options',
-      name: t('render-ui.option'),
+      type: "options",
+      name: t("render-ui.option"),
       properties: {
-        result_variable_bid: '',
+        result_variable_bid: "",
         options: [
           {
             label: {
               lang: {
-                'zh-CN': '',
-                'en-US': '',
+                "zh-CN": "",
+                "en-US": "",
               },
             },
-            value: '',
+            value: "",
           },
         ],
       },
     },
     {
-      type: 'goto',
-      name: t('render-ui.goto'),
+      type: "goto",
+      name: t("render-ui.goto"),
       properties: {
         conditions: [
           {
-            value: '',
-            destination_type: '',
-            destination_bid: '',
+            value: "",
+            destination_type: "",
+            destination_bid: "",
           },
         ],
       },
     },
     {
-      type: 'input',
-      name: t('render-ui.textinput'),
+      type: "input",
+      name: t("render-ui.textinput"),
       properties: {
         placeholder: {
           lang: {
-            'zh-CN': '请输入',
-            'en-US': 'Please enter',
+            "zh-CN": "请输入",
+            "en-US": "Please enter",
           },
         },
-        prompt: '',
+        prompt: "",
         result_variable_bids: [],
-        llm: '',
-        llm_temperature: '0.40',
+        llm: "",
+        llm_temperature: "0.40",
       },
     },
   ];

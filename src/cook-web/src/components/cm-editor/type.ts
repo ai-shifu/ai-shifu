@@ -1,8 +1,8 @@
 enum SelectedOption {
-  Video = 'video',
-  Image = 'Image',
-  Profile = 'Profile',
-  Empty = '',
+  Video = "video",
+  Image = "Image",
+  Profile = "Profile",
+  Empty = "",
 }
 interface IEditorContext {
   selectedOption: SelectedOption;

@@ -43,7 +43,7 @@ $step-icon-width: 24px;
     }
   }
 
-  &[data-status='success'] {
+  &[data-status="success"] {
     .Step-icon {
       color: var(--green);
     }

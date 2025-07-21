@@ -1,18 +1,20 @@
-import React, { useEffect } from 'react';
-import { lazyComponent } from '../../utils/lazyComponent';
-import { LazyComponentWithCode } from '../LazyComponent';
-import { ComponentsContext } from './ComponentsContext';
+import React, { useEffect } from "react";
+import { lazyComponent } from "../../utils/lazyComponent";
+import { LazyComponentWithCode } from "../LazyComponent";
+import { ComponentsContext } from "./ComponentsContext";
 import {
   ComponentInterface,
   GetComponentCallback,
   ComponentsProviderProps,
   ComponentsMap,
-} from './interface';
+} from "./interface";
 
-export { useComponents } from './useComponents';
+export { useComponents } from "./useComponents";
 export type { ComponentsProviderProps, ComponentsMap };
 
-export const ComponentsProvider: React.FC<ComponentsProviderProps> = props => {
+export const ComponentsProvider: React.FC<ComponentsProviderProps> = (
+  props,
+) => {
   // @ts-expect-error EXPECT
   const { components, children } = props;
   const componentsRef = React.useRef<ComponentsMap>({ ...components });
@@ -40,18 +42,18 @@ export const ComponentsProvider: React.FC<ComponentsProviderProps> = props => {
 
     // no component
     if (!comp) {
-      callback({ code, errCode: 'NO_CODE' });
+      callback({ code, errCode: "NO_CODE" });
       return null;
     }
 
-    if ('component' in comp) {
-      if (comp.type !== 'decorator') {
+    if ("component" in comp) {
+      if (comp.type !== "decorator") {
         callback({ code, async: false, component: comp.component });
       }
       return comp.component;
     }
 
-    if ('decorator' in comp) {
+    if ("decorator" in comp) {
       const component = (compProps: any) => (
         <LazyComponentWithCode
           code={comp.decorator}
@@ -61,11 +63,11 @@ export const ComponentsProvider: React.FC<ComponentsProviderProps> = props => {
         />
       );
 
-      componentsRef.current[code] = { component, type: 'decorator' };
+      componentsRef.current[code] = { component, type: "decorator" };
       return component;
     }
 
-    if ('url' in comp) {
+    if ("url" in comp) {
       const component = lazyComponent(
         comp.url,
         comp.name,
@@ -74,14 +76,14 @@ export const ComponentsProvider: React.FC<ComponentsProviderProps> = props => {
           callback({ code, async: true, component });
         },
         () => {
-          callback({ code, errCode: 'ERR_IMPORT_SCRIPT' });
+          callback({ code, errCode: "ERR_IMPORT_SCRIPT" });
         },
       );
 
       return component;
     }
 
-    callback({ code, errCode: 'NO_HANDLER' });
+    callback({ code, errCode: "NO_HANDLER" });
     return null;
   }
 

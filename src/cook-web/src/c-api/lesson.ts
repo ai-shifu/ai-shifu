@@ -1,8 +1,8 @@
-import request from '@/lib/request';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import request from "@/lib/request";
+import { useSystemStore } from "@/c-store/useSystemStore";
 
 export const getLessonTree = async (courseId: string, previewMode: boolean) => {
-  if (courseId === '' || courseId === null || courseId === undefined) {
+  if (courseId === "" || courseId === null || courseId === undefined) {
     return request.get(`/api/study/get_lesson_tree`);
   }
   return request.get(
@@ -19,7 +19,7 @@ export const getScriptInfo = async (scriptId: string) => {
 
 export const resetChapter = async ({ chapterId }) => {
   const preview_mode = useSystemStore.getState().previewMode;
-  return request.post('/api/study/reset-study-progress', {
+  return request.post("/api/study/reset-study-progress", {
     lesson_id: chapterId,
     preview_mode: preview_mode,
   });

@@ -4,23 +4,23 @@ import React, {
   useEffect,
   useImperativeHandle,
   useCallback,
-} from 'react';
-import clsx from 'clsx';
-import { IconButtonProps } from '../IconButton';
-import { Recorder, RecorderProps } from '../Recorder';
-import { Toolbar, ToolbarItemProps } from '../Toolbar';
-import { AccessoryWrap } from './AccessoryWrap';
-import { Popover } from '../Popover';
-import { InputProps } from '../Input';
-import { ToolbarItem } from './ToolbarItem';
-import { ComposerInput } from './ComposerInput';
-import { SendButton } from './SendButton';
-import { Action } from './Action';
-import toggleClass from '../../utils/toggleClass';
+} from "react";
+import clsx from "clsx";
+import { IconButtonProps } from "../IconButton";
+import { Recorder, RecorderProps } from "../Recorder";
+import { Toolbar, ToolbarItemProps } from "../Toolbar";
+import { AccessoryWrap } from "./AccessoryWrap";
+import { Popover } from "../Popover";
+import { InputProps } from "../Input";
+import { ToolbarItem } from "./ToolbarItem";
+import { ComposerInput } from "./ComposerInput";
+import { SendButton } from "./SendButton";
+import { Action } from "./Action";
+import toggleClass from "../../utils/toggleClass";
 
-export const CLASS_NAME_FOCUSING = 'S--focusing';
+export const CLASS_NAME_FOCUSING = "S--focusing";
 
-export type InputType = 'voice' | 'text';
+export type InputType = "voice" | "text";
 
 export type ComposerProps = {
   wideBreakpoint?: string;
@@ -48,10 +48,10 @@ export interface ComposerHandle {
 export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
   (props, ref) => {
     const {
-      text: initialText = '',
-      inputType: initialInputType = 'text',
+      text: initialText = "",
+      inputType: initialInputType = "text",
       wideBreakpoint,
-      placeholder = '请输入...',
+      placeholder = "请输入...",
       recorder = {},
       onInputTypeChange,
       onFocus,
@@ -67,9 +67,9 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     } = props;
 
     const [text, setText] = useState(initialText);
-    const [inputType, setInputType] = useState(initialInputType || 'text');
+    const [inputType, setInputType] = useState(initialInputType || "text");
     const [isAccessoryOpen, setAccessoryOpen] = useState(false);
-    const [accessoryContent, setAccessoryContent] = useState('');
+    const [accessoryContent, setAccessoryContent] = useState("");
     const inputRef = useRef<HTMLTextAreaElement>(null!);
     const focused = useRef(false);
     const blurTimer = useRef<NodeJS.Timeout>(null);
@@ -100,9 +100,9 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     }, [wideBreakpoint]);
 
     useEffect(() => {
-      toggleClass('S--wide', isWide);
+      toggleClass("S--wide", isWide);
       if (!isWide) {
-        setAccessoryContent('');
+        setAccessoryContent("");
       }
     }, [isWide]);
 
@@ -121,8 +121,8 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     }));
 
     const handleInputTypeChange = useCallback(() => {
-      const isVoice = inputType === 'voice';
-      const nextType = isVoice ? 'text' : 'voice';
+      const isVoice = inputType === "voice";
+      const nextType = isVoice ? "text" : "voice";
       setInputType(nextType);
 
       if (isVoice) {
@@ -164,8 +164,8 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     );
 
     const send = useCallback(() => {
-      onSend('text', text);
-      setText('');
+      onSend("text", text);
+      setText("");
 
       if (focused.current) {
         inputRef.current.focus();
@@ -208,7 +208,7 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     const handleAccessoryBlur = useCallback(() => {
       setTimeout(() => {
         setAccessoryOpen(false);
-        setAccessoryContent('');
+        setAccessoryContent("");
       });
     }, []);
 
@@ -227,11 +227,11 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
     );
 
     const handlePopoverClose = useCallback(() => {
-      setAccessoryContent('');
+      setAccessoryContent("");
     }, []);
 
-    const isInputText = inputType === 'text';
-    const inputTypeIcon = isInputText ? 'volume-circle' : 'keyboard-circle';
+    const isInputText = inputType === "text";
+    const inputTypeIcon = isInputText ? "volume-circle" : "keyboard-circle";
     const hasToolbar = toolbar.length > 0;
 
     const inputProps = {
@@ -248,12 +248,12 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
 
     if (isWide) {
       return (
-        <div className='Composer Composer--lg'>
+        <div className="Composer Composer--lg">
           {hasToolbar &&
-            toolbar.map(item => (
+            toolbar.map((item) => (
               <ToolbarItem
                 item={item}
-                onClick={e => handleToolbarClick(item, e)}
+                onClick={(e) => handleToolbarClick(item, e)}
                 key={item.type}
               />
             ))}
@@ -267,64 +267,47 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
               {accessoryContent}
             </Popover>
           )}
-          <div className='Composer-inputWrap'>
-            <ComposerInput
-              invisible={false}
-              {...inputProps}
-            />
+          <div className="Composer-inputWrap">
+            <ComposerInput invisible={false} {...inputProps} />
           </div>
-          <SendButton
-            onClick={handleSendBtnClick}
-            disabled={!text}
-          />
+          <SendButton onClick={handleSendBtnClick} disabled={!text} />
         </div>
       );
     }
 
     return (
       <>
-        <div className='Composer'>
+        <div className="Composer">
           {recorder.canRecord && (
             <Action
-              className='Composer-inputTypeBtn'
+              className="Composer-inputTypeBtn"
               data-icon={inputTypeIcon}
               icon={inputTypeIcon}
               onClick={handleInputTypeChange}
-              aria-label={isInputText ? '切换到语音输入' : '切换到键盘输入'}
+              aria-label={isInputText ? "切换到语音输入" : "切换到键盘输入"}
             />
           )}
-          <div className='Composer-inputWrap'>
-            <ComposerInput
-              invisible={!isInputText}
-              {...inputProps}
-            />
+          <div className="Composer-inputWrap">
+            <ComposerInput invisible={!isInputText} {...inputProps} />
             {!isInputText && <Recorder {...recorder} />}
           </div>
           {!text && rightAction && <Action {...rightAction} />}
           {hasToolbar && (
             <Action
-              className={clsx('Composer-toggleBtn', {
+              className={clsx("Composer-toggleBtn", {
                 active: isAccessoryOpen,
               })}
-              icon='plus-circle'
+              icon="plus-circle"
               onClick={handleAccessoryToggle}
-              aria-label={isAccessoryOpen ? '关闭工具栏' : '展开工具栏'}
+              aria-label={isAccessoryOpen ? "关闭工具栏" : "展开工具栏"}
             />
           )}
-          {text && (
-            <SendButton
-              onClick={handleSendBtnClick}
-              disabled={false}
-            />
-          )}
+          {text && <SendButton onClick={handleSendBtnClick} disabled={false} />}
         </div>
         {isAccessoryOpen && (
           <AccessoryWrap onClickOutside={handleAccessoryBlur}>
             {accessoryContent || (
-              <Toolbar
-                items={toolbar}
-                onClick={handleToolbarClick}
-              />
+              <Toolbar items={toolbar} onClick={handleToolbarClick} />
             )}
           </AccessoryWrap>
         )}
@@ -333,4 +316,4 @@ export const Composer = React.forwardRef<ComposerHandle, ComposerProps>(
   },
 );
 
-Composer.displayName = 'Composer';
+Composer.displayName = "Composer";

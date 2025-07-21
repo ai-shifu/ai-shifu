@@ -1,12 +1,12 @@
-const fs = require('fs'); // eslint-disable-line
-const path = require('path'); // eslint-disable-line
+const fs = require("fs"); // eslint-disable-line
+const path = require("path"); // eslint-disable-line
 
 function getAllFiles(dir, files = []) {
   try {
-    fs.readdirSync(dir).forEach(file => {
+    fs.readdirSync(dir).forEach((file) => {
       const fullPath = path.join(dir, file);
       if (fs.statSync(fullPath).isDirectory()) {
-        if (!['local', 'assets'].includes(file)) {
+        if (!["local", "assets"].includes(file)) {
           getAllFiles(fullPath, files);
         }
       } else if (/\.(js|jsx|ts|tsx)$/.test(file)) {
@@ -22,7 +22,7 @@ function getAllFiles(dir, files = []) {
 
 function extractKeysFromFile(filePath) {
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = fs.readFileSync(filePath, "utf8");
     const regex =
       /(?:{)?\s*t\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"]\s*(?:,\s*\{[^}]*\})?\s*\)(?:})?/g;
     let match,
@@ -38,7 +38,7 @@ function extractKeysFromFile(filePath) {
 }
 
 function setNested(obj, key, value) {
-  const keys = key.split('.');
+  const keys = key.split(".");
   let cur = obj;
   keys.forEach((k, idx) => {
     if (idx === keys.length - 1) {
@@ -52,14 +52,14 @@ function setNested(obj, key, value) {
 
 function buildNestedJson(keys, langMark) {
   const result = {};
-  keys.forEach(key => setNested(result, key, langMark));
+  keys.forEach((key) => setNested(result, key, langMark));
   return result;
 }
 
 function mergeJson(base, patch) {
   for (const k in patch) {
     if (
-      typeof patch[k] === 'object' &&
+      typeof patch[k] === "object" &&
       patch[k] !== null &&
       !Array.isArray(patch[k])
     ) {
@@ -73,25 +73,25 @@ function mergeJson(base, patch) {
 }
 
 function sortObjectKeys(obj) {
-  if (typeof obj !== 'object' || obj === null || Array.isArray(obj)) {
+  if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
     return obj;
   }
 
   const sortedObj = {};
   Object.keys(obj)
     .sort((a, b) => {
-      if (a === 'langName') return -1;
-      if (b === 'langName') return 1;
+      if (a === "langName") return -1;
+      if (b === "langName") return 1;
       return a.localeCompare(b);
     })
-    .forEach(key => {
+    .forEach((key) => {
       sortedObj[key] = sortObjectKeys(obj[key]);
     });
   return sortedObj;
 }
 
-function pruneUnusedKeys(obj, validKeys, prefix = '') {
-  if (typeof obj !== 'object' || obj === null) return obj;
+function pruneUnusedKeys(obj, validKeys, prefix = "") {
+  if (typeof obj !== "object" || obj === null) return obj;
   const result = {};
   const validKeysSet = new Set(validKeys);
 
@@ -99,7 +99,7 @@ function pruneUnusedKeys(obj, validKeys, prefix = '') {
     for (const key in obj) {
       const fullKey = currentPrefix ? `${currentPrefix}.${key}` : key;
       if (validKeysSet.has(fullKey)) return true;
-      if (typeof obj[key] === 'object' && obj[key] !== null) {
+      if (typeof obj[key] === "object" && obj[key] !== null) {
         if (hasValidChildren(obj[key], fullKey)) return true;
       }
     }
@@ -109,13 +109,13 @@ function pruneUnusedKeys(obj, validKeys, prefix = '') {
   for (const key in obj) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
 
-    if (key === 'langName' || validKeysSet.has(fullKey)) {
-      if (typeof obj[key] === 'object' && obj[key] !== null) {
+    if (key === "langName" || validKeysSet.has(fullKey)) {
+      if (typeof obj[key] === "object" && obj[key] !== null) {
         result[key] = pruneUnusedKeys(obj[key], validKeysSet, fullKey);
       } else {
         result[key] = obj[key];
       }
-    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+    } else if (typeof obj[key] === "object" && obj[key] !== null) {
       if (hasValidChildren(obj[key], fullKey)) {
         result[key] = pruneUnusedKeys(obj[key], validKeysSet, fullKey);
       }
@@ -124,26 +124,26 @@ function pruneUnusedKeys(obj, validKeys, prefix = '') {
   return result;
 }
 
-const ROOT_DIR = path.join(__dirname, '..'); // src/cook-web/src/
-const LOCALE_DIR = path.join(ROOT_DIR, '../public/locales');
+const ROOT_DIR = path.join(__dirname, ".."); // src/cook-web/src/
+const LOCALE_DIR = path.join(ROOT_DIR, "../public/locales");
 
 const files = getAllFiles(ROOT_DIR);
 const allKeys = Array.from(new Set(files.flatMap(extractKeysFromFile)));
 
-fs.readdirSync(LOCALE_DIR).forEach(file => {
-  if (file.endsWith('.json') && file !== 'languages.json') {
+fs.readdirSync(LOCALE_DIR).forEach((file) => {
+  if (file.endsWith(".json") && file !== "languages.json") {
     const langFile = path.join(LOCALE_DIR, file);
     const langMark = `@${file}`;
     let baseJson = {};
     try {
       if (fs.existsSync(langFile)) {
-        baseJson = JSON.parse(fs.readFileSync(langFile, 'utf8'));
+        baseJson = JSON.parse(fs.readFileSync(langFile, "utf8"));
       }
       const patchJson = buildNestedJson(allKeys, langMark);
       const prunedBaseJson = pruneUnusedKeys(baseJson, allKeys);
       const merged = mergeJson(prunedBaseJson, patchJson);
       const sorted = sortObjectKeys(merged);
-      fs.writeFileSync(langFile, JSON.stringify(sorted, null, 2), 'utf8');
+      fs.writeFileSync(langFile, JSON.stringify(sorted, null, 2), "utf8");
     } catch (error) {
       console.error(`${file} update failed. ${error}`);
     }

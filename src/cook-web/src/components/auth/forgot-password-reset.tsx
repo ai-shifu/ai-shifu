@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import type React from 'react';
+import type React from "react";
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
-import apiService from '@/api';
-import { checkPasswordStrength } from '@/lib/validators';
-import { PasswordStrengthIndicator } from './password-strength-indicator';
-import { useTranslation } from 'react-i18next';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import apiService from "@/api";
+import { checkPasswordStrength } from "@/lib/validators";
+import { PasswordStrengthIndicator } from "./password-strength-indicator";
+import { useTranslation } from "react-i18next";
 interface ForgotPasswordResetProps {
   email: string;
   onBack: () => void;
@@ -26,10 +26,10 @@ export function ForgotPasswordReset({
   const { toast } = useToast();
   const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [confirmPasswordError, setConfirmPasswordError] = useState("");
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     feedback: [] as string[],
@@ -50,22 +50,22 @@ export function ForgotPasswordReset({
       return false;
     }
 
-    setPasswordError('');
+    setPasswordError("");
     return true;
   };
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError(t('login.please-confirm-password'));
+      setConfirmPasswordError(t("login.please-confirm-password"));
       return false;
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError(t('login.password-not-match'));
+      setConfirmPasswordError(t("login.password-not-match"));
       return false;
     }
 
-    setConfirmPasswordError('');
+    setConfirmPasswordError("");
     return true;
   };
 
@@ -87,7 +87,7 @@ export function ForgotPasswordReset({
     if (value) {
       validateConfirmPassword(value);
     } else {
-      setConfirmPasswordError('');
+      setConfirmPasswordError("");
     }
   };
 
@@ -109,22 +109,22 @@ export function ForgotPasswordReset({
 
       if (response.code == 0) {
         toast({
-          title: t('login.password-reset'),
-          description: t('login.please-use-new-password'),
+          title: t("login.password-reset"),
+          description: t("login.please-use-new-password"),
         });
         onComplete();
       } else {
         toast({
-          title: t('login.reset-password-failed'),
-          description: t('login.please-try-again-later'),
-          variant: 'destructive',
+          title: t("login.reset-password-failed"),
+          description: t("login.please-try-again-later"),
+          variant: "destructive",
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.reset-password-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
+        title: t("login.reset-password-failed"),
+        description: error.message || t("login.network-error"),
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -132,66 +132,66 @@ export function ForgotPasswordReset({
   };
 
   return (
-    <div className='space-y-4'>
-      <div className='space-y-2'>
+    <div className="space-y-4">
+      <div className="space-y-2">
         <Label
-          htmlFor='new-password'
-          className={passwordError ? 'text-red-500' : ''}
+          htmlFor="new-password"
+          className={passwordError ? "text-red-500" : ""}
         >
-          {t('login.new-password')}
+          {t("login.new-password")}
         </Label>
         <Input
-          id='new-password'
-          type='password'
-          placeholder={t('login.new-password-placeholder')}
+          id="new-password"
+          type="password"
+          placeholder={t("login.new-password-placeholder")}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}
           className={
-            passwordError ? 'border-red-500 focus-visible:ring-red-500' : ''
+            passwordError ? "border-red-500 focus-visible:ring-red-500" : ""
           }
         />
         <PasswordStrengthIndicator feedback={passwordStrength.feedback} />
         {passwordError && (
-          <p className='text-xs text-red-500'>{passwordError}</p>
+          <p className="text-xs text-red-500">{passwordError}</p>
         )}
       </div>
-      <div className='space-y-2'>
+      <div className="space-y-2">
         <Label
-          htmlFor='confirm-new-password'
-          className={confirmPasswordError ? 'text-red-500' : ''}
+          htmlFor="confirm-new-password"
+          className={confirmPasswordError ? "text-red-500" : ""}
         >
-          {t('login.confirm-new-password')}
+          {t("login.confirm-new-password")}
         </Label>
         <Input
-          id='confirm-new-password'
-          type='password'
-          placeholder={t('login.confirm-new-password-placeholder')}
+          id="confirm-new-password"
+          type="password"
+          placeholder={t("login.confirm-new-password-placeholder")}
           value={confirmPassword}
           onChange={handleConfirmPasswordChange}
           disabled={isLoading}
           className={
             confirmPasswordError
-              ? 'border-red-500 focus-visible:ring-red-500'
-              : ''
+              ? "border-red-500 focus-visible:ring-red-500"
+              : ""
           }
         />
         {confirmPasswordError && (
-          <p className='text-xs text-red-500'>{confirmPasswordError}</p>
+          <p className="text-xs text-red-500">{confirmPasswordError}</p>
         )}
       </div>
-      <div className='flex justify-between'>
+      <div className="flex justify-between">
         <Button
-          className='h-8'
-          variant='outline'
+          className="h-8"
+          variant="outline"
           onClick={onBack}
           disabled={isLoading}
         >
-          {t('login.back')}
+          {t("login.back")}
         </Button>
         <Button
           onClick={handleResetPassword}
-          className='h-8'
+          className="h-8"
           disabled={
             isLoading ||
             !password ||
@@ -201,8 +201,8 @@ export function ForgotPasswordReset({
             !passwordStrength.isValid
           }
         >
-          {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-          {t('login.reset-password')}
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          {t("login.reset-password")}
         </Button>
       </div>
     </div>

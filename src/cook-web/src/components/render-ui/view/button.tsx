@@ -1,6 +1,6 @@
-import React from 'react';
-import { memo } from 'react';
-import _ from 'lodash';
+import React from "react";
+import { memo } from "react";
+import _ from "lodash";
 interface ButtonViewProps {
   properties: {
     button_name: string;
@@ -32,9 +32,9 @@ const ButtonViewPropsEqual = (
 export default memo(function ButtonView(props: ButtonViewProps) {
   const { properties } = props;
   return (
-    <div className='flex flex-row space-x-1 items-center'>
+    <div className="flex flex-row space-x-1 items-center">
       <button
-        className='px-4 py-2 bg-gray-100 text-gray-700 rounded-md cursor-default'
+        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md cursor-default"
         disabled
       >
         {properties.button_name}

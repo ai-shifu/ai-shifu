@@ -1,38 +1,38 @@
 const ar_EG = {
   BackBottom: {
-    newMsgOne: '{n} رسالة جديدة',
-    newMsgOther: '{n} رسالة جديدة',
-    bottom: 'الأسفل',
+    newMsgOne: "{n} رسالة جديدة",
+    newMsgOther: "{n} رسالة جديدة",
+    bottom: "الأسفل",
   },
   Time: {
-    weekdays: 'الأحد_الإثنين_الثلاثاء_الأربعاء_الخميس_الجمعة_السبت'.split('_'),
+    weekdays: "الأحد_الإثنين_الثلاثاء_الأربعاء_الخميس_الجمعة_السبت".split("_"),
     formats: {
-      LT: 'HH:mm',
-      lll: 'YYYY/M/D HH:mm',
-      WT: 'HH:mm dddd',
-      YT: 'HH:mm أمس',
+      LT: "HH:mm",
+      lll: "YYYY/M/D HH:mm",
+      WT: "HH:mm dddd",
+      YT: "HH:mm أمس",
     },
   },
   Composer: {
-    send: 'إرسال',
+    send: "إرسال",
   },
   SendConfirm: {
-    title: 'إرسال صورة',
-    send: 'أرسل',
-    cancel: 'إلغاء',
+    title: "إرسال صورة",
+    send: "أرسل",
+    cancel: "إلغاء",
   },
   RateActions: {
-    up: 'التصويت',
-    down: 'تصويت سلبي',
+    up: "التصويت",
+    down: "تصويت سلبي",
   },
   Recorder: {
-    hold2talk: 'أستمر بالضغط لتتحدث',
-    release2send: 'حرر للإرسال',
-    releaseOrSwipe: 'حرر للإرسال ، اسحب لأعلى للإلغاء',
-    release2cancel: 'حرر للإلغاء',
+    hold2talk: "أستمر بالضغط لتتحدث",
+    release2send: "حرر للإرسال",
+    releaseOrSwipe: "حرر للإرسال ، اسحب لأعلى للإلغاء",
+    release2cancel: "حرر للإلغاء",
   },
   Search: {
-    search: 'يبحث',
+    search: "يبحث",
   },
 };
 

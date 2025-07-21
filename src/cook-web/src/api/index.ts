@@ -1,5 +1,5 @@
-import { gen } from '@/lib/api';
-import api from './api';
+import { gen } from "@/lib/api";
+import api from "./api";
 
 export type IAPIKeys = keyof typeof api;
 export type IAPIFunction = {

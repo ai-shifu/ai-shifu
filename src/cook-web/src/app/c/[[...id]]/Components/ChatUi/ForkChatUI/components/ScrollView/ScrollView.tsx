@@ -1,12 +1,12 @@
-import React, { useRef, useImperativeHandle, useCallback } from 'react';
-import clsx from 'clsx';
-import { Item, ScrollViewItemProps } from './Item';
-import { IconButton } from '../IconButton';
-import canUse from '../../utils/canUse';
+import React, { useRef, useImperativeHandle, useCallback } from "react";
+import clsx from "clsx";
+import { Item, ScrollViewItemProps } from "./Item";
+import { IconButton } from "../IconButton";
+import canUse from "../../utils/canUse";
 
 export type ScrollViewProps<T> = Pick<
   ScrollViewItemProps,
-  'effect' | 'onIntersect'
+  "effect" | "onIntersect"
 > & {
   data: Array<T>;
   renderItem: (item: T, index: number) => React.ReactNode;
@@ -18,7 +18,7 @@ export type ScrollViewProps<T> = Pick<
   children?: React.ReactNode;
 };
 
-const hasControls = !canUse('touch');
+const hasControls = !canUse("touch");
 
 export interface ScrollViewHandle {
   scrollTo: (coord: { x?: number; y?: number }) => void;
@@ -32,7 +32,7 @@ export const ScrollView = React.forwardRef<
     className,
     fullWidth,
     scrollX = true,
-    effect = 'slide',
+    effect = "slide",
     data,
     itemKey,
     renderItem,
@@ -59,7 +59,7 @@ export const ScrollView = React.forwardRef<
       let key;
       if (itemKey) {
         key =
-          typeof itemKey === 'function' ? itemKey(item, index) : item[itemKey];
+          typeof itemKey === "function" ? itemKey(item, index) : item[itemKey];
       }
       return key || index;
     },
@@ -80,11 +80,11 @@ export const ScrollView = React.forwardRef<
   return (
     <div
       className={clsx(
-        'ScrollView',
+        "ScrollView",
         {
-          'ScrollView--fullWidth': fullWidth,
-          'ScrollView--x': scrollX,
-          'ScrollView--hasControls': hasControls,
+          "ScrollView--fullWidth": fullWidth,
+          "ScrollView--x": scrollX,
+          "ScrollView--hasControls": hasControls,
         },
         className,
       )}
@@ -93,18 +93,18 @@ export const ScrollView = React.forwardRef<
     >
       {hasControls && (
         <IconButton
-          className='ScrollView-control'
-          icon='chevron-left'
-          aria-label='Previous'
+          className="ScrollView-control"
+          icon="chevron-left"
+          aria-label="Previous"
           onClick={handlePrev}
         />
       )}
       <div
-        className='ScrollView-scroller'
+        className="ScrollView-scroller"
         ref={scrollerRef}
         onScroll={onScroll}
       >
-        <div className='ScrollView-inner'>
+        <div className="ScrollView-inner">
           {data.map((item, i) => (
             <Item
               item={item}
@@ -116,11 +116,7 @@ export const ScrollView = React.forwardRef<
             </Item>
           ))}
           {children ? (
-            <Item
-              item={{}}
-              effect={effect}
-              onIntersect={onIntersect}
-            >
+            <Item item={{}} effect={effect} onIntersect={onIntersect}>
               {children}
             </Item>
           ) : null}
@@ -128,9 +124,9 @@ export const ScrollView = React.forwardRef<
       </div>
       {hasControls && (
         <IconButton
-          className='ScrollView-control'
-          icon='chevron-right'
-          aria-label='Next'
+          className="ScrollView-control"
+          icon="chevron-right"
+          aria-label="Next"
           onClick={handleNext}
         />
       )}
@@ -138,4 +134,4 @@ export const ScrollView = React.forwardRef<
   );
 });
 
-ScrollView.displayName = 'ScrollView';
+ScrollView.displayName = "ScrollView";

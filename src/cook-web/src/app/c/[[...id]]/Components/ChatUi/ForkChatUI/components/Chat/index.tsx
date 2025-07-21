@@ -1,20 +1,20 @@
-import React, { useEffect } from 'react';
-import { LocaleProvider } from '../LocaleProvider';
-import { Navbar, NavbarProps } from '../Navbar';
+import React, { useEffect } from "react";
+import { LocaleProvider } from "../LocaleProvider";
+import { Navbar, NavbarProps } from "../Navbar";
 import {
   MessageContainer,
   MessageContainerProps,
   MessageContainerHandle,
-} from '../MessageContainer';
-import { QuickReplies, QuickReplyItemProps } from '../QuickReplies';
+} from "../MessageContainer";
+import { QuickReplies, QuickReplyItemProps } from "../QuickReplies";
 import {
   Composer as DComposer,
   ComposerProps,
   ComposerHandle,
-} from '../Composer';
-import isSafari from '../../utils/isSafari';
+} from "../Composer";
+import isSafari from "../../utils/isSafari";
 
-export type ChatProps = Omit<ComposerProps, 'onFocus' | 'onChange' | 'onBlur'> &
+export type ChatProps = Omit<ComposerProps, "onFocus" | "onChange" | "onBlur"> &
   MessageContainerProps & {
     /**
      * 宽版模式断点
@@ -99,15 +99,15 @@ export type ChatProps = Omit<ComposerProps, 'onFocus' | 'onChange' | 'onBlur'> &
     /**
      * 输入框聚焦回调
      */
-    onInputFocus?: ComposerProps['onFocus'];
+    onInputFocus?: ComposerProps["onFocus"];
     /**
      * 输入框更新回调
      */
-    onInputChange?: ComposerProps['onChange'];
+    onInputChange?: ComposerProps["onChange"];
     /**
      * 输入框失去焦点回调
      */
-    onInputBlur?: ComposerProps['onBlur'];
+    onInputBlur?: ComposerProps["onBlur"];
     /**
      * 发送消息回调
      */
@@ -150,7 +150,7 @@ export const Chat = React.forwardRef<HTMLDivElement, ChatProps>(
   (props, ref) => {
     const {
       wideBreakpoint,
-      locale = 'zh-CN',
+      locale = "zh-CN",
       locales,
       navbar,
       renderNavbar,
@@ -198,20 +198,14 @@ export const Chat = React.forwardRef<HTMLDivElement, ChatProps>(
 
     useEffect(() => {
       if (isSafari()) {
-        document.documentElement.dataset.safari = '';
+        document.documentElement.dataset.safari = "";
       }
     }, []);
 
     return (
       // @ts-expect-error EXPECT
-      <LocaleProvider
-        locale={locale}
-        locales={locales}
-      >
-        <div
-          className='ChatApp'
-          ref={ref}
-        >
+      <LocaleProvider locale={locale} locales={locales}>
+        <div className="ChatApp" ref={ref}>
           {renderNavbar ? renderNavbar() : navbar && <Navbar {...navbar} />}
           <MessageContainer
             ref={messagesRef}
@@ -224,7 +218,7 @@ export const Chat = React.forwardRef<HTMLDivElement, ChatProps>(
             onBackBottomShow={onBackBottomShow}
             onBackBottomClick={onBackBottomClick}
           />
-          <div className='ChatFooter'>
+          <div className="ChatFooter">
             {renderQuickReplies && renderQuickReplies() ? (
               <QuickReplies
                 items={quickReplies}
@@ -259,4 +253,4 @@ export const Chat = React.forwardRef<HTMLDivElement, ChatProps>(
   },
 );
 
-Chat.displayName = 'Chat';
+Chat.displayName = "Chat";

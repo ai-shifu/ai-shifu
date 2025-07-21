@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import type React from 'react';
+import type React from "react";
 
-import { useState, useRef, useEffect } from 'react';
-import { Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { uploadFile } from '@/lib/file';
-import { useToast } from '@/hooks/use-toast';
-import { useTranslation } from 'react-i18next';
-import api from '@/api';
-import { environment } from '@/config/environment';
+import { useState, useRef, useEffect } from "react";
+import { Upload } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { uploadFile } from "@/lib/file";
+import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
+import api from "@/api";
+import { environment } from "@/config/environment";
 
 type ImageResource = {
   resourceUrl?: string;
@@ -28,11 +28,11 @@ const agiImgUrlRegexp =
 
 const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { t } = useTranslation();
-  const [resourceUrl, setResourceUrl] = useState<string>('');
-  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '');
+  const [resourceUrl, setResourceUrl] = useState<string>("");
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || "");
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [resourceTitle, setResourceTitle] = useState<string>(
-    value?.resourceTitle || '',
+    value?.resourceTitle || "",
   );
   const [resourceScale, setResourceScale] = useState<number>(
     value?.resourceScale || 100,
@@ -43,12 +43,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   const { toast } = useToast();
 
   const resetState = () => {
-    setResourceUrl('');
-    setInputUrl('');
-    setResourceTitle('');
+    setResourceUrl("");
+    setInputUrl("");
+    setResourceTitle("");
     setResourceScale(100);
     if (resourceInputRef.current) {
-      resourceInputRef.current.value = '';
+      resourceInputRef.current.value = "";
     }
   };
 
@@ -61,14 +61,14 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
         `${siteHost}/api/shifu/upfile`,
         undefined,
         undefined,
-        progress => {
+        (progress) => {
           setUploadProgress(progress);
         },
       );
 
       if (!response.ok) {
         throw new Error(
-          `${t('file-uploader.upload-failed')}: ${response.statusText}`,
+          `${t("file-uploader.upload-failed")}: ${response.statusText}`,
         );
       }
 
@@ -78,7 +78,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       }
 
       if (!response.ok) {
-        throw new Error(t('file-uploader.upload-failed'));
+        throw new Error(t("file-uploader.upload-failed"));
       }
       setResourceUrl(res.data);
       setResourceTitle(file.name);
@@ -86,8 +86,8 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       const img = new Image();
       img.src = res.data;
     } catch (error) {
-      console.error('Error uploading image:', error);
-      alert(t('file-uploader.failed-to-upload-image'));
+      console.error("Error uploading image:", error);
+      alert(t("file-uploader.failed-to-upload-image"));
     } finally {
       setIsUploading(false);
     }
@@ -98,10 +98,10 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     try {
       new URL(inputUrl);
     } catch (error) {
-      console.error('Error uploading image:', error);
+      console.error("Error uploading image:", error);
       toast({
-        title: t('file-uploader.check-image-url'),
-        variant: 'destructive',
+        title: t("file-uploader.check-image-url"),
+        variant: "destructive",
       });
       return;
     }
@@ -110,21 +110,21 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     } else {
       setIsUploading(true);
       try {
-        const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
-          console.error('Error uploading image:', err);
+        const url = await api.upfileByUrl({ url: inputUrl }).catch((err) => {
+          console.error("Error uploading image:", err);
           toast({
-            title: t('file-uploader.check-image-url'),
-            variant: 'destructive',
+            title: t("file-uploader.check-image-url"),
+            variant: "destructive",
           });
         });
         setResourceUrl(url);
-        setResourceTitle('');
+        setResourceTitle("");
         setResourceScale(100);
       } catch (error) {
-        console.error('Error uploading image:', error);
+        console.error("Error uploading image:", error);
         toast({
-          title: t('file-uploader.check-image-url'),
-          variant: 'destructive',
+          title: t("file-uploader.check-image-url"),
+          variant: "destructive",
         });
       } finally {
         setIsUploading(false);
@@ -165,118 +165,118 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   }, []);
 
   return (
-    <div className='space-y-6'>
+    <div className="space-y-6">
       {!resourceUrl ? (
         <>
-          <div className='text-xs'>
-            <h2 className='font-bold mb-4'>{t('file-uploader.url')}</h2>
-            <div className='flex gap-2'>
+          <div className="text-xs">
+            <h2 className="font-bold mb-4">{t("file-uploader.url")}</h2>
+            <div className="flex gap-2">
               <Input
-                placeholder={t('file-uploader.paste-or-input-image-url')}
+                placeholder={t("file-uploader.paste-or-input-image-url")}
                 value={inputUrl}
-                onChange={e => setInputUrl(e.target.value)}
-                className='flex-1'
+                onChange={(e) => setInputUrl(e.target.value)}
+                className="flex-1"
               />
               <Button
                 onClick={handleUrlUpload}
                 disabled={isUploading || !inputUrl}
-                className='w-24 h-8'
+                className="w-24 h-8"
               >
-                {t('file-uploader.run')}
+                {t("file-uploader.run")}
               </Button>
             </div>
           </div>
 
           <div>
-            <h2 className='font-bold mb-4'>{t('file-uploader.upload')}</h2>
+            <h2 className="font-bold mb-4">{t("file-uploader.upload")}</h2>
             <Card
-              className='border-dashed border-2 text-center flex flex-col items-center justify-center min-h-[200px] p-2'
+              className="border-dashed border-2 text-center flex flex-col items-center justify-center min-h-[200px] p-2"
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
               {isUploading ? (
-                <div className='mt-2'>
-                  <div className='w-full bg-gray-200 rounded-full h-2.5'>
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2.5">
                     <div
-                      className='bg-primary h-2.5 rounded-full'
+                      className="bg-primary h-2.5 rounded-full"
                       style={{ width: `${uploadProgress}%` }}
                     ></div>
                   </div>
-                  <p className='text-xs text-gray-500 mt-1 text-center'>
-                    {t('file-uploader.uploading')} {uploadProgress}%
+                  <p className="text-xs text-gray-500 mt-1 text-center">
+                    {t("file-uploader.uploading")} {uploadProgress}%
                   </p>
                 </div>
               ) : (
                 <>
                   <input
-                    type='file'
+                    type="file"
                     ref={resourceInputRef}
                     onChange={handleFileChange}
-                    className='hidden'
-                    accept='image/*'
+                    className="hidden"
+                    accept="image/*"
                   />
-                  <Upload className='h-10 w-10 text-gray-400 mb-4' />
-                  <div className='mb-2'>
-                    {t('file-uploader.drag-file-or-click-to-upload')}
+                  <Upload className="h-10 w-10 text-gray-400 mb-4" />
+                  <div className="mb-2">
+                    {t("file-uploader.drag-file-or-click-to-upload")}
                     <button
-                      className='text-blue-600 hover:underline'
+                      className="text-blue-600 hover:underline"
                       onClick={() => resourceInputRef.current?.click()}
                     >
-                      {t('file-uploader.click-to-upload')}
+                      {t("file-uploader.click-to-upload")}
                     </button>
                   </div>
-                  <p className='text-gray-500'>{t('file-uploader.tips')}</p>
+                  <p className="text-gray-500">{t("file-uploader.tips")}</p>
                 </>
               )}
             </Card>
           </div>
         </>
       ) : (
-        <div className='flex flex-col items-center'>
+        <div className="flex flex-col items-center">
           <img
-            src={resourceUrl || '/placeholder.svg'}
-            alt='Uploaded image'
-            className='max-w-full max-h-[400px] object-contain mb-4'
+            src={resourceUrl || "/placeholder.svg"}
+            alt="Uploaded image"
+            className="max-w-full max-h-[400px] object-contain mb-4"
           />
-          <div className='flex items-center w-full mb-2'>{resourceUrl}</div>
-          <div className='flex items-center w-full mb-2'>
-            <div className='text-sm w-20'>{t('file-uploader.image-title')}</div>
+          <div className="flex items-center w-full mb-2">{resourceUrl}</div>
+          <div className="flex items-center w-full mb-2">
+            <div className="text-sm w-20">{t("file-uploader.image-title")}</div>
             <Input
-              className='flex-1'
+              className="flex-1"
               value={resourceTitle}
-              onChange={e => setResourceTitle(e.target.value.slice(0, 100))}
-              placeholder={t('file-uploader.image-title-placeholder')}
+              onChange={(e) => setResourceTitle(e.target.value.slice(0, 100))}
+              placeholder={t("file-uploader.image-title-placeholder")}
               maxLength={100}
             />
           </div>
 
-          <div className='flex items-center w-full mb-2'>
-            <div className='text-sm w-20'>{t('file-uploader.image-scale')}</div>
-            <div className='flex items-center gap-1'>
+          <div className="flex items-center w-full mb-2">
+            <div className="text-sm w-20">{t("file-uploader.image-scale")}</div>
+            <div className="flex items-center gap-1">
               <Input
-                type='number'
+                type="number"
                 min={1}
                 max={100}
                 step={10}
                 value={resourceScale}
-                onChange={e => {
+                onChange={(e) => {
                   const value = Number(e.target.value);
                   if (!isNaN(value) && value >= 1 && value <= 100) {
                     setResourceScale(value);
                   }
                 }}
-                placeholder='100'
+                placeholder="100"
               />
-              <span className='text-gray-500'>%</span>
+              <span className="text-gray-500">%</span>
             </div>
           </div>
 
           <Button
-            variant='outline'
-            className='w-full py-2'
+            variant="outline"
+            className="w-full py-2"
             onClick={resetState}
           >
-            {t('file-uploader.replace-image')}
+            {t("file-uploader.replace-image")}
           </Button>
         </div>
       )}

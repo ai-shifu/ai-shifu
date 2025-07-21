@@ -11,15 +11,15 @@
   opacity: 0;
   visibility: hidden;
 
-  &[data-type='success'] .Icon {
+  &[data-type="success"] .Icon {
     color: var(--green);
   }
 
-  &[data-type='error'] .Icon {
+  &[data-type="error"] .Icon {
     color: var(--red);
   }
 
-  &[data-type='loading'] .Icon {
+  &[data-type="loading"] .Icon {
     color: var(--brand-1);
   }
 

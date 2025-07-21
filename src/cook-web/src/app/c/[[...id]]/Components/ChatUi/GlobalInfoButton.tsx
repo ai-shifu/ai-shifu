@@ -1,32 +1,32 @@
-import styles from './GlobalInfoButton.module.scss';
+import styles from "./GlobalInfoButton.module.scss";
 
-import clsx from 'clsx';
-import { memo, useCallback } from 'react';
-import Image from 'next/image';
+import clsx from "clsx";
+import { memo, useCallback } from "react";
+import Image from "next/image";
 
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from "@/components/ui/popover";
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-} from '@/components/ui/navigation-menu';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/navigation-menu";
+import { Button } from "@/components/ui/button";
 
-import FeedbackModal from '@/app/c/[[...id]]/Components/FeedbackModal/FeedbackModal';
-import ShortcutModal from '../ShortcutModal/ShortcutModal';
+import FeedbackModal from "@/app/c/[[...id]]/Components/FeedbackModal/FeedbackModal";
+import ShortcutModal from "../ShortcutModal/ShortcutModal";
 
-import { useTranslation } from 'react-i18next';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+import { useTranslation } from "react-i18next";
+import { useDisclosure } from "@/c-common/hooks/useDisclosure";
 
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
-import { useShallow } from 'zustand/react/shallow';
-import { useHotkeys } from 'react-hotkeys-hook';
-import { SHORTCUT_IDS, genHotKeyIdentifier } from '@/c-service/shortcut';
+import { useUiLayoutStore } from "@/c-store/useUiLayoutStore";
+import { useShallow } from "zustand/react/shallow";
+import { useHotkeys } from "react-hotkeys-hook";
+import { SHORTCUT_IDS, genHotKeyIdentifier } from "@/c-service/shortcut";
 
 import {
   InfoIcon,
@@ -34,12 +34,12 @@ import {
   MessageSquareWarningIcon,
   SquareArrowOutUpRightIcon,
   KeyboardIcon,
-} from 'lucide-react';
+} from "lucide-react";
 
-import beianIcon from '@/c-assets/newchat/light/beian.png';
+import beianIcon from "@/c-assets/newchat/light/beian.png";
 
 const GlobalInfoButton = ({ className }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
 
   const {
     open: feedbackModalOpen,
@@ -61,23 +61,23 @@ const GlobalInfoButton = ({ className }) => {
 
   const onContactUsClick = useCallback(() => {
     window.open(
-      'https://zhentouai.feishu.cn/share/base/form/shrcnwp8SRl1ghzia4fBG08VYkh',
-      '_blank',
-      'noopener,noreferrer',
+      "https://zhentouai.feishu.cn/share/base/form/shrcnwp8SRl1ghzia4fBG08VYkh",
+      "_blank",
+      "noopener,noreferrer",
     );
     onPopoverClose();
   }, [onPopoverClose]);
 
   const menuItems = [
     {
-      key: '1',
-      label: t('navigation.contactUs'),
+      key: "1",
+      label: t("navigation.contactUs"),
       icon: <MailIcon />,
       onClick: onContactUsClick,
     },
     {
-      key: '2',
-      label: t('navigation.feedbackTitle'),
+      key: "2",
+      label: t("navigation.feedbackTitle"),
       icon: <MessageSquareWarningIcon />,
       onClick: () => {
         onFeedbackModalOpen();
@@ -85,26 +85,26 @@ const GlobalInfoButton = ({ className }) => {
       },
     },
     {
-      key: '3',
-      label: t('navigation.userAgreement'),
+      key: "3",
+      label: t("navigation.userAgreement"),
       icon: <SquareArrowOutUpRightIcon />,
       onClick: () => {
         onPopoverClose();
-        window.open('/useragreement');
+        window.open("/useragreement");
       },
     },
     {
-      key: '4',
-      label: t('navigation.privacyPolicy'),
+      key: "4",
+      label: t("navigation.privacyPolicy"),
       icon: <SquareArrowOutUpRightIcon />,
       onClick: () => {
         onPopoverClose();
-        window.open('/privacypolicy');
+        window.open("/privacypolicy");
       },
     },
     {
-      key: '5',
-      label: t('navigation.shortcut'),
+      key: "5",
+      label: t("navigation.shortcut"),
       icon: <KeyboardIcon />,
       onClick: () => {
         onPopoverClose();
@@ -114,7 +114,7 @@ const GlobalInfoButton = ({ className }) => {
   ];
 
   const { inMacOs } = useUiLayoutStore(
-    useShallow(state => ({ inMacOs: state.inMacOs })),
+    useShallow((state) => ({ inMacOs: state.inMacOs })),
   );
 
   useHotkeys(
@@ -130,28 +130,22 @@ const GlobalInfoButton = ({ className }) => {
     <>
       <Popover
         open={popoverOpen}
-        onOpenChange={open => {
+        onOpenChange={(open) => {
           if (!open) {
             onPopoverClose();
           }
         }}
       >
-        <PopoverContent side='right'>
+        <PopoverContent side="right">
           <div className={styles.popoverContent}>
             {/* <Menu items={menuItems} selectable={false} /> */}
-            <NavigationMenu orientation='vertical'>
+            <NavigationMenu orientation="vertical">
               <NavigationMenuList>
                 <NavigationMenuItem>
-                  {menuItems.map(item => {
+                  {menuItems.map((item) => {
                     return (
-                      <NavigationMenuLink
-                        key={item.key}
-                        asChild
-                      >
-                        <Button
-                          variant='link'
-                          onClick={item.onClick}
-                        >
+                      <NavigationMenuLink key={item.key} asChild>
+                        <Button variant="link" onClick={item.onClick}>
                           {item.icon}
                           {item.label}
                         </Button>
@@ -164,19 +158,19 @@ const GlobalInfoButton = ({ className }) => {
 
             <div className={styles.policyInfo}>
               <div className={styles.policyInfoRow}>
-                {t('common.companyName')}
+                {t("common.companyName")}
               </div>
               <div className={styles.policyInfoRow}>
-                {t('common.companyAddress')}
+                {t("common.companyAddress")}
               </div>
               <div className={styles.policyInfoRow}>
                 <a
                   className={styles.miitLink}
-                  href='https://beian.miit.gov.cn/'
-                  target='_blank'
-                  rel='noreferrer'
+                  href="https://beian.miit.gov.cn/"
+                  target="_blank"
+                  rel="noreferrer"
                 >
-                  {t('navigation.icp')}
+                  {t("navigation.icp")}
                 </a>
               </div>
               <div className={clsx(styles.gonganRow, styles.policyInfoRow)}>
@@ -185,16 +179,16 @@ const GlobalInfoButton = ({ className }) => {
                   width={12}
                   height={14}
                   className={styles.beianIcon}
-                  alt={t('navigation.filing')}
+                  alt={t("navigation.filing")}
                 />
-                <span>{t('navigation.gongan')}</span>
+                <span>{t("navigation.gongan")}</span>
               </div>
             </div>
           </div>
         </PopoverContent>
         <PopoverTrigger asChild>
           <button
-            type='button'
+            type="button"
             className={clsx(styles.globalInfoButton, className)}
             onClick={onPopoverToggle}
           >

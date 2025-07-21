@@ -1,5 +1,5 @@
-import React from 'react';
-import { ClickOutside } from '../ClickOutside';
+import React from "react";
+import { ClickOutside } from "../ClickOutside";
 
 interface AccessoryWrapProps {
   onClickOutside: () => void;

@@ -1,5 +1,5 @@
-import './ForkChatUI/styles/index.scss';
-import styles from './ChatComponents.module.scss';
+import "./ForkChatUI/styles/index.scss";
+import styles from "./ChatComponents.module.scss";
 
 import {
   useEffect,
@@ -10,64 +10,64 @@ import {
   useRef,
   memo,
   useCallback,
-} from 'react';
-import { cn } from '@/lib/utils';
+} from "react";
+import { cn } from "@/lib/utils";
 
-import useMessages from './ForkChatUI/hooks/useMessages';
-import { Chat } from './ForkChatUI/components/Chat';
-import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
+import useMessages from "./ForkChatUI/hooks/useMessages";
+import { Chat } from "./ForkChatUI/components/Chat";
+import { useChatComponentsScroll } from "./ChatComponents/useChatComponentsScroll";
 
-import { ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 import {
   runScript,
   getLessonStudyRecord,
   scriptContentOperation,
-} from '@/c-api/study';
-import { genUuid } from '@/c-utils/common';
-import ChatInteractionArea from './ChatInput/ChatInteractionArea';
-import { AppContext } from '@/c-components/AppContext';
+} from "@/c-api/study";
+import { genUuid } from "@/c-utils/common";
+import ChatInteractionArea from "./ChatInput/ChatInteractionArea";
+import { AppContext } from "@/c-components/AppContext";
 
-import { useCourseStore } from '@/c-store/useCourseStore';
+import { useCourseStore } from "@/c-store/useCourseStore";
 import {
   LESSON_STATUS_VALUE,
   INTERACTION_TYPE,
   INTERACTION_OUTPUT_TYPE,
   RESP_EVENT_TYPE,
   CHAT_MESSAGE_TYPE,
-} from '@/c-constants/courseConstants';
+} from "@/c-constants/courseConstants";
 
-import { useUserStore } from '@/c-store/useUserStore';
-import { fixMarkdown, fixMarkdownStream } from '@/c-utils/markdownUtils';
-import PayModal from '../Pay/PayModal';
+import { useUserStore } from "@/c-store/useUserStore";
+import { fixMarkdown, fixMarkdownStream } from "@/c-utils/markdownUtils";
+import PayModal from "../Pay/PayModal";
 // TODO: FIXME
 // import LoginModal from '../Login/LoginModal';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
+import { useDisclosure } from "@/c-common/hooks/useDisclosure";
 
-import { tokenTool } from '@/c-service/storeUtil';
-import MarkdownBubble from './ChatMessage/MarkdownBubble';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import PayModalM from '../Pay/PayModalM';
+import { tokenTool } from "@/c-service/storeUtil";
+import MarkdownBubble from "./ChatMessage/MarkdownBubble";
+import { useTracking, EVENT_NAMES } from "@/c-common/hooks/useTracking";
+import PayModalM from "../Pay/PayModalM";
 // import { useTranslation } from 'react-i18next';
-import { useEnvStore } from '@/c-store/envStore';
-import { shifu } from '@/c-service/Shifu';
+import { useEnvStore } from "@/c-store/envStore";
+import { shifu } from "@/c-service/Shifu";
 import {
   events,
   EVENT_NAMES as BZ_EVENT_NAMES,
-} from '@/app/c/[[...id]]/events';
-import ActiveMessageControl from './ChatMessage/ActiveMessageControl';
-import { convertKeysToCamelCase } from '@/c-utils/objUtils';
-import { useShallow } from 'zustand/react/shallow';
+} from "@/app/c/[[...id]]/events";
+import ActiveMessageControl from "./ChatMessage/ActiveMessageControl";
+import { convertKeysToCamelCase } from "@/c-utils/objUtils";
+import { useShallow } from "zustand/react/shallow";
 
-import logoColor120 from '@/c-assets/logos/logo-color-120.png';
+import logoColor120 from "@/c-assets/logos/logo-color-120.png";
 
 const USER_ROLE = {
-  TEACHER: '老师',
-  STUDENT: '学生',
+  TEACHER: "老师",
+  STUDENT: "学生",
 };
 
 const createMessage = ({
-  id = '',
+  id = "",
   role,
   content,
   interaction_type,
@@ -84,7 +84,7 @@ const createMessage = ({
       content: content,
     };
   }
-  const position = role === USER_ROLE.STUDENT ? 'right' : 'left';
+  const position = role === USER_ROLE.STUDENT ? "right" : "left";
 
   let avatar = teach_avator || logoColor120.src;
 
@@ -154,7 +154,7 @@ const convertEventInputModal = ({ type, content, script_id }) => {
     type === RESP_EVENT_TYPE.NONBLOCK_ORDER ||
     type === RESP_EVENT_TYPE.REQUIRE_LOGIN
   ) {
-    const getBtnType = type => {
+    const getBtnType = (type) => {
       if (type === INTERACTION_TYPE.ORDER) {
         return INTERACTION_TYPE.ORDER;
       }
@@ -207,20 +207,20 @@ export const ChatComponents = forwardRef<any, any>(
 
     const [inputDisabled, setInputDisabled] = useState(false);
     const [inputModal, setInputModal] = useState(null);
-    const [loadedChapterId, setLoadedChapterId] = useState('');
+    const [loadedChapterId, setLoadedChapterId] = useState("");
     const [loadedData, setLoadedData] = useState(false);
     const [isStreaming, setIsStreaming] = useState(false);
     const [initRecords, setInitRecords] = useState([]);
     // lesson id the current message is belong to
-    const [messageLessonId, setMessageLessonId] = useState('');
+    const [messageLessonId, setMessageLessonId] = useState("");
 
     // action control is register in plugin
     const [showActionControl, setShowActionControl] = useState(false);
-    const [actionControlType, setActionControlType] = useState('');
+    const [actionControlType, setActionControlType] = useState("");
     const [actionControlPayload, setActionControlPayload] = useState({
-      type: '',
-      val: '',
-      scriptId: '',
+      type: "",
+      val: "",
+      scriptId: "",
     });
     const [askButtonState, setAskButtonState] = useState({
       total: 1,
@@ -233,7 +233,7 @@ export const ChatComponents = forwardRef<any, any>(
     const chatRef = useRef(null);
 
     const { updateResetedChapterId } = useCourseStore(
-      useShallow(state => ({
+      useShallow((state) => ({
         updateResetedChapterId: state.updateResetedChapterId,
       })),
     );
@@ -256,7 +256,7 @@ export const ChatComponents = forwardRef<any, any>(
 
     const lastMsgRef = useRef(null);
     const { initUser, updateUserInfo, refreshUserInfo } = useUserStore(
-      useShallow(state => ({
+      useShallow((state) => ({
         initUser: state.initUser,
         updateUserInfo: state.updateUserInfo,
         refreshUserInfo: state.refreshUserInfo,
@@ -305,7 +305,7 @@ export const ChatComponents = forwardRef<any, any>(
       );
     };
 
-    const initLoadedInteraction = useCallback(ui => {
+    const initLoadedInteraction = useCallback((ui) => {
       const nextInputModal = convertEventInputModal(ui);
       setInputDisabled(false);
       // @ts-expect-error EXPECT
@@ -330,7 +330,7 @@ export const ChatComponents = forwardRef<any, any>(
             chatId,
             lessonId: content.lesson_id,
             type: INTERACTION_OUTPUT_TYPE.START,
-            val: '',
+            val: "",
           });
         }
 
@@ -343,7 +343,7 @@ export const ChatComponents = forwardRef<any, any>(
 
     const nextStep = useCallback(
       ({ chatId, lessonId, val, type, scriptId }) => {
-        setAskButtonState(v => ({
+        setAskButtonState((v) => ({
           ...v,
           askMode: false,
         }));
@@ -353,7 +353,7 @@ export const ChatComponents = forwardRef<any, any>(
         let lastLessonId = messageLessonId;
         let lastActiveMsg = null;
 
-        runScript(chatId, lessonId, val, type, scriptId, async response => {
+        runScript(chatId, lessonId, val, type, scriptId, async (response) => {
           if (response.type === RESP_EVENT_TYPE.TEACHER_AVATOR) {
             teach_avator = response.content;
           }
@@ -380,7 +380,7 @@ export const ChatComponents = forwardRef<any, any>(
               }
               setIsStreaming(true);
               // @ts-expect-error EXPECT
-              if (lastMsg !== null && lastMsg.type === 'text') {
+              if (lastMsg !== null && lastMsg.type === "text") {
                 const currText = fixMarkdownStream(
                   // @ts-expect-error EXPECT
                   lastMsg.content,
@@ -506,7 +506,7 @@ export const ChatComponents = forwardRef<any, any>(
                   // @ts-expect-error EXPECT
                   type: INTERACTION_TYPE.NEXT_CHAPTER,
                   props: {
-                    label: '下一章',
+                    label: "下一章",
                     lessonId: chapterId,
                   },
                 });
@@ -562,7 +562,7 @@ export const ChatComponents = forwardRef<any, any>(
           chatId,
           lessonId: lessonId,
           type: INTERACTION_OUTPUT_TYPE.START,
-          val: '',
+          val: "",
         });
       }
       setLoadedData(false);
@@ -586,7 +586,7 @@ export const ChatComponents = forwardRef<any, any>(
       const ui = resp?.ui || null;
 
       if (records && records.length > 0) {
-        let lessonId = '';
+        let lessonId = "";
         let lastMsg = null;
 
         records.forEach((v, i) => {
@@ -677,8 +677,8 @@ export const ChatComponents = forwardRef<any, any>(
 
     useEffect(() => {
       return useCourseStore.subscribe(
-        state => state.resetedChapterId,
-        curr => {
+        (state) => state.resetedChapterId,
+        (curr) => {
           if (!curr) {
             return;
           }
@@ -697,7 +697,7 @@ export const ChatComponents = forwardRef<any, any>(
 
     useEffect(() => {
       return useUserStore.subscribe(
-        state => state.isLoggedIn,
+        (state) => state.isLoggedIn,
         () => {
           setLoadedChapterId(chapterId);
           resetAndLoadData();
@@ -748,7 +748,7 @@ export const ChatComponents = forwardRef<any, any>(
           type === INTERACTION_OUTPUT_TYPE.LOGIN ||
           type === INTERACTION_OUTPUT_TYPE.ASK
         ) {
-          if (val && typeof val === 'string' && val.trim() && display) {
+          if (val && typeof val === "string" && val.trim() && display) {
             const message = createMessage({
               role: USER_ROLE.STUDENT,
               content: val,
@@ -787,9 +787,9 @@ export const ChatComponents = forwardRef<any, any>(
     const [interactionTypes, setInteractionTypes] = useState({});
 
     const renderMessageContentOperation = useCallback(
-      msg => {
+      (msg) => {
         const likeClick = async () => {
-          setInteractionTypes(prevTypes => {
+          setInteractionTypes((prevTypes) => {
             const currentType = prevTypes[msg.id] ?? msg.interaction_type;
             const updatedTypes = {
               ...prevTypes,
@@ -804,7 +804,7 @@ export const ChatComponents = forwardRef<any, any>(
         };
 
         const disClick = async () => {
-          setInteractionTypes(prevTypes => {
+          setInteractionTypes((prevTypes) => {
             const currentType = prevTypes[msg.id] ?? msg.interaction_type;
             const updatedTypes = {
               ...prevTypes,
@@ -825,23 +825,23 @@ export const ChatComponents = forwardRef<any, any>(
           <div className={styles.messageContentOperation}>
             {currentInteractionType === 1 ? (
               <ThumbsUp
-                className={cn('text-blue-500', 'w-5', 'h-5')}
+                className={cn("text-blue-500", "w-5", "h-5")}
                 onClick={likeClick}
               />
             ) : (
               <ThumbsUp
-                className={cn('text-gray-400', 'w-5', 'h-5')}
+                className={cn("text-gray-400", "w-5", "h-5")}
                 onClick={likeClick}
               />
             )}
             {currentInteractionType === 2 ? (
               <ThumbsDown
-                className={cn('text-blue-500', 'w-5', 'h-5', 'cursor-pointer')}
+                className={cn("text-blue-500", "w-5", "h-5", "cursor-pointer")}
                 onClick={disClick}
               />
             ) : (
               <ThumbsDown
-                className={cn('text-gray-400', 'w-5', 'h-5')}
+                className={cn("text-gray-400", "w-5", "h-5")}
                 onClick={disClick}
               />
             )}
@@ -852,7 +852,7 @@ export const ChatComponents = forwardRef<any, any>(
     );
 
     const renderMessageContent = useCallback(
-      msg => {
+      (msg) => {
         const { content, type, ext } = msg;
         if (type === CHAT_MESSAGE_TYPE.LESSON_SEPARATOR) {
           return <></>;
@@ -871,7 +871,7 @@ export const ChatComponents = forwardRef<any, any>(
               />
               {ext?.active && <ActiveMessageControl {...ext.active} />}
               {(msg.isComplete || msg.logid) &&
-                msg.position == 'left' &&
+                msg.position == "left" &&
                 renderMessageContentOperation(msg)}
             </div>
           );
@@ -890,14 +890,14 @@ export const ChatComponents = forwardRef<any, any>(
 
         if (type === INTERACTION_OUTPUT_TYPE.ORDER) {
           setInputDisabled(true);
-          trackEvent(EVENT_NAMES.POP_PAY, { from: 'show-btn' });
+          trackEvent(EVENT_NAMES.POP_PAY, { from: "show-btn" });
           onPayModalOpen();
           return;
         }
 
         if (type === INTERACTION_OUTPUT_TYPE.REQUIRE_LOGIN) {
           setInputDisabled(true);
-          trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'script' });
+          trackEvent(EVENT_NAMES.POP_LOGIN, { from: "script" });
           onLoginModalOpen();
           return;
         }
@@ -922,7 +922,7 @@ export const ChatComponents = forwardRef<any, any>(
           });
 
           if (type === INTERACTION_OUTPUT_TYPE.NONBLOCK_ORDER) {
-            trackEvent(EVENT_NAMES.POP_PAY, { from: 'show-nb-btn' });
+            trackEvent(EVENT_NAMES.POP_PAY, { from: "show-nb-btn" });
           }
           return;
         }
@@ -939,7 +939,7 @@ export const ChatComponents = forwardRef<any, any>(
         return;
       }
       // @ts-expect-error EXPECT
-      const messageListElem = chatRef.current.querySelector('.MessageList');
+      const messageListElem = chatRef.current.querySelector(".MessageList");
       if (!messageListElem) {
         return;
       }
@@ -953,7 +953,7 @@ export const ChatComponents = forwardRef<any, any>(
     // }, [handleSend, refreshUserInfo, t]);
 
     useEffect(() => {
-      const onGoToNavigationNode = e => {
+      const onGoToNavigationNode = (e) => {
         const { chapterId, lessonId } = e.detail;
 
         if (chapterId !== loadedChapterId) {
@@ -980,7 +980,7 @@ export const ChatComponents = forwardRef<any, any>(
       if (lastMsgRef.current) {
         const messageIndex = messages.findIndex(
           // @ts-expect-error EXPECT
-          msg => msg.id === lastMsgRef.current.id,
+          (msg) => msg.id === lastMsgRef.current.id,
         );
         if (messageIndex === -1) {
           appendMsg(lastMsgRef.current);
@@ -997,7 +997,7 @@ export const ChatComponents = forwardRef<any, any>(
         className={cn(
           styles.chatComponents,
           className,
-          mobileStyle ? styles.mobile : '',
+          mobileStyle ? styles.mobile : "",
         )}
         ref={chatRef}
       >
@@ -1034,7 +1034,7 @@ export const ChatComponents = forwardRef<any, any>(
               open={payModalOpen}
               onCancel={_onPayModalClose}
               onOk={onPayModalOk}
-              type={''}
+              type={""}
               payload={{}}
             />
           ) : (
@@ -1042,7 +1042,7 @@ export const ChatComponents = forwardRef<any, any>(
               open={payModalOpen}
               onCancel={_onPayModalClose}
               onOk={onPayModalOk}
-              type={''}
+              type={""}
               payload={{}}
             />
           ))}
@@ -1060,6 +1060,6 @@ export const ChatComponents = forwardRef<any, any>(
   },
 );
 
-ChatComponents.displayName = 'ChatComponents';
+ChatComponents.displayName = "ChatComponents";
 
 export default memo(ChatComponents);

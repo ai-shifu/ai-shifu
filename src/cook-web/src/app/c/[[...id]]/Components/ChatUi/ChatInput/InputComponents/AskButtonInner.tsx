@@ -1,12 +1,12 @@
-import styles from './AskButtonInner.module.scss';
+import styles from "./AskButtonInner.module.scss";
 
-import { memo, useEffect, useState, useCallback } from 'react';
-import clsx from 'clsx';
+import { memo, useEffect, useState, useCallback } from "react";
+import clsx from "clsx";
 
-import { useTranslation } from 'react-i18next';
+import { useTranslation } from "react-i18next";
 
-import Image from 'next/image';
-import askIcon from '@/c-assets/newchat/light/svg-ask-16.svg';
+import Image from "next/image";
+import askIcon from "@/c-assets/newchat/light/svg-ask-16.svg";
 
 const PERCENT_MIN = 0.00001;
 const PERCENT_MAX = 99.99999;
@@ -14,11 +14,11 @@ const PERCENT_MAX = 99.99999;
 const PERCENT_THRESHOLD_MIN = 0;
 const PERCENT_THRESHOLD_MAX = 100;
 
-const calculateAngle = percent => {
+const calculateAngle = (percent) => {
   return (percent / 100) * 360;
 };
 
-const calculateArcPoint = angleInDegrees => {
+const calculateArcPoint = (angleInDegrees) => {
   const radians = angleInDegrees * (Math.PI / 180);
   const x = 76;
   const y = 76;
@@ -31,7 +31,7 @@ const calculateArcPoint = angleInDegrees => {
 };
 
 const AskButtonInner = ({
-  className = '',
+  className = "",
   percent = PERCENT_THRESHOLD_MIN,
   disabled = false,
   grayColor = false,
@@ -39,7 +39,7 @@ const AskButtonInner = ({
 }) => {
   const [endPoint, setEndPoint] = useState({ x: 0, y: 0 });
   const [largeArcFlag, setLargeArcFlag] = useState(1);
-  const { t, i18n } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t, i18n } = useTranslation("translation", { keyPrefix: "c" });
   const [oldPercent, setOldPercent] = useState(null);
 
   const onButtonClick = useCallback(() => {
@@ -48,7 +48,7 @@ const AskButtonInner = ({
     }
   }, [disabled, onClick]);
 
-  const updateRealPercent = useCallback(percent => {
+  const updateRealPercent = useCallback((percent) => {
     setEndPoint(
       calculateArcPoint(calculateAngle(formatPercentForAnime(percent))),
     );
@@ -57,7 +57,7 @@ const AskButtonInner = ({
     );
   }, []);
 
-  const formatPercentForAnime = percent => {
+  const formatPercentForAnime = (percent) => {
     return percent <= PERCENT_THRESHOLD_MIN
       ? PERCENT_MIN
       : percent >= PERCENT_THRESHOLD_MAX
@@ -105,50 +105,36 @@ const AskButtonInner = ({
         className={clsx(styles.askButton, className)}
         onClick={onButtonClick}
       >
-        <svg
-          width='76'
-          height='76'
-          viewBox='0 0 152 152'
-        >
-          <circle
-            cx='76'
-            cy='76'
-            r='64'
-            fill='#E2E2E2'
-          />
+        <svg width="76" height="76" viewBox="0 0 152 152">
+          <circle cx="76" cy="76" r="64" fill="#E2E2E2" />
           <>
             <path
               className={clsx(styles.glow)}
-              id='sector'
+              id="sector"
               d={`M76,76 L76,12 A64,64 0 ${largeArcFlag},0 ${endPoint.x},${endPoint.y} Z`}
-              fill='#8d9fe6'
+              fill="#8d9fe6"
             />
           </>
           <circle
-            cx='76'
-            cy='76'
-            r='50'
-            fill={`${grayColor || disabled ? '#BEBEBE' : '#0034D2'} `}
+            cx="76"
+            cy="76"
+            r="50"
+            fill={`${grayColor || disabled ? "#BEBEBE" : "#0034D2"} `}
           />
         </svg>
 
         <div className={styles.askButtonInner}>
-          <Image
-            src={askIcon.src}
-            width={24}
-            height={24}
-            alt='ask'
-          />
+          <Image src={askIcon.src} width={24} height={24} alt="ask" />
           <div
             className={clsx(
               styles.askButtonText,
               i18n.language &&
-                (i18n.language.includes('cn') || i18n.language.includes('CN'))
+                (i18n.language.includes("cn") || i18n.language.includes("CN"))
                 ? styles.chinese
-                : '',
+                : "",
             )}
           >
-            {t('chat.ask')}
+            {t("chat.ask")}
           </div>
         </div>
       </div>

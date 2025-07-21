@@ -1,14 +1,14 @@
-import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
-import { useTranslation } from 'react-i18next';
-import { cn } from '@/lib/utils';
-import styles from './ChatInteractionArea.module.scss';
+import React, { memo, useRef, useEffect, useState, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
+import styles from "./ChatInteractionArea.module.scss";
 import {
   INTERACTION_TYPE,
   INTERACTION_DISPLAY_TYPE,
-} from '@/c-constants/courseConstants';
-import { getInteractionComponent } from './interactionRegistry';
-import ChatInputText from './InputComponents/ChatInputText';
-import AskButton from './InputComponents/AskButton';
+} from "@/c-constants/courseConstants";
+import { getInteractionComponent } from "./interactionRegistry";
+import ChatInputText from "./InputComponents/ChatInputText";
+import AskButton from "./InputComponents/AskButton";
 
 // TODO: FIXME
 // import all interaction components
@@ -26,15 +26,15 @@ export const ChatInteractionArea = ({
   const elemRef = useRef(null);
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
-  const [askContent, setAskContent] = useState('');
-  const [inputValue, setInputValue] = useState('');
+  const [askContent, setAskContent] = useState("");
+  const [inputValue, setInputValue] = useState("");
 
   const onSendFunc = (type, display, val) => {
     if (disabled) {
       return;
     }
-    setInputValue('');
-    setAskContent('');
+    setInputValue("");
+    setAskContent("");
     // @ts-expect-error EXPECT
     onSend?.(type, display, val, props.scriptId);
   };
@@ -57,7 +57,7 @@ export const ChatInteractionArea = ({
   };
 
   const resizeChange = useCallback(
-    e => {
+    (e) => {
       // @ts-expect-error EXPECT
       onSizeChange?.({
         width: e.contentRect.width,
@@ -74,12 +74,12 @@ export const ChatInteractionArea = ({
   const onSendAsk = (type, display, val) => {
     setInputVisible(false);
     onSendFunc?.(INTERACTION_TYPE.ASK, true, val);
-    setInputValue('');
-    setAskContent('');
+    setInputValue("");
+    setAskContent("");
   };
 
   useEffect(() => {
-    const resize = new ResizeObserver(e => {
+    const resize = new ResizeObserver((e) => {
       if (!Array.isArray(e) || !e.length) return;
       for (const ent of e) {
         resizeChange(ent);
@@ -103,15 +103,15 @@ export const ChatInteractionArea = ({
       <div className={styles.controlContainer}>
         <div className={styles.controlWrapper}>
           <div className={styles.controlWrapperInner}>
-            {!isInputVisible && genRenderControl()}{' '}
+            {!isInputVisible && genRenderControl()}{" "}
             {/* Display input box based on state */}
             {isInputVisible && (
               <ChatInputText
-                id='askInput'
+                id="askInput"
                 onClick={onSendAsk}
-                type='text'
+                type="text"
                 // @ts-expect-error EXPECT
-                props={{ content: t('chat.askContent') }}
+                props={{ content: t("chat.askContent") }}
                 visible={isInputVisible}
                 initialValue={askContent}
                 onInputChange={setAskContent}
@@ -130,7 +130,7 @@ export const ChatInteractionArea = ({
           )}
         </div>
       </div>
-      <div className={styles.tipText}>{t('chat.chatTips')}</div>
+      <div className={styles.tipText}>{t("chat.chatTips")}</div>
     </div>
   );
 };

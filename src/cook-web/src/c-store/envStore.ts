@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import { EnvStoreState } from '@/c-types/store';
-import { environment } from '@/config/environment';
+import { create } from "zustand";
+import { EnvStoreState } from "@/c-types/store";
+import { environment } from "@/config/environment";
 
-export const useEnvStore = create<EnvStoreState>(set => ({
+export const useEnvStore = create<EnvStoreState>((set) => ({
   courseId: environment.courseId,
   updateCourseId: async (courseId: string) => set({ courseId }),
   appId: environment.wechatAppId,

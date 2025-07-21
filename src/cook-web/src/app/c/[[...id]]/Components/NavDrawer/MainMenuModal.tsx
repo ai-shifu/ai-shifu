@@ -1,8 +1,8 @@
-import styles from './MainMenuModal.module.scss';
+import styles from "./MainMenuModal.module.scss";
 
-import { memo, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
-import { useShallow } from 'zustand/react/shallow';
+import { memo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { useShallow } from "zustand/react/shallow";
 
 import {
   AlertDialog,
@@ -13,40 +13,40 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 
-import PopupModal from '@/c-components/PopupModal';
-import { useTranslation } from 'react-i18next';
+import PopupModal from "@/c-components/PopupModal";
+import { useTranslation } from "react-i18next";
 // import { languages } from '@/c-service/constants';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from "@/c-store/useUserStore";
 
-import { shifu } from '@/c-service/Shifu';
+import { shifu } from "@/c-service/Shifu";
 // import { getUserProfile, updateUserProfile } from '@/c-api/user';
 // import { LANGUAGE_DICT } from '@/c-constants/userConstants';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
+import { useTracking, EVENT_NAMES } from "@/c-common/hooks/useTracking";
 
-import Image from 'next/image';
-import imgUserInfo from '@/c-assets/newchat/light/userInfo.png';
-import imgPersonal from '@/c-assets/newchat/light/personal.png';
-import imgMultiLanguage from '@/c-assets/newchat/light/multiLanguage.png';
-import imgSignIn from '@/c-assets/newchat/light/signin.png';
+import Image from "next/image";
+import imgUserInfo from "@/c-assets/newchat/light/userInfo.png";
+import imgPersonal from "@/c-assets/newchat/light/personal.png";
+import imgMultiLanguage from "@/c-assets/newchat/light/multiLanguage.png";
+import imgSignIn from "@/c-assets/newchat/light/signin.png";
 
-import LanguageSelect from '@/components/language-select';
+import LanguageSelect from "@/components/language-select";
 
 const MainMenuModal = ({
   open,
   onClose = () => {},
   style = {},
   mobileStyle = false,
-  className = '',
+  className = "",
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
 
   const htmlRef = useRef(null);
   const { isLoggedIn, logout } = useUserStore(
-    useShallow(state => ({
+    useShallow((state) => ({
       logout: state.logout,
       isLoggedIn: state.isLoggedIn,
     })),
@@ -88,7 +88,7 @@ const MainMenuModal = ({
   const onUserInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_BASIC_INFO, {});
     if (!isLoggedIn) {
-      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: "user_menu" });
       shifu.loginTools.openLogin();
       return;
     }
@@ -99,7 +99,7 @@ const MainMenuModal = ({
   const _onPersonalInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_PERSONALIZED, {});
     if (!isLoggedIn) {
-      trackEvent(EVENT_NAMES.POP_LOGIN, { from: 'user_menu' });
+      trackEvent(EVENT_NAMES.POP_LOGIN, { from: "user_menu" });
       shifu.loginTools.openLogin();
       return;
     }
@@ -111,7 +111,7 @@ const MainMenuModal = ({
     shifu.loginTools.openLogin();
   };
 
-  const onLooutClick = evt => {
+  const onLooutClick = (evt) => {
     setLogoutConfirmOpen(true);
     // @ts-expect-error EXPECT
     onClose?.(evt);
@@ -127,13 +127,13 @@ const MainMenuModal = ({
     <>
       <AlertDialog
         open={logoutConfirmOpen}
-        onOpenChange={open => setLogoutConfirmOpen(open)}
+        onOpenChange={(open) => setLogoutConfirmOpen(open)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('user.confirmLogoutTitle')}</AlertDialogTitle>
+            <AlertDialogTitle>{t("user.confirmLogoutTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('user.confirmLogoutContent')}
+              {t("user.confirmLogoutContent")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -155,12 +155,9 @@ const MainMenuModal = ({
           mobileStyle && styles.mobile,
         )}
       >
-        <div
-          className={styles.mainMenuModal}
-          ref={htmlRef}
-        >
+        <div className={styles.mainMenuModal} ref={htmlRef}>
           <div
-            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            className={cn(styles.mainMenuModalRow, "px-2.5")}
             onClick={onUserInfoClick}
           >
             <Image
@@ -168,14 +165,14 @@ const MainMenuModal = ({
               width={16}
               height={16}
               src={imgUserInfo.src}
-              alt=''
+              alt=""
             />
             <div className={styles.rowTitle}>
-              {t('menus.navigationMenus.basicInfo')}
+              {t("menus.navigationMenus.basicInfo")}
             </div>
           </div>
           <div
-            className={cn(styles.mainMenuModalRow, 'px-2.5')}
+            className={cn(styles.mainMenuModalRow, "px-2.5")}
             onClick={_onPersonalInfoClick}
           >
             <Image
@@ -183,10 +180,10 @@ const MainMenuModal = ({
               width={16}
               height={16}
               src={imgPersonal.src}
-              alt=''
+              alt=""
             />
             <div className={styles.rowTitle}>
-              {t('menus.navigationMenus.personalInfo')}
+              {t("menus.navigationMenus.personalInfo")}
             </div>
           </div>
 
@@ -195,7 +192,7 @@ const MainMenuModal = ({
               className={cn(
                 styles.mainMenuModalRow,
                 styles.languageRowInner,
-                'px-2.5',
+                "px-2.5",
               )}
             >
               <div className={styles.languageRowLeft}>
@@ -204,20 +201,20 @@ const MainMenuModal = ({
                   width={16}
                   height={16}
                   src={imgMultiLanguage.src}
-                  alt=''
+                  alt=""
                 />
                 <div className={styles.rowTitle}>
-                  {t('menus.navigationMenus.language')}
+                  {t("menus.navigationMenus.language")}
                 </div>
               </div>
               <div className={styles.languageRowRight}>
-                <LanguageSelect contentClassName='z-[1001]' />
+                <LanguageSelect contentClassName="z-[1001]" />
               </div>
             </div>
           </div>
           {!isLoggedIn ? (
             <div
-              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              className={cn(styles.mainMenuModalRow, "px-2.5")}
               onClick={onLoginClick}
             >
               <Image
@@ -225,13 +222,13 @@ const MainMenuModal = ({
                 width={16}
                 height={16}
                 src={imgSignIn.src}
-                alt=''
+                alt=""
               />
-              <div className={styles.rowTitle}>{t('user.login')}</div>
+              <div className={styles.rowTitle}>{t("user.login")}</div>
             </div>
           ) : (
             <div
-              className={cn(styles.mainMenuModalRow, 'px-2.5')}
+              className={cn(styles.mainMenuModalRow, "px-2.5")}
               onClick={onLooutClick}
             >
               <Image
@@ -239,9 +236,9 @@ const MainMenuModal = ({
                 width={16}
                 height={16}
                 src={imgSignIn.src}
-                alt=''
+                alt=""
               />
-              <div className={styles.rowTitle}>{t('user.logout')}</div>
+              <div className={styles.rowTitle}>{t("user.logout")}</div>
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
-import styles from './SubButton.module.scss';
+import styles from "./SubButton.module.scss";
 
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 const SubButton = ({
   disabled,
@@ -14,7 +14,7 @@ const SubButton = ({
   return (
     <Button
       disabled={disabled}
-      className={cn('round-full', styles.mainButton)}
+      className={cn("round-full", styles.mainButton)}
       style={{ width, height, ...style }}
       onClick={onClick}
     >

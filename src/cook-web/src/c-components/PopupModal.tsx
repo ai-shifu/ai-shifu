@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
-import clsx from 'clsx';
-import styles from './PopupModal.module.scss';
+import clsx from "clsx";
+import styles from "./PopupModal.module.scss";
 
-import { useCallback } from 'react';
+import { useCallback } from "react";
 
 export const PopupModal = ({
   open = false,
@@ -17,12 +17,12 @@ export const PopupModal = ({
 
   // 点击其他区域关闭弹出窗口
   const handleClickOutside = useCallback(
-    event => {
+    (event) => {
       // @ts-expect-error EXPECT
       if (popupRef.current && !popupRef.current.contains(event.target)) {
         // `data-scroll-locked` indicates that another overlay is active, so the menu cannot be closed directly.
         // TODO: Migrate to `shadcn/ui`
-        if (!document.body.getAttribute('data-scroll-locked')) {
+        if (!document.body.getAttribute("data-scroll-locked")) {
           onClose?.(event);
         }
       }
@@ -32,9 +32,9 @@ export const PopupModal = ({
 
   // 监听点击事件
   useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [handleClickOutside]);
 
@@ -44,11 +44,7 @@ export const PopupModal = ({
       style={wrapStyle}
     >
       {open && (
-        <div
-          style={style}
-          className={styles.popupModal}
-          ref={popupRef}
-        >
+        <div style={style} className={styles.popupModal} ref={popupRef}>
           {children}
         </div>
       )}

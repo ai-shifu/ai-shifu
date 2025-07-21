@@ -1,10 +1,10 @@
-import * as React from 'react';
-import { cn } from '@/lib/utils';
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
-import Image from 'next/image';
+import Image from "next/image";
 
-export type AvatarSize = 'sm' | 'md' | 'lg';
-export type AvatarShape = 'circle' | 'square';
+export type AvatarSize = "sm" | "md" | "lg";
+export type AvatarShape = "circle" | "square";
 
 export interface AvatarProps {
   className?: string;
@@ -15,41 +15,36 @@ export interface AvatarProps {
   shape?: AvatarShape;
 }
 
-export const Avatar: React.FC<AvatarProps> = props => {
+export const Avatar: React.FC<AvatarProps> = (props) => {
   const {
     className,
     src,
-    alt = 'Avatar',
+    alt = "Avatar",
     url,
-    size = 'md',
-    shape = 'circle',
+    size = "md",
+    shape = "circle",
     // @ts-expect-error EXPECT
     children,
   } = props;
 
   let width = 36;
   let height = 36;
-  if (size === 'sm') {
+  if (size === "sm") {
     width = 24;
     height = 24;
-  } else if (size === 'lg') {
+  } else if (size === "lg") {
     width = 40;
     height = 40;
   }
 
-  const Element = url ? 'a' : 'span';
+  const Element = url ? "a" : "span";
   return (
     <Element
-      className={cn('Avatar', `Avatar--${size}`, `Avatar--${shape}`, className)}
+      className={cn("Avatar", `Avatar--${size}`, `Avatar--${shape}`, className)}
       href={url}
     >
       {src ? (
-        <Image
-          src={src}
-          width={width}
-          height={height}
-          alt={alt}
-        />
+        <Image src={src} width={width} height={height} alt={alt} />
       ) : (
         children
       )}

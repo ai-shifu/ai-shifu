@@ -1,28 +1,28 @@
 /*
  * 左侧导航控件容器
  */
-import styles from './NavDrawer.module.scss';
-import { useContext, useState, useRef, memo, useCallback } from 'react';
-import clsx from 'clsx';
+import styles from "./NavDrawer.module.scss";
+import { useContext, useState, useRef, memo, useCallback } from "react";
+import clsx from "clsx";
 
-import { AppContext } from '@/c-components/AppContext';
-import NavHeader from './NavHeader';
-import NavBody from './NavBody';
-import NavFooter from './NavFooter';
-import CourseCatalogList from '../CourseCatalog/CourseCatalogList';
+import { AppContext } from "@/c-components/AppContext";
+import NavHeader from "./NavHeader";
+import NavBody from "./NavBody";
+import NavFooter from "./NavFooter";
+import CourseCatalogList from "../CourseCatalog/CourseCatalogList";
 
-import FeedbackModal from '../FeedbackModal/FeedbackModal';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { getBoolEnv } from '@/c-utils/envUtils';
+import FeedbackModal from "../FeedbackModal/FeedbackModal";
+import { useTracking, EVENT_NAMES } from "@/c-common/hooks/useTracking";
+import { getBoolEnv } from "@/c-utils/envUtils";
 import {
   FRAME_LAYOUT_PAD,
   FRAME_LAYOUT_PAD_INTENSIVE,
   FRAME_LAYOUT_MOBILE,
-} from '@/c-constants/uiConstants';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import MainMenuModal from './MainMenuModal';
+} from "@/c-constants/uiConstants";
+import { useDisclosure } from "@/c-common/hooks/useDisclosure";
+import MainMenuModal from "./MainMenuModal";
 
-import { useUserStore } from '@/c-store';
+import { useUserStore } from "@/c-store";
 
 /**
  * 导航栏展示形式
@@ -40,18 +40,18 @@ export const POPUP_WINDOW_STATE_THEME = 2;
 export const POPUP_WINDOW_STATE_SETTING = 3;
 export const POPUP_WINDOW_STATE_FILING = 1;
 
-const NAV_DRAWER_MAX_WIDTH = '280px';
-const NAV_DRAWER_COLLAPSE_WIDTH = '60px';
+const NAV_DRAWER_MAX_WIDTH = "280px";
+const NAV_DRAWER_COLLAPSE_WIDTH = "60px";
 
-const calcNavWidth = frameLayout => {
+const calcNavWidth = (frameLayout) => {
   if (frameLayout === FRAME_LAYOUT_MOBILE) {
-    return '100%';
+    return "100%";
   }
   if (frameLayout === FRAME_LAYOUT_PAD_INTENSIVE) {
     return NAV_DRAWER_MAX_WIDTH;
   }
   if (frameLayout === FRAME_LAYOUT_PAD) {
-    return '25%';
+    return "25%";
   }
   return NAV_DRAWER_MAX_WIDTH;
 };
@@ -60,17 +60,17 @@ const COLLAPSE_WIDTH = NAV_DRAWER_COLLAPSE_WIDTH;
 
 const NavDrawer = ({
   // showType = NAV_SHOW_TYPE_NORMAL,
-  courseName = '',
+  courseName = "",
   onLoginClick = () => {},
   lessonTree,
-  selectedLessonId = '',
+  selectedLessonId = "",
   onChapterCollapse,
   onLessonSelect,
   onTryLessonSelect,
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const [isCollapse, setIsCollapse] = useState(false);
 
@@ -79,7 +79,7 @@ const NavDrawer = ({
   const { frameLayout, mobileStyle } = useContext(AppContext);
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
-  const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
+  const alwaysShowLessonTree = getBoolEnv("alwaysShowLessonTree");
 
   const footerRef = useRef(null);
   const bodyRef = useRef(null);
@@ -90,7 +90,7 @@ const NavDrawer = ({
     onClose: onMainModalClose,
   } = useDisclosure();
 
-  const onBodyScroll = e => {
+  const onBodyScroll = (e) => {
     setBodyScrollTop(e.target.scrollTop);
   };
 
@@ -103,7 +103,7 @@ const NavDrawer = ({
   }, [isCollapse]);
 
   const mainModalCloseHandler = useCallback(
-    e => {
+    (e) => {
       // @ts-expect-error EXPECT
       if (footerRef.current && footerRef.current.containElement(e.target)) {
         return;
@@ -116,7 +116,7 @@ const NavDrawer = ({
   const onFooterClick = useCallback(() => {
     onMainModalToggle();
     trackEvent(EVENT_NAMES.USER_MENU, {
-      status: isLoggedIn ? 'logged_in' : 'logged_out',
+      status: isLoggedIn ? "logged_in" : "logged_out",
     });
   }, [isLoggedIn, onMainModalToggle, trackEvent]);
 
@@ -124,7 +124,7 @@ const NavDrawer = ({
     <div
       className={clsx(
         styles.navDrawerWrapper,
-        mobileStyle ? styles.mobile : '',
+        mobileStyle ? styles.mobile : "",
       )}
       style={{ width: isCollapse ? COLLAPSE_WIDTH : calcNavWidth(frameLayout) }}
     >

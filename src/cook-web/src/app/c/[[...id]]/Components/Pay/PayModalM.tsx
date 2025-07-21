@@ -1,60 +1,60 @@
-import styles from './PayModalM.module.scss';
+import styles from "./PayModalM.module.scss";
 
-import { memo, useState, useCallback, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { memo, useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
-import Image from 'next/image';
-import weixinIcon from '@/c-assets/newchat/weixin.png';
-import zhifuboIcon from '@/c-assets/newchat/zhifubao.png';
-import payInfoBg from '@/c-assets/newchat/pay-info-bg-m.png';
-import paySuccessBg from '@/c-assets/newchat/pay-success@2x.png';
+import Image from "next/image";
+import weixinIcon from "@/c-assets/newchat/weixin.png";
+import zhifuboIcon from "@/c-assets/newchat/zhifubao.png";
+import payInfoBg from "@/c-assets/newchat/pay-info-bg-m.png";
+import paySuccessBg from "@/c-assets/newchat/pay-success@2x.png";
 
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+} from "@/components/ui/dialog";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 import {
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_ZHIFUBAO,
   ORDER_STATUS,
-} from './constans';
-import MainButtonM from '@/c-components/m/MainButtonM';
+} from "./constans";
+import MainButtonM from "@/c-components/m/MainButtonM";
 
 import {
   getPayUrl,
   initOrder,
   initActiveOrder,
   applyDiscountCode,
-} from '@/c-api/order';
-import { useWechat } from '@/c-common/hooks/useWechat';
+} from "@/c-api/order";
+import { useWechat } from "@/c-common/hooks/useWechat";
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from "@/hooks/use-toast";
 
-import { inWechat } from '@/c-constants/uiConstants';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { SettingInputM } from '@/c-components/m/SettingInputM';
-import PayModalFooter from './PayModalFooter';
+import { inWechat } from "@/c-constants/uiConstants";
+import { useDisclosure } from "@/c-common/hooks/useDisclosure";
+import { SettingInputM } from "@/c-components/m/SettingInputM";
+import PayModalFooter from "./PayModalFooter";
 
-import { getStringEnv } from '@/c-utils/envUtils';
-import { useUserStore } from '@/c-store/useUserStore';
-import { shifu } from '@/c-service/Shifu';
+import { getStringEnv } from "@/c-utils/envUtils";
+import { useUserStore } from "@/c-store/useUserStore";
+import { shifu } from "@/c-service/Shifu";
 
 const CompletedSection = memo(() => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
   return (
     <div className={styles.completedSection}>
-      <div className={styles.title}>{t('pay.paySuccess')}</div>
+      <div className={styles.title}>{t("pay.paySuccess")}</div>
       <div className={styles.completeWrapper}>
         <Image
           className={styles.paySuccessBg}
           src={paySuccessBg.src}
-          alt='pay-success-bg'
+          alt="pay-success-bg"
         />
       </div>
       <PayModalFooter className={styles.payModalFooter} />
@@ -62,27 +62,27 @@ const CompletedSection = memo(() => {
   );
 });
 
-CompletedSection.displayName = 'CompletedSection';
+CompletedSection.displayName = "CompletedSection";
 
 export const PayModalM = ({
   open = false,
   onCancel,
   onOk,
-  type = '',
+  type = "",
   payload = {},
 }) => {
   const [initLoading, setInitLoading] = useState(true);
-  const [price, setPrice] = useState('0.00');
+  const [price, setPrice] = useState("0.00");
   const [payChannel, setPayChannel] = useState(
     inWechat() ? PAY_CHANNEL_WECHAT_JSAPI : PAY_CHANNEL_ZHIFUBAO,
   );
   const [isCompleted, setIsCompleted] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [couponCode, setCouponCode] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
+  const [orderId, setOrderId] = useState("");
+  const [couponCode, setCouponCode] = useState("");
+  const [originalPrice, setOriginalPrice] = useState("");
   const [priceItems, setPriceItems] = useState([]);
 
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
   const { payByJsApi } = useWechat();
 
   const {
@@ -90,12 +90,12 @@ export const PayModalM = ({
     onClose: onCouponCodeModalClose,
     onOpen: onCouponCodeModalOpen,
   } = useDisclosure();
-  const courseId = getStringEnv('courseId');
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const courseId = getStringEnv("courseId");
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const initOrderUniform = useCallback(
-    async courseId => {
-      if (type === 'active') {
+    async (courseId) => {
+      if (type === "active") {
         // @ts-expect-error EXPECT
         return initActiveOrder({
           courseId,
@@ -118,15 +118,15 @@ export const PayModalM = ({
       try {
         await payByJsApi(qrcodeResp.qr_url);
         toast({
-          title: '支付成功',
+          title: "支付成功",
         });
         setIsCompleted(true);
         onOk();
       } catch (e) {
         console.log(e);
         toast({
-          title: '支付失败',
-          variant: 'destructive',
+          title: "支付失败",
+          variant: "destructive",
         });
       }
     } else {
@@ -134,7 +134,7 @@ export const PayModalM = ({
     }
   }, [onOk, orderId, payByJsApi, payChannel]);
 
-  const onPayChannelChange = useCallback(value => {
+  const onPayChannelChange = useCallback((value) => {
     setPayChannel(value);
   }, []);
 
@@ -173,7 +173,7 @@ export const PayModalM = ({
       setOrderId(orderId);
       setOriginalPrice(resp.price);
       setPrice(resp.value_to_pay);
-      setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
+      setPriceItems(resp.price_item?.filter((item) => item.is_discount) || []);
       setInitLoading(false);
 
       if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
@@ -190,11 +190,8 @@ export const PayModalM = ({
 
   return (
     <>
-      <Dialog
-        open={open}
-        onOpenChange={handleCancel}
-      >
-        <DialogContent className='w-full'>
+      <Dialog open={open} onOpenChange={handleCancel}>
+        <DialogContent className="w-full">
           <div className={styles.payModalContent}>
             {isCompleted ? (
               <CompletedSection />
@@ -215,7 +212,7 @@ export const PayModalM = ({
                         className={styles.originalPriceWrapper}
                         style={{
                           visibility:
-                            originalPrice === price ? 'hidden' : 'visible',
+                            originalPrice === price ? "hidden" : "visible",
                         }}
                       >
                         <div className={styles.originalPrice}>
@@ -227,10 +224,7 @@ export const PayModalM = ({
                       <div className={styles.priceItemsWrapper}>
                         {priceItems.map((item, index) => {
                           return (
-                            <div
-                              className={styles.priceItem}
-                              key={index}
-                            >
+                            <div className={styles.priceItem} key={index}>
                               <div className={styles.priceItemName}>
                                 {/* @ts-expect-error EXPECT */}
                                 {item.price_name}
@@ -264,7 +258,7 @@ export const PayModalM = ({
                                   <Image
                                     className={styles.payChannelIcon}
                                     src={weixinIcon.src}
-                                    alt='微信支付'
+                                    alt="微信支付"
                                   />
                                   <span className={styles.payChannelTitle}>
                                     微信支付
@@ -289,7 +283,7 @@ export const PayModalM = ({
                                   <Image
                                     className={styles.payChannelIcon}
                                     src={zhifuboIcon.src}
-                                    alt='支付宝支付'
+                                    alt="支付宝支付"
                                   />
                                   <span className={styles.payChannelTitle}>
                                     支付宝支付
@@ -316,12 +310,12 @@ export const PayModalM = ({
                           {/* @ts-expect-error EXPECT */}
                           <MainButtonM
                             className={styles.couponCodeButton}
-                            fill='none'
+                            fill="none"
                             onClick={onCouponCodeButtonClick}
                           >
                             {!couponCode
-                              ? t('groupon.grouponUse')
-                              : t('groupon.grouponModify')}
+                              ? t("groupon.grouponUse")
+                              : t("groupon.grouponModify")}
                           </MainButtonM>
                         </div>
                         <PayModalFooter className={styles.payModalFooter} />
@@ -345,7 +339,7 @@ export const PayModalM = ({
               <Image
                 className={styles.payInfo}
                 src={payInfoBg.src}
-                alt='产品说明'
+                alt="产品说明"
               />
             </div>
           </div>
@@ -354,15 +348,15 @@ export const PayModalM = ({
 
       {couponCodeModalOpen && (
         <Dialog open={couponCodeModalOpen}>
-          <DialogContent className={cn('w-5/6', styles.couponCodeModal)}>
+          <DialogContent className={cn("w-5/6", styles.couponCodeModal)}>
             <DialogHeader>
               <DialogTitle>兑换码</DialogTitle>
             </DialogHeader>
             <div className={styles.couponCodeInputWrapper}>
               {/* @ts-expect-error EXPECT */}
               <SettingInputM
-                title='兑换码'
-                onChange={e => setCouponCode(e)}
+                title="兑换码"
+                onChange={(e) => setCouponCode(e)}
               />
             </div>
             <div className={styles.buttonWrapper}>

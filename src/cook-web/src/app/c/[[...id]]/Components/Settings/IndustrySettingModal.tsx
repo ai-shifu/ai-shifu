@@ -1,9 +1,9 @@
-import styles from './IndustrySettingModal.module.scss';
+import styles from "./IndustrySettingModal.module.scss";
 
-import { memo } from 'react';
-import { cn } from '@/lib/utils';
+import { memo } from "react";
+import { cn } from "@/lib/utils";
 
-import SettingBaseModal from './SettingBaseModal';
+import SettingBaseModal from "./SettingBaseModal";
 
 import {
   Form,
@@ -11,12 +11,12 @@ import {
   FormField,
   FormItem,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 
 export const IndustrySettingModal = ({
   open,
@@ -28,17 +28,17 @@ export const IndustrySettingModal = ({
     industry: z
       .string()
       .min(1, {
-        message: '请输入行业',
+        message: "请输入行业",
       })
       .max(20, {
-        message: '长度不能超过20',
+        message: "长度不能超过20",
       }),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      industry: '',
+      industry: "",
     },
   });
 
@@ -54,18 +54,18 @@ export const IndustrySettingModal = ({
       open={open}
       onClose={onClose}
       onOk={onOkClick}
-      title='行业'
+      title="行业"
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onOkClick)}>
           <FormField
             control={form.control}
-            name='industry'
+            name="industry"
             render={({ field }) => (
               <FormItem>
                 <FormControl>
                   <Input
-                    placeholder='请输入行业'
+                    placeholder="请输入行业"
                     className={cn(styles.sfInput)}
                     {...field}
                   />

@@ -1,7 +1,7 @@
-import React from 'react';
-import clsx from 'clsx';
-import useForwardRef from '../../hooks/useForwardRef';
-import getToBottom from '../../utils/getToBottom';
+import React from "react";
+import clsx from "clsx";
+import useForwardRef from "../../hooks/useForwardRef";
+import getToBottom from "../../utils/getToBottom";
 
 export interface InfiniteScrollProps
   extends React.HTMLAttributes<HTMLDivElement> {
@@ -43,8 +43,8 @@ export const InfiniteScroll = React.forwardRef<
 
   return (
     <div
-      className={clsx('InfiniteScroll', className)}
-      role='feed'
+      className={clsx("InfiniteScroll", className)}
+      role="feed"
       onScroll={!disabled ? handleScroll : undefined}
       ref={wrapperRef}
       {...other}
@@ -54,4 +54,4 @@ export const InfiniteScroll = React.forwardRef<
   );
 });
 
-InfiniteScroll.displayName = 'InfiniteScroll';
+InfiniteScroll.displayName = "InfiniteScroll";

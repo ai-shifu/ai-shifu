@@ -1,10 +1,10 @@
-import { create } from 'zustand';
-import { SystemStoreState } from '@/c-types/store';
+import { create } from "zustand";
+import { SystemStoreState } from "@/c-types/store";
 
-export const useSystemStore = create<SystemStoreState>(set => ({
-  language: 'en',
-  channel: '',
-  wechatCode: '',
+export const useSystemStore = create<SystemStoreState>((set) => ({
+  language: "en",
+  channel: "",
+  wechatCode: "",
   showVip: true,
   previewMode: false,
   skip: false,

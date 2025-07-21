@@ -1,17 +1,17 @@
-import styles from './ChangeAvatar.module.scss';
+import styles from "./ChangeAvatar.module.scss";
 
-import { useState, useRef, memo, useCallback, useEffect } from 'react';
+import { useState, useRef, memo, useCallback, useEffect } from "react";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
-import { Avatar, AvatarImage } from '@/components/ui/avatar';
-import AvatarSettingModal from './AvatarSettingModal';
-import { convertFileToDataUrl } from '@/c-utils/imgUtils';
+import { Avatar, AvatarImage } from "@/components/ui/avatar";
+import AvatarSettingModal from "./AvatarSettingModal";
+import { convertFileToDataUrl } from "@/c-utils/imgUtils";
 
-import { uploadAvatar } from '@/c-api/user';
+import { uploadAvatar } from "@/c-api/user";
 
-import Image from 'next/image';
-import iconEditAvatar2x from '@/c-assets/newchat/light/icon-edit-avatar-Normal@2x.png';
+import Image from "next/image";
+import iconEditAvatar2x from "@/c-assets/newchat/light/icon-edit-avatar-Normal@2x.png";
 
 export const ChangeAvatar = ({ className, image, onChange }) => {
   const [modalOpen, setModalOpen] = useState(false);
@@ -37,7 +37,7 @@ export const ChangeAvatar = ({ className, image, onChange }) => {
     [onChange],
   );
 
-  const onAvatarUploadChange = useCallback(async e => {
+  const onAvatarUploadChange = useCallback(async (e) => {
     if (e.target.files.length === 0) {
       return;
     }
@@ -63,26 +63,23 @@ export const ChangeAvatar = ({ className, image, onChange }) => {
         />
       )}
       <div className={cn(styles.ChangeAvatar, className)}>
-        <div
-          className={styles.avatarContainer}
-          onClick={onAvatarClick}
-        >
+        <div className={styles.avatarContainer} onClick={onAvatarClick}>
           <Avatar>
             <AvatarImage src={img} />
           </Avatar>
           <input
-            type='file'
+            type="file"
             className={styles.avatarUpload}
             ref={uploadRef}
             onChange={onAvatarUploadChange}
-            accept='.png,.jpg,.jpeg,.bmp,.webp'
+            accept=".png,.jpg,.jpeg,.bmp,.webp"
           />
           <Image
             className={styles.editIcon}
             src={iconEditAvatar2x.src}
             width={40}
             height={40}
-            alt=''
+            alt=""
           />
         </div>
       </div>

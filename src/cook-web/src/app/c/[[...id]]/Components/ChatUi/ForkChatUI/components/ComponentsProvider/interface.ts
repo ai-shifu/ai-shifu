@@ -1,9 +1,9 @@
-import React from 'react';
-import { LazyComponentResult } from '../../utils/lazyComponent';
+import React from "react";
+import { LazyComponentResult } from "../../utils/lazyComponent";
 
 interface ComponentInterfaceWithComponent {
   component: React.ComponentType<any>;
-  type?: 'decorator';
+  type?: "decorator";
 }
 
 interface ComponentInterfaceWithUrl {

@@ -1,7 +1,7 @@
-import React from 'react';
-import clsx from 'clsx';
-import DOMPurify from 'dompurify';
-import './configDOMPurify';
+import React from "react";
+import clsx from "clsx";
+import DOMPurify from "dompurify";
+import "./configDOMPurify";
 
 export interface RichTextProps extends React.HTMLAttributes<HTMLDivElement> {
   content: string;
@@ -20,7 +20,7 @@ export const RichText = React.forwardRef<HTMLDivElement, RichTextProps>(
 
     return (
       <div
-        className={clsx('RichText', className)}
+        className={clsx("RichText", className)}
         dangerouslySetInnerHTML={html}
         ref={ref}
         {...other}
@@ -29,4 +29,4 @@ export const RichText = React.forwardRef<HTMLDivElement, RichTextProps>(
   },
 );
 
-RichText.displayName = 'RichText';
+RichText.displayName = "RichText";

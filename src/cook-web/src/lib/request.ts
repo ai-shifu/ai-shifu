@@ -1,9 +1,9 @@
-import { useUserStore } from '@/c-store/useUserStore';
-import { getStringEnv } from '@/c-utils/envUtils';
-import { getDynamicApiBaseUrl } from '@/config/environment';
-import { toast } from '@/hooks/use-toast';
-import i18n from 'i18next';
-import { v4 as uuidv4 } from 'uuid';
+import { useUserStore } from "@/c-store/useUserStore";
+import { getStringEnv } from "@/c-utils/envUtils";
+import { getDynamicApiBaseUrl } from "@/config/environment";
+import { toast } from "@/hooks/use-toast";
+import i18n from "i18next";
+import { v4 as uuidv4 } from "uuid";
 
 // ===== Type Definitions =====
 export type RequestConfig = RequestInit & { params?: any; data?: any };
@@ -32,14 +32,14 @@ export class ErrorWithCode extends Error {
 const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
-      title: error.message || i18n.t('common.networkError'),
-      variant: 'destructive',
+      title: error.message || i18n.t("common.networkError"),
+      variant: "destructive",
     });
   }
 
   // Dispatch error event (only on client side)
-  if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-    const apiError = new CustomEvent('apiError', {
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const apiError = new CustomEvent("apiError", {
       detail: error,
       bubbles: true,
     });
@@ -50,7 +50,7 @@ const handleApiError = (error: ErrorWithCode, showToast = true) => {
 // Check response status code and handle business logic
 const handleBusinessCode = (response: any) => {
   const error = new ErrorWithCode(
-    response.message || i18n.t('common.unknownError'),
+    response.message || i18n.t("common.unknownError"),
     response.code || -1,
   );
 
@@ -62,8 +62,8 @@ const handleBusinessCode = (response: any) => {
 
     // Authentication related errors, redirect to login (only on client side)
     if (
-      typeof window !== 'undefined' &&
-      location.pathname !== '/login' &&
+      typeof window !== "undefined" &&
+      location.pathname !== "/login" &&
       [1001, 1004, 1005].includes(response.code)
     ) {
       const currentPath = encodeURIComponent(
@@ -74,13 +74,13 @@ const handleBusinessCode = (response: any) => {
 
     // Permission error (only on client side)
     if (
-      typeof window !== 'undefined' &&
-      location.pathname.startsWith('/shifu/') &&
+      typeof window !== "undefined" &&
+      location.pathname.startsWith("/shifu/") &&
       response.code === 9002
     ) {
       toast({
-        title: i18n.t('errors.no-permission'),
-        variant: 'destructive',
+        title: i18n.t("errors.no-permission"),
+        variant: "destructive",
       });
     }
 
@@ -118,14 +118,14 @@ export class Request {
 
     // Handle URL
     let fullUrl = url;
-    if (!url.startsWith('http')) {
-      if (typeof window !== 'undefined') {
+    if (!url.startsWith("http")) {
+      if (typeof window !== "undefined") {
         // Client: use cached API base URL to avoid repeated requests
         const siteHost = await getDynamicApiBaseUrl();
-        fullUrl = (siteHost || 'http://localhost:8081') + url;
+        fullUrl = (siteHost || "http://localhost:8081") + url;
       } else {
         // Fallback for server-side rendering
-        fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
+        fullUrl = (getStringEnv("baseURL") || "http://localhost:8081") + url;
       }
     }
 
@@ -135,7 +135,7 @@ export class Request {
       mergedConfig.headers = {
         Authorization: `Bearer ${token}`,
         Token: token,
-        'X-Request-ID': uuidv4().replace(/-/g, ''),
+        "X-Request-ID": uuidv4().replace(/-/g, ""),
         ...mergedConfig.headers,
       } as HeadersInit;
     }
@@ -152,18 +152,18 @@ export class Request {
       const response = await fetch(fullUrl, mergedConfig);
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
+        const isDevelopment = process.env.NODE_ENV === "development";
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+          : "Network request failed";
         throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const res = await response.json();
 
       // Check business status code
-      if (Object.prototype.hasOwnProperty.call(res, 'code')) {
-        if (location.pathname === '/login') return res;
+      if (Object.prototype.hasOwnProperty.call(res, "code")) {
+        if (location.pathname === "/login") return res;
         return handleBusinessCode(res);
       }
 
@@ -176,12 +176,12 @@ export class Request {
 
   // HTTP method wrappers
   get(url: string, config: RequestConfig = {}) {
-    return this.interceptFetch(url, { method: 'GET', ...config });
+    return this.interceptFetch(url, { method: "GET", ...config });
   }
 
   post(url: string, body: any = {}, config: RequestConfig = {}) {
     return this.interceptFetch(url, {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(body),
       ...config,
     });
@@ -189,19 +189,19 @@ export class Request {
 
   put(url: string, body: any = {}, config: RequestConfig = {}) {
     return this.interceptFetch(url, {
-      method: 'PUT',
+      method: "PUT",
       body: JSON.stringify(body),
       ...config,
     });
   }
 
   delete(url: string, config: RequestConfig = {}) {
-    return this.interceptFetch(url, { method: 'DELETE', ...config });
+    return this.interceptFetch(url, { method: "DELETE", ...config });
   }
 
   patch(url: string, body: any = {}, config: RequestConfig = {}) {
     return this.interceptFetch(url, {
-      method: 'PATCH',
+      method: "PATCH",
       body: JSON.stringify(body),
       ...config,
     });
@@ -220,25 +220,25 @@ export class Request {
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...rest,
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(body),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
+        const isDevelopment = process.env.NODE_ENV === "development";
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+          : "Network request failed";
         throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('Response body is not readable');
+      if (!reader) throw new Error("Response body is not readable");
 
       const decoder = new TextDecoder();
       let done = false;
-      let text = '';
+      let text = "";
 
       const stop = () => {
         done = true;
@@ -262,13 +262,13 @@ export class Request {
       }
 
       const result = parseJson(text);
-      if (typeof result === 'object' && result.code !== undefined) {
+      if (typeof result === "object" && result.code !== undefined) {
         return handleBusinessCode(result);
       }
 
       return result;
     } catch (error: any) {
-      console.error('Stream request failed:', error);
+      console.error("Stream request failed:", error);
       throw error;
     }
   }
@@ -287,23 +287,23 @@ export class Request {
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
         ...rest,
-        method: 'POST',
+        method: "POST",
         body: JSON.stringify(body),
         signal: controller.signal,
       });
 
       if (!response.ok) {
-        const isDevelopment = process.env.NODE_ENV === 'development';
+        const isDevelopment = process.env.NODE_ENV === "development";
         const errorMessage = isDevelopment
           ? `Request failed with status ${response.status}`
-          : 'Network request failed';
+          : "Network request failed";
         throw new ErrorWithCode(errorMessage, response.status);
       }
 
       const reader = response.body?.getReader();
-      if (!reader) throw new Error('Response body is not readable');
+      if (!reader) throw new Error("Response body is not readable");
 
-      const utf8Decoder = new TextDecoder('utf-8');
+      const utf8Decoder = new TextDecoder("utf-8");
       let done = false;
       const stop = () => {
         done = true;
@@ -314,7 +314,7 @@ export class Request {
       let { value: chunk, done: readerDone } = await reader.read();
       let decodedChunk = chunk
         ? utf8Decoder.decode(chunk, { stream: true })
-        : '';
+        : "";
       const re = /\r\n|\n|\r/gm;
       let startIndex = 0;
 
@@ -327,7 +327,7 @@ export class Request {
           ({ value: chunk, done: readerDone } = await reader.read());
           decodedChunk =
             remainder +
-            (chunk ? utf8Decoder.decode(chunk, { stream: true }) : '');
+            (chunk ? utf8Decoder.decode(chunk, { stream: true }) : "");
           startIndex = re.lastIndex = 0;
           continue;
         }
@@ -354,12 +354,12 @@ export class Request {
       }
 
       if (callback) {
-        callback(true, '', stop);
+        callback(true, "", stop);
       }
 
       return lines;
     } catch (error: any) {
-      console.error('StreamLine request failed:', error);
+      console.error("StreamLine request failed:", error);
       throw error;
     }
   }
@@ -368,7 +368,7 @@ export class Request {
 // ===== Default Instance Export =====
 const defaultConfig = {
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 };
 

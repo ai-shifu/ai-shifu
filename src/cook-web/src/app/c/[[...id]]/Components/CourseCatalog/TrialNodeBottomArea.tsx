@@ -1,11 +1,11 @@
-import styles from './TrialNodeBottomArea.module.scss';
-import { memo, useEffect, useRef, useCallback, useState } from 'react';
-import { shifu } from '@/c-service/Shifu';
+import styles from "./TrialNodeBottomArea.module.scss";
+import { memo, useEffect, useRef, useCallback, useState } from "react";
+import { shifu } from "@/c-service/Shifu";
 
 export const TRAIL_NODE_POSITION = {
-  NORMAL: 'normal',
-  STICK_TOP: 'stickTop',
-  STICK_BOTTOM: 'stickBottom',
+  NORMAL: "normal",
+  STICK_TOP: "stickTop",
+  STICK_BOTTOM: "stickBottom",
 };
 
 const TrialNodeBottomArea = ({
@@ -73,10 +73,7 @@ const TrialNodeBottomArea = ({
 
   return (
     <>
-      <div
-        className={styles.normalArea}
-        ref={normalAreaRef}
-      >
+      <div className={styles.normalArea} ref={normalAreaRef}>
         {getTrialNodeAreaControl()}
       </div>
     </>

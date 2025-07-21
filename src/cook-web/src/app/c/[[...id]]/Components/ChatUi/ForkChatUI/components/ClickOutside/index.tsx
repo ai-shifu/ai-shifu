@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from "react";
 
 const doc = document;
 const html = doc.documentElement;
@@ -6,12 +6,12 @@ const html = doc.documentElement;
 export type ClickOutsideProps = {
   onClick: (event: React.MouseEvent<HTMLElement>) => void;
   // mouseEvent?: 'click' | 'mousedown' | 'mouseup' | false;
-  mouseEvent?: 'click' | 'mousedown' | 'mouseup';
+  mouseEvent?: "click" | "mousedown" | "mouseup";
 };
 
-export const ClickOutside: React.FC<ClickOutsideProps> = props => {
+export const ClickOutside: React.FC<ClickOutsideProps> = (props) => {
   // @ts-expect-error EXPECT
-  const { children, onClick, mouseEvent = 'mouseup', ...others } = props;
+  const { children, onClick, mouseEvent = "mouseup", ...others } = props;
   const wrapper = useRef<HTMLDivElement>(null!);
 
   function handleClick(e: any) {
@@ -32,10 +32,7 @@ export const ClickOutside: React.FC<ClickOutsideProps> = props => {
   });
 
   return (
-    <div
-      ref={wrapper}
-      {...others}
-    >
+    <div ref={wrapper} {...others}>
       {children}
     </div>
   );

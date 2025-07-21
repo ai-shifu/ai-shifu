@@ -1,12 +1,12 @@
-import { create } from 'zustand';
-import { getUserInfo, registerTmp } from '@/c-api/user';
-import { tokenTool } from '@/c-service/storeUtil';
-import { genUuid } from '@/c-utils/common';
-import { subscribeWithSelector } from 'zustand/middleware';
+import { create } from "zustand";
+import { getUserInfo, registerTmp } from "@/c-api/user";
+import { tokenTool } from "@/c-service/storeUtil";
+import { genUuid } from "@/c-utils/common";
+import { subscribeWithSelector } from "zustand/middleware";
 
-import { removeParamFromUrl } from '@/c-utils/urlUtils';
-import i18n from '@/i18n';
-import { UserStoreState } from '@/c-types/store';
+import { removeParamFromUrl } from "@/c-utils/urlUtils";
+import i18n from "@/i18n";
+import { UserStoreState } from "@/c-types/store";
 
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
@@ -22,7 +22,7 @@ const registerAsGuest = async (): Promise<string> => {
 
 export const useUserStore = create<
   UserStoreState,
-  [['zustand/subscribeWithSelector', never]]
+  [["zustand/subscribeWithSelector", never]]
 >(
   subscribeWithSelector((set, get) => ({
     userInfo: null,
@@ -73,14 +73,14 @@ export const useUserStore = create<
       get()._updateUserStatus();
 
       if (reload) {
-        const url = removeParamFromUrl(window.location.href, ['code', 'state']);
+        const url = removeParamFromUrl(window.location.href, ["code", "state"]);
         window.location.assign(url);
       }
     },
 
     // Public API: Get token
     getToken: () => {
-      return tokenTool.get().token || '';
+      return tokenTool.get().token || "";
     },
 
     // Public API: Initialize user session (call once on app start)
@@ -137,7 +137,7 @@ export const useUserStore = create<
             // For other errors (network, server errors), preserve existing token state
             // but still update the status based on token data
             console.warn(
-              'Failed to fetch user info, but preserving login state:',
+              "Failed to fetch user info, but preserving login state:",
               err,
             );
           }
@@ -158,8 +158,8 @@ export const useUserStore = create<
     },
 
     // Public API: Update user information
-    updateUserInfo: userInfo => {
-      set(state => ({
+    updateUserInfo: (userInfo) => {
+      set((state) => ({
         userInfo: {
           ...state.userInfo,
           ...userInfo,

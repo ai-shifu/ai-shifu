@@ -1,12 +1,12 @@
-import styles from './MainButton.module.scss';
-import { forwardRef, memo, ReactNode } from 'react';
+import styles from "./MainButton.module.scss";
+import { forwardRef, memo, ReactNode } from "react";
 
-import clsx from 'clsx';
-import { Button, ButtonProps } from '@/components/ui/button';
+import clsx from "clsx";
+import { Button, ButtonProps } from "@/components/ui/button";
 
 interface MainButtonProps extends ButtonProps {
   height?: number;
-  shape?: 'round' | 'square';
+  shape?: "round" | "square";
   width?: number | string;
   children?: ReactNode;
 }
@@ -15,7 +15,7 @@ export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>(
   (props, ref) => {
     const {
       height = 40,
-      shape = 'round',
+      shape = "round",
       width,
       className,
       style,
@@ -24,7 +24,7 @@ export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>(
     } = props;
 
     // 将 shape 转换为对应的 className
-    const shapeClass = shape === 'square' ? 'rounded-md' : 'rounded-full';
+    const shapeClass = shape === "square" ? "rounded-md" : "rounded-full";
 
     return (
       <Button
@@ -39,6 +39,6 @@ export const MainButton = forwardRef<HTMLButtonElement, MainButtonProps>(
   },
 );
 
-MainButton.displayName = 'MainButton';
+MainButton.displayName = "MainButton";
 
 export default memo(MainButton);

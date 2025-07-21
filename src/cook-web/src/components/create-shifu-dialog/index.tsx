@@ -1,13 +1,13 @@
-import React from 'react';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { useForm } from 'react-hook-form';
+import React from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useForm } from "react-hook-form";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -15,11 +15,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { useTranslation } from 'react-i18next';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 interface FormSchema {
   shifu_name: string;
@@ -41,28 +41,28 @@ export const CreateShifuDialog = ({
   const formSchema = z.object({
     name: z
       .string()
-      .min(1, t('create-shifu-dialog.shifu-name-cannot-be-empty'))
-      .max(20, t('create-shifu-dialog.shifu-name-cannot-exceed-20-characters')),
+      .min(1, t("create-shifu-dialog.shifu-name-cannot-be-empty"))
+      .max(20, t("create-shifu-dialog.shifu-name-cannot-exceed-20-characters")),
     description: z
       .string()
       .max(
         500,
-        t('create-shifu-dialog.shifu-description-cannot-exceed-500-characters'),
+        t("create-shifu-dialog.shifu-description-cannot-exceed-500-characters"),
       )
       .optional(),
-    avatar: z.string().default(''),
+    avatar: z.string().default(""),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
-      description: '',
-      avatar: '',
+      name: "",
+      description: "",
+      avatar: "",
     },
   });
 
-  const handleSubmit = async values => {
+  const handleSubmit = async (values) => {
     await onSubmit(values);
     // form.reset();
   };
@@ -75,38 +75,35 @@ export const CreateShifuDialog = ({
   }, [open, form]);
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {t('create-shifu-dialog.create-blank-shifu')}
+            {t("create-shifu-dialog.create-blank-shifu")}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
-            className='space-y-4'
+            className="space-y-4"
           >
             <FormField
               control={form.control}
-              name='name'
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel
                     style={{
-                      color: '#000000',
+                      color: "#000000",
                     }}
                   >
-                    {t('create-shifu-dialog.shifu-name')}
+                    {t("create-shifu-dialog.shifu-name")}
                   </FormLabel>
                   <FormControl>
                     <Input
-                      autoComplete='off'
+                      autoComplete="off"
                       placeholder={t(
-                        'create-shifu-dialog.please-input-shifu-name',
+                        "create-shifu-dialog.please-input-shifu-name",
                       )}
                       {...field}
                     />
@@ -117,21 +114,21 @@ export const CreateShifuDialog = ({
             />
             <FormField
               control={form.control}
-              name='description'
+              name="description"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel
                     style={{
-                      color: '#000000',
+                      color: "#000000",
                     }}
                   >
-                    {t('create-shifu-dialog.shifu-description')}
+                    {t("create-shifu-dialog.shifu-description")}
                   </FormLabel>
                   <FormControl>
                     <Textarea
-                      autoComplete='off'
+                      autoComplete="off"
                       placeholder={t(
-                        'create-shifu-dialog.please-input-shifu-description',
+                        "create-shifu-dialog.please-input-shifu-description",
                       )}
                       {...field}
                     />
@@ -140,14 +137,11 @@ export const CreateShifuDialog = ({
                 </FormItem>
               )}
             />
-            <div className='flex justify-end'>
-              <Button
-                type='submit'
-                disabled={form.formState.isSubmitting}
-              >
+            <div className="flex justify-end">
+              <Button type="submit" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting
-                  ? t('create-shifu-dialog.creating')
-                  : t('create-shifu-dialog.create')}
+                  ? t("create-shifu-dialog.creating")
+                  : t("create-shifu-dialog.create")}
               </Button>
             </div>
           </form>

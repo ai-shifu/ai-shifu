@@ -1,7 +1,7 @@
-import { memo } from 'react';
-import { cn } from '@/lib/utils';
-import styles from './JobSettingModal.module.scss';
-import SettingBaseModal from './SettingBaseModal';
+import { memo } from "react";
+import { cn } from "@/lib/utils";
+import styles from "./JobSettingModal.module.scss";
+import SettingBaseModal from "./SettingBaseModal";
 
 import {
   Form,
@@ -9,13 +9,13 @@ import {
   FormField,
   FormItem,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 
 export const JobSettingModal = ({
   open,
@@ -27,17 +27,17 @@ export const JobSettingModal = ({
     job: z
       .string()
       .min(1, {
-        message: '请输入职业',
+        message: "请输入职业",
       })
       .max(20, {
-        message: '长度不能超过20',
+        message: "长度不能超过20",
       }),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      job: initialValues['job'] || '',
+      job: initialValues["job"] || "",
     },
   });
 
@@ -53,18 +53,18 @@ export const JobSettingModal = ({
       open={open}
       onClose={onClose}
       onOk={onOkClick}
-      title='职业'
+      title="职业"
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onOkClick)}>
           <FormField
             control={form.control}
-            name='job'
+            name="job"
             render={({ field }) => (
               <FormItem>
                 <FormControl>
                   <Input
-                    placeholder='请输入职业'
+                    placeholder="请输入职业"
                     className={styles.sfInput}
                     {...field}
                   />
@@ -74,10 +74,7 @@ export const JobSettingModal = ({
             )}
           />
 
-          <Button
-            type='submit'
-            className={cn('w-full', styles.okBtn)}
-          >
+          <Button type="submit" className={cn("w-full", styles.okBtn)}>
             提交
           </Button>
         </form>

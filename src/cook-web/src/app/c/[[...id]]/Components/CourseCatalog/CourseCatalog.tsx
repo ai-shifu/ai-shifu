@@ -1,23 +1,23 @@
-import { memo, useContext, useCallback } from 'react';
+import { memo, useContext, useCallback } from "react";
 
-import { AppContext } from '@/c-components/AppContext';
-import CourseSection from './CourseSection';
-import styles from './CourseCatalog.module.scss';
+import { AppContext } from "@/c-components/AppContext";
+import CourseSection from "./CourseSection";
+import styles from "./CourseCatalog.module.scss";
 
-import ResetChapterButton from './ResetChapterButton';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import ResetChapterButton from "./ResetChapterButton";
+import { LESSON_STATUS_VALUE } from "@/c-constants/courseConstants";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon } from "lucide-react";
 
 export const CourseCatalog = ({
   id = 0,
-  name = '',
+  name = "",
   status,
   lessons = [],
   collapse = false,
-  selectedLessonId = '',
+  selectedLessonId = "",
   onCollapse,
   onLessonSelect = () => {},
   onTrySelect,
@@ -29,7 +29,7 @@ export const CourseCatalog = ({
     [id, onTrySelect],
   );
 
-  const onResetButtonClick = useCallback(e => {
+  const onResetButtonClick = useCallback((e) => {
     e.stopPropagation();
   }, []);
 
@@ -47,10 +47,7 @@ export const CourseCatalog = ({
         mobileStyle && styles.mobile,
       )}
     >
-      <div
-        className={styles.titleRow}
-        onClick={onTitleRowClick}
-      >
+      <div className={styles.titleRow} onClick={onTitleRowClick}>
         <div className={styles.leftSection}>{name}</div>
         <div className={styles.rightSection}>
           {status === LESSON_STATUS_VALUE.LEARNING ||
@@ -68,7 +65,7 @@ export const CourseCatalog = ({
         </div>
       </div>
       <div className={styles.sectionList}>
-        {lessons.map(e => {
+        {lessons.map((e) => {
           return (
             <CourseSection
               // @ts-expect-error EXPECT

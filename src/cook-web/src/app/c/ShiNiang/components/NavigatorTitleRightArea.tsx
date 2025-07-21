@@ -1,17 +1,17 @@
-import { memo, useEffect, useCallback } from 'react';
-import { useShallow } from 'zustand/react/shallow';
+import { memo, useEffect, useCallback } from "react";
+import { useShallow } from "zustand/react/shallow";
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
-import styles from './NavigatorTitleRightArea.module.scss';
-import { customEvents, EVENT_TYPE } from '../events/event';
-import { shifu } from '../config/config';
-import { usePayStore } from '../stores/usePayStore';
-import OrderPromotePopoverContent from './OrderPromotePopoverContent';
-import ToPayButton from './ToPayButton';
-export const ControlType = 'navigator_top_area';
+} from "@/components/ui/popover";
+import styles from "./NavigatorTitleRightArea.module.scss";
+import { customEvents, EVENT_TYPE } from "../events/event";
+import { shifu } from "../config/config";
+import { usePayStore } from "../stores/usePayStore";
+import OrderPromotePopoverContent from "./OrderPromotePopoverContent";
+import ToPayButton from "./ToPayButton";
+export const ControlType = "navigator_top_area";
 
 const NavigatorTitleRightArea = ({ payload }) => {
   const {
@@ -20,7 +20,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
     // orderPromotePopoverOpen,
     updateOrderPromotePopoverOpen,
   } = usePayStore(
-    useShallow(state => ({
+    useShallow((state) => ({
       hasPay: state.hasPay,
       updateHasPay: state.updateHasPay,
       orderPromotePopoverOpen: state.orderPromotePopoverOpen,
@@ -38,7 +38,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
     if (!hasPay) {
       // @ts-expect-error EXPECT
       shifu.payTools.openPay({});
-      trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
+      trackEvent(EVENT_NAMES.POP_PAY, { from: "popconfirm-pay-btn" });
     }
     updateOrderPromotePopoverOpen(false);
   }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);
@@ -79,7 +79,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
 
   const onPayButtonClick = useCallback(() => {
     updateOrderPromotePopoverOpen(true);
-    trackEvent(EVENT_NAMES.POP_PAY, { from: 'left-nav-top-btn' });
+    trackEvent(EVENT_NAMES.POP_PAY, { from: "left-nav-top-btn" });
   }, [EVENT_NAMES.POP_PAY, trackEvent, updateOrderPromotePopoverOpen]);
 
   const onPopoverClose = useCallback(() => {

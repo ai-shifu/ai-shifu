@@ -1,7 +1,7 @@
-import { memo, useCallback } from 'react';
-import { shifu } from '@/c-service/Shifu';
-import styles from './TrialNodeOuter.module.scss';
-import { TRAIL_NODE_POSITION } from './TrialNodeBottomArea';
+import { memo, useCallback } from "react";
+import { shifu } from "@/c-service/Shifu";
+import styles from "./TrialNodeOuter.module.scss";
+import { TRAIL_NODE_POSITION } from "./TrialNodeBottomArea";
 
 const TrialNodeOuter = ({ nodePosition, payload }) => {
   const getTrialNodeAreaControl = useCallback(() => {
@@ -11,7 +11,7 @@ const TrialNodeOuter = ({ nodePosition, payload }) => {
   }, [payload]);
 
   const getClassName = useCallback(() => {
-    let className = '';
+    let className = "";
 
     if (nodePosition === TRAIL_NODE_POSITION.STICK_TOP) {
       className = styles.stickTop;

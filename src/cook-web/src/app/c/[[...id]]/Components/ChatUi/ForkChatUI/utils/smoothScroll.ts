@@ -9,7 +9,7 @@ interface Props {
 
 export default function smoothScroll({ el, to, duration = 300, x }: Props) {
   let count = 0;
-  const attr = x ? 'scrollLeft' : 'scrollTop';
+  const attr = x ? "scrollLeft" : "scrollTop";
   const from = el[attr];
   const frames = Math.round(duration / 16);
   const step = (to - from) / frames;

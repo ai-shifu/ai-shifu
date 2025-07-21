@@ -352,8 +352,8 @@
 
 .markdown .md-image > .md-meta {
   border-radius: 3px;
-  font-family: Consolas, Mononoki, 'Roboto Mono', 'Liberation Mono', Courier,
-    monospace;
+  font-family:
+    Consolas, Mononoki, "Roboto Mono", "Liberation Mono", Courier, monospace;
   padding: 8px 16px;
   font-size: 12.6px;
   color: inherit;
@@ -396,7 +396,7 @@
 .markdown .context-menu,
 .markdown .megamenu-content,
 .markdown footer {
-  font-family: Consolas, Mononoki, 'Roboto Mono', 'Liberation Mono', monospace;
+  font-family: Consolas, Mononoki, "Roboto Mono", "Liberation Mono", monospace;
 }
 
 .markdown .file-node-content:hover .file-node-icon,

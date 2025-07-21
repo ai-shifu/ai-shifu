@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 export default function useWindowResize(handler: () => void) {
   const running = useRef(false);
@@ -21,9 +21,9 @@ export default function useWindowResize(handler: () => void) {
       }
     }
 
-    window.addEventListener('resize', resizeThrottler);
+    window.addEventListener("resize", resizeThrottler);
     return () => {
-      window.removeEventListener('resize', resizeThrottler);
+      window.removeEventListener("resize", resizeThrottler);
     };
   }, [handler]);
 }

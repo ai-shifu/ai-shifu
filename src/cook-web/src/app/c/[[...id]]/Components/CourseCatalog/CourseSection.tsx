@@ -1,18 +1,18 @@
-import classNames from 'classnames';
-import styles from './CourseSection.module.scss';
-import { useCallback } from 'react';
-import { memo } from 'react';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import classNames from "classnames";
+import styles from "./CourseSection.module.scss";
+import { useCallback } from "react";
+import { memo } from "react";
+import { LESSON_STATUS_VALUE } from "@/c-constants/courseConstants";
 
-import Image from 'next/image';
-import imgLearningSelected from '@/c-assets/newchat/light/icon16-learning-selected.png';
-import imgLearning from '@/c-assets/newchat/light/icon16-learning.png';
-import imgLearningCompletedSelected from '@/c-assets/newchat/light/icon16-learning-completed-selected.png';
-import imgLearningCompleted from '@/c-assets/newchat/light/icon16-learning-completed.png';
+import Image from "next/image";
+import imgLearningSelected from "@/c-assets/newchat/light/icon16-learning-selected.png";
+import imgLearning from "@/c-assets/newchat/light/icon16-learning.png";
+import imgLearningCompletedSelected from "@/c-assets/newchat/light/icon16-learning-completed-selected.png";
+import imgLearningCompleted from "@/c-assets/newchat/light/icon16-learning-completed.png";
 
 export const CourseSection = ({
   id,
-  name = '',
+  name = "",
   status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
@@ -28,7 +28,7 @@ export const CourseSection = ({
       case LESSON_STATUS_VALUE.PREPARE_LEARNING:
       case LESSON_STATUS_VALUE.LEARNING:
       case LESSON_STATUS_VALUE.COMPLETED:
-        return '';
+        return "";
       default:
         return styles.small;
     }
@@ -72,7 +72,7 @@ export const CourseSection = ({
                 width={16}
                 height={16}
                 src={imgLearningSelected.src}
-                alt=''
+                alt=""
               />
             ) : (
               <Image
@@ -80,7 +80,7 @@ export const CourseSection = ({
                 width={16}
                 height={16}
                 src={imgLearning.src}
-                alt=''
+                alt=""
               />
             ))}
           {status_value === LESSON_STATUS_VALUE.COMPLETED &&
@@ -90,7 +90,7 @@ export const CourseSection = ({
                 width={16}
                 height={16}
                 src={imgLearningCompletedSelected.src}
-                alt=''
+                alt=""
               />
             ) : (
               <Image
@@ -98,7 +98,7 @@ export const CourseSection = ({
                 width={16}
                 height={16}
                 src={imgLearningCompleted.src}
-                alt=''
+                alt=""
               />
             ))}
         </div>

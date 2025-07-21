@@ -1,29 +1,29 @@
-import styles from './ChatInputSmsCode.module.scss';
+import styles from "./ChatInputSmsCode.module.scss";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 // import { Input } from '@ai-shifu/chatui';
-import { Input } from '../ForkChatUI/components/Input';
-import SubButton from '@/c-components/SubButton';
-import { INTERACTION_OUTPUT_TYPE } from '@/c-constants/courseConstants';
+import { Input } from "../ForkChatUI/components/Input";
+import SubButton from "@/c-components/SubButton";
+import { INTERACTION_OUTPUT_TYPE } from "@/c-constants/courseConstants";
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from "@/hooks/use-toast";
 
 export const ChatInputSmsCode = ({ onClick }) => {
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
 
   const onSendClick = async () => {
     const inputData = input.trim();
-    if (inputData === '' || !/^\d{4}$/.test(inputData)) {
+    if (inputData === "" || !/^\d{4}$/.test(inputData)) {
       toast({
-        title: '请输入4位短信验证码',
-        variant: 'destructive',
+        title: "请输入4位短信验证码",
+        variant: "destructive",
       });
       return;
     }
 
     onClick?.(INTERACTION_OUTPUT_TYPE.CHECKCODE, true, inputData);
-    setInput('');
+    setInput("");
   };
 
   return (
@@ -33,13 +33,13 @@ export const ChatInputSmsCode = ({ onClick }) => {
         <div className={styles.inputWrapper}>
           <Input
             maxLength={4}
-            type='text'
+            type="text"
             value={input}
-            onChange={v => setInput(v)}
-            placeholder=''
+            onChange={(v) => setInput(v)}
+            placeholder=""
             className={styles.inputField}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
                 onSendClick();
               }
@@ -51,7 +51,7 @@ export const ChatInputSmsCode = ({ onClick }) => {
           onClick={onSendClick}
           width={100}
           height={32}
-          style={{ marginLeft: '15px' }}
+          style={{ marginLeft: "15px" }}
         >
           提交
         </SubButton>

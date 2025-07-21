@@ -4,11 +4,11 @@ import React, {
   useRef,
   useCallback,
   useImperativeHandle,
-} from 'react';
-import clsx from 'clsx';
-import { CarouselItem } from './Item';
-import { setTransform, setTransition } from '../../utils/style';
-import canUse from '../../utils/canUse';
+} from "react";
+import clsx from "clsx";
+import { CarouselItem } from "./Item";
+import { setTransform, setTransition } from "../../utils/style";
+import canUse from "../../utils/canUse";
 
 export interface CarouselProps {
   children: React.ReactNode;
@@ -54,8 +54,8 @@ type DragEvent =
   | React.TouchEvent<HTMLDivElement>
   | React.MouseEvent<HTMLDivElement, MouseEvent>;
 
-const formElements = ['TEXTAREA', 'OPTION', 'INPUT', 'SELECT'];
-const canTouch = canUse('touch');
+const formElements = ["TEXTAREA", "OPTION", "INPUT", "SELECT"];
+const canTouch = canUse("touch");
 
 export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
   (props, ref) => {
@@ -64,7 +64,7 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
       startIndex = 0,
       draggable = true,
       duration = 300,
-      easing = 'ease',
+      easing = "ease",
       threshold = 20,
       clickDragThreshold = 10,
       loop = true,
@@ -108,7 +108,7 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
     }, [duration, easing]);
 
     const disableTransition = () => {
-      setTransition(innerRef.current, 'transform 0s');
+      setTransition(innerRef.current, "transform 0s");
     };
 
     const moveX = (x: number) => {
@@ -269,7 +269,7 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
       e.preventDefault();
       e.stopPropagation();
 
-      const ev = 'touches' in e ? e.touches[0] : e;
+      const ev = "touches" in e ? e.touches[0] : e;
       const state = stateRef.current;
 
       state.pressDown = true;
@@ -282,11 +282,11 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
     const dragMove = (e: DragEvent) => {
       e.stopPropagation();
 
-      const ev = 'touches' in e ? e.touches[0] : e;
+      const ev = "touches" in e ? e.touches[0] : e;
       const state = stateRef.current;
 
       if (state.pressDown) {
-        if ('touches' in e) {
+        if ("touches" in e) {
           if (state.canMove === null) {
             state.canMove =
               Math.abs(state.startY - ev.pageY) <
@@ -388,9 +388,9 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
         handleResize();
       }
 
-      window.addEventListener('resize', handleResize);
+      window.addEventListener("resize", handleResize);
       return () => {
-        window.removeEventListener('resize', handleResize);
+        window.removeEventListener("resize", handleResize);
       };
     }, [activeIndex, slideTo]);
 
@@ -443,11 +443,11 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
     return (
       <div
         className={clsx(
-          'Carousel',
+          "Carousel",
           {
-            'Carousel--draggable': draggable,
-            'Carousel--rtl': rtl,
-            'Carousel--dragging': isDragging,
+            "Carousel--draggable": draggable,
+            "Carousel--rtl": rtl,
+            "Carousel--dragging": isDragging,
           },
           className,
         )}
@@ -455,7 +455,7 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
         {...events}
       >
         <div
-          className='Carousel-inner'
+          className="Carousel-inner"
           style={{ width: `${loop ? count + 2 : count}00%` }}
           ref={innerRef}
         >
@@ -467,10 +467,7 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
           )}
           {React.Children.map(children, (item, i) => (
             // @ts-expect-error EXPECTED
-            <CarouselItem
-              width={itemWith}
-              key={i}
-            >
+            <CarouselItem width={itemWith} key={i}>
               {item}
             </CarouselItem>
           ))}
@@ -482,14 +479,14 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
           )}
         </div>
         {dots && (
-          <ol className='Carousel-dots'>
+          <ol className="Carousel-dots">
             {React.Children.map(children, (_, i) => (
               <li key={i}>
                 <button
-                  className={clsx('Carousel-dot', {
+                  className={clsx("Carousel-dot", {
                     active: activeIndex === i,
                   })}
-                  type='button'
+                  type="button"
                   aria-label={`Go to slide ${i + 1}`}
                   data-slide-to={i}
                   onClick={handleClickDot}
@@ -503,4 +500,4 @@ export const Carousel = React.forwardRef<CarouselHandle, CarouselProps>(
   },
 );
 
-Carousel.displayName = 'Carousel';
+Carousel.displayName = "Carousel";

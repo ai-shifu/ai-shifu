@@ -1,6 +1,6 @@
-import React from 'react';
-import clsx from 'clsx';
-import { Icon } from '../Icon';
+import React from "react";
+import clsx from "clsx";
+import { Icon } from "../Icon";
 
 interface ListItemPropsBase {
   className?: string;
@@ -12,16 +12,16 @@ interface ListItemPropsBase {
 }
 
 interface ListItemPropsWithLink extends ListItemPropsBase {
-  as: 'a';
+  as: "a";
   href: string;
 }
 
 export type ListItemProps = ListItemPropsBase | ListItemPropsWithLink;
 
-export const ListItem: React.FC<ListItemProps> = props => {
+export const ListItem: React.FC<ListItemProps> = (props) => {
   const {
     className,
-    as: Element = 'div',
+    as: Element = "div",
     content,
     rightIcon,
     children,
@@ -30,12 +30,12 @@ export const ListItem: React.FC<ListItemProps> = props => {
   } = props;
   return (
     <Element
-      className={clsx('ListItem', className)}
+      className={clsx("ListItem", className)}
       onClick={onClick}
-      role='listitem'
+      role="listitem"
       {...other}
     >
-      <div className='ListItem-content'>{content || children}</div>
+      <div className="ListItem-content">{content || children}</div>
       {rightIcon && <Icon type={rightIcon} />}
     </Element>
   );

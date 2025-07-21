@@ -1,10 +1,10 @@
-import { useUserStore } from '@/c-store/useUserStore';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
-import { tokenTool } from './storeUtil';
-import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
-import { utils } from './shifuUtils';
-import { INTERACTION_OUTPUT_TYPE } from '@/c-constants/courseConstants';
-import { useTracking } from '@/c-common/hooks/useTracking';
+import { useUserStore } from "@/c-store/useUserStore";
+import { useUiLayoutStore } from "@/c-store/useUiLayoutStore";
+import { tokenTool } from "./storeUtil";
+import { FRAME_LAYOUT_MOBILE } from "@/c-constants/uiConstants";
+import { utils } from "./shifuUtils";
+import { INTERACTION_OUTPUT_TYPE } from "@/c-constants/courseConstants";
+import { useTracking } from "@/c-common/hooks/useTracking";
 
 const createShifu = () => {
   const chatInputActionControls = {};
@@ -12,20 +12,20 @@ const createShifu = () => {
   const eventHandlers = new EventTarget();
 
   const EventTypes = {
-    OPEN_LOGIN_MODAL: 'OPEN_LOGIN_MODAL',
-    LOGIN_MODAL_CANCEL: 'LOGIN_MODAL_CANCEL',
-    LOGIN_MODAL_OK: 'LOGIN_MODAL_OK',
-    OPEN_PAY_MODAL: 'OPEN_PAY_MODAL',
-    PAY_MODAL_OK: 'PAY_MODAL_OK',
-    PAY_MODAL_CANCEL: 'PAY_MODAL_CANCEL',
-    RESET_CHAPTER: 'RESET_CHAPTER',
+    OPEN_LOGIN_MODAL: "OPEN_LOGIN_MODAL",
+    LOGIN_MODAL_CANCEL: "LOGIN_MODAL_CANCEL",
+    LOGIN_MODAL_OK: "LOGIN_MODAL_OK",
+    OPEN_PAY_MODAL: "OPEN_PAY_MODAL",
+    PAY_MODAL_OK: "PAY_MODAL_OK",
+    PAY_MODAL_CANCEL: "PAY_MODAL_CANCEL",
+    RESET_CHAPTER: "RESET_CHAPTER",
   };
 
   const ControlTypes = {
-    NAVIGATOR_TITLE_RIGHT_AREA: 'NAVIGATOR_TITLE_RIGHT_AREA',
-    TRIAL_NODE_BOTTOM_AREA: 'TRIAL_NODE_BOTTOM_AREA',
-    MOBILE_HEADER_ICON_POPOVER: 'MOBILE_HEADER_ICON_POPOVER',
-    ACTIVE_MESSAGE: 'ACTIVE_MESSAGE',
+    NAVIGATOR_TITLE_RIGHT_AREA: "NAVIGATOR_TITLE_RIGHT_AREA",
+    TRIAL_NODE_BOTTOM_AREA: "TRIAL_NODE_BOTTOM_AREA",
+    MOBILE_HEADER_ICON_POPOVER: "MOBILE_HEADER_ICON_POPOVER",
+    ACTIVE_MESSAGE: "ACTIVE_MESSAGE",
   };
 
   const constants = {
@@ -52,11 +52,11 @@ const createShifu = () => {
     controls[type] = control;
   };
 
-  const getControl = type => {
+  const getControl = (type) => {
     return controls[type];
   };
 
-  const hasControl = type => {
+  const hasControl = (type) => {
     return type in controls;
   };
 
@@ -64,11 +64,11 @@ const createShifu = () => {
     chatInputActionControls[type] = control;
   };
 
-  const getChatInputActionControls = type => {
+  const getChatInputActionControls = (type) => {
     return chatInputActionControls[type];
   };
 
-  const hasChatInputActionControls = type => {
+  const hasChatInputActionControls = (type) => {
     return type in chatInputActionControls;
   };
 
@@ -76,12 +76,12 @@ const createShifu = () => {
     openLogin: () => {
       eventHandlers.dispatchEvent(new CustomEvent(EventTypes.OPEN_LOGIN_MODAL));
     },
-    emitLoginModalCancel: e => {
+    emitLoginModalCancel: (e) => {
       eventHandlers.dispatchEvent(
         new CustomEvent(EventTypes.LOGIN_MODAL_CANCEL, { detail: e }),
       );
     },
-    emitLoginModalOk: e => {
+    emitLoginModalOk: (e) => {
       eventHandlers.dispatchEvent(
         new CustomEvent(EventTypes.LOGIN_MODAL_OK, { detail: e }),
       );
@@ -89,19 +89,19 @@ const createShifu = () => {
   };
 
   const payTools = {
-    openPay: ({ type = '', payload = {} }) => {
+    openPay: ({ type = "", payload = {} }) => {
       eventHandlers.dispatchEvent(
         new CustomEvent(EventTypes.OPEN_PAY_MODAL, {
           detail: { type, payload },
         }),
       );
     },
-    emitPayModalCancel: e => {
+    emitPayModalCancel: (e) => {
       eventHandlers.dispatchEvent(
         new CustomEvent(EventTypes.PAY_MODAL_CANCEL, { detail: e }),
       );
     },
-    emitPayModalOk: e => {
+    emitPayModalOk: (e) => {
       eventHandlers.dispatchEvent(
         new CustomEvent(EventTypes.PAY_MODAL_OK, { detail: e }),
       );
@@ -109,7 +109,7 @@ const createShifu = () => {
   };
 
   const resetTools = {
-    resetChapter: e => {
+    resetChapter: (e) => {
       eventHandlers.dispatchEvent(
         new CustomEvent(EventTypes.RESET_CHAPTER, { detail: e }),
       );
@@ -125,7 +125,7 @@ const createShifu = () => {
     useTracking,
   };
 
-  const installPlugin = plugin => {
+  const installPlugin = (plugin) => {
     plugin.install({
       stores,
       getConfig,

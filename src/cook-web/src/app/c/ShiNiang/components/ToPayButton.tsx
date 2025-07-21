@@ -1,14 +1,14 @@
-import styles from './ToPayButton.module.scss';
+import styles from "./ToPayButton.module.scss";
 
-import { memo } from 'react';
-import clsx from 'clsx';
-import { Button } from '@/components/ui/button';
+import { memo } from "react";
+import clsx from "clsx";
+import { Button } from "@/components/ui/button";
 
 const ToPayButton = ({
   children,
-  className = '',
+  className = "",
   onClick,
-  height = '26px',
+  height = "26px",
 }) => {
   return (
     <Button

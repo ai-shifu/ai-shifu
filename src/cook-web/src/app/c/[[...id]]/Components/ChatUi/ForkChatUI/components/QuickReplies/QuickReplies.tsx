@@ -1,6 +1,6 @@
-import React, { useState, useLayoutEffect, useRef } from 'react';
-import { ScrollView, ScrollViewHandle } from '../ScrollView/ScrollView';
-import { QuickReply, QuickReplyItemProps } from './QuickReply';
+import React, { useState, useLayoutEffect, useRef } from "react";
+import { ScrollView, ScrollViewHandle } from "../ScrollView/ScrollView";
+import { QuickReply, QuickReplyItemProps } from "./QuickReply";
 
 export interface QuickRepliesProps {
   items: QuickReplyItemProps[];
@@ -34,9 +34,9 @@ const QuickReplies = (props: QuickRepliesProps) => {
 
   return (
     <ScrollView
-      className='QuickReplies'
+      className="QuickReplies"
       data={items}
-      itemKey='name'
+      itemKey="name"
       ref={scroller}
       data-visible={visible}
       onScroll={scrollEvent ? onScroll : undefined}

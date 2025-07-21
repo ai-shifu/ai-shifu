@@ -1,27 +1,27 @@
 /**
  * 用户配置界面
  */
-import styles from './UserSettings.module.scss';
+import styles from "./UserSettings.module.scss";
 
-import { useState, useCallback, memo, useEffect } from 'react';
+import { useState, useCallback, memo, useEffect } from "react";
 
-import { Button } from '@/components/ui/button';
-import SettingHeader from './SettingHeader';
-import clsx from 'clsx';
-import ChangeAvatar from './ChangeAvatar';
-import SexSettingModal from './SexSettingModal';
-import { SettingInputElement } from './SettingInputElement';
-import SettingSelectElement from './SettingSelectElement';
-import { updateUserProfile } from '@/c-api/user';
-import BirthdaySettingModal from './BirthdaySettingModal';
-import { SEX, SEX_NAMES } from '@/c-constants/userConstants';
-import DynamicSettingItem from './DynamicSettingItem';
-import { useUserStore } from '@/c-store/useUserStore';
-import { useTranslation } from 'react-i18next';
-import { useShallow } from 'zustand/react/shallow';
-import { useEnvStore } from '@/c-store/envStore';
+import { Button } from "@/components/ui/button";
+import SettingHeader from "./SettingHeader";
+import clsx from "clsx";
+import ChangeAvatar from "./ChangeAvatar";
+import SexSettingModal from "./SexSettingModal";
+import { SettingInputElement } from "./SettingInputElement";
+import SettingSelectElement from "./SettingSelectElement";
+import { updateUserProfile } from "@/c-api/user";
+import BirthdaySettingModal from "./BirthdaySettingModal";
+import { SEX, SEX_NAMES } from "@/c-constants/userConstants";
+import DynamicSettingItem from "./DynamicSettingItem";
+import { useUserStore } from "@/c-store/useUserStore";
+import { useTranslation } from "react-i18next";
+import { useShallow } from "zustand/react/shallow";
+import { useEnvStore } from "@/c-store/envStore";
 
-import api from '@/api';
+import api from "@/api";
 
 // const fixed_keys = ['nickname', 'avatar', 'sex', 'birth'];
 // const hidden_keys = ['language'];
@@ -32,26 +32,26 @@ export const UserSettings = ({
   onClose,
   isBasicInfo = false,
 }) => {
-  const courseId = useEnvStore(state => state.courseId);
+  const courseId = useEnvStore((state) => state.courseId);
   const { refreshUserInfo } = useUserStore(
-    useShallow(state => ({
+    useShallow((state) => ({
       refreshUserInfo: state.refreshUserInfo,
     })),
   );
 
-  const { t, i18n } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t, i18n } = useTranslation("translation", { keyPrefix: "c" });
 
   const [sexSettingModalOpen, setSexSettingModalOpen] = useState(false);
   const [birthModalOpen, setBirthModalOpen] = useState(false);
 
   // 头像
-  const [avatar, setAvatar] = useState('');
+  const [avatar, setAvatar] = useState("");
   // 昵称
-  const [nickName, setNickName] = useState('');
+  const [nickName, setNickName] = useState("");
   // 性别
   const [sex, setSex] = useState(SEX_NAMES[SEX.SECRET]);
   // 生日
-  const [birth, setBirth] = useState('');
+  const [birth, setBirth] = useState("");
 
   const [dynFormData, setDynFormData] = useState([]);
 
@@ -59,25 +59,25 @@ export const UserSettings = ({
     const data = [];
     // @ts-expect-error EXPECT
     data.push({
-      key: 'nickname',
+      key: "nickname",
       value: nickName,
     });
     // @ts-expect-error EXPECT
     data.push({
-      key: 'avatar',
+      key: "avatar",
       value: avatar,
     });
     // @ts-expect-error EXPECT
     data.push({
-      key: 'sex',
+      key: "sex",
       value: sex,
     });
     // @ts-expect-error EXPECT
     data.push({
-      key: 'birth',
+      key: "birth",
       value: birth,
     });
-    dynFormData.forEach(v => {
+    dynFormData.forEach((v) => {
       // @ts-expect-error EXPECT
       data.push({
         // @ts-expect-error EXPECT
@@ -101,14 +101,14 @@ export const UserSettings = ({
   ]);
 
   const onNickNameChanged = useCallback(
-    e => {
+    (e) => {
       setNickName(e.target.value);
     },
     [setNickName],
   );
 
   const onSexSettingModalOk = useCallback(
-    e => {
+    (e) => {
       setSex(e.sex);
       setSexSettingModalOpen(false);
     },
@@ -166,8 +166,8 @@ export const UserSettings = ({
   }, []);
 
   const onDynamicSettingItemChange = useCallback((key, value) => {
-    setDynFormData(prev => {
-      return prev.map(v => {
+    setDynFormData((prev) => {
+      return prev.map((v) => {
         // @ts-expect-error EXPECT
         if (v.key === key) {
           // @ts-expect-error EXPECT
@@ -200,16 +200,13 @@ export const UserSettings = ({
               }
             >
               {/* @ts-expect-error EXPECT */}
-              <ChangeAvatar
-                image={avatar}
-                onChange={onChangeAvatarChanged}
-              />
+              <ChangeAvatar image={avatar} onChange={onChangeAvatarChanged} />
               <div className={styles.basicInfoTitle}>
-                {t('settings.basicInfo')}
+                {t("settings.basicInfo")}
               </div>
               <SettingInputElement
-                title={t('settings.nickname')}
-                placeholder={t('settings.nicknamePlaceholder')}
+                title={t("settings.nickname")}
+                placeholder={t("settings.nicknamePlaceholder")}
                 onChange={onNickNameChanged}
                 className={styles.inputUnit}
                 value={nickName}
@@ -217,15 +214,15 @@ export const UserSettings = ({
                 maxLength={10}
               />
               <SettingSelectElement
-                title={t('settings.sex')}
-                placeholder={t('settings.sexPlaceholder')}
+                title={t("settings.sex")}
+                placeholder={t("settings.sexPlaceholder")}
                 value={sex}
                 className={styles.inputUnit}
                 onClick={onSexSelectClick}
               />
               <SettingSelectElement
-                title={t('settings.birth')}
-                placeholder={t('settings.birthPlaceholder')}
+                title={t("settings.birth")}
+                placeholder={t("settings.birthPlaceholder")}
                 className={styles.inputUnit}
                 onClick={onBirthClick}
                 value={birth}
@@ -240,18 +237,18 @@ export const UserSettings = ({
               }
             >
               <div className={clsx(styles.basicInfoTitle)}>
-                {t('settings.personalInfo')}
+                {t("settings.personalInfo")}
               </div>
               <SettingInputElement
-                title={t('settings.nicknamePersonal')}
-                placeholder={t('settings.nicknamePlaceholder')}
+                title={t("settings.nicknamePersonal")}
+                placeholder={t("settings.nicknamePlaceholder")}
                 onChange={onNickNameChanged}
                 className={styles.inputUnit}
                 value={nickName}
                 // @ts-expect-error EXPECT
                 maxLength={10}
               />
-              {dynFormData.map(item => {
+              {dynFormData.map((item) => {
                 return (
                   <DynamicSettingItem
                     // @ts-expect-error EXPECT
@@ -267,10 +264,7 @@ export const UserSettings = ({
         </div>
         <div className={styles.settingFooter}>
           <div className={styles.centerWrapper}>
-            <Button
-              className={styles.saveBtn}
-              onClick={onSaveSettingsClick}
-            >
+            <Button className={styles.saveBtn} onClick={onSaveSettingsClick}>
               保存
             </Button>
           </div>

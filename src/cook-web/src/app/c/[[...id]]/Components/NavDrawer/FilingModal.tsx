@@ -1,13 +1,13 @@
-import styles from './FilingModal.module.scss';
+import styles from "./FilingModal.module.scss";
 
-import { memo } from 'react';
-import { useTranslation } from 'react-i18next';
+import { memo } from "react";
+import { useTranslation } from "react-i18next";
 
-import PopupModal from '@/c-components/PopupModal';
-import { Button } from '@/components/ui/button';
+import PopupModal from "@/c-components/PopupModal";
+import { Button } from "@/components/ui/button";
 
-import Image from 'next/image';
-import imgBeian from '@/c-assets/newchat/light/beian.png';
+import Image from "next/image";
+import imgBeian from "@/c-assets/newchat/light/beian.png";
 
 export const FillingModal = ({
   open,
@@ -16,7 +16,7 @@ export const FillingModal = ({
   onFeedbackClick,
   className,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
 
   return (
     // @ts-expect-error EXPECT
@@ -27,53 +27,53 @@ export const FillingModal = ({
       className={className}
     >
       <div className={styles.filingModal}>
-        <div>{t('common.companyName')}</div>
-        <div>{t('common.companyAddress')}</div>
+        <div>{t("common.companyName")}</div>
+        <div>{t("common.companyAddress")}</div>
         <div>
           <a
             className={styles.miitLink}
-            href='https://beian.miit.gov.cn/'
-            target='_blank'
-            rel='noreferrer'
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noreferrer"
           >
-            {t('navigation.icp')}
+            {t("navigation.icp")}
           </a>
         </div>
         <div className={styles.gonganRow}>
           <Image
             className={styles.beianIcon}
             src={imgBeian.src}
-            alt={t('navigation.filing')}
+            alt={t("navigation.filing")}
           />
-          <div>{t('navigation.gongan')}</div>
+          <div>{t("navigation.gongan")}</div>
         </div>
         <div className={styles.btnGroup}>
           <Button
-            variant='link'
+            variant="link"
             className={styles.actionBtn}
             onClick={onFeedbackClick}
           >
-            {t('navigation.feedbackTitle')}
+            {t("navigation.feedbackTitle")}
           </Button>
           <div>|</div>
           <Button
-            variant='link'
+            variant="link"
             className={styles.actionBtn}
             onClick={() => {
-              window.open('/useragreement');
+              window.open("/useragreement");
             }}
           >
-            {t('navigation.userAgreement')}
+            {t("navigation.userAgreement")}
           </Button>
           <div>|</div>
           <Button
-            variant='link'
+            variant="link"
             className={styles.actionBtn}
             onClick={() => {
-              window.open('/privacypolicy');
+              window.open("/privacypolicy");
             }}
           >
-            {t('navigation.privacyPolicy')}
+            {t("navigation.privacyPolicy")}
           </Button>
         </div>
       </div>

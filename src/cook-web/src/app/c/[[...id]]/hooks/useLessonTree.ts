@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
-import { produce } from 'immer';
-import { getLessonTree } from '@/c-api/lesson';
-import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
-import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
-import { useEnvStore } from '@/c-store/envStore';
-import { useSystemStore } from '@/c-store/useSystemStore';
+import { useState, useCallback } from "react";
+import { produce } from "immer";
+import { getLessonTree } from "@/c-api/lesson";
+import { LESSON_STATUS_VALUE } from "@/c-constants/courseConstants";
+import { useTracking, EVENT_NAMES } from "@/c-common/hooks/useTracking";
+import { useEnvStore } from "@/c-store/envStore";
+import { useSystemStore } from "@/c-store/useSystemStore";
 
 export const checkChapterCanLearning = ({ status_value }) => {
   const canLearn =
@@ -30,7 +30,7 @@ export const useLessonTree = () => {
     }
 
     for (const catalog of tree.catalogs) {
-      const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
+      const lesson = catalog.lessons.find((v) => v.id === selectedLessonId);
       if (lesson) {
         return { catalog, lesson };
       }
@@ -38,13 +38,13 @@ export const useLessonTree = () => {
     return { catalog: null, lesson: null };
   }, [selectedLessonId, tree]);
 
-  const initialSelectedChapter = useCallback(tree => {
+  const initialSelectedChapter = useCallback((tree) => {
     let catalog = tree.catalogs.find(
-      v => v.status_value === LESSON_STATUS_VALUE.LEARNING,
+      (v) => v.status_value === LESSON_STATUS_VALUE.LEARNING,
     );
     if (catalog) {
       const lesson = catalog.lessons.find(
-        v =>
+        (v) =>
           v.status_value === LESSON_STATUS_VALUE.LEARNING ||
           v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
       );
@@ -54,11 +54,11 @@ export const useLessonTree = () => {
       }
     } else {
       catalog = tree.catalogs.find(
-        v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+        (v) => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
       );
       if (catalog) {
         const lesson = catalog.lessons.find(
-          v =>
+          (v) =>
             v.status_value === LESSON_STATUS_VALUE.LEARNING ||
             v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
         );
@@ -87,8 +87,8 @@ export const useLessonTree = () => {
     }
 
     let lessonCount = 0;
-    const catalogs = treeData.lessons.map(l => {
-      const lessons = l.children.map(c => {
+    const catalogs = treeData.lessons.map((l) => {
+      const lessons = l.children.map((c) => {
         lessonCount += 1;
         return {
           id: c.lesson_id,
@@ -121,7 +121,7 @@ export const useLessonTree = () => {
   }, [updateCourseId]);
 
   const setSelectedState = useCallback((tree, chapterId, lessonId) => {
-    const chapter = tree.catalogs.find(v => v.id === chapterId);
+    const chapter = tree.catalogs.find((v) => v.id === chapterId);
 
     if (!chapter) {
       return false;
@@ -129,12 +129,12 @@ export const useLessonTree = () => {
 
     let lesson = null;
     if (lessonId) {
-      lesson = chapter.lessons.find(v => v.id === lessonId);
+      lesson = chapter.lessons.find((v) => v.id === lessonId);
     }
 
     if (!lesson) {
       lesson = chapter.lessons.find(
-        v =>
+        (v) =>
           v.status_value === LESSON_STATUS_VALUE.LEARNING ||
           v.status === LESSON_STATUS_VALUE.PREPARE_LEARNING,
       );
@@ -158,8 +158,8 @@ export const useLessonTree = () => {
         setSelectedState(newTree, chapterId, lessonId);
       }
       // 设置 collapse 状态
-      await newTree?.catalogs.forEach(c => {
-        const oldCatalog = tree?.catalogs.find(oc => oc.id === c.id);
+      await newTree?.catalogs.forEach((c) => {
+        const oldCatalog = tree?.catalogs.find((oc) => oc.id === c.id);
 
         if (oldCatalog) {
           c.collapse = oldCatalog.collapse;
@@ -173,7 +173,7 @@ export const useLessonTree = () => {
   );
 
   const loadTree = useCallback(
-    async (chapterId = '', lessonId = '') => {
+    async (chapterId = "", lessonId = "") => {
       let newTree: { bannerInfo?: any; catalogs: any[] } | null = null;
       if (!tree) {
         newTree = await loadTreeInner();
@@ -195,13 +195,13 @@ export const useLessonTree = () => {
   const updateSelectedLesson = async (lessonId, forceExpand = false) => {
     setSelectedLessonId(lessonId);
 
-    setTree(old => {
+    setTree((old) => {
       if (!old) {
         return null;
       }
-      const nextState = produce(old, draft => {
-        draft.catalogs.forEach(c => {
-          c.lessons.forEach(ls => {
+      const nextState = produce(old, (draft) => {
+        draft.catalogs.forEach((c) => {
+          c.lessons.forEach((ls) => {
             if (ls.id === lessonId) {
               if (forceExpand) {
                 c.collapse = false;
@@ -214,12 +214,12 @@ export const useLessonTree = () => {
     });
   };
 
-  const setCurrCatalog = async catalogId => {
+  const setCurrCatalog = async (catalogId) => {
     if (!tree) {
       return;
     }
 
-    const ca = tree.catalogs.find(c => c.id === catalogId);
+    const ca = tree.catalogs.find((c) => c.id === catalogId);
     if (!ca) {
       return;
     }
@@ -232,11 +232,11 @@ export const useLessonTree = () => {
   };
 
   const toggleCollapse = ({ id }) => {
-    const nextState = produce(tree, draft => {
+    const nextState = produce(tree, (draft) => {
       if (!draft) {
         return draft;
       }
-      draft.catalogs.forEach(c => {
+      draft.catalogs.forEach((c) => {
         if (c.id === id) {
           c.collapse = !c.collapse;
         }
@@ -247,14 +247,14 @@ export const useLessonTree = () => {
   };
 
   const updateLesson = (id, val) => {
-    setTree(old => {
+    setTree((old) => {
       if (!old) {
         return null;
       }
 
-      const nextState = produce(old, draft => {
-        draft.catalogs.forEach(c => {
-          const idx = c.lessons.findIndex(ch => ch.id === id);
+      const nextState = produce(old, (draft) => {
+        draft.catalogs.forEach((c) => {
+          const idx = c.lessons.findIndex((ch) => ch.id === id);
           if (idx !== -1) {
             const newLesson = {
               ...c.lessons[idx],
@@ -271,13 +271,13 @@ export const useLessonTree = () => {
   };
 
   const updateChapterStatus = (id, { status, status_value }) => {
-    setTree(old => {
+    setTree((old) => {
       if (!old) {
         return null;
       }
 
-      const nextState = produce(old, draft => {
-        const idx = draft.catalogs.findIndex(ch => ch.id === id);
+      const nextState = produce(old, (draft) => {
+        const idx = draft.catalogs.findIndex((ch) => ch.id === id);
         if (idx !== -1) {
           draft.catalogs[idx] = {
             ...draft.catalogs[idx],
@@ -291,12 +291,12 @@ export const useLessonTree = () => {
     });
   };
 
-  const getChapterByLesson = lessonId => {
+  const getChapterByLesson = (lessonId) => {
     if (!tree) {
       return null;
     }
-    const chapter = tree.catalogs.find(ch => {
-      return ch.lessons.find(ls => ls.id === lessonId);
+    const chapter = tree.catalogs.find((ch) => {
+      return ch.lessons.find((ls) => ls.id === lessonId);
     });
 
     return chapter;
@@ -307,17 +307,17 @@ export const useLessonTree = () => {
       return;
     }
 
-    let from = '';
-    let to = '';
+    let from = "";
+    let to = "";
 
     for (const catalog of tree.catalogs) {
-      const lesson = catalog.lessons.find(v => v.id === selectedLessonId);
+      const lesson = catalog.lessons.find((v) => v.id === selectedLessonId);
 
       if (lesson) {
         from = `${catalog.name}|${lesson.name}`;
       }
 
-      const toLesson = catalog.lessons.find(v => v.id === lessonId);
+      const toLesson = catalog.lessons.find((v) => v.id === lessonId);
       if (toLesson) {
         to = `${catalog.name}|${toLesson.name}`;
       }

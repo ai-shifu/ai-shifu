@@ -1,8 +1,8 @@
-import styles from './ScrollView.module.scss';
+import styles from "./ScrollView.module.scss";
 
-import { useState } from 'react';
+import { useState } from "react";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 const data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
@@ -40,7 +40,7 @@ export const ScrollView = () => {
 
   requestAnimationFrame(onRequestAnimationFrame);
 
-  const onWheel = e => {
+  const onWheel = (e) => {
     if (e.deltaY > 0) {
       isScroll = true;
       scrollDirection = 1;
@@ -50,7 +50,7 @@ export const ScrollView = () => {
     }
   };
 
-  const getTranslateY = index => {
+  const getTranslateY = (index) => {
     const downArrLength = data.length / 2;
     let y = -valueIndex * unitLength;
 
@@ -68,15 +68,12 @@ export const ScrollView = () => {
     return y;
   };
 
-  const getZIndex = index => {
+  const getZIndex = (index) => {
     return (data.length - Math.abs(index - valueIndex)) * 100;
   };
 
   return (
-    <div
-      className={styles.ScrollView}
-      onWheel={onWheel}
-    >
+    <div className={styles.ScrollView} onWheel={onWheel}>
       {buffer.map((item, index) => {
         return (
           <div

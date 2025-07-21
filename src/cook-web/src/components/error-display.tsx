@@ -1,15 +1,15 @@
-import React from 'react';
-import { useTranslation } from 'react-i18next';
+import React from "react";
+import { useTranslation } from "react-i18next";
 import {
   ExclamationTriangleIcon,
   XCircleIcon,
   LockClosedIcon,
   WifiIcon,
   ShieldExclamationIcon,
-} from '@heroicons/react/24/outline';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/c-store/useUserStore';
+} from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import { useRouter } from "next/navigation";
+import { useUserStore } from "@/c-store/useUserStore";
 
 interface ErrorDisplayProps {
   errorCode: number;
@@ -26,35 +26,35 @@ interface ErrorDisplayProps {
 const getErrorType = (code: number): string => {
   // Permission errors
   if (code === 401 || code === 9002 || code === 403) {
-    return 'permission';
+    return "permission";
   }
   // Authentication errors
   if (code === 1001 || code === 1004 || code === 1005) {
-    return 'auth';
+    return "auth";
   }
   // Not found errors
   if (code === 404) {
-    return 'not-found';
+    return "not-found";
   }
   // Network errors
   if (code >= 500 && code < 600) {
-    return 'network';
+    return "network";
   }
   // Default
-  return 'general';
+  return "general";
 };
 
 const errorIcons: Record<string, React.ReactNode> = {
   permission: (
-    <LockClosedIcon className='w-16 h-16 text-yellow-500 mx-auto mb-4' />
+    <LockClosedIcon className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
   ),
   auth: (
-    <ShieldExclamationIcon className='w-16 h-16 text-red-500 mx-auto mb-4' />
+    <ShieldExclamationIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
   ),
-  network: <WifiIcon className='w-16 h-16 text-red-500 mx-auto mb-4' />,
-  'not-found': <XCircleIcon className='w-16 h-16 text-gray-500 mx-auto mb-4' />,
+  network: <WifiIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />,
+  "not-found": <XCircleIcon className="w-16 h-16 text-gray-500 mx-auto mb-4" />,
   general: (
-    <ExclamationTriangleIcon className='w-16 h-16 text-orange-500 mx-auto mb-4' />
+    <ExclamationTriangleIcon className="w-16 h-16 text-orange-500 mx-auto mb-4" />
   ),
 };
 
@@ -67,7 +67,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const isLoggedIn = useUserStore((state) => state.isLoggedIn);
 
   const handleLogin = () => {
     const currentPath = encodeURIComponent(
@@ -83,20 +83,20 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     switch (errorCode) {
       case 401:
       case 9002:
-        return t('c.errors.no-permission-title');
+        return t("c.errors.no-permission-title");
       case 403:
-        return t('c.errors.forbidden-title');
+        return t("c.errors.forbidden-title");
       case 404:
-        return t('c.errors.not-found-title');
+        return t("c.errors.not-found-title");
       case 1001:
       case 1004:
       case 1005:
-        return t('c.errors.auth-required-title');
+        return t("c.errors.auth-required-title");
       default:
         if (errorCode >= 500 && errorCode < 600) {
-          return t('c.errors.server-error-title');
+          return t("c.errors.server-error-title");
         }
-        return t('c.errors.general-error-title');
+        return t("c.errors.general-error-title");
     }
   };
 
@@ -105,20 +105,20 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     switch (errorCode) {
       case 401:
       case 9002:
-        return t('c.errors.no-permission');
+        return t("c.errors.no-permission");
       case 403:
-        return t('c.errors.forbidden');
+        return t("c.errors.forbidden");
       case 404:
-        return t('c.errors.not-found');
+        return t("c.errors.not-found");
       case 1001:
       case 1004:
       case 1005:
-        return t('c.errors.auth-required');
+        return t("c.errors.auth-required");
       default:
         if (errorCode >= 500 && errorCode < 600) {
-          return t('c.errors.server-error');
+          return t("c.errors.server-error");
         }
-        return t('c.errors.general-error');
+        return t("c.errors.general-error");
     }
   };
 
@@ -134,57 +134,54 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   };
 
   return (
-    <div className='flex flex-col items-center justify-center h-full min-h-[400px] p-8'>
-      <div className='text-center max-w-md'>
+    <div className="flex flex-col items-center justify-center h-full min-h-[400px] p-8">
+      <div className="text-center max-w-md">
         {errorIcons[errorType]}
-        <h2 className='text-xl font-semibold text-gray-900 mb-2'>
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
           {getTitle()}
         </h2>
-        <p className='text-gray-600 mb-2'>{getFriendlyMessage()}</p>
+        <p className="text-gray-600 mb-2">{getFriendlyMessage()}</p>
 
         {/* Error details section */}
         {showDetails && (
-          <div className='mt-4 p-3 bg-gray-100 rounded-md text-left'>
-            <p className='text-sm text-gray-700 font-mono'>
-              <span className='font-semibold'>{t('c.errors.error-code')}:</span>{' '}
+          <div className="mt-4 p-3 bg-gray-100 rounded-md text-left">
+            <p className="text-sm text-gray-700 font-mono">
+              <span className="font-semibold">{t("c.errors.error-code")}:</span>{" "}
               {errorCode}
             </p>
             {errorMessage && (
-              <p className='text-sm text-gray-700 font-mono mt-1'>
-                <span className='font-semibold'>
-                  {t('c.errors.error-message')}:
-                </span>{' '}
+              <p className="text-sm text-gray-700 font-mono mt-1">
+                <span className="font-semibold">
+                  {t("c.errors.error-message")}:
+                </span>{" "}
                 {errorMessage}
               </p>
             )}
           </div>
         )}
 
-        <div className='flex gap-3 justify-center mt-6'>
+        <div className="flex gap-3 justify-center mt-6">
           {shouldShowLoginButton() && (
-            <Button
-              onClick={handleLogin}
-              className='min-w-[120px]'
-            >
-              {t('c.user.login')}
+            <Button onClick={handleLogin} className="min-w-[120px]">
+              {t("c.user.login")}
             </Button>
           )}
           {onRetry && (
             <Button
               onClick={onRetry}
-              variant='outline'
-              className='min-w-[120px]'
+              variant="outline"
+              className="min-w-[120px]"
             >
-              {t('common.retry')}
+              {t("common.retry")}
             </Button>
           )}
           {customAction && (
             <Button
               onClick={customAction.onClick}
               variant={
-                onRetry || shouldShowLoginButton() ? 'outline' : 'default'
+                onRetry || shouldShowLoginButton() ? "outline" : "default"
               }
-              className='min-w-[120px]'
+              className="min-w-[120px]"
             >
               {customAction.label}
             </Button>

@@ -1,5 +1,5 @@
-import React, { useContext } from 'react';
-import defaultLocales from './locales';
+import React, { useContext } from "react";
+import defaultLocales from "./locales";
 
 type ILocales = {
   [k: string]: any;
@@ -11,7 +11,7 @@ type ILocaleContext = {
 };
 
 const LocaleContext = React.createContext<ILocaleContext>(undefined!);
-const DEFAULT_LOCALE = 'en-US';
+const DEFAULT_LOCALE = "en-US";
 
 const LocaleProvider: React.FC<ILocaleContext> = ({
   locale,

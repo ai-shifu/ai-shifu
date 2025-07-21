@@ -21,35 +21,35 @@ export function checkPasswordStrength(password: string): {
 
   // 检查长度
   if (password.length < 8) {
-    feedback.push('密码长度至少为8个字符');
+    feedback.push("密码长度至少为8个字符");
   } else {
     score += 1;
   }
 
   // 检查是否包含数字
   if (!/\d/.test(password)) {
-    feedback.push('密码应包含数字');
+    feedback.push("密码应包含数字");
   } else {
     score += 1;
   }
 
   // 检查是否包含小写字母
   if (!/[a-z]/.test(password)) {
-    feedback.push('密码应包含小写字母');
+    feedback.push("密码应包含小写字母");
   } else {
     score += 0.5;
   }
 
   // 检查是否包含大写字母
   if (!/[A-Z]/.test(password)) {
-    feedback.push('密码应包含大写字母');
+    feedback.push("密码应包含大写字母");
   } else {
     score += 0.5;
   }
 
   // 检查是否包含特殊字符
   if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    feedback.push('密码应包含特殊字符');
+    feedback.push("密码应包含特殊字符");
   } else {
     score += 1;
   }
@@ -68,17 +68,17 @@ export function checkPasswordStrength(password: string): {
 export function getPasswordStrengthText(score: number): string {
   switch (score) {
     case 0:
-      return '非常弱';
+      return "非常弱";
     case 1:
-      return '弱';
+      return "弱";
     case 2:
-      return '中等';
+      return "中等";
     case 3:
-      return '强';
+      return "强";
     case 4:
-      return '非常强';
+      return "非常强";
     default:
-      return '未知';
+      return "未知";
   }
 }
 
@@ -86,16 +86,16 @@ export function getPasswordStrengthText(score: number): string {
 export function getPasswordStrengthColor(score: number): string {
   switch (score) {
     case 0:
-      return 'bg-red-500';
+      return "bg-red-500";
     case 1:
-      return 'bg-orange-500';
+      return "bg-orange-500";
     case 2:
-      return 'bg-yellow-500';
+      return "bg-yellow-500";
     case 3:
-      return 'bg-green-500';
+      return "bg-green-500";
     case 4:
-      return 'bg-emerald-500';
+      return "bg-emerald-500";
     default:
-      return 'bg-gray-300';
+      return "bg-gray-300";
   }
 }

@@ -1,14 +1,11 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
-export const FormActions: React.FC = props => {
+export const FormActions: React.FC = (props) => {
   // @ts-expect-error EXPECT
   const { children, ...other } = props;
   return (
-    <div
-      className={clsx('FormActions')}
-      {...other}
-    >
+    <div className={clsx("FormActions")} {...other}>
       {children}
     </div>
   );

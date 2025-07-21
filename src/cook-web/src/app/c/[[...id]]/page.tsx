@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import styles from './page.module.scss';
+import styles from "./page.module.scss";
 
-import { useEffect, useState, useCallback } from 'react';
-import clsx from 'clsx';
-import { useShallow } from 'zustand/react/shallow';
-import { useTranslation } from 'react-i18next';
+import { useEffect, useState, useCallback } from "react";
+import clsx from "clsx";
+import { useShallow } from "zustand/react/shallow";
+import { useTranslation } from "react-i18next";
 
-import { useParams } from 'next/navigation';
+import { useParams } from "next/navigation";
 
 import {
   calcFrameLayout,
   FRAME_LAYOUT_MOBILE,
   inWechat,
-} from '@/c-constants/uiConstants';
-import { EVENT_NAMES, events } from './events';
+} from "@/c-constants/uiConstants";
+import { EVENT_NAMES, events } from "./events";
 
 import {
   useEnvStore,
@@ -22,40 +22,40 @@ import {
   useCourseStore,
   useUiLayoutStore,
   useSystemStore,
-} from '@/c-store';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { useLessonTree } from './hooks/useLessonTree';
-import { updateWxcode } from '@/c-api/user';
-import { shifu } from '@/c-service/Shifu';
+} from "@/c-store";
+import { useDisclosure } from "@/c-common/hooks/useDisclosure";
+import { useLessonTree } from "./hooks/useLessonTree";
+import { updateWxcode } from "@/c-api/user";
+import { shifu } from "@/c-service/Shifu";
 
-import { Skeleton } from '@/components/ui/skeleton';
-import { AppContext } from './Components/AppContext';
-import NavDrawer from './Components/NavDrawer/NavDrawer';
-import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
-import TrackingVisit from '@/c-components/TrackingVisit';
-import ChatUi from './Components/ChatUi/ChatUi';
+import { Skeleton } from "@/components/ui/skeleton";
+import { AppContext } from "./Components/AppContext";
+import NavDrawer from "./Components/NavDrawer/NavDrawer";
+import FeedbackModal from "./Components/FeedbackModal/FeedbackModal";
+import TrackingVisit from "@/c-components/TrackingVisit";
+import ChatUi from "./Components/ChatUi/ChatUi";
 
-import ChatMobileHeader from './Components/ChatMobileHeader';
-import PayModalM from './Components/Pay/PayModalM';
-import PayModal from './Components/Pay/PayModal';
+import ChatMobileHeader from "./Components/ChatMobileHeader";
+import PayModalM from "./Components/Pay/PayModalM";
+import PayModal from "./Components/Pay/PayModal";
 
 // import LoginModal from './Components/Login/LoginModal';
 
 // the main page of course learning
 export default function ChatPage() {
-  const { i18n } = useTranslation('translation', {
-    keyPrefix: 'c',
+  const { i18n } = useTranslation("translation", {
+    keyPrefix: "c",
   });
 
   /**
    * User info and init part
    */
-  const userInfo = useUserStore(state => state.userInfo);
-  const { isLoggedIn, initUser } = useUserStore(state => state);
+  const userInfo = useUserStore((state) => state.userInfo);
+  const { isLoggedIn, initUser } = useUserStore((state) => state);
   const [initialized, setInitialized] = useState(false);
 
   const { wechatCode } = useSystemStore(
-    useShallow(state => ({ wechatCode: state.wechatCode })),
+    useShallow((state) => ({ wechatCode: state.wechatCode })),
   );
 
   const initAndCheckLogin = useCallback(async () => {
@@ -74,7 +74,7 @@ export default function ChatPage() {
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent('/c')}`;
+    window.location.href = `/login?redirect=${encodeURIComponent("/c")}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -82,19 +82,19 @@ export default function ChatPage() {
   /**
    * UI layout part
    */
-  const { frameLayout, updateFrameLayout } = useUiLayoutStore(state => state);
+  const { frameLayout, updateFrameLayout } = useUiLayoutStore((state) => state);
   const mobileStyle = frameLayout === FRAME_LAYOUT_MOBILE;
 
   // check the frame layout
   useEffect(() => {
     const onResize = () => {
-      const frameLayout = calcFrameLayout('#root');
+      const frameLayout = calcFrameLayout("#root");
       updateFrameLayout(frameLayout);
     };
-    window.addEventListener('resize', onResize);
+    window.addEventListener("resize", onResize);
     onResize();
     return () => {
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener("resize", onResize);
     };
   }, [updateFrameLayout]);
 
@@ -112,7 +112,7 @@ export default function ChatPage() {
   /**
    * Lesson part
    */
-  let courseId = '';
+  let courseId = "";
   const params = useParams();
   if (params?.id?.[0]) {
     courseId = params.id[0];
@@ -154,7 +154,7 @@ export default function ChatPage() {
 
   const { lessonId, updateLessonId, chapterId, updateChapterId, courseName } =
     useCourseStore(
-      useShallow(state => ({
+      useShallow((state) => ({
         courseName: state.courseName,
         lessonId: state.lessonId,
         updateLessonId: state.updateLessonId,
@@ -183,13 +183,13 @@ export default function ChatPage() {
 
   // TODO: REMOVE
   console.log(
-    'chapterId: ',
+    "chapterId: ",
     chapterId,
-    'lessonId: ',
+    "lessonId: ",
     lessonId,
-    'initialized: ',
+    "initialized: ",
     initialized,
-    'loadedChapterId: ',
+    "loadedChapterId: ",
     loadedChapterId,
   );
 
@@ -222,13 +222,13 @@ export default function ChatPage() {
   };
 
   const onLessonUpdate = useCallback(
-    val => {
+    (val) => {
       updateLesson(val.id, val);
     },
     [updateLesson],
   );
 
-  const onGoChapter = async id => {
+  const onGoChapter = async (id) => {
     updateChapterId(id);
   };
 
@@ -263,7 +263,7 @@ export default function ChatPage() {
 
   const [payModalOpen, setPayModalOpen] = useState(false);
   const [payModalState, setPayModalState] = useState({
-    type: '',
+    type: "",
     payload: {},
   });
 
@@ -271,12 +271,12 @@ export default function ChatPage() {
     reloadTree();
   }, [reloadTree]);
 
-  const _onPayModalCancel = useCallback(e => {
+  const _onPayModalCancel = useCallback((e) => {
     setPayModalOpen(false);
     shifu.payTools.emitPayModalCancel(e);
   }, []);
 
-  const _onPayModalOk = useCallback(e => {
+  const _onPayModalOk = useCallback((e) => {
     setPayModalOpen(false);
     shifu.payTools.emitPayModalOk(e);
   }, []);
@@ -332,7 +332,7 @@ export default function ChatPage() {
 
   // listen global event
   useEffect(() => {
-    const resetChapterEventHandler = async e => {
+    const resetChapterEventHandler = async (e) => {
       await reloadTree(e.detail.chapter_id);
       onGoChapter(e.detail.chapter_id);
     };
@@ -341,8 +341,8 @@ export default function ChatPage() {
       gotoLogin();
     };
 
-    const payEventHandler = e => {
-      const { type = '', payload = {} } = e.detail;
+    const payEventHandler = (e) => {
+      const { type = "", payload = {} } = e.detail;
       setPayModalState({ type, payload });
       setPayModalOpen(true);
       // setLoginOkHandlerData({ type: 'pay', payload: {} });
@@ -384,19 +384,19 @@ export default function ChatPage() {
   return (
     <div className={clsx(styles.newChatPage)}>
       <AppContext.Provider
-        value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: '' }}
+        value={{ frameLayout, mobileStyle, isLoggedIn, userInfo, theme: "" }}
       >
         {!initialized ? (
-          <div className='flex flex-col space-y-6 p-6 container mx-auto'>
-            <Skeleton className='h-[125px] rounded-xl' />
-            <div className='space-y-4'>
-              <Skeleton className='h-6' />
-              <Skeleton className='h-6' />
-              <Skeleton className='h-6' />
-              <Skeleton className='h-6 w-1/3' />
-              <Skeleton className='h-6' />
-              <Skeleton className='h-6' />
-              <Skeleton className='h-6 w-3/4' />
+          <div className="flex flex-col space-y-6 p-6 container mx-auto">
+            <Skeleton className="h-[125px] rounded-xl" />
+            <div className="space-y-4">
+              <Skeleton className="h-6" />
+              <Skeleton className="h-6" />
+              <Skeleton className="h-6" />
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-6" />
+              <Skeleton className="h-6" />
+              <Skeleton className="h-6 w-3/4" />
             </div>
           </div>
         ) : null}
@@ -409,8 +409,8 @@ export default function ChatPage() {
               gotoLogin();
             }}
             lessonTree={tree}
-            selectedLessonId={selectedLessonId || ''}
-            onChapterCollapse={id => toggleCollapse({ id })}
+            selectedLessonId={selectedLessonId || ""}
+            onChapterCollapse={(id) => toggleCollapse({ id })}
             onLessonSelect={onLessonSelect}
             onTryLessonSelect={onTryLessonSelect}
             onBasicInfoClick={onGoToSettingBasic}

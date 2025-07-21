@@ -1,17 +1,17 @@
-import styles from './SettingRadioElement.module.scss';
+import styles from "./SettingRadioElement.module.scss";
 
-import { useEffect, memo, useState } from 'react';
+import { useEffect, memo, useState } from "react";
 
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-import { cn } from '@/lib/utils';
+import { cn } from "@/lib/utils";
 
 export const SettingRadioElement = ({
-  title = '',
-  className = '',
+  title = "",
+  className = "",
   options = [],
-  value = '',
+  value = "",
   // onChange = (e) => {},
 }) => {
   const [curr, setCurr] = useState(value);
@@ -33,9 +33,9 @@ export const SettingRadioElement = ({
       <div className={styles.title}>{title}</div>
       <div className={styles.inputWrapper}>
         <RadioGroup value={curr}>
-          {options.map(opt => {
+          {options.map((opt) => {
             const { label, value } = opt;
-            <div className='flex items-center gap-3'>
+            <div className="flex items-center gap-3">
               <Label>
                 <RadioGroupItem value={value} />
                 {label}

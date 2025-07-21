@@ -1,9 +1,9 @@
 /** inject Video to mc-editor */
-import Button from '@/components/button';
-import { Input } from '@/components/ui/input';
-import React, { useState, useRef, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import api from '@/api';
+import Button from "@/components/button";
+import { Input } from "@/components/ui/input";
+import React, { useState, useRef, useEffect } from "react";
+import { useTranslation } from "react-i18next";
+import api from "@/api";
 
 type VideoInjectProps = {
   value?: {
@@ -25,13 +25,13 @@ const biliVideoUrlRegexp =
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState(
-    value?.resourceTitle || t('common.video-title'),
+    value?.resourceTitle || t("common.video-title"),
   );
-  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '');
-  const [embedUrl, setEmbedUrl] = useState('');
+  const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || "");
+  const [embedUrl, setEmbedUrl] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const lastUrlRef = useRef('');
-  const [errorTips, setErrorTips] = useState('');
+  const lastUrlRef = useRef("");
+  const [errorTips, setErrorTips] = useState("");
 
   const isValidBilibiliUrl = (url: string) => {
     return biliVideoUrlRegexp.test(url);
@@ -43,9 +43,9 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   };
 
   const handleRun = () => {
-    setErrorTips('');
+    setErrorTips("");
     if (!isValidBilibiliUrl(inputUrl)) {
-      setErrorTips(t('common.please-input-valid-bilibili-url'));
+      setErrorTips(t("common.please-input-valid-bilibili-url"));
       return;
     }
 
@@ -58,12 +58,12 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
 
     api
       .getVideoInfo({ url: inputUrl })
-      .then(res => {
+      .then((res) => {
         setTitle(res.title);
       })
-      .catch(err => {
-        console.log('err', err);
-        setErrorTips(t('common.please-input-valid-bilibili-url'));
+      .catch((err) => {
+        console.log("err", err);
+        setErrorTips(t("common.please-input-valid-bilibili-url"));
       });
 
     setEmbedUrl(newEmbedUrl);
@@ -79,7 +79,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
           resourceTitle: title,
         });
       } catch (error) {
-        console.log('error', error);
+        console.log("error", error);
         onSelect({ resourceUrl: inputUrl, resourceTitle: title });
       }
     }
@@ -97,45 +97,39 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
 
   return (
     <div>
-      <div className='flex items-center space-x-2'>
+      <div className="flex items-center space-x-2">
         <Input
-          type='text'
+          type="text"
           value={inputUrl}
-          onChange={e => setInputUrl(e.target.value?.trim())}
-          placeholder={t('common.please-input-bilibili-url')}
-          autoComplete='off'
+          onChange={(e) => setInputUrl(e.target.value?.trim())}
+          placeholder={t("common.please-input-bilibili-url")}
+          autoComplete="off"
         />
-        <Button
-          className='h-8'
-          onClick={handleRun}
-        >
-          {t('common.run')}
+        <Button className="h-8" onClick={handleRun}>
+          {t("common.run")}
         </Button>
         {embedUrl && (
-          <Button
-            className='h-8'
-            onClick={handleSelect}
-          >
-            {t('common.use-resource')}
+          <Button className="h-8" onClick={handleSelect}>
+            {t("common.use-resource")}
           </Button>
         )}
       </div>
       {!!errorTips && <div>{errorTips}</div>}
 
       {embedUrl && (
-        <div className='space-y-4'>
+        <div className="space-y-4">
           <Input
             value={title}
-            aria-placeholder={t('common.video-title-placeholder')}
-            onChange={e => setTitle(e.target.value.slice(0, 100))}
-            placeholder={t('common.video-title')}
-            className='mt-4'
+            aria-placeholder={t("common.video-title-placeholder")}
+            onChange={(e) => setTitle(e.target.value.slice(0, 100))}
+            placeholder={t("common.video-title")}
+            className="mt-4"
             maxLength={100}
           />
           <div
             style={{
-              position: 'relative',
-              paddingTop: '56.25%',
+              position: "relative",
+              paddingTop: "56.25%",
               marginTop: 16,
             }}
           >
@@ -145,14 +139,14 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
               style={{
                 top: 0,
                 left: 0,
-                width: '100%',
-                height: '100%',
-                position: 'absolute',
+                width: "100%",
+                height: "100%",
+                position: "absolute",
                 border: 0,
               }}
               allowFullScreen
-              allow='autoplay; encrypted-media'
-              title='bilibili-video'
+              allow="autoplay; encrypted-media"
+              title="bilibili-video"
             />
           </div>
         </div>

@@ -1,6 +1,6 @@
-import React from 'react';
-import { Button } from '../Button';
-import { useLocale } from '../LocaleProvider';
+import React from "react";
+import { Button } from "../Button";
+import { useLocale } from "../LocaleProvider";
 
 interface SendButtonProps {
   disabled: boolean;
@@ -8,16 +8,16 @@ interface SendButtonProps {
 }
 
 export const SendButton = ({ disabled, onClick }: SendButtonProps) => {
-  const { trans } = useLocale('Composer');
+  const { trans } = useLocale("Composer");
   return (
-    <div className='Composer-actions'>
+    <div className="Composer-actions">
       <Button
-        className='Composer-sendBtn'
+        className="Composer-sendBtn"
         disabled={disabled}
         onMouseDown={onClick}
-        color='primary'
+        color="primary"
       >
-        {trans('send')}
+        {trans("send")}
       </Button>
     </div>
   );

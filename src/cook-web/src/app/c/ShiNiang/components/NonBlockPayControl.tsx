@@ -1,16 +1,16 @@
-import { memo, useState } from 'react';
-import { useShallow } from 'zustand/react/shallow';
+import { memo, useState } from "react";
+import { useShallow } from "zustand/react/shallow";
 
-import PayModal from '@/app/c/[[...id]]/Components/Pay/PayModal';
-import PayModalM from '@/app/c/[[...id]]/Components/Pay/PayModalM';
-import { customEvents, EVENT_TYPE } from '../events/event';
+import PayModal from "@/app/c/[[...id]]/Components/Pay/PayModal";
+import PayModalM from "@/app/c/[[...id]]/Components/Pay/PayModalM";
+import { customEvents, EVENT_TYPE } from "../events/event";
 
-import { shifu } from '../config/config';
-import { usePayStore } from '../stores/usePayStore';
+import { shifu } from "../config/config";
+import { usePayStore } from "../stores/usePayStore";
 const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
   const [isShow] = useState(true);
   const { updateHasPay } = usePayStore(
-    useShallow(state => ({ updateHasPay: state.updateHasPay })),
+    useShallow((state) => ({ updateHasPay: state.updateHasPay })),
   );
 
   const onPayModalOk = () => {
@@ -40,7 +40,7 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
             open={isShow}
             onCancel={onNonBlockPayModalClose}
             onOk={onPayModalOk}
-            type={''}
+            type={""}
             payload={{}}
           />
         ) : (
@@ -48,7 +48,7 @@ const NonBlockPayControl = ({ payload, onComplete, onClose }) => {
             open={isShow}
             onCancel={onNonBlockPayModalClose}
             onOk={onPayModalOk}
-            type={''}
+            type={""}
             payload={{}}
           />
         ))}

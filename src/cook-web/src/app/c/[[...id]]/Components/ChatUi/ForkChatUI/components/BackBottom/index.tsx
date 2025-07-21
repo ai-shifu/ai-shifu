@@ -1,7 +1,7 @@
-import React, { useEffect } from 'react';
-import { Button } from '../Button';
-import { Icon } from '../Icon';
-import { useLocale } from '../LocaleProvider';
+import React, { useEffect } from "react";
+import { Button } from "../Button";
+import { Icon } from "../Icon";
+import { useLocale } from "../LocaleProvider";
 
 interface BackBottomProps {
   count: number;
@@ -10,11 +10,11 @@ interface BackBottomProps {
 }
 
 export const BackBottom = ({ count, onClick, onDidMount }: BackBottomProps) => {
-  const { trans } = useLocale('BackBottom');
-  let text = trans('bottom');
+  const { trans } = useLocale("BackBottom");
+  let text = trans("bottom");
   if (count) {
-    text = trans(count === 1 ? 'newMsgOne' : 'newMsgOther').replace(
-      '{n}',
+    text = trans(count === 1 ? "newMsgOne" : "newMsgOther").replace(
+      "{n}",
       count,
     );
   }
@@ -26,13 +26,10 @@ export const BackBottom = ({ count, onClick, onDidMount }: BackBottomProps) => {
   }, [onDidMount]);
 
   return (
-    <div className='BackBottom'>
-      <Button
-        className='slide-in-right-item'
-        onClick={onClick}
-      >
+    <div className="BackBottom">
+      <Button className="slide-in-right-item" onClick={onClick}>
         {text}
-        <Icon type='chevron-double-down' />
+        <Icon type="chevron-double-down" />
       </Button>
     </div>
   );

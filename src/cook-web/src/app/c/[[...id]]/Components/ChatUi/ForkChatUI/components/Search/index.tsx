@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
-import clsx from 'clsx';
-import { Icon } from '../Icon';
-import { IconButton } from '../IconButton';
-import { Button } from '../Button';
-import { Input, InputProps } from '../Input';
-import { useLocale } from '../LocaleProvider';
+import React, { useState } from "react";
+import clsx from "clsx";
+import { Icon } from "../Icon";
+import { IconButton } from "../IconButton";
+import { Button } from "../Button";
+import { Input, InputProps } from "../Input";
+import { useLocale } from "../LocaleProvider";
 
-export interface SearchProps extends Omit<InputProps, 'value'> {
+export interface SearchProps extends Omit<InputProps, "value"> {
   className?: string;
   value?: string;
   placeholder?: string;
@@ -33,8 +33,8 @@ export const Search = ({
   showSearch = true,
   ...other
 }: SearchProps) => {
-  const [query, setQuery] = useState(value || '');
-  const { trans } = useLocale('Search');
+  const [query, setQuery] = useState(value || "");
+  const { trans } = useLocale("Search");
 
   const handleChange = (val: string) => {
     setQuery(val);
@@ -45,7 +45,7 @@ export const Search = ({
   };
 
   const handleClear = () => {
-    setQuery('');
+    setQuery("");
 
     if (onClear) {
       onClear();
@@ -70,34 +70,31 @@ export const Search = ({
   };
 
   return (
-    <div className={clsx('Search', className)}>
-      <Icon
-        className='Search-icon'
-        type='search'
-      />
+    <div className={clsx("Search", className)}>
+      <Icon className="Search-icon" type="search" />
       <Input
-        className='Search-input'
-        type='search'
+        className="Search-input"
+        type="search"
         value={query}
-        enterKeyHint='search'
+        enterKeyHint="search"
         onChange={handleChange}
         onKeyDown={handleKeyDown}
         {...other}
       />
       {clearable && query && (
         <IconButton
-          className='Search-clear'
-          icon='x-circle-fill'
+          className="Search-clear"
+          icon="x-circle-fill"
           onClick={handleClear}
         />
       )}
       {showSearch && (
         <Button
-          className='Search-btn'
-          color='primary'
+          className="Search-btn"
+          color="primary"
           onClick={handleSearchClick}
         >
-          {trans('search')}
+          {trans("search")}
         </Button>
       )}
     </div>

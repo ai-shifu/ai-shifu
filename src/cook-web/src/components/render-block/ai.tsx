@@ -1,5 +1,5 @@
-import CMEditor from '@/components/cm-editor';
-import { UIBlockDTO, ContentDTO } from '@/types/shifu';
+import CMEditor from "@/components/cm-editor";
+import { UIBlockDTO, ContentDTO } from "@/types/shifu";
 
 export default function AI(props: UIBlockDTO) {
   const { data } = props;
@@ -9,7 +9,7 @@ export default function AI(props: UIBlockDTO) {
       content={content}
       isEdit={props.isEdit}
       // onBlur={props.onBlur}
-      onChange={value => {
+      onChange={(value) => {
         props.onPropertiesChange({
           ...data,
           properties: { ...data.properties, content: value },

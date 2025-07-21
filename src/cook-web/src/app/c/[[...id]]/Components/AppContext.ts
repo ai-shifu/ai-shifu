@@ -1,6 +1,6 @@
-import { createContext } from 'react';
-import { THEME_LIGHT, FRAME_LAYOUT_PC } from '@/c-constants/uiConstants';
-import { UserInfo } from '@/c-types/index';
+import { createContext } from "react";
+import { THEME_LIGHT, FRAME_LAYOUT_PC } from "@/c-constants/uiConstants";
+import { UserInfo } from "@/c-types/index";
 
 export const AppContext = createContext<{
   isLoggedIn: boolean;

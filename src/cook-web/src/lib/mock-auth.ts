@@ -9,14 +9,14 @@ interface User {
 // 模拟存储的用户
 const mockUsers = [
   {
-    email: 'test@example.com',
-    password: 'password123',
-    id: 'user-1',
+    email: "test@example.com",
+    password: "password123",
+    id: "user-1",
     last_sign_in_at: new Date().toISOString(),
   },
   {
-    phone: '13800138000',
-    id: 'user-2',
+    phone: "13800138000",
+    id: "user-2",
     last_sign_in_at: new Date().toISOString(),
   },
 ];
@@ -35,14 +35,14 @@ export const mockAuth = {
     password: string;
   }) => {
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     const user = mockUsers.find(
-      u => u.email === email && u.password === password,
+      (u) => u.email === email && u.password === password,
     );
 
     if (!user) {
-      return { error: { message: '邮箱或密码错误' } };
+      return { error: { message: "邮箱或密码错误" } };
     }
 
     const userData = {
@@ -52,7 +52,7 @@ export const mockAuth = {
     };
 
     mockAuth.currentUser = userData;
-    localStorage.setItem('mockUser', JSON.stringify(userData));
+    localStorage.setItem("mockUser", JSON.stringify(userData));
 
     return { data: { user: userData }, error: null };
   },
@@ -60,7 +60,7 @@ export const mockAuth = {
   // 手机号登录/注册 - 发送OTP
   signInWithOtp: async ({}: { phone?: string; email?: string }) => {
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 模拟发送验证码成功
     return { error: null };
@@ -77,15 +77,15 @@ export const mockAuth = {
     type: string;
   }) => {
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 模拟验证码验证成功
-    if (token === '123456' || token === '') {
+    if (token === "123456" || token === "") {
       let userData;
 
       if (phone) {
         userData = {
-          id: 'user-' + Math.floor(Math.random() * 1000),
+          id: "user-" + Math.floor(Math.random() * 1000),
           phone,
           last_sign_in_at: new Date().toISOString(),
         };
@@ -95,28 +95,28 @@ export const mockAuth = {
       }
 
       mockAuth.currentUser = userData;
-      localStorage.setItem('mockUser', JSON.stringify(userData));
+      localStorage.setItem("mockUser", JSON.stringify(userData));
 
       return { data: { user: userData }, error: null };
     }
 
-    return { error: { message: '验证码错误' } };
+    return { error: { message: "验证码错误" } };
   },
 
   // 注册
   signUp: async ({ email }: { email: string; password: string }) => {
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 模拟注册成功
     const userData = {
-      id: 'user-' + Math.floor(Math.random() * 1000),
+      id: "user-" + Math.floor(Math.random() * 1000),
       email,
       last_sign_in_at: new Date().toISOString(),
     };
 
     mockAuth.currentUser = userData;
-    localStorage.setItem('mockUser', JSON.stringify(userData));
+    localStorage.setItem("mockUser", JSON.stringify(userData));
 
     return { data: { user: userData }, error: null };
   },
@@ -124,7 +124,7 @@ export const mockAuth = {
   // 重置密码邮件 - 现在模拟发送验证码
   resetPasswordForEmail: async () => {
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 模拟发送验证码成功
     return { error: null };
@@ -133,7 +133,7 @@ export const mockAuth = {
   // 更新用户
   updateUser: async ({}: { password: string }) => {
     // 模拟网络延迟
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
     // 模拟更新密码成功
     return { error: null };
@@ -142,7 +142,7 @@ export const mockAuth = {
   // 获取当前用户
   getUser: async () => {
     // 从本地存储获取用户
-    const storedUser = localStorage.getItem('mockUser');
+    const storedUser = localStorage.getItem("mockUser");
     const user = storedUser ? JSON.parse(storedUser) : null;
     mockAuth.currentUser = user;
 
@@ -152,7 +152,7 @@ export const mockAuth = {
   // 退出登录
   signOut: async () => {
     // 清除本地存储的用户
-    localStorage.removeItem('mockUser');
+    localStorage.removeItem("mockUser");
     mockAuth.currentUser = null;
 
     return { error: null };

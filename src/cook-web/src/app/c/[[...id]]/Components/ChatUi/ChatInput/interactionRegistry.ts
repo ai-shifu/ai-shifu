@@ -7,6 +7,6 @@ export const registerInteractionType = (type, component) => {
 };
 
 // Function to get a registered interaction type component
-export const getInteractionComponent = type => {
+export const getInteractionComponent = (type) => {
   return interactionTypeRegistry[type];
 };

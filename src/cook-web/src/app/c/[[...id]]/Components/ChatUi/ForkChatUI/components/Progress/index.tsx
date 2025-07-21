@@ -1,10 +1,10 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export type ProgressProps = {
   className?: string;
   value: number;
-  status?: 'active' | 'success' | 'error';
+  status?: "active" | "success" | "error";
   children?: React.ReactNode;
 };
 
@@ -14,13 +14,13 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
 
     return (
       <div
-        className={clsx('Progress', status && `Progress--${status}`, className)}
+        className={clsx("Progress", status && `Progress--${status}`, className)}
         ref={ref}
         {...other}
       >
         <div
-          className='Progress-bar'
-          role='progressbar'
+          className="Progress-bar"
+          role="progressbar"
           style={{ width: `${value}%` }}
           aria-valuenow={value}
           aria-valuemin={0}
@@ -33,4 +33,4 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
   },
 );
 
-Progress.displayName = 'Progress';
+Progress.displayName = "Progress";

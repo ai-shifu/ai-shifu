@@ -1,10 +1,10 @@
-import { memo } from 'react';
+import { memo } from "react";
 
-import { useEnvStore } from '@/c-store/envStore';
+import { useEnvStore } from "@/c-store/envStore";
 
-import Image from 'next/image';
-import imgLogoRow from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
-import imgLogoColumn from '@/c-assets/logos/ai-shifu-logo-vertical.png';
+import Image from "next/image";
+import imgLogoRow from "@/c-assets/logos/ai-shifu-logo-horizontal.png";
+import imgLogoColumn from "@/c-assets/logos/ai-shifu-logo-vertical.png";
 
 /**
  *
@@ -13,24 +13,24 @@ import imgLogoColumn from '@/c-assets/logos/ai-shifu-logo-vertical.png';
  * @returns
  */
 export const LogoWithText = ({ direction, size = 64 }) => {
-  const isRow = direction === 'row';
-  const flexFlow = isRow ? 'row nowrap' : 'column nowrap';
-  const logoHorizontal = useEnvStore(state => state.logoHorizontal);
-  const logoVertical = useEnvStore(state => state.logoVertical);
-  const siteUrl = useEnvStore(state => state.siteUrl);
+  const isRow = direction === "row";
+  const flexFlow = isRow ? "row nowrap" : "column nowrap";
+  const logoHorizontal = useEnvStore((state) => state.logoHorizontal);
+  const logoVertical = useEnvStore((state) => state.logoVertical);
+  const siteUrl = useEnvStore((state) => state.siteUrl);
   const width = isRow ? size * 3.8125 : size;
   const height = isRow ? size : size * 2.5;
   const commonStyles = {
-    width: width + 'px',
-    height: height + 'px',
+    width: width + "px",
+    height: height + "px",
   };
 
   return (
     <div
       style={{
-        display: 'flex',
+        display: "flex",
         flexFlow: flexFlow,
-        alignItems: 'center',
+        alignItems: "center",
         ...commonStyles,
       }}
     >
@@ -38,7 +38,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         {isRow ? (
           <Image
             src={logoHorizontal || imgLogoRow.src}
-            alt='logo'
+            alt="logo"
             width={width}
             height={height}
             style={{ ...commonStyles }}
@@ -46,7 +46,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         ) : (
           <Image
             src={logoVertical || imgLogoColumn.src}
-            alt='logo'
+            alt="logo"
             width={width}
             height={height}
             style={{ ...commonStyles }}

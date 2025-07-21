@@ -1,9 +1,9 @@
-import React from 'react';
+import React from "react";
 
-import { createRoot } from 'react-dom/client';
+import { createRoot } from "react-dom/client";
 
 export function mountComponent(Comp: React.ReactElement, root = document.body) {
-  const div = document.createElement('div');
+  const div = document.createElement("div");
   root.appendChild(div);
   const rootContainer = createRoot(div);
 

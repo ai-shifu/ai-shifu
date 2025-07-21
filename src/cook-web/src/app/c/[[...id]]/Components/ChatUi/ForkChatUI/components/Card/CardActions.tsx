@@ -1,18 +1,18 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export type CardActionsProps = {
   className?: string;
-  direction?: 'column' | 'row';
+  direction?: "column" | "row";
 };
 
-export const CardActions: React.FC<CardActionsProps> = props => {
+export const CardActions: React.FC<CardActionsProps> = (props) => {
   // @ts-expect-error EXPECT
   const { children, className, direction, ...other } = props;
   return (
     <div
       className={clsx(
-        'CardActions',
+        "CardActions",
         className,
         direction && `CardActions--${direction}`,
       )}

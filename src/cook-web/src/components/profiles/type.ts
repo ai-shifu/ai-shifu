@@ -1,5 +1,5 @@
-type ProfileType = 'text' | 'option';
-type ProfileScope = 'system' | 'user';
+type ProfileType = "text" | "option";
+type ProfileScope = "system" | "user";
 
 interface EnumItem {
   value: string;

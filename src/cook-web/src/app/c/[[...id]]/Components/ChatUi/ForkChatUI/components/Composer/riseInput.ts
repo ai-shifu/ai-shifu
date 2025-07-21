@@ -7,7 +7,7 @@ function uaIncludes(str: string) {
 
 function testScrollType() {
   if (iOS) {
-    if (uaIncludes('Safari/') || /OS 11_[0-3]\D/.test(ua)) {
+    if (uaIncludes("Safari/") || /OS 11_[0-3]\D/.test(ua)) {
       /**
        * 不处理
        * - Safari
@@ -39,12 +39,12 @@ export default function riseInput(input: HTMLElement, target: HTMLElement) {
     }
   };
 
-  input.addEventListener('focus', () => {
+  input.addEventListener("focus", () => {
     setTimeout(scrollIntoView, 300);
     scrollTimer = setTimeout(scrollIntoView, 1000);
   });
 
-  input.addEventListener('blur', () => {
+  input.addEventListener("blur", () => {
     clearTimeout(scrollTimer);
 
     // 某些情况下收起键盘后输入框不收回，页面下面空白

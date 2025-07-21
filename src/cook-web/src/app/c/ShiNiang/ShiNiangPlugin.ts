@@ -1,14 +1,14 @@
-import { initShifu } from './config/config';
-import NonBlockPayControl from './components/NonBlockPayControl';
-import NavigatorTitleRightArea from './components/NavigatorTitleRightArea';
-import TrialNodeBottomArea from './components/TrialNodeBottomArea';
-import MobileHeaderIconPopoverContent from './components/MobileHeaderIconPopoverContent';
-import ActiveMessage from './components/ActiveMessage';
+import { initShifu } from "./config/config";
+import NonBlockPayControl from "./components/NonBlockPayControl";
+import NavigatorTitleRightArea from "./components/NavigatorTitleRightArea";
+import TrialNodeBottomArea from "./components/TrialNodeBottomArea";
+import MobileHeaderIconPopoverContent from "./components/MobileHeaderIconPopoverContent";
+import ActiveMessage from "./components/ActiveMessage";
 
 export const shiNiangPlugin = {
-  install: shifu => {
+  install: (shifu) => {
     initShifu(shifu);
-    shifu.registerChatInputActionControls('nonblock_order', NonBlockPayControl);
+    shifu.registerChatInputActionControls("nonblock_order", NonBlockPayControl);
     shifu.registerControl(
       shifu.ControlTypes.NAVIGATOR_TITLE_RIGHT_AREA,
       NavigatorTitleRightArea,

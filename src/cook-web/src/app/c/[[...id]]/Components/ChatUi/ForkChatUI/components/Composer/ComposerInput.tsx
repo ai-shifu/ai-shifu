@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import clsx from 'clsx';
-import { Input, InputProps } from '../Input';
-import { SendConfirm } from '../SendConfirm';
-import riseInput from './riseInput';
-import parseDataTransfer from '../../utils/parseDataTransfer';
-import canUse from '../../utils/canUse';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import clsx from "clsx";
+import { Input, InputProps } from "../Input";
+import { SendConfirm } from "../SendConfirm";
+import riseInput from "./riseInput";
+import parseDataTransfer from "../../utils/parseDataTransfer";
+import canUse from "../../utils/canUse";
 
-const canTouch = canUse('touch');
+const canTouch = canUse("touch");
 
 interface ComposerInputProps extends InputProps {
   invisible: boolean;
@@ -46,15 +46,12 @@ export const ComposerInput = ({
   }, [inputRef]);
 
   return (
-    <div
-      className={clsx({ 'S--invisible': invisible })}
-      ref={wrapRef}
-    >
+    <div className={clsx({ "S--invisible": invisible })} ref={wrapRef}>
       <Input
-        className='Composer-input'
+        className="Composer-input"
         rows={1}
         autoSize
-        enterKeyHint='send'
+        enterKeyHint="send"
         onPaste={onImageSend ? handlePaste : undefined}
         ref={inputRef}
         {...rest}

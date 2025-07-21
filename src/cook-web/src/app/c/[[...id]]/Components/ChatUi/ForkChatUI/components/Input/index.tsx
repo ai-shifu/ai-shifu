@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useContext, useCallback } from 'react';
-import clsx from 'clsx';
-import { ThemeContext } from '../Form';
-import useForwardRef from '../../hooks/useForwardRef';
+import React, { useState, useEffect, useContext, useCallback } from "react";
+import clsx from "clsx";
+import { ThemeContext } from "../Form";
+import useForwardRef from "../../hooks/useForwardRef";
 
-function getCount(value: InputProps['value'], maxLength?: number) {
-  return `${`${value}`.length}${maxLength ? `/${maxLength}` : ''}`;
+function getCount(value: InputProps["value"], maxLength?: number) {
+  return `${`${value}`.length}${maxLength ? `/${maxLength}` : ""}`;
 }
 
-export type InputVariant = 'outline' | 'filled' | 'flushed';
+export type InputVariant = "outline" | "filled" | "flushed";
 
 export type InputRef = HTMLInputElement | HTMLTextAreaElement;
 
 export interface InputProps
-  extends Omit<React.InputHTMLAttributes<InputRef>, 'onChange'> {
+  extends Omit<React.InputHTMLAttributes<InputRef>, "onChange"> {
   variant?: InputVariant;
   rows?: number;
   minRows?: number;
@@ -27,7 +27,7 @@ export interface InputProps
 export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
   const {
     className,
-    type = 'text',
+    type = "text",
     variant: oVariant,
     value,
     placeholder,
@@ -53,15 +53,15 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
   const [lineHeight, setLineHeight] = useState(21);
   const inputRef = useForwardRef<any>(ref);
   const theme = useContext(ThemeContext);
-  const variant = oVariant || (theme === 'light' ? 'flushed' : 'outline');
+  const variant = oVariant || (theme === "light" ? "flushed" : "outline");
   const isMultiline = multiline || autoSize || oRows > 1;
-  const Element = isMultiline ? 'textarea' : 'input';
+  const Element = isMultiline ? "textarea" : "input";
 
   useEffect(() => {
     if (!inputRef.current) return;
 
     const lhStr = getComputedStyle(inputRef.current, null).lineHeight;
-    const lh = Number(lhStr.replace('px', ''));
+    const lh = Number(lhStr.replace("px", ""));
 
     if (lh !== lineHeight) {
       setLineHeight(lh);
@@ -76,7 +76,7 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
     target.rows = minRows;
 
     if (placeholder) {
-      target.placeholder = '';
+      target.placeholder = "";
     }
 
     const currentRows = ~~(target.scrollHeight / lineHeight);
@@ -98,7 +98,7 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
   }, [autoSize, inputRef, lineHeight, maxRows, minRows, placeholder]);
 
   useEffect(() => {
-    if (value === '') {
+    if (value === "") {
       setRows(initialRows);
     } else {
       updateRow();
@@ -123,7 +123,7 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
 
   const input = (
     <Element
-      className={clsx('Input', `Input--${variant}`, className)}
+      className={clsx("Input", `Input--${variant}`, className)}
       type={type}
       value={value}
       placeholder={placeholder}
@@ -137,10 +137,10 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
 
   if (showCount) {
     return (
-      <div className={clsx('InputWrapper', { 'has-counter': showCount })}>
+      <div className={clsx("InputWrapper", { "has-counter": showCount })}>
         {input}
         {showCount && (
-          <div className='Input-counter'>{getCount(value, maxLength)}</div>
+          <div className="Input-counter">{getCount(value, maxLength)}</div>
         )}
       </div>
     );
@@ -148,4 +148,4 @@ export const Input = React.forwardRef<InputRef, InputProps>((props, ref) => {
   return input;
 });
 
-Input.displayName = 'Input';
+Input.displayName = "Input";

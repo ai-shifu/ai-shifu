@@ -1,19 +1,19 @@
-import styles from './CopyButton.module.scss';
+import styles from "./CopyButton.module.scss";
 
-import { memo, useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { CopyIcon } from 'lucide-react';
+import { memo, useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { CopyIcon } from "lucide-react";
 
-import clsx from 'clsx';
-import { copyText } from '@/c-utils/textutils';
-import { useTranslation } from 'react-i18next';
+import clsx from "clsx";
+import { copyText } from "@/c-utils/textutils";
+import { useTranslation } from "react-i18next";
 
 const TIMEOUT = 5000;
 
 export const CopyButton = ({ content }) => {
   const [hasCopy, setHasCopy] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout>(undefined);
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation("translation", { keyPrefix: "c" });
 
   const onCopyClick = () => {
     copyText(content);
@@ -29,14 +29,14 @@ export const CopyButton = ({ content }) => {
     <Button
       className={clsx(
         styles.copyButton,
-        hasCopy ? styles.copyed : '',
-        'border-dashed',
+        hasCopy ? styles.copyed : "",
+        "border-dashed",
       )}
-      variant='outline'
+      variant="outline"
       onClick={onCopyClick}
     >
       <CopyIcon />
-      {hasCopy ? t('chat.copySuccess') : t('chat.copyText')}
+      {hasCopy ? t("chat.copySuccess") : t("chat.copyText")}
     </Button>
   );
 };

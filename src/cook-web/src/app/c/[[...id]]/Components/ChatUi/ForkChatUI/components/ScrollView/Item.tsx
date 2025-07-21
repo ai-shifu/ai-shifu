@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
-import clsx from 'clsx';
+import React, { useEffect, useRef } from "react";
+import clsx from "clsx";
 
-export type ScrollViewEffect = 'slide' | 'fade' | '';
+export type ScrollViewEffect = "slide" | "fade" | "";
 
 export type ScrollViewItemProps = {
   item: any;
@@ -17,7 +17,7 @@ const observerOptions = {
   threshold: [0, 0.1],
 };
 
-export const Item: React.FC<ScrollViewItemProps> = props => {
+export const Item: React.FC<ScrollViewItemProps> = (props) => {
   const { item, effect, children, onIntersect } = props;
   const itemRef = useRef<HTMLDivElement>(null);
 
@@ -43,9 +43,9 @@ export const Item: React.FC<ScrollViewItemProps> = props => {
 
   return (
     <div
-      className={clsx('ScrollView-item', {
-        'slide-in-right-item': effect === 'slide',
-        'A-fadeIn': effect === 'fade',
+      className={clsx("ScrollView-item", {
+        "slide-in-right-item": effect === "slide",
+        "A-fadeIn": effect === "fade",
       })}
       ref={itemRef}
     >

@@ -1,4 +1,4 @@
-declare module 'sse.js' {
+declare module "sse.js" {
   export class SSE {
     constructor(
       url: string,

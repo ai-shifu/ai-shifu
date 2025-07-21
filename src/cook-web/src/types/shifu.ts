@@ -1,11 +1,11 @@
 export type BlockType =
-  | 'content'
-  | 'button'
-  | 'login'
-  | 'payment'
-  | 'options'
-  | 'goto'
-  | 'input';
+  | "content"
+  | "button"
+  | "login"
+  | "payment"
+  | "options"
+  | "goto"
+  | "input";
 
 export interface Shifu {
   bid: string;
@@ -25,7 +25,7 @@ export interface Outline {
   name?: string;
   children?: Outline[];
   depth?: number;
-  status?: 'new' | 'edit' | 'saving';
+  status?: "new" | "edit" | "saving";
   shifu_bid?: string;
 }
 
@@ -70,7 +70,7 @@ export interface ShifuState {
   blockUITypes: { [x: string]: string };
   blockContentProperties: { [x: string]: any };
   blockContentTypes: { [x: string]: string };
-  blockContentState: { [x: string]: 'edit' | 'preview' };
+  blockContentState: { [x: string]: "edit" | "preview" };
   blockProperties: { [x: string]: any };
   blockErrors: { [x: string]: string | null };
   profileItemDefinations: ProfileItem[];
@@ -98,7 +98,7 @@ export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
   loadShifu: (shifuId: string) => Promise<void>;
   loadChapters: (shifuId: string) => Promise<void>;
-  createChapter: (chapter: Omit<Outline, 'chapter_id'>) => Promise<void>;
+  createChapter: (chapter: Omit<Outline, "chapter_id">) => Promise<void>;
   setChapters: (chapters: Outline[]) => void;
   setFocusId: (id: string) => void;
   setFocusValue: (value: string) => void;
@@ -132,7 +132,7 @@ export interface ShifuActions {
     move_to_parent_id?: string,
     chapterIds?: string[],
   ) => Promise<void>;
-  setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
+  setBlockContentStateById: (id: string, state: "edit" | "preview") => void;
   setBlocks: (blocks: Block[]) => void;
   saveBlocks: (shifuId: string) => Promise<void>;
   autoSaveBlocks: (

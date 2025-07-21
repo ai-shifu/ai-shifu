@@ -1,8 +1,8 @@
 export enum UserRole {
-  GUEST = 'guest',
-  REGISTERED = 'registered',
-  CREATOR = 'creator',
-  ADMIN = 'admin',
+  GUEST = "guest",
+  REGISTERED = "registered",
+  CREATOR = "creator",
+  ADMIN = "admin",
 }
 
 export interface UserRoleInfo {

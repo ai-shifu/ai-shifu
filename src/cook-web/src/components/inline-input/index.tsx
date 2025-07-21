@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { debounce } from 'lodash';
-import { Input } from '../ui/input';
-import { cn } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { debounce } from "lodash";
+import { Input } from "../ui/input";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 interface InlineInputProps {
   isEdit?: boolean;
   value: string;
@@ -38,7 +38,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
   };
 
   const handleBlur = () => {
-    if (inputValue === '') {
+    if (inputValue === "") {
       return;
     }
     setIsEditing(false);
@@ -47,10 +47,10 @@ export const InlineInput: React.FC<InlineInputProps> = ({
 
   const debouncedOnChange = useCallback(
     debounce((value: string) => {
-      if (value === '') {
+      if (value === "") {
         return;
       }
-      onChange(value || t('inline-input.unnamed'));
+      onChange(value || t("inline-input.unnamed"));
     }, 300),
     [onChange, t],
   );
@@ -67,7 +67,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
   }, [debouncedOnChange]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       setIsEditing(false);
       debouncedOnChange(inputValue);
     }
@@ -78,7 +78,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
   }, [isEdit]);
 
   return (
-    <div className={cn('inline-block w-full', className)}>
+    <div className={cn("inline-block w-full", className)}>
       {isEditing ? (
         <Input
           maxLength={20}
@@ -87,16 +87,16 @@ export const InlineInput: React.FC<InlineInputProps> = ({
           onChange={handleChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className='w-full h-6 border-none focus:outline-none focus:ring-0 px-2'
-          onClick={e => e.stopPropagation()}
-          onDrag={e => e.stopPropagation()}
-          onDragCapture={e => e.stopPropagation()}
-          onPointerDown={e => e.stopPropagation()}
+          className="w-full h-6 border-none focus:outline-none focus:ring-0 px-2"
+          onClick={(e) => e.stopPropagation()}
+          onDrag={(e) => e.stopPropagation()}
+          onDragCapture={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
         />
       ) : (
         <span
           title={value}
-          className='w-full block whitespace-nowrap  max-w-52 2xl:max-w-72 overflow-hidden text-ellipsis'
+          className="w-full block whitespace-nowrap  max-w-52 2xl:max-w-72 overflow-hidden text-ellipsis"
           onDoubleClick={handleDoubleClick}
         >
           {value}

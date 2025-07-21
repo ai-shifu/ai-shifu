@@ -36,7 +36,7 @@ interface EnvironmentConfig {
  * 在服务端运行时获取环境变量
  */
 function getRuntimeEnv(key: string): string | undefined {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     // 服务端
     return process.env[key];
   }
@@ -48,11 +48,11 @@ function getRuntimeEnv(key: string): string | undefined {
  * 在客户端运行时从 /api/config 获取配置
  * 支持 npm start 后通过环境变量动态配置
  */
-let cachedApiBaseUrl: string = '';
+let cachedApiBaseUrl: string = "";
 let configFetchPromise: Promise<string> | null = null;
 
 async function getClientApiBaseUrl(): Promise<string> {
-  if (cachedApiBaseUrl && cachedApiBaseUrl !== '') {
+  if (cachedApiBaseUrl && cachedApiBaseUrl !== "") {
     return cachedApiBaseUrl;
   }
 
@@ -63,7 +63,7 @@ async function getClientApiBaseUrl(): Promise<string> {
 
   configFetchPromise = (async () => {
     try {
-      const response = await fetch('/api/config');
+      const response = await fetch("/api/config");
       if (response.ok) {
         const config = await response.json();
         if (config.apiBaseUrl) {
@@ -72,11 +72,11 @@ async function getClientApiBaseUrl(): Promise<string> {
         }
       }
     } catch (error) {
-      console.warn('Failed to fetch runtime config:', error);
+      console.warn("Failed to fetch runtime config:", error);
     }
 
     // 如果获取失败，使用默认值
-    cachedApiBaseUrl = 'http://localhost:8081';
+    cachedApiBaseUrl = "http://localhost:8081";
     return cachedApiBaseUrl;
   })();
 
@@ -91,20 +91,20 @@ async function getClientApiBaseUrl(): Promise<string> {
  */
 function getApiBaseUrl(): string {
   // 1. 优先使用运行时环境变量（服务端）
-  const runtimeApiUrl = getRuntimeEnv('NEXT_PUBLIC_API_BASE_URL');
+  const runtimeApiUrl = getRuntimeEnv("NEXT_PUBLIC_API_BASE_URL");
   if (runtimeApiUrl) {
     return runtimeApiUrl;
   }
 
   // 2. 客户端使用默认值，会在运行时动态更新
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8081';
+  return process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8081";
 }
 
 /**
  * 获取动态API基础URL（客户端使用）
  */
 export async function getDynamicApiBaseUrl(): Promise<string> {
-  if (typeof window === 'undefined') {
+  if (typeof window === "undefined") {
     // 服务端直接返回
     return getApiBaseUrl();
   } else {
@@ -117,29 +117,29 @@ export async function getDynamicApiBaseUrl(): Promise<string> {
  * Gets course ID
  */
 function getCourseId(): string {
-  const runtimeCourseId = getRuntimeEnv('NEXT_PUBLIC_DEFAULT_COURSE_ID');
+  const runtimeCourseId = getRuntimeEnv("NEXT_PUBLIC_DEFAULT_COURSE_ID");
   if (runtimeCourseId) {
     return runtimeCourseId;
   }
-  return process.env.NEXT_PUBLIC_DEFAULT_COURSE_ID || '';
+  return process.env.NEXT_PUBLIC_DEFAULT_COURSE_ID || "";
 }
 
 /**
  * Gets WeChat App ID
  */
 function getWeChatAppId(): string {
-  const runtimeAppId = getRuntimeEnv('NEXT_PUBLIC_WECHAT_APP_ID');
+  const runtimeAppId = getRuntimeEnv("NEXT_PUBLIC_WECHAT_APP_ID");
   if (runtimeAppId) {
     return runtimeAppId;
   }
-  return process.env.NEXT_PUBLIC_WECHAT_APP_ID || '';
+  return process.env.NEXT_PUBLIC_WECHAT_APP_ID || "";
 }
 
 /**
  * Gets WeChat code enabled status
  */
 function getWeChatCodeEnabled(): boolean {
-  const runtimeEnabled = getRuntimeEnv('NEXT_PUBLIC_WECHAT_CODE_ENABLED');
+  const runtimeEnabled = getRuntimeEnv("NEXT_PUBLIC_WECHAT_CODE_ENABLED");
   if (runtimeEnabled !== undefined) {
     return getBooleanValue(runtimeEnabled, true);
   }
@@ -151,7 +151,7 @@ function getWeChatCodeEnabled(): boolean {
  * Gets UI always show lesson tree
  */
 function getUIAlwaysShowLessonTree(): boolean {
-  const runtimeValue = getRuntimeEnv('NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE');
+  const runtimeValue = getRuntimeEnv("NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE");
   if (runtimeValue !== undefined) {
     return getBooleanValue(runtimeValue, false);
   }
@@ -163,51 +163,51 @@ function getUIAlwaysShowLessonTree(): boolean {
  * Gets UI logo horizontal
  */
 function getUILogoHorizontal(): string {
-  const runtimeLogo = getRuntimeEnv('NEXT_PUBLIC_UI_LOGO_HORIZONTAL');
+  const runtimeLogo = getRuntimeEnv("NEXT_PUBLIC_UI_LOGO_HORIZONTAL");
   if (runtimeLogo) {
     return runtimeLogo;
   }
-  return process.env.NEXT_PUBLIC_UI_LOGO_HORIZONTAL || '';
+  return process.env.NEXT_PUBLIC_UI_LOGO_HORIZONTAL || "";
 }
 
 /**
  * Gets UI logo vertical
  */
 function getUILogoVertical(): string {
-  const runtimeLogo = getRuntimeEnv('NEXT_PUBLIC_UI_LOGO_VERTICAL');
+  const runtimeLogo = getRuntimeEnv("NEXT_PUBLIC_UI_LOGO_VERTICAL");
   if (runtimeLogo) {
     return runtimeLogo;
   }
-  return process.env.NEXT_PUBLIC_UI_LOGO_VERTICAL || '';
+  return process.env.NEXT_PUBLIC_UI_LOGO_VERTICAL || "";
 }
 
 /**
  * Gets analytics Umami script
  */
 function getAnalyticsUmamiScript(): string {
-  const runtimeScript = getRuntimeEnv('NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT');
+  const runtimeScript = getRuntimeEnv("NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT");
   if (runtimeScript) {
     return runtimeScript;
   }
-  return process.env.NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT || '';
+  return process.env.NEXT_PUBLIC_ANALYTICS_UMAMI_SCRIPT || "";
 }
 
 /**
  * Gets analytics Umami site ID
  */
 function getAnalyticsUmamiSiteId(): string {
-  const runtimeSiteId = getRuntimeEnv('NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID');
+  const runtimeSiteId = getRuntimeEnv("NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID");
   if (runtimeSiteId) {
     return runtimeSiteId;
   }
-  return process.env.NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID || '';
+  return process.env.NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID || "";
 }
 
 /**
  * Gets debug Eruda enabled
  */
 function getDebugErudaEnabled(): boolean {
-  const runtimeEruda = getRuntimeEnv('NEXT_PUBLIC_DEBUG_ERUDA_ENABLED');
+  const runtimeEruda = getRuntimeEnv("NEXT_PUBLIC_DEBUG_ERUDA_ENABLED");
   if (runtimeEruda !== undefined) {
     return getBooleanValue(runtimeEruda, false);
   }
@@ -223,7 +223,7 @@ function getBooleanValue(
   defaultValue: boolean = false,
 ): boolean {
   if (value === undefined) return defaultValue;
-  return value.toLowerCase() === 'true';
+  return value.toLowerCase() === "true";
 }
 
 /**

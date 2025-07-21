@@ -1,15 +1,15 @@
-import styles from './MainButtonM.module.scss';
+import styles from "./MainButtonM.module.scss";
 
-import { memo, forwardRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { memo, forwardRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 
-import clsx from 'clsx';
+import clsx from "clsx";
 
 export const MainButtonM = forwardRef((props, ref) => {
   const [loading, setLoading] = useState(false);
 
   // 防止重复提交
-  const _onClick = e => {
+  const _onClick = (e) => {
     if (loading) {
       return;
     }
@@ -33,9 +33,9 @@ export const MainButtonM = forwardRef((props, ref) => {
     <Button
       // @ts-expect-error EXPECT
       ref={ref}
-      color='primary'
-      fill='solid'
-      shape='rounded'
+      color="primary"
+      fill="solid"
+      shape="rounded"
       {...props}
       onClick={_onClick}
       // @ts-expect-error EXPECT
@@ -44,6 +44,6 @@ export const MainButtonM = forwardRef((props, ref) => {
   );
 });
 
-MainButtonM.displayName = 'MainButtonM';
+MainButtonM.displayName = "MainButtonM";
 
 export default memo(MainButtonM);

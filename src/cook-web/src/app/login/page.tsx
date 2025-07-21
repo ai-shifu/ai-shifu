@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Card,
   CardContent,
@@ -10,36 +10,36 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { PhoneLogin } from '@/components/auth/phone-login';
-import { EmailLogin } from '@/components/auth/email-login';
-import { PhoneRegister } from '@/components/auth/phone-register';
-import { EmailRegister } from '@/components/auth/email-register';
-import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
-import { FeedbackForm } from '@/components/auth//feedback-form';
-import Image from 'next/image';
-import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
-import LanguageSelect from '@/components/language-select';
-import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
-import { browserLanguage } from '@/i18n';
+} from "@/components/ui/card";
+import { PhoneLogin } from "@/components/auth/phone-login";
+import { EmailLogin } from "@/components/auth/email-login";
+import { PhoneRegister } from "@/components/auth/phone-register";
+import { EmailRegister } from "@/components/auth/email-register";
+import { ForgotPasswordForm } from "@/components/auth/forgot-password-form";
+import { FeedbackForm } from "@/components/auth//feedback-form";
+import Image from "next/image";
+import logoHorizontal from "@/c-assets/logos/ai-shifu-logo-horizontal.png";
+import LanguageSelect from "@/components/language-select";
+import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
+import { browserLanguage } from "@/i18n";
 
 export default function AuthPage() {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<
-    'login' | 'register' | 'forgot-password' | 'feedback'
-  >('login');
-  const [loginMethod, setLoginMethod] = useState<'phone' | 'password'>('phone');
-  const [registerMethod, setRegisterMethod] = useState<'phone' | 'email'>(
-    'phone',
+    "login" | "register" | "forgot-password" | "feedback"
+  >("login");
+  const [loginMethod, setLoginMethod] = useState<"phone" | "password">("phone");
+  const [registerMethod, setRegisterMethod] = useState<"phone" | "email">(
+    "phone",
   );
   const [language, setLanguage] = useState(browserLanguage);
 
   const searchParams = useSearchParams();
   const handleAuthSuccess = () => {
-    let redirect = searchParams.get('redirect');
-    if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/c';
+    let redirect = searchParams.get("redirect");
+    if (!redirect || redirect.charAt(0) !== "/") {
+      redirect = "/c";
     }
     // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
     // router.push('/main')
@@ -47,15 +47,15 @@ export default function AuthPage() {
   };
 
   const handleForgotPassword = () => {
-    setAuthMode('forgot-password');
+    setAuthMode("forgot-password");
   };
 
   const handleFeedback = () => {
-    setAuthMode('feedback');
+    setAuthMode("feedback");
   };
 
   const handleBackToLogin = () => {
-    setAuthMode('login');
+    setAuthMode("login");
   };
 
   const { t } = useTranslation();
@@ -64,91 +64,91 @@ export default function AuthPage() {
     i18n.changeLanguage(language);
   }, [language]);
   return (
-    <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
-      <div className='w-full max-w-md space-y-2'>
-        <div className='flex flex-col items-center relative'>
-          <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="w-full max-w-md space-y-2">
+        <div className="flex flex-col items-center relative">
+          <h2 className="text-primary flex items-center font-semibold pb-2  w-full justify-center">
             <Image
-              className='dark:invert'
+              className="dark:invert"
               src={logoHorizontal}
-              alt='AI-Shifu'
+              alt="AI-Shifu"
               width={180}
               height={40}
               priority
             />
 
-            <div className='absolute top-0 right-0'>
+            <div className="absolute top-0 right-0">
               <LanguageSelect
                 language={language}
                 onSetLanguage={setLanguage}
-                variant='login'
+                variant="login"
               />
             </div>
           </h2>
         </div>
         <Card>
           <CardHeader>
-            {authMode === 'login' && (
+            {authMode === "login" && (
               <>
-                <CardTitle className='text-xl text-center'>
-                  {t('login.title')}
+                <CardTitle className="text-xl text-center">
+                  {t("login.title")}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('login.description')}
+                <CardDescription className="text-sm text-center">
+                  {t("login.description")}
                 </CardDescription>
               </>
             )}
-            {authMode === 'register' && (
+            {authMode === "register" && (
               <>
-                <CardTitle className='text-xl text-center'>
-                  {t('login.register')}
+                <CardTitle className="text-xl text-center">
+                  {t("login.register")}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('login.register-description')}
+                <CardDescription className="text-sm text-center">
+                  {t("login.register-description")}
                 </CardDescription>
               </>
             )}
-            {authMode === 'forgot-password' && (
+            {authMode === "forgot-password" && (
               <>
-                <CardTitle className='text-xl text-center'>
-                  {t('login.forgot-password')}
+                <CardTitle className="text-xl text-center">
+                  {t("login.forgot-password")}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('login.forgot-password')}
+                <CardDescription className="text-sm text-center">
+                  {t("login.forgot-password")}
                 </CardDescription>
               </>
             )}
-            {authMode === 'feedback' && (
+            {authMode === "feedback" && (
               <>
-                <CardTitle className='text-xl text-center'>
-                  {t('login.feedback')}
+                <CardTitle className="text-xl text-center">
+                  {t("login.feedback")}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('login.feedback')}
+                <CardDescription className="text-sm text-center">
+                  {t("login.feedback")}
                 </CardDescription>
               </>
             )}
           </CardHeader>
 
           <CardContent>
-            {authMode === 'login' && (
+            {authMode === "login" && (
               <Tabs
                 value={loginMethod}
-                onValueChange={value =>
-                  setLoginMethod(value as 'phone' | 'password')
+                onValueChange={(value) =>
+                  setLoginMethod(value as "phone" | "password")
                 }
-                className='w-full'
+                className="w-full"
               >
-                <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>{t('login.phone')}</TabsTrigger>
-                  <TabsTrigger value='password'>{t('login.email')}</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="phone">{t("login.phone")}</TabsTrigger>
+                  <TabsTrigger value="password">{t("login.email")}</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value='phone'>
+                <TabsContent value="phone">
                   <PhoneLogin onLoginSuccess={handleAuthSuccess} />
                 </TabsContent>
 
-                <TabsContent value='password'>
+                <TabsContent value="password">
                   <EmailLogin
                     onLoginSuccess={handleAuthSuccess}
                     onForgotPassword={handleForgotPassword}
@@ -157,86 +157,86 @@ export default function AuthPage() {
               </Tabs>
             )}
 
-            {authMode === 'register' && (
+            {authMode === "register" && (
               <Tabs
                 value={registerMethod}
-                onValueChange={value =>
-                  setRegisterMethod(value as 'phone' | 'email')
+                onValueChange={(value) =>
+                  setRegisterMethod(value as "phone" | "email")
                 }
-                className='w-full'
+                className="w-full"
               >
-                <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>
-                    {t('login.phone-register')}
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="phone">
+                    {t("login.phone-register")}
                   </TabsTrigger>
-                  <TabsTrigger value='email'>
-                    {t('login.email-register')}
+                  <TabsTrigger value="email">
+                    {t("login.email-register")}
                   </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value='phone'>
+                <TabsContent value="phone">
                   {/* TODO: FIXME */}
                   <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
 
-                <TabsContent value='email'>
+                <TabsContent value="email">
                   {/* TODO: FIXME */}
                   <EmailRegister onRegisterSuccess={handleAuthSuccess} />
                 </TabsContent>
               </Tabs>
             )}
 
-            {authMode === 'forgot-password' && (
+            {authMode === "forgot-password" && (
               <ForgotPasswordForm onComplete={handleBackToLogin} />
             )}
 
-            {authMode === 'feedback' && (
+            {authMode === "feedback" && (
               <FeedbackForm onComplete={handleBackToLogin} />
             )}
           </CardContent>
-          <CardFooter className='flex flex-col items-center space-y-2'>
-            {authMode === 'login' && (
+          <CardFooter className="flex flex-col items-center space-y-2">
+            {authMode === "login" && (
               <>
-                <p className='text-sm text-muted-foreground'>
-                  {t('login.no-account')}
+                <p className="text-sm text-muted-foreground">
+                  {t("login.no-account")}
                   <button
-                    onClick={() => setAuthMode('register')}
-                    className='text-primary hover:underline'
+                    onClick={() => setAuthMode("register")}
+                    className="text-primary hover:underline"
                   >
-                    {t('login.register')}
+                    {t("login.register")}
                   </button>
                 </p>
               </>
             )}
-            {authMode === 'register' && (
+            {authMode === "register" && (
               <>
-                <p className='text-sm text-muted-foreground'>
-                  {t('login.has-account')}
+                <p className="text-sm text-muted-foreground">
+                  {t("login.has-account")}
                   <button
-                    onClick={() => setAuthMode('login')}
-                    className='text-primary hover:underline'
+                    onClick={() => setAuthMode("login")}
+                    className="text-primary hover:underline"
                   >
-                    {t('login.login-now')}
+                    {t("login.login-now")}
                   </button>
                 </p>
               </>
             )}
-            {(authMode === 'forgot-password' || authMode === 'feedback') && (
+            {(authMode === "forgot-password" || authMode === "feedback") && (
               <button
                 onClick={handleBackToLogin}
-                className='text-primary hover:underline'
+                className="text-primary hover:underline"
               >
-                {t('login.back-to-login')}
+                {t("login.back-to-login")}
               </button>
             )}
-            {authMode !== 'feedback' && (
-              <p className='text-sm text-muted-foreground'>
-                {t('login.problem')}
+            {authMode !== "feedback" && (
+              <p className="text-sm text-muted-foreground">
+                {t("login.problem")}
                 <button
                   onClick={handleFeedback}
-                  className='text-primary hover:underline'
+                  className="text-primary hover:underline"
                 >
-                  {t('login.submit-feedback')}
+                  {t("login.submit-feedback")}
                 </button>
               </p>
             )}

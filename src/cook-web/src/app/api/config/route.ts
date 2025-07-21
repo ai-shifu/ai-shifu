@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { environment } from '@/config/environment';
+import { NextResponse } from "next/server";
+import { environment } from "@/config/environment";
 
 export async function GET() {
   const config = {

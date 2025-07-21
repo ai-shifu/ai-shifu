@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { reflow } from '../utils';
+import React, { useState, useEffect, useRef } from "react";
+import { reflow } from "../utils";
 
 interface UseMountOptions {
   active?: boolean;

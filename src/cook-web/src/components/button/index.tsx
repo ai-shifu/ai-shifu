@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Button as ButtonComponent, ButtonProps } from '@/components/ui/button';
-import { Loader2, LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useState } from "react";
+import { Button as ButtonComponent, ButtonProps } from "@/components/ui/button";
+import { Loader2, LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ILogButton extends ButtonProps {
-  type?: 'button' | 'submit' | 'reset';
+  type?: "button" | "submit" | "reset";
   loading?: boolean;
   onClick?: (e: React.MouseEvent<HTMLButtonElement, MouseEvent>) => void;
   icon?: LucideIcon;
@@ -12,25 +12,25 @@ interface ILogButton extends ButtonProps {
   action?: string;
   children?: React.ReactNode;
   variant?:
-    | 'secondary'
-    | 'default'
-    | 'destructive'
-    | 'outline'
-    | 'ghost'
-    | 'link';
+    | "secondary"
+    | "default"
+    | "destructive"
+    | "outline"
+    | "ghost"
+    | "link";
   className?: string;
 }
 
 export default function Button(props: ILogButton) {
   const {
-    type = 'button',
-    iconClassName = '',
+    type = "button",
+    iconClassName = "",
     loading,
     icon,
-    variant = 'default',
+    variant = "default",
     onClick,
     children,
-    className = '',
+    className = "",
     ...rest
   } = props;
   const [waiting, setWaiting] = useState(loading);
@@ -53,7 +53,7 @@ export default function Button(props: ILogButton) {
       type={type}
       disabled={waiting}
       onClick={onBtnClick}
-      className={cn([' flex flex-row justify-center', className])}
+      className={cn([" flex flex-row justify-center", className])}
       variant={variant}
       {...rest}
     >
@@ -61,19 +61,19 @@ export default function Button(props: ILogButton) {
         <Loader2
           height={16}
           width={16}
-          className={cn('rotate shrink-0 ', iconClassName)}
+          className={cn("rotate shrink-0 ", iconClassName)}
         />
       )}
       {!waiting && Icon && (
         <Icon
           height={16}
           width={16}
-          className={cn('shrink-0', iconClassName)}
+          className={cn("shrink-0", iconClassName)}
         />
       )}
 
       {children && (
-        <span className='mx-1 flex flex-row items-center'>{children}</span>
+        <span className="mx-1 flex flex-row items-center">{children}</span>
       )}
     </ButtonComponent>
   );

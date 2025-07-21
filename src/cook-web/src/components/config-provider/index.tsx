@@ -1,6 +1,6 @@
-'use client';
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import '@/i18n';
+"use client";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import "@/i18n";
 
 interface ConfigContextType {
   isLoaded: boolean;
@@ -16,7 +16,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         // 直接使用环境配置，无需额外加载
         setIsLoaded(true);
       } catch (error) {
-        console.error('Failed to load config:', error);
+        console.error("Failed to load config:", error);
         setIsLoaded(true);
       }
     };
@@ -38,7 +38,7 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
 export function useConfig() {
   const context = useContext(ConfigContext);
   if (context === undefined) {
-    throw new Error('useConfig must be used within a ConfigProvider');
+    throw new Error("useConfig must be used within a ConfigProvider");
   }
   return context;
 }

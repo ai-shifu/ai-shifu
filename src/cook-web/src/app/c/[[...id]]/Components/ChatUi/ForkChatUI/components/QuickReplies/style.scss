@@ -9,7 +9,7 @@
   background: $quick-replies-bg;
   transition: opacity 0.3s;
 
-  &[data-visible='false'] {
+  &[data-visible="false"] {
     visibility: hidden;
     opacity: 0;
   }
@@ -42,7 +42,7 @@
   transition: 0.15s ease-in-out;
 
   &.new::after {
-    content: '';
+    content: "";
     position: absolute;
     top: $quick-reply-dot-top;
     right: $quick-reply-dot-right;

@@ -1,31 +1,31 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { parseUrlParams } from '@/c-utils/urlUtils';
+import { useEffect, useState } from "react";
+import { parseUrlParams } from "@/c-utils/urlUtils";
 // import routes from './Router/index';
 // import { useRoutes } from 'react-router-dom';
 // import { ConfigProvider } from 'antd';
-import { useSystemStore } from '@/c-store/useSystemStore';
-import { useTranslation } from 'react-i18next';
+import { useSystemStore } from "@/c-store/useSystemStore";
+import { useTranslation } from "react-i18next";
 
-import { useShallow } from 'zustand/react/shallow';
+import { useShallow } from "zustand/react/shallow";
 
-import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
-import { getBoolEnv } from '@/c-utils/envUtils';
-import { getCourseInfo } from '@/c-api/course';
-import { selectDefaultLanguage } from '@/c-constants/userConstants';
+import { inWechat, wechatLogin } from "@/c-constants/uiConstants";
+import { getBoolEnv } from "@/c-utils/envUtils";
+import { getCourseInfo } from "@/c-api/course";
+import { selectDefaultLanguage } from "@/c-constants/userConstants";
 import {
   EnvStoreState,
   SystemStoreState,
   CourseStoreState,
-} from '@/c-types/store';
+} from "@/c-types/store";
 
 import {
   useEnvStore,
   useCourseStore,
   UserProvider,
   useUserStore,
-} from '@/c-store';
+} from "@/c-store";
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -44,45 +44,45 @@ const initializeEnvData = async (): Promise<void> => {
 
   const fetchEnvData = async (): Promise<void> => {
     try {
-      const res = await fetch('/api/config', {
-        method: 'GET',
-        referrer: 'no-referrer',
+      const res = await fetch("/api/config", {
+        method: "GET",
+        referrer: "no-referrer",
       });
       if (res.ok) {
         const data = await res.json();
-        await updateCourseId(data?.courseId || '');
-        await updateAppId(data?.wechatAppId || '');
-        await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
-        await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
-        await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
-        await updateEruda(data?.enableEruda || 'false');
-        await updateBaseURL(data?.apiBaseUrl || '');
-        await updateLogoHorizontal(data?.logoHorizontal || '');
-        await updateLogoVertical(data?.logoVertical || '');
-        await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
-        await updateSiteUrl(data?.siteHost || '');
+        await updateCourseId(data?.courseId || "");
+        await updateAppId(data?.wechatAppId || "");
+        await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || "false");
+        await updateUmamiWebsiteId(data?.umamiWebsiteId || "");
+        await updateUmamiScriptSrc(data?.umamiScriptSrc || "");
+        await updateEruda(data?.enableEruda || "false");
+        await updateBaseURL(data?.apiBaseUrl || "");
+        await updateLogoHorizontal(data?.logoHorizontal || "");
+        await updateLogoVertical(data?.logoVertical || "");
+        await updateEnableWxcode(data?.enableWechatCode?.toString() || "true");
+        await updateSiteUrl(data?.siteHost || "");
       }
     } catch (error) {
       console.error(error);
     } finally {
       const { umamiWebsiteId, umamiScriptSrc } =
         useEnvStore.getState() as EnvStoreState;
-      if (getBoolEnv('eruda')) {
-        import('eruda').then(eruda => eruda.default.init());
+      if (getBoolEnv("eruda")) {
+        import("eruda").then((eruda) => eruda.default.init());
       }
 
       const loadUmamiScript = (): void => {
         if (umamiScriptSrc && umamiWebsiteId) {
-          const script = document.createElement('script');
+          const script = document.createElement("script");
           script.defer = true;
           script.src = umamiScriptSrc;
-          script.setAttribute('data-website-id', umamiWebsiteId);
+          script.setAttribute("data-website-id", umamiWebsiteId);
           document.head.appendChild(script);
         }
       };
 
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadUmamiScript);
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", loadUmamiScript);
       } else {
         loadUmamiScript();
       }
@@ -153,11 +153,11 @@ export default function ChatLayout({
 
   // const [loading, setLoading] = useState<boolean>(true);
   const params = parseUrlParams() as Record<string, string>;
-  const currChannel = params.channel || '';
+  const currChannel = params.channel || "";
   const isPreviewMode = params.preview
-    ? params.preview.toLowerCase() === 'true'
+    ? params.preview.toLowerCase() === "true"
     : false;
-  const isSkipMode = params.skip ? params.skip.toLowerCase() === 'true' : false;
+  const isSkipMode = params.skip ? params.skip.toLowerCase() === "true" : false;
 
   if (channel !== currChannel) {
     updateChannel(currChannel);
@@ -215,35 +215,35 @@ export default function ChatLayout({
           if (resp) {
             setShowVip(resp.course_price > 0);
             updateCourseName(resp.course_name);
-            document.title = resp.course_name + ' - AI 师傅';
+            document.title = resp.course_name + " - AI 师傅";
             const metaDescription = document.querySelector(
               'meta[name="description"]',
             );
             if (metaDescription) {
-              metaDescription.setAttribute('content', resp.course_desc);
+              metaDescription.setAttribute("content", resp.course_desc);
             } else {
-              const newMetaDescription = document.createElement('meta');
-              newMetaDescription.setAttribute('name', 'description');
-              newMetaDescription.setAttribute('content', resp.course_desc);
+              const newMetaDescription = document.createElement("meta");
+              newMetaDescription.setAttribute("name", "description");
+              newMetaDescription.setAttribute("content", resp.course_desc);
               document.head.appendChild(newMetaDescription);
             }
             const metaKeywords = document.querySelector(
               'meta[name="keywords"]',
             );
             if (metaKeywords) {
-              metaKeywords.setAttribute('content', resp.course_keywords);
+              metaKeywords.setAttribute("content", resp.course_keywords);
             } else {
-              const newMetaKeywords = document.createElement('meta');
-              newMetaKeywords.setAttribute('name', 'keywords');
-              newMetaKeywords.setAttribute('content', resp.course_keywords);
+              const newMetaKeywords = document.createElement("meta");
+              newMetaKeywords.setAttribute("name", "keywords");
+              newMetaKeywords.setAttribute("content", resp.course_keywords);
               document.head.appendChild(newMetaKeywords);
             }
           } else {
-            window.location.href = '/404';
+            window.location.href = "/404";
           }
         } catch (error) {
           console.log(error);
-          window.location.href = '/404';
+          window.location.href = "/404";
         }
       }
     };

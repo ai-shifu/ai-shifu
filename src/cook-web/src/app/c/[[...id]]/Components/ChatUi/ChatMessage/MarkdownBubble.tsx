@@ -1,24 +1,24 @@
-import styles from './MarkdownBubble.module.scss';
+import styles from "./MarkdownBubble.module.scss";
 
-import { memo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { memo } from "react";
+import ReactMarkdown from "react-markdown";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
 
-import { Bubble } from '../ForkChatUI/components/Bubble';
+import { Bubble } from "../ForkChatUI/components/Bubble";
 
 // import { Image } from 'antd';
 
-import remarkGfm from 'remark-gfm';
-import rehypeRaw from 'rehype-raw';
-import classNames from 'classnames';
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import classNames from "classnames";
 
-import CopyButton from './CopyButton';
+import CopyButton from "./CopyButton";
 
-export const MarkdownBubble = props => {
+export const MarkdownBubble = (props) => {
   const { mobileStyle, onImageLoaded } = props;
 
-  const onCopy = content => {
+  const onCopy = (content) => {
     navigator.clipboard.writeText(content);
   };
 
@@ -32,12 +32,12 @@ export const MarkdownBubble = props => {
           components={{
             // @ts-expect-error EXPECTED
             code({ inline, className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
+              const match = /language-(\w+)/.exec(className || "");
               return !inline && match ? (
                 <div
-                  className='markdown-code_block'
+                  className="markdown-code_block"
                   style={{
-                    position: 'relative',
+                    position: "relative",
                   }}
                 >
                   <CopyButton content={children} />
@@ -52,7 +52,7 @@ export const MarkdownBubble = props => {
                       onCopy(children);
                     }}
                   >
-                    {String(children).replace(/\n$/, '')}
+                    {String(children).replace(/\n$/, "")}
                   </SyntaxHighlighter>
                 </div>
               ) : (
@@ -70,10 +70,10 @@ export const MarkdownBubble = props => {
                 <img
                   {...imgProps}
                   src={imgProps.src}
-                  alt={imgProps.alt || ''}
-                  width={imgProps.style?.width || '100%'}
+                  alt={imgProps.alt || ""}
+                  width={imgProps.style?.width || "100%"}
                   // preview={!props.isStreaming}
-                  style={{ borderRadius: '5px' }}
+                  style={{ borderRadius: "5px" }}
                   onLoad={onImageLoaded}
                 />
               );

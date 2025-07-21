@@ -4,7 +4,7 @@ const toggleClass = (
   flag: boolean,
   el: HTMLElement = document.body,
 ) => {
-  el.classList[flag ? 'add' : 'remove'](className);
+  el.classList[flag ? "add" : "remove"](className);
 };
 
 export default toggleClass;

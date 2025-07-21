@@ -1,8 +1,8 @@
-import React from 'react';
-import clsx from 'clsx';
-import { Icon } from '../Icon';
+import React from "react";
+import clsx from "clsx";
+import { Icon } from "../Icon";
 
-export type StepStatus = 'success' | 'fail' | 'abort';
+export type StepStatus = "success" | "fail" | "abort";
 
 export type StepProps = {
   className?: string;
@@ -20,13 +20,13 @@ export type StepProps = {
 function renderDot(status?: StepStatus) {
   if (status) {
     const iconMap: Record<string, string> = {
-      success: 'check-circle-fill',
-      fail: 'warning-circle-fill',
-      abort: 'dash-circle-fill',
+      success: "check-circle-fill",
+      fail: "warning-circle-fill",
+      abort: "dash-circle-fill",
     };
     return <Icon type={iconMap[status]} />;
   }
-  return <div className='Step-dot' />;
+  return <div className="Step-dot" />;
 }
 
 export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
@@ -46,11 +46,11 @@ export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
   return (
     <li
       className={clsx(
-        'Step',
+        "Step",
         {
-          'Step--active': active,
-          'Step--completed': completed,
-          'Step--disabled': disabled,
+          "Step--active": active,
+          "Step--completed": completed,
+          "Step--disabled": disabled,
         },
         className,
       )}
@@ -58,20 +58,20 @@ export const Step = React.forwardRef<HTMLLIElement, StepProps>((props, ref) => {
       data-status={status}
       {...other}
     >
-      <div className='Step-icon'>{renderDot(status)}</div>
-      <div className='Step-line' />
-      <div className='Step-content'>
+      <div className="Step-icon">{renderDot(status)}</div>
+      <div className="Step-line" />
+      <div className="Step-content">
         {title && (
-          <div className='Step-title'>
+          <div className="Step-title">
             {title && <span>{title}</span>}
             {subTitle && <small>{subTitle}</small>}
           </div>
         )}
-        {desc && <div className='Step-desc'>{desc}</div>}
+        {desc && <div className="Step-desc">{desc}</div>}
         {children}
       </div>
     </li>
   );
 });
 
-Step.displayName = 'Step';
+Step.displayName = "Step";

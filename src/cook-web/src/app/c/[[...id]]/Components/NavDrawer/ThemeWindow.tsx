@@ -1,6 +1,6 @@
-import PopupModal from '@/c-components/PopupModal';
-import { memo } from 'react';
-import { useTranslation } from 'react-i18next';
+import PopupModal from "@/c-components/PopupModal";
+import { memo } from "react";
+import { useTranslation } from "react-i18next";
 
 export const ThemeWindow = ({ open, onClose, style, className }) => {
   const { t } = useTranslation();
@@ -14,14 +14,14 @@ export const ThemeWindow = ({ open, onClose, style, className }) => {
     >
       <div
         style={{
-          display: 'flex',
-          height: '100px',
-          verticalAlign: 'middle',
-          justifyContent: 'center',
-          alignItems: 'center',
+          display: "flex",
+          height: "100px",
+          verticalAlign: "middle",
+          justifyContent: "center",
+          alignItems: "center",
         }}
       >
-        {t('common.waitingForCompletion')}
+        {t("common.waitingForCompletion")}
       </div>
     </PopupModal>
   );

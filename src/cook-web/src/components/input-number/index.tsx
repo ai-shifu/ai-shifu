@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { Input } from '../ui/input';
-import Button from '../button';
-import { MinusIcon, PlusIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React, { useEffect, useState } from "react";
+import { Input } from "../ui/input";
+import Button from "../button";
+import { MinusIcon, PlusIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function InputNumber({
   value,
@@ -32,17 +32,17 @@ export default function InputNumber({
   }, [number]);
 
   return (
-    <div className={cn('flex items-center space-x-2', className)}>
+    <div className={cn("flex items-center space-x-2", className)}>
       <Input
-        type='text'
+        type="text"
         value={value}
         onChange={onChangeValue}
-        className='w-full'
+        className="w-full"
       />
       <Button
-        variant='outline'
-        size='icon'
-        className='h-8 w-8 shrink-0'
+        variant="outline"
+        size="icon"
+        className="h-8 w-8 shrink-0"
         disabled={number <= min}
         onClick={() => {
           if (number <= min) {
@@ -52,13 +52,13 @@ export default function InputNumber({
           setNumber(Number((number - step).toFixed(1)));
         }}
       >
-        <MinusIcon className='h-4 w-4' />
+        <MinusIcon className="h-4 w-4" />
       </Button>
       <Button
-        variant='outline'
+        variant="outline"
         disabled={number >= max}
-        size='icon'
-        className='h-8 w-8 shrink-0'
+        size="icon"
+        className="h-8 w-8 shrink-0"
         onClick={() => {
           if (number >= max) {
             setNumber(max);
@@ -67,7 +67,7 @@ export default function InputNumber({
           setNumber(Number((number + step).toFixed(1)));
         }}
       >
-        <PlusIcon className='h-4 w-4' />
+        <PlusIcon className="h-4 w-4" />
       </Button>
     </div>
   );

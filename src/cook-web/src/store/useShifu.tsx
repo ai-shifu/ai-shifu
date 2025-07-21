@@ -11,11 +11,11 @@ import {
   ReorderOutlineItemDto,
   BlockDTO,
   BlockType,
-} from '../types/shifu';
-import api from '@/api';
-import { useContentTypes } from '@/components/render-block';
+} from "../types/shifu";
+import api from "@/api";
+import { useContentTypes } from "@/components/render-block";
 // import { useUITypes } from '@/components/render-ui'
-import { debounce } from 'lodash';
+import { debounce } from "lodash";
 import {
   createContext,
   ReactNode,
@@ -23,7 +23,7 @@ import {
   useState,
   useCallback,
   useRef,
-} from 'react';
+} from "react";
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -53,8 +53,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [focusId, setFocusId] = useState('');
-  const [focusValue, setFocusValue] = useState('');
+  const [focusId, setFocusId] = useState("");
+  const [focusValue, setFocusValue] = useState("");
   const [cataData, setCataData] = useState<{ [x: string]: Outline }>({});
   const [blocks, setBlocks] = useState<BlockDTO[]>([]);
   const [blockProperties, setBlockProperties] = useState<{
@@ -73,7 +73,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     [x: string]: BlockType;
   }>({});
   const [blockContentState, setBlockContentState] = useState<{
-    [x: string]: 'edit' | 'preview';
+    [x: string]: "edit" | "preview";
   }>({});
   const [blockErrors, setBlockErrors] = useState<{
     [x: string]: string | null;
@@ -100,21 +100,21 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setCurrentShifu(shifu);
     } catch (error) {
       console.error(error);
-      setError('Failed to load shifu');
+      setError("Failed to load shifu");
     } finally {
       setIsLoading(false);
     }
   };
   const recursiveCataData = (cataTree: Outline[]): any => {
     const result: any = {};
-    const processItem = (item: any, parentId = '', depth = 0) => {
+    const processItem = (item: any, parentId = "", depth = 0) => {
       result[item.id] = {
         ...cataData[item.id],
         parent_bid: parentId,
         parentId: parentId,
         name: item.name,
         depth: depth,
-        status: 'edit',
+        status: "edit",
       };
 
       if (item.children) {
@@ -125,7 +125,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     };
 
     cataTree.forEach((child: any) => {
-      processItem(child, '', 0);
+      processItem(child, "", 0);
     });
     return result;
   };
@@ -155,9 +155,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setIsSaving(true);
     setError(null);
     try {
-      console.log('removeOutline', outline);
+      console.log("removeOutline", outline);
       if (outline.parent_bid) {
-        const parent = findNode(outline.parent_bid || '');
+        const parent = findNode(outline.parent_bid || "");
         if (parent) {
           parent.children = parent.children?.filter(
             (child: any) => child.id !== outline.id,
@@ -170,11 +170,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         setCataData({
           ...cataData,
         });
-        if (outline.id == 'new_chapter') {
+        if (outline.id == "new_chapter") {
           return;
         }
         await api.deleteOutline({
-          shifu_bid: currentShifu?.bid || '',
+          shifu_bid: currentShifu?.bid || "",
           outline_bid: outline.id,
         });
       } else {
@@ -186,18 +186,18 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           ...cataData,
         });
 
-        if (outline.id == 'new_chapter') {
+        if (outline.id == "new_chapter") {
           return;
         }
         await api.deleteOutline({
-          shifu_bid: currentShifu?.bid || '',
+          shifu_bid: currentShifu?.bid || "",
           outline_bid: outline.id,
         });
       }
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
-      setError('Failed to remove outline');
+      setError("Failed to remove outline");
     } finally {
       setIsSaving(false);
     }
@@ -206,7 +206,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const loadProfileItemDefinations = async (shifuId: string) => {
     const list = await api.getProfileItemDefinitions({
       parent_id: shifuId,
-      type: 'all',
+      type: "all",
     });
     setProfileItemDefinations(list);
   };
@@ -248,7 +248,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       loadProfileItemDefinations(shifuId);
     } catch (error) {
       console.error(error);
-      setError('Failed to load chapters');
+      setError("Failed to load chapters");
     } finally {
       setIsLoading(false);
     }
@@ -274,8 +274,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateBlockProperties = useCallback(
     async (bid: string, properties: any) => {
-      setBlocks(prevBlocks =>
-        prevBlocks.map(block =>
+      setBlocks((prevBlocks) =>
+        prevBlocks.map((block) =>
           block.bid === bid
             ? {
                 ...block,
@@ -288,11 +288,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         ),
       );
 
-      setBlockTypes(prev => ({
+      setBlockTypes((prev) => ({
         ...prev,
         [bid]: properties.type,
       }));
-      setBlockProperties(prev => {
+      setBlockProperties((prev) => {
         const newState = {
           ...prev,
           [bid]: properties,
@@ -329,7 +329,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       if (isLoading) {
         return;
       }
-      console.log('saveBlocks', blockPropertiesRef.current);
+      console.log("saveBlocks", blockPropertiesRef.current);
       const list = buildBlockListWithAllInfo(
         blocks,
         blockTypes,
@@ -344,7 +344,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         });
       } catch (error) {
         console.error(error);
-        setError('Failed to save blocks');
+        setError("Failed to save blocks");
       }
     },
     [blocks, isLoading, blockTypes, currentNode],
@@ -352,13 +352,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const addBlock = async (
     index: number,
-    blockType: string = 'ai',
+    blockType: string = "ai",
     shifu_id: string,
   ): Promise<string> => {
     setIsSaving(true);
     setError(null);
     try {
-      const item = ContentTypes.find(p => p.type == blockType);
+      const item = ContentTypes.find((p) => p.type == blockType);
 
       const block = await api.addBlock({
         block: {
@@ -377,40 +377,40 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         [block.bid]: blockType,
       });
       updateBlockProperties(block.bid, block);
-      setBlockContentStateById(block.bid, 'edit');
+      setBlockContentStateById(block.bid, "edit");
       setBlocks(list);
       setLastSaveTime(new Date());
 
       setTimeout(() => {
         document.getElementById(block.bid)?.scrollIntoView({
-          behavior: 'smooth',
+          behavior: "smooth",
         });
       }, 500);
       return block.bid;
     } catch (error) {
       console.error(error);
-      setError('Failed to add block');
-      return '';
+      setError("Failed to add block");
+      return "";
     } finally {
       setIsSaving(false);
     }
   };
 
-  const addSubOutline = async (parent: Outline, name = '') => {
-    if (cataData['new_chapter']) {
+  const addSubOutline = async (parent: Outline, name = "") => {
+    if (cataData["new_chapter"]) {
       return;
     }
-    if (parent.children?.find((child: any) => child.id === 'new_chapter')) {
+    if (parent.children?.find((child: any) => child.id === "new_chapter")) {
       return;
     }
-    const id = 'new_chapter';
+    const id = "new_chapter";
     parent.children?.push({
       id,
       bid: id,
       parent_bid: parent.id,
       name: name,
       children: [],
-      position: '',
+      position: "",
       depth: (parent?.depth || 0) + 1,
     });
 
@@ -420,7 +420,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       bid: id,
       name: name,
       children: [],
-      position: '',
+      position: "",
       depth: (parent?.depth || 0) + 1,
     });
 
@@ -452,17 +452,17 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         const result = await api.saveBlocks({
           outline_bid: outline,
           blocks: blockList,
-          shifu_bid: shifu_id || '',
+          shifu_bid: shifu_id || "",
         });
 
         if (!result) {
-          setError('common.error.save.failed');
+          setError("common.error.save.failed");
           return result;
         }
 
         const blockErrorMessages = result?.error_messages;
         const errorCount =
-          blockErrorMessages && typeof blockErrorMessages === 'object'
+          blockErrorMessages && typeof blockErrorMessages === "object"
             ? Object.keys(blockErrorMessages).length
             : 0;
 
@@ -516,9 +516,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     shifu_id: string,
   ) => Promise<ApiResponse<SaveBlockListResult> | null>;
 
-  const addSiblingOutline = async (item: Outline, name = '') => {
-    const id = 'new_chapter';
-    const parent = findNode(item.parent_bid || '');
+  const addSiblingOutline = async (item: Outline, name = "") => {
+    const id = "new_chapter";
+    const parent = findNode(item.parent_bid || "");
     const index = parent?.children?.findIndex(
       (child: any) => child.id === item.id,
     );
@@ -528,7 +528,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       parent_bid: parent.id,
       name: name,
       children: [],
-      position: '',
+      position: "",
       depth: (parent?.depth || 0) + 1,
     });
 
@@ -538,7 +538,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       id,
       name: name,
       children: [],
-      position: '',
+      position: "",
       depth: (parent?.depth || 0) + 1,
     });
 
@@ -550,29 +550,29 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const createChapter = async (data: Outline) => {
     setIsSaving(true);
     setError(null);
-    updateOutlineStatus(data.id, 'saving');
-    const index = chapters.findIndex(child => child.id === data.id);
+    updateOutlineStatus(data.id, "saving");
+    const index = chapters.findIndex((child) => child.id === data.id);
 
     try {
-      if (data.id === 'new_chapter') {
+      if (data.id === "new_chapter") {
         const newChapter = await api.createOutline({
-          parent_bid: '',
+          parent_bid: "",
           index: index,
           name: data.name,
           description: data.name,
-          type: 'trial',
-          system_prompt: '',
+          type: "trial",
+          system_prompt: "",
           is_hidden: false,
-          shifu_id: currentShifu?.bid || '',
+          shifu_id: currentShifu?.bid || "",
         });
-        replaceOutline('new_chapter', {
+        replaceOutline("new_chapter", {
           id: newChapter.bid,
           bid: newChapter.bid,
           name: newChapter.name,
-          position: '',
+          position: "",
           children: [],
         });
-        setFocusId('');
+        setFocusId("");
         setLastSaveTime(new Date());
       } else {
         await api.modifyOutline({
@@ -580,29 +580,31 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           index: index,
           description: data.name,
           name: data.name,
-          shifu_id: currentShifu?.bid || '',
+          shifu_id: currentShifu?.bid || "",
         });
 
-        const currentChapter = chapters.find(chapter => chapter.id === data.id);
+        const currentChapter = chapters.find(
+          (chapter) => chapter.id === data.id,
+        );
 
         replaceOutline(data.id, {
           id: data.id,
           bid: data.bid,
           name: data.name,
-          position: '',
+          position: "",
           children: currentChapter?.children || [],
         });
-        setFocusId('');
+        setFocusId("");
         setLastSaveTime(new Date());
       }
     } catch (error) {
       console.error(error);
       setError(
-        data.id === 'new_chapter'
-          ? 'Failed to create chapter'
-          : 'Failed to modify chapter',
+        data.id === "new_chapter"
+          ? "Failed to create chapter"
+          : "Failed to modify chapter",
       );
-      updateOutlineStatus(data.id, data.id === 'new_chapter' ? 'new' : 'edit');
+      updateOutlineStatus(data.id, data.id === "new_chapter" ? "new" : "edit");
       setFocusId(data.id);
     } finally {
       setIsSaving(false);
@@ -613,33 +615,33 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const createOutline = async (data: Outline) => {
     setIsSaving(true);
     setError(null);
-    updateOutlineStatus(data.bid, 'saving');
+    updateOutlineStatus(data.bid, "saving");
 
-    const parent = findNode(data.parent_bid || '');
+    const parent = findNode(data.parent_bid || "");
     const index =
-      parent?.children?.findIndex(child => child.bid === data.bid) || 0;
+      parent?.children?.findIndex((child) => child.bid === data.bid) || 0;
 
     try {
-      if (data.bid === 'new_chapter') {
+      if (data.bid === "new_chapter") {
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
           index: index,
           name: data.name,
           description: data.name,
-          type: 'trial',
-          system_prompt: '',
+          type: "trial",
+          system_prompt: "",
           is_hidden: false,
-          shifu_bid: currentShifu?.bid || '',
+          shifu_bid: currentShifu?.bid || "",
         });
 
-        replaceOutline('new_chapter', {
+        replaceOutline("new_chapter", {
           id: newUnit.bid,
           bid: newUnit.bid,
           name: newUnit.name,
-          position: '',
+          position: "",
           children: [],
         });
-        setFocusId('');
+        setFocusId("");
         setLastSaveTime(new Date());
       } else {
         await api.modifyOutline({
@@ -647,7 +649,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           index: index,
           description: data.name,
           name: data.name,
-          shifu_bid: currentShifu?.bid || '',
+          shifu_bid: currentShifu?.bid || "",
         });
         replaceOutline(data.id, {
           id: data.id,
@@ -655,17 +657,17 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           name: data.name,
           position: data.position,
         });
-        setFocusId('');
+        setFocusId("");
         setLastSaveTime(new Date());
       }
     } catch (error) {
       console.error(error);
       setError(
-        data.id === 'new_chapter'
-          ? 'Failed to create unit'
-          : 'Failed to modify unit',
+        data.id === "new_chapter"
+          ? "Failed to create unit"
+          : "Failed to modify unit",
       );
-      updateOutlineStatus(data.id, data.id === 'new_chapter' ? 'new' : 'edit');
+      updateOutlineStatus(data.id, data.id === "new_chapter" ? "new" : "edit");
       setFocusId(data.id);
     } finally {
       setIsSaving(false);
@@ -675,35 +677,35 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const createSiblingUnit = async (data: Outline) => {
     try {
-      updateOutlineStatus(data.id, 'saving');
+      updateOutlineStatus(data.id, "saving");
       setError(null);
 
-      const parent = findNode(data.parent_bid || '');
+      const parent = findNode(data.parent_bid || "");
       // get node index in children
-      const index = parent.children.findIndex(child => child.id === data.id);
+      const index = parent.children.findIndex((child) => child.id === data.id);
 
       const newUnit = await api.createOutline({
         parent_bid: data.parent_bid,
         index: index - 1,
         name: data.name,
         description: data.name,
-        type: 'trial',
-        system_prompt: '',
+        type: "trial",
+        system_prompt: "",
         is_hidden: false,
-        shifu_id: currentShifu?.bid || '',
+        shifu_id: currentShifu?.bid || "",
       });
 
-      replaceOutline('new_chapter', {
+      replaceOutline("new_chapter", {
         id: newUnit.bid,
         parent_bid: parent.bid,
         bid: newUnit.bid,
         name: newUnit.name,
-        position: '',
+        position: "",
         children: [],
       });
     } catch (error) {
       console.error(error);
-      setError('Failed to create chapter');
+      setError("Failed to create chapter");
     } finally {
       setIsLoading(false);
     }
@@ -711,7 +713,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const updateOutlineStatus = (
     id: string,
-    status: 'new' | 'edit' | 'saving',
+    status: "new" | "edit" | "saving",
   ) => {
     setCataData({
       ...cataData,
@@ -733,16 +735,16 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const addChapter = async (chapter: Outline) => {
-    if (cataData['new_chapter']) {
+    if (cataData["new_chapter"]) {
       return;
     }
-    if (chapters?.find((child: any) => child.id === 'new_chapter')) {
+    if (chapters?.find((child: any) => child.id === "new_chapter")) {
       return;
     }
     setChapters([...chapters, chapter]);
     updateOuline(chapter.id, {
       ...chapter,
-      status: 'new',
+      status: "new",
     });
     setFocusId(chapter.id);
   };
@@ -763,7 +765,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       ...cataData,
       [outline.id]: {
         ...outline,
-        status: 'edit',
+        status: "edit",
       },
     });
   };
@@ -829,7 +831,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const setBlockContentStateById = (id: string, state: 'edit' | 'preview') => {
+  const setBlockContentStateById = (id: string, state: "edit" | "preview") => {
     setBlockContentState({
       ...blockContentState,
       [id]: state,
@@ -853,21 +855,21 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
-      setError('Failed to update chapter order');
+      setError("Failed to update chapter order");
     } finally {
       setIsSaving(false);
     }
   };
 
   const removeBlock = async (id: string) => {
-    const list = blocks.filter(block => block.bid !== id);
+    const list = blocks.filter((block) => block.bid !== id);
     setBlocks(list);
     await saveCurrentBlocks(
       currentNode!.bid,
       list,
       blockTypes,
       blockProperties,
-      currentShifu?.bid || '',
+      currentShifu?.bid || "",
     );
   };
 
@@ -877,7 +879,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const setBlockError = (blockId: string, error: string | null) => {
-    setBlockErrors(prev => ({
+    setBlockErrors((prev) => ({
       ...prev,
       [blockId]: error,
     }));
@@ -889,7 +891,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const reorderOutlineTree = async (outlines: ReorderOutlineItemDto[]) => {
     await api.reorderOutlineTree({
-      shifu_bid: currentShifu?.bid || '',
+      shifu_bid: currentShifu?.bid || "",
       outlines,
     });
   };
@@ -960,7 +962,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 export const useShifu = (): ShifuContextType => {
   const context = useContext(ShifuContext);
   if (context === undefined) {
-    throw new Error('useShifu must be used within a ShifuProvider');
+    throw new Error("useShifu must be used within a ShifuProvider");
   }
   return context;
 };

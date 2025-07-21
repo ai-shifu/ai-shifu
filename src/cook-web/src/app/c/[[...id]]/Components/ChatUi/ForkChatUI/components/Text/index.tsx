@@ -1,18 +1,18 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export interface TextProps {
   className?: string;
   as?: React.ElementType;
-  align?: 'left' | 'center' | 'right' | 'justify';
+  align?: "left" | "center" | "right" | "justify";
   breakWord?: boolean;
   truncate?: boolean | number;
   children?: React.ReactNode;
 }
 
-export const Text: React.FC<TextProps> = props => {
+export const Text: React.FC<TextProps> = (props) => {
   const {
-    as: Element = 'div',
+    as: Element = "div",
     className,
     align,
     breakWord,
@@ -25,9 +25,9 @@ export const Text: React.FC<TextProps> = props => {
   const cls = clsx(
     align && `Text--${align}`,
     {
-      'Text--break': breakWord,
-      'Text--truncate': truncate === true,
-      'Text--ellipsis': ellipsis,
+      "Text--break": breakWord,
+      "Text--truncate": truncate === true,
+      "Text--ellipsis": ellipsis,
     },
     className,
   );
@@ -35,11 +35,7 @@ export const Text: React.FC<TextProps> = props => {
   const style = ellipsis ? { WebkitLineClamp: truncate } : null;
 
   return (
-    <Element
-      className={cls}
-      style={style}
-      {...other}
-    >
+    <Element className={cls} style={style} {...other}>
       {children}
     </Element>
   );

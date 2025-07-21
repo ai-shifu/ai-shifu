@@ -1,18 +1,18 @@
-import React from 'react';
-import clsx from 'clsx';
-import { Flex } from '../Flex';
+import React from "react";
+import clsx from "clsx";
+import { Flex } from "../Flex";
 
 export type CardMediaProps = {
   className?: string;
-  aspectRatio?: 'square' | 'wide';
+  aspectRatio?: "square" | "wide";
   color?: string;
   image?: string;
 };
 
-export const CardMedia: React.FC<CardMediaProps> = props => {
+export const CardMedia: React.FC<CardMediaProps> = (props) => {
   const {
     className,
-    aspectRatio = 'square',
+    aspectRatio = "square",
     color,
     image,
     // @ts-expect-error EXPECT
@@ -22,16 +22,16 @@ export const CardMedia: React.FC<CardMediaProps> = props => {
 
   const bgStyle = {
     backgroundColor: color || undefined,
-    backgroundImage: typeof image === 'string' ? `url('${image}')` : undefined,
+    backgroundImage: typeof image === "string" ? `url('${image}')` : undefined,
   };
 
   return (
     <div
       className={clsx(
-        'CardMedia',
+        "CardMedia",
         {
-          'CardMedia--wide': aspectRatio === 'wide',
-          'CardMedia--square': aspectRatio === 'square',
+          "CardMedia--wide": aspectRatio === "wide",
+          "CardMedia--square": aspectRatio === "square",
         },
         className,
       )}
@@ -39,11 +39,7 @@ export const CardMedia: React.FC<CardMediaProps> = props => {
       {...other}
     >
       {children && (
-        <Flex
-          className='CardMedia-content'
-          direction='column'
-          center
-        >
+        <Flex className="CardMedia-content" direction="column" center>
           {children}
         </Flex>
       )}

@@ -1,25 +1,25 @@
-import { useCallback } from 'react';
-import { EVENT_NAMES, tracking } from '@/c-common/tools/tracking';
-import { useUserStore } from '@/c-store/useUserStore';
-import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
-import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
-import { getScriptInfo } from '@/c-api/lesson';
-export { EVENT_NAMES } from '@/c-common/tools/tracking';
+import { useCallback } from "react";
+import { EVENT_NAMES, tracking } from "@/c-common/tools/tracking";
+import { useUserStore } from "@/c-store/useUserStore";
+import { useUiLayoutStore } from "@/c-store/useUiLayoutStore";
+import { FRAME_LAYOUT_MOBILE } from "@/c-constants/uiConstants";
+import { getScriptInfo } from "@/c-api/lesson";
+export { EVENT_NAMES } from "@/c-common/tools/tracking";
 
 const USER_STATE_DICT = {
-  未注册: 'guest',
-  已注册: 'user',
-  已付费: 'member',
+  未注册: "guest",
+  已注册: "user",
+  已付费: "member",
 };
 export const useTracking = () => {
-  const { frameLayout } = useUiLayoutStore(state => state);
-  const { userInfo } = useUserStore(state => state);
+  const { frameLayout } = useUiLayoutStore((state) => state);
+  const { userInfo } = useUserStore((state) => state);
 
   const getEventBasicData = useCallback(() => {
     return {
-      user_type: userInfo?.state ? USER_STATE_DICT[userInfo.state] : 'guest',
+      user_type: userInfo?.state ? USER_STATE_DICT[userInfo.state] : "guest",
       user_id: userInfo?.user_id || 0,
-      device: frameLayout === FRAME_LAYOUT_MOBILE ? 'H5' : 'Web',
+      device: frameLayout === FRAME_LAYOUT_MOBILE ? "H5" : "Web",
     };
   }, [frameLayout, userInfo?.state, userInfo?.user_id]);
 
@@ -38,7 +38,7 @@ export const useTracking = () => {
   );
 
   const trackTrailProgress = useCallback(
-    async scriptId => {
+    async (scriptId) => {
       try {
         const { data: scriptInfo } = await getScriptInfo(scriptId);
 

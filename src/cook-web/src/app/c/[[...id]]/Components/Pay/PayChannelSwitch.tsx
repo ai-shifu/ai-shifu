@@ -1,17 +1,17 @@
-import styles from './PayChannelSwitch.module.scss';
+import styles from "./PayChannelSwitch.module.scss";
 
-import { memo } from 'react';
-import { cn } from '@/lib/utils';
-import { useTranslation } from 'react-i18next';
+import { memo } from "react";
+import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 
-import Image from 'next/image';
+import Image from "next/image";
 
-import { PAY_CHANNEL_WECHAT, PAY_CHANNEL_ZHIFUBAO } from './constans';
+import { PAY_CHANNEL_WECHAT, PAY_CHANNEL_ZHIFUBAO } from "./constans";
 
-import payZhifubo0 from '@/c-assets/newchat/pay-zhifubao-0-2x.png';
-import payZhifubo1 from '@/c-assets/newchat/pay-zhifubao-1-2x.png';
-import payWechat0 from '@/c-assets/newchat/pay-wechat-0-2x.png';
-import payWechat1 from '@/c-assets/newchat/pay-wechat-1-2x.png';
+import payZhifubo0 from "@/c-assets/newchat/pay-zhifubao-0-2x.png";
+import payZhifubo1 from "@/c-assets/newchat/pay-zhifubao-1-2x.png";
+import payWechat0 from "@/c-assets/newchat/pay-wechat-0-2x.png";
+import payWechat1 from "@/c-assets/newchat/pay-wechat-1-2x.png";
 
 export const PayChannelSwitchItem = memo(
   ({
@@ -46,7 +46,7 @@ export const PayChannelSwitchItem = memo(
     );
   },
 );
-PayChannelSwitchItem.displayName = 'PayChannelSwitchItem';
+PayChannelSwitchItem.displayName = "PayChannelSwitchItem";
 
 export const PayChannelSwitch = ({
   channel = PAY_CHANNEL_WECHAT,
@@ -60,7 +60,7 @@ export const PayChannelSwitch = ({
         channel={PAY_CHANNEL_WECHAT}
         icon={payWechat0}
         iconSelected={payWechat1}
-        text={t('pay.payChannelWechat')}
+        text={t("pay.payChannelWechat")}
         selected={channel === PAY_CHANNEL_WECHAT}
         onClick={onChange}
       />
@@ -69,7 +69,7 @@ export const PayChannelSwitch = ({
         channel={PAY_CHANNEL_ZHIFUBAO}
         icon={payZhifubo0}
         iconSelected={payZhifubo1}
-        text={t('pay.payChannelAlipay')}
+        text={t("pay.payChannelAlipay")}
         selected={channel === PAY_CHANNEL_ZHIFUBAO}
         onClick={onChange}
       />

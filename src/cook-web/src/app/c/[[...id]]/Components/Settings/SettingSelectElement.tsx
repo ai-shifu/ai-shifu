@@ -1,25 +1,22 @@
-import styles from './SettingSelectElement.module.scss';
+import styles from "./SettingSelectElement.module.scss";
 
-import { memo } from 'react';
-import { ChevronDownIcon } from 'lucide-react';
-import clsx from 'clsx';
+import { memo } from "react";
+import { ChevronDownIcon } from "lucide-react";
+import clsx from "clsx";
 
 export const SettingSelectElement = ({
-  className = '',
-  title = '',
-  value = '',
-  placeholder = '',
+  className = "",
+  title = "",
+  value = "",
+  placeholder = "",
   onClick = () => {},
 }) => {
   return (
-    <div
-      className={clsx(styles.settingSelect, className)}
-      onClick={onClick}
-    >
+    <div className={clsx(styles.settingSelect, className)} onClick={onClick}>
       <div className={styles.title}>{value && title}</div>
       <div className={styles.inputWrapper}>
         <input
-          type='text'
+          type="text"
           className={styles.inputElement}
           placeholder={placeholder}
           readOnly={true}

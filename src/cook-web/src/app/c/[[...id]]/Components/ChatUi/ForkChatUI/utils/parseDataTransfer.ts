@@ -8,7 +8,7 @@ export default function parseDataTransfer(
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
 
-      if (item.type.indexOf('image') !== -1) {
+      if (item.type.indexOf("image") !== -1) {
         const file = item.getAsFile();
         if (file) {
           callback(file);

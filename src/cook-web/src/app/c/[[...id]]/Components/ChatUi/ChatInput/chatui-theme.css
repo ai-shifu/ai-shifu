@@ -67,7 +67,7 @@
   display: flex;
 }
 .typing::before {
-  content: '正在思考中';
+  content: "正在思考中";
   /* background-image: url("../../Assets/loading_chat.png"); */
   /* 不平铺 */
   background-repeat: no-repeat;

@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useCallback, useRef, useEffect } from 'react';
-import CodeMirror from '@uiw/react-codemirror';
-import { autocompletion } from '@codemirror/autocomplete';
-import { EditorView } from '@codemirror/view';
-import CustomDialog from './components/custom-dialog';
-import EditorContext from './editor-context';
-import type { Profile } from '@/components/profiles/type';
-import ImageInject from './components/image-inject';
-import VideoInject from './components/video-inject';
-import ProfileInject from './components/profile-inject';
-import { SelectedOption, IEditorContext } from './type';
-import './index.css';
+import { useState, useCallback, useRef, useEffect } from "react";
+import CodeMirror from "@uiw/react-codemirror";
+import { autocompletion } from "@codemirror/autocomplete";
+import { EditorView } from "@codemirror/view";
+import CustomDialog from "./components/custom-dialog";
+import EditorContext from "./editor-context";
+import type { Profile } from "@/components/profiles/type";
+import ImageInject from "./components/image-inject";
+import VideoInject from "./components/video-inject";
+import ProfileInject from "./components/profile-inject";
+import { SelectedOption, IEditorContext } from "./type";
+import "./index.css";
 
 import {
   variablePlaceholders,
@@ -20,8 +20,8 @@ import {
   createSlashCommands,
   parseContentInfo,
   getProfileKeyListFromContent,
-} from './util';
-import { useTranslation } from 'react-i18next';
+} from "./util";
+import { useTranslation } from "react-i18next";
 
 type EditorProps = {
   content?: string;
@@ -31,7 +31,7 @@ type EditorProps = {
 };
 
 const Editor: React.FC<EditorProps> = ({
-  content = '',
+  content = "",
   isEdit,
   onChange,
   onBlur,
@@ -83,7 +83,7 @@ const Editor: React.FC<EditorProps> = ({
     const { dispatch } = editorViewRef.current;
 
     dispatch({
-      changes: { from, to, insert: '' },
+      changes: { from, to, insert: "" },
     });
   }, [selectContentInfo, editorViewRef]);
 
@@ -195,9 +195,9 @@ const Editor: React.FC<EditorProps> = ({
         handleTagClick(e);
       }
     };
-    window.addEventListener('globalTagClick', handleWrap);
+    window.addEventListener("globalTagClick", handleWrap);
     return () => {
-      window.removeEventListener('globalTagClick', handleWrap);
+      window.removeEventListener("globalTagClick", handleWrap);
     };
   }, []);
 
@@ -213,7 +213,7 @@ const Editor: React.FC<EditorProps> = ({
                 variablePlaceholders,
                 imgPlaceholders,
                 videoPlaceholders,
-                EditorView.updateListener.of(update => {
+                EditorView.updateListener.of((update) => {
                   handleEditorUpdate(update.view);
                 }),
               ]}
@@ -224,11 +224,11 @@ const Editor: React.FC<EditorProps> = ({
                 highlightActiveLineGutter: false,
                 foldGutter: false,
               }}
-              className='rounded-md'
-              placeholder={t('cm-editor.input-slash-to-insert-content')}
+              className="rounded-md"
+              placeholder={t("cm-editor.input-slash-to-insert-content")}
               value={content}
-              theme='light'
-              minHeight='2rem'
+              theme="light"
+              minHeight="2rem"
               onChange={(value: string) => {
                 onChange?.(
                   value,
@@ -260,7 +260,7 @@ const Editor: React.FC<EditorProps> = ({
             </CustomDialog>
           </>
         ) : (
-          <div className='w-full p-2 rounded cursor-pointer font-mono break-words whitespace-pre-wrap'>
+          <div className="w-full p-2 rounded cursor-pointer font-mono break-words whitespace-pre-wrap">
             {content}
           </div>
         )}

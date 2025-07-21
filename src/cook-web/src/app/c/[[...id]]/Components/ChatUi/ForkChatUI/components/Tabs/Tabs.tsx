@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import clsx from 'clsx';
-import smoothScroll from '../../utils/smoothScroll';
-import useNextId from '../../hooks/useNextId';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import clsx from "clsx";
+import smoothScroll from "../../utils/smoothScroll";
+import useNextId from "../../hooks/useNextId";
 
 type TabItemProps = {
   active: boolean;
@@ -11,7 +11,7 @@ type TabItemProps = {
   children: React.ReactNode;
 };
 
-const TabItem: React.FC<TabItemProps> = props => {
+const TabItem: React.FC<TabItemProps> = (props) => {
   const { active, index, children, onClick, ...others } = props;
 
   function handleClick(e: React.MouseEvent) {
@@ -19,11 +19,11 @@ const TabItem: React.FC<TabItemProps> = props => {
   }
 
   return (
-    <div className='Tabs-navItem'>
+    <div className="Tabs-navItem">
       <button
-        className={clsx('Tabs-navLink', { active })}
-        type='button'
-        role='tab'
+        className={clsx("Tabs-navLink", { active })}
+        type="button"
+        role="tab"
         aria-selected={active}
         onClick={handleClick}
         {...others}
@@ -40,15 +40,11 @@ type TabsPaneProps = {
   children?: React.ReactNode;
 };
 
-const TabsPane: React.FC<TabsPaneProps> = props => {
+const TabsPane: React.FC<TabsPaneProps> = (props) => {
   const { active, children, ...others } = props;
 
   return (
-    <div
-      className={clsx('Tabs-pane', { active })}
-      {...others}
-      role='tabpanel'
-    >
+    <div className={clsx("Tabs-pane", { active })} {...others} role="tabpanel">
       {children}
     </div>
   );
@@ -63,7 +59,7 @@ export type TabsProps = {
   children?: React.ReactNode;
 };
 
-export const Tabs: React.FC<TabsProps> = props => {
+export const Tabs: React.FC<TabsProps> = (props) => {
   const {
     className,
     index: oIndex = 0,
@@ -78,7 +74,7 @@ export const Tabs: React.FC<TabsProps> = props => {
   const navRef = useRef<HTMLDivElement>(null);
   const headers: Array<React.ReactNode> = [];
   const contents: Array<React.ReactNode> = [];
-  const tabPaneId = useNextId('tabs-');
+  const tabPaneId = useNextId("tabs-");
 
   function handleIndexChange(idx: number, e: React.MouseEvent) {
     setIndex(idx);
@@ -108,11 +104,7 @@ export const Tabs: React.FC<TabsProps> = props => {
 
     if (item.props.children) {
       contents.push(
-        <TabsPane
-          active={active}
-          key={id}
-          id={id}
-        >
+        <TabsPane active={active} key={id} id={id}>
           {item.props.children}
         </TabsPane>,
       );
@@ -130,7 +122,7 @@ export const Tabs: React.FC<TabsProps> = props => {
     const currentNav = nav.children[indexRef.current];
     if (!currentNav) return;
 
-    const text = currentNav.querySelector('span');
+    const text = currentNav.querySelector("span");
     if (!text) return;
 
     const { offsetWidth: navWidth, offsetLeft: navOffsetLeft } =
@@ -158,7 +150,7 @@ export const Tabs: React.FC<TabsProps> = props => {
     const nav = navRef.current;
     let ro: ResizeObserver;
 
-    if (nav && 'ResizeObserver' in window) {
+    if (nav && "ResizeObserver" in window) {
       ro = new ResizeObserver(movePointer);
       ro.observe(nav);
     }
@@ -179,22 +171,15 @@ export const Tabs: React.FC<TabsProps> = props => {
 
   return (
     <div
-      className={clsx('Tabs', { 'Tabs--scrollable': scrollable }, className)}
+      className={clsx("Tabs", { "Tabs--scrollable": scrollable }, className)}
     >
       {needNav && (
-        <div
-          className='Tabs-nav'
-          role='tablist'
-          ref={navRef}
-        >
+        <div className="Tabs-nav" role="tablist" ref={navRef}>
           {headers}
-          <span
-            className='Tabs-navPointer'
-            style={pointerStyles}
-          />
+          <span className="Tabs-navPointer" style={pointerStyles} />
         </div>
       )}
-      <div className='Tabs-content'>{contents}</div>
+      <div className="Tabs-content">{contents}</div>
     </div>
   );
 };

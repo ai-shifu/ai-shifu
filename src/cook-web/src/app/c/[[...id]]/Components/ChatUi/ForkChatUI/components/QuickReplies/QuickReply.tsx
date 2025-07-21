@@ -1,8 +1,8 @@
-import React from 'react';
-import clsx from 'clsx';
-import { Icon } from '../Icon';
+import React from "react";
+import clsx from "clsx";
+import { Icon } from "../Icon";
 
-import Image from 'next/image';
+import Image from "next/image";
 
 export interface QuickReplyItemProps {
   name: string;
@@ -28,24 +28,18 @@ export const QuickReply = (props: QuickReplyProps) => {
 
   return (
     <button
-      className={clsx('QuickReply', {
+      className={clsx("QuickReply", {
         new: item.isNew,
         highlight: item.isHighlight,
       })}
-      type='button'
+      type="button"
       data-code={item.code}
       aria-label={`快捷短语: ${item.name}，双击发送`}
       onClick={handleClick}
     >
-      <div className='QuickReply-inner'>
+      <div className="QuickReply-inner">
         {item.icon && <Icon type={item.icon} />}
-        {item.img && (
-          <Image
-            className='QuickReply-img'
-            src={item.img}
-            alt=''
-          />
-        )}
+        {item.img && <Image className="QuickReply-img" src={item.img} alt="" />}
         <span>{item.name}</span>
       </div>
     </button>

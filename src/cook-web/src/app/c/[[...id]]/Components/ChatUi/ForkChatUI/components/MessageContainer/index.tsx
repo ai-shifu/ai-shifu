@@ -4,22 +4,22 @@ import React, {
   useImperativeHandle,
   useRef,
   useState,
-} from 'react';
-import canUse from '../../utils/canUse';
-import getToBottom from '../../utils/getToBottom';
-import throttle from '../../utils/throttle';
-import { BackBottom } from '../BackBottom';
-import { Message, MessageProps } from '../Message';
+} from "react";
+import canUse from "../../utils/canUse";
+import getToBottom from "../../utils/getToBottom";
+import throttle from "../../utils/throttle";
+import { BackBottom } from "../BackBottom";
+import { Message, MessageProps } from "../Message";
 import {
   PullToRefresh,
   PullToRefreshHandle,
   ScrollToEndOptions,
-} from '../PullToRefresh';
+} from "../PullToRefresh";
 
 // import { DoubleRightOutlined } from '@ant-design/icons';
-import { ChevronsRightIcon } from 'lucide-react';
+import { ChevronsRightIcon } from "lucide-react";
 
-const listenerOpts = canUse('passiveListener') ? { passive: true } : false;
+const listenerOpts = canUse("passiveListener") ? { passive: true } : false;
 
 export interface MessageContainerProps {
   messages: MessageProps[];
@@ -69,7 +69,7 @@ export const MessageContainer = React.forwardRef<
   let showScrollMore = false;
   const scroller = scrollerRef.current;
   const wrapper = scroller && scroller.wrapperRef.current;
-  if (wrapper && lastMessage && lastMessage.position === 'left') {
+  if (wrapper && lastMessage && lastMessage.position === "left") {
     if (!isNearBottom(wrapper, 0.1)) {
       showScrollMore = true;
     }
@@ -141,11 +141,11 @@ export const MessageContainer = React.forwardRef<
     const scroller = scrollerRef.current;
     const wrapper = scroller && scroller.wrapperRef.current;
 
-    if (!wrapper || !lastMessage || lastMessage.position === 'pop') {
+    if (!wrapper || !lastMessage || lastMessage.position === "pop") {
       return;
     }
 
-    if (lastMessage.position === 'left') {
+    if (lastMessage.position === "left") {
       // 左侧消息(AI 系统回复)，不进行自动滚屏而是判断判断提示是否有更多内容
       // PS: 初始化阶段，最外层的 `scrollToEnd` 会把消息列表滚动到底部
       // if (lastMessage !== messages[0]) {
@@ -153,14 +153,14 @@ export const MessageContainer = React.forwardRef<
       // }
     }
 
-    if (lastMessage.position === 'right') {
+    if (lastMessage.position === "right") {
       // 自己发的消息，强制滚动到底部
       scrollToEnd({ force: true });
     } else if (isNearBottom(wrapper, 2)) {
       const animated = !!wrapper.scrollTop;
       scrollToEnd({ animated, force: true });
     } else {
-      setNewCount(c => c + 1);
+      setNewCount((c) => c + 1);
       setShowBackBottom(true);
     }
   }, [lastMessage, scrollToEnd]);
@@ -178,7 +178,7 @@ export const MessageContainer = React.forwardRef<
 
     function touchStart(e: TouchEvent) {
       const { activeElement } = document;
-      if (activeElement && activeElement.nodeName === 'TEXTAREA') {
+      if (activeElement && activeElement.nodeName === "TEXTAREA") {
         needBlur = true;
         startY = e.touches[0].clientY;
       }
@@ -191,16 +191,16 @@ export const MessageContainer = React.forwardRef<
       }
     }
 
-    wrapper.addEventListener('touchstart', touchStart, listenerOpts);
-    wrapper.addEventListener('touchmove', touchMove, listenerOpts);
-    wrapper.addEventListener('touchend', reset);
-    wrapper.addEventListener('touchcancel', reset);
+    wrapper.addEventListener("touchstart", touchStart, listenerOpts);
+    wrapper.addEventListener("touchmove", touchMove, listenerOpts);
+    wrapper.addEventListener("touchend", reset);
+    wrapper.addEventListener("touchcancel", reset);
 
     return () => {
-      wrapper.removeEventListener('touchstart', touchStart);
-      wrapper.removeEventListener('touchmove', touchMove);
-      wrapper.removeEventListener('touchend', reset);
-      wrapper.removeEventListener('touchcancel', reset);
+      wrapper.removeEventListener("touchstart", touchStart);
+      wrapper.removeEventListener("touchmove", touchMove);
+      wrapper.removeEventListener("touchend", reset);
+      wrapper.removeEventListener("touchcancel", reset);
     };
   }, []);
   // @ts-expect-error EXPECT
@@ -209,11 +209,7 @@ export const MessageContainer = React.forwardRef<
   ]);
 
   return (
-    <div
-      className='MessageContainer'
-      ref={messagesRef}
-      tabIndex={-1}
-    >
+    <div className="MessageContainer" ref={messagesRef} tabIndex={-1}>
       {renderBeforeMessageList && renderBeforeMessageList()}
       <PullToRefresh
         onRefresh={onRefresh}
@@ -221,8 +217,8 @@ export const MessageContainer = React.forwardRef<
         loadMoreText={loadMoreText}
         ref={scrollerRef}
       >
-        <div className='MessageList'>
-          {messages.map(msg => (
+        <div className="MessageList">
+          {messages.map((msg) => (
             <Message
               {...msg}
               renderMessageContent={renderMessageContent}
@@ -233,14 +229,14 @@ export const MessageContainer = React.forwardRef<
       </PullToRefresh>
 
       {showScrollMore ? (
-        <div className='scroll-more'>
+        <div className="scroll-more">
           <button
-            className='scroll-more-btn'
+            className="scroll-more-btn"
             onClick={() => {
               scrollToEnd({ animated: true, force: true });
             }}
           >
-            <ChevronsRightIcon className='scroll-more-icon' />
+            <ChevronsRightIcon className="scroll-more-icon" />
           </button>
         </div>
       ) : null}
@@ -256,4 +252,4 @@ export const MessageContainer = React.forwardRef<
   );
 });
 
-MessageContainer.displayName = 'MessageContainer';
+MessageContainer.displayName = "MessageContainer";

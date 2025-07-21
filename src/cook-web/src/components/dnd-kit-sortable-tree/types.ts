@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-empty-object-type */
-import type { MutableRefObject, RefAttributes } from 'react';
-import { UniqueIdentifier } from '@dnd-kit/core';
+import type { MutableRefObject, RefAttributes } from "react";
+import { UniqueIdentifier } from "@dnd-kit/core";
 
 export type TreeItem<T> = {
   children?: TreeItem<T>[];
@@ -174,7 +174,7 @@ export type ItemChangedReason<T> =
       /*
        * User removed some node (e.g. by clicking on Delete button within the item)
        */
-      type: 'removed';
+      type: "removed";
 
       /*
        * Item that was removed
@@ -185,7 +185,7 @@ export type ItemChangedReason<T> =
       /*
        * User finished dragging an item and dropped it somewhere
        */
-      type: 'dropped';
+      type: "dropped";
 
       /*
        * Item that was dragged
@@ -206,7 +206,7 @@ export type ItemChangedReason<T> =
       /*
        * User collapsed/expanded some item, so that their children are not visible anymore (if type is `collapsed`) or become visible (if type is `expanded`)
        */
-      type: 'collapsed' | 'expanded';
+      type: "collapsed" | "expanded";
 
       /*
        * Item that was collapsed or expanded

@@ -1,19 +1,16 @@
-import React from 'react';
-import clsx from 'clsx';
+import React from "react";
+import clsx from "clsx";
 
 export type CardTextProps = {
   className?: string;
 };
 
-export const CardText: React.FC<CardTextProps> = props => {
+export const CardText: React.FC<CardTextProps> = (props) => {
   // @ts-expect-error EXPECT
   const { className, children, ...other } = props;
   return (
-    <div
-      className={clsx('CardText', className)}
-      {...other}
-    >
-      {typeof children === 'string' ? <p>{children}</p> : children}
+    <div className={clsx("CardText", className)} {...other}>
+      {typeof children === "string" ? <p>{children}</p> : children}
     </div>
   );
 };

@@ -1,7 +1,7 @@
-import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { memo } from 'react';
-import _ from 'lodash';
+import React from "react";
+import { useTranslation } from "react-i18next";
+import { memo } from "react";
+import _ from "lodash";
 interface TextInputViewProps {
   properties: {
     prompt: {
@@ -65,44 +65,44 @@ export default memo(function TextInputView(props: TextInputViewProps) {
   const { properties } = props;
   const { t } = useTranslation();
   return (
-    <div className='flex flex-col space-y-2 w-full'>
-      <div className='flex flex-row items-center space-x-1'>
-        <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.input-placeholder')}
+    <div className="flex flex-col space-y-2 w-full">
+      <div className="flex flex-row items-center space-x-1">
+        <label className="whitespace-nowrap w-[70px] shrink-0">
+          {t("textinput.input-placeholder")}
         </label>
-        <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
+        <div className="px-3 py-2 bg-gray-50 rounded-md w-full">
           {properties.input_name}
         </div>
       </div>
-      <div className='flex flex-row items-center space-x-1'>
-        <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.input-key')}
+      <div className="flex flex-row items-center space-x-1">
+        <label className="whitespace-nowrap w-[70px] shrink-0">
+          {t("textinput.input-key")}
         </label>
-        <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
+        <div className="px-3 py-2 bg-gray-50 rounded-md w-full">
           {properties.input_key}
         </div>
       </div>
-      <div className='flex flex-row items-center space-x-1'>
-        <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.prompt')}
+      <div className="flex flex-row items-center space-x-1">
+        <label className="whitespace-nowrap w-[70px] shrink-0">
+          {t("textinput.prompt")}
         </label>
-        <div className='px-3 py-2 bg-gray-50 rounded-md w-full min-h-[80px] whitespace-pre-wrap'>
+        <div className="px-3 py-2 bg-gray-50 rounded-md w-full min-h-[80px] whitespace-pre-wrap">
           {properties.prompt.properties.prompt}
         </div>
       </div>
-      <div className='flex flex-row items-center space-x-1'>
-        <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.model')}
+      <div className="flex flex-row items-center space-x-1">
+        <label className="whitespace-nowrap w-[70px] shrink-0">
+          {t("textinput.model")}
         </label>
-        <div className='px-3 py-2 bg-gray-50 rounded-md w-[200px]'>
+        <div className="px-3 py-2 bg-gray-50 rounded-md w-[200px]">
           {properties.prompt.properties.model}
         </div>
       </div>
-      <div className='flex flex-row items-center space-x-1 w-[275px]'>
-        <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.temperature')}
+      <div className="flex flex-row items-center space-x-1 w-[275px]">
+        <label className="whitespace-nowrap w-[70px] shrink-0">
+          {t("textinput.temperature")}
         </label>
-        <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
+        <div className="px-3 py-2 bg-gray-50 rounded-md w-full">
           {properties.prompt.properties.temperature}
         </div>
       </div>

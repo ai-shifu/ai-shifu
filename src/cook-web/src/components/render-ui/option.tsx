@@ -1,19 +1,19 @@
-import React, { memo, useEffect, useState } from 'react';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
-import { useTranslation } from 'react-i18next';
-import _ from 'lodash';
-import { OptionsDTO, ProfileItemDefination, UIBlockDTO } from '@/types/shifu';
-import i18n from '@/i18n';
+import React, { memo, useEffect, useState } from "react";
+import { Input } from "../ui/input";
+import { Button } from "../ui/button";
+import { useTranslation } from "react-i18next";
+import _ from "lodash";
+import { OptionsDTO, ProfileItemDefination, UIBlockDTO } from "@/types/shifu";
+import i18n from "@/i18n";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
-import { useShifu } from '@/store';
-import api from '@/api';
+} from "../ui/select";
+import { useShifu } from "@/store";
+import api from "@/api";
 
 const OptionPropsEqual = (prevProps: UIBlockDTO, nextProps: UIBlockDTO) => {
   const prevOptionsSettings = prevProps.data.properties as OptionsDTO;
@@ -68,8 +68,8 @@ export default memo(function Option(props: UIBlockDTO) {
               ...option.label,
               lang: {
                 ...option.label.lang,
-                'zh-CN': e.target.value,
-                'en-US': e.target.value,
+                "zh-CN": e.target.value,
+                "en-US": e.target.value,
               },
             },
           };
@@ -82,11 +82,11 @@ export default memo(function Option(props: UIBlockDTO) {
   const handleConfirm = () => {
     if (tempOptions.length === 0) {
       const defaultButton = {
-        value: t('option.button-key'),
+        value: t("option.button-key"),
         label: {
           lang: {
-            'zh-CN': t('option.button-name'),
-            'en-US': t('option.button-name'),
+            "zh-CN": t("option.button-name"),
+            "en-US": t("option.button-name"),
           },
         },
       };
@@ -112,7 +112,7 @@ export default memo(function Option(props: UIBlockDTO) {
       onChanged?.(true);
     }
     const selectedItem = profileItemDefinations.find(
-      item => item.profile_id === value,
+      (item) => item.profile_id === value,
     );
     if (selectedItem) {
       setSelectedProfile(selectedItem);
@@ -127,9 +127,9 @@ export default memo(function Option(props: UIBlockDTO) {
     const list = await api.getProfileItemOptionList({
       parent_id: id,
     });
-    const options = list.map(item => {
+    const options = list.map((item) => {
       const existingOption = tempOptions.find(
-        option => option.value === item.value,
+        (option) => option.value === item.value,
       );
       if (existingOption) {
         return existingOption;
@@ -138,8 +138,8 @@ export default memo(function Option(props: UIBlockDTO) {
         value: item.value,
         label: {
           lang: {
-            'zh-CN': item.value,
-            'en-US': item.value,
+            "zh-CN": item.value,
+            "en-US": item.value,
           },
         },
       };
@@ -153,12 +153,12 @@ export default memo(function Option(props: UIBlockDTO) {
   ) => {
     const list = await api.getProfileItemDefinitions({
       parent_id: currentShifu?.bid,
-      type: 'option',
+      type: "option",
     });
     setProfileItemDefinations(list);
     if (!preserveSelection && list.length > 0) {
       const initialSelected = list.find(
-        item => item.profile_id === variableBid,
+        (item) => item.profile_id === variableBid,
       );
       if (initialSelected) {
         setSelectedProfile(initialSelected);
@@ -168,35 +168,29 @@ export default memo(function Option(props: UIBlockDTO) {
   };
 
   return (
-    <div className='flex flex-col space-y-1 space-x-1'>
-      <div className='flex flex-row items-center'>
-        <label
-          htmlFor=''
-          className='whitespace-nowrap w-[70px] shrink-0'
-        >
-          {t('option.variable')}
+    <div className="flex flex-col space-y-1 space-x-1">
+      <div className="flex flex-row items-center">
+        <label htmlFor="" className="whitespace-nowrap w-[70px] shrink-0">
+          {t("option.variable")}
         </label>
         <Select
-          value={selectedProfile?.profile_key || ''}
+          value={selectedProfile?.profile_key || ""}
           onValueChange={handleValueChange}
-          onOpenChange={open => {
+          onOpenChange={(open) => {
             if (open) {
               loadProfileItemDefinations(true);
             }
           }}
         >
-          <SelectTrigger className='h-8 w-[170px]'>
+          <SelectTrigger className="h-8 w-[170px]">
             <SelectValue>
-              {selectedProfile?.profile_key || t('option.select-variable')}
+              {selectedProfile?.profile_key || t("option.select-variable")}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {profileItemDefinations?.map(item => {
+            {profileItemDefinations?.map((item) => {
               return (
-                <SelectItem
-                  key={item.profile_key}
-                  value={item.profile_id}
-                >
+                <SelectItem key={item.profile_key} value={item.profile_id}>
                   {item.profile_key}
                 </SelectItem>
               );
@@ -204,45 +198,36 @@ export default memo(function Option(props: UIBlockDTO) {
           </SelectContent>
         </Select>
       </div>
-      <div className='flex flex-col space-y-2'>
+      <div className="flex flex-col space-y-2">
         {tempOptions.map((option: any, index: number) => {
           return (
-            <div
-              key={index}
-              className='flex flex-row items-center'
-            >
-              <label
-                htmlFor=''
-                className='whitespace-nowrap w-[70px] shrink-0'
-              >
-                {t('option.value')}
+            <div key={index} className="flex flex-row items-center">
+              <label htmlFor="" className="whitespace-nowrap w-[70px] shrink-0">
+                {t("option.value")}
               </label>
               <label>{option.value}</label>
               <label
-                htmlFor=''
-                className='whitespace-nowrap w-[50px] shrink-0 ml-4'
+                htmlFor=""
+                className="whitespace-nowrap w-[50px] shrink-0 ml-4"
               >
-                {t('option.title')}
+                {t("option.title")}
               </label>
               <Input
                 value={option.label.lang[i18n.language]}
-                className='w-40 ml-4'
+                className="w-40 ml-4"
                 onChange={onButtonTextChange.bind(null, index)}
               ></Input>
             </div>
           );
         })}
       </div>
-      <div className='flex flex-row items-center'>
+      <div className="flex flex-row items-center">
         <label
-          htmlFor=''
-          className='whitespace-nowrap w-[70px] shrink-0'
+          htmlFor=""
+          className="whitespace-nowrap w-[70px] shrink-0"
         ></label>
-        <Button
-          className='h-8 w-20'
-          onClick={handleConfirm}
-        >
-          {t('option.complete')}
+        <Button className="h-8 w-20" onClick={handleConfirm}>
+          {t("option.complete")}
         </Button>
       </div>
     </div>

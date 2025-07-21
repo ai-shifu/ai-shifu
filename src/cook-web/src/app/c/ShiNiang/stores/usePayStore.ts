@@ -1,5 +1,5 @@
-import { create } from 'zustand';
-import { subscribeWithSelector } from 'zustand/middleware';
+import { create } from "zustand";
+import { subscribeWithSelector } from "zustand/middleware";
 
 interface PayStoreState {
   hasPay: boolean;
@@ -10,9 +10,9 @@ interface PayStoreState {
 
 export const usePayStore = create<
   PayStoreState,
-  [['zustand/subscribeWithSelector', never]]
+  [["zustand/subscribeWithSelector", never]]
 >(
-  subscribeWithSelector(set => ({
+  subscribeWithSelector((set) => ({
     hasPay: false,
     updateHasPay: (hasPay: boolean) => set(() => ({ hasPay })),
     orderPromotePopoverOpen: false,

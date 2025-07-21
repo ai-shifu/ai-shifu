@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import clsx from 'clsx';
-import { IconButton } from '../IconButton';
-import { useLocale } from '../LocaleProvider';
+import React, { useState } from "react";
+import clsx from "clsx";
+import { IconButton } from "../IconButton";
+import { useLocale } from "../LocaleProvider";
 
-const UP = 'up';
-const DOWN = 'down';
+const UP = "up";
+const DOWN = "down";
 
 export type RateActionsProps = {
   upTitle?: string;
@@ -12,14 +12,14 @@ export type RateActionsProps = {
   onClick: (value: string) => void;
 };
 
-export const RateActions: React.FC<RateActionsProps> = props => {
-  const { trans } = useLocale('RateActions', {
-    up: '赞同',
-    down: '反对',
+export const RateActions: React.FC<RateActionsProps> = (props) => {
+  const { trans } = useLocale("RateActions", {
+    up: "赞同",
+    down: "反对",
   });
 
-  const { upTitle = trans('up'), downTitle = trans('down'), onClick } = props;
-  const [value, setValue] = useState('');
+  const { upTitle = trans("up"), downTitle = trans("down"), onClick } = props;
+  const [value, setValue] = useState("");
 
   function handleClick(val: string) {
     if (!value) {
@@ -37,22 +37,22 @@ export const RateActions: React.FC<RateActionsProps> = props => {
   }
 
   return (
-    <div className='RateActions'>
+    <div className="RateActions">
       {value !== DOWN && (
         <IconButton
-          className={clsx('RateBtn', { active: value === UP })}
+          className={clsx("RateBtn", { active: value === UP })}
           title={upTitle}
           data-type={UP}
-          icon='thumbs-up'
+          icon="thumbs-up"
           onClick={handleUpClick}
         />
       )}
       {value !== UP && (
         <IconButton
-          className={clsx('RateBtn', { active: value === DOWN })}
+          className={clsx("RateBtn", { active: value === DOWN })}
           title={downTitle}
           data-type={DOWN}
-          icon='thumbs-down'
+          icon="thumbs-down"
           onClick={handleDownClick}
         />
       )}

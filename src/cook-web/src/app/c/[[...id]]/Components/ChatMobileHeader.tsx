@@ -1,24 +1,24 @@
-import styles from './ChatMobileHeader.module.scss';
+import styles from "./ChatMobileHeader.module.scss";
 
-import { memo } from 'react';
-import { cn } from '@/lib/utils';
+import { memo } from "react";
+import { cn } from "@/lib/utils";
 
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from "@/components/ui/popover";
 
-import { Button } from '@/components/ui/button';
+import { Button } from "@/components/ui/button";
 import {
   CircleEllipsisIcon as MoreIcon,
   CircleX as CloseIcon,
-} from 'lucide-react';
+} from "lucide-react";
 
-import MobileHeaderIconPopover from './MobileHeaderIconPopover';
-import LogoWithText from '@/c-components/logo/LogoWithText';
-import { useDisclosure } from '@/c-common/hooks/useDisclosure';
-import { shifu } from '@/c-service/Shifu';
+import MobileHeaderIconPopover from "./MobileHeaderIconPopover";
+import LogoWithText from "@/c-components/logo/LogoWithText";
+import { useDisclosure } from "@/c-common/hooks/useDisclosure";
+import { shifu } from "@/c-service/Shifu";
 
 export const ChatMobileHeader = ({
   className,
@@ -39,10 +39,7 @@ export const ChatMobileHeader = ({
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>
       {iconPopoverPayload && (
-        <div
-          className='hidden'
-          style={{ display: 'none' }}
-        >
+        <div className="hidden" style={{ display: "none" }}>
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
             onOpen={onIconPopoverOpen}
@@ -50,10 +47,7 @@ export const ChatMobileHeader = ({
           />
         </div>
       )}
-      <LogoWithText
-        direction='row'
-        size={30}
-      />
+      <LogoWithText direction="row" size={30} />
       <Popover open={iconPopoverOpen && hasPopoverContentControl}>
         <PopoverTrigger asChild>
           <Button onClick={onSettingClick}>

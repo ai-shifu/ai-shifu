@@ -1,10 +1,10 @@
-import { useState, useMemo, useRef, useCallback } from 'react';
-import { getRandomString } from '../utils';
-import { MessageProps, MessageId } from '../components/Message';
+import { useState, useMemo, useRef, useCallback } from "react";
+import { getRandomString } from "../utils";
+import { MessageProps, MessageId } from "../components/Message";
 
 type Messages = MessageProps[];
 
-type MessageWithoutId = Omit<MessageProps, '_id'> & {
+type MessageWithoutId = Omit<MessageProps, "_id"> & {
   _id?: MessageId;
 };
 
@@ -23,16 +23,16 @@ const makeMsg = (msg: MessageWithoutId, id?: MessageId) => {
     ...msg,
     _id: msg._id || id || getRandomString(),
     createdAt: ts,
-    position: msg.position || 'left',
+    position: msg.position || "left",
     hasTime,
   };
 };
 
-const TYPING_ID = '_TYPING_';
+const TYPING_ID = "_TYPING_";
 
 export default function useMessages(initialState: MessageWithoutId[] = []) {
   const initialMsgs: Messages = useMemo(
-    () => initialState.map(t => makeMsg(t)),
+    () => initialState.map((t) => makeMsg(t)),
     [initialState],
   );
   const [messages, setMessages] = useState(initialMsgs);
@@ -43,7 +43,9 @@ export default function useMessages(initialState: MessageWithoutId[] = []) {
   }, []);
 
   const updateMsg = useCallback((id: MessageId, msg: MessageWithoutId) => {
-    setMessages(prev => prev.map(t => (t._id === id ? makeMsg(msg, id) : t)));
+    setMessages((prev) =>
+      prev.map((t) => (t._id === id ? makeMsg(msg, id) : t)),
+    );
   }, []);
 
   const appendMsg = useCallback(
@@ -53,14 +55,14 @@ export default function useMessages(initialState: MessageWithoutId[] = []) {
         isTypingRef.current = false;
         updateMsg(TYPING_ID, newMsg);
       } else {
-        setMessages(prev => [...prev, newMsg]);
+        setMessages((prev) => [...prev, newMsg]);
       }
     },
     [updateMsg],
   );
 
   const deleteMsg = useCallback((id: MessageId) => {
-    setMessages(prev => prev.filter(t => t._id !== id));
+    setMessages((prev) => prev.filter((t) => t._id !== id));
   }, []);
 
   const resetList = useCallback((list = []) => {
@@ -74,7 +76,7 @@ export default function useMessages(initialState: MessageWithoutId[] = []) {
       if (typing) {
         appendMsg({
           _id: TYPING_ID,
-          type: 'typing',
+          type: "typing",
         });
       } else {
         deleteMsg(TYPING_ID);

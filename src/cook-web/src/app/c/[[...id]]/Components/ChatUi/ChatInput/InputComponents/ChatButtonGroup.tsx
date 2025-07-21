@@ -1,11 +1,11 @@
-import styles from './ChatButtonGroup.module.scss';
+import styles from "./ChatButtonGroup.module.scss";
 
-import { memo } from 'react';
-import { Button } from '@/components/ui/button';
+import { memo } from "react";
+import { Button } from "@/components/ui/button";
 
-import { INTERACTION_OUTPUT_TYPE } from '@/c-constants/courseConstants';
-import { registerInteractionType } from '../interactionRegistry';
-import { INTERACTION_TYPE } from '@/c-constants/courseConstants';
+import { INTERACTION_OUTPUT_TYPE } from "@/c-constants/courseConstants";
+import { registerInteractionType } from "../interactionRegistry";
+import { INTERACTION_TYPE } from "@/c-constants/courseConstants";
 
 export const ChatButtonGroup = ({ props = [], onClick, disabled = false }) => {
   // @ts-expect-error EXPECT

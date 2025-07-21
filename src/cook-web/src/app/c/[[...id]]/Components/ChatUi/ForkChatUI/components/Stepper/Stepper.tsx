@@ -1,6 +1,6 @@
-import React from 'react';
-import clsx from 'clsx';
-import type { StepProps, StepStatus } from './Step';
+import React from "react";
+import clsx from "clsx";
+import type { StepProps, StepStatus } from "./Step";
 
 export type StepperProps = {
   className?: string;
@@ -47,15 +47,11 @@ export const Stepper = React.forwardRef<HTMLUListElement, StepperProps>(
     });
 
     return (
-      <ul
-        className={clsx('Stepper', className)}
-        ref={ref}
-        {...other}
-      >
+      <ul className={clsx("Stepper", className)} ref={ref} {...other}>
         {steps}
       </ul>
     );
   },
 );
 
-Stepper.displayName = 'Stepper';
+Stepper.displayName = "Stepper";

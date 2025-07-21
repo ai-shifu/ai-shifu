@@ -1,4 +1,4 @@
-import { UserInfo } from './index';
+import { UserInfo } from "./index";
 
 export interface EnvStoreState {
   courseId: string;
