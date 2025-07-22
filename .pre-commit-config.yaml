@@ -24,7 +24,7 @@ repos:
     hooks:
     -   id: prettier-cook-web
         name: Prettier cook-web files
-        entry: bash -c 'echo "Pre-commit running..."; for file in "$@"; do if [[ "$file" =~ ^src/cook-web/ ]]; then echo "Formatting $file"; cd src/cook-web && npx prettier --write "${file#src/cook-web/}" && cd ..; fi; done' --
+        entry: bash -c 'cd src/cook-web && npm run format'
         language: system
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx|css|scss|md|json)$
-        pass_filenames: true
+        pass_filenames: false
