@@ -24,7 +24,8 @@ repos:
     hooks:
     -   id: prettier-cook-web
         name: Prettier cook-web files
-        entry: bash -c 'cd src/cook-web && npm ci && npx prettier --write .'
+        entry: prettier
         language: node
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx|css|scss|md|json)$
-        pass_filenames: false
+        args: ['--write', '--config', 'src/cook-web/.prettierrc']
+        additional_dependencies: ['prettier@^3.5.3']
