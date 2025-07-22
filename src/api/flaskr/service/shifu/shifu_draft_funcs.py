@@ -9,6 +9,7 @@ from ...common.config import get_config
 from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
+    get_shifu_res_url_dict,
 )
 from .models import ShifuDraftShifu, AiCourseAuth
 from flaskr.framework.plugin.plugin_manager import extension
@@ -251,12 +252,14 @@ def get_shifu_draft_list(
 
         infos = [f"{c.shifu_bid} + {c.title} + {c.deleted}\r\n" for c in shifu_drafts]
         app.logger.info(f"{infos}")
+        res_bid = [shifu_draft.avatar_res_bid for shifu_draft in shifu_drafts]
+        res_url_map = get_shifu_res_url_dict(res_bid)
         shifu_dtos = [
             ShifuDto(
                 shifu_draft.shifu_bid,
                 shifu_draft.title,
                 shifu_draft.description,
-                shifu_draft.avatar_res_bid,
+                res_url_map.get(shifu_draft.avatar_res_bid, ""),
                 STATUS_DRAFT,
                 False,
             )

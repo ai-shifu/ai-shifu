@@ -287,6 +287,14 @@ def get_shifu_res_url(res_bid: str):
     return ""
 
 
+def get_shifu_res_url_dict(res_bids: list[str]) -> dict[str, str]:
+    res_url_map = {}
+    res = Resource.query.filter(Resource.resource_id.in_(res_bids)).all()
+    for r in res:
+        res_url_map[r.resource_id] = r.url
+    return res_url_map
+
+
 def parse_shifu_res_bid(res_url: str):
     if res_url:
         return res_url.split("/")[-1]
