@@ -20,3 +20,11 @@ repos:
     -   id: commitizen
         stages: [commit-msg]
         additional_dependencies: ['markupsafe==2.0.1']
+-   repo: local
+    hooks:
+    -   id: prettier-cook-web
+        name: Prettier cook-web files
+        entry: bash -c 'echo "Pre-commit running..."; for file in "$@"; do if [[ "$file" =~ ^src/cook-web/ ]]; then echo "Formatting $file"; cd src/cook-web && npx prettier --write "${file#src/cook-web/}" && cd ..; fi; done' --
+        language: system
+        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|css|scss|md|json)$
+        pass_filenames: true
