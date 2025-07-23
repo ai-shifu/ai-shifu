@@ -56,7 +56,7 @@
     "immer": "^10.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "next": "^15.3.0",
+    "next": "^15.4.3",
     "qrcode.react": "^4.2.0",
     "raw-loader": "^4.0.2",
     "react": "^18.3.1",
