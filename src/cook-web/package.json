@@ -46,7 +46,7 @@
     "@radix-ui/react-toast": "^1.2.6",
     "@types/lodash": "^4.17.16",
     "@uiw/react-codemirror": "^4.23.10",
-    "axios": "^1.10.0",
+    "axios": "^1.11.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
