@@ -23,15 +23,31 @@ import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage } from '@/i18n';
+import { environment } from '@/config/environment';
 
 export default function AuthPage() {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<
     'login' | 'register' | 'forgot-password' | 'feedback'
   >('login');
-  const [loginMethod, setLoginMethod] = useState<'phone' | 'password'>('phone');
+
+  // Get login methods from environment configuration
+  const enabledMethods = environment.loginMethodsEnabled;
+  const defaultMethod = environment.defaultLoginMethod;
+
+  const isPhoneEnabled = enabledMethods.includes('phone');
+  const isEmailEnabled = enabledMethods.includes('email');
+
+  // Use default method directly
+  const getDefaultMethod = (): 'phone' | 'email' => {
+    return defaultMethod as 'phone' | 'email';
+  };
+
+  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>(
+    getDefaultMethod(),
+  );
   const [registerMethod, setRegisterMethod] = useState<'phone' | 'email'>(
-    'phone',
+    getDefaultMethod(),
   );
   const [language, setLanguage] = useState(browserLanguage);
 
@@ -93,9 +109,6 @@ export default function AuthPage() {
                 <CardTitle className='text-xl text-center'>
                   {t('login.title')}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('login.description')}
-                </CardDescription>
               </>
             )}
             {authMode === 'register' && (
@@ -103,9 +116,6 @@ export default function AuthPage() {
                 <CardTitle className='text-xl text-center'>
                   {t('login.register')}
                 </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('login.register-description')}
-                </CardDescription>
               </>
             )}
             {authMode === 'forgot-password' && (
@@ -132,58 +142,119 @@ export default function AuthPage() {
 
           <CardContent>
             {authMode === 'login' && (
-              <Tabs
-                value={loginMethod}
-                onValueChange={value =>
-                  setLoginMethod(value as 'phone' | 'password')
-                }
-                className='w-full'
-              >
-                <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>{t('login.phone')}</TabsTrigger>
-                  <TabsTrigger value='password'>{t('login.email')}</TabsTrigger>
-                </TabsList>
+              <>
+                {enabledMethods.length > 1 ? (
+                  <Tabs
+                    value={loginMethod}
+                    onValueChange={value =>
+                      setLoginMethod(value as 'phone' | 'email')
+                    }
+                    className='w-full'
+                  >
+                    <TabsList
+                      className={`grid w-full ${
+                        enabledMethods.length === 1
+                          ? 'grid-cols-1'
+                          : 'grid-cols-2'
+                      }`}
+                    >
+                      {isPhoneEnabled && (
+                        <TabsTrigger value='phone'>
+                          {t('login.phone')}
+                        </TabsTrigger>
+                      )}
+                      {isEmailEnabled && (
+                        <TabsTrigger value='email'>
+                          {t('login.email')}
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
 
-                <TabsContent value='phone'>
-                  <PhoneLogin onLoginSuccess={handleAuthSuccess} />
-                </TabsContent>
+                    {isPhoneEnabled && (
+                      <TabsContent value='phone'>
+                        <PhoneLogin onLoginSuccess={handleAuthSuccess} />
+                      </TabsContent>
+                    )}
 
-                <TabsContent value='password'>
-                  <EmailLogin
-                    onLoginSuccess={handleAuthSuccess}
-                    onForgotPassword={handleForgotPassword}
-                  />
-                </TabsContent>
-              </Tabs>
+                    {isEmailEnabled && (
+                      <TabsContent value='email'>
+                        <EmailLogin
+                          onLoginSuccess={handleAuthSuccess}
+                          onForgotPassword={handleForgotPassword}
+                        />
+                      </TabsContent>
+                    )}
+                  </Tabs>
+                ) : (
+                  // Single method, no tabs needed
+                  <div className='w-full'>
+                    {isPhoneEnabled && (
+                      <PhoneLogin onLoginSuccess={handleAuthSuccess} />
+                    )}
+                    {isEmailEnabled && (
+                      <EmailLogin
+                        onLoginSuccess={handleAuthSuccess}
+                        onForgotPassword={handleForgotPassword}
+                      />
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {authMode === 'register' && (
-              <Tabs
-                value={registerMethod}
-                onValueChange={value =>
-                  setRegisterMethod(value as 'phone' | 'email')
-                }
-                className='w-full'
-              >
-                <TabsList className='grid w-full grid-cols-2'>
-                  <TabsTrigger value='phone'>
-                    {t('login.phone-register')}
-                  </TabsTrigger>
-                  <TabsTrigger value='email'>
-                    {t('login.email-register')}
-                  </TabsTrigger>
-                </TabsList>
+              <>
+                {enabledMethods.length > 1 ? (
+                  <Tabs
+                    value={registerMethod}
+                    onValueChange={value =>
+                      setRegisterMethod(value as 'phone' | 'email')
+                    }
+                    className='w-full'
+                  >
+                    <TabsList
+                      className={`grid w-full ${
+                        enabledMethods.length === 1
+                          ? 'grid-cols-1'
+                          : 'grid-cols-2'
+                      }`}
+                    >
+                      {isPhoneEnabled && (
+                        <TabsTrigger value='phone'>
+                          {t('login.phone-register')}
+                        </TabsTrigger>
+                      )}
+                      {isEmailEnabled && (
+                        <TabsTrigger value='email'>
+                          {t('login.email-register')}
+                        </TabsTrigger>
+                      )}
+                    </TabsList>
 
-                <TabsContent value='phone'>
-                  {/* TODO: FIXME */}
-                  <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
-                </TabsContent>
+                    {isPhoneEnabled && (
+                      <TabsContent value='phone'>
+                        <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
+                      </TabsContent>
+                    )}
 
-                <TabsContent value='email'>
-                  {/* TODO: FIXME */}
-                  <EmailRegister onRegisterSuccess={handleAuthSuccess} />
-                </TabsContent>
-              </Tabs>
+                    {isEmailEnabled && (
+                      <TabsContent value='email'>
+                        <EmailRegister onRegisterSuccess={handleAuthSuccess} />
+                      </TabsContent>
+                    )}
+                  </Tabs>
+                ) : (
+                  // Single method, no tabs needed
+                  <div className='w-full'>
+                    {isPhoneEnabled && (
+                      <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
+                    )}
+                    {isEmailEnabled && (
+                      <EmailRegister onRegisterSuccess={handleAuthSuccess} />
+                    )}
+                  </div>
+                )}
+              </>
             )}
 
             {authMode === 'forgot-password' && (
