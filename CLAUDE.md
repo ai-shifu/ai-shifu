@@ -221,6 +221,19 @@ const userInfo = await getUserInfo();       // Both routes - direct data
 - `src/cook-web/src/c-api/*.ts`: API endpoint definitions for /c
 - `src/cook-web/src/c-store/useUserStore.ts`: User authentication state
 
+## Code Quality
+
+### Pre-commit Hooks
+- **ALWAYS run pre-commit before committing code**: This ensures code quality and consistency
+- For modified files only: `pre-commit run`
+- For all files: `pre-commit run --all-files`
+- If pre-commit is not installed, install it with: `pip install pre-commit && pre-commit install`
+- Pre-commit will automatically check:
+  - Code formatting
+  - Linting issues
+  - Type errors
+  - Other code quality checks
+
 ## UI Development Guidelines
 
 ### Internationalization (i18n)
