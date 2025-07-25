@@ -23,7 +23,7 @@ def upgrade():
         old_shifu_bid = course_id[0]
         old_course = AICourse.query.filter(AICourse.course_id == old_shifu_bid).first()
         print(
-            f"migrate shifu draft to shifu draft v2, shifu_bid: {old_shifu_bid}, {old_course.course_name}, {i+1}/{len(old_shifu_bids)}"
+            f"migrate shifu draft to shifu draft v2, shifu_bid: {old_shifu_bid}, {old_course.course_name}, {i + 1}/{len(old_shifu_bids)}"
         )
         migrate_shifu_draft_to_shifu_draft_v2(current_app, old_shifu_bid)
 
