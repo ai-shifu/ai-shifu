@@ -99,6 +99,7 @@ class AILessonAttendDTO:
     updated: bool
     unique_id: str
     lesson_type: int
+    parent: "AILessonAttendDTO"
 
     def __init__(
         self,
@@ -121,6 +122,7 @@ class AILessonAttendDTO:
         self.updated = updated
         self.unique_id = unique_id
         self.lesson_type = lesson_type
+        self.parent = None
 
     def __json__(self):
         return {
@@ -133,6 +135,20 @@ class AILessonAttendDTO:
             "updated": self.updated,
             "lesson_type": self.lesson_type,
         }
+
+    def get_pre(self):
+        if self.parent:
+            index = self.parent.children.index(self)
+            if index > 0:
+                return self.parent.children[index - 1]
+        return None
+
+    def get_next(self):
+        if self.parent:
+            index = self.parent.children.index(self)
+            if index < len(self.parent.children) - 1:
+                return self.parent.children[index + 1]
+        return None
 
 
 # @register_schema_to_swagger
