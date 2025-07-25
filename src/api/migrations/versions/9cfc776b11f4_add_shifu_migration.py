@@ -19,8 +19,13 @@ def upgrade():
     from flaskr.service.lesson.models import AICourse
 
     old_shifu_bids = AICourse.query.with_entities(AICourse.course_id).distinct().all()
-    for old_shifu_bid in old_shifu_bids:
-        migrate_shifu_draft_to_shifu_draft_v2(current_app, old_shifu_bid[0])
+    for i, course_id in enumerate(old_shifu_bids):
+        old_shifu_bid = course_id[0]
+        old_course = AICourse.query.filter(AICourse.course_id == old_shifu_bid).first()
+        print(
+            f"migrate shifu draft to shifu draft v2, shifu_bid: {old_shifu_bid}, {old_course.course_name}, {i+1}/{len(old_shifu_bids)}"
+        )
+        migrate_shifu_draft_to_shifu_draft_v2(current_app, old_shifu_bid)
 
 
 def downgrade():
