@@ -40,8 +40,6 @@ export default function AuthPage() {
   const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>(
     defaultMethod as 'phone' | 'email',
   );
-  // Email-only registration since phone now auto-registers
-  const [registerMethod, setRegisterMethod] = useState<'email'>('email');
   const [language, setLanguage] = useState(browserLanguage);
 
   const searchParams = useSearchParams();
