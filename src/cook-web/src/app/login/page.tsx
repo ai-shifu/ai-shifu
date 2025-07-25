@@ -38,16 +38,11 @@ export default function AuthPage() {
   const isPhoneEnabled = enabledMethods.includes('phone');
   const isEmailEnabled = enabledMethods.includes('email');
 
-  // Use default method directly
-  const getDefaultMethod = (): 'phone' | 'email' => {
-    return defaultMethod as 'phone' | 'email';
-  };
-
   const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>(
-    getDefaultMethod(),
+    defaultMethod as 'phone' | 'email',
   );
   const [registerMethod, setRegisterMethod] = useState<'phone' | 'email'>(
-    getDefaultMethod(),
+    defaultMethod as 'phone' | 'email',
   );
   const [language, setLanguage] = useState(browserLanguage);
 
@@ -151,13 +146,7 @@ export default function AuthPage() {
                     }
                     className='w-full'
                   >
-                    <TabsList
-                      className={`grid w-full ${
-                        enabledMethods.length === 1
-                          ? 'grid-cols-1'
-                          : 'grid-cols-2'
-                      }`}
-                    >
+                    <TabsList className={'grid w-full grid-cols-2'}>
                       {isPhoneEnabled && (
                         <TabsTrigger value='phone'>
                           {t('login.phone')}
@@ -212,13 +201,7 @@ export default function AuthPage() {
                     }
                     className='w-full'
                   >
-                    <TabsList
-                      className={`grid w-full ${
-                        enabledMethods.length === 1
-                          ? 'grid-cols-1'
-                          : 'grid-cols-2'
-                      }`}
-                    >
+                    <TabsList className={'grid w-full grid-cols-2'}>
                       {isPhoneEnabled && (
                         <TabsTrigger value='phone'>
                           {t('login.phone-register')}

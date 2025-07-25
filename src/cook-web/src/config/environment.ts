@@ -244,13 +244,11 @@ function getLoginMethodsEnabled(): string[] {
  * Gets default login method
  */
 function getDefaultLoginMethod(): string {
-  const runtimeMethod = getRuntimeEnv('NEXT_PUBLIC_DEFAULT_LOGIN_METHOD');
-  if (runtimeMethod) {
-    return runtimeMethod;
-  }
-
-  const value = process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD;
-  return value || 'phone';
+  return (
+    getRuntimeEnv('NEXT_PUBLIC_DEFAULT_LOGIN_METHOD') ||
+    process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD ||
+    'phone'
+  );
 }
 
 /**
