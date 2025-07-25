@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/card';
 import { PhoneLogin } from '@/components/auth/phone-login';
 import { EmailLogin } from '@/components/auth/email-login';
-import { PhoneRegister } from '@/components/auth/phone-register';
 import { EmailRegister } from '@/components/auth/email-register';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 import { FeedbackForm } from '@/components/auth//feedback-form';
@@ -41,9 +40,8 @@ export default function AuthPage() {
   const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>(
     defaultMethod as 'phone' | 'email',
   );
-  const [registerMethod, setRegisterMethod] = useState<'phone' | 'email'>(
-    defaultMethod as 'phone' | 'email',
-  );
+  // Email-only registration since phone now auto-registers
+  const [registerMethod, setRegisterMethod] = useState<'email'>('email');
   const [language, setLanguage] = useState(browserLanguage);
 
   const searchParams = useSearchParams();
@@ -193,49 +191,15 @@ export default function AuthPage() {
 
             {authMode === 'register' && (
               <>
-                {enabledMethods.length > 1 ? (
-                  <Tabs
-                    value={registerMethod}
-                    onValueChange={value =>
-                      setRegisterMethod(value as 'phone' | 'email')
-                    }
-                    className='w-full'
-                  >
-                    <TabsList className={'grid w-full grid-cols-2'}>
-                      {isPhoneEnabled && (
-                        <TabsTrigger value='phone'>
-                          {t('login.phone-register')}
-                        </TabsTrigger>
-                      )}
-                      {isEmailEnabled && (
-                        <TabsTrigger value='email'>
-                          {t('login.email-register')}
-                        </TabsTrigger>
-                      )}
-                    </TabsList>
-
-                    {isPhoneEnabled && (
-                      <TabsContent value='phone'>
-                        <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
-                      </TabsContent>
-                    )}
-
-                    {isEmailEnabled && (
-                      <TabsContent value='email'>
-                        <EmailRegister onRegisterSuccess={handleAuthSuccess} />
-                      </TabsContent>
-                    )}
-                  </Tabs>
-                ) : (
-                  // Single method, no tabs needed
+                {/* Only email registration is needed since phone now auto-registers */}
+                {isEmailEnabled ? (
                   <div className='w-full'>
-                    {isPhoneEnabled && (
-                      <PhoneRegister onRegisterSuccess={handleAuthSuccess} />
-                    )}
-                    {isEmailEnabled && (
-                      <EmailRegister onRegisterSuccess={handleAuthSuccess} />
-                    )}
+                    <EmailRegister onRegisterSuccess={handleAuthSuccess} />
                   </div>
+                ) : (
+                  <p className='text-center text-muted-foreground'>
+                    {t('login.no-registration-method')}
+                  </p>
                 )}
               </>
             )}
@@ -249,7 +213,7 @@ export default function AuthPage() {
             )}
           </CardContent>
           <CardFooter className='flex flex-col items-center space-y-2'>
-            {authMode === 'login' && (
+            {authMode === 'login' && isEmailEnabled && (
               <>
                 <p className='text-sm text-muted-foreground'>
                   {t('login.no-account')}

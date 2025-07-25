@@ -138,6 +138,9 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       });
 
       if (response.code == 0) {
+        // Since backend always returns user_state=1 for both new and existing users,
+        // we can't distinguish between login and registration from the response.
+        // For now, we'll just show a generic success message.
         toast({
           title: t('login.login-success'),
         });
