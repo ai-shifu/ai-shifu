@@ -38,6 +38,13 @@ from flaskr.service.user.models import User
 from flaskr.framework import extensible
 from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 from flaskr.i18n import get_current_language
+from flaskr.service.shifu.shifu_history_manager import (
+    HistoryItem,
+)
+from flaskr.service.shifu.shifu_struct_manager import (
+    ShifuOutlineItemDto,
+)
+from flaskr.service.shifu.dtos import BlockDTO
 
 
 def get_current_lesson(
@@ -912,3 +919,13 @@ def get_script_ui_label(app, text):
         except Exception:
             return text
     return text
+
+
+def get_block(
+    app: Flask,
+    struct: HistoryItem,
+    outline_item_info: ShifuOutlineItemDto,
+    user_id: str,
+    preview_mode: bool = False,
+) -> BlockDTO:
+    pass
