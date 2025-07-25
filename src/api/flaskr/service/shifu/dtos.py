@@ -628,6 +628,8 @@ class BlockDTO(BaseModel):
         | GotoDTO
         | PaymentDTO
         | LoginDTO
+        | CheckCodeDTO
+        | PhoneDTO
     ) = Field(..., description="block content", required=True)
     variable_bids: list[str] = Field(..., description="variable bids", required=False)
     resource_bids: list[str] = Field(..., description="resource bids", required=False)
@@ -644,6 +646,8 @@ class BlockDTO(BaseModel):
             | GotoDTO
             | PaymentDTO
             | LoginDTO
+            | CheckCodeDTO
+            | PhoneDTO
         ),
         variable_bids: list[str],
         resource_bids: list[str],

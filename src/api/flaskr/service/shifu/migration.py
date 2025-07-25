@@ -151,41 +151,42 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
                 block_index = 1
                 app.logger.info(f"migrate  blocks: {len(old_blocks)}")
                 for block in old_blocks:
-                    block_dto: BlockDTO = generate_block_dto_from_model(
+                    block_dtos: list[BlockDTO] = generate_block_dto_from_model(
                         block, variable_definitions
-                    )[0]
-                    new_block = ShifuDraftBlock()
-                    new_block.block_bid = block_dto.bid
-                    new_block.outline_item_bid = new_outline.outline_item_bid
-                    new_block.position = block_index
-                    new_block.deleted = 0
-                    new_block.created_at = now_time
-                    new_block.created_user_bid = user_id
-                    new_block.updated_at = now_time
-                    new_block.updated_user_bid = user_id
-                    new_block.shifu_bid = shifu_bid
-                    result = update_block_dto_to_model_internal(
-                        block_dto,
-                        new_block,
-                        variable_definitions,
-                        new_block=True,
                     )
-                    if result.error_message:
-                        app.logger.error(
-                            f"Failed to migrate block: {result.error_message}"
+                    for block_dto in block_dtos:
+                        new_block = ShifuDraftBlock()
+                        new_block.block_bid = block_dto.bid
+                        new_block.outline_item_bid = new_outline.outline_item_bid
+                        new_block.position = block_index
+                        new_block.deleted = 0
+                        new_block.created_at = now_time
+                        new_block.created_user_bid = user_id
+                        new_block.updated_at = now_time
+                        new_block.updated_user_bid = user_id
+                        new_block.shifu_bid = shifu_bid
+                        result = update_block_dto_to_model_internal(
+                            block_dto,
+                            new_block,
+                            variable_definitions,
+                            new_block=True,
                         )
-                        continue
-                    db.session.add(new_block)
-                    db.session.flush()
-                    outline_history_item.children.append(
-                        HistoryItem(
-                            bid=new_block.block_bid,
-                            id=new_block.id,
-                            type="block",
-                            children=[],
+                        if result.error_message:
+                            app.logger.error(
+                                f"Failed to migrate block: {result.error_message}"
+                            )
+                            continue
+                        db.session.add(new_block)
+                        db.session.flush()
+                        outline_history_item.children.append(
+                            HistoryItem(
+                                bid=new_block.block_bid,
+                                id=new_block.id,
+                                type="block",
+                                children=[],
+                            )
                         )
-                    )
-                    block_index = block_index + 1
+                        block_index = block_index + 1
 
         for node in outline_tree_v1:
             migrate_outline(node, history_item)
@@ -339,41 +340,44 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
                 block_index = 1
                 app.logger.info(f"migrate  blocks: {len(old_blocks)}")
                 for block in old_blocks:
-                    block_dto: BlockDTO = generate_block_dto_from_model(
+                    block_dtos: list[BlockDTO] = generate_block_dto_from_model(
                         block, variable_definitions
-                    )[0]
-                    new_block = ShifuPublishedBlock()
-                    new_block.block_bid = block_dto.bid
-                    new_block.outline_item_bid = new_published_outline.outline_item_bid
-                    new_block.position = block_index
-                    new_block.deleted = 0
-                    new_block.created_at = now_time
-                    new_block.created_user_bid = user_id
-                    new_block.updated_at = now_time
-                    new_block.updated_user_bid = user_id
-                    new_block.shifu_bid = shifu_bid
-                    result = update_block_dto_to_model_internal(
-                        block_dto,
-                        new_block,
-                        variable_definitions,
-                        new_block=True,
                     )
-                    if result.error_message:
-                        app.logger.error(
-                            f"Failed to migrate block: {result.error_message}"
+                    for block_dto in block_dtos:
+                        new_block = ShifuPublishedBlock()
+                        new_block.block_bid = block_dto.bid
+                        new_block.outline_item_bid = (
+                            new_published_outline.outline_item_bid
                         )
-                        continue
-                    db.session.add(new_block)
-                    db.session.flush()
-                    outline_history_item.children.append(
-                        HistoryItem(
-                            bid=new_block.block_bid,
-                            id=new_block.id,
-                            type="block",
-                            children=[],
+                        new_block.position = block_index
+                        new_block.deleted = 0
+                        new_block.created_at = now_time
+                        new_block.created_user_bid = user_id
+                        new_block.updated_at = now_time
+                        new_block.updated_user_bid = user_id
+                        new_block.shifu_bid = shifu_bid
+                        result = update_block_dto_to_model_internal(
+                            block_dto,
+                            new_block,
+                            variable_definitions,
+                            new_block=True,
                         )
-                    )
-                    block_index = block_index + 1
+                        if result.error_message:
+                            app.logger.error(
+                                f"Failed to migrate block: {result.error_message}"
+                            )
+                            continue
+                        db.session.add(new_block)
+                        db.session.flush()
+                        outline_history_item.children.append(
+                            HistoryItem(
+                                bid=new_block.block_bid,
+                                id=new_block.id,
+                                type="block",
+                                children=[],
+                            )
+                        )
+                        block_index = block_index + 1
 
         for node in outline_tree:
             migrate_published_outline(node, history_item)

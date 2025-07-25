@@ -8,28 +8,20 @@ from flaskr.service.user.models import User
 from flaskr.i18n import _
 from ...api.langfuse import langfuse_client as langfuse
 from ...service.lesson.const import (
-    LESSON_TYPE_TRIAL,
     STATUS_PUBLISH,
     STATUS_DRAFT,
 )
 from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
-    ATTEND_STATUS_BRANCH,
-    ATTEND_STATUS_COMPLETED,
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_NOT_STARTED,
-    ATTEND_STATUS_RESET,
-    ATTEND_STATUS_LOCKED,
     get_attend_status_values,
 )
 
 
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
-    init_trial_lesson,
-    init_trial_lesson_inner,
 )
-from ...service.order.models import AICourseLessonAttend
 from ...service.study.const import (
     INPUT_TYPE_ASK,
     INPUT_TYPE_START,
@@ -41,7 +33,6 @@ from .utils import (
     make_script_dto,
     get_script,
     update_lesson_status,
-    get_current_lesson,
     check_script_is_last_script,
     get_script_by_id,
 )
@@ -50,6 +41,15 @@ from .output_funcs import handle_output
 from .plugin import handle_input, handle_ui, check_continue
 from .utils import make_script_dto_to_stream
 from flaskr.service.study.dtos import AILessonAttendDTO
+from flaskr.service.shifu.shifu_struct_manager import (
+    get_shifu_dto,
+    get_outline_item_dto,
+    ShifuInfoDto,
+    ShifuOutlineItemDto,
+    get_default_shifu_dto,
+    get_shifu_struct,
+)
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
 def handle_reload_script(
@@ -203,15 +203,10 @@ def run_script_inner(
     Core function for running course scripts
     """
     with app.app_context():
-        ai_course_status = [STATUS_PUBLISH]
-        if preview_mode:
-            ai_course_status = [STATUS_DRAFT, STATUS_PUBLISH]
-
         script_info = None
         try:
             attend_status_values = get_attend_status_values()
             user_info = User.query.filter(User.user_id == user_id).first()
-
             # When reload_script_id is provided, regenerate the script content directly
             if reload_script_id and lesson_id and course_id:
                 yield from handle_reload_script(
@@ -225,164 +220,44 @@ def run_script_inner(
                 )
                 return
 
+            shifu_info: ShifuInfoDto = None
+            outline_item_info: ShifuOutlineItemDto = None
+            attend: AICourseLessonAttendDTO = None
+            struct_info: HistoryItem = None
             if not lesson_id:
                 app.logger.info("lesson_id is None")
-                if course_id:
-                    course_info = AICourse.query.filter(
-                        AICourse.course_id == course_id,
-                        AICourse.status.in_(ai_course_status),
-                    ).first()
+                if not course_id:
+                    shifu_info = get_default_shifu_dto(app, preview_mode)
                 else:
-                    course_info = AICourse.query.filter(
-                        AICourse.status.in_(ai_course_status),
-                    ).first()
-                    if course_info is None:
-                        raise_error("LESSON.HAS_NOT_LESSON")
-                if not course_info:
-                    raise_error("LESSON.COURSE_NOT_FOUND")
-                yield make_script_dto(
-                    "teacher_avatar", course_info.course_teacher_avatar, ""
-                )
-                course_id = course_info.course_id
-                lessons = init_trial_lesson(app, user_id, course_id)
-                attend = get_current_lesson(app, lessons)
-                lesson_id = attend.lesson_id
-                lesson_info = AILesson.query.filter(
-                    AILesson.lesson_id == lesson_id,
-                ).first()
-                if not lesson_info:
-                    raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                    shifu_info = get_shifu_dto(app, course_id, preview_mode)
+                if not shifu_info:
+                    raise_error("LESSON.HAS_NOT_LESSON")
+                course_id = shifu_info.bid
             else:
-                lesson_info = None
-                if preview_mode:
-                    subquery = (
-                        db.session.query(db.func.max(AILesson.id))
-                        .filter(
-                            AILesson.lesson_id == lesson_id,
-                        )
-                        .group_by(AILesson.lesson_id)
-                    )
-
-                    lesson_info = AILesson.query.filter(
-                        AILesson.id.in_(subquery),
-                        AILesson.status.in_(ai_course_status),
-                    ).first()
-                else:
-                    lesson_info = AILesson.query.filter(
-                        AILesson.lesson_id == lesson_id,
-                        AILesson.status.in_(ai_course_status),
-                    ).first()
-                if not lesson_info:
+                outline_item_info = get_outline_item_dto(app, lesson_id, preview_mode)
+                if not outline_item_info:
                     raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-                course_id = lesson_info.course_id
-                app.logger.info(
-                    "user_id:{},course_id:{},lesson_id:{},lesson_no:{}".format(
-                        user_id, course_id, lesson_id, lesson_info.lesson_no
-                    )
-                )
-                if not lesson_info:
-                    raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-                course_info = (
-                    AICourse.query.filter(
-                        AICourse.course_id == course_id,
-                        AICourse.status.in_(ai_course_status),
-                    )
-                    .order_by(AICourse.id.desc())
-                    .first()
-                )
-                if not course_info:
+                course_id = outline_item_info.shifu_bid
+                shifu_info = get_shifu_dto(app, course_id, preview_mode)
+                if not shifu_info:
                     raise_error("LESSON.COURSE_NOT_FOUND")
-                # return the teacher avatar
-                yield make_script_dto(
-                    "teacher_avatar", course_info.course_teacher_avatar, ""
-                )
 
-                attend_info = AICourseLessonAttend.query.filter(
-                    AICourseLessonAttend.user_id == user_id,
-                    AICourseLessonAttend.course_id == course_id,
-                    AICourseLessonAttend.lesson_id == lesson_id,
-                    AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-                ).first()
-                if not attend_info:
-                    if lesson_info.lesson_type == LESSON_TYPE_TRIAL:
-                        app.logger.info(
-                            "init trial lesson for user:{} course:{}".format(
-                                user_id, course_id
-                            )
-                        )
-                        new_attend_infos = init_trial_lesson_inner(
-                            app, user_id, course_id
-                        )
-                        new_attend_maps = {i.lesson_id: i for i in new_attend_infos}
-                        attend_info = new_attend_maps.get(lesson_id, None)
-                        if not attend_info:
-                            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-                    else:
-                        raise_error("COURSE.COURSE_NOT_PURCHASED")
+            struct_info = get_shifu_struct(app, shifu_info.bid, preview_mode)
+            if not struct_info:
+                raise_error("LESSON.SHIFU_NOT_FOUND")
+            if not outline_item_info:
+                lesson_info = None
+            else:
+                lesson_info = outline_item_info
 
-                if (
-                    attend_info.status == ATTEND_STATUS_COMPLETED
-                    or attend_info.status == ATTEND_STATUS_LOCKED
-                ):
+            # return the teacher avatar
+            yield make_script_dto("teacher_avatar", shifu_info.avatar, "")
 
-                    parent_no = lesson_info.lesson_no
-                    if len(parent_no) >= 2:
-                        parent_no = parent_no[:-2]
-                    lessons = AILesson.query.filter(
-                        AILesson.lesson_no.like(parent_no + "__"),
-                        AILesson.course_id == course_id,
-                        AILesson.status.in_(ai_course_status),
-                    ).all()
-                    app.logger.info(
-                        "study lesson no :{}".format(
-                            ",".join([lesson.lesson_no for lesson in lessons])
-                        )
-                    )
-                    lesson_ids = [lesson.lesson_id for lesson in lessons]
-                    attend_infos = AICourseLessonAttend.query.filter(
-                        AICourseLessonAttend.user_id == user_id,
-                        AICourseLessonAttend.course_id == course_id,
-                        AICourseLessonAttend.lesson_id.in_(lesson_ids),
-                        AICourseLessonAttend.status.in_(
-                            [
-                                ATTEND_STATUS_NOT_STARTED,
-                                ATTEND_STATUS_IN_PROGRESS,
-                                ATTEND_STATUS_BRANCH,
-                            ]
-                        ),
-                    ).all()
-                    attend_maps = {i.lesson_id: i for i in attend_infos}
-                    lessons = sorted(lessons, key=lambda x: x.lesson_no)
-                    for lesson in lessons:
-                        lesson_attend_info = attend_maps.get(lesson.lesson_id, None)
-                        if (
-                            len(lesson.lesson_no) > 2
-                            and lesson_attend_info
-                            and lesson_attend_info.status
-                            in [
-                                ATTEND_STATUS_NOT_STARTED,
-                                ATTEND_STATUS_IN_PROGRESS,
-                                ATTEND_STATUS_BRANCH,
-                            ]
-                        ):
-                            lesson_id = lesson_attend_info.lesson_id
-                            attend_info = lesson_attend_info
-                            break
-                attend = AICourseLessonAttendDTO(
-                    attend_info.attend_id,
-                    attend_info.lesson_id,
-                    attend_info.course_id,
-                    attend_info.user_id,
-                    attend_info.status,
-                    attend_info.script_index,
-                )
-                db.session.flush()
-            # Langfuse
             trace_args = {}
             trace_args["user_id"] = user_id
             trace_args["session_id"] = attend.attend_id
             trace_args["input"] = input
-            trace_args["name"] = course_info.course_name
+            trace_args["name"] = shifu_info.title
             trace = langfuse.trace(**trace_args)
             trace_args["output"] = ""
             next = 0
