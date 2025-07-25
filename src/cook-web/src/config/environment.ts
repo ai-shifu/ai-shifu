@@ -29,6 +29,10 @@ interface EnvironmentConfig {
 
   // Development & Debugging Tools
   enableEruda: boolean;
+
+  // Authentication Configuration
+  loginMethodsEnabled: string[];
+  defaultLoginMethod: string;
 }
 
 /**
@@ -216,6 +220,38 @@ function getDebugErudaEnabled(): boolean {
 }
 
 /**
+ * Gets enabled login methods
+ */
+function getLoginMethodsEnabled(): string[] {
+  const runtimeMethods = getRuntimeEnv('NEXT_PUBLIC_LOGIN_METHODS_ENABLED');
+  if (runtimeMethods) {
+    const methods = runtimeMethods
+      .split(',')
+      .map(method => method.trim())
+      .filter(Boolean);
+    return methods.length > 0 ? methods : ['phone'];
+  }
+
+  const value = process.env.NEXT_PUBLIC_LOGIN_METHODS_ENABLED || 'phone';
+  const methods = value
+    .split(',')
+    .map(method => method.trim())
+    .filter(Boolean);
+  return methods.length > 0 ? methods : ['phone'];
+}
+
+/**
+ * Gets default login method
+ */
+function getDefaultLoginMethod(): string {
+  return (
+    getRuntimeEnv('NEXT_PUBLIC_DEFAULT_LOGIN_METHOD') ||
+    process.env.NEXT_PUBLIC_DEFAULT_LOGIN_METHOD ||
+    'phone'
+  );
+}
+
+/**
  * Converts string boolean values to actual booleans
  */
 function getBooleanValue(
@@ -251,6 +287,10 @@ export const environment: EnvironmentConfig = {
 
   // Development & Debugging Tools
   enableEruda: getDebugErudaEnabled(),
+
+  // Authentication Configuration
+  loginMethodsEnabled: getLoginMethodsEnabled(),
+  defaultLoginMethod: getDefaultLoginMethod(),
 };
 
 export default environment;

@@ -46,6 +46,13 @@
 | --------------------------------- | --------------------- | ------- |
 | `NEXT_PUBLIC_DEBUG_ERUDA_ENABLED` | 是否启用Eruda调试工具 | `false` |
 
+### 7. 认证配置 (Authentication Configuration)
+
+| 变量名                              | 用途           | 默认值    | 可选值                                |
+| ----------------------------------- | -------------- | --------- | ------------------------------------- |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"phone,email"` |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`                  |
+
 ## 使用方式
 
 ### 在组件中使用
@@ -62,6 +69,12 @@ const courseId = environment.courseId;
 // 获取微信配置
 const wechatAppId = environment.wechatAppId;
 const wechatEnabled = environment.enableWechatCode;
+
+// 获取认证配置
+const loginMethods = environment.loginMethodsEnabled; // ['phone', 'email']
+const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email'
+const isPhoneEnabled = loginMethods.includes('phone');
+const isEmailEnabled = loginMethods.includes('email');
 ```
 
 ### 在API路由中使用
@@ -93,7 +106,9 @@ export async function GET() {
   "logoVertical": "",
   "umamiScriptSrc": "https://umami.ai-shifu.com/script.js",
   "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
-  "enableEruda": "false"
+  "enableEruda": "false",
+  "loginMethodsEnabled": ["phone"],
+  "defaultLoginMethod": "phone"
 }
 ```
 
@@ -268,6 +283,10 @@ NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=f3108c8f-6898-4404-b6d7-fd076ad011db
 
 # ===== Development & Debugging Tools =====
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
+
+# ===== Authentication Configuration =====
+NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
+NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
 ```
 
 ### 生产环境 (docker.env.example)
@@ -294,6 +313,10 @@ NEXT_PUBLIC_ANALYTICS_UMAMI_SITE_ID=your-umami-site-id
 
 # ===== Development & Debugging Tools =====
 NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
+
+# ===== Authentication Configuration =====
+NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
+NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
 
 # ===== Docker Specific Configuration =====
 PORT=3000
