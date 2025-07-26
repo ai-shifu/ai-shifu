@@ -2,14 +2,14 @@ from ...common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
 import math
 
-USER_STATE_UNTEGISTERED = 0
+USER_STATE_UNREGISTERED = 0
 USER_STATE_REGISTERED = 1
 USER_STATE_TRAIL = 2
 USER_STATE_PAID = 3
 
 
 USE_STATE_VALUES = {
-    USER_STATE_UNTEGISTERED: "未注册",
+    USER_STATE_UNREGISTERED: "未注册",
     USER_STATE_REGISTERED: "已注册",
     USER_STATE_TRAIL: "试用",
     USER_STATE_PAID: "已付费",

@@ -10,7 +10,7 @@ from ...common.config import get_config
 from ..common.models import raise_error, raise_error_with_args
 
 from .utils import generate_token
-from ...service.common.dtos import USER_STATE_UNTEGISTERED, UserInfo, UserToken
+from ...service.common.dtos import USER_STATE_UNREGISTERED, UserInfo, UserToken
 from ...service.user.models import User, UserConversion
 from ...dao import db
 from ...api.wechat import get_wechat_access_token
@@ -79,7 +79,7 @@ def generate_temp_user(
                 conversion_source=user_source,
                 conversion_status=0,
             )
-            new_user = User(user_id=user_id, user_state=USER_STATE_UNTEGISTERED)
+            new_user = User(user_id=user_id, user_state=USER_STATE_UNREGISTERED)
             new_user.user_language = language
             new_user.user_open_id = wx_openid
             db.session.add(new_convert_user)

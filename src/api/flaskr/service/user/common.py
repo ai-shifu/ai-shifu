@@ -17,7 +17,7 @@ from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.service.order.models import AICourseLessonAttend
 from ..common.dtos import (
     USER_STATE_REGISTERED,
-    USER_STATE_UNTEGISTERED,
+    USER_STATE_UNREGISTERED,
     UserInfo,
     UserToken,
 )
@@ -456,7 +456,7 @@ def verify_sms_code(
             )
             if (
                 user_info.user_state is None
-                or user_info.user_state == USER_STATE_UNTEGISTERED  # noqa W503
+                or user_info.user_state == USER_STATE_UNREGISTERED  # noqa W503
             ):
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.mobile = phone
@@ -466,7 +466,7 @@ def verify_sms_code(
             # When there is an install ui, the logic here should be removed
             init_first_course(app, user_info.user_id)
 
-        if user_info.user_state == USER_STATE_UNTEGISTERED:
+        if user_info.user_state == USER_STATE_UNREGISTERED:
             user_info.mobile = phone
             user_info.user_state = USER_STATE_REGISTERED
             user_info.user_language = language
@@ -552,7 +552,7 @@ def verify_mail_code(
             )
             if (
                 user_info.user_state is None
-                or user_info.user_state == USER_STATE_UNTEGISTERED  # noqa W503
+                or user_info.user_state == USER_STATE_UNREGISTERED  # noqa W503
             ):
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.email = mail
@@ -562,7 +562,7 @@ def verify_mail_code(
             # When there is an install ui, the logic here should be removed
             init_first_course(app, user_info.user_id)
 
-        if user_info.user_state == USER_STATE_UNTEGISTERED:
+        if user_info.user_state == USER_STATE_UNREGISTERED:
             user_info.email = mail
             user_info.user_state = USER_STATE_REGISTERED
             user_info.user_language = language
@@ -593,7 +593,7 @@ def init_first_course(app: Flask, user_id: str):
     Check if there is only one user and one course. If so, update the creator of the course
     """
     # Check the number of users
-    user_count = User.query.filter(User.user_state != USER_STATE_UNTEGISTERED).count()
+    user_count = User.query.filter(User.user_state != USER_STATE_UNREGISTERED).count()
     if user_count != 1:
         return
 
