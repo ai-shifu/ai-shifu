@@ -130,3 +130,5 @@ zope.event==5.0
 zope.interface==7.1.1
 sqlparse==0.5.3
 aliyun-python-sdk-cdn==3.8.8
+google-auth==2.29.0
+google-auth-oauthlib==1.2.0

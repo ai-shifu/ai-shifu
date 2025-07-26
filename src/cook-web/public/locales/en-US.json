@@ -250,6 +250,12 @@
     "verification-success": "Verification Success",
     "verification-success-description": "Verification Success Description",
     "verify": "Verify",
+    "or-continue-with": "Or continue with",
+    "continue-with-google": "Continue with Google",
+    "google-script-load-error": "Failed to load Google Sign-In",
+    "google-auth-failed": "Google authentication failed",
+    "google-not-ready": "Google Sign-In not ready",
+    "please-try-again": "Please try again in a moment",
     "verify-failed": "Verification Failed",
     "want-to-experience-creation": "Want to Experience Creation",
     "your-email": "Your Email"

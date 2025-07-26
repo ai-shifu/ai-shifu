@@ -16,6 +16,7 @@ import { EmailLogin } from '@/components/auth/email-login';
 import { EmailRegister } from '@/components/auth/email-register';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 import { FeedbackForm } from '@/components/auth//feedback-form';
+import { GoogleLogin } from '@/components/auth/google-login';
 import Image from 'next/image';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';
@@ -167,6 +168,7 @@ export default function AuthPage() {
                           onLoginSuccess={handleAuthSuccess}
                           onForgotPassword={handleForgotPassword}
                         />
+                        <GoogleLogin onLoginSuccess={handleAuthSuccess} />
                       </TabsContent>
                     )}
                   </Tabs>
@@ -177,10 +179,13 @@ export default function AuthPage() {
                       <PhoneLogin onLoginSuccess={handleAuthSuccess} />
                     )}
                     {isEmailEnabled && (
-                      <EmailLogin
-                        onLoginSuccess={handleAuthSuccess}
-                        onForgotPassword={handleForgotPassword}
-                      />
+                      <>
+                        <EmailLogin
+                          onLoginSuccess={handleAuthSuccess}
+                          onForgotPassword={handleForgotPassword}
+                        />
+                        <GoogleLogin onLoginSuccess={handleAuthSuccess} />
+                      </>
                     )}
                   </div>
                 )}

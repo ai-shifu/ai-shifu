@@ -43,6 +43,9 @@ class User(db.Model):
     user_language = Column(
         String(30), nullable=True, default="zh-CN", comment="user language"
     )
+    google_id = Column(
+        String(255), nullable=True, index=True, default="", comment="Google OAuth ID"
+    )
     is_admin = Column(Boolean, nullable=False, default=False, comment="is admin")
     is_creator = Column(Boolean, nullable=False, default=False, comment="is creator")
     extra_data = Column(Text, nullable=True, default="", comment="extra_data")
