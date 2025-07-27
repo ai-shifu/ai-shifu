@@ -14,29 +14,20 @@ from ...service.lesson.const import (
 from ...service.lesson.models import AICourse, AILesson
 from ...service.order.consts import (
     ATTEND_STATUS_IN_PROGRESS,
-    ATTEND_STATUS_NOT_STARTED,
-    get_attend_status_values,
 )
 
 
 from ...service.order.funs import (
     AICourseLessonAttendDTO,
 )
-from ...service.study.const import (
-    INPUT_TYPE_ASK,
-    INPUT_TYPE_START,
-    INPUT_TYPE_CONTINUE,
-)
 from ...service.study.dtos import ScriptDTO
 from ...dao import db, redis_client
 from .utils import (
     make_script_dto,
-    get_script,
     update_lesson_status,
     check_script_is_last_script,
     get_script_by_id,
 )
-from .input_funcs import BreakException
 from .output_funcs import handle_output
 from .plugin import handle_input, handle_ui, check_continue
 from .utils import make_script_dto_to_stream
@@ -50,6 +41,9 @@ from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_struct,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
+from flaskr.service.order.models import AICourseBuyRecord
+from flaskr.service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.service.study.context import RunScriptContext
 
 
 def handle_reload_script(
@@ -203,10 +197,10 @@ def run_script_inner(
     Core function for running course scripts
     """
     with app.app_context():
-        script_info = None
+        # script_info = None
         try:
-            attend_status_values = get_attend_status_values()
-            user_info = User.query.filter(User.user_id == user_id).first()
+            # attend_status_values = get_attend_status_values()
+            # user_info = User.query.filter(User.user_id == user_id).first()
             # When reload_script_id is provided, regenerate the script content directly
             if reload_script_id and lesson_id and course_id:
                 yield from handle_reload_script(
@@ -222,7 +216,7 @@ def run_script_inner(
 
             shifu_info: ShifuInfoDto = None
             outline_item_info: ShifuOutlineItemDto = None
-            attend: AICourseLessonAttendDTO = None
+            # attend: AICourseLessonAttendDTO = None
             struct_info: HistoryItem = None
             if not lesson_id:
                 app.logger.info("lesson_id is None")
@@ -249,259 +243,40 @@ def run_script_inner(
                 lesson_info = None
             else:
                 lesson_info = outline_item_info
+                app.logger.info(f"lesson_info: {lesson_info.__json__()}")
 
-            # return the teacher avatar
-            yield make_script_dto("teacher_avatar", shifu_info.avatar, "")
-
-            trace_args = {}
-            trace_args["user_id"] = user_id
-            trace_args["session_id"] = attend.attend_id
-            trace_args["input"] = input
-            trace_args["name"] = shifu_info.title
-            trace = langfuse.trace(**trace_args)
-            trace_args["output"] = ""
-            next = 0
-            is_first_add = False
-            # get the script info and the attend updates
-            script_info, attend_updates, is_first_add = get_script(
-                app, attend_id=attend.attend_id, next=next, preview_mode=preview_mode
-            )
-            auto_next_lesson_id = None
-            next_chapter_no = None
-            if len(attend_updates) > 0:
-                app.logger.info(f"attend_updates: {attend_updates}")
-                for attend_update in attend_updates:
-                    if len(attend_update.lesson_no) > 2:
-                        yield make_script_dto(
-                            "lesson_update", attend_update.__json__(), ""
-                        )
-                        if next_chapter_no and attend_update.lesson_no.startswith(
-                            next_chapter_no
-                        ):
-                            auto_next_lesson_id = attend_update.lesson_id
-                    else:
-                        yield make_script_dto(
-                            "chapter_update", attend_update.__json__(), ""
-                        )
-                        if (
-                            attend_update.status
-                            == attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                        ):
-                            yield make_script_dto(
-                                "next_chapter", attend_update.__json__(), ""
-                            )
-                            next_chapter_no = attend_update.lesson_no
-
-            app.logger.info(f"lesson_info: {lesson_info}")
-            if script_info:
-                try:
-                    # handle user input
-                    response = handle_input(
-                        app,
-                        user_info,
-                        input_type,
-                        lesson_info,
-                        attend,
-                        script_info,
-                        input,
-                        trace,
-                        trace_args,
+            if shifu_info.price > 0:
+                success_buy_record = (
+                    AICourseBuyRecord.query.filter(
+                        AICourseBuyRecord.user_id == user_id,
+                        AICourseBuyRecord.course_id == course_id,
+                        AICourseBuyRecord.status == BUY_STATUS_SUCCESS,
                     )
-                    if response:
-                        yield from response
-                    # check if the script is start or continue
-                    if input_type == INPUT_TYPE_START:
-                        next = 0
-                    else:
-                        next = 1
-                    while True and input_type != INPUT_TYPE_ASK:
-                        if is_first_add:
-                            is_first_add = False
-                            next = 0
-                        script_info, attend_updates, _ = get_script(
-                            app,
-                            attend_id=attend.attend_id,
-                            next=next,
-                            preview_mode=preview_mode,
-                        )
-                        next = 1
-                        if len(attend_updates) > 0:
-                            for attend_update in attend_updates:
-                                if len(attend_update.lesson_no) > 2:
-                                    yield make_script_dto(
-                                        "lesson_update", attend_update.__json__(), ""
-                                    )
-                                else:
-                                    yield make_script_dto(
-                                        "chapter_update", attend_update.__json__(), ""
-                                    )
-                                    if (
-                                        attend_update.status
-                                        == attend_status_values[
-                                            ATTEND_STATUS_NOT_STARTED
-                                        ]
-                                    ):
-                                        yield make_script_dto(
-                                            "next_chapter", attend_update.__json__(), ""
-                                        )
-                        if script_info:
-                            response = handle_output(
-                                app,
-                                user_id,
-                                lesson_info,
-                                attend,
-                                script_info,
-                                input,
-                                trace,
-                                trace_args,
-                            )
-                            if response:
-                                yield from response
-
-                            if check_continue(
-                                app,
-                                user_info,
-                                attend,
-                                script_info,
-                                input,
-                                trace,
-                                trace_args,
-                            ):
-                                app.logger.info(f"check_continue: {script_info}")
-                                next = 1
-                                input_type = INPUT_TYPE_CONTINUE
-                                continue
-                            else:
-                                break
-                        else:
-                            break
-                    if script_info and not check_script_is_last_script(
-                        app, script_info, lesson_info, preview_mode
-                    ):
-                        # check if the script_info is last script,and ui is button or continue button
-                        script_dtos = handle_ui(
-                            app,
-                            user_info,
-                            attend,
-                            script_info,
-                            input,
-                            trace,
-                            trace_args,
-                        )
-                        for script_dto in script_dtos:
-                            yield make_script_dto_to_stream(script_dto)
-                    else:
-                        res = handle_ask_mode(
-                            app,
-                            user_info,
-                            attend,
-                            script_info,
-                            input,
-                            trace,
-                            trace_args,
-                        )
-                        if res:
-                            yield make_script_dto_to_stream(res)
-                        res = update_lesson_status(app, attend.attend_id, preview_mode)
-                        if res:
-                            for attend_update in res:
-                                if isinstance(attend_update, AILessonAttendDTO):
-                                    if len(attend_update.lesson_no) > 2:
-                                        yield make_script_dto(
-                                            "lesson_update",
-                                            attend_update.__json__(),
-                                            "",
-                                        )
-                                        if (
-                                            next_chapter_no
-                                            and attend_update.lesson_no.startswith(
-                                                next_chapter_no
-                                            )
-                                        ):
-                                            auto_next_lesson_id = (
-                                                attend_update.lesson_id
-                                            )
-                                    else:
-                                        yield make_script_dto(
-                                            "chapter_update",
-                                            attend_update.__json__(),
-                                            "",
-                                        )
-                                        if (
-                                            attend_update.status
-                                            == attend_status_values[
-                                                ATTEND_STATUS_NOT_STARTED
-                                            ]
-                                        ):
-                                            yield make_script_dto(
-                                                "next_chapter",
-                                                attend_update.__json__(),
-                                                "",
-                                            )
-                                            next_chapter_no = attend_update.lesson_no
-                                elif isinstance(attend_update, ScriptDTO):
-                                    yield make_script_dto_to_stream(attend_update)
-                except BreakException:
-                    if script_info:
-                        yield make_script_dto("text_end", "", None)
-                        script_dtos = handle_ui(
-                            app,
-                            user_info,
-                            attend,
-                            script_info,
-                            input,
-                            trace,
-                            trace_args,
-                        )
-                        for script_dto in script_dtos:
-                            yield make_script_dto_to_stream(script_dto)
-                    db.session.commit()
-                    return
-            else:
-                app.logger.info("script_info is None handle_ask_mode")
-                res = handle_ask_mode(
-                    app,
-                    user_info,
-                    attend,
-                    script_info,
-                    input,
-                    trace,
-                    trace_args,
+                    .order_by(AICourseBuyRecord.id.desc())
+                    .first()
                 )
-                if res:
-                    yield make_script_dto_to_stream(res)
-                res = update_lesson_status(app, attend.attend_id, preview_mode)
-                if res and len(res) > 0:
-                    for attend_update in res:
-                        if isinstance(attend_update, AILessonAttendDTO):
-                            if len(attend_update.lesson_no) > 2:
-                                yield make_script_dto(
-                                    "lesson_update", attend_update.__json__(), ""
-                                )
-                                if (
-                                    next_chapter_no
-                                    and attend_update.lesson_no.startswith(
-                                        next_chapter_no
-                                    )
-                                ):
-                                    auto_next_lesson_id = attend_update.lesson_id
-                            else:
-                                yield make_script_dto(
-                                    "chapter_update", attend_update.__json__(), ""
-                                )
-                                if (
-                                    attend_update.status
-                                    == attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                                ):
-                                    yield make_script_dto(
-                                        "next_chapter", attend_update.__json__(), ""
-                                    )
-                                    next_chapter_no = attend_update.lesson_no
-                        elif isinstance(attend_update, ScriptDTO):
-                            yield make_script_dto_to_stream(attend_update)
+                if not success_buy_record:
+                    is_paid = False
+                else:
+                    is_paid = True
+            else:
+                is_paid = True
+
+            run_script_context: RunScriptContext = RunScriptContext(
+                app=app,
+                shifu_info=shifu_info,
+                struct=struct_info,
+                outline_item_info=outline_item_info,
+                user_id=user_id,
+                is_paid=is_paid,
+                preview_mode=preview_mode,
+            )
+
+            run_script_context.set_input(input, input_type)
+            while run_script_context.has_next():
+                yield from run_script_context.run(app)
+
             db.session.commit()
-            if auto_next_lesson_id:
-                pass
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")
