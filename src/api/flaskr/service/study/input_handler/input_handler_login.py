@@ -6,12 +6,13 @@ from flaskr.service.study.const import INPUT_TYPE_REQUIRE_LOGIN
 from flaskr.service.study.plugin import register_shifu_input_handler
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.i18n import _
+from flaskr.service.user.models import User
 
 
 @register_shifu_input_handler("login")
 def handle_handler_login(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend_id: str,
     block_dto: BlockDTO,
     trace_args: dict,

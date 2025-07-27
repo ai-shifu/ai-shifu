@@ -199,9 +199,7 @@ def run_script_inner(
     with app.app_context():
         # script_info = None
         try:
-            # attend_status_values = get_attend_status_values()
-            # user_info = User.query.filter(User.user_id == user_id).first()
-            # When reload_script_id is provided, regenerate the script content directly
+            user_info = User.query.filter(User.user_id == user_id).first()
             if reload_script_id and lesson_id and course_id:
                 yield from handle_reload_script(
                     app,
@@ -216,7 +214,6 @@ def run_script_inner(
 
             shifu_info: ShifuInfoDto = None
             outline_item_info: ShifuOutlineItemDto = None
-            # attend: AICourseLessonAttendDTO = None
             struct_info: HistoryItem = None
             if not lesson_id:
                 app.logger.info("lesson_id is None")
@@ -267,7 +264,7 @@ def run_script_inner(
                 shifu_info=shifu_info,
                 struct=struct_info,
                 outline_item_info=outline_item_info,
-                user_id=user_id,
+                user_info=user_info,
                 is_paid=is_paid,
                 preview_mode=preview_mode,
             )
