@@ -34,6 +34,9 @@ class ShifuInfoDto(BaseModel):
     price: Decimal
     outline_items: List["ShifuOutlineItemDto"]
 
+    def __json__(self):
+        return self.model_dump_json(exclude_none=True)
+
 
 def get_shifu_struct(
     app: Flask, shifu_bid: str, is_preview: bool = False
@@ -94,6 +97,7 @@ def get_shifu_outline_tree(
         outline_items = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_item_ids),
         ).all()
+        app.logger.info(f"outline_items: len={len(outline_items)}")
         outline_items_map = {i.id: i for i in outline_items}
 
         shifu_info = ShifuInfoDto(
@@ -110,6 +114,9 @@ def get_shifu_outline_tree(
                 outline_item: Union[
                     ShifuDraftOutlineItem, ShifuPublishedOutlineItem
                 ] = outline_items_map.get(item.id, None)
+                if not outline_item:
+                    app.logger.error(f"outline_item not found: {item.id}")
+
                 if outline_item and outline_item.hidden == 0:
                     outline_item_dto = ShifuOutlineItemDto(
                         bid=outline_item.outline_item_bid,
@@ -130,6 +137,7 @@ def get_shifu_outline_tree(
 
         outline_items = [recurse_outline_item(i) for i in struct.children]
         shifu_info.outline_items = [i for i in outline_items if i]
+        app.logger.info(f"shifu_info: {shifu_info.__json__()}")
         return shifu_info
 
 

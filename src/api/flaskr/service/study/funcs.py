@@ -65,6 +65,8 @@ def fill_attend_info(
             if lesson.lesson_type == LESSON_TYPE_TRIAL:
                 if not first_trial_lesson and not lesson.parent:
                     first_trial_lesson = True
+                    app.logger.info(f"first_trial_lesson: {lesson.lesson_id}")
+                    app.logger.info(f"lesson: {lesson.__json__()}")
                     first_lessons.append(lesson)
                     lesson.status_value = ATTEND_STATUS_NOT_STARTED
                     lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
@@ -72,7 +74,8 @@ def fill_attend_info(
                 elif (
                     first_trial_lesson
                     and first_lessons[-1].children
-                    and first_lessons[-1].children.index(lesson) == 0
+                    and len(first_lessons[-1].children) > 0
+                    and first_lessons[-1].children[0] == lesson
                 ):
                     lesson.status_value = ATTEND_STATUS_NOT_STARTED
                     lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
