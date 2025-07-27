@@ -15,7 +15,12 @@ from typing import Generator, Union
 from langfuse.client import StatefulTraceClient
 from ...api.langfuse import langfuse_client as langfuse, MockClient
 from flaskr.service.common import raise_error
-from flaskr.service.order.consts import ATTEND_STATUS_RESET, ATTEND_STATUS_IN_PROGRESS
+from flaskr.service.order.consts import (
+    ATTEND_STATUS_RESET,
+    ATTEND_STATUS_IN_PROGRESS,
+    ATTEND_STATUS_COMPLETED,
+    ATTEND_STATUS_NOT_STARTED,
+)
 from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
 from flaskr.service.study.plugin import (
     handle_shifu_input,
@@ -24,6 +29,7 @@ from flaskr.service.study.plugin import (
 import queue
 from enum import Enum
 from flaskr.service.user.models import User
+from flaskr.service.order.consts import get_attend_status_values
 
 
 def get_can_continue(attend_id: str) -> bool:
@@ -36,6 +42,26 @@ def get_can_continue(attend_id: str) -> bool:
 class RunType(Enum):
     INPUT = "input"
     OUTPUT = "output"
+
+
+# outline update type
+# outline is a node when has outline item as children
+# outline is a leaf when has block item as children
+# outline is a leaf when has no children
+class _OutlineUpateType(Enum):
+    NODE_COMPLETED = "node_completed"
+    NODE_START = "node_start"
+    LEAF_COMPLETED = "leaf_completed"
+    LEAF_START = "leaf_start"
+
+
+class _OutlineUpate:
+    type: _OutlineUpateType
+    outline_item_info: ShifuOutlineItemDto
+
+    def __init__(self, type: _OutlineUpateType, outline_item_info: ShifuOutlineItemDto):
+        self.type = type
+        self.outline_item_info = outline_item_info
 
 
 class RunScriptContext:
@@ -103,7 +129,7 @@ class RunScriptContext:
             if item.children:
                 for child in item.children:
                     self._q.put(child)
-        self._current_attend = self._get_current_attend()
+        self._current_attend = self._get_current_attend(self._outline_item_info)
         self.app.logger.info(
             f"current_attend: {self._current_attend.attend_id} {self._current_attend.script_index}"
         )
@@ -116,10 +142,12 @@ class RunScriptContext:
         self._trace = langfuse.trace(**self._trace_args)
         self._trace_args["output"] = ""
 
-    def _get_current_attend(self) -> AICourseLessonAttend:
+    def _get_current_attend(
+        self, outline_item_info: ShifuOutlineItemDto
+    ) -> AICourseLessonAttend:
         attend_info: AICourseLessonAttend = (
             AICourseLessonAttend.query.filter(
-                AICourseLessonAttend.lesson_id == self._outline_item_info.bid,
+                AICourseLessonAttend.lesson_id == outline_item_info.bid,
                 AICourseLessonAttend.user_id == self._user_info.user_id,
                 AICourseLessonAttend.status != ATTEND_STATUS_RESET,
             )
@@ -127,25 +155,96 @@ class RunScriptContext:
             .first()
         )
         if not attend_info:
-            outline_item_info: Union[
+            outline_item_info_db: Union[
                 ShifuDraftOutlineItem, ShifuPublishedOutlineItem
             ] = self._outline_model.query.filter(
-                self._outline_model.id == self._outline_item_info.id,
+                self._outline_model.id == outline_item_info.id,
             ).first()
             if not outline_item_info:
                 raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
             if outline_item_info.type == LESSON_TYPE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise_error("ORDER.COURSE_NOT_PAID")
+            self.app.logger.error(
+                f"get_current_attend {outline_item_info.bid} {outline_item_info_db.outline_item_bid}"
+            )
             attend_info = AICourseLessonAttend()
-            attend_info.lesson_id = outline_item_info.outline_item_bid
-            attend_info.course_id = outline_item_info.shifu_bid
+            attend_info.lesson_id = outline_item_info_db.outline_item_bid
+            attend_info.course_id = outline_item_info_db.shifu_bid
             attend_info.user_id = self._user_id
             attend_info.status = ATTEND_STATUS_IN_PROGRESS
             attend_info.script_index = 0
             db.session.add(attend_info)
             db.session.flush()
         return attend_info
+
+    # outline is a leaf when has block item as children
+    # outline is a node when has outline item as children
+    # outline is a leaf when has no children
+    def _is_leaf_outline_item(self, outline_item_info: ShifuOutlineItemDto) -> bool:
+        if outline_item_info.children:
+            if outline_item_info.children[0].type == "block":
+                return True
+            if outline_item_info.children[0].type == "outline":
+                return False
+        if outline_item_info.type == "outline":
+            return True
+        return False
+
+    def _get_next_outline_item(self) -> list[_OutlineUpate]:
+        res = []
+
+        def _mark_sub_node_completed(
+            outline_item_info: HistoryItem, res: list[_OutlineUpate]
+        ):
+            q = queue.Queue()
+            q.put(self._struct)
+            if self._is_leaf_outline_item(outline_item_info):
+                res.append(
+                    _OutlineUpate(_OutlineUpateType.LEAF_COMPLETED, outline_item_info)
+                )
+            else:
+                res.append(
+                    _OutlineUpate(_OutlineUpateType.NODE_COMPLETED, outline_item_info)
+                )
+            while not q.empty():
+                item: HistoryItem = q.get()
+                if item.children and outline_item_info.bid in [
+                    child.bid for child in item.children
+                ]:
+                    index = [child.bid for child in item.children].index(
+                        outline_item_info.bid
+                    )
+                    if index < len(item.children) - 1:
+                        # not sub node
+                        current_node = item.children[index + 1]
+                        while (
+                            current_node.children
+                            and current_node.children[0].type == "outline"
+                        ):
+                            res.append(
+                                _OutlineUpate(
+                                    _OutlineUpateType.NODE_START, current_node
+                                )
+                            )
+                            current_node = current_node.children[0]
+                        res.append(
+                            _OutlineUpate(_OutlineUpateType.LEAF_START, current_node)
+                        )
+                        return
+                    elif index == len(item.children) - 1 and item.type == "outline":
+                        _mark_sub_node_completed(item, res)
+
+                if item.children and item.children[0].type == "outline":
+                    for child in item.children:
+                        q.put(child)
+
+        if self._current_attend.script_index >= len(
+            self._current_outline_item.children
+        ):
+            self.app.logger.info(f"node completed: {self._current_outline_item.bid}")
+            _mark_sub_node_completed(self._current_outline_item, res)
+        return res
 
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
         return self._current_outline_item
@@ -157,19 +256,86 @@ class RunScriptContext:
         self._input = input
 
     def run(self, app: Flask) -> Generator[str, None, None]:
+        attend_status_values = get_attend_status_values()
         app.logger.info(
             f"run_context.run {self._current_attend.script_index} {self._current_attend.status}"
         )
         yield make_script_dto("teacher_avatar", self._shifu_info.avatar, "")
         if not self._current_attend:
-            self._current_attend = self._get_current_attend()
-
-        if self._current_attend.script_index >= len(
-            self._current_outline_item.children
-        ):
+            self._current_attend = self._get_current_attend(self._outline_item_info)
+        outline_updates = self._get_next_outline_item()
+        for update in outline_updates:
             app.logger.info(
-                f"no more script for {self._current_outline_item} ,to get next outline item"
+                f"outline update: {update.type} {update.outline_item_info.bid}"
             )
+            if update.type == _OutlineUpateType.LEAF_START:
+                self.app.logger.error(
+                    f"lesson_update {self._current_attend.lesson_id} {self._current_attend.status}"
+                )
+                self._current_outline_item = update.outline_item_info
+                self._current_attend = self._get_current_attend(
+                    self._current_outline_item
+                )
+                self.app.logger.error(
+                    f"lesson_update {self._current_attend.lesson_id} {self._current_outline_item.bid}"
+                )
+                self._current_attend.status = ATTEND_STATUS_NOT_STARTED
+                self._current_attend.script_index = 0
+                db.session.flush()
+                yield make_script_dto(
+                    "lesson_update",
+                    {
+                        "lesson_id": update.outline_item_info.bid,
+                        "status_value": ATTEND_STATUS_NOT_STARTED,
+                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                    },
+                    "",
+                )
+            elif update.type == _OutlineUpateType.LEAF_COMPLETED:
+                current_attend = self._get_current_attend(update.outline_item_info)
+                current_attend.status = ATTEND_STATUS_COMPLETED
+                db.session.flush()
+                yield make_script_dto(
+                    "lesson_update",
+                    {
+                        "lesson_id": update.outline_item_info.bid,
+                        "status_value": ATTEND_STATUS_COMPLETED,
+                        "status": attend_status_values[ATTEND_STATUS_COMPLETED],
+                    },
+                    "",
+                )
+            elif update.type == _OutlineUpateType.NODE_START:
+                # self._outline_item_info = update.outline_item_info
+                current_attend = self._get_current_attend(update.outline_item_info)
+                current_attend.status = ATTEND_STATUS_NOT_STARTED
+                current_attend.script_index = 0
+                db.session.flush()
+                yield make_script_dto(
+                    "next_chapter",
+                    {
+                        "lesson_id": update.outline_item_info.bid,
+                        "status_value": ATTEND_STATUS_NOT_STARTED,
+                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                    },
+                    "",
+                )
+            elif update.type == _OutlineUpateType.NODE_COMPLETED:
+                current_attend = self._get_current_attend(update.outline_item_info)
+                current_attend.status = ATTEND_STATUS_COMPLETED
+                db.session.flush()
+                yield make_script_dto(
+                    "chapter_update",
+                    {
+                        "lesson_id": update.outline_item_info.bid,
+                        "status_value": ATTEND_STATUS_COMPLETED,
+                        "status": attend_status_values[ATTEND_STATUS_COMPLETED],
+                    },
+                    "",
+                )
+
+        app.logger.info(
+            f"block type: {self._current_outline_item.bid} {self._current_attend.script_index}"
+        )
 
         block_id = self._current_outline_item.children[
             self._current_attend.script_index
@@ -239,6 +405,8 @@ class RunScriptContext:
                 self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
                 self._input_type = "continue"
                 self._run_type = RunType.OUTPUT
+                if block_dto.type != "content":
+                    self._can_continue = False
                 db.session.flush()
                 return
 
