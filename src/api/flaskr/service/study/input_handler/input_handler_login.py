@@ -1,19 +1,20 @@
 from flask import Flask
 from flaskr.service.shifu.adapter import BlockDTO, LoginDTO
 from langfuse.client import StatefulTraceClient
-from flaskr.service.study.utils import get_script_ui_label
+from flaskr.service.study.utils import get_script_ui_label, make_script_dto
 from flaskr.service.study.const import INPUT_TYPE_REQUIRE_LOGIN
 from flaskr.service.study.plugin import register_shifu_input_handler
-from flaskr.service.study.dtos import ScriptDTO
 from flaskr.i18n import _
 from flaskr.service.user.models import User
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 
 
 @register_shifu_input_handler("login")
-def handle_handler_login(
+def _input_handler_login(
     app: Flask,
     user_info: User,
     attend_id: str,
+    outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
@@ -30,9 +31,9 @@ def handle_handler_login(
         }
     ]
     app.logger.info(
-        f"handle_handler_login {block_dto.bid} {block_dto.lesson_id} {title} {btn}"
+        f"_input_handler_login {block_dto.bid} {outline_item_info.bid} {title} {btn}"
     )
-    return ScriptDTO(
+    yield make_script_dto(
         INPUT_TYPE_REQUIRE_LOGIN,
         {"buttons": btn},
         block_dto.bid,

@@ -18,7 +18,7 @@ def _output_handler_content(
     trace: StatefulTraceClient,
 ):
     app.logger.info(f"_output_handler_content {block_dto.bid} {outline_item_info.bid}")
-    content_dto: ContentDTO = block_dto.content
+    content_dto: ContentDTO = block_dto.block_content
     prompt = get_fmt_prompt(
         app,
         user_info.user_id,
@@ -27,9 +27,9 @@ def _output_handler_content(
     )
     if not prompt:
         prompt = content_dto.content
-    if content_dto.llm_enabled:
+    if not content_dto.llm_enabled:
 
-        for text in content_dto.text:
+        for text in prompt:
             yield make_script_dto(
                 "text",
                 text,
