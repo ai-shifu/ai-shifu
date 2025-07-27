@@ -25,6 +25,9 @@ class ShifuOutlineItemDto(BaseModel):
     shifu_bid: str
     children: List["ShifuOutlineItemDto"]
 
+    def __json__(self):
+        return self.model_dump_json(exclude_none=True)
+
 
 class ShifuInfoDto(BaseModel):
     bid: str

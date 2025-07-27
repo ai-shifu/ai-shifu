@@ -2,12 +2,15 @@ from flask import Flask
 from trace import Trace
 from flaskr.service.study.ui.input_ask import handle_ask_mode
 from flaskr.service.common.models import AppException
-from flaskr.service.lesson.models import AILessonScript, AILesson
+from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.dao import db
 from flaskr.service.user.models import User
 from flaskr.service.study.ui.ui_continue import make_continue_ui
 from functools import wraps
+from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from langfuse.client import StatefulTraceClient
 
 # handlers for input
 INPUT_HANDLE_MAP = {}
@@ -23,6 +26,10 @@ UI_RECORD_HANDLE_MAP = {}
 
 # handlers for continue
 CONTINUE_CHECK_HANDLE_MAP = {}
+
+
+SHIFU_INPUT_HANDLE_MAP = {}
+SHIFU_OUTPUT_HANDLE_MAP = {}
 
 
 def unwrap_function(func):
@@ -108,20 +115,19 @@ def continue_check_handler(script_ui_type: int):
 def handle_input(
     app: Flask,
     user_info: User,
-    input_type: str,
-    lesson: AILesson,
+    lesson: ShifuOutlineItemDto,
     attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    block_dto: BlockDTO,
     input: str,
     trace: Trace,
     trace_args,
 ):
     app.logger.info(
-        f"handle_input {input_type},user_id:{user_info.user_id},input:{input} "
+        f"handle_block {block_dto.type},user_id:{user_info.user_id},input:{input} "
     )
-    if input_type in INPUT_HANDLE_MAP:
-        respone = INPUT_HANDLE_MAP[input_type](
-            app, user_info, lesson, attend, script_info, input, trace, trace_args
+    if block_dto.type in INPUT_HANDLE_MAP:
+        respone = INPUT_HANDLE_MAP[block_dto.type](
+            app, user_info, lesson, attend, block_dto, trace, trace_args
         )
         if respone:
             yield from respone
@@ -217,3 +223,77 @@ def check_continue(
             app, user_info, attend, script_info, input, trace, trace_args
         )
     return False
+
+
+SHIFU_INPUT_HANDLE_MAP = {}
+SHIFU_OUTPUT_HANDLE_MAP = {}
+
+
+def register_shifu_input_handler(block_type: str):
+    def decorator(func):
+        from flask import current_app
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        current_app.logger.info(
+            f"register_shifu_input_handler {block_type} ==> {func.__name__}"
+        )
+        SHIFU_INPUT_HANDLE_MAP[block_type] = wrapper
+        return wrapper
+
+    return decorator
+
+
+def register_shifu_output_handler(block_type: str):
+    def decorator(func):
+        from flask import current_app
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        current_app.logger.info(
+            f"register_shifu_output_handler {block_type} ==> {func.__name__}"
+        )
+        SHIFU_OUTPUT_HANDLE_MAP[block_type] = wrapper
+        return wrapper
+
+    return decorator
+
+
+def handle_shifu_input(
+    app: Flask,
+    user_id: str,
+    attend_id: str,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
+):
+    if block_dto.type in SHIFU_INPUT_HANDLE_MAP:
+        res = SHIFU_INPUT_HANDLE_MAP[block_dto.type](
+            app, user_id, attend_id, outline_item_info, block_dto, trace_args, trace
+        )
+        if res:
+            yield from res
+    return None
+
+
+def handle_shifu_output(
+    app: Flask,
+    user_id: str,
+    attend_id: str,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
+):
+    if block_dto.type in SHIFU_OUTPUT_HANDLE_MAP:
+        res = SHIFU_OUTPUT_HANDLE_MAP[block_dto.type](
+            app, user_id, attend_id, outline_item_info, block_dto, trace_args, trace
+        )
+        if res:
+            yield from res
+    return None

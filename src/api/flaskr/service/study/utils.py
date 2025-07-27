@@ -38,13 +38,8 @@ from flaskr.service.user.models import User
 from flaskr.framework import extensible
 from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 from flaskr.i18n import get_current_language
-from flaskr.service.shifu.shifu_history_manager import (
-    HistoryItem,
-)
-from flaskr.service.shifu.shifu_struct_manager import (
-    ShifuOutlineItemDto,
-)
-from flaskr.service.shifu.dtos import BlockDTO
+from flaskr.service.shifu.dtos import LabelDTO
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 
 
 def get_current_lesson(
@@ -917,15 +912,29 @@ def get_script_ui_label(app, text):
             label = json_obj.get(get_current_language(), "")
             return label
         except Exception:
+            from flask import current_app
+
+            current_app.logger.error(f"get_script_ui_label error: {text}")
             return text
+    if text and isinstance(text, LabelDTO):
+        label_dto: LabelDTO = text
+        label = label_dto.lang.get(get_current_language(), "")
+        return label
     return text
 
 
-def get_block(
-    app: Flask,
-    struct: HistoryItem,
-    outline_item_info: ShifuOutlineItemDto,
-    user_id: str,
-    preview_mode: bool = False,
-) -> BlockDTO:
-    pass
+class OutlineUpdateDTO:
+    outline_item_info: ShifuOutlineItemDto
+    outline_item_updated_event: str
+
+    def __init__(
+        self, outline_item_info: ShifuOutlineItemDto, outline_item_updated_event: str
+    ):
+        self.outline_item_info = outline_item_info
+        self.outline_item_updated_event = outline_item_updated_event
+
+    def __json__(self):
+        return {
+            "outline_item_info": self.outline_item_info.__json__(),
+            "outline_item_updated_event": self.outline_item_updated_event,
+        }

@@ -1,0 +1,8 @@
+from flask import Flask
+from flaskr.service.shifu.adapter import BlockDTO
+from langfuse.client import StatefulTraceClient
+from flaskr.service.study.context import RunType
+
+
+def handle_input(app: Flask, user_id: str, attend_id: str, block_dto: BlockDTO, trace_args: dict, trace: StatefulTraceClient):
+    pass
