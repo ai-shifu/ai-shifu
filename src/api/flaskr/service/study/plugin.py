@@ -227,6 +227,7 @@ def check_continue(
 
 SHIFU_INPUT_HANDLE_MAP = {}
 SHIFU_OUTPUT_HANDLE_MAP = {}
+SHIFU_CONTINUE_HANDLE_MAP = {}
 
 
 def register_shifu_input_handler(block_type: str):
@@ -263,9 +264,26 @@ def register_shifu_output_handler(block_type: str):
     return decorator
 
 
+def register_shifu_continue_handler(block_type: str):
+    def decorator(func):
+        from flask import current_app
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            return func(*args, **kwargs)
+
+        current_app.logger.info(
+            f"register_shifu_continue_handler {block_type} ==> {func.__name__}"
+        )
+        SHIFU_CONTINUE_HANDLE_MAP[block_type] = wrapper
+        return wrapper
+
+    return decorator
+
+
 def handle_shifu_input(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
@@ -274,7 +292,7 @@ def handle_shifu_input(
 ):
     if block_dto.type in SHIFU_INPUT_HANDLE_MAP:
         res = SHIFU_INPUT_HANDLE_MAP[block_dto.type](
-            app, user_id, attend_id, outline_item_info, block_dto, trace_args, trace
+            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
         if res:
             yield from res
@@ -283,7 +301,7 @@ def handle_shifu_input(
 
 def handle_shifu_output(
     app: Flask,
-    user_id: str,
+    user_info: User,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
@@ -292,8 +310,26 @@ def handle_shifu_output(
 ):
     if block_dto.type in SHIFU_OUTPUT_HANDLE_MAP:
         res = SHIFU_OUTPUT_HANDLE_MAP[block_dto.type](
-            app, user_id, attend_id, outline_item_info, block_dto, trace_args, trace
+            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
         if res:
             yield from res
+    else:
+        app.logger.warning(f"shifu input handler not found {block_dto.type}")
     return None
+
+
+def check_continue_shifu(
+    app: Flask,
+    user_info: User,
+    attend_id: str,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
+):
+    if block_dto.type in SHIFU_CONTINUE_HANDLE_MAP:
+        return SHIFU_CONTINUE_HANDLE_MAP[block_dto.type](
+            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
+        )
+    return False
