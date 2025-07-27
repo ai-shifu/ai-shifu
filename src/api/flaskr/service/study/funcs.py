@@ -57,34 +57,44 @@ def fill_attend_info(
         q.put(lesson)
     first_trial_lesson = False
     first_lessons = list[AILessonAttendDTO]()
+    has_trial_init = False
+    # has_normal_init = False
 
     while not q.empty():
         lesson: AILessonAttendDTO = q.get()
+
         if lesson.status_value == ATTEND_STATUS_NOT_EXIST:
             # lesson_trial
             if lesson.lesson_type == LESSON_TYPE_TRIAL:
-                if not first_trial_lesson and not lesson.parent:
-                    first_trial_lesson = True
-                    app.logger.info(f"first_trial_lesson: {lesson.lesson_id}")
-                    app.logger.info(f"lesson: {lesson.__json__()}")
-                    first_lessons.append(lesson)
-                    lesson.status_value = ATTEND_STATUS_NOT_STARTED
-                    lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                    lesson.updated = True
-                elif (
-                    first_trial_lesson
-                    and first_lessons[-1].children
-                    and len(first_lessons[-1].children) > 0
-                    and first_lessons[-1].children[0] == lesson
-                ):
-                    lesson.status_value = ATTEND_STATUS_NOT_STARTED
-                    lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
-                    lesson.updated = True
-                    first_lessons.append(lesson)
+                if not has_trial_init:
+                    if not first_trial_lesson and not lesson.parent:
+                        first_trial_lesson = True
+                        app.logger.info(f"first_trial_lesson: {lesson.lesson_id}")
+                        app.logger.info(f"lesson: {lesson.__json__()}")
+                        first_lessons.append(lesson)
+                        lesson.status_value = ATTEND_STATUS_NOT_STARTED
+                        lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
+                        lesson.updated = True
+                    elif (
+                        first_trial_lesson
+                        and first_lessons[-1].children
+                        and len(first_lessons[-1].children) > 0
+                        and first_lessons[-1].children[0] == lesson
+                    ):
+                        lesson.status_value = ATTEND_STATUS_NOT_STARTED
+                        lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
+                        lesson.updated = True
+                        first_lessons.append(lesson)
+                        if not lesson.children or len(lesson.children) == 0:
+                            has_trial_init = True
+
             else:
                 lesson.status_value = ATTEND_STATUS_LOCKED
                 lesson.status = attend_status_values[ATTEND_STATUS_LOCKED]
                 lesson.updated = True
+        else:
+            if lesson.lesson_type == LESSON_TYPE_TRIAL:
+                has_trial_init = True
 
         if lesson.children:
             for child in lesson.children:
