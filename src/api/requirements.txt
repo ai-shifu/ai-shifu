@@ -32,7 +32,7 @@ et-xmlfile==1.1.0
 filelock==3.15.4
 flasgger==0.9.7.1
 Flask-CLI==0.4.0
-Flask-Cors==4.0.6
+Flask-Cors==4.0.2
 Flask-Migrate==4.0.7
 Flask-SQLAlchemy==3.1.1
 Flask==3.0.3
