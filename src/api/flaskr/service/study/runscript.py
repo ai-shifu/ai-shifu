@@ -1,6 +1,6 @@
 import traceback
 from typing import Generator
-from flaskr.service.study.ui.input_ask import handle_ask_mode
+from flaskr.service.study.input.handle_input_ask import handle_input_ask
 from flask import Flask
 
 from flaskr.service.common.models import AppException, raise_error
@@ -158,7 +158,7 @@ def handle_reload_script(
     else:
         res = update_lesson_status(app, attend.attend_id, True)
         res.append(
-            handle_ask_mode(
+            handle_input_ask(
                 app, user_info, attend, script_info, input, trace, trace_args
             )
         )

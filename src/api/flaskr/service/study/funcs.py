@@ -37,7 +37,6 @@ from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.models import User
 from flaskr.service.lesson.const import UI_TYPE_CONTENT
-from flaskr.service.study.ui.input_continue import handle_input_continue
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_outline_tree,
     get_outline_item_dto,
@@ -47,6 +46,7 @@ from flaskr.service.shifu.shifu_struct_manager import (
     HistoryItem,
 )
 import queue
+from flaskr.service.study.input.handle_input_continue import _handle_input_continue
 
 
 def fill_attend_info(
@@ -335,7 +335,7 @@ def get_study_record(
             and last_script.script_ui_type == UI_TYPE_CONTENT
         ):
             app.logger.info("handle_input_continue")
-            ret.ui = handle_input_continue(
+            ret.ui = _handle_input_continue(
                 app, user_info, last_attend, None, "", MockClient(), {}
             )
         if len(uis) > 1:

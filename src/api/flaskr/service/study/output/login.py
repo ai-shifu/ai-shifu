@@ -1,16 +1,19 @@
 from flask import Flask
-from flaskr.service.shifu.adapter import BlockDTO, LoginDTO
-from langfuse.client import StatefulTraceClient
-from flaskr.service.study.utils import get_script_ui_label, make_script_dto
+
 from flaskr.service.study.const import INPUT_TYPE_REQUIRE_LOGIN
-from flaskr.service.study.plugin import register_shifu_input_handler
-from flaskr.i18n import _
+from flaskr.service.study.plugin import register_shifu_output_handler
 from flaskr.service.user.models import User
+from flaskr.i18n import _
+from flaskr.service.study.utils import get_script_ui_label
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from langfuse.client import StatefulTraceClient
+from flaskr.service.shifu.dtos import LoginDTO
+from flaskr.service.study.dtos import ScriptDTO
 
 
-@register_shifu_input_handler("login")
-def _input_handler_login(
+@register_shifu_output_handler("login")
+def _handle_output_login(
     app: Flask,
     user_info: User,
     attend_id: str,
@@ -18,11 +21,12 @@ def _input_handler_login(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
-):
-    login_dto: LoginDTO = block_dto.block_content
-    title = get_script_ui_label(app, login_dto.label)
+) -> ScriptDTO:
+    login: LoginDTO = block_dto.block_content
+    title = get_script_ui_label(app, login.label)
     if not title:
         title = _("COMMON.LOGIN")
+    # display = bool(title)
     btn = [
         {
             "label": title,
@@ -30,12 +34,9 @@ def _input_handler_login(
             "type": INPUT_TYPE_REQUIRE_LOGIN,
         }
     ]
-    app.logger.info(
-        f"_input_handler_login {block_dto.bid} {outline_item_info.bid} {title} {btn}"
-    )
-    yield make_script_dto(
+    return ScriptDTO(
         INPUT_TYPE_REQUIRE_LOGIN,
         {"buttons": btn},
-        block_dto.bid,
-        block_dto.bid,
+        outline_item_info.bid,
+        outline_item_info.bid,
     )

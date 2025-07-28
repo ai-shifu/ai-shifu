@@ -1,30 +1,32 @@
 from flask import Flask
-from trace import Trace
-from flaskr.service.study.plugin import register_continue_handler
-from flaskr.service.lesson.models import AILessonScript, AILesson
-from flaskr.service.order.models import AICourseLessonAttend, AICourseBuyRecord
-from flaskr.service.lesson.const import UI_TYPE_TO_PAY
+from flaskr.service.study.plugin import (
+    register_shifu_continue_handler,
+)
+from flaskr.service.order.models import AICourseBuyRecord
 from flaskr.service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.common import raise_error
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.user.models import User
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from langfuse.client import StatefulTraceClient
 
 
 # geyunfei
 #
-@register_continue_handler(script_ui_type=UI_TYPE_TO_PAY)
+@register_shifu_continue_handler("payment")
 @extensible_generic
-def handle_input_continue_order(
+def _handle_input_continue_order(
     app: Flask,
     user_info: User,
-    attend: AICourseLessonAttend,
-    lesson_info: AILesson,
-    script_info: AILessonScript,
+    attend_id: str,
     input: str,
-    trace: Trace,
-    trace_args,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ):
-    course_id = attend.course_id
+    course_id = outline_item_info.shifu_bid
     buy_record = AICourseBuyRecord.query.filter(
         AICourseBuyRecord.course_id == course_id,
         AICourseBuyRecord.user_id == user_info.user_id,

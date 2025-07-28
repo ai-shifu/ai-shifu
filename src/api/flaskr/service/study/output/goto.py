@@ -1,5 +1,4 @@
 from flask import Flask
-import json
 
 from sqlalchemy import func
 
@@ -8,13 +7,11 @@ from flaskr.service.order.consts import (
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_RESET,
 )
-from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.study.plugin import register_ui_handler
+from flaskr.service.study.plugin import register_shifu_output_handler
 from flaskr.service.study.models import AICourseAttendAsssotion
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.lesson.models import AILesson
-from flaskr.service.lesson.const import UI_TYPE_BRANCH
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.study.const import INPUT_TYPE_BRANCH
 from flaskr.dao import db
@@ -22,26 +19,33 @@ from flaskr.service.user.models import User
 from flaskr.util.uuid import generate_id
 from flaskr.service.study.utils import get_script_ui_label
 from flaskr.i18n import _
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.shifu.dtos import GotoDTO
+from langfuse.client import StatefulTraceClient
 
 
-@register_ui_handler(UI_TYPE_BRANCH)
-def handle_input_branch(
+@register_shifu_output_handler("goto")
+def _handle_output_goto(
     app: Flask,
     user_info: User,
-    attend: AICourseLessonAttend,
-    script_info: AILessonScript,
-    input: str,
-    trace,
-    trace_args,
+    attend_id: str,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ) -> ScriptDTO:
     app.logger.info("branch")
-    branch_info = json.loads(script_info.script_other_conf)
+    goto: GotoDTO = block_dto.block_content
+    branch_info = goto.conditions
     branch_key = branch_info.get("var_name", "")
-    profile = get_user_profiles(app, user_info.user_id, attend.course_id, [branch_key])
-    branch_value = profile.get(branch_key, "")
+    profile = get_user_profiles(
+        app, user_info.user_id, outline_item_info.shifu_bid, [branch_key]
+    )
+    branch_value = profile.get(branch_key, "") if profile else ""
     jump_rule = branch_info.get("jump_rule", [])
     app.logger.info("rule:{}".format(jump_rule))
-    course_id = attend.course_id
+    course_id = outline_item_info.shifu_bid
     for rule in jump_rule:
         app.logger.info(
             "branch value:'{}' rule:'{}'".format(branch_value, rule.get("value", ""))
@@ -50,7 +54,7 @@ def handle_input_branch(
             app.logger.info("branch jump begin")
 
             attend_info = AICourseLessonAttend.query.filter(
-                AICourseLessonAttend.attend_id == attend.attend_id
+                AICourseLessonAttend.attend_id == attend_id
             ).first()
             next_lesson = None
             if rule.get("lark_table_id", "") != "":
@@ -107,19 +111,19 @@ def handle_input_branch(
                 branch_value, jump_rule
             )
         )
-    msg = get_script_ui_label(app, script_info.script_ui_content)
+        msg = get_script_ui_label(app, block_dto.block_content)
     if not msg:
         msg = _("COMMON.CONTINUE")
     btn = [
         {
             "label": msg,
-            "value": script_info.script_ui_content,
+            "value": block_dto.block_content,
             "type": INPUT_TYPE_BRANCH,
         }
     ]
     return ScriptDTO(
         "buttons",
         {"buttons": btn},
-        script_info.lesson_id,
-        script_info.script_id,
+        outline_item_info.bid,
+        outline_item_info.bid,
     )
