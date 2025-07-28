@@ -23,5 +23,4 @@ def _input_handler_payment(
     order = query_raw_buy_record(app, user_info.user_id, shifu_id)
     if order and order.status == BUY_STATUS_SUCCESS:
         return
-    app.logger.info("line 24")
     return None
