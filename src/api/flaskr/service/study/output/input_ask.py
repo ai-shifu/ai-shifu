@@ -11,7 +11,7 @@ from flaskr.framework.plugin.plugin_manager import extensible
 
 
 @extensible
-def handle_ask_mode(
+def handle_input_ask(
     app: Flask,
     user_info: User,
     attend: AICourseLessonAttend,

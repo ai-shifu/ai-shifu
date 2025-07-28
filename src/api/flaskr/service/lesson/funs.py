@@ -13,7 +13,6 @@ from .const import (
     UI_TYPE_SELECTION,
     UI_TYPES,
     STATUS_PUBLISH,
-    STATUS_DRAFT,
 )
 from flask import Flask
 from ...dao import db
@@ -22,6 +21,9 @@ from flaskr.util.uuid import generate_id
 from sqlalchemy import func, text
 import json
 from flaskr.framework.plugin.plugin_manager import extensible
+from flaskr.service.shifu.models import ShifuPublishedShifu, ShifuDraftShifu
+from typing import Union
+from flaskr.service.shifu.utils import get_shifu_res_url
 
 
 @register_schema_to_swagger
@@ -720,36 +722,30 @@ def get_course_info(
     app: Flask, course_id: str, preview_mode: bool = False
 ) -> AICourseDTO:
     with app.app_context():
-        if course_id is None or course_id == "":
-            course = (
-                AICourse.query.filter(AICourse.status == 1)
-                .order_by(AICourse.id.desc())
+        shifu_info: Union[ShifuDraftShifu, ShifuPublishedShifu] = None
+        if preview_mode:
+            shifu_info = (
+                ShifuDraftShifu.query.filter(ShifuDraftShifu.shifu_bid == course_id)
+                .order_by(ShifuDraftShifu.id.desc())
                 .first()
             )
-            if course is None:
-                raise_error("LESSON.HAS_NOT_LESSON")
         else:
-            ai_course_status = [STATUS_PUBLISH]
-            if preview_mode:
-                ai_course_status.append(STATUS_DRAFT)
-            course = (
-                AICourse.query.filter(
-                    AICourse.course_id == course_id,
-                    AICourse.status.in_(ai_course_status),
+            shifu_info = (
+                ShifuPublishedShifu.query.filter(
+                    ShifuPublishedShifu.shifu_bid == course_id
                 )
-                .order_by(AICourse.id.desc())
+                .order_by(ShifuPublishedShifu.id.desc())
                 .first()
             )
-            if course is None:
-                raise_error("LESSON.COURSE_NOT_FOUND")
-
+        if shifu_info is None:
+            raise_error("LESSON.COURSE_NOT_FOUND")
         return AICourseDTO(
-            course.course_id,
-            course.course_name,
-            course.course_desc,
-            course.course_price,
-            course.course_feishu_id,
-            course.course_status,
-            course.course_teacher_avatar,
-            course.course_keywords,
+            shifu_info.shifu_bid,
+            shifu_info.title,
+            shifu_info.description,
+            shifu_info.price,
+            "",
+            1,
+            get_shifu_res_url(shifu_info.avatar_res_bid),
+            shifu_info.keywords.split(",") if shifu_info.keywords else [],
         )

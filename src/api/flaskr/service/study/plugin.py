@@ -1,16 +1,18 @@
 from flask import Flask
 from trace import Trace
-from flaskr.service.study.ui.input_ask import handle_ask_mode
+from flaskr.service.study.output.input_ask import handle_input_ask
 from flaskr.service.common.models import AppException
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.dao import db
 from flaskr.service.user.models import User
-from flaskr.service.study.ui.ui_continue import make_continue_ui
+from flaskr.service.study.output.ui_continue import make_continue_ui
 from functools import wraps
 from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from langfuse.client import StatefulTraceClient
+from flaskr.service.study.dtos import ScriptDTO
+from flaskr.service.study.utils import make_script_dto_to_stream
 
 # handlers for input
 INPUT_HANDLE_MAP = {}
@@ -174,7 +176,7 @@ def handle_ui(
                 )
             )
         ret.append(
-            handle_ask_mode(
+            handle_input_ask(
                 app, user_info, attend, script_info, input, trace, trace_args
             )
         )
@@ -285,6 +287,7 @@ def handle_shifu_input(
     app: Flask,
     user_info: User,
     attend_id: str,
+    input: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
     trace_args: dict,
@@ -292,10 +295,19 @@ def handle_shifu_input(
 ):
     if block_dto.type in SHIFU_INPUT_HANDLE_MAP:
         res = SHIFU_INPUT_HANDLE_MAP[block_dto.type](
-            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
+            app,
+            user_info,
+            attend_id,
+            input,
+            outline_item_info,
+            block_dto,
+            trace_args,
+            trace,
         )
         if res:
             yield from res
+    else:
+        app.logger.warning(f"shifu input handler not found {block_dto.type}")
     return None
 
 
@@ -312,7 +324,9 @@ def handle_shifu_output(
         res = SHIFU_OUTPUT_HANDLE_MAP[block_dto.type](
             app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
-        if res:
+        if isinstance(res, ScriptDTO):
+            yield make_script_dto_to_stream(res)
+        else:
             yield from res
     else:
         app.logger.warning(f"shifu input handler not found {block_dto.type}")

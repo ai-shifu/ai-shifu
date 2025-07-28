@@ -1,24 +1,25 @@
 from flask import Flask
-from flaskr.service.lesson.models import AILessonScript, AILesson
-from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.study.const import INPUT_TYPE_START
-from flaskr.service.study.plugin import register_input_handler
-from trace import Trace
+from flaskr.service.study.plugin import (
+    register_shifu_input_handler,
+)
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.user.models import User
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from langfuse.client import StatefulTraceClient
 
 
-@register_input_handler(input_type=INPUT_TYPE_START)
+@register_shifu_input_handler("start")
 @extensible_generic
-def handle_input_start(
+def _handle_input_start(
     app: Flask,
     user_info: User,
-    lesson: AILesson,
-    attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    attend_id: str,
     input: str,
-    trace: Trace,
-    trace_args,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ):
 
     return None

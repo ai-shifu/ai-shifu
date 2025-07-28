@@ -1,49 +1,51 @@
-import json
-from trace import Trace
 from flask import Flask
 from sqlalchemy import func
-from flaskr.service.lesson.const import UI_TYPE_BRANCH
-from flaskr.service.lesson.models import AILesson, AILessonScript
+from flaskr.service.lesson.models import AILesson
+from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.order.consts import (
     ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_RESET,
 )
-from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.study.models import AICourseAttendAsssotion
-from flaskr.service.study.plugin import register_continue_handler
+from flaskr.service.study.plugin import (
+    register_shifu_continue_handler,
+)
 from flaskr.util.uuid import generate_id
 from flaskr.dao import db
-from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.user.models import User
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.shifu.dtos import GotoDTO
+from langfuse.client import StatefulTraceClient
 
 
-@register_continue_handler(script_ui_type=UI_TYPE_BRANCH)
-@extensible_generic
-def handle_input_continue_branch(
+@register_shifu_continue_handler("goto")
+def _handle_input_continue_branch(
     app: Flask,
     user_info: User,
-    lesson_info: AILesson,
-    attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    attend_id: str,
     input: str,
-    trace: Trace,
-    trace_args,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ):
-    app.logger.info(
-        "script_id:{},branch:{}".format(
-            script_info.script_id, script_info.script_other_conf
-        )
+    goto: GotoDTO = block_dto.block_content
+    branch_info = goto.conditions
+    branch_key = block_dto.variable_bids[0]
+    profile = get_user_profiles(
+        app, user_info.user_id, outline_item_info.shifu_bid, [branch_key]
     )
-    branch_info = json.loads(script_info.script_other_conf)
-    branch_key = branch_info.get("var_name", "")
-    profile = get_user_profiles(app, user_info.user_id, attend.course_id, [branch_key])
     branch_value = profile.get(branch_key, "")
-    jump_rule = branch_info.get("jump_rule", [])
+    jump_rule = branch_info[0].jump_rule
+    attend_info = AICourseLessonAttend.query.filter(
+        AICourseLessonAttend.attend_id == attend_id
+    ).first()
 
     app.logger.info("branch key:{}".format(branch_key))
-    if attend.status != ATTEND_STATUS_BRANCH:
+    if attend_info.status != ATTEND_STATUS_BRANCH:
         for rule in jump_rule:
             app.logger.info(
                 "rule value:'{}' branch_value:'{}'".format(
@@ -53,21 +55,21 @@ def handle_input_continue_branch(
             if branch_value == rule.get("value", ""):
                 app.logger.info("found branch rule")
                 attend_info = AICourseLessonAttend.query.filter(
-                    AICourseLessonAttend.attend_id == attend.attend_id
+                    AICourseLessonAttend.attend_id == attend_id
                 ).first()
                 next_lesson = None
                 if rule.get("lark_table_id", "") != "":
                     next_lesson = AILesson.query.filter(
                         AILesson.lesson_feishu_id == rule.get("lark_table_id", ""),
                         AILesson.status == 1,
-                        AILesson.course_id == attend.course_id,
+                        AILesson.course_id == attend_info.course_id,
                         func.length(AILesson.lesson_no) > 2,
                     ).first()
                 if rule.get("goto_id", "") != "":
                     next_lesson = AILesson.query.filter(
                         AILesson.lesson_id == rule.get("goto_id", ""),
                         AILesson.status == 1,
-                        AILesson.course_id == attend.course_id,
+                        AILesson.course_id == attend_info.course_id,
                     ).first()
                 if next_lesson:
                     next_attend = AICourseLessonAttend.query.filter(

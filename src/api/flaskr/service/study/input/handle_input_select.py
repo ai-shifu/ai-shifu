@@ -1,53 +1,55 @@
 import json
-from trace import Trace
 from flask import Flask
 from flaskr.service.profile.funcs import save_user_profiles
-from flaskr.service.lesson.models import AILessonScript, AILesson
-from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.study.const import INPUT_TYPE_SELECT, ROLE_STUDENT
-from flaskr.service.study.plugin import register_input_handler
-from flaskr.service.study.utils import generation_attend, get_profile_array
+from flaskr.service.study.const import ROLE_STUDENT
+from flaskr.service.study.plugin import (
+    register_shifu_input_handler,
+)
+from flaskr.service.study.utils import generation_attend
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
-from flaskr.service.study.ui.input_selection import handle_input_selection
+from flaskr.service.study.output.options import _handle_output_options
 from flaskr.service.user.models import User
+from langfuse.client import StatefulTraceClient
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO, OptionsDTO
+from flaskr.service.profile.funcs import get_profile_item_definition_list
 
 
-@register_input_handler(input_type=INPUT_TYPE_SELECT)
+@register_shifu_input_handler("options")
+@register_shifu_input_handler("select")
 @extensible_generic
-def handle_input_select(
+def _handle_input_options(
     app: Flask,
     user_info: User,
-    lesson: AILesson,
-    attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    attend_id: str,
     input: str,
-    trace: Trace,
-    trace_args,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ):
-    profile_keys = get_profile_array(script_info.script_ui_profile)
-    profile_tosave = {}
-    if len(profile_keys) == 0:
-        # btns = json.loads(script_info.script_other_conf)
-        other_conf = script_info.script_other_conf or "{}"
-        try:
-            btns = json.loads(other_conf)
-        except json.JSONDecodeError as e:
-            app.logger.error(
-                f"Invalid JSON in script_other_conf: {other_conf}, error: {str(e)}"
-            )
-            btns = {}
-        conf_key = btns.get("var_name", "input")
-        profile_tosave[conf_key] = input
-    for k in profile_keys:
-        profile_tosave[k] = input
-    save_user_profiles(app, user_info.user_id, lesson.course_id, profile_tosave)
-    log_script = generation_attend(app, attend, script_info)
-    log_script.script_content = input
+
+    options: OptionsDTO = block_dto.block_content
+    result_variable_id = options.result_variable_bid
+
+    profile_list = get_profile_item_definition_list(app, outline_item_info.shifu_bid)
+    profile_to_save = {}
+    for profile in profile_list:
+        if profile.profile_id == result_variable_id:
+            profile_to_save[profile.profile_key] = input
+            break
+    save_user_profiles(
+        app, user_info.user_id, outline_item_info.shifu_bid, profile_to_save
+    )
+    log_script = generation_attend(
+        app, user_info, attend_id, outline_item_info, block_dto
+    )
+    log_script.script_content = block_dto.block_content
     log_script.script_role = ROLE_STUDENT
     log_script.script_ui_conf = json.dumps(
-        handle_input_selection(
-            app, user_info, attend, script_info, input, trace, trace_args
+        _handle_output_options(
+            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         ).__json__()
     )
     db.session.add(log_script)

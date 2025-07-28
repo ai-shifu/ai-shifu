@@ -242,7 +242,9 @@ class RunScriptContext:
         if self._current_attend.script_index >= len(
             self._current_outline_item.children
         ):
-            self.app.logger.info(f"node completed: {self._current_outline_item.bid}")
+            self.app.logger.info(
+                f"node completed: {self._current_outline_item.bid} {self._current_attend.script_index} {len(self._current_outline_item.children)}"
+            )
             _mark_sub_node_completed(self._current_outline_item, res)
         return res
 
@@ -254,6 +256,7 @@ class RunScriptContext:
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
         self._input = input
+        self.app.logger.info(f"set_input {input} {input_type}")
 
     def run(self, app: Flask) -> Generator[str, None, None]:
         attend_status_values = get_attend_status_values()
@@ -264,75 +267,102 @@ class RunScriptContext:
         if not self._current_attend:
             self._current_attend = self._get_current_attend(self._outline_item_info)
         outline_updates = self._get_next_outline_item()
-        for update in outline_updates:
-            app.logger.info(
-                f"outline update: {update.type} {update.outline_item_info.bid}"
-            )
-            if update.type == _OutlineUpateType.LEAF_START:
-                self.app.logger.error(
-                    f"lesson_update {self._current_attend.lesson_id} {self._current_attend.status}"
+        if len(outline_updates) > 0:
+            shif_bids = [o.outline_item_info.bid for o in outline_updates]
+            outline_item_info_db: Union[
+                ShifuDraftOutlineItem, ShifuPublishedOutlineItem
+            ] = self._outline_model.query.filter(
+                self._outline_model.outline_item_bid.in_(shif_bids),
+                self._outline_model.deleted == 0,
+            ).all()
+            outline_item_info_map = {
+                o.outline_item_bid: o for o in outline_item_info_db
+            }
+            for update in outline_updates:
+                app.logger.info(
+                    f"outline update: {update.type} {update.outline_item_info.bid}"
                 )
-                self._current_outline_item = update.outline_item_info
-                self._current_attend = self._get_current_attend(
-                    self._current_outline_item
+                outline_item_info = outline_item_info_map.get(
+                    update.outline_item_info.bid, None
                 )
-                self.app.logger.error(
-                    f"lesson_update {self._current_attend.lesson_id} {self._current_outline_item.bid}"
-                )
-                self._current_attend.status = ATTEND_STATUS_NOT_STARTED
-                self._current_attend.script_index = 0
-                db.session.flush()
-                yield make_script_dto(
-                    "lesson_update",
-                    {
-                        "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_NOT_STARTED,
-                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
-                    },
-                    "",
-                )
-            elif update.type == _OutlineUpateType.LEAF_COMPLETED:
-                current_attend = self._get_current_attend(update.outline_item_info)
-                current_attend.status = ATTEND_STATUS_COMPLETED
-                db.session.flush()
-                yield make_script_dto(
-                    "lesson_update",
-                    {
-                        "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_COMPLETED,
-                        "status": attend_status_values[ATTEND_STATUS_COMPLETED],
-                    },
-                    "",
-                )
-            elif update.type == _OutlineUpateType.NODE_START:
-                # self._outline_item_info = update.outline_item_info
-                current_attend = self._get_current_attend(update.outline_item_info)
-                current_attend.status = ATTEND_STATUS_NOT_STARTED
-                current_attend.script_index = 0
-                db.session.flush()
-                yield make_script_dto(
-                    "next_chapter",
-                    {
-                        "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_NOT_STARTED,
-                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
-                    },
-                    "",
-                )
-            elif update.type == _OutlineUpateType.NODE_COMPLETED:
-                current_attend = self._get_current_attend(update.outline_item_info)
-                current_attend.status = ATTEND_STATUS_COMPLETED
-                db.session.flush()
-                yield make_script_dto(
-                    "chapter_update",
-                    {
-                        "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_COMPLETED,
-                        "status": attend_status_values[ATTEND_STATUS_COMPLETED],
-                    },
-                    "",
-                )
-
+                if outline_item_info:
+                    outline_item_info_args = {
+                        "lesson_no": outline_item_info.position,
+                        "lesson_name": outline_item_info.title,
+                    }
+                else:
+                    outline_item_info_args = {}
+                if update.type == _OutlineUpateType.LEAF_START:
+                    self.app.logger.error(
+                        f"lesson_update {self._current_attend.lesson_id} {self._current_attend.status}"
+                    )
+                    self._current_outline_item = update.outline_item_info
+                    self._current_attend = self._get_current_attend(
+                        self._current_outline_item
+                    )
+                    self.app.logger.error(
+                        f"lesson_update {self._current_attend.lesson_id} {self._current_outline_item.bid}"
+                    )
+                    self._current_attend.status = ATTEND_STATUS_NOT_STARTED
+                    self._current_attend.script_index = 0
+                    db.session.flush()
+                    yield make_script_dto(
+                        "lesson_update",
+                        {
+                            "lesson_id": update.outline_item_info.bid,
+                            "status_value": ATTEND_STATUS_NOT_STARTED,
+                            "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                            **outline_item_info_args,
+                        },
+                        "",
+                    )
+                elif update.type == _OutlineUpateType.LEAF_COMPLETED:
+                    current_attend = self._get_current_attend(update.outline_item_info)
+                    current_attend.status = ATTEND_STATUS_COMPLETED
+                    db.session.flush()
+                    yield make_script_dto(
+                        "lesson_update",
+                        {
+                            "lesson_id": update.outline_item_info.bid,
+                            "status_value": ATTEND_STATUS_COMPLETED,
+                            "status": attend_status_values[ATTEND_STATUS_COMPLETED],
+                            **outline_item_info_args,
+                        },
+                        "",
+                    )
+                elif update.type == _OutlineUpateType.NODE_START:
+                    # self._outline_item_info = update.outline_item_info
+                    current_attend = self._get_current_attend(update.outline_item_info)
+                    current_attend.status = ATTEND_STATUS_NOT_STARTED
+                    current_attend.script_index = 0
+                    db.session.flush()
+                    yield make_script_dto(
+                        "next_chapter",
+                        {
+                            "lesson_id": update.outline_item_info.bid,
+                            "status_value": ATTEND_STATUS_NOT_STARTED,
+                            "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                            **outline_item_info_args,
+                        },
+                        "",
+                    )
+                elif update.type == _OutlineUpateType.NODE_COMPLETED:
+                    current_attend = self._get_current_attend(update.outline_item_info)
+                    current_attend.status = ATTEND_STATUS_COMPLETED
+                    db.session.flush()
+                    yield make_script_dto(
+                        "chapter_update",
+                        {
+                            "lesson_id": update.outline_item_info.bid,
+                            "status_value": ATTEND_STATUS_COMPLETED,
+                            "status": attend_status_values[ATTEND_STATUS_COMPLETED],
+                            **outline_item_info_args,
+                        },
+                        "",
+                    )
+            db.session.flush()
+            self._can_continue = False
+            return
         app.logger.info(
             f"block type: {self._current_outline_item.bid} {self._current_attend.script_index}"
         )
@@ -350,30 +380,13 @@ class RunScriptContext:
             raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
 
         block_dto = generate_block_dto_from_model_internal(block_info)
-        # if check_continue_shifu(app,
-        #                         self._user_info,
-        #                         self._current_attend.attend_id,
-        #                         self._outline_item_info,
-        #                         block_dto,
-        #                         self._trace_args,
-        #                         self._trace):
-        #     self._can_continue = True
-        #     self._current_attend.script_index += 1
-        #     self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
-        #     self._input_type = "continue"
-        #     self.app.logger.info(f"block type: {block_dto.type} continue")
-        #     self.app.logger.info(f"line 194")
-        #     db.session.flush()
-        #     self.app.logger.info(f"block type: {block_dto.type} continue,has_next: {self._can_continue} and return.")
-        #     # here will be invoke 'run' on top of this function
-        #     return
-
         app.logger.info(f"block type: {block_dto.type} {self._input_type}")
         if self._run_type == RunType.INPUT:
             res = handle_shifu_input(
                 app=app,
                 user_info=self._user_info,
                 attend_id=self._current_attend.attend_id,
+                input=self._input,
                 outline_item_info=self._outline_item_info,
                 block_dto=block_dto,
                 trace_args=self._trace_args,
@@ -382,7 +395,8 @@ class RunScriptContext:
             if res:
                 yield from res
             self._can_continue = True
-            self._current_attend.script_index += 1
+            if block_dto.type != "content":
+                self._current_attend.script_index += 1
             self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
             self._input_type = "continue"
             self._run_type = RunType.OUTPUT
@@ -400,15 +414,19 @@ class RunScriptContext:
             )
             if res:
                 yield from res
-                self._can_continue = True
+
+            self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
+            self._input_type = "continue"
+            self._run_type = RunType.OUTPUT
+
+            app.logger.info(f"output block type: {block_dto.type}")
+            if block_dto.type != "content":
+                self._can_continue = False
+            else:
                 self._current_attend.script_index += 1
-                self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
-                self._input_type = "continue"
-                self._run_type = RunType.OUTPUT
-                if block_dto.type != "content":
-                    self._can_continue = False
-                db.session.flush()
-                return
+                self._can_continue = True
+            db.session.flush()
+            return
 
         self._trace_args["output"] = block_info.content
         self._trace.update(**self._trace_args)
