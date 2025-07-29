@@ -28,11 +28,7 @@ def upgrade():
         old_shifu_bid = course_id[0]
         old_course = AICourse.query.filter(AICourse.course_id == old_shifu_bid).first()
         print(
-<<<<<<< HEAD
             f"migrate shifu draft to shifu draft v2, shifu_bid: {old_shifu_bid}, {old_course.course_name}, {i + 1}/{len(old_shifu_bids)}"
-=======
-            f"migrate shifu draft to shifu draft v2, shifu_bid: {old_shifu_bid}, {old_course.course_name}, {i+1}/{len(old_shifu_bids)}"
->>>>>>> 6d36e6e1 (fix: migration error on phone-input or checkcode-input blocks (#658))
         )
 
         try:
