@@ -906,7 +906,9 @@ def get_video_info(app, user_id: str, url: str) -> dict:
             parsed_url = urlparse(url)
             domain = parsed_url.hostname
 
-            if domain == "bilibili.com" or (domain and domain.endswith(".bilibili.com")):
+            if domain == "bilibili.com" or (
+                domain and domain.endswith(".bilibili.com")
+            ):
                 bv_pattern = r"/video/(BV\w+)"
                 match = re.search(bv_pattern, url)
                 if not match:
