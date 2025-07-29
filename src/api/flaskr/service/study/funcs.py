@@ -1,5 +1,5 @@
 from flask import Flask
-
+from typing import Union
 from flaskr.dao import run_with_redis
 from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
@@ -26,7 +26,7 @@ from ...service.lesson.const import (
 )
 from ...dao import db
 
-from ...service.lesson.models import AICourse, AILesson, AILessonScript
+from ...service.lesson.models import AILesson, AILessonScript
 from ...service.order.models import (
     AICourseBuyRecord,
     AICourseLessonAttend,
@@ -36,7 +36,6 @@ from .plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.models import User
-from flaskr.service.lesson.const import UI_TYPE_CONTENT
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_outline_tree,
     get_outline_item_dto,
@@ -44,16 +43,29 @@ from flaskr.service.shifu.shifu_struct_manager import (
     ShifuInfoDto,
     ShifuOutlineItemDto,
     HistoryItem,
+    get_shifu_dto,
 )
+from flaskr.service.shifu.models import (
+    ShifuDraftBlock,
+    ShifuPublishedBlock,
+)
+from flaskr.service.shifu.adapter import (
+    BlockDTO,
+    generate_block_dto_from_model_internal,
+)
+from flaskr.service.shifu.const import BLOCK_TYPE_CONTENT
 import queue
 from flaskr.service.study.input.handle_input_continue import _handle_input_continue
+from flaskr.service.shifu.struct_uils import find_node_with_parents
+
+
+# fill the attend info for the outline items
 
 
 def fill_attend_info(
     app: Flask, user_id: str, is_paid: bool, ret: AICourseDTO
 ) -> AICourseDTO:
     attend_status_values = get_attend_status_values()
-    app.logger.info(f"fill_attend_info, is_paid: {is_paid}")
     q = queue.Queue()
     for lesson in ret.lessons:
         q.put(lesson)
@@ -203,47 +215,59 @@ def get_study_record(
     app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False
 ) -> StudyRecordDTO:
     with app.app_context():
-        ai_course_status = [STATUS_PUBLISH]
-        if preview_mode:
-            ai_course_status.append(STATUS_DRAFT)
-        lesson_info = (
-            AILesson.query.filter(
-                AILesson.lesson_id == lesson_id,
-                AILesson.status.in_(ai_course_status),
-            )
-            .order_by(AILesson.id.desc())
-            .first()
+        block_model: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            ShifuDraftBlock if preview_mode else ShifuPublishedBlock
         )
-        course_info = (
-            AICourse.query.filter(
-                AICourse.course_id == lesson_info.course_id,
-                AICourse.status.in_(ai_course_status),
-            )
-            .order_by(AICourse.id.desc())
-            .first()
+        outline_item: ShifuOutlineItemDto = get_outline_item_dto(
+            app, lesson_id, preview_mode
         )
-        if not course_info:
+        if not outline_item:
             return None
-        teacher_avatar = course_info.course_teacher_avatar
-        lesson_ids = [lesson_id]
+        shifu_info: ShifuInfoDto = get_shifu_dto(
+            app, outline_item.shifu_bid, preview_mode
+        )
+        if not shifu_info:
+            return None
+        teacher_avatar = shifu_info.avatar
+
+        shifu_struct: HistoryItem = get_shifu_struct(
+            app, outline_item.shifu_bid, preview_mode
+        )
+        if not shifu_struct:
+            return None
+
+        q = queue.Queue()
+        q.put(shifu_struct)
+        lesson_info: HistoryItem = None
+        while not q.empty():
+            item: HistoryItem = q.get()
+            if item.bid == lesson_id:
+                lesson_info = item
+                break
+            if item.children:
+                for child in item.children:
+                    q.put(child)
         if not lesson_info:
             return None
-        if len(lesson_info.lesson_no) <= 2:
-            lesson_infos = (
-                AILesson.query.filter(
-                    AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
-                    AILesson.status.in_(ai_course_status),
-                    AILesson.course_id == lesson_info.course_id,
-                )
-                .order_by(AILesson.id.desc())
-                .all()
-            )
-            lesson_ids = [lesson.lesson_id for lesson in lesson_infos]
+
+        q = queue.Queue()
+        q.put(lesson_info)
+        lesson_ids = []
+        while not q.empty():
+            item: HistoryItem = q.get()
+            if item.type == "outline":
+                lesson_ids.append(item.bid)
+            if item.children and item.children[0].type == "outline":
+                for child in item.children:
+                    q.put(child)
+        if not lesson_ids:
+            return None
+
         attend_infos = (
             AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.user_id == user_id,
                 AICourseLessonAttend.lesson_id.in_(lesson_ids),
-                AICourseLessonAttend.course_id == lesson_info.course_id,
+                AICourseLessonAttend.course_id == shifu_info.bid,
                 AICourseLessonAttend.status != ATTEND_STATUS_RESET,
             )
             .order_by(AICourseLessonAttend.id)
@@ -277,33 +301,69 @@ def get_study_record(
         ]
         user_info = User.query.filter_by(user_id=user_id).first()
         ret = StudyRecordDTO(items, teacher_avatar=teacher_avatar)
-        last_script_id = attend_scripts[-1].script_id
-        last_script: AILessonScript = (
-            AILessonScript.query.filter(
-                AILessonScript.script_id == last_script_id,
-                AILessonScript.status.in_(ai_course_status),
+        last_block_id = attend_scripts[-1].script_id
+
+        last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            block_model.query.filter(
+                block_model.block_bid == last_block_id, block_model.deleted == 0
             )
-            .order_by(AILessonScript.id.desc())
+            .order_by(block_model.id.desc())
             .first()
         )
-        if last_script is None:
-            ret.ui = []
-            return ret
+        if not last_block:
+            return None
 
-        if last_script.script_ui_type == UI_TYPE_CONTENT:
-            last_script = (
-                AILessonScript.query.filter(
-                    AILessonScript.lesson_id == last_script.lesson_id,
-                    AILessonScript.script_index == last_script.script_index + 1,
-                    AILessonScript.status.in_(ai_course_status),
-                )
-                .order_by(AILessonScript.id.desc())
-                .first()
-            )
-        if last_script is None:
+        if last_block is None:
             ret.ui = []
             return ret
-        last_lesson_id = last_script.lesson_id
+        block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)
+        next_block_id = None
+        last_lesson_id = None
+
+        if block_dto.type == BLOCK_TYPE_CONTENT:
+            q = queue.Queue()
+            q.put(lesson_info)
+            while not q.empty():
+                item: HistoryItem = q.get()
+                if (
+                    item.type == "outline"
+                    and item.children
+                    and item.children[0].type == "block"
+                    and block_dto.bid in [i.bid for i in item.children]
+                ):
+                    index = [i.bid for i in item.children].index(block_dto.bid)
+                    if index < len(item.children) - 1:
+                        next_block_id = item.children[index + 1].id
+                        last_lesson_id = item.bid
+                        break
+                if item.children:
+                    for child in item.children:
+                        q.put(child)
+        app.logger.info(f"next_block_id: {next_block_id}")
+        app.logger.info(f"last_lesson_id: {last_lesson_id}")
+        if not next_block_id:
+            # pass
+            # uis = handle_ui(
+            #     app,
+            #     user_info,
+            #     last_attends[-1],
+            #     last_outline_item,
+            #     block_dto,
+            #     "",
+            #     MockClient(),
+            #     {},
+            # )
+            # if len(uis) > 0:
+            #     ret.ui = uis[0]
+            return ret
+        next_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            block_model.query.filter(block_model.id == next_block_id).first()
+        )
+        if not next_block:
+            ret.ui = []
+            return ret
+        next_block_dto: BlockDTO = generate_block_dto_from_model_internal(next_block)
+
         lesson_id = last_lesson_id
         last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
         if len(last_attends) == 0:
@@ -320,19 +380,27 @@ def get_study_record(
                 pass
         else:
             last_attend = last_attends[-1]
-        uis = handle_ui(app, user_info, last_attend, last_script, "", MockClient(), {})
+        last_outline_item: ShifuOutlineItemDto = get_outline_item_dto(
+            app, last_lesson_id, preview_mode
+        )
+        uis = handle_ui(
+            app,
+            user_info,
+            last_attend,
+            last_outline_item,
+            next_block_dto,
+            "",
+            MockClient(),
+            {},
+        )
         app.logger.info(
             "uis:{}".format(json.dumps([i.__json__() for i in uis], ensure_ascii=False))
         )
         if len(uis) > 0:
             ret.ui = uis[0]
-        app.logger.info("last_script.script_id:{}".format(last_script.script_id))
-        app.logger.info(
-            "attend_scripts[-1].script_id:{}".format(attend_scripts[-1].script_id)
-        )
         if (
-            attend_scripts[-1].script_id == last_script.script_id
-            and last_script.script_ui_type == UI_TYPE_CONTENT
+            attend_scripts[-1].script_id == last_block_id
+            and next_block_dto.type == BLOCK_TYPE_CONTENT
         ):
             app.logger.info("handle_input_continue")
             ret.ui = _handle_input_continue(
@@ -470,22 +538,6 @@ def reset_user_study_info_by_lesson(
         struct: HistoryItem = get_shifu_struct(
             app, outline_item.shifu_bid, preview_mode
         )
-
-        def find_node_with_parents(
-            root: HistoryItem, target_bid: str, current_path: list[HistoryItem] = None
-        ) -> list[HistoryItem]:
-
-            if current_path is None:
-                current_path = []
-            current_path.append(root)
-            if root.bid == target_bid:
-                return current_path.copy()
-            for child in root.children:
-                result = find_node_with_parents(child, target_bid, current_path)
-                if result:
-                    return result
-            current_path.pop()
-            return None
 
         current_path = find_node_with_parents(struct, outline_item.bid)
 

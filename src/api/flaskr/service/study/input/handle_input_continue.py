@@ -1,7 +1,7 @@
 from flask import Flask
 from flaskr.service.study.const import ROLE_STUDENT
 from flaskr.service.study.plugin import (
-    SHIFU_CONTINUE_HANDLE_MAP,
+    SHIFU_CONTINUE_HANDLER_MAP,
 )
 from flaskr.service.study.utils import generation_attend, get_script_ui_label
 from flaskr.dao import db
@@ -37,7 +37,7 @@ def _handle_input_continue(
         span.end()
         db.session.flush()
 
-    continue_func = SHIFU_CONTINUE_HANDLE_MAP.get(block_dto.type, None)
+    continue_func = SHIFU_CONTINUE_HANDLER_MAP.get(block_dto.type, None)
 
     if continue_func:
         app.logger.info(f"continue_func: {continue_func.__name__}")

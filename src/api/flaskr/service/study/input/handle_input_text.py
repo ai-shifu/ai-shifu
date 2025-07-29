@@ -15,8 +15,6 @@ from flaskr.service.study.utils import (
     generation_attend,
     get_fmt_prompt,
     make_script_dto,
-    get_model_setting,
-    get_lesson_system,
     get_script_ui_label,
 )
 from flaskr.dao import db
@@ -25,11 +23,11 @@ import json
 from flaskr.service.study.output.input import _handle_output_text
 from flaskr.service.user.models import User
 from flaskr.service.profile.models import ProfileItem
-from flaskr.service.study.utils import ModelSetting
 from langfuse.client import StatefulTraceClient
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.shifu.dtos import InputDTO
+from flaskr.service.study.context import LLMSettings, RunScriptContext
 
 
 def safe_get_temperature(app: Flask, profile_item: ProfileItem):
@@ -56,6 +54,13 @@ def _handle_input_text(
     check_prompt_template = None
     inputDto: InputDTO = block_dto.block_content
     app.logger.info(f"inputDto: {inputDto.__json__()}")
+    context = RunScriptContext.get_current_context(app)
+
+    if inputDto.llm:
+        model_setting = LLMSettings(
+            model=inputDto.llm,
+            temperature=inputDto.llm_temperature,
+        )
 
     if (
         inputDto.result_variable_bids is not None
@@ -73,14 +78,14 @@ def _handle_input_text(
             and profile_item.profile_prompt_model
             and profile_item.profile_prompt_model.strip()
         ):
-            model_setting = ModelSetting(
+            model_setting = LLMSettings(
                 profile_item.profile_prompt_model,
                 {"temperature": safe_get_temperature(app, profile_item)},
             )
             check_prompt_template = profile_item.profile_prompt
 
     if model_setting is None:
-        model_setting = get_model_setting(app, None)
+        model_setting = context.get_llm_settings(outline_item_info)
 
     app.logger.info(f"model_setting: {model_setting.__json__()}")
 
@@ -131,7 +136,7 @@ def _handle_input_text(
         app.logger.info("check_text_by_edun is None ,invoke_llm")
 
     # get system prompt to generate content
-    system_prompt_template = get_lesson_system(app, outline_item_info.shifu_bid)
+    system_prompt_template = context.get_system_prompt(outline_item_info)
     system_prompt = (
         None
         if system_prompt_template is None or system_prompt_template == ""
@@ -149,13 +154,13 @@ def _handle_input_text(
         user_info.user_id,
         outline_item_info.shifu_bid,
         check_prompt_template,
-        inputDto.placeholder,
+        input,
     )
     resp = invoke_llm(
         app,
         user_info.user_id,
         span,
-        model=model_setting.model_name,
+        model=model_setting.model,
         json=True,
         stream=True,
         system=system_prompt,
@@ -165,7 +170,7 @@ def _handle_input_text(
         + "_"
         + str(outline_item_info.position)
         + "_",
-        **model_setting.model_args,
+        temperature=model_setting.temperature,
     )
     response_text = ""
     check_success = False
