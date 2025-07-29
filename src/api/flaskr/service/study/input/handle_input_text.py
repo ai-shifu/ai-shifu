@@ -79,8 +79,8 @@ def _handle_input_text(
             and profile_item.profile_prompt_model.strip()
         ):
             model_setting = LLMSettings(
-                profile_item.profile_prompt_model,
-                {"temperature": safe_get_temperature(app, profile_item)},
+                model=profile_item.profile_prompt_model,
+                temperature=safe_get_temperature(app, profile_item),
             )
             check_prompt_template = profile_item.profile_prompt
 
