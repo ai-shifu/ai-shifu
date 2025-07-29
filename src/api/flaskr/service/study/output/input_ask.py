@@ -1,32 +1,47 @@
 from flask import Flask
 from flaskr.service.user.models import User
 from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.lesson.models import AILessonScript
-from flaskr.service.lesson.const import (
-    ASK_MODE_ENABLE,
-)
-from flaskr.service.study.utils import get_follow_up_info
+
+# from flaskr.service.lesson.const import (
+#     ASK_MODE_ENABLE,
+# )
+# from flaskr.service.study.utils import get_follow_up_info
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.framework.plugin.plugin_manager import extensible
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.dtos import BlockDTO
+
+# from flaskr.service.study.context import RunScriptContext
+# from flaskr.service.study.utils import get_fmt_prompt
 
 
 @extensible
-def handle_input_ask(
+def _handle_output_ask(
     app: Flask,
     user_info: User,
     attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
     input: str,
     trace,
     trace_args,
 ):
-    follow_up_info = get_follow_up_info(app, script_info, attend)
-    ask_mode = follow_up_info.ask_mode
-    visible = True if ask_mode == ASK_MODE_ENABLE else False
-    enable = True if ask_mode == ASK_MODE_ENABLE else False
+    # follow_up_info = get_follow_up_info(app, outline_item_info, attend)
+    # ask_mode = follow_up_info.ask_mode
+    # visible = True if ask_mode == ASK_MODE_ENABLE else False
+    # enable = True if ask_mode == ASK_MODE_ENABLE else False
+    # context = RunScriptContext.get_current_context(app)
+    # app.logger.info(f"context: {context}")
+    # system_prompt_template = context.get_system_prompt(outline_item_info)
+    # system_prompt = get_fmt_prompt(
+    #     app,
+    #     user_info.user_id,
+    #     outline_item_info.shifu_bid,
+    #     system_prompt_template,
+    # )
     return ScriptDTO(
         "ask_mode",
-        {"ask_mode": enable, "visible": visible},
+        {"ask_mode": True, "visible": True},
         attend.lesson_id,
-        script_info.script_id if script_info else "",
+        block_dto.bid,
     )

@@ -1,6 +1,6 @@
 from flask import Flask
 from trace import Trace
-from flaskr.service.study.output.input_ask import handle_input_ask
+from flaskr.service.study.output.input_ask import _handle_output_ask
 from flaskr.service.common.models import AppException
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
@@ -28,10 +28,6 @@ UI_RECORD_HANDLE_MAP = {}
 
 # handlers for continue
 CONTINUE_CHECK_HANDLE_MAP = {}
-
-
-SHIFU_INPUT_HANDLE_MAP = {}
-SHIFU_OUTPUT_HANDLE_MAP = {}
 
 
 def unwrap_function(func):
@@ -142,42 +138,67 @@ def handle_ui(
     app: Flask,
     user_info: User,
     attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
     input: str,
     trace,
     trace_args,
 ):
-    app.logger.info(f"handle_ui {script_info.script_ui_type}")
-    app.logger.info(UI_HANDLE_MAP.keys())
-    if script_info.script_ui_type in UI_HANDLE_MAP:
+    app.logger.info(f"handle_ui {block_dto.type}")
+    if block_dto.type in SHIFU_OUTPUT_HANDLER_MAP:
         app.logger.info(
             "generation ui lesson_id:{}  script type:{},user_id:{},script_index:{}".format(
-                script_info.lesson_id,
-                script_info.script_type,
+                attend.lesson_id,
+                block_dto.type,
                 user_info.user_id,
-                script_info.script_index,
+                attend.script_index,
             )
         )
         ret = []
-        if check_continue(
-            app, user_info, attend, script_info, input, trace, trace_args
+        if check_block_continue(
+            app,
+            user_info,
+            attend.attend_id,
+            outline_item_info,
+            block_dto,
+            trace_args,
+            trace,
         ):
             app.logger.info("check_continue true ,make continue ui")
             ret.append(
                 make_continue_ui(
-                    app, user_info, attend, script_info, input, trace, trace_args
+                    app,
+                    user_info,
+                    attend.attend_id,
+                    outline_item_info,
+                    block_dto,
+                    trace_args,
+                    trace,
                 )
             )
         else:
             app.logger.info("check_continue false ,make ui")
             ret.append(
-                UI_HANDLE_MAP[script_info.script_ui_type](
-                    app, user_info, attend, script_info, input, trace, trace_args
+                SHIFU_OUTPUT_HANDLER_MAP[block_dto.type](
+                    app,
+                    user_info,
+                    attend,
+                    outline_item_info,
+                    block_dto,
+                    trace_args,
+                    trace,
                 )
             )
         ret.append(
-            handle_input_ask(
-                app, user_info, attend, script_info, input, trace, trace_args
+            _handle_output_ask(
+                app,
+                user_info,
+                attend,
+                outline_item_info,
+                block_dto,
+                input,
+                trace,
+                trace_args,
             )
         )
         span = trace.span(name="ui_script")
@@ -227,9 +248,11 @@ def check_continue(
     return False
 
 
-SHIFU_INPUT_HANDLE_MAP = {}
-SHIFU_OUTPUT_HANDLE_MAP = {}
-SHIFU_CONTINUE_HANDLE_MAP = {}
+# save input,output,continue,continue_check handler for blocks
+SHIFU_INPUT_HANDLER_MAP = {}
+SHIFU_OUTPUT_HANDLER_MAP = {}
+SHIFU_CONTINUE_HANDLER_MAP = {}
+SHIFU_CONTINUE_CHECK_HANDLER_MAP = {}
 
 
 def register_shifu_input_handler(block_type: str):
@@ -243,7 +266,7 @@ def register_shifu_input_handler(block_type: str):
         current_app.logger.info(
             f"register_shifu_input_handler {block_type} ==> {func.__name__}"
         )
-        SHIFU_INPUT_HANDLE_MAP[block_type] = wrapper
+        SHIFU_INPUT_HANDLER_MAP[block_type] = wrapper
         return wrapper
 
     return decorator
@@ -260,7 +283,7 @@ def register_shifu_output_handler(block_type: str):
         current_app.logger.info(
             f"register_shifu_output_handler {block_type} ==> {func.__name__}"
         )
-        SHIFU_OUTPUT_HANDLE_MAP[block_type] = wrapper
+        SHIFU_OUTPUT_HANDLER_MAP[block_type] = wrapper
         return wrapper
 
     return decorator
@@ -277,13 +300,13 @@ def register_shifu_continue_handler(block_type: str):
         current_app.logger.info(
             f"register_shifu_continue_handler {block_type} ==> {func.__name__}"
         )
-        SHIFU_CONTINUE_HANDLE_MAP[block_type] = wrapper
+        SHIFU_CONTINUE_HANDLER_MAP[block_type] = wrapper
         return wrapper
 
     return decorator
 
 
-def handle_shifu_input(
+def handle_block_input(
     app: Flask,
     user_info: User,
     attend_id: str,
@@ -293,8 +316,8 @@ def handle_shifu_input(
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
-    if block_dto.type in SHIFU_INPUT_HANDLE_MAP:
-        res = SHIFU_INPUT_HANDLE_MAP[block_dto.type](
+    if block_dto.type in SHIFU_INPUT_HANDLER_MAP:
+        res = SHIFU_INPUT_HANDLER_MAP[block_dto.type](
             app,
             user_info,
             attend_id,
@@ -311,7 +334,7 @@ def handle_shifu_input(
     return None
 
 
-def handle_shifu_output(
+def handle_block_output(
     app: Flask,
     user_info: User,
     attend_id: str,
@@ -320,8 +343,8 @@ def handle_shifu_output(
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
-    if block_dto.type in SHIFU_OUTPUT_HANDLE_MAP:
-        res = SHIFU_OUTPUT_HANDLE_MAP[block_dto.type](
+    if block_dto.type in SHIFU_OUTPUT_HANDLER_MAP:
+        res = SHIFU_OUTPUT_HANDLER_MAP[block_dto.type](
             app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
         if isinstance(res, ScriptDTO):
@@ -329,11 +352,11 @@ def handle_shifu_output(
         else:
             yield from res
     else:
-        app.logger.warning(f"shifu input handler not found {block_dto.type}")
+        app.logger.warning(f"shifu output handler not found {block_dto.type}")
     return None
 
 
-def check_continue_shifu(
+def check_block_continue(
     app: Flask,
     user_info: User,
     attend_id: str,
@@ -342,8 +365,8 @@ def check_continue_shifu(
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
-    if block_dto.type in SHIFU_CONTINUE_HANDLE_MAP:
-        return SHIFU_CONTINUE_HANDLE_MAP[block_dto.type](
+    if block_dto.type in SHIFU_CONTINUE_HANDLER_MAP:
+        return SHIFU_CONTINUE_HANDLER_MAP[block_dto.type](
             app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
     return False
