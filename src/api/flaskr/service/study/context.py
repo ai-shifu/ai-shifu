@@ -235,7 +235,7 @@ class RunScriptContext:
                     attend_info.lesson_id = outline_item_info_db.outline_item_bid
                     attend_info.course_id = outline_item_info_db.shifu_bid
                     attend_info.user_id = self._user_info.user_id
-                    attend_info.status = ATTEND_STATUS_IN_PROGRESS
+                    attend_info.status = ATTEND_STATUS_NOT_STARTED
                     attend_info.attend_id = generate_id(self.app)
                     attend_info.script_index = 0
                     db.session.add(attend_info)
@@ -491,13 +491,7 @@ class RunScriptContext:
             db.session.flush()
         return goto_attend
 
-    def _get_run_script_info(self, attend: AICourseLessonAttend) -> RunScriptInfo:
-
-        outline_item_id = attend.lesson_id
-        outline_item_info: ShifuOutlineItemDto = get_outline_item_dto(
-            self.app, outline_item_id, self._preview_mode
-        )
-
+    def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
         q = queue.Queue()
         q.put(self._struct)
         outline_struct = None
@@ -509,9 +503,21 @@ class RunScriptContext:
             if item.children:
                 for child in item.children:
                     q.put(child)
+        return outline_struct
+
+    def _get_run_script_info(self, attend: AICourseLessonAttend) -> RunScriptInfo:
+
+        outline_item_id = attend.lesson_id
+        outline_item_info: ShifuOutlineItemDto = get_outline_item_dto(
+            self.app, outline_item_id, self._preview_mode
+        )
+
+        outline_struct = self._get_outline_struct(outline_item_id)
 
         self.app.logger.info(f"outline_struct: {outline_struct}")
 
+        if attend.script_index >= len(outline_struct.children):
+            return None
         block_id = outline_struct.children[attend.script_index].id
         block_info: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
             self._block_model.query.filter(
@@ -525,12 +531,14 @@ class RunScriptContext:
             goto_attend = self._get_goto_attend(
                 block_dto, self._user_info, outline_item_info
             )
-            if goto_attend.script_index >= len(outline_struct.children):
+            goto_outline_struct = self._get_outline_struct(goto_attend.lesson_id)
+            if goto_attend.script_index >= len(goto_outline_struct.children):
                 attend.script_index = attend.script_index + 1
                 db.session.flush()
-                return self._get_run_script_info(attend)
-            else:
-                return self._get_run_script_info(goto_attend)
+                ret = self._get_run_script_info(attend)
+                if ret:
+                    return ret
+            return self._get_run_script_info(goto_attend)
         return RunScriptInfo(
             attend=attend,
             outline_item_info=outline_item_info,
