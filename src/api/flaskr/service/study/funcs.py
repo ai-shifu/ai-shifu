@@ -310,9 +310,6 @@ def get_study_record(
             .first()
         )
         if not last_block:
-            return None
-
-        if last_block is None:
             ret.ui = []
             return ret
         block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)

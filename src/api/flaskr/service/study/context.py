@@ -288,7 +288,10 @@ class RunScriptContext:
             path = find_node_with_parents(self._struct, outline_item_info.bid)
             for item in path:
                 if item.type == "outline":
-                    res.append(_OutlineUpate(_OutlineUpateType.NODE_START, item))
+                    if item.children and item.children[0].type == "outline":
+                        res.append(_OutlineUpate(_OutlineUpateType.NODE_START, item))
+                    else:
+                        res.append(_OutlineUpate(_OutlineUpateType.LEAF_START, item))
 
         if self._current_attend.script_index >= len(
             self._current_outline_item.children
@@ -328,42 +331,23 @@ class RunScriptContext:
             else:
                 outline_item_info_args = {}
             if update.type == _OutlineUpateType.LEAF_START:
-                self.app.logger.error(
-                    f"lesson_update {self._current_attend.lesson_id} {self._current_attend.status}"
-                )
                 self._current_outline_item = update.outline_item_info
                 self._current_attend = self._get_current_attend(
                     self._current_outline_item
                 )
-                self.app.logger.error(
-                    f"lesson_update {self._current_attend.lesson_id} {self._current_outline_item.bid}"
-                )
-                self._current_attend.status = ATTEND_STATUS_NOT_STARTED
+                self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
                 self._current_attend.script_index = 0
                 db.session.flush()
                 yield make_script_dto(
                     "lesson_update",
                     {
                         "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_NOT_STARTED,
-                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                        "status_value": ATTEND_STATUS_IN_PROGRESS,
+                        "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
                         **outline_item_info_args,
                     },
                     "",
                 )
-                if self._current_attend.status == ATTEND_STATUS_NOT_STARTED:
-                    self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
-                    db.session.flush()
-                    yield make_script_dto(
-                        "lesson_update",
-                        {
-                            "lesson_id": update.outline_item_info.bid,
-                            "status_value": ATTEND_STATUS_IN_PROGRESS,
-                            "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
-                            **outline_item_info_args,
-                        },
-                        "",
-                    )
             elif update.type == _OutlineUpateType.LEAF_COMPLETED:
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = ATTEND_STATUS_COMPLETED
@@ -381,32 +365,30 @@ class RunScriptContext:
             elif update.type == _OutlineUpateType.NODE_START:
                 # self._outline_item_info = update.outline_item_info
                 current_attend = self._get_current_attend(update.outline_item_info)
-                current_attend.status = ATTEND_STATUS_NOT_STARTED
+                current_attend.status = ATTEND_STATUS_IN_PROGRESS
                 current_attend.script_index = 0
                 db.session.flush()
                 yield make_script_dto(
                     "next_chapter",
                     {
                         "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_NOT_STARTED,
-                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                        "status_value": ATTEND_STATUS_IN_PROGRESS,
+                        "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
                         **outline_item_info_args,
                     },
                     "",
                 )
-                if self._current_attend.status == ATTEND_STATUS_NOT_STARTED:
-                    self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
-                    db.session.flush()
-                    yield make_script_dto(
-                        "chapter_update",
-                        {
-                            "lesson_id": update.outline_item_info.bid,
-                            "status_value": ATTEND_STATUS_IN_PROGRESS,
-                            "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
-                            **outline_item_info_args,
-                        },
-                        "",
-                    )
+                yield make_script_dto(
+                    "lesson_update",
+                    {
+                        "lesson_id": update.outline_item_info.bid,
+                        "status_value": ATTEND_STATUS_IN_PROGRESS,
+                        "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
+                        **outline_item_info_args,
+                    },
+                    "",
+                )
+
             elif update.type == _OutlineUpateType.NODE_COMPLETED:
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = ATTEND_STATUS_COMPLETED
@@ -436,7 +418,6 @@ class RunScriptContext:
         self.app.logger.info(f"set_input {input} {input_type}")
 
     def run(self, app: Flask) -> Generator[str, None, None]:
-
         app.logger.info(
             f"run_context.run {self._current_attend.script_index} {self._current_attend.status}"
         )
