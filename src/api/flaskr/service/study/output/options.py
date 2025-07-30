@@ -24,7 +24,7 @@ def _handle_output_options(
     for option in selection.options:
         label = get_script_ui_label(app, option.label)
         if label == "":
-            label = option.label
+            label = option.value
         btn = {
             "label": label,
             "value": option.value,
