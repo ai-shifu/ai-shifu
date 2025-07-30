@@ -26,6 +26,7 @@ from flaskr.service.order.consts import (
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_COMPLETED,
     ATTEND_STATUS_NOT_STARTED,
+    ATTEND_STATUS_LOCKED,
 )
 from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
 from flaskr.service.study.plugin import (
@@ -230,6 +231,7 @@ class RunScriptContext:
                         AICourseLessonAttend.status != ATTEND_STATUS_RESET,
                     ).first()
                     if attend_info:
+
                         continue
                     attend_info = AICourseLessonAttend()
                     attend_info.lesson_id = outline_item_info_db.outline_item_bid
@@ -362,8 +364,14 @@ class RunScriptContext:
                 self._current_attend = self._get_current_attend(
                     self._current_outline_item
                 )
+                self.app.logger.info(
+                    f"current_attend: {self._current_attend.lesson_id} {self._current_attend.status} {self._current_attend.script_index}"
+                )
 
-                if self._current_attend.status == ATTEND_STATUS_NOT_STARTED:
+                if (
+                    self._current_attend.status == ATTEND_STATUS_NOT_STARTED
+                    or self._current_attend.status == ATTEND_STATUS_LOCKED
+                ):
                     self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
                     self._current_attend.script_index = 0
                     db.session.flush()
