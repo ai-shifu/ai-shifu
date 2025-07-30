@@ -11,7 +11,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.study.plugin import register_shifu_continue_handler
-from flaskr.service.study.i18n import _
+from flaskr.i18n import _
 
 
 @register_shifu_continue_handler("continue")
