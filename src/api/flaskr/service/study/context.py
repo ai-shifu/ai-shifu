@@ -196,15 +196,29 @@ class RunScriptContext:
             if outline_item_info.type == LESSON_TYPE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise_error("ORDER.COURSE_NOT_PAID")
-            attend_info = AICourseLessonAttend()
-            attend_info.lesson_id = outline_item_info_db.outline_item_bid
-            attend_info.course_id = outline_item_info_db.shifu_bid
-            attend_info.user_id = self._user_info.user_id
-            attend_info.status = ATTEND_STATUS_IN_PROGRESS
-            attend_info.attend_id = generate_id(self.app)
-            attend_info.script_index = 0
-            db.session.add(attend_info)
-            db.session.flush()
+            parent_path = find_node_with_parents(
+                self._struct, outline_item_info_db.outline_item_bid
+            )
+            attend_info = None
+            for item in parent_path:
+                if item.type == "outline":
+                    attend_info = AICourseLessonAttend.query.filter(
+                        AICourseLessonAttend.lesson_id == item.id,
+                        AICourseLessonAttend.user_id == self._user_info.user_id,
+                        AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+                    ).first()
+                    if attend_info:
+                        continue
+                    attend_info = AICourseLessonAttend()
+                    attend_info.lesson_id = outline_item_info_db.outline_item_bid
+                    attend_info.course_id = outline_item_info_db.shifu_bid
+                    attend_info.user_id = self._user_info.user_id
+                    attend_info.status = ATTEND_STATUS_IN_PROGRESS
+                    attend_info.attend_id = generate_id(self.app)
+                    attend_info.script_index = 0
+                    db.session.add(attend_info)
+                    db.session.flush()
+                    break
         return attend_info
 
     # outline is a leaf when has block item as children
@@ -268,14 +282,20 @@ class RunScriptContext:
                     for child in item.children:
                         q.put(child)
 
+        def _mark_sub_node_start(
+            outline_item_info: HistoryItem, res: list[_OutlineUpate]
+        ):
+            path = find_node_with_parents(self._struct, outline_item_info.bid)
+            for item in path:
+                if item.type == "outline":
+                    res.append(_OutlineUpate(_OutlineUpateType.NODE_START, item))
+
         if self._current_attend.script_index >= len(
             self._current_outline_item.children
         ):
-            self.app.logger.info(
-                f"node completed: {self._current_outline_item.bid} {self._current_attend.script_index} {len(self._current_outline_item.children)}"
-            )
             _mark_sub_node_completed(self._current_outline_item, res)
-
+        if self._current_attend.status == ATTEND_STATUS_NOT_STARTED:
+            _mark_sub_node_start(self._current_outline_item, res)
         return res
 
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
@@ -378,7 +398,7 @@ class RunScriptContext:
                     self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
                     db.session.flush()
                     yield make_script_dto(
-                        "lesson_update",
+                        "chapter_update",
                         {
                             "lesson_id": update.outline_item_info.bid,
                             "status_value": ATTEND_STATUS_IN_PROGRESS,
@@ -427,8 +447,9 @@ class RunScriptContext:
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates)
             db.session.flush()
-            self._can_continue = False
-            return
+            if self._current_attend.status != ATTEND_STATUS_IN_PROGRESS:
+                self._can_continue = False
+                return
         app.logger.info(
             f"block type: {self._current_outline_item.bid} {self._current_attend.script_index}"
         )

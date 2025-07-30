@@ -76,7 +76,6 @@ def fill_attend_info(
 
     while not q.empty():
         lesson: AILessonAttendDTO = q.get()
-
         if lesson.status_value == ATTEND_STATUS_NOT_EXIST:
             # lesson_trial
             if lesson.lesson_type == LESSON_TYPE_TRIAL:
