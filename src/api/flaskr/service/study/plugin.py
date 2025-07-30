@@ -193,12 +193,11 @@ def handle_ui(
             _handle_output_ask(
                 app,
                 user_info,
-                attend,
+                attend.attend_id,
                 outline_item_info,
                 block_dto,
-                input,
-                trace,
                 trace_args,
+                trace,
             )
         )
         span = trace.span(name="ui_script")
