@@ -27,7 +27,7 @@ def _handle_output_options(
             label = option.value
         btn = {
             "label": label,
-            "value": option.value,
+            "value": label,
             "type": INPUT_TYPE_SELECT,
         }
         btns.append(btn)
