@@ -22,8 +22,11 @@ def _handle_output_options(
     selection: OptionsDTO = block_dto.block_content
     btns = []
     for option in selection.options:
+        label = get_script_ui_label(app, option.label)
+        if label == "":
+            label = option.label
         btn = {
-            "label": get_script_ui_label(app, option.label),
+            "label": label,
             "value": option.value,
             "type": INPUT_TYPE_SELECT,
         }
