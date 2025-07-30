@@ -275,6 +275,7 @@ class RunScriptContext:
                 f"node completed: {self._current_outline_item.bid} {self._current_attend.script_index} {len(self._current_outline_item.children)}"
             )
             _mark_sub_node_completed(self._current_outline_item, res)
+
         return res
 
     def _get_current_outline_item(self) -> ShifuOutlineItemDto:
@@ -330,6 +331,19 @@ class RunScriptContext:
                     },
                     "",
                 )
+                if self._current_attend.status == ATTEND_STATUS_NOT_STARTED:
+                    self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
+                    db.session.flush()
+                    yield make_script_dto(
+                        "lesson_update",
+                        {
+                            "lesson_id": update.outline_item_info.bid,
+                            "status_value": ATTEND_STATUS_IN_PROGRESS,
+                            "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
+                            **outline_item_info_args,
+                        },
+                        "",
+                    )
             elif update.type == _OutlineUpateType.LEAF_COMPLETED:
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = ATTEND_STATUS_COMPLETED
@@ -360,6 +374,19 @@ class RunScriptContext:
                     },
                     "",
                 )
+                if self._current_attend.status == ATTEND_STATUS_NOT_STARTED:
+                    self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
+                    db.session.flush()
+                    yield make_script_dto(
+                        "lesson_update",
+                        {
+                            "lesson_id": update.outline_item_info.bid,
+                            "status_value": ATTEND_STATUS_IN_PROGRESS,
+                            "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
+                            **outline_item_info_args,
+                        },
+                        "",
+                    )
             elif update.type == _OutlineUpateType.NODE_COMPLETED:
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = ATTEND_STATUS_COMPLETED
