@@ -14,6 +14,7 @@ from langfuse.client import StatefulTraceClient
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO, OptionsDTO
 from flaskr.service.profile.funcs import get_profile_item_definition_list
+from flaskr.service.study.output.options import get_script_ui_label
 
 
 @register_shifu_input_handler("options")
@@ -37,7 +38,12 @@ def _handle_input_options(
     profile_to_save = {}
     for profile in profile_list:
         if profile.profile_id == result_variable_id:
-            profile_to_save[profile.profile_key] = input
+            for option in options.options:
+                label = get_script_ui_label(app, option.label)
+                if label == input:
+                    profile_to_save[profile.profile_key] = option.value
+                    break
+
             break
     save_user_profiles(
         app, user_info.user_id, outline_item_info.shifu_bid, profile_to_save
