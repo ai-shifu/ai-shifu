@@ -1,5 +1,4 @@
 import time
-from trace import Trace
 from flask import Flask
 from flaskr.api.llm import invoke_llm
 from flaskr.service.profile.funcs import save_user_profiles
@@ -7,25 +6,28 @@ from flaskr.service.study.input_funcs import (
     BreakException,
     check_text_with_llm_response,
 )
-from flaskr.service.lesson.models import AILessonScript, AILesson
-from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.study.const import INPUT_TYPE_TEXT, ROLE_STUDENT, ROLE_TEACHER
-from flaskr.service.study.plugin import register_input_handler
+from flaskr.service.study.const import ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.study.plugin import (
+    register_shifu_input_handler,
+)
 from flaskr.service.study.utils import (
     extract_json,
     generation_attend,
     get_fmt_prompt,
     make_script_dto,
-    get_model_setting,
-    get_lesson_system,
+    get_script_ui_label,
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 import json
-from flaskr.service.study.ui.input_text import handle_input_text as handle_input_text_ui
+from flaskr.service.study.output.input import _handle_output_text
 from flaskr.service.user.models import User
 from flaskr.service.profile.models import ProfileItem
-from flaskr.service.study.utils import ModelSetting
+from langfuse.client import StatefulTraceClient
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.shifu.dtos import InputDTO
+from flaskr.service.study.context import LLMSettings, RunScriptContext
 
 
 def safe_get_temperature(app: Flask, profile_item: ProfileItem):
@@ -36,28 +38,37 @@ def safe_get_temperature(app: Flask, profile_item: ProfileItem):
         return 0.3
 
 
-@register_input_handler(input_type=INPUT_TYPE_TEXT)
+@register_shifu_input_handler("input")
 @extensible_generic
-def handle_input_text(
+def _handle_input_text(
     app: Flask,
     user_info: User,
-    lesson: AILesson,
-    attend: AICourseLessonAttend,
-    script_info: AILessonScript,
+    attend_id: str,
     input: str,
-    trace: Trace,
-    trace_args,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ):
     model_setting = None
     check_prompt_template = None
+    inputDto: InputDTO = block_dto.block_content
+    app.logger.info(f"inputDto: {inputDto.__json__()}")
+    context = RunScriptContext.get_current_context(app)
+
+    if inputDto.llm:
+        model_setting = LLMSettings(
+            model=inputDto.llm,
+            temperature=inputDto.llm_temperature,
+        )
 
     if (
-        script_info.script_ui_profile_id is not None
-        and script_info.script_ui_profile_id != ""
+        inputDto.result_variable_bids is not None
+        and len(inputDto.result_variable_bids) > 0
     ):
         profile_item = (
             ProfileItem.query.filter(
-                ProfileItem.profile_id == script_info.script_ui_profile_id
+                ProfileItem.profile_id.in_(inputDto.result_variable_bids)
             )
             .order_by(ProfileItem.id.desc())
             .first()
@@ -67,37 +78,38 @@ def handle_input_text(
             and profile_item.profile_prompt_model
             and profile_item.profile_prompt_model.strip()
         ):
-            model_setting = ModelSetting(
-                profile_item.profile_prompt_model,
-                {"temperature": safe_get_temperature(app, profile_item)},
+            model_setting = LLMSettings(
+                model=profile_item.profile_prompt_model,
+                temperature=safe_get_temperature(app, profile_item),
             )
             check_prompt_template = profile_item.profile_prompt
 
     if model_setting is None:
-        model_setting = get_model_setting(app, script_info)
+        model_setting = context.get_llm_settings(outline_item_info)
 
     app.logger.info(f"model_setting: {model_setting.__json__()}")
 
     # get content prompt to generate content if check failed
-    content_prompt_template = script_info.script_prompt
+    content_prompt_template = inputDto.prompt
     if content_prompt_template is not None and content_prompt_template != "":
         content_prompt = get_fmt_prompt(
             app,
             user_info.user_id,
-            attend.course_id,
+            outline_item_info.shifu_bid,
             content_prompt_template,
             input,
-            script_info.script_profile,
         )
     else:
         content_prompt = ""
 
-    log_script = generation_attend(app, attend, script_info)
+    log_script = generation_attend(
+        app, user_info, attend_id, outline_item_info, block_dto
+    )
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
     log_script.script_ui_conf = json.dumps(
-        handle_input_text_ui(
-            app, user_info, attend, script_info, input, trace, trace_args
+        _handle_output_text(
+            app, user_info, attend_id, outline_item_info, block_dto, trace, trace_args
         ).__json__()
     )
     db.session.add(log_script)
@@ -109,9 +121,9 @@ def handle_input_text(
         log_script,
         input,
         span,
-        lesson,
-        script_info,
-        attend,
+        outline_item_info,
+        block_dto,
+        attend_id,
         content_prompt,
     )
     try:
@@ -124,43 +136,41 @@ def handle_input_text(
         app.logger.info("check_text_by_edun is None ,invoke_llm")
 
     # get system prompt to generate content
-    system_prompt_template = get_lesson_system(app, script_info.lesson_id)
+    system_prompt_template = context.get_system_prompt(outline_item_info)
     system_prompt = (
         None
         if system_prompt_template is None or system_prompt_template == ""
         else get_fmt_prompt(
-            app, user_info.user_id, attend.course_id, system_prompt_template
+            app, user_info.user_id, outline_item_info.shifu_bid, system_prompt_template
         )
     )
 
     # get check prompt to extract profile
     if check_prompt_template is None or check_prompt_template == "":
-        check_prompt_template = script_info.script_check_prompt
+        check_prompt_template = inputDto.prompt
 
     check_prompt = get_fmt_prompt(
         app,
         user_info.user_id,
-        attend.course_id,
+        outline_item_info.shifu_bid,
         check_prompt_template,
         input,
-        script_info.script_profile,
     )
     resp = invoke_llm(
         app,
         user_info.user_id,
         span,
-        model=model_setting.model_name,
+        model=model_setting.model,
         json=True,
         stream=True,
         system=system_prompt,
         message=check_prompt,
         generation_name="user_input_"
-        + lesson.lesson_no
+        + outline_item_info.position
         + "_"
-        + str(script_info.script_index)
-        + "_"
-        + script_info.script_name,
-        **model_setting.model_args,
+        + str(outline_item_info.position)
+        + "_",
+        temperature=model_setting.temperature,
     )
     response_text = ""
     check_success = False
@@ -173,13 +183,15 @@ def handle_input_text(
     if check_success:
         app.logger.info("check success")
         profile_tosave = jsonObj.get("parse_vars")
-        save_user_profiles(app, user_info.user_id, lesson.course_id, profile_tosave)
+        save_user_profiles(
+            app, user_info.user_id, outline_item_info.shifu_bid, profile_tosave
+        )
         for key in profile_tosave:
             yield make_script_dto(
                 "profile_update",
                 {"key": key, "value": profile_tosave[key]},
-                script_info.script_id,
-                script_info.lesson_id,
+                outline_item_info.bid,
+                outline_item_info.bid,
             )
             time.sleep(0.01)
         span.end()
@@ -189,10 +201,12 @@ def handle_input_text(
         reason = jsonObj.get("reason", response_text)
         for text in reason:
             yield make_script_dto(
-                "text", text, script_info.script_id, script_info.lesson_id
+                "text", text, outline_item_info.bid, outline_item_info.bid
             )
             time.sleep(0.01)
-        log_script = generation_attend(app, attend, script_info)
+        log_script = generation_attend(
+            app, user_info, attend_id, outline_item_info, block_dto
+        )
         log_script.script_content = reason
         log_script.script_role = ROLE_TEACHER
         db.session.add(log_script)
@@ -203,15 +217,14 @@ def handle_input_text(
         yield make_script_dto(
             "text_end",
             "",
-            script_info.script_id,
-            script_info.lesson_id,
+            outline_item_info.bid,
+            outline_item_info.bid,
             log_script.log_id,
         )
         yield make_script_dto(
             "sys_user_input",
-            script_info.script_ui_content,
-            script_info.script_id,
-            script_info.lesson_id,
-            log_script.log_id,
+            get_script_ui_label(app, inputDto.placeholder),
+            outline_item_info.bid,
+            outline_item_info.bid,
         )
         raise BreakException

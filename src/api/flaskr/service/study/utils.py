@@ -38,6 +38,10 @@ from flaskr.service.user.models import User
 from flaskr.framework import extensible
 from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 from flaskr.i18n import get_current_language
+from flaskr.service.shifu.dtos import LabelDTO
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.shifu.const import BLOCK_TYPE_VALUES
 
 
 def get_current_lesson(
@@ -48,20 +52,28 @@ def get_current_lesson(
 
 def generation_attend(
     app: Flask,
-    attend: AICourseLessonAttendDTO,
-    script_info: AILessonScript,
+    user_info: User,
+    attend_id: str,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
     with_ui_conf: bool = False,
 ) -> AICourseLessonAttendScript:
+    block_type = BLOCK_TYPE_VALUES.get(block_dto.type, None)
+    if block_type is None:
+        app.logger.error(f"Invalid block type: {block_dto.type}")
+        block_type = 0
     attendScript = AICourseLessonAttendScript()
-    attendScript.attend_id = attend.attend_id
-    attendScript.user_id = attend.user_id
-    attendScript.lesson_id = script_info.lesson_id
-    attendScript.course_id = attend.course_id
-    attendScript.script_id = script_info.script_id
-    attendScript.script_ui_type = script_info.script_ui_type
+    attendScript.attend_id = attend_id
+    attendScript.user_id = user_info.user_id
+    attendScript.lesson_id = outline_item_info.bid
+    attendScript.course_id = outline_item_info.shifu_bid
+    attendScript.script_id = block_dto.bid
+    attendScript.script_ui_type = block_type
     attendScript.log_id = generate_id(app)
     if with_ui_conf:
-        attendScript.script_ui_conf = script_info.script_other_conf
+        attendScript.script_ui_conf = json.dumps(
+            block_dto.block_content.__json__(), ensure_ascii=False
+        )
     return attendScript
 
 
@@ -910,5 +922,29 @@ def get_script_ui_label(app, text):
             label = json_obj.get(get_current_language(), "")
             return label
         except Exception:
+            from flask import current_app
+
+            current_app.logger.error(f"get_script_ui_label error: {text}")
             return text
+    if text and isinstance(text, LabelDTO):
+        label_dto: LabelDTO = text
+        label = label_dto.lang.get(get_current_language(), "")
+        return label
     return text
+
+
+class OutlineUpdateDTO:
+    outline_item_info: ShifuOutlineItemDto
+    outline_item_updated_event: str
+
+    def __init__(
+        self, outline_item_info: ShifuOutlineItemDto, outline_item_updated_event: str
+    ):
+        self.outline_item_info = outline_item_info
+        self.outline_item_updated_event = outline_item_updated_event
+
+    def __json__(self):
+        return {
+            "outline_item_info": self.outline_item_info.__json__(),
+            "outline_item_updated_event": self.outline_item_updated_event,
+        }

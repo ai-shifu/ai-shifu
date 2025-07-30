@@ -1,5 +1,5 @@
 from flask import Flask
-
+from typing import Union
 from flaskr.dao import run_with_redis
 from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.study.const import (
@@ -11,431 +11,189 @@ from ...service.order.consts import (
     ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_LOCKED,
     ATTEND_STATUS_NOT_STARTED,
-    ATTEND_STATUS_COMPLETED,
     ATTEND_STATUS_IN_PROGRESS,
     ATTEND_STATUS_RESET,
     get_attend_status_values,
     BUY_STATUS_SUCCESS,
+    ATTEND_STATUS_NOT_EXIST,
 )
 
 from .dtos import AICourseDTO, StudyRecordItemDTO, StudyRecordProgressDTO, ScriptInfoDTO
 from ...service.lesson.const import (
-    LESSON_TYPE_BRANCH_HIDDEN,
-    LESSON_TYPE_NORMAL,
     LESSON_TYPE_TRIAL,
     STATUS_PUBLISH,
     STATUS_DRAFT,
 )
 from ...dao import db
 
-from ...service.lesson.models import AICourse, AILesson, AILessonScript
+from ...service.lesson.models import AILesson, AILessonScript
 from ...service.order.models import (
     AICourseBuyRecord,
     AICourseLessonAttend,
 )
-from ...service.common.models import raise_error
 from .models import AICourseLessonAttendScript, AICourseAttendAsssotion
 from .plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.models import User
-from flaskr.service.lesson.const import UI_TYPE_CONTENT
-from flaskr.service.study.ui.input_continue import handle_input_continue
+from flaskr.service.shifu.shifu_struct_manager import (
+    get_shifu_outline_tree,
+    get_outline_item_dto,
+    get_shifu_struct,
+    ShifuInfoDto,
+    ShifuOutlineItemDto,
+    HistoryItem,
+    get_shifu_dto,
+)
+from flaskr.service.shifu.models import (
+    ShifuDraftBlock,
+    ShifuPublishedBlock,
+)
+from flaskr.service.shifu.adapter import (
+    BlockDTO,
+    generate_block_dto_from_model_internal,
+)
+from flaskr.service.shifu.const import BLOCK_TYPE_CONTENT
+import queue
+from flaskr.service.study.input.handle_input_continue import _handle_input_continue
+from flaskr.service.shifu.struct_uils import find_node_with_parents
 
 
-def _get_lesson_tree_to_study_common(
-    app: Flask,
-    user_id: str,
-    course_id: str,
-    course_info: AICourse,
-    lessons: list,
-    online_lessons: list,
-    old_lessons: list,
-    lesson_map: dict,
-    attend_infos: list,
-    updated_attend: bool,
-    attend_status_values: dict,
-    paid: bool,
+# fill the attend info for the outline items
+
+
+def fill_attend_info(
+    app: Flask, user_id: str, is_paid: bool, ret: AICourseDTO
 ) -> AICourseDTO:
-    with app.app_context():
-        is_first_chapter = False
-        is_first_lesson = False
+    attend_status_values = get_attend_status_values()
+    q = queue.Queue()
+    for lesson in ret.lessons:
+        q.put(lesson)
+    first_trial_lesson = False
+    first_lessons = list[AILessonAttendDTO]()
+    has_trial_init = False
+    # has_normal_init = False
 
-        if len(attend_infos) == 0:
-            app.logger.info(
-                "init the attend info for the trial lessons,user_id:{} course_id:{}".format(
-                    user_id, course_id
-                )
-            )
-            for lesson in [
-                online_lesson
-                for online_lesson in online_lessons
-                if online_lesson.lesson_type == LESSON_TYPE_TRIAL
-            ]:
-
-                status = ATTEND_STATUS_LOCKED
-
-                if len(lesson.lesson_no) == 2 and not is_first_chapter:
-                    is_first_chapter = True
-                    status = ATTEND_STATUS_NOT_STARTED
-                if len(lesson.lesson_no) == 4 and not is_first_lesson:
-                    is_first_lesson = True
-                    status = ATTEND_STATUS_NOT_STARTED
-                app.logger.info(
-                    "lesson_no:{},status:{}".format(lesson.lesson_no, status)
-                )
-                attend_info = AICourseLessonAttend(
-                    attend_id=generate_id(app),
-                    user_id=user_id,
-                    lesson_id=lesson.lesson_id,
-                    course_id=lesson.course_id,
-                    status=status,
-                )
-                attend_infos.append(attend_info)
-                db.session.add(attend_info)
-                updated_attend = True
-
-        attend_map = {i.lesson_id: i for i in attend_infos}
-        lessonInfos = []
-        lesson_dict = {}
-        app.logger.info(
-            "online_lessons:{}".format([i.lesson_no for i in online_lessons])
-        )
-        # init the lesson info
-        for lesson in online_lessons:
-            if lesson_dict.get(lesson.lesson_no, None) is None:
-                attend_info = attend_map.get(lesson.lesson_id, None)
-                status = attend_info.status if attend_info else ATTEND_STATUS_LOCKED
-                lesson_dict[lesson.lesson_no] = AILessonAttendDTO(
-                    lesson.lesson_no,
-                    lesson.lesson_name,
-                    lesson.lesson_id,
-                    attend_status_values[status],
-                    status,
-                    lesson.lesson_type,
-                    [],
-                    unique_id=lesson.lesson_feishu_id,
-                    updated=(
-                        True
-                        if attend_info and attend_info.lesson_updated == 1
-                        else False
-                    ),
-                )
-        # init the lesson tree
-        for key in lesson_dict:
-            if len(lesson_dict[key].lesson_no) == 2:
-                lessonInfos.append(lesson_dict[key])
-            else:
-                parent_no = key[:-2]
-                if parent_no in lesson_dict:
-                    lesson_dict[parent_no].children.append(lesson_dict[key])
-                    lesson_dict[parent_no].updated = (
-                        lesson_dict[parent_no].updated or lesson_dict[key].updated
-                    )
-        for lesson in lessonInfos:
-            lesson.children = sorted(
-                lesson.children, key=lambda x: (len(x.lesson_no), x.lesson_no)
-            )
-
-        for lesson_index, lesson in enumerate(lessonInfos):
-            attend_info = attend_map.get(lesson.lesson_id, None)
-            if attend_info is None:
-                lesson_info = lesson_map.get(lesson.lesson_id, None)
-                if lesson_info and lesson_info.lesson_type == LESSON_TYPE_NORMAL:
-                    if not paid:
-                        continue
-                old_lesson_infos = [
-                    i
-                    for i in old_lessons
-                    if i.lesson_feishu_id == lesson.unique_id
-                    and len(i.lesson_no) == len(lesson.lesson_no)
-                ]
-                if len(old_lesson_infos) > 0:
-                    attend_info = attend_map.get(old_lesson_infos[0].lesson_id, None)
-                    if attend_info:
-                        lesson.status_value = attend_info.status
-                        lesson.status = attend_status_values[attend_info.status]
+    while not q.empty():
+        lesson: AILessonAttendDTO = q.get()
+        if lesson.status_value == ATTEND_STATUS_NOT_EXIST:
+            # lesson_trial
+            if lesson.lesson_type == LESSON_TYPE_TRIAL:
+                if not has_trial_init:
+                    if not first_trial_lesson and not lesson.parent:
+                        first_trial_lesson = True
+                        app.logger.info(f"first_trial_lesson: {lesson.lesson_id}")
+                        app.logger.info(f"lesson: {lesson.__json__()}")
+                        first_lessons.append(lesson)
+                        lesson.status_value = ATTEND_STATUS_NOT_STARTED
+                        lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
                         lesson.updated = True
-                        lessonInfos[lesson_index] = lesson
-                        attend_info.lesson_id = lesson.lesson_id
-                        attend_info.lesson_updated = 1
-                        app.logger.info(
-                            "update attend info from lesson:{} to lesson:{}".format(
-                                attend_info.lesson_id, lesson.lesson_id
-                            )
-                        )
-                        attend_map[old_lesson_infos[0].lesson_id] = attend_info
-                        updated_attend = True
+                    elif (
+                        first_trial_lesson
+                        and first_lessons[-1].children
+                        and len(first_lessons[-1].children) > 0
+                        and first_lessons[-1].children[0] == lesson
+                    ):
+                        lesson.status_value = ATTEND_STATUS_NOT_STARTED
+                        lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
+                        lesson.updated = True
+                        first_lessons.append(lesson)
+                        if not lesson.children or len(lesson.children) == 0:
+                            has_trial_init = True
 
-            for i, child in enumerate(lesson.children):
-                attend_info = attend_map.get(child.lesson_id, None)
-                if attend_info:
-                    continue
-                is_updated_old_to_now = False
-                old_lesson_infos = [
-                    i
-                    for i in old_lessons
-                    if i.lesson_feishu_id == child.unique_id
-                    and len(i.lesson_no) == len(child.lesson_no)
-                ]
-                app.logger.info(
-                    "old_lessons:{}".format([i.lesson_no for i in old_lesson_infos])
-                )
-                if len(old_lesson_infos) > 0:
-                    for old_lesson in old_lesson_infos:
-                        if old_lesson.lesson_no[-2:] == child.lesson_no[-2:] and len(
-                            old_lesson.lesson_no
-                        ) == len(child.lesson_no):
-                            old_attend_info = attend_map.get(old_lesson.lesson_id, None)
-                            if (
-                                old_attend_info
-                                and old_attend_info.status != ATTEND_STATUS_BRANCH
-                            ):
-                                # update old attend info lesson_id to now lesson_id
-                                child.status_value = old_attend_info.status
-                                child.status = attend_status_values[
-                                    old_attend_info.status
-                                ]
-                                child.updated = True
-                                lesson.children[i] = child
-                                old_attend_info.lesson_id = child.lesson_id
-                                old_attend_info.lesson_updated = 1
-                                attend_map[old_lesson.lesson_id] = old_attend_info
-                                updated_attend = True
-                                is_updated_old_to_now = True
-                                app.logger.info(
-                                    "update attend info from lesson:{} to lesson:{}".format(
-                                        old_attend_info.lesson_id, child.lesson_id
-                                    )
-                                )
-                                break
-                if not is_updated_old_to_now:
-                    attend_info = AICourseLessonAttend(
-                        attend_id=generate_id(app),
-                        user_id=user_id,
-                        lesson_id=child.lesson_id,
-                        course_id=course_id,
-                        status=ATTEND_STATUS_LOCKED,
-                    )
-                    app.logger.info(
-                        "add attend info for lesson:{},lesson_no:{}".format(
-                            child.lesson_id, child.lesson_no
-                        )
-                    )
-                    db.session.add(attend_info)
-                    attend_map[lesson.lesson_id] = attend_info
-                    updated_attend = True
-
-        if updated_attend:
-            app.logger.info("commit the attend info")
-            db.session.commit()
-
-        for lesson_index, lessonInfo in enumerate(lessonInfos):
-            is_completed = True
-            for i, child in enumerate(lessonInfo.children):
-                if child.status_value == ATTEND_STATUS_BRANCH:
-                    child.status_value = ATTEND_STATUS_IN_PROGRESS
-                    child.status = attend_status_values[ATTEND_STATUS_IN_PROGRESS]
-                    lessonInfo.children[i] = child
-                    lessonInfo.updated = True
-                    lessonInfos[lesson_index] = lessonInfo
-                if child.status_value == ATTEND_STATUS_IN_PROGRESS:
-                    lessonInfo.status_value = ATTEND_STATUS_IN_PROGRESS
-                    lessonInfo.status = attend_status_values[ATTEND_STATUS_IN_PROGRESS]
-                    lessonInfos[lesson_index] = lessonInfo
-                is_completed = (
-                    is_completed and child.status_value == ATTEND_STATUS_COMPLETED
-                )
-            if is_completed:
-                lessonInfo.status_value = ATTEND_STATUS_COMPLETED
-                lessonInfo.status = attend_status_values[ATTEND_STATUS_COMPLETED]
-                lessonInfos[lesson_index] = lessonInfo
-
-        ret = AICourseDTO(
-            course_id=course_info.course_id,
-            course_name=course_info.course_name,
-            teacher_avatar=course_info.course_teacher_avatar,
-            course_price=course_info.course_price,
-            lessons=lessonInfos,
-        )
-        return ret
-
-
-def get_preview_mode_lesson_tree_to_study_inner(
-    app: Flask, user_id: str, course_id: str = None
-) -> AICourseDTO:
-    with app.app_context():
-        preview_mode = True
-        ai_course_status = [STATUS_DRAFT, STATUS_PUBLISH]
-        app.logger.info("user_id:" + user_id)
-        attend_status_values = get_attend_status_values()
-        if course_id:
-            course_info = (
-                AICourse.query.filter(
-                    AICourse.course_id == course_id,
-                    AICourse.status.in_(ai_course_status),
-                )
-                .order_by(AICourse.id.desc())
-                .first()
-            )
-            if not course_info:
-                raise_error("LESSON.COURSE_NOT_FOUND")
+            else:
+                lesson.status_value = ATTEND_STATUS_LOCKED
+                lesson.status = attend_status_values[ATTEND_STATUS_LOCKED]
+                lesson.updated = True
         else:
-            course_info = AICourse.query.order_by(AICourse.id.asc()).first()
-            if not course_info:
-                raise_error("LESSON.HAS_NOT_LESSON")
-            course_id = course_info.course_id
-        buy_record = AICourseBuyRecord.query.filter_by(
-            user_id=user_id, course_id=course_id
-        ).first()
-        paid = False
-        if buy_record:
-            paid = buy_record.status == BUY_STATUS_SUCCESS
-        lessons = None
-        if preview_mode:
-            subquery = (
-                db.session.query(db.func.max(AILesson.id))
-                .filter(
-                    AILesson.course_id == course_id,
-                    AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-                )
-                .group_by(AILesson.lesson_id)
-            )
-            lessons = AILesson.query.filter(
-                AILesson.id.in_(subquery),
-                AILesson.status.in_(ai_course_status),
-            ).all()
-        else:
-            lessons = AILesson.query.filter(
-                AILesson.status.in_(ai_course_status),
-            ).all()
+            if lesson.lesson_type == LESSON_TYPE_TRIAL:
+                has_trial_init = True
 
-        lessons = [
-            lesson
-            for lesson in lessons
-            if lesson.status == STATUS_DRAFT
-            or (
-                lesson.status == STATUS_PUBLISH
-                and not any(
-                    lesson_item.lesson_id == lesson.lesson_id
-                    and lesson_item.status == STATUS_DRAFT
-                    for lesson_item in lessons
-                )
-            )
-        ]
+        if lesson.children:
+            for child in lesson.children:
+                q.put(child)
 
-        online_lessons = [
-            i for i in lessons if i.status in [STATUS_PUBLISH, STATUS_DRAFT]
-        ]
-
-        online_lessons = sorted(
-            online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
+    for lesson in first_lessons:
+        attend_info: AICourseLessonAttend = AICourseLessonAttend(
+            user_id=user_id,
+            course_id=ret.course_id,
+            lesson_id=lesson.lesson_id,
+            status=ATTEND_STATUS_NOT_STARTED,
+            script_index=0,
+            attend_id=generate_id(app),
         )
-        old_lessons = []
-        if preview_mode:
-            old_lessons = [
-                i for i in lessons if i.status not in [STATUS_PUBLISH, STATUS_DRAFT]
-            ]
-        else:
-            old_lessons = [i for i in lessons if i.status != STATUS_PUBLISH]
-        old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
-        lesson_map = {i.lesson_id: i for i in online_lessons}
-
-        attend_infos = AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_id,
-            AICourseLessonAttend.course_id == course_id,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-        ).all()
-        updated_attend = False
-
-        return _get_lesson_tree_to_study_common(
-            app,
-            user_id,
-            course_id,
-            course_info,
-            lessons,
-            online_lessons,
-            old_lessons,
-            lesson_map,
-            attend_infos,
-            updated_attend,
-            attend_status_values,
-            paid,
-        )
+        db.session.add(attend_info)
+    if len(first_lessons) > 0:
+        db.session.commit()
+    return ret
 
 
 def get_lesson_tree_to_study_inner(
     app: Flask, user_id: str, course_id: str = None, preview_mode: bool = False
 ) -> AICourseDTO:
     with app.app_context():
-        if preview_mode:
-            re = get_preview_mode_lesson_tree_to_study_inner(app, user_id, course_id)
-            return re
-        app.logger.info("user_id:" + user_id)
-        attend_status_values = get_attend_status_values()
-        if course_id:
-            course_info = (
-                AICourse.query.filter(
-                    AICourse.course_id == course_id,
-                    AICourse.status.in_([STATUS_PUBLISH]),
-                )
-                .order_by(AICourse.id.desc())
-                .first()
-            )
-            if not course_info:
-                raise_error("LESSON.COURSE_NOT_FOUND")
-        else:
-            course_info = AICourse.query.order_by(AICourse.id.asc()).first()
-            if not course_info:
-                raise_error("LESSON.HAS_NOT_LESSON")
-            course_id = course_info.course_id
-        buy_record = AICourseBuyRecord.query.filter_by(
-            user_id=user_id, course_id=course_id
-        ).first()
-        paid = False
-        if buy_record:
-            paid = buy_record.status == BUY_STATUS_SUCCESS
+        shifu_info: ShifuInfoDto = get_shifu_outline_tree(app, course_id, preview_mode)
+        q = queue.Queue()
+        for outline_item in shifu_info.outline_items:
+            q.put(outline_item)
+        outline_ids = []
+        while not q.empty():
+            item: ShifuOutlineItemDto = q.get()
+            outline_ids.append(item.bid)
+            if item.children:
+                for child in item.children:
+                    q.put(child)
 
-        lessons = (
-            AILesson.query.filter(
-                AILesson.course_id == course_id,
-                AILesson.lesson_type != LESSON_TYPE_BRANCH_HIDDEN,
-                AILesson.status == STATUS_PUBLISH,
-            )
-            .order_by(AILesson.id.desc())
-            .all()
+        is_paid = preview_mode or shifu_info.price == 0
+        if not is_paid:
+            buy_record = AICourseBuyRecord.query.filter_by(
+                user_id=user_id, course_id=course_id
+            ).first()
+            if buy_record:
+                is_paid = buy_record.status == BUY_STATUS_SUCCESS
+        ret: AICourseDTO = AICourseDTO(
+            course_id=course_id,
+            course_name=shifu_info.title,
+            teacher_avatar=shifu_info.avatar,
+            course_price=shifu_info.price,
+            lessons=[],
         )
-
-        online_lessons = [i for i in lessons if i.status == STATUS_PUBLISH]
-        online_lessons = sorted(
-            online_lessons, key=lambda x: (len(x.lesson_no), x.lesson_no)
-        )
-        old_lessons = [i for i in lessons if i.status != STATUS_PUBLISH]
-        old_lessons = sorted(old_lessons, key=lambda x: x.id, reverse=True)
-
-        lesson_map = {i.lesson_id: i for i in online_lessons}
 
         attend_infos = AICourseLessonAttend.query.filter(
             AICourseLessonAttend.user_id == user_id,
             AICourseLessonAttend.course_id == course_id,
             AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+            AICourseLessonAttend.lesson_id.in_(outline_ids),
         ).all()
-        updated_attend = False
+        attend_map = {i.lesson_id: i for i in attend_infos}
+        attend_status_values = get_attend_status_values()
 
-        return _get_lesson_tree_to_study_common(
-            app,
-            user_id,
-            course_id,
-            course_info,
-            lessons,
-            online_lessons,
-            old_lessons,
-            lesson_map,
-            attend_infos,
-            updated_attend,
-            attend_status_values,
-            paid,
-        )
+        def recurse_outline_item(item: ShifuOutlineItemDto) -> AILessonAttendDTO:
+            attend_info = attend_map.get(item.bid, None)
+            ret = AILessonAttendDTO(
+                lesson_id=item.bid,
+                lesson_name=item.title,
+                lesson_no=item.position,
+                status_value=ATTEND_STATUS_NOT_EXIST,
+                status=attend_status_values[ATTEND_STATUS_NOT_EXIST],
+                lesson_type=item.type,
+                children=[],
+                unique_id=item.bid,
+                updated=False,
+            )
+            if attend_info:
+                ret.status_value = attend_info.status
+                ret.status = attend_status_values[attend_info.status]
+            if item.children:
+                for child in item.children:
+                    child_ret = recurse_outline_item(child)
+                    child_ret.parent = ret
+                    ret.children.append(child_ret)
+            return ret
+
+        ret.lessons = [recurse_outline_item(i) for i in shifu_info.outline_items]
+        ret = fill_attend_info(app, user_id, is_paid, ret)
+        return ret
 
 
 @extensible
@@ -456,47 +214,59 @@ def get_study_record(
     app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False
 ) -> StudyRecordDTO:
     with app.app_context():
-        ai_course_status = [STATUS_PUBLISH]
-        if preview_mode:
-            ai_course_status.append(STATUS_DRAFT)
-        lesson_info = (
-            AILesson.query.filter(
-                AILesson.lesson_id == lesson_id,
-                AILesson.status.in_(ai_course_status),
-            )
-            .order_by(AILesson.id.desc())
-            .first()
+        block_model: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            ShifuDraftBlock if preview_mode else ShifuPublishedBlock
         )
-        course_info = (
-            AICourse.query.filter(
-                AICourse.course_id == lesson_info.course_id,
-                AICourse.status.in_(ai_course_status),
-            )
-            .order_by(AICourse.id.desc())
-            .first()
+        outline_item: ShifuOutlineItemDto = get_outline_item_dto(
+            app, lesson_id, preview_mode
         )
-        if not course_info:
+        if not outline_item:
             return None
-        teacher_avatar = course_info.course_teacher_avatar
-        lesson_ids = [lesson_id]
+        shifu_info: ShifuInfoDto = get_shifu_dto(
+            app, outline_item.shifu_bid, preview_mode
+        )
+        if not shifu_info:
+            return None
+        teacher_avatar = shifu_info.avatar
+
+        shifu_struct: HistoryItem = get_shifu_struct(
+            app, outline_item.shifu_bid, preview_mode
+        )
+        if not shifu_struct:
+            return None
+
+        q = queue.Queue()
+        q.put(shifu_struct)
+        lesson_info: HistoryItem = None
+        while not q.empty():
+            item: HistoryItem = q.get()
+            if item.bid == lesson_id:
+                lesson_info = item
+                break
+            if item.children:
+                for child in item.children:
+                    q.put(child)
         if not lesson_info:
             return None
-        if len(lesson_info.lesson_no) <= 2:
-            lesson_infos = (
-                AILesson.query.filter(
-                    AILesson.lesson_no.like(lesson_info.lesson_no + "%"),
-                    AILesson.status.in_(ai_course_status),
-                    AILesson.course_id == lesson_info.course_id,
-                )
-                .order_by(AILesson.id.desc())
-                .all()
-            )
-            lesson_ids = [lesson.lesson_id for lesson in lesson_infos]
+
+        q = queue.Queue()
+        q.put(lesson_info)
+        lesson_ids = []
+        while not q.empty():
+            item: HistoryItem = q.get()
+            if item.type == "outline":
+                lesson_ids.append(item.bid)
+            if item.children and item.children[0].type == "outline":
+                for child in item.children:
+                    q.put(child)
+        if not lesson_ids:
+            return None
+
         attend_infos = (
             AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.user_id == user_id,
                 AICourseLessonAttend.lesson_id.in_(lesson_ids),
-                AICourseLessonAttend.course_id == lesson_info.course_id,
+                AICourseLessonAttend.course_id == shifu_info.bid,
                 AICourseLessonAttend.status != ATTEND_STATUS_RESET,
             )
             .order_by(AICourseLessonAttend.id)
@@ -530,33 +300,66 @@ def get_study_record(
         ]
         user_info = User.query.filter_by(user_id=user_id).first()
         ret = StudyRecordDTO(items, teacher_avatar=teacher_avatar)
-        last_script_id = attend_scripts[-1].script_id
-        last_script: AILessonScript = (
-            AILessonScript.query.filter(
-                AILessonScript.script_id == last_script_id,
-                AILessonScript.status.in_(ai_course_status),
+        last_block_id = attend_scripts[-1].script_id
+
+        last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            block_model.query.filter(
+                block_model.block_bid == last_block_id, block_model.deleted == 0
             )
-            .order_by(AILessonScript.id.desc())
+            .order_by(block_model.id.desc())
             .first()
         )
-        if last_script is None:
+        if not last_block:
             ret.ui = []
             return ret
+        block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)
+        next_block_id = None
+        last_lesson_id = None
 
-        if last_script.script_ui_type == UI_TYPE_CONTENT:
-            last_script = (
-                AILessonScript.query.filter(
-                    AILessonScript.lesson_id == last_script.lesson_id,
-                    AILessonScript.script_index == last_script.script_index + 1,
-                    AILessonScript.status.in_(ai_course_status),
-                )
-                .order_by(AILessonScript.id.desc())
-                .first()
-            )
-        if last_script is None:
+        if block_dto.type == BLOCK_TYPE_CONTENT:
+            q = queue.Queue()
+            q.put(lesson_info)
+            while not q.empty():
+                item: HistoryItem = q.get()
+                if (
+                    item.type == "outline"
+                    and item.children
+                    and item.children[0].type == "block"
+                    and block_dto.bid in [i.bid for i in item.children]
+                ):
+                    index = [i.bid for i in item.children].index(block_dto.bid)
+                    if index < len(item.children) - 1:
+                        next_block_id = item.children[index + 1].id
+                        last_lesson_id = item.bid
+                        break
+                if item.children:
+                    for child in item.children:
+                        q.put(child)
+        app.logger.info(f"next_block_id: {next_block_id}")
+        app.logger.info(f"last_lesson_id: {last_lesson_id}")
+        if not next_block_id:
+            # pass
+            # uis = handle_ui(
+            #     app,
+            #     user_info,
+            #     last_attends[-1],
+            #     last_outline_item,
+            #     block_dto,
+            #     "",
+            #     MockClient(),
+            #     {},
+            # )
+            # if len(uis) > 0:
+            #     ret.ui = uis[0]
+            return ret
+        next_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            block_model.query.filter(block_model.id == next_block_id).first()
+        )
+        if not next_block:
             ret.ui = []
             return ret
-        last_lesson_id = last_script.lesson_id
+        next_block_dto: BlockDTO = generate_block_dto_from_model_internal(next_block)
+
         lesson_id = last_lesson_id
         last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
         if len(last_attends) == 0:
@@ -573,22 +376,30 @@ def get_study_record(
                 pass
         else:
             last_attend = last_attends[-1]
-        uis = handle_ui(app, user_info, last_attend, last_script, "", MockClient(), {})
+        last_outline_item: ShifuOutlineItemDto = get_outline_item_dto(
+            app, last_lesson_id, preview_mode
+        )
+        uis = handle_ui(
+            app,
+            user_info,
+            last_attend,
+            last_outline_item,
+            next_block_dto,
+            "",
+            MockClient(),
+            {},
+        )
         app.logger.info(
             "uis:{}".format(json.dumps([i.__json__() for i in uis], ensure_ascii=False))
         )
         if len(uis) > 0:
             ret.ui = uis[0]
-        app.logger.info("last_script.script_id:{}".format(last_script.script_id))
-        app.logger.info(
-            "attend_scripts[-1].script_id:{}".format(attend_scripts[-1].script_id)
-        )
         if (
-            attend_scripts[-1].script_id == last_script.script_id
-            and last_script.script_ui_type == UI_TYPE_CONTENT
+            attend_scripts[-1].script_id == last_block_id
+            and next_block_dto.type == BLOCK_TYPE_CONTENT
         ):
             app.logger.info("handle_input_continue")
-            ret.ui = handle_input_continue(
+            ret.ui = _handle_input_continue(
                 app, user_info, last_attend, None, "", MockClient(), {}
             )
         if len(uis) > 1:
@@ -709,71 +520,65 @@ def get_script_info(
 def reset_user_study_info_by_lesson(
     app: Flask, user_id: str, lesson_id: str, preview_mode: bool = False
 ):
-    ai_course_status = [STATUS_PUBLISH]
-    if preview_mode:
-        ai_course_status.append(STATUS_DRAFT)
     with app.app_context():
-        lesson_info = (
-            AILesson.query.filter(
-                AILesson.lesson_id == lesson_id,
-                AILesson.status.in_(ai_course_status),
-            )
-            .order_by(AILesson.id.desc())
-            .first()
+        app.logger.info(
+            f"reset_user_study_info_by_lesson {lesson_id},preview_mode: {preview_mode}"
         )
-        if not lesson_info:
+
+        outline_item: ShifuOutlineItemDto = get_outline_item_dto(
+            app, lesson_id, preview_mode
+        )
+        if not outline_item:
             app.logger.info("lesson_info not found")
             return False
-        lesson_no = lesson_info.lesson_no
-        course_id = lesson_info.course_id
-        if len(lesson_no) > 2:
-            raise_error("LESSON.LESSON_CANNOT_BE_RESET")
-        lessons = (
-            AILesson.query.filter(
-                AILesson.lesson_no.like(lesson_no + "%"),
-                AILesson.status.in_(ai_course_status),
-                AILesson.course_id == course_id,
-            )
-            .order_by(AILesson.id.desc())
-            .all()
+        struct: HistoryItem = get_shifu_struct(
+            app, outline_item.shifu_bid, preview_mode
         )
-        lesson_ids = [lesson.lesson_id for lesson in lessons]
-        attend_infos = AICourseLessonAttend.query.filter(
+
+        current_path = find_node_with_parents(struct, outline_item.bid)
+
+        lesson_ids = set()
+
+        root_outline_item: HistoryItem = current_path[1]
+        q = queue.Queue()
+        q.put(root_outline_item)
+        first_lesson_ids = []
+        while not q.empty():
+            item: HistoryItem = q.get()
+            if item.type == "outline":
+                lesson_ids.add(item.bid)
+
+            if item.children and item.children[0].type == "outline":
+                for child in item.children:
+                    q.put(child)
+
+        first_lesson_ids = set()
+        first_lesson_ids.add(root_outline_item.bid)
+        top = root_outline_item
+        while top.children and top.children[0].type == "outline":
+            first_lesson_ids.add(top.children[0].bid)
+            top = top.children[0]
+        AICourseLessonAttend.query.filter(
             AICourseLessonAttend.user_id == user_id,
             AICourseLessonAttend.lesson_id.in_(lesson_ids),
             AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-            AICourseLessonAttend.course_id == course_id,
-        ).all()
-        attend_ids = [attend_info.attend_id for attend_info in attend_infos]
-        attend_assositions = AICourseAttendAsssotion.query.filter(
-            AICourseAttendAsssotion.from_attend_id.in_(attend_ids)
-        ).all()
-        to_attend_ids = [
-            attend_assosition.to_attend_id for attend_assosition in attend_assositions
-        ]
-        if len(to_attend_ids) > 0:
-            AICourseLessonAttend.query.filter(
-                AICourseLessonAttend.attend_id.in_(to_attend_ids)
-            ).update({"status": ATTEND_STATUS_RESET})
-        # reset the attend info
-        for attend_info in attend_infos:
-            attend_info.status = ATTEND_STATUS_RESET
+            AICourseLessonAttend.course_id == struct.bid,
+        ).update({"status": ATTEND_STATUS_RESET})
+
         # insert the new attend info for the lessons that are available
-        for lesson in [
-            lesson for lesson in lessons if lesson.status in ai_course_status
-        ]:
+        for lesson in lesson_ids:
             attend_info = AICourseLessonAttend(
                 user_id=user_id,
-                lesson_id=lesson.lesson_id,
-                course_id=lesson.course_id,
+                lesson_id=lesson,
+                course_id=struct.bid,
                 status=ATTEND_STATUS_LOCKED,
                 script_index=0,
             )
             attend_info.attend_id = generate_id(app)
-            if lesson.lesson_no == lesson_no:
+            if lesson in first_lesson_ids:
                 attend_info.status = ATTEND_STATUS_IN_PROGRESS
-            if lesson.lesson_no == lesson_no + "01":
-                attend_info.status = ATTEND_STATUS_IN_PROGRESS
+            else:
+                attend_info.status = ATTEND_STATUS_LOCKED
             db.session.add(attend_info)
         db.session.commit()
         return True
