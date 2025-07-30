@@ -1,6 +1,5 @@
 from flask import Flask
 from trace import Trace
-from flaskr.service.study.output.input_ask import _handle_output_ask
 from flaskr.service.common.models import AppException
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.order.models import AICourseLessonAttend
@@ -13,6 +12,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from langfuse.client import StatefulTraceClient
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.study.utils import make_script_dto_to_stream
+from flaskr.service.study.output.ask import _handle_output_ask
 
 # handlers for input
 INPUT_HANDLE_MAP = {}
@@ -349,6 +349,17 @@ def handle_block_output(
         )
         if isinstance(res, ScriptDTO):
             yield make_script_dto_to_stream(res)
+            yield make_script_dto_to_stream(
+                _handle_output_ask(
+                    app,
+                    user_info,
+                    attend_id,
+                    outline_item_info,
+                    block_dto,
+                    trace_args,
+                    trace,
+                )
+            )
         else:
             yield from res
     else:
