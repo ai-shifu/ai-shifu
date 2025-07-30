@@ -45,7 +45,7 @@ def _handle_input_options(
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = block_dto.block_content
+    log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
     log_script.script_ui_conf = json.dumps(
         _handle_output_options(
