@@ -16,6 +16,7 @@ import { EmailLogin } from '@/components/auth/email-login';
 import { EmailRegister } from '@/components/auth/email-register';
 import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 import { FeedbackForm } from '@/components/auth//feedback-form';
+import { GoogleLogin } from '@/components/auth/google-login';
 import Image from 'next/image';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';
@@ -70,6 +71,17 @@ export default function AuthPage() {
   useEffect(() => {
     i18n.changeLanguage(language);
   }, [language]);
+
+  // Email login section component to avoid duplication
+  const EmailLoginSection = () => (
+    <>
+      <EmailLogin
+        onLoginSuccess={handleAuthSuccess}
+        onForgotPassword={handleForgotPassword}
+      />
+      <GoogleLogin onLoginSuccess={handleAuthSuccess} />
+    </>
+  );
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
       <div className='w-full max-w-md space-y-2'>
@@ -163,10 +175,7 @@ export default function AuthPage() {
 
                     {isEmailEnabled && (
                       <TabsContent value='email'>
-                        <EmailLogin
-                          onLoginSuccess={handleAuthSuccess}
-                          onForgotPassword={handleForgotPassword}
-                        />
+                        <EmailLoginSection />
                       </TabsContent>
                     )}
                   </Tabs>
@@ -176,12 +185,7 @@ export default function AuthPage() {
                     {isPhoneEnabled && (
                       <PhoneLogin onLoginSuccess={handleAuthSuccess} />
                     )}
-                    {isEmailEnabled && (
-                      <EmailLogin
-                        onLoginSuccess={handleAuthSuccess}
-                        onForgotPassword={handleForgotPassword}
-                      />
-                    )}
+                    {isEmailEnabled && <EmailLoginSection />}
                   </div>
                 )}
               </>

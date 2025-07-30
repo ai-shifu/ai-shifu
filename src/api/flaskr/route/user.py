@@ -25,6 +25,7 @@ from ..service.user import (
     upload_user_avatar,
     update_user_open_id,
 )
+from ..service.user.google_oauth import verify_google_token
 from ..service.feedback.funs import submit_feedback
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
@@ -175,6 +176,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 "reset_password",
                 "invoke",
                 "update_lesson",
+                "google_oauth_login",
             ]
             or request.endpoint in by_pass_login_func
             or request.endpoint is None
@@ -877,6 +879,62 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             return make_common_response(
                 set_user_password(app, raw_password, mail, mobile)
             )
+
+    @app.route(path_prefix + "/google_oauth", methods=["POST"])
+    @bypass_token_validation
+    @optional_token_validation
+    def google_oauth_login():
+        """
+        Google OAuth Login
+        ---
+        tags:
+            - user
+        parameters:
+            - in: body
+              required: true
+              schema:
+                properties:
+                  id_token:
+                    type: string
+                    description: Google OAuth ID token
+                  course_id:
+                    type: string
+                    description: Course ID (optional)
+                  language:
+                    type: string
+                    description: User preferred language
+        responses:
+            200:
+                description: Google OAuth login success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: return code
+                                message:
+                                    type: string
+                                    description: return information
+                                data:
+                                    $ref: "#/components/schemas/UserToken"
+            400:
+                description: parameter error
+        """
+        json_data = request.get_json()
+        if not json_data:
+            raise_param_error("request body")
+
+        id_token_str = json_data.get("id_token")
+        if not id_token_str:
+            raise_param_error("id_token")
+
+        course_id = json_data.get("course_id")
+        language = json_data.get("language", "en-US")
+
+        user_token = verify_google_token(app, id_token_str, course_id, language)
+        resp = make_response(make_common_response(user_token))
+        return resp
 
     # health check
     @app.route("/health", methods=["GET"])

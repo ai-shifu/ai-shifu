@@ -405,11 +405,6 @@ def verify_sms_code(
     course_id: str = None,
     language: str = None,
 ) -> UserToken:
-    from flaskr.service.profile.funcs import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
-    )
-
     User = get_model(app)
     check_save = redis.get(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
     if check_save is None and chekcode != FIX_CHECK_CODE:
@@ -432,64 +427,14 @@ def verify_sms_code(
                 .first()
             )
         elif user_id != user_info.user_id and course_id is not None:
-            new_profiles = get_user_profile_labels(app, user_id, course_id)
-            update_user_profile_with_lable(
-                app, user_info.user_id, new_profiles, course_id
-            )
-            origin_user = User.query.filter(User.user_id == user_id).first()
-            migrate_user_study_record(
-                app, origin_user.user_id, user_info.user_id, course_id
-            )
-            if (
-                origin_user
-                and origin_user.user_open_id != user_info.user_open_id  # noqa W503
-                and (
-                    user_info.user_open_id is None  # noqa W503
-                    or user_info.user_open_id == ""
-                )
-            ):
-                user_info.user_open_id = origin_user.user_open_id
-        if user_info is None:
-            user_id = str(uuid.uuid4()).replace("-", "")
-            user_info = User(
-                user_id=user_id, username="", name="", email="", mobile=phone
-            )
-            if (
-                user_info.user_state is None
-                or user_info.user_state == USER_STATE_UNREGISTERED  # noqa W503
-            ):
-                user_info.user_state = USER_STATE_REGISTERED
-            user_info.mobile = phone
-            user_info.user_language = language
-            db.session.add(user_info)
-            # New user registration requires course association detection
-            # When there is an install ui, the logic here should be removed
-            init_first_course(app, user_info.user_id)
+            _handle_user_profile_migration(app, user_id, user_info, course_id)
 
-        if user_info.user_state == USER_STATE_UNREGISTERED:
-            user_info.mobile = phone
-            user_info.user_state = USER_STATE_REGISTERED
-            user_info.user_language = language
-        user_id = user_info.user_id
-        token = generate_token(app, user_id=user_id)
-        db.session.flush()
-        return UserToken(
-            UserInfo(
-                user_id=user_info.user_id,
-                username=user_info.username,
-                name=user_info.name,
-                email=user_info.email,
-                mobile=user_info.mobile,
-                user_state=user_info.user_state,
-                wx_openid=get_user_openid(user_info),
-                language=get_user_language(user_info),
-                user_avatar=user_info.user_avatar,
-                has_password=user_info.password_hash != "",
-                is_admin=user_info.is_admin,
-                is_creator=user_info.is_creator,
-            ),
-            token,
+        user_info = _create_or_update_user_registration(
+            app, user_info, "mobile", phone, language
         )
+
+        db.session.flush()
+        return _build_user_token_response(app, user_info)
 
 
 # verify mail code
@@ -501,11 +446,6 @@ def verify_mail_code(
     course_id: str = None,
     language: str = None,
 ) -> UserToken:
-    from flaskr.service.profile.funcs import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
-    )
-
     User = get_model(app)
     check_save = redis.get(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + mail)
     if check_save is None and chekcode != FIX_CHECK_CODE:
@@ -528,64 +468,14 @@ def verify_mail_code(
                 .first()
             )
         elif user_id != user_info.user_id and course_id is not None:
-            new_profiles = get_user_profile_labels(app, user_id, course_id)
-            update_user_profile_with_lable(
-                app, user_info.user_id, new_profiles, course_id
-            )
-            origin_user = User.query.filter(User.user_id == user_id).first()
-            migrate_user_study_record(
-                app, origin_user.user_id, user_info.user_id, course_id
-            )
-            if (
-                origin_user
-                and origin_user.user_open_id != user_info.user_open_id  # noqa W503
-                and (
-                    user_info.user_open_id is None  # noqa W503
-                    or user_info.user_open_id == ""
-                )
-            ):
-                user_info.user_open_id = origin_user.user_open_id
-        if user_info is None:
-            user_id = str(uuid.uuid4()).replace("-", "")
-            user_info = User(
-                user_id=user_id, username="", name="", email=mail, mobile=""
-            )
-            if (
-                user_info.user_state is None
-                or user_info.user_state == USER_STATE_UNREGISTERED  # noqa W503
-            ):
-                user_info.user_state = USER_STATE_REGISTERED
-            user_info.email = mail
-            user_info.user_language = language
-            db.session.add(user_info)
-            # New user registration requires course association detection
-            # When there is an install ui, the logic here should be removed
-            init_first_course(app, user_info.user_id)
+            _handle_user_profile_migration(app, user_id, user_info, course_id)
 
-        if user_info.user_state == USER_STATE_UNREGISTERED:
-            user_info.email = mail
-            user_info.user_state = USER_STATE_REGISTERED
-            user_info.user_language = language
-        user_id = user_info.user_id
-        token = generate_token(app, user_id=user_id)
-        db.session.flush()
-        return UserToken(
-            UserInfo(
-                user_id=user_info.user_id,
-                username=user_info.username,
-                name=user_info.name,
-                email=user_info.email,
-                mobile=user_info.mobile,
-                user_state=user_info.user_state,
-                wx_openid=get_user_openid(user_info),
-                language=get_user_language(user_info),
-                user_avatar=user_info.user_avatar,
-                has_password=user_info.password_hash != "",
-                is_admin=user_info.is_admin,
-                is_creator=user_info.is_creator,
-            ),
-            token,
+        user_info = _create_or_update_user_registration(
+            app, user_info, "email", mail, language
         )
+
+        db.session.flush()
+        return _build_user_token_response(app, user_info)
 
 
 def init_first_course(app: Flask, user_id: str):
@@ -607,6 +497,116 @@ def init_first_course(app: Flask, user_id: str):
     # The creator of the updated course
     course.created_user_id = user_id
     db.session.flush()
+
+
+def _handle_user_profile_migration(
+    app: Flask, from_user_id: str, to_user_info: User, course_id: str = None
+):
+    """
+    Handle user profile migration and study record migration
+    Extracted from verify_sms_code lines 434-451
+    """
+    if from_user_id == to_user_info.user_id or course_id is None:
+        return
+
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
+    User = get_model(app)
+
+    new_profiles = get_user_profile_labels(app, from_user_id, course_id)
+    update_user_profile_with_lable(app, to_user_info.user_id, new_profiles, course_id)
+    origin_user = User.query.filter(User.user_id == from_user_id).first()
+    migrate_user_study_record(app, origin_user.user_id, to_user_info.user_id, course_id)
+    if (
+        origin_user
+        and origin_user.user_open_id != to_user_info.user_open_id
+        and (to_user_info.user_open_id is None or to_user_info.user_open_id == "")
+    ):
+        to_user_info.user_open_id = origin_user.user_open_id
+
+
+def _create_or_update_user_registration(
+    app: Flask,
+    user_info: User,
+    identifier_field: str,
+    identifier_value: str,
+    language: str = None,
+    extra_fields: dict = None,
+) -> User:
+    """
+    Create new user or update existing user for registration
+    Extracted from verify_sms_code lines 452-472
+
+    Args:
+        app: Flask application instance
+        user_info: Existing user or None
+        identifier_field: Field name ('mobile', 'email', 'google_id')
+        identifier_value: Value for the identifier field
+        language: User language preference
+        extra_fields: Additional fields to set (e.g., {'name': 'John', 'username': 'john@example.com'})
+
+    Returns:
+        User: Created or updated user
+    """
+    User = get_model(app)
+
+    if user_info is None:
+        user_id = str(uuid.uuid4()).replace("-", "")
+        user_info = User(user_id=user_id, username="", name="", email="", mobile="")
+
+        # Set the identifier field
+        setattr(user_info, identifier_field, identifier_value)
+
+        # Set any extra fields
+        if extra_fields:
+            for field, value in extra_fields.items():
+                setattr(user_info, field, value)
+
+        if (
+            user_info.user_state is None
+            or user_info.user_state == USER_STATE_UNREGISTERED
+        ):
+            user_info.user_state = USER_STATE_REGISTERED
+        user_info.user_language = language
+        db.session.add(user_info)
+        # New user registration requires course association detection
+        # When there is an install ui, the logic here should be removed
+        init_first_course(app, user_info.user_id)
+
+    if user_info.user_state == USER_STATE_UNREGISTERED:
+        setattr(user_info, identifier_field, identifier_value)
+        user_info.user_state = USER_STATE_REGISTERED
+        user_info.user_language = language
+
+    return user_info
+
+
+def _build_user_token_response(app: Flask, user_info: User) -> UserToken:
+    """
+    Build UserToken response from user info
+    Extracted from verify_sms_code lines 474-492
+    """
+    token = generate_token(app, user_id=user_info.user_id)
+    return UserToken(
+        UserInfo(
+            user_id=user_info.user_id,
+            username=user_info.username,
+            name=user_info.name,
+            email=user_info.email,
+            mobile=user_info.mobile,
+            user_state=user_info.user_state,
+            wx_openid=get_user_openid(user_info),
+            language=get_user_language(user_info),
+            user_avatar=user_info.user_avatar,
+            has_password=user_info.password_hash != "",
+            is_admin=user_info.is_admin,
+            is_creator=user_info.is_creator,
+        ),
+        token,
+    )
 
 
 def set_user_password(

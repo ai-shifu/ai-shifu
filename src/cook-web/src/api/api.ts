@@ -21,6 +21,7 @@ const api = {
   verifySmsCode: 'POST /user/verify_sms_code',
   setPassword: 'POST /user/set_user_password',
   submitFeedback: 'POST /user/submit-feedback',
+  googleOAuthLogin: 'POST /user/google_oauth',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',

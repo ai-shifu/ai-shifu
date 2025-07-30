@@ -40,6 +40,9 @@ class User(db.Model):
     user_unicon_id = Column(
         String(255), nullable=True, index=True, default="", comment="user unicon id"
     )
+    google_id = Column(
+        String(255), nullable=True, index=True, default=None, comment="Google OAuth ID"
+    )
     user_language = Column(
         String(30), nullable=True, default="zh-CN", comment="user language"
     )

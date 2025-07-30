@@ -33,6 +33,9 @@ interface EnvironmentConfig {
   // Authentication Configuration
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
+
+  // Google OAuth Configuration
+  googleClientId: string;
 }
 
 /**
@@ -252,6 +255,17 @@ function getDefaultLoginMethod(): string {
 }
 
 /**
+ * Gets Google OAuth Client ID
+ */
+function getGoogleClientId(): string {
+  return (
+    getRuntimeEnv('NEXT_PUBLIC_GOOGLE_CLIENT_ID') ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    ''
+  );
+}
+
+/**
  * Converts string boolean values to actual booleans
  */
 function getBooleanValue(
@@ -291,6 +305,9 @@ export const environment: EnvironmentConfig = {
   // Authentication Configuration
   loginMethodsEnabled: getLoginMethodsEnabled(),
   defaultLoginMethod: getDefaultLoginMethod(),
+
+  // Google OAuth Configuration
+  googleClientId: getGoogleClientId(),
 };
 
 export default environment;
