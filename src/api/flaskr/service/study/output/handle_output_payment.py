@@ -13,7 +13,6 @@ from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.shifu.dtos import PaymentDTO
-from flaskr.service.study.utils import make_script_dto
 
 
 @register_shifu_output_handler("payment")
@@ -34,7 +33,7 @@ def _handle_output_payment(
         if not title:
             title = _("COMMON.CHECKOUT")
         btn = [{"label": title, "value": order.order_id}]
-        yield make_script_dto("order", {"buttons": btn}, outline_item_info.bid)
+        return ScriptDTO("order", {"buttons": btn}, outline_item_info.bid)
     else:
         title = _("COMMON.CONTINUE")
         btn = [
@@ -44,7 +43,7 @@ def _handle_output_payment(
                 "type": INPUT_TYPE_CONTINUE,
             }
         ]
-        yield make_script_dto(
+        return ScriptDTO(
             "buttons",
             {"buttons": btn},
             outline_item_info.bid,

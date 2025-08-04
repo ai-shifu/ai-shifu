@@ -156,6 +156,7 @@ def handle_block_input(
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
+    app.logger.info(f"handle_block_input {block_dto.type}")
     block_type = block_dto.type
     if input_type == "ask":
         block_type = "ask"
@@ -220,7 +221,9 @@ def check_block_continue(
     trace: StatefulTraceClient,
 ):
     if block_dto.type in SHIFU_CONTINUE_HANDLER_MAP:
-        return SHIFU_CONTINUE_HANDLER_MAP[block_dto.type](
+        result = SHIFU_CONTINUE_HANDLER_MAP[block_dto.type](
             app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
-    return False
+    result = False
+    app.logger.info(f"check_block_continue {block_dto.type} {result}")
+    return result

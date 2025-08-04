@@ -8,7 +8,7 @@ from flaskr.service.order.models import AICourseBuyRecord
 from flaskr.service.order.consts import BUY_STATUS_SUCCESS
 
 
-@register_shifu_continue_handler("order")
+@register_shifu_continue_handler("payment")
 def _handle_continue_order(
     app: Flask,
     user_info: User,
@@ -23,4 +23,7 @@ def _handle_continue_order(
         AICourseBuyRecord.course_id == outline_item_info.shifu_bid,
         AICourseBuyRecord.status == BUY_STATUS_SUCCESS,
     ).first()
-    return order is not None
+
+    if order is None:
+        return False
+    return True

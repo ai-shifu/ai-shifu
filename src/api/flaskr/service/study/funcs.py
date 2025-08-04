@@ -391,6 +391,8 @@ def get_study_record(
         last_outline_item: ShifuOutlineItemDto = get_outline_item_dto(
             app, last_lesson_id, preview_mode
         )
+        if last_attend.script_index >= last_block.position:
+            last_attend.script_index = last_block.position - 1
         uis = handle_ui(
             app,
             user_info,
