@@ -341,7 +341,9 @@ class RunScriptContext:
             self._outline_model.outline_item_bid.in_(shif_bids),
             self._outline_model.deleted == 0,
         ).all()
-        outline_item_info_map = {o.outline_item_bid: o for o in outline_item_info_db}
+        outline_item_info_map: dict[
+            str, Union[ShifuDraftOutlineItem, ShifuPublishedOutlineItem]
+        ] = {o.outline_item_bid: o for o in outline_item_info_db}
         for update in outline_updates:
             self.app.logger.info(
                 f"outline update: {update.type} {update.outline_item_info.bid}"
@@ -356,6 +358,8 @@ class RunScriptContext:
                 }
             else:
                 outline_item_info_args = {}
+            if outline_item_info.hidden:
+                continue
             if update.type == _OutlineUpateType.LEAF_START:
                 self._current_outline_item = update.outline_item_info
                 if self._current_attend.lesson_id == update.outline_item_info.bid:
@@ -412,7 +416,6 @@ class RunScriptContext:
                     "",
                 )
             elif update.type == _OutlineUpateType.NODE_START:
-                # self._outline_item_info = update.outline_item_info
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = ATTEND_STATUS_IN_PROGRESS
                 current_attend.script_index = 0
@@ -427,7 +430,6 @@ class RunScriptContext:
                     },
                     "",
                 )
-
             elif update.type == _OutlineUpateType.NODE_COMPLETED:
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = ATTEND_STATUS_COMPLETED
@@ -596,7 +598,6 @@ class RunScriptContext:
         app.logger.info(
             f"block type: {self._current_outline_item.bid} {self._current_attend.script_index}"
         )
-
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
         app.logger.info(
             f"block type: {run_script_info.block_dto.type} {self._input_type}"
