@@ -8,13 +8,13 @@ from flaskr.service.study.plugin import (
 from flaskr.service.study.utils import generation_attend
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
-from flaskr.service.study.output.options import _handle_output_options
+from flaskr.service.study.output.handle_output_options import _handle_output_options
 from flaskr.service.user.models import User
 from langfuse.client import StatefulTraceClient
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO, OptionsDTO
 from flaskr.service.profile.funcs import get_profile_item_definition_list
-from flaskr.service.study.output.options import get_script_ui_label
+from flaskr.service.study.output.handle_output_options import get_script_ui_label
 
 
 @register_shifu_input_handler("options")

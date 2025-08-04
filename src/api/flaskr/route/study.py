@@ -176,43 +176,6 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
             get_study_record(app, user_id, lesson_id, preview_mode)
         )
 
-    @app.route(path_prefix + "/get-lesson-study-progress", methods=["GET"])
-    def get_lesson_study_progress():
-        """
-        获取课程学习进度
-        ---
-        tags:
-        - 学习
-        parameters:
-        -   name: lesson_id
-            in: query
-            type: string
-            required: true
-            description: 课时ID
-        responses:
-            200:
-                description: 返回课程学习进度
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: 返回码
-                                message:
-                                    type: string
-                                    description: 返回信息
-                                data:
-                                    $ref: "#/components/schemas/StudyRecordProgressDTO"
-            400:
-                description: 参数错误
-        """
-        lesson_id = request.args.get("lesson_id")
-        if not lesson_id:
-            raise_param_error("lesson_id is not found")
-        user_id = request.user.user_id
-        return make_common_response(get_lesson_study_progress(app, user_id, lesson_id))
-
     @app.route(path_prefix + "/query-script-into", methods=["GET"])
     def query_script_info():
         """

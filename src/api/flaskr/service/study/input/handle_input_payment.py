@@ -11,10 +11,9 @@ from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 
 
-# @register_input_handler(input_type=INPUT_TYPE_PAY)
 @extensible_generic
 @register_shifu_input_handler("payment")
-def _handle_input_pay(
+def _handle_input_payment(
     app: Flask,
     user_info: User,
     attend_id: str,

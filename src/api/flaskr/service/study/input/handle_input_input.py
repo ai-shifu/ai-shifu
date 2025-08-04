@@ -20,7 +20,7 @@ from flaskr.service.study.utils import (
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 import json
-from flaskr.service.study.output.input import _handle_output_text
+from flaskr.service.study.output.handle_output_input import _handle_output_input
 from flaskr.service.user.models import User
 from flaskr.service.profile.models import ProfileItem
 from langfuse.client import StatefulTraceClient
@@ -40,7 +40,7 @@ def safe_get_temperature(app: Flask, profile_item: ProfileItem):
 
 @register_shifu_input_handler("input")
 @extensible_generic
-def _handle_input_text(
+def _handle_input_input(
     app: Flask,
     user_info: User,
     attend_id: str,
@@ -108,7 +108,7 @@ def _handle_input_text(
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT
     log_script.script_ui_conf = json.dumps(
-        _handle_output_text(
+        _handle_output_input(
             app, user_info, attend_id, outline_item_info, block_dto, trace, trace_args
         ).__json__()
     )

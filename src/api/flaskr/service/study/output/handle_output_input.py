@@ -13,7 +13,7 @@ from flaskr.service.shifu.dtos import InputDTO
 
 
 @register_shifu_output_handler("input")
-def _handle_output_text(
+def _handle_output_input(
     app: Flask,
     user_info: User,
     attend_id: str,

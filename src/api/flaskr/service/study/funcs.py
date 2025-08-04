@@ -8,7 +8,6 @@ from flaskr.service.study.const import (
 from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO
 import json
 from ...service.order.consts import (
-    ATTEND_STATUS_BRANCH,
     ATTEND_STATUS_LOCKED,
     ATTEND_STATUS_NOT_STARTED,
     ATTEND_STATUS_IN_PROGRESS,
@@ -18,7 +17,7 @@ from ...service.order.consts import (
     ATTEND_STATUS_NOT_EXIST,
 )
 
-from .dtos import AICourseDTO, StudyRecordItemDTO, StudyRecordProgressDTO, ScriptInfoDTO
+from .dtos import AICourseDTO, StudyRecordItemDTO, ScriptInfoDTO
 from ...service.lesson.const import (
     LESSON_TYPE_TRIAL,
     STATUS_PUBLISH,
@@ -31,7 +30,7 @@ from ...service.order.models import (
     AICourseBuyRecord,
     AICourseLessonAttend,
 )
-from .models import AICourseLessonAttendScript, AICourseAttendAsssotion
+from .models import AICourseLessonAttendScript
 from .plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
@@ -60,7 +59,6 @@ from flaskr.service.study.output.handle_output_continue import _handle_output_co
 
 
 from flaskr.service.study.plugin import check_block_continue
-
 
 # fill the attend info for the outline items
 
@@ -425,77 +423,6 @@ def get_study_record(
             ret.ask_mode = uis[1].script_content.get("ask_mode", False)
             ret.ask_ui = uis[1]
         return ret
-
-
-@extensible
-def get_lesson_study_progress(
-    app: Flask, user_id: str, lesson_id: str
-) -> StudyRecordProgressDTO:
-    with app.app_context():
-        attend_status_values = get_attend_status_values()
-        lesson_info = (
-            AILesson.query.filter(
-                AILesson.lesson_id == lesson_id,
-                AILesson.status == 1,
-            )
-            .order_by(AILesson.id.desc())
-            .first()
-        )
-        if not lesson_info:
-            return None
-        attend_info = (
-            AICourseLessonAttend.query.filter(
-                AICourseLessonAttend.user_id == user_id,
-                AICourseLessonAttend.lesson_id == lesson_id,
-                AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-            )
-            .order_by(AICourseLessonAttend.id.desc())
-            .first()
-        )
-        if not attend_info:
-            return None
-
-        lesson_no = lesson_info.lesson_no
-        lesson_name = lesson_info.lesson_name
-        script_index = 0
-        script_name = ""
-        is_branch = False
-        while attend_info is not None and attend_info.status == ATTEND_STATUS_BRANCH:
-            script_index = script_index + attend_info.script_index
-            is_branch = True
-            associaions = AICourseAttendAsssotion.query.filter_by(
-                user_id=user_id, from_attend_id=attend_info.attend_id
-            ).first()
-            if associaions:
-                attend_info = AICourseLessonAttend.query.filter_by(
-                    attend_id=associaions.to_attend_id
-                ).first()
-
-        if attend_info is None:
-            return None
-
-        script_info = (
-            AILessonScript.query.filter(
-                AILessonScript.lesson_id == attend_info.lesson_id,
-                AILessonScript.script_index == attend_info.script_index,
-                AILessonScript.status == 1,
-            )
-            .order_by(AILessonScript.id.desc())
-            .first()
-        )
-        if script_info is None:
-            return None
-
-        script_name = script_info.script_name
-        return StudyRecordProgressDTO(
-            lesson_id,
-            lesson_name,
-            lesson_no,
-            attend_status_values[attend_info.status],
-            script_index,
-            script_name,
-            is_branch,
-        )
 
 
 # get script info

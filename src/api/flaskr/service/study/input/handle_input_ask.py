@@ -138,15 +138,6 @@ def _handle_input_ask(
     app.logger.info(f"all retrieval_fun takes: {time_2 - time_1}s")
     app.logger.info(f"all_retrieval_result: {all_retrieval_result}")
 
-    # Build user message, including retrieved relevant knowledge
-    # user_content = get_fmt_prompt(
-    #             app,
-    #             user_info.user_id,
-    #             attend.course_id,
-    #             follow_up_info.ask_prompt,  # Use configured Q&A prompt
-    #             input=f"Known '{all_retrieval_result}', please answer '{input}'",  # Combine retrieval results and user question
-    #         )
-
     messages.append(
         {
             "role": "user",

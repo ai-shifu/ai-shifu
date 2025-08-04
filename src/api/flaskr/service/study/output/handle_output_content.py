@@ -11,7 +11,7 @@ from flaskr.service.study.utils import get_fmt_prompt
 from flaskr.service.study.const import ROLE_TEACHER
 from flaskr.service.study.utils import generation_attend
 from flaskr.service.study.context import LLMSettings, RunScriptContext
-from flaskr.service.study.output_funcs import invoke_llm
+from flaskr.api.llm import invoke_llm
 from flaskr.dao import db
 from typing import Generator
 

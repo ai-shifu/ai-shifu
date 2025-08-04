@@ -17,7 +17,7 @@ from flaskr.service.study.utils import make_script_dto
 
 
 @register_shifu_output_handler("payment")
-def _handle_input_payment(
+def _handle_output_payment(
     app: Flask,
     user_info: User,
     attend_id: str,
