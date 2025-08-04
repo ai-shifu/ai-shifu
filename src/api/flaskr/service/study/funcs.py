@@ -335,12 +335,15 @@ def get_study_record(
         if not last_block:
             ret.ui = []
             return ret
-        block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)
+        block_dto: BlockDTO = generate_block_dto_from_model_internal(
+            last_block, convert_html=False
+        )
         next_block_id = last_block.id
         last_lesson_id = last_block.outline_item_bid
 
         if block_dto.type == BLOCK_TYPE_CONTENT:
             # if the block is content, we need to find the next block
+            app.logger.info("to get next block")
             q = queue.Queue()
             q.put(lesson_info)
             while not q.empty():
@@ -364,7 +367,9 @@ def get_study_record(
             last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
                 block_model.query.filter(block_model.id == next_block_id).first()
             )
-            block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)
+            block_dto: BlockDTO = generate_block_dto_from_model_internal(
+                last_block, convert_html=False
+            )
             last_lesson_id = last_block.outline_item_bid
 
         lesson_id = last_lesson_id

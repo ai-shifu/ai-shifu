@@ -538,7 +538,9 @@ class RunScriptContext:
         )
         if not block_info:
             raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-        block_dto = generate_block_dto_from_model_internal(block_info)
+        block_dto = generate_block_dto_from_model_internal(
+            block_info, convert_html=False
+        )
         if block_dto.type == "goto":
             goto_attend = self._get_goto_attend(
                 block_dto, self._user_info, outline_item_info
@@ -565,7 +567,9 @@ class RunScriptContext:
         )
         if not block_info:
             raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-        block_dto = generate_block_dto_from_model_internal(block_info)
+        block_dto = generate_block_dto_from_model_internal(
+            block_info, convert_html=False
+        )
         outline_item_info: ShifuOutlineItemDto = get_outline_item_dto(
             self.app, block_info.outline_item_bid, self._preview_mode
         )

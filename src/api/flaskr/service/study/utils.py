@@ -538,6 +538,7 @@ def make_script_dto(
         + json.dumps(
             ScriptDTO(script_type, script_content, lesson_id, script_id, log_id),
             default=fmt,
+            ensure_ascii=False,
         )
         + "\n\n".encode("utf-8").decode("utf-8")
     )
@@ -545,7 +546,9 @@ def make_script_dto(
 
 def make_script_dto_to_stream(dto: ScriptDTO) -> str:
     return (
-        "data: " + json.dumps(dto, default=fmt) + "\n\n".encode("utf-8").decode("utf-8")
+        "data: "
+        + json.dumps(dto, default=fmt, ensure_ascii=False)
+        + "\n\n".encode("utf-8").decode("utf-8")
     )
 
 
