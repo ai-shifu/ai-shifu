@@ -565,7 +565,9 @@ class RunScriptContext:
         block_info: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
             self._block_model.query.filter(
                 self._block_model.block_bid == block_id,
-            ).first()
+            )
+            .order_by(self._block_model.id.desc())
+            .first()
         )
         if not block_info:
             raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
@@ -746,6 +748,7 @@ class RunScriptContext:
 
     def reload(self, app: Flask, script_id: str):
         yield make_script_dto("teacher_avatar", self._shifu_info.avatar, "")
+
         run_script_info: RunScriptInfo = self._get_run_script_info_by_block_id(
             script_id
         )
