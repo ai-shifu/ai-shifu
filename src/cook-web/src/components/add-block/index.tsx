@@ -5,7 +5,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '../ui/DropdownMenu';
 import { Plus } from 'lucide-react';
 import { useContentTypes } from '../render-block';
 import { BlockType } from '@/types/shifu';

@@ -28,14 +28,14 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
+} from '../ui/AlertDialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
-} from '../ui/dropdown-menu';
+} from '../ui/DropdownMenu';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import { useAlert } from '@/components/ui/UseAlert';

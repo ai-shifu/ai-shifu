@@ -13,7 +13,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
+} from '../ui/DropdownMenu';
 import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 interface ICataTreeProps {

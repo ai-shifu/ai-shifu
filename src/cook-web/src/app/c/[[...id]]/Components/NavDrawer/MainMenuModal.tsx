@@ -13,7 +13,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/ui/AlertDialog';
 
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';

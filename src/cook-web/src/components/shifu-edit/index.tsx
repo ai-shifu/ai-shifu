@@ -31,7 +31,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
+} from '../ui/AlertDialog';
 import AddBlock from '@/components/add-block';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
