@@ -1,5 +1,5 @@
 import React from 'react';
-import { Input } from '../ui/input';
+import { Input } from '../ui/Input';
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react';
 import _ from 'lodash';

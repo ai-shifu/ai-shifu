@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useState } from 'react';
-import { Input } from '../ui/input';
-import { Button } from '../ui/button';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash';
 import { OptionsDTO, ProfileItemDefination, UIBlockDTO } from '@/types/shifu';
@@ -11,7 +11,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '../ui/Select';
 import { useShifu } from '@/store';
 import api from '@/api';
 

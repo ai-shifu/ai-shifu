@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { Input } from '../ui/input';
+import { Input } from '../ui/Input';
 import { Editor } from '@/components/cm-editor';
 import InputNumber from '@/components/input-number';
 import ModelList from '@/components/model-list';
-import { Button } from '../ui/button';
+import { Button } from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react';
 import _ from 'lodash';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, memo } from 'react';
-import { Input } from '../ui/input';
-import { Button as UIButton } from '../ui/button';
+import { Input } from '../ui/Input';
+import { Button as UIButton } from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash';
 import { UIBlockDTO, ButtonDTO } from '@/types/shifu';

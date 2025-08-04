@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Input } from '../ui/input';
+import { Input } from '../ui/Input';
 import Button from '../button';
 import { MinusIcon, PlusIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';

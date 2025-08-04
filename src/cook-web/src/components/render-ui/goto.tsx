@@ -7,7 +7,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '../ui/Select';
 import { useShifu } from '@/store';
 import {
   Outline,
@@ -16,7 +16,7 @@ import {
   UIBlockDTO,
 } from '@/types/shifu';
 import api from '@/api';
-import { Button } from '../ui/button';
+import { Button } from '../ui/Button';
 import { useTranslation } from 'react-i18next';
 import { memo } from 'react';
 import _ from 'lodash';
