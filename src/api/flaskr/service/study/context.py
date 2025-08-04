@@ -628,7 +628,7 @@ class RunScriptContext:
             db.session.flush()
         else:
             app.logger.info(f"handle_block_output {run_script_info.block_dto.type}")
-            res = handle_block_output(
+            continue_check = check_block_continue(
                 app=app,
                 user_info=self._user_info,
                 attend_id=run_script_info.attend.attend_id,
@@ -637,21 +637,23 @@ class RunScriptContext:
                 trace_args=self._trace_args,
                 trace=self._trace,
             )
-            if res:
-                yield from res
+            if run_script_info.block_dto.type == "content" or not continue_check:
+                res = handle_block_output(
+                    app=app,
+                    user_info=self._user_info,
+                    attend_id=run_script_info.attend.attend_id,
+                    outline_item_info=run_script_info.outline_item_info,
+                    block_dto=run_script_info.block_dto,
+                    trace_args=self._trace_args,
+                    trace=self._trace,
+                )
+                if res:
+                    yield from res
             self._current_attend.status = ATTEND_STATUS_IN_PROGRESS
             self._input_type = "continue"
             self._run_type = RunType.OUTPUT
             app.logger.info(f"output block type: {run_script_info.block_dto.type}")
-            self._can_continue = check_block_continue(
-                app=app,
-                user_info=self._user_info,
-                attend_id=run_script_info.attend.attend_id,
-                outline_item_info=run_script_info.outline_item_info,
-                block_dto=run_script_info.block_dto,
-                trace_args=self._trace_args,
-                trace=self._trace,
-            )
+            self._can_continue = continue_check
             if self._can_continue:
                 run_script_info.attend.script_index += 1
             db.session.flush()
