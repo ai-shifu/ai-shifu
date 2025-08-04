@@ -331,7 +331,7 @@ class RunScriptContext:
         return self._current_outline_item
 
     def _render_outline_updates(
-        self, outline_updates: list[_OutlineUpate]
+        self, outline_updates: list[_OutlineUpate], new_chapter: bool = False
     ) -> Generator[str, None, None]:
         attend_status_values = get_attend_status_values()
         shif_bids = [o.outline_item_info.bid for o in outline_updates]
@@ -416,26 +416,33 @@ class RunScriptContext:
                     "",
                 )
             elif update.type == _OutlineUpateType.NODE_START:
+
+                if new_chapter:
+                    status = ATTEND_STATUS_NOT_STARTED
+                else:
+                    status = ATTEND_STATUS_IN_PROGRESS
                 current_attend = self._get_current_attend(update.outline_item_info)
-                current_attend.status = ATTEND_STATUS_NOT_STARTED
+                current_attend.status = status
                 current_attend.script_index = 0
                 db.session.flush()
+
                 yield make_script_dto(
                     "chapter_update",
                     {
                         "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_NOT_STARTED,
-                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                        "status_value": status,
+                        "status": attend_status_values[status],
                         **outline_item_info_args,
                     },
                     "",
                 )
+
                 yield make_script_dto(
                     "next_chapter",
                     {
                         "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_NOT_STARTED,
-                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                        "status_value": status,
+                        "status": attend_status_values[status],
                         **outline_item_info_args,
                     },
                     "",
@@ -606,7 +613,7 @@ class RunScriptContext:
             self._current_attend = self._get_current_attend(self._outline_item_info)
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
-            yield from self._render_outline_updates(outline_updates)
+            yield from self._render_outline_updates(outline_updates, new_chapter=False)
             db.session.flush()
             if self._current_attend.status != ATTEND_STATUS_IN_PROGRESS:
                 self._can_continue = False
@@ -675,7 +682,7 @@ class RunScriptContext:
             db.session.flush()
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
-            yield from self._render_outline_updates(outline_updates)
+            yield from self._render_outline_updates(outline_updates, new_chapter=True)
             self._can_continue = False
             db.session.flush()
         # self._trace_args["output"] = run_script_info.block_dto.block_content
