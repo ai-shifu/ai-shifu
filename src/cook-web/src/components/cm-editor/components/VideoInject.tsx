@@ -1,6 +1,6 @@
 /** inject Video to mc-editor */
 import Button from '@/components/button';
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';

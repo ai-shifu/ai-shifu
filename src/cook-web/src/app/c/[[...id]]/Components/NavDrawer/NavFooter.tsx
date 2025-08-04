@@ -5,7 +5,7 @@ import { memo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/c-store';
 
-import { Avatar, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 
 import imgUser from '@/c-assets/newchat/light/user.png';
 

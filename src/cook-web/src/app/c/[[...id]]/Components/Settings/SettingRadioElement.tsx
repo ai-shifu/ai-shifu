@@ -2,7 +2,7 @@ import styles from './SettingRadioElement.module.scss';
 
 import { useEffect, memo, useState } from 'react';
 
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/Label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 
 import { cn } from '@/lib/utils';

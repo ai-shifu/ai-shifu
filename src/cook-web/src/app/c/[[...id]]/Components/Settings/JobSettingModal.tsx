@@ -9,9 +9,9 @@ import {
   FormField,
   FormItem,
   FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+} from '@/components/ui/Form';
+import { Input } from '@/components/ui/Input';
+import { Button } from '@/components/ui/Button';
 
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';

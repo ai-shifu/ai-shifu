@@ -4,7 +4,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/ui/Select';
 import { GlobeIcon } from 'lucide-react';
 import languages from '../../../public/locales/languages.json';
 import { useTranslation } from 'react-i18next';

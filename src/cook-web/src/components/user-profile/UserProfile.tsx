@@ -1,10 +1,10 @@
 'use client';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/Avatar';
 import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from '@/components/ui/Popover';
 import { ChevronUpIcon, HeartIcon, LogOut } from 'lucide-react';
 import Social from '../social';
 import { useEffect, useState } from 'react';

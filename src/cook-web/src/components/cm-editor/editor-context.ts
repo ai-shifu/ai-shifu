@@ -1,5 +1,5 @@
 import { createContext } from 'react';
-import { IEditorContext, SelectedOption } from './type';
+import { IEditorContext, SelectedOption } from './types';
 
 const EditorContext = createContext<IEditorContext>({
   selectedOption: SelectedOption.Empty,

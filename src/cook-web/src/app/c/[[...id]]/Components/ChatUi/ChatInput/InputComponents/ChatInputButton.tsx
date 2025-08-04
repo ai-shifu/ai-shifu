@@ -8,7 +8,7 @@ import {
   INTERACTION_TYPE,
 } from '@/c-constants/courseConstants';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { registerInteractionType } from '../interactionRegistry';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';

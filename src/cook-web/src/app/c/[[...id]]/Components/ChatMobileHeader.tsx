@@ -7,9 +7,9 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from '@/components/ui/Popover';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import {
   CircleEllipsisIcon as MoreIcon,
   CircleX as CloseIcon,

@@ -4,7 +4,7 @@ import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import PopupModal from '@/c-components/PopupModal';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 import Image from 'next/image';
 import imgBeian from '@/c-assets/newchat/light/beian.png';

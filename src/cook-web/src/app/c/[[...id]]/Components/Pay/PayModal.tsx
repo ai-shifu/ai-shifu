@@ -9,9 +9,9 @@ import Image from 'next/image';
 import { LoaderIcon, LoaderCircleIcon } from 'lucide-react';
 
 import { QRCodeSVG } from 'qrcode.react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent } from '@/components/ui/Dialog';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';

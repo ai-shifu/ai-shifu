@@ -4,7 +4,7 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from '@/components/ui/Popover';
 import styles from './NavigatorTitleRightArea.module.scss';
 import { customEvents, EVENT_TYPE } from '../events/event';
 import { shifu } from '../config/config';

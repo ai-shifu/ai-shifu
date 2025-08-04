@@ -7,7 +7,7 @@ import {
   WifiIcon,
   ShieldExclamationIcon,
 } from '@heroicons/react/24/outline';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/c-store/useUserStore';
 

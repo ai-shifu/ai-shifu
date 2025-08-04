@@ -7,8 +7,8 @@ import { cn } from '@/lib/utils';
 import { calModalWidth } from '@/c-utils/common';
 import { AppContext } from '@/c-components/AppContext';
 
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/Button';
+import { Dialog, DialogContent } from '@/components/ui/Dialog';
 
 export const SettingBaseModal = ({
   open,

@@ -1,7 +1,7 @@
 import styles from './ChatButtonGroup.module.scss';
 
 import { memo } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 import { INTERACTION_OUTPUT_TYPE } from '@/c-constants/courseConstants';
 import { registerInteractionType } from '../interactionRegistry';

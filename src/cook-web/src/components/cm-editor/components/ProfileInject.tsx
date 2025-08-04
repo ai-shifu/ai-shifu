@@ -2,7 +2,7 @@
 'use client';
 import React, { useCallback } from 'react';
 import ProfileSelect from '@/components/profiles/ProfileSelect';
-import type { Profile } from '@/components/profiles/type';
+import type { Profile } from '@/components/profiles/types';
 
 type ProfileInjectProps = {
   value?: string;

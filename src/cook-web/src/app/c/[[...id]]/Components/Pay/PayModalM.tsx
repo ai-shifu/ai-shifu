@@ -16,7 +16,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 
 import {

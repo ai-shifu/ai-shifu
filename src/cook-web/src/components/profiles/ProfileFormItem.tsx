@@ -2,11 +2,11 @@
 
 import type React from 'react';
 import { useState, useEffect } from 'react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/Badge';
 import { X } from 'lucide-react';
 import ProfileSelectModal from './ProfileSelectModal';
 import useProfiles from './useProfiles';
-import type { Profile } from '@/components/profiles/type';
+import type { Profile } from '@/components/profiles/types';
 
 interface ProfileFormItemProps {
   value: string[];

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Profile } from './type';
+import type { Profile } from './types';
 import { useShifu } from '@/store';
 import api from '@/api';
 

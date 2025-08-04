@@ -14,7 +14,7 @@ import {
 import api from '@/api';
 import { Shifu } from '@/types/shifu';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/card';
 import { CreateShifuDialog } from '@/components/create-shifu-dialog';
 import { useToast } from '@/hooks/use-toast';

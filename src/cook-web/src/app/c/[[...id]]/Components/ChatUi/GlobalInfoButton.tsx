@@ -8,14 +8,14 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-} from '@/components/ui/popover';
+} from '@/components/ui/Popover';
 import {
   NavigationMenu,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
 } from '@/components/ui/NavigationMenu';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 import FeedbackModal from '@/app/c/[[...id]]/Components/FeedbackModal/FeedbackModal';
 import ShortcutModal from '../ShortcutModal/ShortcutModal';

@@ -1,7 +1,7 @@
 import styles from './CopyButton.module.scss';
 
 import { memo, useState, useRef } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { CopyIcon } from 'lucide-react';
 
 import clsx from 'clsx';

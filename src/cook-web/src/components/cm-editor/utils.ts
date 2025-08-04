@@ -11,7 +11,7 @@ import {
   MatchDecorator,
   WidgetType,
 } from '@codemirror/view';
-import { SelectedOption } from './type';
+import { SelectedOption } from './types';
 import './index.css';
 import { biliVideoUrlRegexp } from '@/components/cm-editor/components/VideoInject';
 import { getI18n } from 'react-i18next';

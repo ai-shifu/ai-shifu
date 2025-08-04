@@ -4,15 +4,15 @@ import { useCallback, memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 
 import {
   Form,
@@ -20,7 +20,7 @@ import {
   FormField,
   FormItem,
   FormMessage,
-} from '@/components/ui/form';
+} from '@/components/ui/Form';
 
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';

@@ -2,17 +2,17 @@
 
 import type React from 'react';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 import { Plus } from 'lucide-react';
 import ProfileSelect from './ProfileSelect';
-import type { Profile } from '@/components/profiles/type';
+import type { Profile } from '@/components/profiles/types';
 import { useTranslation } from 'react-i18next';
 
 interface ProfileSelectModalProps {

@@ -36,7 +36,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from '../ui/DropdownMenu';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { useAlert } from '@/components/ui/UseAlert';
 import ChapterSettingsDialog from '../chapter-setting';

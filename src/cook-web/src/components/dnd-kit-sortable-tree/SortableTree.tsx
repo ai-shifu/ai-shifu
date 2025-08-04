@@ -48,7 +48,7 @@ import type {
   TreeItems,
 } from './types';
 import { SortableTreeItem } from './SortableTreeItem';
-import { customListSortingStrategy } from './SortingStrategy';
+import { customListSortingStrategy } from './sorting-strategy';
 
 export type SortableTreeProps<
   TData extends Record<string, any>,

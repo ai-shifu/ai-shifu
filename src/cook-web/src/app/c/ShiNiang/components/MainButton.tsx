@@ -2,7 +2,7 @@ import styles from './MainButton.module.scss';
 import { forwardRef, memo, ReactNode } from 'react';
 
 import clsx from 'clsx';
-import { Button, ButtonProps } from '@/components/ui/button';
+import { Button, ButtonProps } from '@/components/ui/Button';
 
 interface MainButtonProps extends ButtonProps {
   height?: number;

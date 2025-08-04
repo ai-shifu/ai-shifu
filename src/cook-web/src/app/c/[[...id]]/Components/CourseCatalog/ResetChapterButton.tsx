@@ -8,7 +8,7 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { shifu } from '@/c-service/Shifu';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +16,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 
 export const ResetChapterButton = ({
   className,

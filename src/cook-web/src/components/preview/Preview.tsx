@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogTrigger,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 import { Button } from '@/components/button';
 import { Switch } from '@/components/ui/switch';
 import { PlayIcon } from 'lucide-react';

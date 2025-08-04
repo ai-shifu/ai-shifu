@@ -5,7 +5,7 @@ import styles from './UserSettings.module.scss';
 
 import { useState, useCallback, memo, useEffect } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import SettingHeader from './SettingHeader';
 import clsx from 'clsx';
 import ChangeAvatar from './ChangeAvatar';

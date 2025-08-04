@@ -3,7 +3,7 @@ import styles from './MainButtonM.module.scss';
 import { memo, forwardRef, useState } from 'react';
 import classNames from 'classnames';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 export const MainButtonM = forwardRef((props, ref) => {
   const [loading, setLoading] = useState(false);

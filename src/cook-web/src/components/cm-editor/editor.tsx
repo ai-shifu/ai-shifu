@@ -6,11 +6,11 @@ import { autocompletion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
 import CustomDialog from './components/CustomDialog';
 import EditorContext from './editor-context';
-import type { Profile } from '@/components/profiles/type';
+import type { Profile } from '@/components/profiles/types';
 import ImageInject from './components/ImageInject';
 import VideoInject from './components/VideoInject';
 import ProfileInject from './components/ProfileInject';
-import { SelectedOption, IEditorContext } from './type';
+import { SelectedOption, IEditorContext } from './types';
 import './index.css';
 
 import {
@@ -20,7 +20,7 @@ import {
   createSlashCommands,
   parseContentInfo,
   getProfileKeyListFromContent,
-} from './util';
+} from './utils';
 import { useTranslation } from 'react-i18next';
 
 type EditorProps = {

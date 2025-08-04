@@ -4,8 +4,8 @@ import type React from 'react';
 
 import { useState, useRef, useEffect } from 'react';
 import { Upload } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { Card } from '@/components/ui/card';
 import { uploadFile } from '@/lib/file';
 import { useToast } from '@/hooks/use-toast';

@@ -1,7 +1,7 @@
 import styles from './SettingInputM.module.scss';
 import { useState, useEffect } from 'react';
 
-import { Input } from '@/components/ui/input';
+import { Input } from '@/components/ui/Input';
 
 export const SettingInputM = ({
   title,

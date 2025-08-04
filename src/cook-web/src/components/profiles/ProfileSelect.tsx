@@ -2,10 +2,10 @@
 'use client';
 import React, { useState, useCallback } from 'react';
 import { Edit, Plus, Trash2, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import { ScrollArea } from '@/components/ui/ScrollArea';
-import type { Profile } from '@/components/profiles/type';
+import type { Profile } from '@/components/profiles/types';
 import ProfileSave from './ProfileSave';
 import api from '@/api';
 import useProfiles from './useProfiles';

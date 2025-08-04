@@ -2,7 +2,7 @@ import styles from './ToPayButton.module.scss';
 
 import { memo } from 'react';
 import clsx from 'clsx';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 
 const ToPayButton = ({
   children,

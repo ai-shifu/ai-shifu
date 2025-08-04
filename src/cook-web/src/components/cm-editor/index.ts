@@ -1,4 +1,4 @@
 import Editor from './editor';
-import { getProfileKeyListFromContent } from './util';
+import { getProfileKeyListFromContent } from './utils';
 export { Editor, getProfileKeyListFromContent };
 export default Editor;

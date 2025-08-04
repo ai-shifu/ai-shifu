@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button as ButtonComponent, ButtonProps } from '@/components/ui/button';
+import { Button as ButtonComponent, ButtonProps } from '@/components/ui/Button';
 import { Loader2, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 

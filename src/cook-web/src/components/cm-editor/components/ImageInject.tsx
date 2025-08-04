@@ -1,7 +1,7 @@
 /** inject image to mc-editor */
 import React, { useState } from 'react';
 import { ImageUploader } from '@/components/file-uploader';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 type ImageResource = {
   resourceUrl?: string;

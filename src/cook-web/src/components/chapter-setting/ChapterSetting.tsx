@@ -4,10 +4,10 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 import { Button } from '@/components/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/Label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Editor } from '@/components/cm-editor';
 import api from '@/api';

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui/Button';
 import { TrophyIcon } from 'lucide-react';
 import MainButton from './MainButton';
 import styles from './OrderPromotePopoverContent.module.scss';
