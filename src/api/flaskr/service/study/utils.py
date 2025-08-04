@@ -880,6 +880,9 @@ def get_script_ui_label(app, text):
         try:
             json_obj = json.loads(text)
             label = json_obj.get(get_current_language(), "")
+            if not label:
+                if json_obj.values():
+                    return json_obj.values()[0]
             return label
         except Exception:
             from flask import current_app
@@ -889,6 +892,9 @@ def get_script_ui_label(app, text):
     if text and isinstance(text, LabelDTO):
         label_dto: LabelDTO = text
         label = label_dto.lang.get(get_current_language(), "")
+        if not label:
+            if label_dto.lang.values():
+                return label_dto.lang.values()[0]
         return label
     return text
 
