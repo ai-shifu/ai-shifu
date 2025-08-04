@@ -1,1 +1,1 @@
-export { default } from './OutlineTree';
+export { default, default as OutlineTree } from './OutlineTree';

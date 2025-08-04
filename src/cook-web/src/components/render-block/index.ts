@@ -1,1 +1,6 @@
-export { default, RenderBlockContent, useContentTypes } from './RenderBlock';
+export {
+  default,
+  default as RenderBlock,
+  RenderBlockContent,
+  useContentTypes,
+} from './RenderBlock';

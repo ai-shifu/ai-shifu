@@ -1,1 +1,1 @@
-export { default } from './ChapterSetting';
+export { default, default as ChapterSetting } from './ChapterSetting';

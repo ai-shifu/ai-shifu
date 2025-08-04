@@ -1,1 +1,1 @@
-export { default } from './ShifuSetting';
+export { default, default as ShifuSetting } from './ShifuSetting';

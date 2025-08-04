@@ -1,1 +1,1 @@
-export { default } from './OutlineSelector';
+export { default, default as OutlineSelector } from './OutlineSelector';

@@ -1,1 +1,1 @@
-export { default } from './ShifuRoot';
+export { default, default as ShifuRoot } from './ShifuRoot';

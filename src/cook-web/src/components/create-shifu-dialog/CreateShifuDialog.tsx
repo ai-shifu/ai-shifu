@@ -156,3 +156,5 @@ export const CreateShifuDialog = ({
     </Dialog>
   );
 };
+
+export default CreateShifuDialog;

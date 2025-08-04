@@ -1,1 +1,1 @@
-export { default } from './Markdown';
+export { default, default as Markdown } from './Markdown';

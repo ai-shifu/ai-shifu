@@ -42,3 +42,5 @@ export function useConfig() {
   }
   return context;
 }
+
+export default ConfigProvider;

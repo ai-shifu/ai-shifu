@@ -1,1 +1,1 @@
-export { default } from './AiDebug';
+export { default, default as AiDebug } from './AiDebug';

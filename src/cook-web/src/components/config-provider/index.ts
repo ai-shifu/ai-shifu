@@ -1,2 +1,5 @@
-export { ConfigProvider, useConfig } from './ConfigProvider';
-export { ConfigProvider as default } from './ConfigProvider';
+export {
+  default,
+  default as ConfigProvider,
+  useConfig,
+} from './ConfigProvider';

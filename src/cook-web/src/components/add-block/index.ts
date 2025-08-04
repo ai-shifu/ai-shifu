@@ -1,1 +1,1 @@
-export { default } from './AddBlock';
+export { default, default as AddBlock } from './AddBlock';

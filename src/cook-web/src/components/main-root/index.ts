@@ -1,1 +1,1 @@
-export { default } from './MainRoot';
+export { default, default as MainRoot } from './MainRoot';

@@ -1,4 +1,1 @@
-export {
-  CreateShifuDialog,
-  CreateShifuDialog as default,
-} from './CreateShifuDialog';
+export { default, default as CreateShifuDialog } from './CreateShifuDialog';

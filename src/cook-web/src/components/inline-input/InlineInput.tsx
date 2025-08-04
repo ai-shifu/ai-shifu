@@ -105,3 +105,5 @@ export const InlineInput: React.FC<InlineInputProps> = ({
     </div>
   );
 };
+
+export default InlineInput;

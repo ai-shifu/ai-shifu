@@ -1,1 +1,1 @@
-export { default } from './ShifuEdit';
+export { default, default as ShifuEdit } from './ShifuEdit';

@@ -1,1 +1,1 @@
-export { InlineInput, InlineInput as default } from './InlineInput';
+export { default, default as InlineInput } from './InlineInput';

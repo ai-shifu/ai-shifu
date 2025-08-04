@@ -1,1 +1,1 @@
-export { default } from './LanguageSelect';
+export { default, default as LanguageSelect } from './LanguageSelect';

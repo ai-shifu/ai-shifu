@@ -1,1 +1,1 @@
-export { default } from './RenderUi';
+export { default, default as RenderUi } from './RenderUi';

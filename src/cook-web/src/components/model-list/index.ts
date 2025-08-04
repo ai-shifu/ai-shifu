@@ -1,1 +1,1 @@
-export { default } from './ModelList';
+export { default, default as ModelList } from './ModelList';
