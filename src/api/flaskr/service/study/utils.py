@@ -260,6 +260,25 @@ def extract_json(app: Flask, text: str):
     return {}
 
 
+def extract_json_from_markdown(app: Flask, text: str):
+    markdown_patterns = [
+        r"```json\s*\n(.*?)\n```",  # ```json 格式
+        r"```\s*\n(.*?)\n```",  # ``` 格式
+    ]
+    app.logger.info(f"extract_json_from_markdown: {text}")
+    for pattern in markdown_patterns:
+        matches = re.findall(pattern, text, re.DOTALL)
+        for match in matches:
+            try:
+                app.logger.info(f"extract_json_from_markdown match: {match.strip()}")
+                json_obj = extract_json(app, match.strip())
+                return json_obj
+            except json.JSONDecodeError:
+                continue
+
+    return extract_json(app, text)
+
+
 def extract_variables(template: str) -> list:
     # Match all {xxx} or {{xxx}} in the template
     pattern = r"\{{1,2}([^{}]+)\}{1,2}"

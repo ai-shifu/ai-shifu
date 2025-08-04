@@ -185,7 +185,7 @@ def _handle_input_ask(
     # Check if user input needs special processing (such as sensitive word filtering, etc.)
     res = check_text_with_llm_response(
         app,
-        user_info.user_id,
+        user_info,
         log_script,
         input,
         span,

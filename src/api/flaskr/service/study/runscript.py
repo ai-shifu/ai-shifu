@@ -44,6 +44,7 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.order.models import AICourseBuyRecord
 from flaskr.service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.study.context import RunScriptContext
+from flaskr.service.study.input_funcs import BreakException
 
 
 def handle_reload_script(
@@ -272,8 +273,10 @@ def run_script_inner(
             run_script_context.set_input(input, input_type)
             while run_script_context.has_next():
                 yield from run_script_context.run(app)
-
             db.session.commit()
+        except BreakException:
+            db.session.commit()
+            app.logger.info("BreakException")
         except GeneratorExit:
             db.session.rollback()
             app.logger.info("GeneratorExit")

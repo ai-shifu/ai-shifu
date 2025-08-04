@@ -11,7 +11,7 @@ from flaskr.service.study.plugin import (
     register_shifu_input_handler,
 )
 from flaskr.service.study.utils import (
-    extract_json,
+    extract_json_from_markdown,
     generation_attend,
     get_fmt_prompt,
     make_script_dto,
@@ -117,7 +117,7 @@ def _handle_input_text(
 
     res = check_text_with_llm_response(
         app,
-        user_info.user_id,
+        user_info,
         log_script,
         input,
         span,
@@ -178,7 +178,9 @@ def _handle_input_text(
         current_content = i.result
         if isinstance(current_content, str):
             response_text += current_content
-    jsonObj = extract_json(app, response_text)
+
+    jsonObj = extract_json_from_markdown(app, response_text)
+
     check_success = jsonObj.get("result", "") == "ok"
     if check_success:
         app.logger.info("check success")

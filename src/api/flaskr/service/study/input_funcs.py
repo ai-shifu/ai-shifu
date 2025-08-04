@@ -19,6 +19,7 @@ from flaskr.service.study.utils import make_script_dto
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.study.context import RunScriptContext
+from flaskr.service.user.models import User
 
 
 class BreakException(Exception):
@@ -27,7 +28,7 @@ class BreakException(Exception):
 
 def check_text_with_llm_response(
     app: Flask,
-    user_id: str,
+    user_info: User,
     log_script: AICourseLessonAttendScript,
     input: str,
     span,
@@ -36,12 +37,12 @@ def check_text_with_llm_response(
     attend_id: str,
     fmt_prompt: str,
 ):
-    res = check_text(app, log_script.log_id, input, user_id)
+    res = check_text(app, log_script.log_id, input, user_info.user_id)
     span.event(name="check_text", input=input, output=res)
     add_risk_control_result(
         app,
         log_script.log_id,
-        user_id,
+        user_info.user_id,
         input,
         res.provider,
         res.check_result,
@@ -71,10 +72,10 @@ def check_text_with_llm_response(
 """
         res = invoke_llm(
             app,
-            user_id,
+            user_info.user_id,
             span,
             message=prompt,
-            model=model_setting.model_name,
+            model=model_setting.model,
             json=False,
             stream=True,
             generation_name="check_text_reject_"
@@ -83,17 +84,19 @@ def check_text_with_llm_response(
             + str(block_dto.bid)
             + "_"
             + str(outline_item_info.bid),
-            **model_setting.model_args,
+            **{"temperature": model_setting.temperature},
         )
         response_text = ""
+
         for i in res:
             yield make_script_dto(
                 "text", i.result, log_script.script_id, log_script.lesson_id
             )
             response_text += i.result
             time.sleep(0.01)
+
         log_script = generation_attend(
-            app, user_id, attend_id, outline_item_info, block_dto
+            app, user_info, attend_id, outline_item_info, block_dto
         )
         log_script.script_content = response_text
         log_script.script_role = ROLE_TEACHER
