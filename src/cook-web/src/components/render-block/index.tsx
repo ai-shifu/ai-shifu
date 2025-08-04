@@ -1,7 +1,7 @@
 'use client';
 // import { useShifu } from '@/store'
 import AI from './ai';
-import SolidContent from './solid-content';
+import SolidContent from './SolidContent';
 import { useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import _ from 'lodash';

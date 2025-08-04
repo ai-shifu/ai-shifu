@@ -1,7 +1,7 @@
 /** inject variable to mc-editor */
 'use client';
 import React, { useCallback } from 'react';
-import ProfileSelect from '@/components/profiles/profile-select';
+import ProfileSelect from '@/components/profiles/ProfileSelect';
 import type { Profile } from '@/components/profiles/type';
 
 type ProfileInjectProps = {

@@ -4,9 +4,9 @@ import React, { useState, useCallback } from 'react';
 import { Edit, Plus, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/ScrollArea';
 import type { Profile } from '@/components/profiles/type';
-import ProfileSave from './profile-save';
+import ProfileSave from './ProfileSave';
 import api from '@/api';
 import useProfiles from './useProfiles';
 import {
@@ -19,7 +19,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/ui/AlertDialog';
 import { useTranslation } from 'react-i18next';
 import { useShifu } from '@/store';
 

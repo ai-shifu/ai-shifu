@@ -1,6 +1,6 @@
-import ProfileSelect from './profile-select';
-import ProfileFormItem from './profile-form-item';
-import ProfileSelectModal from './profile-select-modal';
+import ProfileSelect from './ProfileSelect';
+import ProfileFormItem from './ProfileFormItem';
+import ProfileSelectModal from './ProfileSelectModal';
 
 export { ProfileSelect, ProfileSelectModal, ProfileFormItem };
 export default ProfileSelect;

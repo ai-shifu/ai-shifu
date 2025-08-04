@@ -22,7 +22,7 @@ import { useRouter } from 'next/navigation';
 import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
-import ErrorDisplay from '@/components/error-display';
+import ErrorDisplay from '@/components/ErrorDisplay';
 import { useUserStore } from '@/c-store/useUserStore';
 interface ShifuCardProps {
   id: string;

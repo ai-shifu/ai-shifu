@@ -13,7 +13,7 @@ import {
 } from '@codemirror/view';
 import { SelectedOption } from './type';
 import './index.css';
-import { biliVideoUrlRegexp } from '@/components/cm-editor/components/video-inject';
+import { biliVideoUrlRegexp } from '@/components/cm-editor/components/VideoInject';
 import { getI18n } from 'react-i18next';
 
 const profileRegexp = /<span\s+data-tag="profile"[^>]*>\{(\w+)\}<\/span>/gi;

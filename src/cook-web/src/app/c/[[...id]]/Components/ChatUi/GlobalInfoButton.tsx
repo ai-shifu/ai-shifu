@@ -14,7 +14,7 @@ import {
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-} from '@/components/ui/navigation-menu';
+} from '@/components/ui/NavigationMenu';
 import { Button } from '@/components/ui/button';
 
 import FeedbackModal from '@/app/c/[[...id]]/Components/FeedbackModal/FeedbackModal';

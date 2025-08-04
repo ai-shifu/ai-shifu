@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Plus } from 'lucide-react';
-import ProfileSelect from './profile-select';
+import ProfileSelect from './ProfileSelect';
 import type { Profile } from '@/components/profiles/type';
 import { useTranslation } from 'react-i18next';
 

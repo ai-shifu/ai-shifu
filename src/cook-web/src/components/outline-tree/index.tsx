@@ -38,7 +38,7 @@ import {
 } from '../ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { useAlert } from '@/components/ui/use-alert';
+import { useAlert } from '@/components/ui/UseAlert';
 import ChapterSettingsDialog from '../chapter-setting';
 
 interface ICataTreeProps {

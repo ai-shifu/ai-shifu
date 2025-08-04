@@ -1,6 +1,6 @@
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from '@/components/ui/toaster';
-import { AlertProvider } from '@/components/ui/use-alert';
+import { AlertProvider } from '@/components/ui/UseAlert';
 import './globals.css';
 import '@/assets/css/md-editor.css';
 import '@/assets/css/markdown.css';

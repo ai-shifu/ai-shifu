@@ -11,11 +11,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { PhoneLogin } from '@/components/auth/phone-login';
-import { EmailLogin } from '@/components/auth/email-login';
-import { EmailRegister } from '@/components/auth/email-register';
-import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
-import { FeedbackForm } from '@/components/auth//feedback-form';
+import { PhoneLogin } from '@/components/auth/PhoneLogin';
+import { EmailLogin } from '@/components/auth/EmailLogin';
+import { EmailRegister } from '@/components/auth/EmailRegister';
+import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
+import { FeedbackForm } from '@/components/auth/FeedbackForm';
 import Image from 'next/image';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';

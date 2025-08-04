@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { PlayIcon } from 'lucide-react';
 import { useShifu } from '@/store';
 import api from '@/api';
-import { useAlert } from '@/components/ui/use-alert';
+import { useAlert } from '@/components/ui/UseAlert';
 import { useTranslation } from 'react-i18next';
 
 const PreviewSettingsModal = () => {

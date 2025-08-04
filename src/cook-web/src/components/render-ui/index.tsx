@@ -8,8 +8,8 @@ import SingleInput from './input';
 // import InputView from './view/input'
 import Goto from './goto';
 // import GotoView from './view/goto'
-import TextInput from './textinput';
-// import TextInputView from './view/textinput'
+import TextInput from './TextInput';
+// import TextInputView from './vie./TextInput'
 import { RenderBlockContent } from '../render-block/index';
 import { useShifu } from '@/store';
 import {

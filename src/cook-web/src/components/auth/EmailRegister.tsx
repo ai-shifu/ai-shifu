@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { TermsCheckbox } from '@/components/terms-checkbox';
+import { TermsCheckbox } from '@/components/TermsCheckbox';
 import apiService from '@/api';
 import { isValidEmail, checkPasswordStrength } from '@/lib/validators';
 import { PasswordStrengthIndicator } from './password-strength-indicator';

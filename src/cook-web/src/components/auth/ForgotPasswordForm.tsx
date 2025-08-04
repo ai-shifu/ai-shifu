@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ForgotPasswordCombined } from '@/components/auth/forgot-password-combined';
-import { ForgotPasswordReset } from '@/components/auth/forgot-password-reset';
+import { ForgotPasswordCombined } from '@/components/auth/ForgotPasswordCombined';
+import { ForgotPasswordReset } from '@/components/auth/ForgotPasswordReset';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 interface ForgotPasswordFormProps {

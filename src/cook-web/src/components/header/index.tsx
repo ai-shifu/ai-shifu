@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { useShifu } from '@/store';
 import Loading from '../loading';
-import { useAlert } from '@/components/ui/use-alert';
+import { useAlert } from '@/components/ui/UseAlert';
 import api from '@/api';
 import { Home, CircleAlert, CircleCheck, TrendingUp } from 'lucide-react';
 import Preivew from '@/components/preview';

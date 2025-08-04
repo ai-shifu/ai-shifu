@@ -4,12 +4,12 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { autocompletion } from '@codemirror/autocomplete';
 import { EditorView } from '@codemirror/view';
-import CustomDialog from './components/custom-dialog';
+import CustomDialog from './components/CustomDialog';
 import EditorContext from './editor-context';
 import type { Profile } from '@/components/profiles/type';
-import ImageInject from './components/image-inject';
-import VideoInject from './components/video-inject';
-import ProfileInject from './components/profile-inject';
+import ImageInject from './components/ImageInject';
+import VideoInject from './components/VideoInject';
+import ProfileInject from './components/ProfileInject';
 import { SelectedOption, IEditorContext } from './type';
 import './index.css';
 
