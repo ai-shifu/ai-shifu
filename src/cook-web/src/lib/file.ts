@@ -3,6 +3,8 @@
  */
 import { useUserStore } from '@/c-store/useUserStore';
 import { v4 as uuidv4 } from 'uuid';
+import { getDynamicApiBaseUrl } from '@/config/environment';
+import { getStringEnv } from '@/c-utils/envUtils';
 
 /**
  * Upload a file to the server using FormData and fetch
@@ -26,6 +28,18 @@ export const uploadFile = async (
   // Append the file to the FormData
   formData.append('file', file);
 
+  // Handle URL
+  let fullUrl = url;
+  if (!fullUrl.startsWith('http')) {
+    if (typeof window !== 'undefined') {
+      // Client: use cached API base URL to avoid repeated requests
+      const siteHost = await getDynamicApiBaseUrl();
+      fullUrl = (siteHost || 'http://localhost:8081') + url;
+    } else {
+      // Fallback for server-side rendering
+      fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
+    }
+  }
   // Append any additional parameters
   if (params) {
     Object.entries(params).forEach(([key, value]) => {
@@ -38,7 +52,7 @@ export const uploadFile = async (
     return new Promise(async (resolve, reject) => {
       const xhr = new XMLHttpRequest();
 
-      xhr.open('POST', url);
+      xhr.open('POST', fullUrl);
 
       // Get token
       const token = useUserStore.getState().getToken();

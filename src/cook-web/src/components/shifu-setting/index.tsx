@@ -28,7 +28,6 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 
 import ModelList from '@/components/model-list';
-import { environment } from '@/config/environment';
 
 interface Shifu {
   description: string;
@@ -62,7 +61,6 @@ export default function ShifuSettingDialog({
     previewUrl: false,
     url: false,
   });
-  const SITE_HOST = environment.apiBaseUrl;
   // Initialize the form with react-hook-form and zod resolver
 
   // Define the validation schema using Zod
@@ -170,7 +168,7 @@ export default function ShifuSettingDialog({
         // Use the uploadFile function from file.ts
         const response = await uploadFile(
           file,
-          `${SITE_HOST}/api/shifu/upfile`,
+          '/api/shifu/upfile',
           undefined,
           undefined,
           progress => {

@@ -11,8 +11,6 @@ import { uploadFile } from '@/lib/file';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import api from '@/api';
-import { environment } from '@/config/environment';
-
 type ImageResource = {
   resourceUrl?: string;
   resourceTitle?: string;
@@ -39,7 +37,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
   );
   const [uploadProgress, setUploadProgress] = useState(0);
   const resourceInputRef = useRef<HTMLInputElement>(null);
-  const siteHost = environment.apiBaseUrl;
+
   const { toast } = useToast();
 
   const resetState = () => {
@@ -58,7 +56,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     try {
       const response = await uploadFile(
         file,
-        `${siteHost}/api/shifu/upfile`,
+        '/api/shifu/upfile',
         undefined,
         undefined,
         progress => {
