@@ -73,6 +73,7 @@ def generation_attend(
     attendScript.script_id = block_dto.bid
     attendScript.script_ui_type = block_type
     attendScript.log_id = generate_id(app)
+    attendScript.status = 1
     if with_ui_conf:
         attendScript.script_ui_conf = json.dumps(
             block_dto.block_content.__json__(), ensure_ascii=False
@@ -901,7 +902,7 @@ def get_script_ui_label(app, text):
             label = json_obj.get(get_current_language(), "")
             if not label:
                 if json_obj.values():
-                    return json_obj.values()[0]
+                    return list(json_obj.values())[0]
             return label
         except Exception:
             from flask import current_app
@@ -913,7 +914,7 @@ def get_script_ui_label(app, text):
         label = label_dto.lang.get(get_current_language(), "")
         if not label:
             if label_dto.lang.values():
-                return label_dto.lang.values()[0]
+                return list(label_dto.lang.values())[0]
         return label
     return text
 
