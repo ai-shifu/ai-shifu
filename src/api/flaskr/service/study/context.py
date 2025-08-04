@@ -44,6 +44,8 @@ from pydantic import BaseModel
 from flaskr.util import generate_id
 from flaskr.service.shifu.dtos import GotoDTO, GotoConditionDTO
 from flaskr.service.profile.funcs import get_user_variable_by_variable_id
+from flaskr.service.study.models import AICourseLessonAttendScript
+from flaskr.service.study.const import ROLE_TEACHER
 
 context_local = threading.local()
 
@@ -553,6 +555,30 @@ class RunScriptContext:
             block_dto=block_dto,
         )
 
+    def _get_run_script_info_by_block_id(self, block_id: str) -> RunScriptInfo:
+        block_info: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+            self._block_model.query.filter(
+                self._block_model.block_bid == block_id,
+            ).first()
+        )
+        if not block_info:
+            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+        block_dto = generate_block_dto_from_model_internal(block_info)
+        outline_item_info: ShifuOutlineItemDto = get_outline_item_dto(
+            self.app, block_info.outline_item_bid, self._preview_mode
+        )
+        attend = AICourseLessonAttend.query.filter(
+            AICourseLessonAttend.user_id == self._user_info.user_id,
+            AICourseLessonAttend.course_id == outline_item_info.shifu_bid,
+            AICourseLessonAttend.lesson_id == outline_item_info.bid,
+            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+        ).first()
+        return RunScriptInfo(
+            attend=attend,
+            outline_item_info=outline_item_info,
+            block_dto=block_dto,
+        )
+
     def run(self, app: Flask) -> Generator[str, None, None]:
         app.logger.info(
             f"run_context.run {self._current_attend.script_index} {self._current_attend.status}"
@@ -708,3 +734,33 @@ class RunScriptContext:
                 model=shifu_info_db.llm, temperature=shifu_info_db.llm_temperature
             )
         return self._get_default_llm_settings()
+
+    def reload(self, app: Flask, script_id: str):
+        yield make_script_dto("teacher_avatar", self._shifu_info.avatar, "")
+        run_script_info: RunScriptInfo = self._get_run_script_info_by_block_id(
+            script_id
+        )
+
+        AICourseLessonAttendScript.query.filter(
+            AICourseLessonAttendScript.attend_id == run_script_info.attend.attend_id,
+            AICourseLessonAttendScript.script_id == script_id,
+            AICourseLessonAttendScript.script_role == ROLE_TEACHER,
+            AICourseLessonAttendScript.status == 1,
+        ).update(
+            {
+                AICourseLessonAttendScript.status: 0,
+            }
+        )
+        res = handle_block_output(
+            app=app,
+            user_info=self._user_info,
+            attend_id=run_script_info.attend.attend_id,
+            outline_item_info=run_script_info.outline_item_info,
+            block_dto=run_script_info.block_dto,
+            trace_args=self._trace_args,
+            trace=self._trace,
+        )
+        if res:
+            yield from res
+        self._can_continue = False
+        db.session.flush()

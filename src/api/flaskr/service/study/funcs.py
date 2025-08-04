@@ -280,7 +280,8 @@ def get_study_record(
         attend_ids = [attend_info.attend_id for attend_info in attend_infos]
         attend_scripts = (
             AICourseLessonAttendScript.query.filter(
-                AICourseLessonAttendScript.attend_id.in_(attend_ids)
+                AICourseLessonAttendScript.attend_id.in_(attend_ids),
+                AICourseLessonAttendScript.status == 1,
             )
             .order_by(AICourseLessonAttendScript.id.asc())
             .all()
