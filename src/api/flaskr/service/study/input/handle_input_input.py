@@ -15,7 +15,7 @@ from flaskr.service.study.utils import (
     generation_attend,
     get_fmt_prompt,
     make_script_dto,
-    get_script_ui_label,
+    make_script_dto_to_stream,
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
@@ -130,6 +130,17 @@ def _handle_input_input(
         first_value = next(res)
         yield first_value
         yield from res
+        yield make_script_dto_to_stream(
+            _handle_output_input(
+                app,
+                user_info,
+                attend_id,
+                outline_item_info,
+                block_dto,
+                trace,
+                trace_args,
+            )
+        )
         db.session.flush()
         raise BreakException
     except StopIteration:
@@ -223,10 +234,15 @@ def _handle_input_input(
             outline_item_info.bid,
             log_script.log_id,
         )
-        yield make_script_dto(
-            "sys_user_input",
-            get_script_ui_label(app, inputDto.placeholder),
-            outline_item_info.bid,
-            outline_item_info.bid,
+        yield make_script_dto_to_stream(
+            _handle_output_input(
+                app,
+                user_info,
+                attend_id,
+                outline_item_info,
+                block_dto,
+                trace,
+                trace_args,
+            )
         )
         raise BreakException
