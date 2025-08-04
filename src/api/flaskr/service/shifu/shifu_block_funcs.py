@@ -52,7 +52,9 @@ def get_block_list(result, app, user_id: str, outline_id: str) -> list[BlockDTO]
 
         block_dtos = []
         for block in blocks:
-            block_dtos.append(generate_block_dto_from_model_internal(block))
+            block_dtos.append(
+                generate_block_dto_from_model_internal(block, convert_html=True)
+            )
         return block_dtos
 
 
@@ -209,7 +211,7 @@ def save_shifu_block_list(
         db.session.commit()
         return SaveBlockListResultDto(
             [
-                generate_block_dto_from_model_internal(block_model)
+                generate_block_dto_from_model_internal(block_model, True)
                 for block_model in save_block_models
             ],
             error_messages,
