@@ -457,8 +457,6 @@ class RunScriptContext:
         self._input_type = input_type
         self._input = input
         self.app.logger.info(f"set_input {input} {input_type}")
-        if self._input_type == "continue":
-            self._run_type = RunType.OUTPUT
 
     def _get_goto_attend(
         self,
@@ -610,7 +608,6 @@ class RunScriptContext:
         app.logger.info(
             f"block type: {run_script_info.block_dto.type} {self._input_type}"
         )
-
         if self._run_type == RunType.INPUT:
             res = handle_block_input(
                 app=app,
@@ -748,11 +745,9 @@ class RunScriptContext:
 
     def reload(self, app: Flask, script_id: str):
         yield make_script_dto("teacher_avatar", self._shifu_info.avatar, "")
-
         run_script_info: RunScriptInfo = self._get_run_script_info_by_block_id(
             script_id
         )
-
         AICourseLessonAttendScript.query.filter(
             AICourseLessonAttendScript.attend_id == run_script_info.attend.attend_id,
             AICourseLessonAttendScript.script_id == script_id,
