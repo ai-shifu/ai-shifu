@@ -9,7 +9,7 @@ import SingleInput from './input';
 import Goto from './goto';
 // import GotoView from './view/goto'
 import TextInput from './TextInput';
-// import TextInputView from './vie./TextInput'
+// import TextInputView from './view/TextInput'
 import { RenderBlockContent } from '../render-block/index';
 import { useShifu } from '@/store';
 import {
