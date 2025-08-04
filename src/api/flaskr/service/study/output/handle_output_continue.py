@@ -13,7 +13,7 @@ from flaskr.service.study.dtos import ScriptDTO
 
 
 @register_shifu_output_handler("continue")
-def handle_output_continue(
+def _handle_output_continue(
     app: Flask,
     user_info: User,
     attend_id: str,

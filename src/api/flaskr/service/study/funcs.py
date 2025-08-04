@@ -55,8 +55,11 @@ from flaskr.service.shifu.adapter import (
 )
 from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT
 import queue
-from flaskr.service.study.input.handle_input_continue import _handle_input_continue
 from flaskr.service.shifu.struct_uils import find_node_with_parents
+from flaskr.service.study.output.handle_output_continue import _handle_output_continue
+
+
+from flaskr.service.study.plugin import check_block_continue
 
 
 # fill the attend info for the outline items
@@ -301,7 +304,6 @@ def get_study_record(
         user_info = User.query.filter_by(user_id=user_id).first()
         ret = StudyRecordDTO(items, teacher_avatar=teacher_avatar)
         last_block_id = attend_scripts[-1].script_id
-
         last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
             block_model.query.filter(
                 block_model.block_bid == last_block_id, block_model.deleted == 0
@@ -313,10 +315,11 @@ def get_study_record(
             ret.ui = []
             return ret
         block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)
-        next_block_id = None
-        last_lesson_id = None
+        next_block_id = last_block.id
+        last_lesson_id = last_block.outline_item_bid
 
         if block_dto.type == BLOCK_TYPE_CONTENT:
+            # if the block is content, we need to find the next block
             q = queue.Queue()
             q.put(lesson_info)
             while not q.empty():
@@ -335,30 +338,13 @@ def get_study_record(
                 if item.children:
                     for child in item.children:
                         q.put(child)
-        app.logger.info(f"next_block_id: {next_block_id}")
-        app.logger.info(f"last_lesson_id: {last_lesson_id}")
-        if not next_block_id:
-            # pass
-            # uis = handle_ui(
-            #     app,
-            #     user_info,
-            #     last_attends[-1],
-            #     last_outline_item,
-            #     block_dto,
-            #     "",
-            #     MockClient(),
-            #     {},
-            # )
-            # if len(uis) > 0:
-            #     ret.ui = uis[0]
-            return ret
-        next_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
-            block_model.query.filter(block_model.id == next_block_id).first()
-        )
-        if not next_block:
-            ret.ui = []
-            return ret
-        next_block_dto: BlockDTO = generate_block_dto_from_model_internal(next_block)
+
+        if next_block_id and next_block_id != last_block.id:
+            last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
+                block_model.query.filter(block_model.id == next_block_id).first()
+            )
+            block_dto: BlockDTO = generate_block_dto_from_model_internal(last_block)
+            last_lesson_id = last_block.outline_item_bid
 
         lesson_id = last_lesson_id
         last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
@@ -384,7 +370,7 @@ def get_study_record(
             user_info,
             last_attend,
             last_outline_item,
-            next_block_dto,
+            block_dto,
             "",
             MockClient(),
             {},
@@ -394,13 +380,24 @@ def get_study_record(
         )
         if len(uis) > 0:
             ret.ui = uis[0]
-        if (
-            attend_scripts[-1].script_id == last_block_id
-            and next_block_dto.type == BLOCK_TYPE_CONTENT
+        if check_block_continue(
+            app,
+            user_info,
+            last_attend.attend_id,
+            last_outline_item,
+            block_dto,
+            {},
+            MockClient(),
         ):
-            app.logger.info("handle_input_continue")
-            ret.ui = _handle_input_continue(
-                app, user_info, last_attend, None, "", MockClient(), {}
+            ret.ui = _handle_output_continue(
+                app,
+                user_info,
+                last_attend.attend_id,
+                last_outline_item,
+                block_dto,
+                "",
+                MockClient(),
+                {},
             )
         if len(uis) > 1:
             ret.ask_mode = uis[1].script_content.get("ask_mode", False)

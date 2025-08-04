@@ -29,7 +29,7 @@ def _handle_input_continue(
     if block_dto.block_content:
         # The continue button has a non-default label
         default = _("COMMON.CONTINUE")
-        if input != default:
+        if input != default and attend_id:
             log_script = generation_attend(
                 app, user_info, attend_id, outline_item_info, block_dto
             )
