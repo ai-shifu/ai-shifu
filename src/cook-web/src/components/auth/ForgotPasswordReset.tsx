@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import apiService from '@/api';
 import { checkPasswordStrength } from '@/lib/validators';
-import { PasswordStrengthIndicator } from './password-strength-indicator';
+import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 import { useTranslation } from 'react-i18next';
 interface ForgotPasswordResetProps {
   email: string;

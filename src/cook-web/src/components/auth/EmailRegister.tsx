@@ -11,7 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import apiService from '@/api';
 import { isValidEmail, checkPasswordStrength } from '@/lib/validators';
-import { PasswordStrengthIndicator } from './password-strength-indicator';
+import { PasswordStrengthIndicator } from './PasswordStrengthIndicator';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 interface EmailRegisterProps {
