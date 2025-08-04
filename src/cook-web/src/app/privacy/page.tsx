@@ -1,6 +1,6 @@
 'use client';
-import ZH_CN_PrivacyPolicy from './components/zh-cn-privacy.mdx';
-import EN_PrivacyPolicy from './components/en-privacy.mdx';
+import ZH_CN_PrivacyPolicy from '@/components/legals/zh-cn-privacy.mdx';
+import EN_PrivacyPolicy from '@/components/legals/en-privacy.mdx';
 
 import i18n from '@/i18n';
 
