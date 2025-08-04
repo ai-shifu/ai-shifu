@@ -457,6 +457,8 @@ class RunScriptContext:
         self._input_type = input_type
         self._input = input
         self.app.logger.info(f"set_input {input} {input_type}")
+        if self._input_type == "continue":
+            self._run_type = RunType.OUTPUT
 
     def _get_goto_attend(
         self,
