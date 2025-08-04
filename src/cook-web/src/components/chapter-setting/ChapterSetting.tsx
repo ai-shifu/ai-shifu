@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import { Label } from '@/components/ui/Label';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { Editor } from '@/components/cm-editor';
 import api from '@/api';
 import Loading from '../loading';

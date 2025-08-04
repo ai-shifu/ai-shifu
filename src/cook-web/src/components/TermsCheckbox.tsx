@@ -1,4 +1,4 @@
-import { Checkbox } from '@/components/ui/checkbox';
+import { Checkbox } from '@/components/ui/Checkbox';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'next/navigation';
 

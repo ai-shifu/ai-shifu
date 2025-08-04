@@ -28,7 +28,7 @@ import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';
 import { shifu } from '@/c-service/Shifu';
 
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { AppContext } from './Components/AppContext';
 import NavDrawer from './Components/NavDrawer/NavDrawer';
 import FeedbackModal from './Components/FeedbackModal/FeedbackModal';

@@ -3,7 +3,7 @@ import styles from './BirthdaySettingModal.module.scss';
 import { useState, memo } from 'react';
 import SettingBaseModal from './SettingBaseModal';
 
-import { Calendar } from '@/components/ui/calendar';
+import { Calendar } from '@/components/ui/Calendar';
 import { useTranslation } from 'react-i18next';
 
 export const BirthdaySettingModal = ({

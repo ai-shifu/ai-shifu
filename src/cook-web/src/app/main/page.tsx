@@ -13,9 +13,9 @@ import {
 } from '@heroicons/react/24/solid';
 import api from '@/api';
 import { Shifu } from '@/types/shifu';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/Button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/Card';
 import { CreateShifuDialog } from '@/components/create-shifu-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';

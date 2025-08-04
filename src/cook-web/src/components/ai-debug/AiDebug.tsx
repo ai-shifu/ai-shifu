@@ -11,7 +11,7 @@ import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
+} from '@/components/ui/Collapsible';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { useShifu } from '@/store';
 import CMEditor, { getProfileKeyListFromContent } from '@/components/cm-editor';

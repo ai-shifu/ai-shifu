@@ -7,7 +7,7 @@ import {
   BreadcrumbItem,
   BreadcrumbList,
   BreadcrumbSeparator,
-} from '@/components/ui/breadcrumb';
+} from '@/components/ui/Breadcrumb';
 
 import { cn } from '@/lib/utils';
 

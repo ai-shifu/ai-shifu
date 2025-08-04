@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { Button } from '@/components/ui/Button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import Link from 'next/link';

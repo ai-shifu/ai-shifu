@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/Dialog';
 import { Button } from '@/components/button';
-import { Switch } from '@/components/ui/switch';
+import { Switch } from '@/components/ui/Switch';
 import { PlayIcon } from 'lucide-react';
 import { useShifu } from '@/store';
 import api from '@/api';
