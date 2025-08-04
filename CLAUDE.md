@@ -304,8 +304,7 @@ const userInfo = await getUserInfo();       // Both routes - direct data
 src/
 ├── components/
 │   ├── ui/                    # kebab-case directory
-│   │   ├── Button.tsx         # PascalCase component
-│   │   └── button.module.css  # kebab-case CSS module
+│   │   └── Button.module.css  # PascalCase CSS module
 │   ├── auth/                  # kebab-case directory
 │   │   ├── LoginForm.tsx      # PascalCase component
 │   │   └── auth-utils.ts      # kebab-case utility file
