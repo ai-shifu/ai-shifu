@@ -5,7 +5,7 @@ from .dtos import (
     OutlineDto,
     ShifuOutlineTreeNode,
 )
-from .const import (
+from .consts import (
     UNIT_TYPE_VALUES_REVERSE,
     UNIT_TYPE_VALUES,
     UNIT_TYPE_VALUE_TRIAL,

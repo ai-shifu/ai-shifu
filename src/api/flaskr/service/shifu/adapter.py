@@ -41,7 +41,7 @@ from flaskr.service.common import raise_error
 from flaskr.util import generate_id
 import re
 from .models import ShifuDraftBlock, ShifuPublishedBlock
-from .const import (
+from .consts import (
     BLOCK_TYPE_VALUES,
     BLOCK_TYPE_VALUES_REVERSE,
     BLOCK_TYPE_CONTENT,

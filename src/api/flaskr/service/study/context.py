@@ -581,6 +581,7 @@ class RunScriptContext:
                 app=app,
                 user_info=self._user_info,
                 attend_id=run_script_info.attend.attend_id,
+                input_type=self._input_type,
                 input=self._input,
                 outline_item_info=run_script_info.outline_item_info,
                 block_dto=run_script_info.block_dto,
@@ -590,7 +591,10 @@ class RunScriptContext:
             if res:
                 yield from res
             self._can_continue = True
-            if run_script_info.block_dto.type != "content":
+            if (
+                run_script_info.block_dto.type != "content"
+                and self._input_type != "ask"
+            ):
                 run_script_info.attend.script_index += 1
             run_script_info.attend.status = ATTEND_STATUS_IN_PROGRESS
             self._input_type = "continue"

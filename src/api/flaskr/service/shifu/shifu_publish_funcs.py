@@ -28,7 +28,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuInfoDto
 from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
 from flaskr.util.prompt_loader import load_prompt_template
-from flaskr.service.shifu.const import (
+from flaskr.service.shifu.consts import (
     ASK_MODE_ENABLE,
     BLOCK_TYPE_CONTENT_VALUE,
 )

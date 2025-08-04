@@ -26,7 +26,7 @@ from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from .unit_funcs import create_unit
 from .dtos import ReorderOutlineItemDto
 from .adapter import convert_outline_to_reorder_outline_item_dto
-from .const import UNIT_TYPE_VALUES, UNIT_TYPE_VALUE_TRIAL, UNIT_TYPE_TRIAL
+from .consts import UNIT_TYPE_VALUES, UNIT_TYPE_VALUE_TRIAL, UNIT_TYPE_TRIAL
 from flaskr.framework.plugin.plugin_manager import extensible
 
 

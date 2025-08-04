@@ -309,14 +309,18 @@ def handle_block_input(
     app: Flask,
     user_info: User,
     attend_id: str,
+    input_type: str,
     input: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
-    if block_dto.type in SHIFU_INPUT_HANDLER_MAP:
-        res = SHIFU_INPUT_HANDLER_MAP[block_dto.type](
+    block_type = block_dto.type
+    if input_type == "ask":
+        block_type = "ask"
+    if block_type in SHIFU_INPUT_HANDLER_MAP:
+        res = SHIFU_INPUT_HANDLER_MAP[block_type](
             app,
             user_info,
             attend_id,

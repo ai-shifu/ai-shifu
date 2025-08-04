@@ -1,17 +1,13 @@
 import time
-from trace import Trace
 from flask import Flask
 from flaskr.api.llm import chat_llm
-from flaskr.service.study.const import INPUT_TYPE_ASK, ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.study.const import ROLE_STUDENT, ROLE_TEACHER
 
 from flaskr.service.study.models import AICourseLessonAttendScript
-from flaskr.service.lesson.models import AILessonScript, AILesson
-from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.study.plugin import register_input_handler
+from flaskr.service.study.plugin import register_shifu_input_handler
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.study.utils import (
     get_follow_up_info,
-    get_lesson_system,
     make_script_dto,
     get_fmt_prompt,
 )
@@ -30,21 +26,23 @@ from flaskr.service.rag.funs import (
     retrieval_fun,
 )
 from flaskr.service.lesson.const import UI_TYPE_ASK
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from langfuse.client import StatefulTraceClient
+from flaskr.service.study.context import RunScriptContext
 
 
-@register_input_handler(
-    input_type=INPUT_TYPE_ASK
-)  # Register input handler for Q&A type
+@register_shifu_input_handler("ask")
 @extensible_generic
-def handle_input_ask(
-    app: Flask,  # Flask application instance
-    user_info: User,  # User information
-    lesson: AILesson,  # shifu information
-    attend: AICourseLessonAttend,  # shifu attendance record
-    script_info: AILessonScript,  # Script information
-    input: str,  # User input question
-    trace: Trace,  # Trace object
-    trace_args,  # Trace arguments
+def _handle_input_ask(
+    app: Flask,
+    user_info: User,
+    attend_id: str,
+    input: str,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    trace_args: dict,
+    trace: StatefulTraceClient,
 ):
     """
     Main function to handle user Q&A input
@@ -52,13 +50,17 @@ def handle_input_ask(
     """
 
     # Get follow-up information (including Q&A prompts and model configuration)
-    follow_up_info = get_follow_up_info(app, script_info, attend)
+    follow_up_info = get_follow_up_info(
+        app, outline_item_info.shifu_bid, block_dto, attend_id
+    )
+
+    context = RunScriptContext.get_current_context(app)
     app.logger.info("follow_up_info:{}".format(follow_up_info.__json__()))
 
     # Query historical conversation records, ordered by time
     history_scripts = (
         AICourseLessonAttendScript.query.filter(
-            AICourseLessonAttendScript.attend_id == attend.attend_id,
+            AICourseLessonAttendScript.attend_id == attend_id,
         )
         .order_by(AICourseLessonAttendScript.id.asc())
         .all()
@@ -68,12 +70,22 @@ def handle_input_ask(
     input = input.replace("{", "{{").replace(
         "}", "}}"
     )  # Escape braces to avoid formatting conflicts
-    system_prompt = get_lesson_system(
-        app, script_info.lesson_id
-    )  # Get shifu system prompt
+    system_prompt_template = context.get_system_prompt(outline_item_info)
+    system_prompt = (
+        None
+        if system_prompt_template is None or system_prompt_template == ""
+        else get_fmt_prompt(
+            app,
+            user_info.user_id,
+            outline_item_info.shifu_bid,
+            system_prompt_template,
+        )
+    )
 
     # Obtain user configuration information to replace system variables
-    user_profiles = get_user_profiles(app, user_info.user_id, attend.course_id)
+    user_profiles = get_user_profiles(
+        app, user_info.user_id, outline_item_info.shifu_bid
+    )
 
     # Format the system prompt and replace the variables within it
     system_message = (
@@ -81,7 +93,9 @@ def handle_input_ask(
     )
 
     # Format shifu Q&A prompt, insert system prompt
-    system_message = lesson.ask_prompt.replace("{shifu_system_message}", system_message)
+    system_message = follow_up_info.ask_prompt.replace(
+        "{shifu_system_message}", system_message
+    )
     messages.append({"role": "system", "content": system_message})  # Add system message
 
     # Add historical conversation records to system messages
@@ -98,7 +112,7 @@ def handle_input_ask(
     # Start knowledge base retrieval
     time_1 = time.time()
     retrieval_result_list = []  # Store retrieval results
-    shifu_id = lesson.course_id
+    shifu_id = outline_item_info.shifu_bid
     my_filter = ""
     limit = 3  # Maximum 3 results per knowledge base
     output_fields = ["text"]  # Only return text fields
@@ -147,7 +161,9 @@ def handle_input_ask(
         follow_up_model = app.config.get("DEFAULT_LLM_MODEL", "")
 
     # Log user input to database
-    log_script = generation_attend(app, attend, script_info)
+    log_script = generation_attend(
+        app, user_info, attend_id, outline_item_info, block_dto
+    )
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT  # Mark as student role
     log_script.script_ui_type = UI_TYPE_ASK  # Mark as Q&A type
@@ -160,10 +176,10 @@ def handle_input_ask(
     prompt = get_fmt_prompt(
         app,
         user_info.user_id,
-        attend.course_id,
-        script_info.script_prompt,
+        outline_item_info.shifu_bid,
+        follow_up_info.ask_prompt,
         input,
-        script_info.script_profile,
+        follow_up_info.ask_prompt,
     )
 
     # Check if user input needs special processing (such as sensitive word filtering, etc.)
@@ -173,9 +189,9 @@ def handle_input_ask(
         log_script,
         input,
         span,
-        lesson,
-        script_info,
-        attend,
+        outline_item_info,
+        block_dto,
+        attend_id,
         prompt,
     )
 
@@ -198,13 +214,15 @@ def handle_input_ask(
         model=follow_up_model,  # Use configured model
         json=True,
         stream=True,  # Enable streaming output
-        temperature=script_info.script_temperature,  # Use configured temperature parameter
+        temperature=follow_up_info.model_args[
+            "temperature"
+        ],  # Use configured temperature parameter
         generation_name="user_follow_ask_"  # Generation task name
-        + lesson.lesson_no
+        + outline_item_info.position
         + "_"
-        + str(script_info.script_index)
+        + str(block_dto.bid)
         + "_"
-        + script_info.script_name,
+        + str(outline_item_info.bid),
         messages=messages,  # Pass complete conversation history
     )
 
@@ -216,11 +234,13 @@ def handle_input_ask(
             response_text += current_content
             # Return each text fragment in real-time
             yield make_script_dto(
-                "text", i.result, script_info.script_id, script_info.lesson_id
+                "text", i.result, log_script.script_id, log_script.lesson_id
             )
 
     # Log AI response to database
-    log_script = generation_attend(app, attend, script_info)
+    log_script = generation_attend(
+        app, user_info, attend_id, outline_item_info, block_dto
+    )
     log_script.script_content = response_text
     log_script.script_role = ROLE_TEACHER  # Mark as teacher role
     log_script.script_ui_type = UI_TYPE_ASK  # Mark as Q&A type
@@ -234,5 +254,5 @@ def handle_input_ask(
 
     # Return end marker
     yield make_script_dto(
-        "text_end", "", script_info.script_id, script_info.lesson_id, log_script.log_id
+        "text_end", "", log_script.script_id, log_script.lesson_id, log_script.log_id
     )

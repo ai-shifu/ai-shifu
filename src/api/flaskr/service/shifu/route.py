@@ -30,7 +30,7 @@ from .block_funcs import (
 from flaskr.route.common import make_common_response
 from flaskr.framework.plugin.inject import inject
 from flaskr.service.common.models import raise_param_error, raise_error
-from .const import UNIT_TYPE_TRIAL
+from .consts import UNIT_TYPE_TRIAL
 from functools import wraps
 from enum import Enum
 

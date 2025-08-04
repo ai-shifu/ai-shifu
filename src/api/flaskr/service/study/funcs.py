@@ -53,7 +53,7 @@ from flaskr.service.shifu.adapter import (
     BlockDTO,
     generate_block_dto_from_model_internal,
 )
-from flaskr.service.shifu.const import BLOCK_TYPE_CONTENT
+from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT
 import queue
 from flaskr.service.study.input.handle_input_continue import _handle_input_continue
 from flaskr.service.shifu.struct_uils import find_node_with_parents

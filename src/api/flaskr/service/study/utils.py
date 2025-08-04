@@ -6,7 +6,6 @@ from flask import Flask
 from flaskr.util.uuid import generate_id
 from ...service.lesson.const import (
     ASK_MODE_DEFAULT,
-    ASK_MODE_DISABLE,
     LESSON_TYPE_BRANCH_HIDDEN,
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
@@ -41,7 +40,11 @@ from flaskr.i18n import get_current_language
 from flaskr.service.shifu.dtos import LabelDTO
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
-from flaskr.service.shifu.const import BLOCK_TYPE_VALUES
+from flaskr.service.shifu.consts import BLOCK_TYPE_VALUES
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
+from flaskr.service.shifu.struct_uils import find_node_with_parents
+from flaskr.service.shifu.models import ShifuPublishedOutlineItem, ShifuPublishedShifu
+from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
 def get_current_lesson(
@@ -695,96 +698,53 @@ class FollowUpInfo:
 
 
 def get_follow_up_info(
-    app: Flask, script_info: AILessonScript, attend: AICourseLessonAttend
+    app: Flask, shifu_bid: str, block_dto: BlockDTO, attend_id: str
 ) -> FollowUpInfo:
-    if script_info and script_info.ask_mode != ASK_MODE_DEFAULT:
-        app.logger.info(f"script_info.ask_mode: {script_info.ask_mode}")
-        return FollowUpInfo(
-            script_info.ask_model,
-            script_info.ask_prompt,
-            script_info.ask_with_history,
-            script_info.ask_count_limit,
-            {},
-            script_info.ask_mode,
-        )
-    # todo add cache info
-    ai_lesson = (
-        AILesson.query.filter(
-            AILesson.lesson_id == attend.lesson_id,
-            AILesson.status == 1,
-        )
-        .order_by(AILesson.id.desc())
-        .first()
-    )
 
-    if not ai_lesson:
-        return FollowUpInfo(
-            ask_model="",
-            ask_prompt="",
-            ask_history_count=0,
-            ask_limit_count=0,
-            model_args={},
-            ask_mode=ASK_MODE_DISABLE,
-        )
-    if ai_lesson.ask_mode != ASK_MODE_DEFAULT:
-        ask_model = ai_lesson.ask_model
-        ask_prompt = ai_lesson.ask_prompt
-        ask_history_count = ai_lesson.ask_with_history
-        ask_limit_count = ai_lesson.ask_count_limit
-        model_args = {}
-        return FollowUpInfo(
-            ask_model,
-            ask_prompt,
-            ask_history_count,
-            ask_limit_count,
-            model_args,
-            ai_lesson.ask_mode,
-        )
-    parent_lesson = (
-        AILesson.query.filter(
-            AILesson.course_id == ai_lesson.course_id,
-            AILesson.lesson_no == ai_lesson.lesson_no[:2],
-            AILesson.status == 1,
-        )
-        .order_by(AILesson.id.desc())
-        .first()
-    )
-    if parent_lesson.ask_mode != ASK_MODE_DEFAULT:
-        app.logger.info(f"parent_lesson.ask_mode: {parent_lesson.ask_mode}")
-        ask_model = parent_lesson.ask_model
-        ask_prompt = parent_lesson.ask_prompt
-        ask_history_count = parent_lesson.ask_with_history
-        ask_limit_count = parent_lesson.ask_count_limit
-        model_args = {}
-        return FollowUpInfo(
-            ask_model,
-            ask_prompt,
-            ask_history_count,
-            ask_limit_count,
-            model_args,
-            parent_lesson.ask_mode,
-        )
+    struct_info = get_shifu_struct(app, shifu_bid)
+    path = find_node_with_parents(struct_info, block_dto.bid)
 
-    ai_course = (
-        AICourse.query.filter(
-            AICourse.course_id == ai_lesson.course_id,
-            AICourse.status == 1,
-        )
-        .order_by(AICourse.id.desc())
-        .first()
+    path = list(reversed(path))
+
+    path: list[HistoryItem] = [p for p in path if p.type == "outline"]
+    outline_ids = [p.id for p in path]
+
+    outline_infos: list[ShifuPublishedOutlineItem] = (
+        ShifuPublishedOutlineItem.query.filter(
+            ShifuPublishedOutlineItem.id.in_(outline_ids),
+        ).all()
     )
-    ask_model = ai_course.ask_model
-    ask_prompt = ai_course.ask_prompt
-    ask_history_count = ai_course.ask_with_history
-    ask_limit_count = ai_course.ask_count_limit
-    model_args = {}
+    outline_infos_map: dict[str, ShifuPublishedOutlineItem] = {
+        o.outline_item_bid: o for o in outline_infos
+    }
+
+    for p in path:
+        if p.type == "outline":
+            outline_info = outline_infos_map.get(p.bid, None)
+            if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
+                return FollowUpInfo(
+                    ask_model=outline_info.ask_llm,
+                    ask_prompt=outline_info.ask_llm_system_prompt,
+                    ask_history_count=10,
+                    ask_limit_count=10,
+                    model_args={"temperature": outline_info.ask_llm_temperature},
+                    ask_mode=outline_info.ask_enabled_status,
+                )
+    shifu_info: ShifuPublishedShifu = ShifuPublishedShifu.query.filter(
+        ShifuPublishedShifu.shifu_bid == shifu_bid, ShifuPublishedShifu.deleted == 0
+    ).first()
+    ask_model = shifu_info.ask_llm
+    ask_prompt = shifu_info.ask_llm_system_prompt
+    ask_history_count = 10
+    ask_limit_count = 10
+    model_args = {"temperature": shifu_info.ask_llm_temperature}
     return FollowUpInfo(
         ask_model,
         ask_prompt,
         ask_history_count,
         ask_limit_count,
         model_args,
-        ai_course.ask_mode,
+        shifu_info.ask_enabled_status,
     )
 
 

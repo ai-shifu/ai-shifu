@@ -13,9 +13,8 @@ from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.dtos import BlockDTO
 from langfuse.client import StatefulTraceClient
-
-# from flaskr.service.study.context import RunScriptContext
-# from flaskr.service.study.utils import get_fmt_prompt
+from flaskr.service.study.utils import get_follow_up_info
+from flaskr.service.shifu.consts import ASK_MODE_ENABLE
 
 
 @extensible
@@ -28,17 +27,17 @@ def _handle_output_ask(
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
-    # from flaskr.service.study.context import RunScriptContext
 
     shifu_bid = outline_item_info.shifu_bid
     app.logger.info(f"block_dto: {shifu_bid}")
+    follow_up_info = get_follow_up_info(
+        app, outline_item_info.shifu_bid, block_dto, attend_id
+    )
 
-    # follow_up_info = get_follow_up_info(app, outline_item_info, attend)
-    # ask_mode = follow_up_info.ask_mode
-    # visible = True if ask_mode == ASK_MODE_ENABLE else False
-    # enable = True if ask_mode == ASK_MODE_ENABLE else False
+    ask_mode = follow_up_info.ask_mode
+    visible = True if ask_mode == ASK_MODE_ENABLE else False
+    enable = True if ask_mode == ASK_MODE_ENABLE else False
     # context = RunScriptContext.get_current_context(app)
-    # app.logger.info(f"context: {context}")
     # system_prompt_template = context.get_system_prompt(outline_item_info)
     # system_prompt = get_fmt_prompt(
     #     app,
@@ -48,7 +47,7 @@ def _handle_output_ask(
     # )
     return ScriptDTO(
         "ask_mode",
-        {"ask_mode": True, "visible": True},
+        {"ask_mode": enable, "visible": visible, "ask_limit_count": 9999},
         outline_item_info.bid,
         block_dto.bid,
     )

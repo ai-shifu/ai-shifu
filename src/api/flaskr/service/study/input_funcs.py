@@ -9,15 +9,16 @@ from flaskr.api.check import (
     CHECK_RESULT_PASS,
     CHECK_RESULT_REJECT,
 )
-from flaskr.service.study.utils import generation_attend, get_model_setting
+from flaskr.service.study.utils import generation_attend
 from flaskr.service.check_risk import add_risk_control_result
-from flaskr.service.lesson.models import AILessonScript, AILesson
-from flaskr.service.order.models import AICourseLessonAttend
 from flaskr.service.study.const import (
     ROLE_TEACHER,
 )
 from flaskr.dao import db
 from flaskr.service.study.utils import make_script_dto
+from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
+from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.study.context import RunScriptContext
 
 
 class BreakException(Exception):
@@ -30,9 +31,9 @@ def check_text_with_llm_response(
     log_script: AICourseLessonAttendScript,
     input: str,
     span,
-    lesson: AILesson,
-    script_info: AILessonScript,
-    attend: AICourseLessonAttend,
+    outline_item_info: ShifuOutlineItemDto,
+    block_dto: BlockDTO,
+    attend_id: str,
     fmt_prompt: str,
 ):
     res = check_text(app, log_script.log_id, input, user_id)
@@ -48,9 +49,11 @@ def check_text_with_llm_response(
         1 if res.check_result == CHECK_RESULT_PASS else 0,
         "check_text",
     )
+    context = RunScriptContext.get_current_context(app)
+
     if res.check_result == CHECK_RESULT_REJECT:
         labels = res.risk_labels
-        model_setting = get_model_setting(app, script_info)
+        model_setting = context.get_llm_settings(outline_item_info)
         prompt = f"""# 角色
 你是一名在线老师，正在和学生对话
 
@@ -75,27 +78,29 @@ def check_text_with_llm_response(
             json=False,
             stream=True,
             generation_name="check_text_reject_"
-            + lesson.lesson_no
+            + outline_item_info.position
             + "_"
-            + str(script_info.script_index)
+            + str(block_dto.bid)
             + "_"
-            + script_info.script_name,
+            + str(outline_item_info.bid),
             **model_setting.model_args,
         )
         response_text = ""
         for i in res:
             yield make_script_dto(
-                "text", i.result, script_info.script_id, script_info.lesson_id
+                "text", i.result, log_script.script_id, log_script.lesson_id
             )
             response_text += i.result
             time.sleep(0.01)
-        log_script = generation_attend(app, attend, script_info)
+        log_script = generation_attend(
+            app, user_id, attend_id, outline_item_info, block_dto
+        )
         log_script.script_content = response_text
         log_script.script_role = ROLE_TEACHER
         db.session.add(log_script)
         db.session.flush()
         yield make_script_dto(
-            "text_end", "", script_info.script_id, script_info.lesson_id
+            "text_end", "", log_script.script_id, log_script.lesson_id
         )
     else:
         app.logger.info(f"check_text_by_{res.provider} is None")
