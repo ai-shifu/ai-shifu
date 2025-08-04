@@ -54,7 +54,7 @@ from flaskr.service.shifu.adapter import (
 )
 from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT
 import queue
-from flaskr.service.shifu.struct_uils import find_node_with_parents
+from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.study.output.handle_output_continue import _handle_output_continue
 
 

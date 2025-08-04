@@ -38,7 +38,7 @@ import queue
 from enum import Enum
 from flaskr.service.user.models import User
 from flaskr.service.order.consts import get_attend_status_values
-from flaskr.service.shifu.struct_uils import find_node_with_parents
+from flaskr.service.shifu.struct_utils import find_node_with_parents
 import threading
 from pydantic import BaseModel
 from flaskr.util import generate_id

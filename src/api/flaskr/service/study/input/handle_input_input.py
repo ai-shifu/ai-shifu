@@ -145,7 +145,6 @@ def _handle_input_input(
         raise BreakException
     except StopIteration:
         app.logger.info("check_text_by_edun is None ,invoke_llm")
-
     # get system prompt to generate content
     system_prompt_template = context.get_system_prompt(outline_item_info)
     system_prompt = (
@@ -155,11 +154,9 @@ def _handle_input_input(
             app, user_info.user_id, outline_item_info.shifu_bid, system_prompt_template
         )
     )
-
     # get check prompt to extract profile
     if check_prompt_template is None or check_prompt_template == "":
         check_prompt_template = inputDto.prompt
-
     check_prompt = get_fmt_prompt(
         app,
         user_info.user_id,
@@ -189,27 +186,27 @@ def _handle_input_input(
         current_content = i.result
         if isinstance(current_content, str):
             response_text += current_content
-
     jsonObj = extract_json_from_markdown(app, response_text)
-
     check_success = jsonObj.get("result", "") == "ok"
     if check_success:
         app.logger.info("check success")
         profile_tosave = jsonObj.get("parse_vars")
-        save_user_profiles(
-            app, user_info.user_id, outline_item_info.shifu_bid, profile_tosave
-        )
-        for key in profile_tosave:
-            yield make_script_dto(
-                "profile_update",
-                {"key": key, "value": profile_tosave[key]},
-                outline_item_info.bid,
-                outline_item_info.bid,
+        if profile_tosave and isinstance(profile_tosave, dict):
+            save_user_profiles(
+                app, user_info.user_id, outline_item_info.shifu_bid, profile_tosave
             )
+            for key in profile_tosave:
+                yield make_script_dto(
+                    "profile_update",
+                    {"key": key, "value": profile_tosave[key]},
+                    outline_item_info.bid,
+                    outline_item_info.bid,
+                )
             time.sleep(0.01)
+        else:
+            app.logger.error(f"profile_tosave is not a dict: {profile_tosave}")
         span.end()
         db.session.flush()
-
     else:
         reason = jsonObj.get("reason", response_text)
         for text in reason:

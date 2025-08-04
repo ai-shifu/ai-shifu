@@ -42,7 +42,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.shifu.consts import BLOCK_TYPE_VALUES
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
-from flaskr.service.shifu.struct_uils import find_node_with_parents
+from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.shifu.models import ShifuPublishedOutlineItem, ShifuPublishedShifu
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
@@ -269,13 +269,9 @@ def extract_json_from_markdown(app: Flask, text: str):
     for pattern in markdown_patterns:
         matches = re.findall(pattern, text, re.DOTALL)
         for match in matches:
-            try:
-                app.logger.info(f"extract_json_from_markdown match: {match.strip()}")
-                json_obj = extract_json(app, match.strip())
+            json_obj = extract_json(app, match.strip())
+            if json_obj:
                 return json_obj
-            except json.JSONDecodeError:
-                continue
-
     return extract_json(app, text)
 
 

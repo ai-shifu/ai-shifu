@@ -224,6 +224,8 @@ def check_block_continue(
         result = SHIFU_CONTINUE_HANDLER_MAP[block_dto.type](
             app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
         )
-    result = False
+    else:
+        app.logger.info(f"check_block_continue {block_dto.type} not found")
+        result = False
     app.logger.info(f"check_block_continue {block_dto.type} {result}")
     return result
