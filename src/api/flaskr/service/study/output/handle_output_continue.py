@@ -24,9 +24,8 @@ def _handle_output_continue(
 ) -> ScriptDTO:
 
     msg = ""
-    if block_dto.block_content:
-        btn: ButtonDTO = block_dto.block_content
-        msg = get_script_ui_label(app, btn.label)
+    if isinstance(block_dto.block_content, ButtonDTO):
+        msg = get_script_ui_label(app, block_dto.block_content.label)
     display = bool(msg)  # Set display based on whether msg has content
     if not msg:
         msg = _("COMMON.CONTINUE")  # Assign default message if msg is empty

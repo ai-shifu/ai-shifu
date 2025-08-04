@@ -20,8 +20,11 @@ def make_continue_ui(
     trace_args: dict,
     trace: StatefulTraceClient,
 ) -> ScriptDTO:
-    button: ButtonDTO = block_dto.block_content
-    msg = get_script_ui_label(app, button.label)
+    button = block_dto.block_content
+    msg = ""
+    if isinstance(button, ButtonDTO):
+        msg = get_script_ui_label(app, button.label)
+
     display = bool(msg)
     if not msg:
         msg = _("COMMON.CONTINUE")

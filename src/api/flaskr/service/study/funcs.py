@@ -255,13 +255,20 @@ def get_study_record(
         q = queue.Queue()
         q.put(lesson_info)
         lesson_ids = []
+        lesson_outline_map = {}
         while not q.empty():
             item: HistoryItem = q.get()
             if item.type == "outline":
                 lesson_ids.append(item.bid)
-            if item.children and item.children[0].type == "outline":
-                for child in item.children:
-                    q.put(child)
+            if item.children:
+                if item.children[0].type == "outline":
+                    for child in item.children:
+                        q.put(child)
+                else:
+                    lesson_outline_map[item.bid] = [
+                        block.bid for block in item.children
+                    ]
+
         if not lesson_ids:
             return None
 
@@ -286,6 +293,21 @@ def get_study_record(
             .order_by(AICourseLessonAttendScript.id.asc())
             .all()
         )
+
+        def get_script_index(x: AICourseLessonAttendScript):
+            lesson_index = lesson_ids.index(x.lesson_id)
+            if x.lesson_id in lesson_outline_map:
+                return (
+                    lesson_index * 10000
+                    + lesson_outline_map.get(
+                        x.lesson_id,
+                    ).index(x.script_id)
+                    * 100
+                )
+            else:
+                return lesson_index * 10000 + 10000
+
+        attend_scripts.sort(key=get_script_index)
         if len(attend_scripts) == 0:
             return StudyRecordDTO([])
         items = [
@@ -396,9 +418,8 @@ def get_study_record(
                 last_attend.attend_id,
                 last_outline_item,
                 block_dto,
-                "",
-                MockClient(),
                 {},
+                MockClient(),
             )
         if len(uis) > 1:
             ret.ask_mode = uis[1].script_content.get("ask_mode", False)
