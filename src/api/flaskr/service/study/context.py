@@ -417,15 +417,15 @@ class RunScriptContext:
                 )
             elif update.type == _OutlineUpateType.NODE_START:
                 current_attend = self._get_current_attend(update.outline_item_info)
-                current_attend.status = ATTEND_STATUS_IN_PROGRESS
+                current_attend.status = ATTEND_STATUS_NOT_STARTED
                 current_attend.script_index = 0
                 db.session.flush()
                 yield make_script_dto(
                     "next_chapter",
                     {
                         "lesson_id": update.outline_item_info.bid,
-                        "status_value": ATTEND_STATUS_IN_PROGRESS,
-                        "status": attend_status_values[ATTEND_STATUS_IN_PROGRESS],
+                        "status_value": ATTEND_STATUS_NOT_STARTED,
+                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
                         **outline_item_info_args,
                     },
                     "",
