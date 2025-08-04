@@ -239,7 +239,6 @@ def get_lesson_and_attend_info(
     return attend_lesson_infos
 
 
-# 从文本中提取json对象
 def extract_json(app: Flask, text: str):
     stack = []
     start = None
@@ -263,8 +262,8 @@ def extract_json(app: Flask, text: str):
 
 def extract_json_from_markdown(app: Flask, text: str):
     markdown_patterns = [
-        r"```json\s*\n(.*?)\n```",  # ```json 格式
-        r"```\s*\n(.*?)\n```",  # ``` 格式
+        r"```json\s*\n(.*?)\n```",  # ```json format
+        r"```\s*\n(.*?)\n```",  # ``` format
     ]
     app.logger.info(f"extract_json_from_markdown: {text}")
     for pattern in markdown_patterns:
@@ -548,137 +547,6 @@ def make_script_dto_to_stream(dto: ScriptDTO) -> str:
     return (
         "data: " + json.dumps(dto, default=fmt) + "\n\n".encode("utf-8").decode("utf-8")
     )
-
-
-@extensible
-def update_lesson_status(app: Flask, attend_id: str, preview_mode: bool = False):
-    status = [STATUS_PUBLISH]
-    if preview_mode:
-        status.append(STATUS_DRAFT)
-    attend_status_values = get_attend_status_values()
-    res = []
-    attend_info = AICourseLessonAttend.query.filter(
-        AICourseLessonAttend.attend_id == attend_id
-    ).first()
-    lesson = (
-        AILesson.query.filter(
-            AILesson.lesson_id == attend_info.lesson_id,
-            AILesson.status.in_(status),
-        )
-        .order_by(AILesson.id.desc())
-        .first()
-    )
-    lesson_no = lesson.lesson_no
-    parent_no = lesson_no
-    attend_info.status = ATTEND_STATUS_COMPLETED
-    res.append(
-        AILessonAttendDTO(
-            lesson_no,
-            lesson.lesson_name,
-            lesson.lesson_id,
-            attend_status_values[ATTEND_STATUS_COMPLETED],
-            ATTEND_STATUS_COMPLETED,
-            lesson.lesson_type,
-        )
-    )
-    if len(parent_no) > 2:
-        parent_no = parent_no[:2]
-    app.logger.info("parent_no:" + parent_no)
-    attend_lesson_infos = get_lesson_and_attend_info(
-        app, parent_no, lesson.course_id, attend_info.user_id, preview_mode
-    )
-    if attend_lesson_infos[-1]["attend"].attend_id == attend_id:
-        attend_status_values = get_attend_status_values()
-        # 最后一个已经完课
-        # 整体章节完课
-        if attend_lesson_infos[0]["attend"].status == ATTEND_STATUS_IN_PROGRESS:
-            attend_lesson_infos[0]["attend"].status = ATTEND_STATUS_COMPLETED
-            res.append(
-                AILessonAttendDTO(
-                    attend_lesson_infos[0]["lesson"].lesson_no,
-                    attend_lesson_infos[0]["lesson"].lesson_name,
-                    attend_lesson_infos[0]["lesson"].lesson_id,
-                    attend_status_values[ATTEND_STATUS_COMPLETED],
-                    ATTEND_STATUS_COMPLETED,
-                    attend_lesson_infos[0]["lesson"].lesson_type,
-                )
-            )
-        # 找到下一章节进行解锁
-        next_no = str(int(parent_no) + 1).zfill(2)
-        next_lessons = get_lesson_and_attend_info(
-            app, next_no, lesson.course_id, attend_info.user_id, preview_mode
-        )
-
-        app.logger.info("next_no:" + next_no)
-        if len(next_lessons) > 0:
-            # 解锁
-            app.logger.info(
-                "next lesson: {} ".format(
-                    ",".join(
-                        [
-                            (nl["lesson"].lesson_no + ":" + str(nl["attend"].status))
-                            for nl in next_lessons
-                        ]
-                    )
-                )
-            )
-            for next_lesson_attend in next_lessons:
-                if next_lesson_attend["lesson"].lesson_no == next_no and (
-                    next_lesson_attend["attend"].status == ATTEND_STATUS_LOCKED
-                    or next_lesson_attend["attend"].status == ATTEND_STATUS_NOT_STARTED
-                    or next_lesson_attend["attend"].status == ATTEND_STATUS_IN_PROGRESS
-                ):
-                    app.logger.info("unlock next lesson")
-                    next_lesson_attend["attend"].status = ATTEND_STATUS_NOT_STARTED
-                    res.append(
-                        AILessonAttendDTO(
-                            next_lesson_attend["lesson"].lesson_no,
-                            next_lesson_attend["lesson"].lesson_name,
-                            next_lesson_attend["lesson"].lesson_id,
-                            attend_status_values[ATTEND_STATUS_NOT_STARTED],
-                            ATTEND_STATUS_NOT_STARTED,
-                            next_lesson_attend["lesson"].lesson_type,
-                        )
-                    )
-                if next_lesson_attend["lesson"].lesson_no == next_no + "01" and (
-                    next_lesson_attend["attend"].status == ATTEND_STATUS_LOCKED
-                    or next_lesson_attend["attend"].status == ATTEND_STATUS_NOT_STARTED
-                    or next_lesson_attend["attend"].status == ATTEND_STATUS_IN_PROGRESS
-                ):
-                    app.logger.info("unlock next lesson")
-                    next_lesson_attend["attend"].status = ATTEND_STATUS_NOT_STARTED
-                    res.append(
-                        AILessonAttendDTO(
-                            next_lesson_attend["lesson"].lesson_no,
-                            next_lesson_attend["lesson"].lesson_name,
-                            next_lesson_attend["lesson"].lesson_id,
-                            attend_status_values[ATTEND_STATUS_NOT_STARTED],
-                            ATTEND_STATUS_NOT_STARTED,
-                            next_lesson_attend["lesson"].lesson_type,
-                        )
-                    )
-        else:
-            app.logger.info("no next lesson")
-    app.logger.info("current res lenth:{}".format(len(res)))
-    for i in range(len(attend_lesson_infos)):
-        if (
-            i > 0
-            and attend_lesson_infos[i - 1]["attend"].attend_id == attend_id
-            and attend_lesson_infos[i]["attend"].status == ATTEND_STATUS_LOCKED
-        ):
-            # 更新下一节
-            attend_lesson_infos[i]["attend"].status = ATTEND_STATUS_NOT_STARTED
-            res.append(
-                AILessonAttendDTO(
-                    attend_lesson_infos[i]["lesson"].lesson_no,
-                    attend_lesson_infos[i]["lesson"].lesson_name,
-                    attend_lesson_infos[i]["lesson"].lesson_id,
-                    attend_status_values[ATTEND_STATUS_NOT_STARTED],
-                    ATTEND_STATUS_NOT_STARTED,
-                    attend_lesson_infos[i]["lesson"].lesson_type,
-                )
-            )
-    return res
 
 
 class FollowUpInfo:

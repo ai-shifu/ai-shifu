@@ -12,6 +12,8 @@ from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.study.utils import make_script_dto_to_stream
 from flaskr.service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 
+from flaskr.service.shifu.models import ShifuDraftBlock
+
 
 def format_script_prompt(script_prompt: str, script_variables: dict) -> str:
     prompt_template_lc = PromptTemplate.from_template(script_prompt)
@@ -51,7 +53,14 @@ def debug_script(
     with app.app_context():
 
         try:
-            block_info = get_block_by_id(app, block_id)
+            block_info = (
+                ShifuDraftBlock.query.filter(
+                    ShifuDraftBlock.block_bid == block_id,
+                    ShifuDraftBlock.deleted == 0,
+                )
+                .order_by(ShifuDraftBlock.id.desc())
+                .first()
+            )
             if not block_info:
                 raise_error("SCENARIO.BLOCK_NOT_FOUND")
             trace_args = {}
