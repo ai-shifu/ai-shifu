@@ -43,7 +43,6 @@ def run_script_inner(
     Core function for running course scripts
     """
     with app.app_context():
-        # script_info = None
         try:
             user_info = User.query.filter(User.user_id == user_id).first()
             shifu_info: ShifuInfoDto = None
@@ -153,9 +152,7 @@ def run_script(
             )
         except Exception as e:
             app.logger.error("run_script error")
-            # 输出详细的错误信息
             app.logger.error(e)
-            # 输出异常信息
             error_info = {
                 "name": type(e).__name__,
                 "description": str(e),
@@ -170,7 +167,6 @@ def run_script(
                 yield make_script_dto("text", _("COMMON.UNKNOWN_ERROR"), None)
             yield make_script_dto("text_end", "", None)
         finally:
-
             lock.release()
         return
     else:
