@@ -33,7 +33,6 @@ def _handle_output_continue(
     msg = get_script_ui_label(app, msg)
     if not msg:
         msg = _("COMMON.CONTINUE")
-
     btn = [
         {
             "label": msg,
@@ -47,5 +46,5 @@ def _handle_output_continue(
         "buttons",
         {"buttons": btn},
         outline_item_info.bid,
-        outline_item_info.bid,
+        block_dto.bid,
     )

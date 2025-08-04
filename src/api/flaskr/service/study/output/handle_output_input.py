@@ -30,5 +30,5 @@ def _handle_output_input(
         "input",
         {"content": msg},
         outline_item_info.bid,
-        outline_item_info.bid,
+        block_dto.bid,
     )

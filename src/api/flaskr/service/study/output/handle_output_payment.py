@@ -33,7 +33,9 @@ def _handle_output_payment(
         if not title:
             title = _("COMMON.CHECKOUT")
         btn = [{"label": title, "value": order.order_id}]
-        return ScriptDTO("order", {"buttons": btn}, outline_item_info.bid)
+        return ScriptDTO(
+            "order", {"buttons": btn}, outline_item_info.bid, block_dto.bid
+        )
     else:
         title = _("COMMON.CONTINUE")
         btn = [
@@ -47,5 +49,5 @@ def _handle_output_payment(
             "buttons",
             {"buttons": btn},
             outline_item_info.bid,
-            outline_item_info.bid,
+            block_dto.bid,
         )

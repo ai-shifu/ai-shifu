@@ -33,6 +33,7 @@ def _handle_output_checkcode(
             INPUT_TYPE_CHECKCODE,
             expires,
             outline_item_info.bid,
+            block_dto.bid,
         )
     else:
         app.logger.info(
@@ -45,5 +46,5 @@ def _handle_output_checkcode(
             INPUT_TYPE_CHECKCODE,
             msg,
             outline_item_info.bid,
-            outline_item_info.bid,
+            block_dto.bid,
         )

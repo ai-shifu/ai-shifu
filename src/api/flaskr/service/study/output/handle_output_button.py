@@ -40,5 +40,5 @@ def _handle_output_button(
         "buttons",
         {"buttons": btn},
         outline_item_info.bid,
-        outline_item_info.bid,
+        block_dto.bid,
     )

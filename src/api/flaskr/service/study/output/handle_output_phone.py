@@ -30,5 +30,5 @@ def _handle_output_phone(
         INPUT_TYPE_PHONE,
         msg,
         outline_item_info.bid,
-        outline_item_info.bid,
+        block_dto.bid,
     )
