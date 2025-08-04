@@ -421,6 +421,16 @@ class RunScriptContext:
                 current_attend.script_index = 0
                 db.session.flush()
                 yield make_script_dto(
+                    "chapter_update",
+                    {
+                        "lesson_id": update.outline_item_info.bid,
+                        "status_value": ATTEND_STATUS_NOT_STARTED,
+                        "status": attend_status_values[ATTEND_STATUS_NOT_STARTED],
+                        **outline_item_info_args,
+                    },
+                    "",
+                )
+                yield make_script_dto(
                     "next_chapter",
                     {
                         "lesson_id": update.outline_item_info.bid,
