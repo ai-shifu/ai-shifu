@@ -174,9 +174,9 @@ def _handle_input_input(
         system=system_prompt,
         message=check_prompt,
         generation_name="user_input_"
-        + outline_item_info.position
-        + "_"
         + str(outline_item_info.position)
+        + "_"
+        + str(block_dto.bid)
         + "_",
         temperature=model_setting.temperature,
     )
