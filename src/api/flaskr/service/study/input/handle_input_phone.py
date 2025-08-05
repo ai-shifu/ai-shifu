@@ -19,6 +19,7 @@ from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.study.const import INPUT_TYPE_PHONE
 from typing import Generator
+from flaskr.service.shifu.dtos import PhoneDTO
 
 
 @register_shifu_input_handler("phone")
@@ -39,17 +40,18 @@ def _handle_input_phone(
     )
     log_script.script_content = input
     log_script.script_role = ROLE_STUDENT  # type: ignore
+    phone_input: PhoneDTO = block_dto.block_content
     db.session.add(log_script)
-    span = trace.span(name="user_input_phone", input=block_dto.block_content)
+    span = trace.span(name="user_input_phone", input=input)
     response_text = "请输入正确的手机号"
-    if not check_phone_number(app, user_info.user_id, block_dto.block_content):
+    if not check_phone_number(app, user_info.user_id, phone_input.phone):
         for i in response_text:
             yield make_script_dto("text", i, block_dto.bid, outline_item_info.bid)
             time.sleep(0.01)
         yield make_script_dto("text_end", "", block_dto.bid, outline_item_info.bid)
         yield make_script_dto(
             INPUT_TYPE_PHONE,
-            get_script_ui_label(app, block_dto.block_content),
+            get_script_ui_label(app, phone_input.placeholder),
             block_dto.bid,
             outline_item_info.bid,
         )
