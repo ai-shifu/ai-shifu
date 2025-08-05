@@ -160,12 +160,9 @@ export function useAuth(options: UseAuthOptions = {}) {
       );
 
       if (response.code !== 0) {
-        toast({
-          title: t('auth.send-failed'),
-          description:
-            response.message || response.msg || t('common.network-error'),
-          variant: 'destructive',
-        });
+        throw new Error(
+          response.message || response.msg || t('common.network-error'),
+        );
       }
 
       return response;
