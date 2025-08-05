@@ -671,12 +671,7 @@ class RunScriptContext:
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
             self._can_continue = False
             db.session.flush()
-        # self._trace_args["output"] = run_script_info.block_dto.block_content
         self._trace.update(**self._trace_args)
-
-        # self._trace_args["output"] = block_info.content
-
-        # self._run_type = RunType.OUTPUT
 
     def has_next(self) -> bool:
         self.app.logger.info(f"has_next {self._can_continue}")
