@@ -744,8 +744,8 @@ def get_course_info(
             shifu_info.title,
             shifu_info.description,
             shifu_info.price,
-            "",
-            1,
+            shifu_info.feishu_id, # Or a default value if it can be None
+            shifu_info.status, # Or a default value if it can be None
             get_shifu_res_url(shifu_info.avatar_res_bid),
             shifu_info.keywords.split(",") if shifu_info.keywords else [],
         )
