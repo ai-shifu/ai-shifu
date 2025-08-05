@@ -1,4 +1,4 @@
-from .funs import update_lesson_info, get_lessons  # noqa: F401
+from .funcs import update_lesson_info, get_lessons  # noqa: F401
 from .const import SCRIPT_TYPES, CONTENT_TYPES, LESSON_TYPES  # noqa: F401
 from .models import *  # noqa: F403 F401
 from ..common.dicts import register_dict

@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.lesson.funs import (
+from flaskr.service.lesson.funcs import (
     get_course_info,
     update_course_info,
     get_course_list,
