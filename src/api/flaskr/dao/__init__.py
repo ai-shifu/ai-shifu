@@ -42,7 +42,7 @@ def init_db(app: Flask):
     db.init_app(app)
 
     # Enable formatted SQL output in the development environment
-    if False:  # app.debug:
+    if app.debug:
 
         def setup_sql_logging():
             @event.listens_for(db.engine, "before_cursor_execute")
