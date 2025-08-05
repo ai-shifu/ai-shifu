@@ -13,7 +13,7 @@ import apiService from '@/api';
 import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useLogin } from '@/hooks/use-login';
 
 import type { UserInfo } from '@/c-types';
 interface PhoneLoginProps {
@@ -22,7 +22,6 @@ interface PhoneLoginProps {
 
 export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   const { toast } = useToast();
-  const { login } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneOtp, setPhoneOtp] = useState('');
@@ -31,6 +30,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   const [countdown, setCountdown] = useState(0);
   const [phoneError, setPhoneError] = useState('');
   const { t } = useTranslation();
+  const { loginWithSmsCode } = useLogin({ onSuccess: onLoginSuccess });
   const validatePhone = (phone: string) => {
     if (!phone) {
       setPhoneError(t('login.phone-empty'));
@@ -130,41 +130,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
 
     try {
       setIsLoading(true);
-
-      const response = await apiService.verifySmsCode({
-        mobile: phoneNumber,
-        sms_code: phoneOtp,
-        language: i18n.language,
-      });
-
-      if (response.code == 0) {
-        // Since backend always returns user_state=1 for both new and existing users,
-        // we can't distinguish between login and registration from the response.
-        // For now, we'll just show a generic success message.
-        toast({
-          title: t('login.login-success'),
-        });
-        await login(response.data.userInfo, response.data.token);
-        onLoginSuccess(response.data.userInfo);
-      } else if (response.code == 1003) {
-        toast({
-          title: t('login.verification-failed'),
-          description: t('login.otp-expired'),
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: t('login.verification-failed'),
-          description: t('login.otp-error'),
-          variant: 'destructive',
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: t('login.verification-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
-      });
+      await loginWithSmsCode(phoneNumber, phoneOtp, i18n.language);
     } finally {
       setIsLoading(false);
     }

@@ -9,10 +9,9 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { TermsCheckbox } from '@/components/terms-checkbox';
-import apiService from '@/api';
 import { isValidEmail } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useLogin } from '@/hooks/use-login';
 
 import type { UserInfo } from '@/c-types';
 
@@ -26,7 +25,6 @@ export function EmailLogin({
   onForgotPassword,
 }: EmailLoginProps) {
   const { toast } = useToast();
-  const { login } = useUserStore();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -34,6 +32,7 @@ export function EmailLogin({
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const { t } = useTranslation();
+  const { loginWithEmailPassword } = useLogin({ onSuccess: onLoginSuccess });
 
   const validateEmail = (email: string) => {
     if (!email) {
@@ -98,39 +97,8 @@ export function EmailLogin({
 
     try {
       setIsLoading(true);
-
       const username = email;
-
-      const response = await apiService.login({
-        username,
-        password,
-      });
-
-      if (response.code == 0) {
-        toast({
-          title: t('login.login-success'),
-        });
-        await login(response.data.userInfo, response.data.token);
-        onLoginSuccess(response.data.userInfo);
-      }
-
-      if (
-        response.code == 1001 ||
-        response.code == 1005 ||
-        response.code === 1003
-      ) {
-        toast({
-          title: t('login.login-failed'),
-          description: t('login.username-or-password-error'),
-          variant: 'destructive',
-        });
-      }
-    } catch (error: any) {
-      toast({
-        title: t('login.login-failed'),
-        description: error.message || t('login.network-error'),
-        variant: 'destructive',
-      });
+      await loginWithEmailPassword(username, password);
     } finally {
       setIsLoading(false);
     }
