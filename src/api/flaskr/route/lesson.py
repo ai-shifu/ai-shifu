@@ -1,5 +1,5 @@
 from flask import Flask, request
-from flaskr.service.lesson.funs import delete_lesson, update_lesson_ask_info
+from flaskr.service.lesson.funcs import delete_lesson, update_lesson_ask_info
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
 from .common import bypass_token_validation, make_common_response
