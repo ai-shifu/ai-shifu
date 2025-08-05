@@ -6,6 +6,7 @@ from flask import Flask
 from flaskr.util.uuid import generate_id
 from ...service.lesson.const import (
     ASK_MODE_DEFAULT,
+    ASK_MODE_DISABLE,
     LESSON_TYPE_BRANCH_HIDDEN,
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
@@ -590,7 +591,15 @@ def get_follow_up_info(
 
     struct_info = get_shifu_struct(app, shifu_bid)
     path = find_node_with_parents(struct_info, block_dto.bid)
-
+    if not path:
+        return FollowUpInfo(
+            ask_model="",
+            ask_prompt="",
+            ask_history_count=10,
+            ask_limit_count=10,
+            model_args={"temperature": 0.0},
+            ask_mode=ASK_MODE_DISABLE,
+        )
     path = list(reversed(path))
 
     path: list[HistoryItem] = [p for p in path if p.type == "outline"]

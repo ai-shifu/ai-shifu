@@ -625,7 +625,10 @@ class RunScriptContext:
         app.logger.info(
             f"block type: {run_script_info.block_dto.type} {self._input_type}"
         )
-        if self._run_type == RunType.INPUT and self._input_type != "continue":
+        if (
+            self._run_type == RunType.INPUT
+            and self._input_type != run_script_info.block_dto.type
+        ):
             res = handle_block_input(
                 app=app,
                 user_info=self._user_info,
@@ -660,6 +663,7 @@ class RunScriptContext:
                 trace_args=self._trace_args,
                 trace=self._trace,
             )
+            app.logger.info(f"continue_check: {continue_check}")
             if run_script_info.block_dto.type == "content" or not continue_check:
                 res = handle_block_output(
                     app=app,
