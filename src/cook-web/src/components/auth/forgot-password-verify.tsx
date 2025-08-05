@@ -130,7 +130,7 @@ export function ForgotPasswordVerify({
         />
         {countdown > 0 ? (
           <p className='text-sm text-muted-foreground mt-1'>
-            {t('login.seconds-later', { count: countdown })}
+            {t('auth.seconds-later', { count: countdown })}
           </p>
         ) : (
           <Button
