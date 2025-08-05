@@ -50,13 +50,6 @@ from flaskr.service.study.const import ROLE_TEACHER
 context_local = threading.local()
 
 
-def get_can_continue(attend_id: str) -> bool:
-    attend_info = AICourseLessonAttend.query.filter(
-        AICourseLessonAttend.attend_id == attend_id,
-    ).first()
-    return attend_info.status != ATTEND_STATUS_RESET
-
-
 class RunType(Enum):
     INPUT = "input"
     OUTPUT = "output"
@@ -73,7 +66,7 @@ class LLMSettings(BaseModel):
         return self.__str__()
 
     def __json__(self):
-        return self.__str__()
+        return {"model": self.model, "temperature": self.temperature}
 
 
 # outline update type

@@ -13,6 +13,7 @@ from langfuse.client import StatefulTraceClient
 from flaskr.service.study.plugin import register_shifu_continue_handler
 from flaskr.i18n import _
 from typing import Generator
+from flaskr.service.shifu.dtos import ButtonDTO
 
 
 @register_shifu_continue_handler("continue")
@@ -26,17 +27,17 @@ def _handle_input_continue(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> Generator[str, None, None]:
     if block_dto.block_content:
         # The continue button has a non-default label
         default = _("COMMON.CONTINUE")
+        button_label: ButtonDTO = block_dto.block_content
         if input != default and attend_id:
             log_script = generation_attend(
                 app, user_info, attend_id, outline_item_info, block_dto
             )
-            log_script.script_content = get_script_ui_label(
-                app, block_dto.block_content
-            )
+            log_script.script_content = get_script_ui_label(app, button_label.label)
             log_script.script_role = ROLE_STUDENT
             db.session.add(log_script)
         span = trace.span(name="user_continue", input=input)
@@ -48,5 +49,12 @@ def _handle_input_continue(
     if continue_func:
         app.logger.info(f"continue_func: {continue_func.__name__}")
         continue_func(
-            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
+            app,
+            user_info,
+            attend_id,
+            outline_item_info,
+            block_dto,
+            trace,
+            trace_args,
+            is_preview,
         )

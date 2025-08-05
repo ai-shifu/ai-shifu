@@ -291,20 +291,6 @@ def get_study_record(
             .all()
         )
 
-        # def get_script_index(x: AICourseLessonAttendScript):
-        #     lesson_index = lesson_ids.index(x.lesson_id)
-        #     if x.lesson_id in lesson_outline_map:
-        #         return (
-        #             lesson_index * 10000
-        #             + lesson_outline_map.get(
-        #                 x.lesson_id,
-        #             ).index(x.script_id)
-        #             * 100
-        #         )
-        #     else:
-        #         return lesson_index * 10000 + 10000
-
-        # attend_scripts.sort(key=get_script_index)
         if len(attend_scripts) == 0:
             return ret
         items = [
@@ -443,9 +429,10 @@ def reset_user_study_info_by_lesson(
         )
 
         current_path = find_node_with_parents(struct, outline_item.bid)
-
         lesson_ids = set()
-
+        if not current_path or len(current_path) < 2:
+            app.logger.info("current_path not found")
+            return False
         root_outline_item: HistoryItem = current_path[1]
         q = queue.Queue()
         q.put(root_outline_item)

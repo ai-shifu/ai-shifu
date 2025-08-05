@@ -57,7 +57,14 @@ def _handle_input_options(
     log_script.script_role = ROLE_STUDENT
     log_script.script_ui_conf = json.dumps(
         _handle_output_options(
-            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
+            app,
+            user_info,
+            attend_id,
+            outline_item_info,
+            block_dto,
+            trace,
+            trace_args,
+            is_preview,
         ).__json__()
     )
     db.session.add(log_script)
