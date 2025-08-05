@@ -32,21 +32,17 @@ export function useAuth(options: UseAuthOptions = {}) {
   const callWithTokenRefresh = async <T extends ApiResponse>(
     apiCall: () => Promise<T>,
   ): Promise<T> => {
-    try {
-      const response = await apiCall();
+    const response = await apiCall();
 
-      // Handle token expiration
-      if (response.code === 1005) {
-        // Refresh token
-        await logout(false);
-        // Retry the API call
-        return await apiCall();
-      }
-
-      return response;
-    } catch (error) {
-      throw error;
+    // Handle token expiration
+    if (response.code === 1005) {
+      // Refresh token
+      await logout(false);
+      // Retry the API call
+      return await apiCall();
     }
+
+    return response;
   };
 
   // Handle common login errors
@@ -69,7 +65,7 @@ export function useAuth(options: UseAuthOptions = {}) {
         // For SMS context, 1003 means OTP expired; for email context, it means wrong credentials
         description =
           context === 'sms'
-            ? `${t('auth.otp')} ${t('auth.expired')}`
+            ? t('auth.otp-expired')
             : t('auth.credential-error');
         break;
       default:
