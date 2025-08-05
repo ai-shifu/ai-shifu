@@ -285,6 +285,7 @@ def get_study_record(
             AICourseLessonAttendScript.query.filter(
                 AICourseLessonAttendScript.lesson_id.in_(lesson_ids),
                 AICourseLessonAttendScript.status == 1,
+                AICourseLessonAttendScript.user_id == user_id,
             )
             .order_by(AICourseLessonAttendScript.id.asc())
             .all()
@@ -345,9 +346,6 @@ def get_study_record(
             .order_by(block_model.id.desc())
             .first()
         )
-        app.logger.info(
-            f"find index {last_attend.script_index} last_block: {last_block.block_bid}"
-        )
         if not last_block:
             ret.ui = []
             return ret
@@ -367,13 +365,7 @@ def get_study_record(
         )
         if len(uis) > 0:
             ret.ui = uis[0]
-        app.logger.info(
-            f"ui: {json.dumps([i.__json__() for i in uis], ensure_ascii=False)}"
-        )
         lesson_id = last_lesson_id
-        app.logger.info(
-            f"last_block.block_bid: {last_block.block_bid} type: {block_dto.type}"
-        )
 
         if (
             attend_scripts[-1].script_id == last_block.block_bid

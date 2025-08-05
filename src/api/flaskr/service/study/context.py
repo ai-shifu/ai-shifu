@@ -216,9 +216,9 @@ class RunScriptContext:
             outline_item_info_db: Union[
                 ShifuDraftOutlineItem, ShifuPublishedOutlineItem
             ] = self._outline_model.query.filter(
-                self._outline_model.id == outline_item_info.id,
+                self._outline_model.outline_item_bid == outline_item_info.bid,
             ).first()
-            if not outline_item_info:
+            if not outline_item_info_db:
                 raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
             if outline_item_info_db.type == LESSON_TYPE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
@@ -691,7 +691,6 @@ class RunScriptContext:
 
     def get_system_prompt(self, outline_item_info: ShifuOutlineItemDto) -> str:
         path = find_node_with_parents(self._struct, outline_item_info.bid)
-        self.app.logger.info(f"path: {path}")
         path = list(reversed(path))
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
