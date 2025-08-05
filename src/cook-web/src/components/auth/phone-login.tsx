@@ -165,7 +165,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
           {isLoading && !showOtpInput ? (
             <Loader2 className='h-4 w-4 animate-spin mr-2' />
           ) : countdown > 0 ? (
-            t('login.seconds-later', { count: countdown })
+            t('auth.seconds-later', { count: countdown })
           ) : (
             t('auth.get-otp')
           )}
