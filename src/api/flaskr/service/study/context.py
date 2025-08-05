@@ -711,12 +711,8 @@ class RunScriptContext:
         return None
 
     def get_llm_settings(self, outline_item_info: ShifuOutlineItemDto) -> LLMSettings:
-        self.app.logger.info(f"get_llm_settings {outline_item_info.bid}")
-        self.app.logger.info(f"struct: {self._struct}")
         path = find_node_with_parents(self._struct, outline_item_info.bid)
-        self.app.logger.info(f"path: {path}")
         path.reverse()
-        self.app.logger.info(f"path: {path}")
         outline_ids = [item.id for item in path if item.type == "outline"]
         shifu_ids = [item.id for item in path if item.type == "shifu"]
         outline_item_info_db: Union[
