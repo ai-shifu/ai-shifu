@@ -31,18 +31,7 @@ export function useAuth(options: UseAuthOptions = {}) {
   const { login, logout } = useUserStore();
   const { t } = useTranslation();
 
-  // Handle token expiration by refreshing token and retrying
-  const handleTokenExpiration = async (
-    loginMethod: () => Promise<LoginResponse>,
-  ): Promise<LoginResponse> => {
-    // Logout to get new guest token (without page reload)
-    await logout(false);
-
-    // Retry the login with new token
-    return await loginMethod();
-  };
-
-  // Generic wrapper for any API call that may encounter token expiration
+  // Generic wrapper for API calls with automatic token refresh on expiration
   const callWithTokenRefresh = async <T extends ApiResponse>(
     apiCall: () => Promise<T>,
   ): Promise<T> => {
@@ -113,14 +102,9 @@ export function useAuth(options: UseAuthOptions = {}) {
   // Email/Password login with automatic retry on token expiration
   const loginWithEmailPassword = async (username: string, password: string) => {
     try {
-      const loginMethod = () => apiService.login({ username, password });
-
-      let response = await loginMethod();
-
-      // Handle token expiration on login page
-      if (response.code === 1005) {
-        response = await handleTokenExpiration(loginMethod);
-      }
+      const response = await callWithTokenRefresh(() =>
+        apiService.login({ username, password }),
+      );
 
       const success = await processLoginResponse(response);
       if (!success) {
@@ -150,15 +134,9 @@ export function useAuth(options: UseAuthOptions = {}) {
     language: string,
   ) => {
     try {
-      const loginMethod = () =>
-        apiService.verifySmsCode({ mobile, sms_code, language });
-
-      let response = await loginMethod();
-
-      // Handle token expiration on login page
-      if (response.code === 1005) {
-        response = await handleTokenExpiration(loginMethod);
-      }
+      const response = await callWithTokenRefresh(() =>
+        apiService.verifySmsCode({ mobile, sms_code, language }),
+      );
 
       const success = await processLoginResponse(response);
       if (!success) {

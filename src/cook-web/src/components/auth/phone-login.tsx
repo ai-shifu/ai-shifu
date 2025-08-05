@@ -93,7 +93,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
           description: t('auth.please-check-your-phone-sms'),
         });
       }
-    } catch (error: any) {
+    } catch {
       // Error already handled in sendSmsCode
     } finally {
       setIsLoading(false);
