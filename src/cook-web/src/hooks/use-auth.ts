@@ -4,21 +4,18 @@ import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
 import type { UserInfo } from '@/c-types';
 
-interface LoginResponse {
-  code: number;
-  data?: {
-    userInfo: UserInfo;
-    token: string;
-  };
-  message?: string;
-  msg?: string;
-}
-
 interface ApiResponse {
   code: number;
   data?: any;
   message?: string;
   msg?: string;
+}
+
+interface LoginResponse extends ApiResponse {
+  data?: {
+    userInfo: UserInfo;
+    token: string;
+  };
 }
 
 interface UseAuthOptions {
