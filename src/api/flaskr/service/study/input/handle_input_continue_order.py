@@ -10,6 +10,7 @@ from flaskr.service.user.models import User
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
+from typing import Generator
 
 
 # geyunfei
@@ -26,7 +27,7 @@ def _handle_input_continue_order(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     course_id = outline_item_info.shifu_bid
     buy_record = AICourseBuyRecord.query.filter(
         AICourseBuyRecord.course_id == course_id,

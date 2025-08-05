@@ -12,6 +12,7 @@ from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.study.plugin import register_shifu_continue_handler
 from flaskr.i18n import _
+from typing import Generator
 
 
 @register_shifu_continue_handler("continue")
@@ -25,8 +26,7 @@ def _handle_input_continue(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
-    is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     if block_dto.block_content:
         # The continue button has a non-default label
         default = _("COMMON.CONTINUE")

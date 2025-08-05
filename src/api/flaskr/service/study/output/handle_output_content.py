@@ -2,7 +2,6 @@ from flask import Flask
 from flaskr.service.shifu.adapter import BlockDTO, ContentDTO
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.study.plugin import register_shifu_output_handler
-from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.study.utils import make_script_dto
 from flaskr.service.user.models import User
 from langfuse.client import StatefulTraceClient
@@ -26,7 +25,7 @@ def handle_output_content(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-) -> Generator[ScriptDTO, None, None]:
+) -> Generator[str, None, None]:
     content_dto: ContentDTO = block_dto.block_content
     content = content_dto.content
     prompt = get_fmt_prompt(

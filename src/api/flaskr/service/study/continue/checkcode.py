@@ -16,5 +16,5 @@ def _handle_continue_checkcode(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> bool:
     return user_info.user_state != 0

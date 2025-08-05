@@ -9,7 +9,7 @@ from flaskr.service.order.consts import BUY_STATUS_SUCCESS
 
 
 @register_shifu_continue_handler("payment")
-def _handle_continue_order(
+def _handle_continue_payment(
     app: Flask,
     user_info: User,
     attend_id: str,
@@ -18,7 +18,7 @@ def _handle_continue_order(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> bool:
     order: AICourseBuyRecord = AICourseBuyRecord.query.filter(
         AICourseBuyRecord.user_id == user_info.user_id,
         AICourseBuyRecord.course_id == outline_item_info.shifu_bid,

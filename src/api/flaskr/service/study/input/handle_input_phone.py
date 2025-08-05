@@ -18,6 +18,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.study.const import INPUT_TYPE_PHONE
+from typing import Generator
 
 
 @register_shifu_input_handler("phone")
@@ -32,7 +33,7 @@ def _handle_input_phone(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )

@@ -19,7 +19,7 @@ def _handle_output_ask(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> ScriptDTO:
 
     shifu_bid = outline_item_info.shifu_bid
     app.logger.info(f"block_dto: {shifu_bid}")

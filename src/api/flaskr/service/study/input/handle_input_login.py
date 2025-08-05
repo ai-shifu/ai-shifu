@@ -15,6 +15,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO, LoginDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.user.models import User
+from typing import Generator
 
 
 @register_shifu_input_handler("login")
@@ -29,7 +30,7 @@ def _handle_input_login(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )

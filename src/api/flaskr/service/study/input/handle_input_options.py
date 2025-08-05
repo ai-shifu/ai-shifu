@@ -15,6 +15,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO, OptionsDTO
 from flaskr.service.profile.funcs import get_profile_item_definition_list
 from flaskr.service.study.output.handle_output_options import get_script_ui_label
+from typing import Generator
 
 
 @register_shifu_input_handler("options")
@@ -30,7 +31,7 @@ def _handle_input_options(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
 
     options: OptionsDTO = block_dto.block_content
     result_variable_id = options.result_variable_bid

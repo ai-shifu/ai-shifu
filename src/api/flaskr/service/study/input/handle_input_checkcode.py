@@ -1,4 +1,5 @@
 import time
+from typing import Generator
 from flask import Flask
 from flaskr.service.common.models import AppException
 from flaskr.service.study.const import INPUT_TYPE_CHECKCODE, ROLE_TEACHER
@@ -34,7 +35,7 @@ def _handle_input_checkcode(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     try:
         log_script = generation_attend(
             app, user_info, attend_id, outline_item_info, block_dto

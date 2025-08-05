@@ -1,4 +1,5 @@
 import time
+from typing import Generator
 from flask import Flask
 from flaskr.api.llm import chat_llm
 from flaskr.service.study.const import ROLE_STUDENT, ROLE_TEACHER
@@ -44,7 +45,7 @@ def _handle_input_ask(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     """
     Main function to handle user Q&A input
     Responsible for processing user questions in the shifu and returning AI tutor responses

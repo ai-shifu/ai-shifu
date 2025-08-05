@@ -16,6 +16,5 @@ def _handle_continue_content(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
-    app.logger.info(f"handle_continue_content {block_dto.type}")
+) -> bool:
     return True

@@ -21,7 +21,7 @@ def _handle_output_input(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
-):
+) -> ScriptDTO:
     inputDto: InputDTO = block_dto.block_content
     msg = get_script_ui_label(app, inputDto.placeholder)
     if not msg:

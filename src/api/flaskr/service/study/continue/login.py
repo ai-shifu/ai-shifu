@@ -16,6 +16,5 @@ def _handle_continue_login(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
-    app.logger.info(f"check_login {user_info.user_state}")
+) -> bool:
     return user_info.user_state != 0

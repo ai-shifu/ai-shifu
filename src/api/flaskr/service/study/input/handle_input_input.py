@@ -1,4 +1,5 @@
 import time
+from typing import Generator
 from flask import Flask
 from flaskr.api.llm import invoke_llm
 from flaskr.service.profile.funcs import save_user_profiles
@@ -50,7 +51,7 @@ def _handle_input_input(
     trace_args: dict,
     trace: StatefulTraceClient,
     is_preview: bool = False,
-):
+) -> Generator[str, None, None]:
     model_setting = None
     check_prompt_template = None
     inputDto: InputDTO = block_dto.block_content
