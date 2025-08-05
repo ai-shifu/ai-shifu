@@ -37,7 +37,7 @@ def _handle_input_phone(
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = block_dto.block_content
+    log_script.script_content = input
     log_script.script_role = ROLE_STUDENT  # type: ignore
     db.session.add(log_script)
     span = trace.span(name="user_input_phone", input=block_dto.block_content)
