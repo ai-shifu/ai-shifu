@@ -18,7 +18,7 @@ def _handle_continue_order(
     trace_args: dict,
     trace: StatefulTraceClient,
 ):
-    order = AICourseBuyRecord.query.filter(
+    order: AICourseBuyRecord = AICourseBuyRecord.query.filter(
         AICourseBuyRecord.user_id == user_info.user_id,
         AICourseBuyRecord.course_id == outline_item_info.shifu_bid,
         AICourseBuyRecord.status == BUY_STATUS_SUCCESS,
@@ -26,5 +26,5 @@ def _handle_continue_order(
 
     if order is None:
         return False
-    app.logger.info(f"order: {order.order_id}")
+    app.logger.info(f"order: {order.record_id}")
     return True

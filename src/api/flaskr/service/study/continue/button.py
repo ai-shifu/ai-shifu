@@ -17,4 +17,4 @@ def _handle_continue_button(
     trace: StatefulTraceClient,
 ):
     app.logger.info(f"handle_continue_button {block_dto.type}")
-    return True
+    return False

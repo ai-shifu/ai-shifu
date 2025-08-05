@@ -219,20 +219,20 @@ def get_study_record(
         outline_item: ShifuOutlineItemDto = get_outline_item_dto(
             app, lesson_id, preview_mode
         )
+        ret = StudyRecordDTO([])
         if not outline_item:
-            return None
+            return ret
         shifu_info: ShifuInfoDto = get_shifu_dto(
             app, outline_item.shifu_bid, preview_mode
         )
         if not shifu_info:
-            return None
-        teacher_avatar = shifu_info.avatar
-
+            return ret
+        ret.teacher_avatar = shifu_info.avatar
         shifu_struct: HistoryItem = get_shifu_struct(
             app, outline_item.shifu_bid, preview_mode
         )
         if not shifu_struct:
-            return None
+            return ret
 
         q = queue.Queue()
         q.put(shifu_struct)
@@ -246,7 +246,7 @@ def get_study_record(
                 for child in item.children:
                     q.put(child)
         if not lesson_info:
-            return None
+            return ret
 
         q = queue.Queue()
         q.put(lesson_info)
@@ -268,8 +268,7 @@ def get_study_record(
                     outline_block_map[item.bid] = [block.bid for block in item.children]
 
         if not lesson_ids:
-            return None
-
+            return ret
         attend_infos = (
             AICourseLessonAttend.query.filter(
                 AICourseLessonAttend.user_id == user_id,
@@ -281,7 +280,7 @@ def get_study_record(
             .all()
         )
         if not attend_infos:
-            return None
+            return ret
         attend_ids = [attend_info.attend_id for attend_info in attend_infos]
         attend_scripts = (
             AICourseLessonAttendScript.query.filter(
@@ -307,7 +306,7 @@ def get_study_record(
 
         attend_scripts.sort(key=get_script_index)
         if len(attend_scripts) == 0:
-            return StudyRecordDTO([])
+            return ret
         items = [
             StudyRecordItemDTO(
                 i.script_index,
@@ -323,61 +322,39 @@ def get_study_record(
             for i in attend_scripts
         ]
         user_info = User.query.filter_by(user_id=user_id).first()
-        ret = StudyRecordDTO(items, teacher_avatar=teacher_avatar)
+        ret.records = items
         last_block_id = attend_scripts[-1].script_id
-        last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
-            block_model.query.filter(
-                block_model.block_bid == last_block_id, block_model.deleted == 0
-            )
-            .order_by(block_model.id.desc())
-            .first()
-        )
-        if not last_block:
-            ret.ui = []
-            return ret
-        app.logger.info(f"last_block: {last_block.block_bid} {last_block.type}")
-        block_dto: BlockDTO = generate_block_dto_from_model_internal(
-            last_block, convert_html=False
-        )
-        app.logger.info(f"block_dto: {block_dto.type}")
-        last_lesson_id = last_block.outline_item_bid
+        last_lesson_id = attend_scripts[-1].lesson_id
         last_attend: AICourseLessonAttend = [
             atend for atend in attend_infos if atend.lesson_id == last_lesson_id
         ][-1]
         last_outline_item = get_outline_item_dto(app, last_lesson_id, preview_mode)
-        block_index = outline_block_map.get(last_lesson_id, []).index(
-            last_block.block_bid
+        if (
+            last_lesson_id in lesson_outline_map
+            and len(lesson_outline_map.get(last_lesson_id, []))
+            > last_attend.script_index
+        ):
+            last_block_id = lesson_outline_map.get(last_lesson_id, [])[
+                last_attend.script_index
+            ]
+        last_block = (
+            block_model.query.filter(
+                block_model.outline_item_bid == last_lesson_id,
+                block_model.deleted == 0,
+                block_model.block_bid == last_block_id,
+            )
+            .order_by(block_model.id.desc())
+            .first()
         )
-        app.logger.warning(
-            f"last_attend.script_index: {last_attend.script_index} last_block.position: {last_block.position} block dto type: {block_dto.type}"
+        app.logger.info(
+            f"find index {last_attend.script_index} last_block: {last_block.block_bid}"
         )
-        if last_attend.script_index > block_index:
-            if (
-                last_lesson_id in lesson_outline_map
-                and len(lesson_outline_map.get(last_lesson_id, []))
-                > last_attend.script_index
-            ):
-                last_block_id = lesson_outline_map.get(last_lesson_id, [])[
-                    last_attend.script_index
-                ]
-            last_block = (
-                block_model.query.filter(
-                    block_model.outline_item_bid == last_lesson_id,
-                    block_model.deleted == 0,
-                    block_model.block_bid == last_block_id,
-                )
-                .order_by(block_model.id.desc())
-                .first()
-            )
-            app.logger.info(
-                f"find index {last_attend.script_index} last_block: {last_block.block_bid}"
-            )
-            if not last_block:
-                ret.ui = []
-                return ret
-            block_dto: BlockDTO = generate_block_dto_from_model_internal(
-                last_block, convert_html=False
-            )
+        if not last_block:
+            ret.ui = []
+            return ret
+        block_dto: BlockDTO = generate_block_dto_from_model_internal(
+            last_block, convert_html=False
+        )
 
         uis = handle_ui(
             app,

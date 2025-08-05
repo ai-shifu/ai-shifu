@@ -499,14 +499,13 @@ class RunScriptContext:
         if not destination_condition:
             return None
 
-        self.app.logger.info(
-            f"user_variable: {user_variable} find destination {destination_condition.destination_bid}"
-        )
         goto_attend = AICourseLessonAttend.query.filter(
             AICourseLessonAttend.user_id == user_info.user_id,
             AICourseLessonAttend.course_id == outline_item_info.shifu_bid,
             AICourseLessonAttend.lesson_id == destination_condition.destination_bid,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+            AICourseLessonAttend.status.notin_(
+                [ATTEND_STATUS_RESET, ATTEND_STATUS_COMPLETED]
+            ),
         ).first()
         if not goto_attend:
             goto_attend = AICourseLessonAttend()
@@ -543,8 +542,6 @@ class RunScriptContext:
 
         outline_struct = self._get_outline_struct(outline_item_id)
 
-        self.app.logger.info(f"outline_struct: {outline_struct}")
-
         if attend.script_index >= len(outline_struct.children):
             return None
         block_id = outline_struct.children[attend.script_index].id
@@ -565,6 +562,7 @@ class RunScriptContext:
             goto_outline_struct = self._get_outline_struct(goto_attend.lesson_id)
             if goto_attend.script_index >= len(goto_outline_struct.children):
                 attend.script_index = attend.script_index + 1
+                goto_attend.status = ATTEND_STATUS_COMPLETED
                 db.session.flush()
                 ret = self._get_run_script_info(attend)
                 if ret:
@@ -619,36 +617,6 @@ class RunScriptContext:
                 self._can_continue = False
                 return
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
-        if self._input_type == "continue" and self._run_type == RunType.INPUT:
-            app.logger.info(f"当前块类型: {run_script_info.block_dto.type}")
-            if run_script_info.block_dto.type == "content":
-                # 当前块是内容块，切到输出
-                app.logger.info("当前是内容块，直接输出")
-                self._run_type = RunType.OUTPUT
-            elif check_block_continue(
-                app,
-                self._user_info,
-                self._current_attend.attend_id,
-                run_script_info.outline_item_info,
-                run_script_info.block_dto,
-                self._trace_args,
-                self._trace,
-            ):
-                # 当前块可以继续，就输出下一块
-                app.logger.info("当前块可以继续，跳到下一块")
-                run_script_info.attend.script_index += 1
-                if self._current_attend.attend_id == run_script_info.attend.attend_id:
-                    run_script_info.attend.script_index = (
-                        run_script_info.attend.script_index
-                    )
-                self._run_type = RunType.OUTPUT
-                db.session.flush()
-                return
-            else:
-                # 当前块不能继续，要转到输出
-                app.logger.info("当前块不能继续，转到输出")
-                self._can_continue = False
-                self._run_type = RunType.OUTPUT
         if self._run_type == RunType.INPUT:
             res = handle_block_input(
                 app=app,
@@ -669,10 +637,6 @@ class RunScriptContext:
                 and self._input_type != "ask"
             ):
                 run_script_info.attend.script_index += 1
-                if self._current_attend.attend_id == run_script_info.attend.attend_id:
-                    run_script_info.attend.script_index = (
-                        run_script_info.attend.script_index
-                    )
             run_script_info.attend.status = ATTEND_STATUS_IN_PROGRESS
             self._input_type = "continue"
             self._run_type = RunType.OUTPUT
@@ -706,13 +670,6 @@ class RunScriptContext:
             self._can_continue = continue_check
             if self._can_continue:
                 run_script_info.attend.script_index += 1
-                if self._current_attend.attend_id == run_script_info.attend.attend_id:
-                    run_script_info.attend.script_index = (
-                        run_script_info.attend.script_index
-                    )
-            app.logger.info(
-                f"output script index: {run_script_info.attend.script_index}"
-            )
             db.session.flush()
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
