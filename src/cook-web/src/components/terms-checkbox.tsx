@@ -27,14 +27,14 @@ export function TermsCheckbox({
         htmlFor='terms'
         className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
       >
-        {t('login.i-have-read-and-agree-to-the')}
+        {t('auth.i-have-read-and-agree-to-the')}
         <a
           onClick={() => {
             router.push('/agreement');
           }}
           className='text-primary hover:underline mx-1'
         >
-          {t('login.service-agreement')}
+          {t('auth.service-agreement')}
         </a>
         &
         <a
@@ -43,7 +43,7 @@ export function TermsCheckbox({
           }}
           className='text-primary hover:underline mx-1'
         >
-          {t('login.privacy-policy')}
+          {t('auth.privacy-policy')}
         </a>
       </label>
     </div>

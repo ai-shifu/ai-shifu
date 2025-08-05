@@ -56,12 +56,12 @@ export function ForgotPasswordReset({
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError(t('login.please-confirm-password'));
+      setConfirmPasswordError(t('auth.please-confirm-password'));
       return false;
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError(t('login.password-not-match'));
+      setConfirmPasswordError(t('auth.password-not-match'));
       return false;
     }
 
@@ -109,21 +109,21 @@ export function ForgotPasswordReset({
 
       if (response.code == 0) {
         toast({
-          title: t('login.password-reset'),
-          description: t('login.please-use-new-password'),
+          title: t('auth.password-reset'),
+          description: t('auth.please-use-new-password'),
         });
         onComplete();
       } else {
         toast({
-          title: t('login.reset-password-failed'),
-          description: t('login.please-try-again-later'),
+          title: t('auth.failed'),
+          description: t('common.please-try-again-later'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.reset-password-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -138,12 +138,12 @@ export function ForgotPasswordReset({
           htmlFor='new-password'
           className={passwordError ? 'text-red-500' : ''}
         >
-          {t('login.new-password')}
+          {t('auth.new-password')}
         </Label>
         <Input
           id='new-password'
           type='password'
-          placeholder={t('login.new-password-placeholder')}
+          placeholder={t('auth.new-password-placeholder')}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}
@@ -161,12 +161,12 @@ export function ForgotPasswordReset({
           htmlFor='confirm-new-password'
           className={confirmPasswordError ? 'text-red-500' : ''}
         >
-          {t('login.confirm-new-password')}
+          {t('auth.confirm-new-password')}
         </Label>
         <Input
           id='confirm-new-password'
           type='password'
-          placeholder={t('login.confirm-new-password-placeholder')}
+          placeholder={t('auth.confirm-new-password-placeholder')}
           value={confirmPassword}
           onChange={handleConfirmPasswordChange}
           disabled={isLoading}
@@ -187,7 +187,7 @@ export function ForgotPasswordReset({
           onClick={onBack}
           disabled={isLoading}
         >
-          {t('login.back')}
+          {t('auth.back')}
         </Button>
         <Button
           onClick={handleResetPassword}
@@ -202,7 +202,7 @@ export function ForgotPasswordReset({
           }
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-          {t('login.reset-password')}
+          {t('auth.reset-password')}
         </Button>
       </div>
     </div>

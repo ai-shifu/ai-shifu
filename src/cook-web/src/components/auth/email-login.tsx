@@ -11,7 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { TermsCheckbox } from '@/components/terms-checkbox';
 import { isValidEmail } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
-import { useLogin } from '@/hooks/use-login';
+import { useAuth } from '@/hooks/use-auth';
 
 import type { UserInfo } from '@/c-types';
 
@@ -32,16 +32,16 @@ export function EmailLogin({
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const { t } = useTranslation();
-  const { loginWithEmailPassword } = useLogin({ onSuccess: onLoginSuccess });
+  const { loginWithEmailPassword } = useAuth({ onSuccess: onLoginSuccess });
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'));
+      setEmailError(t('auth.email-empty'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t('auth.email-error'));
       return false;
     }
 
@@ -51,7 +51,7 @@ export function EmailLogin({
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError(t('login.password-error'));
+      setPasswordError(t('auth.password-error'));
       return false;
     }
 
@@ -89,7 +89,7 @@ export function EmailLogin({
 
     if (!termsAccepted) {
       toast({
-        title: t('login.terms-error'),
+        title: t('auth.terms-error'),
         variant: 'destructive',
       });
       return;
@@ -111,12 +111,12 @@ export function EmailLogin({
           htmlFor='email'
           className={emailError ? 'text-red-500' : ''}
         >
-          {t('login.email')}
+          {t('auth.email')}
         </Label>
         <Input
           id='email'
           type='email'
-          placeholder={t('login.email-placeholder')}
+          placeholder={t('auth.email-placeholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -132,20 +132,20 @@ export function EmailLogin({
             htmlFor='password'
             className={passwordError ? 'text-red-500' : ''}
           >
-            {t('login.password')}
+            {t('auth.password')}
           </Label>
           <button
             type='button'
             onClick={onForgotPassword}
             className='text-primary text-sm hover:underline'
           >
-            {t('login.forgot-password')}
+            {t('auth.forgot-password')}
           </button>
         </div>
         <Input
           id='password'
           type='password'
-          placeholder={t('login.password-placeholder')}
+          placeholder={t('auth.password-placeholder')}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}
@@ -170,7 +170,7 @@ export function EmailLogin({
         }
       >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('login.login')}
+        {t('auth.login')}
       </Button>
     </div>
   );

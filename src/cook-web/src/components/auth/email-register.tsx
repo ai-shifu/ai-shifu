@@ -45,12 +45,12 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'));
+      setEmailError(t('auth.email-empty'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t('auth.email-error'));
       return false;
     }
 
@@ -60,7 +60,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError(t('login.otp-error'));
+      setOtpError(t('auth.otp-error'));
       return false;
     }
 
@@ -70,7 +70,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError(t('login.password-error'));
+      setPasswordError(t('auth.password-error'));
       return false;
     }
 
@@ -87,12 +87,12 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
   const validateConfirmPassword = (confirmPassword: string) => {
     if (!confirmPassword) {
-      setConfirmPasswordError(t('login.confirm-password-error'));
+      setConfirmPasswordError(t('auth.confirm-password-error'));
       return false;
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError(t('login.confirm-password-error'));
+      setConfirmPasswordError(t('auth.confirm-password-error'));
       return false;
     }
 
@@ -149,7 +149,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
     if (!termsAccepted) {
       toast({
-        title: t('login.terms-error'),
+        title: t('auth.terms-error'),
         variant: 'destructive',
       });
       return;
@@ -177,20 +177,20 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
         }, 1000);
 
         toast({
-          title: t('login.otp-sent'),
-          description: t('login.please-check-your-email'),
+          title: t('auth.send-success'),
+          description: t('auth.please-check-your-email'),
         });
       } else {
         toast({
-          title: t('login.send-otp-failed'),
-          description: response.msg || t('login.please-try-again-later'),
+          title: t('auth.send-failed'),
+          description: response.msg || t('common.please-try-again-later'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.send-otp-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.send-failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -210,7 +210,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
     if (!termsAccepted) {
       toast({
-        title: t('login.terms-error'),
+        title: t('auth.terms-error'),
         variant: 'destructive',
       });
       return;
@@ -238,20 +238,20 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
           isValid: false,
         });
         toast({
-          title: t('login.email-verified'),
-          description: t('login.please-set-your-password'),
+          title: t('auth.email-verified'),
+          description: t('auth.please-set-your-password'),
         });
       } else {
         toast({
-          title: t('login.verification-failed'),
-          description: t('login.otp-error'),
+          title: t('auth.failed'),
+          description: t('auth.otp-error'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.verification-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -278,20 +278,20 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
 
       if (response.code == 0) {
         toast({
-          title: t('login.register-success'),
+          title: t('auth.register-success'),
         });
         onRegisterSuccess();
       } else {
         toast({
-          title: t('login.register-failed'),
-          description: t('login.please-try-again-later'),
+          title: t('auth.register-failed'),
+          description: t('common.please-try-again-later'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.register-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.register-failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -304,11 +304,11 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
       {step === 'verify' && (
         <div className='space-y-4'>
           <div className='space-y-2'>
-            <Label htmlFor='register-email'>{t('login.email')}</Label>
+            <Label htmlFor='register-email'>{t('auth.email')}</Label>
             <Input
               id='register-email'
               type='email'
-              placeholder={t('login.email-placeholder')}
+              placeholder={t('auth.email-placeholder')}
               value={email}
               onChange={handleEmailChange}
               disabled={isLoading}
@@ -323,7 +323,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
             <div className='flex space-x-2'>
               <Input
                 id='register-email-otp'
-                placeholder={t('login.otp-placeholder')}
+                placeholder={t('auth.otp-placeholder')}
                 value={emailOtp}
                 onChange={handleOtpChange}
                 disabled={isLoading || !email || !!emailError || !showOtpInput}
@@ -341,7 +341,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
                 ) : countdown > 0 ? (
                   t('login.seconds-later', { count: countdown })
                 ) : (
-                  t('login.get-otp')
+                  t('auth.get-otp')
                 )}
               </Button>
             </div>
@@ -369,7 +369,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
             {isVerifying ? (
               <Loader2 className='h-4 w-4 animate-spin mr-2' />
             ) : null}
-            {t('login.next')}
+            {t('auth.next')}
           </Button>
         </div>
       )}
@@ -381,12 +381,12 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
               htmlFor='register-password'
               className={passwordError ? 'text-red-500' : ''}
             >
-              {t('login.password')}
+              {t('auth.password')}
             </Label>
             <Input
               id='register-password'
               type='password'
-              placeholder={t('login.password-placeholder')}
+              placeholder={t('auth.password-placeholder')}
               value={password}
               onChange={handlePasswordChange}
               disabled={isLoading}
@@ -404,12 +404,12 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
               htmlFor='confirm-password'
               className={confirmPasswordError ? 'text-red-500' : ''}
             >
-              {t('login.confirm-password')}
+              {t('auth.confirm-password')}
             </Label>
             <Input
               id='confirm-password'
               type='password'
-              placeholder={t('login.confirm-password-placeholder')}
+              placeholder={t('auth.confirm-password-placeholder')}
               value={confirmPassword}
               onChange={handleConfirmPasswordChange}
               disabled={isLoading}
@@ -430,7 +430,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
               onClick={() => setStep('verify')}
               disabled={isLoading}
             >
-              {t('login.back')}
+              {t('auth.back')}
             </Button>
             <Button
               className='h-8'
@@ -447,7 +447,7 @@ export function EmailRegister({ onRegisterSuccess }: EmailRegisterProps) {
               {isLoading ? (
                 <Loader2 className='h-4 w-4 animate-spin mr-2' />
               ) : null}
-              {t('login.complete-registration')}
+              {t('auth.complete-registration')}
             </Button>
           </div>
         </div>

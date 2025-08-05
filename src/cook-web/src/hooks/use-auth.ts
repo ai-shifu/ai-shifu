@@ -14,12 +14,19 @@ interface LoginResponse {
   msg?: string;
 }
 
-interface UseLoginOptions {
+interface ApiResponse {
+  code: number;
+  data?: any;
+  message?: string;
+  msg?: string;
+}
+
+interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
   onError?: (error: any) => void;
 }
 
-export function useLogin(options: UseLoginOptions = {}) {
+export function useAuth(options: UseAuthOptions = {}) {
   const { toast } = useToast();
   const { login, logout } = useUserStore();
   const { t } = useTranslation();
@@ -35,34 +42,66 @@ export function useLogin(options: UseLoginOptions = {}) {
     return await loginMethod();
   };
 
+  // Generic wrapper for any API call that may encounter token expiration
+  const callWithTokenRefresh = async <T extends ApiResponse>(
+    apiCall: () => Promise<T>,
+  ): Promise<T> => {
+    try {
+      const response = await apiCall();
+
+      // Handle token expiration
+      if (response.code === 1005) {
+        // Refresh token
+        await logout(false);
+        // Retry the API call
+        return await apiCall();
+      }
+
+      return response;
+    } catch (error) {
+      throw error;
+    }
+  };
+
   // Handle common login errors
-  const handleLoginError = (code: number, message?: string) => {
+  const handleLoginError = (
+    code: number,
+    message?: string,
+    context?: 'email' | 'sms',
+  ) => {
+    // Skip token expiration as it's handled by retry logic
+    if (code === 1005) return;
+
+    const title = t('auth.failed');
+    let description: string;
+
     switch (code) {
       case 1001:
-      case 1003:
-        toast({
-          title: t('login.login-failed'),
-          description: t('login.username-or-password-error'),
-          variant: 'destructive',
-        });
+        description = t('auth.credential-error');
         break;
-      case 1005:
-        // Token expiration is handled by retry logic
+      case 1003:
+        // For SMS context, 1003 means OTP expired; for email context, it means wrong credentials
+        description =
+          context === 'sms'
+            ? `${t('auth.otp')} ${t('auth.expired')}`
+            : t('auth.credential-error');
         break;
       default:
-        toast({
-          title: t('login.login-failed'),
-          description: message || t('login.network-error'),
-          variant: 'destructive',
-        });
+        description = message || t('common.network-error');
     }
+
+    toast({
+      title,
+      description,
+      variant: 'destructive',
+    });
   };
 
   // Process login response
   const processLoginResponse = async (response: LoginResponse) => {
     if (response.code === 0 && response.data) {
       toast({
-        title: t('login.login-success'),
+        title: t('auth.success'),
       });
       await login(response.data.userInfo, response.data.token);
       options.onSuccess?.(response.data.userInfo);
@@ -85,14 +124,18 @@ export function useLogin(options: UseLoginOptions = {}) {
 
       const success = await processLoginResponse(response);
       if (!success) {
-        handleLoginError(response.code, response.message || response.msg);
+        handleLoginError(
+          response.code,
+          response.message || response.msg,
+          'email',
+        );
       }
 
       return response;
     } catch (error: any) {
       toast({
-        title: t('login.login-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
       options.onError?.(error);
@@ -119,26 +162,18 @@ export function useLogin(options: UseLoginOptions = {}) {
 
       const success = await processLoginResponse(response);
       if (!success) {
-        if (response.code === 1003) {
-          toast({
-            title: t('login.verification-failed'),
-            description: t('login.otp-expired'),
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: t('login.verification-failed'),
-            description: t('login.otp-error'),
-            variant: 'destructive',
-          });
-        }
+        handleLoginError(
+          response.code,
+          response.message || response.msg,
+          'sms',
+        );
       }
 
       return response;
     } catch (error: any) {
       toast({
-        title: t('login.verification-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
       options.onError?.(error);
@@ -146,8 +181,37 @@ export function useLogin(options: UseLoginOptions = {}) {
     }
   };
 
+  // Send SMS verification code with automatic token refresh
+  const sendSmsCode = async (mobile: string, language: string) => {
+    try {
+      const response = await callWithTokenRefresh(() =>
+        apiService.sendSmsCode({ mobile, language }),
+      );
+
+      if (response.code !== 0) {
+        toast({
+          title: t('auth.send-failed'),
+          description:
+            response.message || response.msg || t('common.network-error'),
+          variant: 'destructive',
+        });
+      }
+
+      return response;
+    } catch (error: any) {
+      toast({
+        title: t('auth.send-failed'),
+        description: error.message || t('common.network-error'),
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   return {
     loginWithEmailPassword,
     loginWithSmsCode,
+    sendSmsCode,
+    callWithTokenRefresh,
   };
 }

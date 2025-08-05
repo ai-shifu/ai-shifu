@@ -52,20 +52,20 @@ export function ForgotPasswordVerify({
       if (response.code == 0) {
         setCountdown(60);
         toast({
-          title: t('login.otp-resent'),
-          description: t('login.please-check-your-email'),
+          title: t('auth.send-success'),
+          description: t('auth.please-check-your-email'),
         });
       } else {
         toast({
-          title: t('login.send-otp-failed'),
-          description: t('login.please-try-again-later'),
+          title: t('auth.send-failed'),
+          description: t('common.please-try-again-later'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.send-otp-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.send-failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -76,7 +76,7 @@ export function ForgotPasswordVerify({
   const handleVerifyOtp = async () => {
     if (!otp) {
       toast({
-        title: t('login.please-input-otp'),
+        title: t('auth.please-input-otp'),
         variant: 'destructive',
       });
       return;
@@ -95,21 +95,21 @@ export function ForgotPasswordVerify({
         // Token handled via login flow, no need to set manually here
 
         toast({
-          title: t('login.verification-success'),
-          description: t('login.verification-success-description'),
+          title: t('auth.success'),
+          description: t('auth.verification-success-description'),
         });
         onNext(otp);
       } else {
         toast({
-          title: t('login.verification-failed'),
-          description: t('login.otp-error'),
+          title: t('auth.failed'),
+          description: t('auth.otp-error'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.verification-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -120,10 +120,10 @@ export function ForgotPasswordVerify({
   return (
     <div className='space-y-4'>
       <div className='space-y-2'>
-        <Label htmlFor='otp'>{t('login.otp')}</Label>
+        <Label htmlFor='otp'>{t('auth.otp')}</Label>
         <Input
           id='otp'
-          placeholder={t('login.otp-placeholder')}
+          placeholder={t('auth.otp-placeholder')}
           value={otp}
           onChange={e => setOtp(e.target.value)}
           disabled={isLoading}
@@ -139,7 +139,7 @@ export function ForgotPasswordVerify({
             onClick={handleResendOtp}
             disabled={isLoading}
           >
-            {t('login.resend-otp')}
+            {t('auth.resend-otp')}
           </Button>
         )}
       </div>
@@ -150,7 +150,7 @@ export function ForgotPasswordVerify({
           disabled={isLoading}
           className='h-8'
         >
-          {t('login.back')}
+          {t('auth.back')}
         </Button>
         <Button
           onClick={handleVerifyOtp}
@@ -158,7 +158,7 @@ export function ForgotPasswordVerify({
           className='h-8'
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-          {t('login.verify')}
+          {t('auth.verify')}
         </Button>
       </div>
     </div>

@@ -33,12 +33,12 @@ export function ForgotPasswordCombined({
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-empty'));
+      setEmailError(t('auth.email-empty'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t('auth.email-error'));
       return false;
     }
 
@@ -48,7 +48,7 @@ export function ForgotPasswordCombined({
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError(t('login.otp-error'));
+      setOtpError(t('auth.otp-error'));
       return false;
     }
 
@@ -103,20 +103,20 @@ export function ForgotPasswordCombined({
         }, 1000);
 
         toast({
-          title: t('login.otp-sent'),
-          description: t('login.please-check-your-email'),
+          title: t('auth.send-success'),
+          description: t('auth.please-check-your-email'),
         });
       } else {
         toast({
-          title: t('login.send-otp-failed'),
-          description: t('login.please-try-again-later'),
+          title: t('auth.send-failed'),
+          description: t('common.please-try-again-later'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.send-otp-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.send-failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -146,21 +146,21 @@ export function ForgotPasswordCombined({
       if (response.code == 0) {
         // Token handled via login flow, no need to set manually here
         toast({
-          title: t('login.verification-success'),
-          description: t('login.please-set-new-password'),
+          title: t('auth.success'),
+          description: t('auth.please-set-new-password'),
         });
         onNext(email, otp);
       } else {
         toast({
-          title: t('login.verification-failed'),
-          description: t('login.otp-error'),
+          title: t('auth.failed'),
+          description: t('auth.otp-error'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.verification-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -176,13 +176,13 @@ export function ForgotPasswordCombined({
           htmlFor='email'
           className={emailError ? 'text-red-500' : ''}
         >
-          {t('login.email')}
+          {t('auth.email')}
         </Label>
         <div className='flex space-x-2'>
           <Input
             id='email'
             type='email'
-            placeholder={t('login.email-placeholder')}
+            placeholder={t('auth.email-placeholder')}
             value={email}
             onChange={handleEmailChange}
             disabled={isLoading}
@@ -200,7 +200,7 @@ export function ForgotPasswordCombined({
             ) : countdown > 0 ? (
               t('login.seconds-later', { count: countdown })
             ) : (
-              t('login.get-otp')
+              t('auth.get-otp')
             )}
           </Button>
         </div>
@@ -212,11 +212,11 @@ export function ForgotPasswordCombined({
           htmlFor='otp'
           className={otpError ? 'text-red-500' : ''}
         >
-          {t('login.otp')}
+          {t('auth.otp')}
         </Label>
         <Input
           id='otp'
-          placeholder={t('login.otp-placeholder')}
+          placeholder={t('auth.otp-placeholder')}
           value={otp}
           onChange={handleOtpChange}
           disabled={isLoading || !codeSent}
@@ -235,7 +235,7 @@ export function ForgotPasswordCombined({
         }
       >
         {isVerifying ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('login.next')}
+        {t('auth.next')}
       </Button>
     </div>
   );

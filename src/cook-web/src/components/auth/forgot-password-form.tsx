@@ -22,8 +22,8 @@ export function ForgotPasswordForm({ onComplete }: ForgotPasswordFormProps) {
 
   const handleComplete = () => {
     toast({
-      title: t('login.password-reset'),
-      description: t('login.please-use-new-password'),
+      title: t('auth.password-reset'),
+      description: t('auth.please-use-new-password'),
     });
     onComplete();
   };

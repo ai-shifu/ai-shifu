@@ -25,12 +25,12 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t('auth.email-error'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('login.email-error'));
+      setEmailError(t('auth.email-error'));
       return false;
     }
 
@@ -63,21 +63,21 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
 
       if (response.code == 0) {
         toast({
-          title: t('login.code-sent'),
-          description: t('login.please-check-your-email'),
+          title: t('auth.send-success'),
+          description: t('auth.please-check-your-email'),
         });
         onNext(email);
       } else {
         toast({
-          title: t('login.send-otp-failed'),
-          description: t('login.please-try-again-later'),
+          title: t('auth.send-failed'),
+          description: t('common.please-try-again-later'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('login.send-otp-failed'),
-        description: error.message || t('login.network-error'),
+        title: t('auth.send-failed'),
+        description: error.message || t('common.network-error'),
         variant: 'destructive',
       });
     } finally {
@@ -92,12 +92,12 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
           htmlFor='email'
           className={emailError ? 'text-red-500' : ''}
         >
-          {t('login.email')}
+          {t('auth.email')}
         </Label>
         <Input
           id='email'
           type='email'
-          placeholder={t('login.email-placeholder')}
+          placeholder={t('auth.email-placeholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -114,7 +114,7 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
         disabled={isLoading || !email || !!emailError}
       >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('login.get-otp')}
+        {t('auth.get-otp')}
       </Button>
     </div>
   );

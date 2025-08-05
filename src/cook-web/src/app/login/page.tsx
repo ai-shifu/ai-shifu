@@ -98,34 +98,34 @@ export default function AuthPage() {
             {authMode === 'login' && (
               <>
                 <CardTitle className='text-xl text-center'>
-                  {t('login.title')}
+                  {t('auth.title')}
                 </CardTitle>
               </>
             )}
             {authMode === 'register' && (
               <>
                 <CardTitle className='text-xl text-center'>
-                  {t('login.register')}
+                  {t('auth.register')}
                 </CardTitle>
               </>
             )}
             {authMode === 'forgot-password' && (
               <>
                 <CardTitle className='text-xl text-center'>
-                  {t('login.forgot-password')}
+                  {t('auth.forgot-password')}
                 </CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  {t('login.forgot-password')}
+                  {t('auth.forgot-password')}
                 </CardDescription>
               </>
             )}
             {authMode === 'feedback' && (
               <>
                 <CardTitle className='text-xl text-center'>
-                  {t('login.feedback')}
+                  {t('auth.feedback')}
                 </CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  {t('login.feedback')}
+                  {t('auth.feedback')}
                 </CardDescription>
               </>
             )}
@@ -145,12 +145,12 @@ export default function AuthPage() {
                     <TabsList className={'grid w-full grid-cols-2'}>
                       {isPhoneEnabled && (
                         <TabsTrigger value='phone'>
-                          {t('login.phone')}
+                          {t('auth.phone')}
                         </TabsTrigger>
                       )}
                       {isEmailEnabled && (
                         <TabsTrigger value='email'>
-                          {t('login.email')}
+                          {t('auth.email')}
                         </TabsTrigger>
                       )}
                     </TabsList>
@@ -196,7 +196,7 @@ export default function AuthPage() {
                   </div>
                 ) : (
                   <p className='text-center text-muted-foreground'>
-                    {t('login.no-registration-method')}
+                    {t('auth.no-registration-method')}
                   </p>
                 )}
               </>
@@ -214,12 +214,12 @@ export default function AuthPage() {
             {authMode === 'login' && isEmailEnabled && (
               <>
                 <p className='text-sm text-muted-foreground'>
-                  {t('login.no-account')}
+                  {t('auth.no-account')}
                   <button
                     onClick={() => setAuthMode('register')}
                     className='text-primary hover:underline'
                   >
-                    {t('login.register')}
+                    {t('auth.register')}
                   </button>
                 </p>
               </>
@@ -227,12 +227,12 @@ export default function AuthPage() {
             {authMode === 'register' && (
               <>
                 <p className='text-sm text-muted-foreground'>
-                  {t('login.has-account')}
+                  {t('auth.has-account')}
                   <button
                     onClick={() => setAuthMode('login')}
                     className='text-primary hover:underline'
                   >
-                    {t('login.login-now')}
+                    {t('auth.login-now')}
                   </button>
                 </p>
               </>
@@ -242,17 +242,17 @@ export default function AuthPage() {
                 onClick={handleBackToLogin}
                 className='text-primary hover:underline'
               >
-                {t('login.back-to-login')}
+                {t('auth.back-to-login')}
               </button>
             )}
             {authMode !== 'feedback' && (
               <p className='text-sm text-muted-foreground'>
-                {t('login.problem')}
+                {t('auth.problem')}
                 <button
                   onClick={handleFeedback}
                   className='text-primary hover:underline'
                 >
-                  {t('login.submit-feedback')}
+                  {t('auth.submit-feedback')}
                 </button>
               </p>
             )}
