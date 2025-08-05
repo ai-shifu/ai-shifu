@@ -281,30 +281,29 @@ def get_study_record(
         )
         if not attend_infos:
             return ret
-        attend_ids = [attend_info.attend_id for attend_info in attend_infos]
         attend_scripts = (
             AICourseLessonAttendScript.query.filter(
-                AICourseLessonAttendScript.attend_id.in_(attend_ids),
+                AICourseLessonAttendScript.lesson_id.in_(lesson_ids),
                 AICourseLessonAttendScript.status == 1,
             )
             .order_by(AICourseLessonAttendScript.id.asc())
             .all()
         )
 
-        def get_script_index(x: AICourseLessonAttendScript):
-            lesson_index = lesson_ids.index(x.lesson_id)
-            if x.lesson_id in lesson_outline_map:
-                return (
-                    lesson_index * 10000
-                    + lesson_outline_map.get(
-                        x.lesson_id,
-                    ).index(x.script_id)
-                    * 100
-                )
-            else:
-                return lesson_index * 10000 + 10000
+        # def get_script_index(x: AICourseLessonAttendScript):
+        #     lesson_index = lesson_ids.index(x.lesson_id)
+        #     if x.lesson_id in lesson_outline_map:
+        #         return (
+        #             lesson_index * 10000
+        #             + lesson_outline_map.get(
+        #                 x.lesson_id,
+        #             ).index(x.script_id)
+        #             * 100
+        #         )
+        #     else:
+        #         return lesson_index * 10000 + 10000
 
-        attend_scripts.sort(key=get_script_index)
+        # attend_scripts.sort(key=get_script_index)
         if len(attend_scripts) == 0:
             return ret
         items = [
@@ -496,6 +495,10 @@ def reset_user_study_info_by_lesson(
             else:
                 attend_info.status = ATTEND_STATUS_LOCKED
             db.session.add(attend_info)
+        AICourseLessonAttendScript.query.filter(
+            AICourseLessonAttendScript.lesson_id.in_(lesson_ids),
+            AICourseLessonAttendScript.status == 1,
+        ).update({"status": 0})
         db.session.commit()
         return True
 
