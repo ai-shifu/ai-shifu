@@ -31,6 +31,7 @@ def _handle_input_phone(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto

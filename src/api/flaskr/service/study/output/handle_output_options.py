@@ -18,6 +18,7 @@ def _handle_output_options(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     selection: OptionsDTO = block_dto.block_content
     btns = []

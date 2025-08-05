@@ -19,6 +19,7 @@ def make_continue_ui(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     button = block_dto.block_content
     msg = ""

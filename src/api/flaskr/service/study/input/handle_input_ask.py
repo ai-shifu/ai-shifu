@@ -43,6 +43,7 @@ def _handle_input_ask(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     """
     Main function to handle user Q&A input

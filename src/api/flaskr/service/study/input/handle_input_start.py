@@ -20,6 +20,7 @@ def _handle_input_start(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
 
     return None

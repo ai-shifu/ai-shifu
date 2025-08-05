@@ -18,6 +18,7 @@ def _handle_input_continue_branch(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     return False
     # goto: GotoDTO = block_dto.block_content

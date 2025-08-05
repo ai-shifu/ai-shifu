@@ -15,6 +15,7 @@ def _handle_continue_options(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     app.logger.info(f"continue options: {block_dto.block_content}")
 

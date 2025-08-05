@@ -195,7 +195,9 @@ class RunScriptContext:
         context_local.current_context = self
 
     @staticmethod
-    def get_current_context(app: Flask) -> "RunScriptContext":
+    def get_current_context(app: Flask) -> Union["RunScriptContext", None]:
+        if not hasattr(context_local, "current_context"):
+            return None
         return context_local.current_context
 
     def _get_current_attend(

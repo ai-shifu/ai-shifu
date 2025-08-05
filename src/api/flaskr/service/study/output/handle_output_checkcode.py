@@ -24,6 +24,7 @@ def _handle_output_checkcode(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     checkcode: CheckCodeDTO = block_dto.block_content
     if check_phone_number(app, user_info, checkcode.phone):

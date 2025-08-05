@@ -24,6 +24,7 @@ def _handle_output_payment(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     order = init_buy_record(app, user_info.user_id, outline_item_info.shifu_bid)
     if order.status != BUY_STATUS_SUCCESS:

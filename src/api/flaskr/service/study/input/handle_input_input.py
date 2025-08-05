@@ -49,6 +49,7 @@ def _handle_input_input(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     model_setting = None
     check_prompt_template = None

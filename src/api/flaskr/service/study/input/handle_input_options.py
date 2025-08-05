@@ -29,6 +29,7 @@ def _handle_input_options(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
 
     options: OptionsDTO = block_dto.block_content

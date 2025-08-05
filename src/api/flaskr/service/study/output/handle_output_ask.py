@@ -18,6 +18,7 @@ def _handle_output_ask(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
 
     shifu_bid = outline_item_info.shifu_bid

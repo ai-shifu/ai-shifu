@@ -21,6 +21,7 @@ def _handle_output_login(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     login: LoginDTO = block_dto.block_content
     title = get_script_ui_label(app, login.label)

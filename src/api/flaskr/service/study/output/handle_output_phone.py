@@ -21,6 +21,7 @@ def _handle_output_phone(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     phone: PhoneDTO = block_dto.block_content
     msg = get_script_ui_label(app, phone.label)

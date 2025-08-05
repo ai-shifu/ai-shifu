@@ -17,6 +17,7 @@ def _handle_continue_order(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     order: AICourseBuyRecord = AICourseBuyRecord.query.filter(
         AICourseBuyRecord.user_id == user_info.user_id,

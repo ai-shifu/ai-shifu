@@ -15,6 +15,7 @@ def _handle_continue_login(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     app.logger.info(f"check_login {user_info.user_state}")
     return user_info.user_state != 0

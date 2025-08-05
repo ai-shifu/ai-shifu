@@ -25,6 +25,7 @@ def _handle_input_continue(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     if block_dto.block_content:
         # The continue button has a non-default label

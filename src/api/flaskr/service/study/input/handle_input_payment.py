@@ -22,6 +22,7 @@ def _handle_input_payment(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     shifu_bid = outline_item_info.shifu_bid
     order = query_raw_buy_record(app, user_info.user_id, shifu_bid)

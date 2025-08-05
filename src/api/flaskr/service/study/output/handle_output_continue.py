@@ -21,6 +21,7 @@ def _handle_output_continue(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
 
     msg = ""

@@ -15,5 +15,6 @@ def _handle_continue_checkcode(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     return user_info.user_state != 0

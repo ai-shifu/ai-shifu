@@ -22,6 +22,7 @@ def handle_ui(
     input: str,
     trace,
     trace_args,
+    is_preview: bool = False,
 ):
     app.logger.info(f"handle_ui {block_dto.type}")
     if block_dto.type in SHIFU_OUTPUT_HANDLER_MAP:
@@ -42,6 +43,7 @@ def handle_ui(
             block_dto,
             trace_args,
             trace,
+            is_preview,
         ):
             app.logger.info("check_continue true ,make continue ui")
             ret.append(
@@ -53,6 +55,7 @@ def handle_ui(
                     block_dto,
                     trace_args,
                     trace,
+                    is_preview,
                 )
             )
         else:
@@ -66,6 +69,7 @@ def handle_ui(
                     block_dto,
                     trace_args,
                     trace,
+                    is_preview,
                 )
             )
         ret.append(
@@ -77,6 +81,7 @@ def handle_ui(
                 block_dto,
                 trace_args,
                 trace,
+                is_preview,
             )
         )
         span = trace.span(name="ui_script")
@@ -155,6 +160,7 @@ def handle_block_input(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     app.logger.info(f"handle_block_input {block_dto.type}")
     block_type = block_dto.type
@@ -170,6 +176,7 @@ def handle_block_input(
             block_dto,
             trace_args,
             trace,
+            is_preview,
         )
         if res:
             yield from res
@@ -186,6 +193,7 @@ def handle_block_output(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     if block_dto.type in SHIFU_OUTPUT_HANDLER_MAP:
         res = SHIFU_OUTPUT_HANDLER_MAP[block_dto.type](
@@ -202,6 +210,7 @@ def handle_block_output(
                     block_dto,
                     trace_args,
                     trace,
+                    is_preview,
                 )
             )
         else:
@@ -219,10 +228,18 @@ def check_block_continue(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     if block_dto.type in SHIFU_CONTINUE_HANDLER_MAP:
         result = SHIFU_CONTINUE_HANDLER_MAP[block_dto.type](
-            app, user_info, attend_id, outline_item_info, block_dto, trace_args, trace
+            app,
+            user_info,
+            attend_id,
+            outline_item_info,
+            block_dto,
+            trace_args,
+            trace,
+            is_preview,
         )
     else:
         app.logger.info(f"check_block_continue {block_dto.type} not found")

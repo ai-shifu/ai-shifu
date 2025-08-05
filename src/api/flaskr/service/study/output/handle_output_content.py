@@ -25,6 +25,7 @@ def handle_output_content(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> Generator[ScriptDTO, None, None]:
     content_dto: ContentDTO = block_dto.block_content
     content = content_dto.content

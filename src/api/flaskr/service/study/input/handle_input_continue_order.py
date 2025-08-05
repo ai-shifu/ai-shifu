@@ -25,6 +25,7 @@ def _handle_input_continue_order(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     course_id = outline_item_info.shifu_bid
     buy_record = AICourseBuyRecord.query.filter(

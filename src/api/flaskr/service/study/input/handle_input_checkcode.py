@@ -33,6 +33,7 @@ def _handle_input_checkcode(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ):
     try:
         log_script = generation_attend(

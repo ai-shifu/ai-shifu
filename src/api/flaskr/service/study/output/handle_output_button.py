@@ -21,6 +21,7 @@ def _handle_output_button(
     block_dto: BlockDTO,
     trace_args: dict,
     trace: StatefulTraceClient,
+    is_preview: bool = False,
 ) -> ScriptDTO:
     button: ButtonDTO = block_dto.block_content
     msg = get_script_ui_label(app, button.label)
