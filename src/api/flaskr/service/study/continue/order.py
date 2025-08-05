@@ -26,4 +26,5 @@ def _handle_continue_order(
 
     if order is None:
         return False
+    app.logger.info(f"order: {order.order_id}")
     return True

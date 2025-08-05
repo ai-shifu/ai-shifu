@@ -618,17 +618,38 @@ class RunScriptContext:
             if self._current_attend.status != ATTEND_STATUS_IN_PROGRESS:
                 self._can_continue = False
                 return
-        app.logger.info(
-            f"block type: {self._current_outline_item.bid} {self._current_attend.script_index}"
-        )
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
-        app.logger.info(
-            f"block type: {run_script_info.block_dto.type} {self._input_type}"
-        )
-        if (
-            self._run_type == RunType.INPUT
-            and self._input_type != run_script_info.block_dto.type
-        ):
+        if self._input_type == "continue" and self._run_type == RunType.INPUT:
+            app.logger.info(f"当前块类型: {run_script_info.block_dto.type}")
+            if run_script_info.block_dto.type == "content":
+                # 当前块是内容块，切到输出
+                app.logger.info("当前是内容块，直接输出")
+                self._run_type = RunType.OUTPUT
+            elif check_block_continue(
+                app,
+                self._user_info,
+                self._current_attend.attend_id,
+                run_script_info.outline_item_info,
+                run_script_info.block_dto,
+                self._trace_args,
+                self._trace,
+            ):
+                # 当前块可以继续，就输出下一块
+                app.logger.info("当前块可以继续，跳到下一块")
+                run_script_info.attend.script_index += 1
+                if self._current_attend.attend_id == run_script_info.attend.attend_id:
+                    run_script_info.attend.script_index = (
+                        run_script_info.attend.script_index
+                    )
+                self._run_type = RunType.OUTPUT
+                db.session.flush()
+                return
+            else:
+                # 当前块不能继续，要转到输出
+                app.logger.info("当前块不能继续，转到输出")
+                self._can_continue = False
+                self._run_type = RunType.OUTPUT
+        if self._run_type == RunType.INPUT:
             res = handle_block_input(
                 app=app,
                 user_info=self._user_info,
@@ -648,12 +669,15 @@ class RunScriptContext:
                 and self._input_type != "ask"
             ):
                 run_script_info.attend.script_index += 1
+                if self._current_attend.attend_id == run_script_info.attend.attend_id:
+                    run_script_info.attend.script_index = (
+                        run_script_info.attend.script_index
+                    )
             run_script_info.attend.status = ATTEND_STATUS_IN_PROGRESS
             self._input_type = "continue"
             self._run_type = RunType.OUTPUT
             db.session.flush()
         else:
-            app.logger.info(f"handle_block_output {run_script_info.block_dto.type}")
             continue_check = check_block_continue(
                 app=app,
                 user_info=self._user_info,
@@ -663,7 +687,6 @@ class RunScriptContext:
                 trace_args=self._trace_args,
                 trace=self._trace,
             )
-            app.logger.info(f"continue_check: {continue_check}")
             if run_script_info.block_dto.type == "content" or not continue_check:
                 res = handle_block_output(
                     app=app,
@@ -683,6 +706,13 @@ class RunScriptContext:
             self._can_continue = continue_check
             if self._can_continue:
                 run_script_info.attend.script_index += 1
+                if self._current_attend.attend_id == run_script_info.attend.attend_id:
+                    run_script_info.attend.script_index = (
+                        run_script_info.attend.script_index
+                    )
+            app.logger.info(
+                f"output script index: {run_script_info.attend.script_index}"
+            )
             db.session.flush()
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:

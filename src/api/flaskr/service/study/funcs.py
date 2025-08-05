@@ -252,6 +252,7 @@ def get_study_record(
         q.put(lesson_info)
         lesson_ids = []
         lesson_outline_map = {}
+        outline_block_map = {}
         while not q.empty():
             item: HistoryItem = q.get()
             if item.type == "outline":
@@ -264,6 +265,7 @@ def get_study_record(
                     lesson_outline_map[item.bid] = [
                         block.bid for block in item.children
                     ]
+                    outline_block_map[item.bid] = [block.bid for block in item.children]
 
         if not lesson_ids:
             return None
@@ -333,13 +335,49 @@ def get_study_record(
         if not last_block:
             ret.ui = []
             return ret
+        app.logger.info(f"last_block: {last_block.block_bid} {last_block.type}")
         block_dto: BlockDTO = generate_block_dto_from_model_internal(
             last_block, convert_html=False
         )
-
+        app.logger.info(f"block_dto: {block_dto.type}")
         last_lesson_id = last_block.outline_item_bid
-        last_attend = attend_infos[-1]
+        last_attend: AICourseLessonAttend = [
+            atend for atend in attend_infos if atend.lesson_id == last_lesson_id
+        ][-1]
         last_outline_item = get_outline_item_dto(app, last_lesson_id, preview_mode)
+        block_index = outline_block_map.get(last_lesson_id, []).index(
+            last_block.block_bid
+        )
+        app.logger.warning(
+            f"last_attend.script_index: {last_attend.script_index} last_block.position: {last_block.position} block dto type: {block_dto.type}"
+        )
+        if last_attend.script_index > block_index:
+            if (
+                last_lesson_id in lesson_outline_map
+                and len(lesson_outline_map.get(last_lesson_id, []))
+                > last_attend.script_index
+            ):
+                last_block_id = lesson_outline_map.get(last_lesson_id, [])[
+                    last_attend.script_index
+                ]
+            last_block = (
+                block_model.query.filter(
+                    block_model.outline_item_bid == last_lesson_id,
+                    block_model.deleted == 0,
+                    block_model.block_bid == last_block_id,
+                )
+                .order_by(block_model.id.desc())
+                .first()
+            )
+            app.logger.info(
+                f"find index {last_attend.script_index} last_block: {last_block.block_bid}"
+            )
+            if not last_block:
+                ret.ui = []
+                return ret
+            block_dto: BlockDTO = generate_block_dto_from_model_internal(
+                last_block, convert_html=False
+            )
 
         uis = handle_ui(
             app,
@@ -353,7 +391,9 @@ def get_study_record(
         )
         if len(uis) > 0:
             ret.ui = uis[0]
-
+        app.logger.info(
+            f"ui: {json.dumps([i.__json__() for i in uis], ensure_ascii=False)}"
+        )
         lesson_id = last_lesson_id
         app.logger.info(
             f"last_block.block_bid: {last_block.block_bid} type: {block_dto.type}"
