@@ -346,15 +346,15 @@ class RunScriptContext:
             outline_item_info = outline_item_info_map.get(
                 update.outline_item_info.bid, None
             )
-            if outline_item_info:
-                outline_item_info_args = {
-                    "lesson_no": outline_item_info.position,
-                    "lesson_name": outline_item_info.title,
-                }
-            else:
-                outline_item_info_args = {}
+            if not outline_item_info:
+                continue
             if outline_item_info.hidden:
                 continue
+            outline_item_info_args = {
+                "lesson_no": outline_item_info.position,
+                "lesson_name": outline_item_info.title,
+            }
+
             if update.type == _OutlineUpateType.LEAF_START:
                 self._current_outline_item = update.outline_item_info
                 if self._current_attend.lesson_id == update.outline_item_info.bid:
