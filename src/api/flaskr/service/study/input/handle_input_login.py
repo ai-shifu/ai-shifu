@@ -12,7 +12,7 @@ from flaskr.service.study.utils import (
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
-from flaskr.service.shifu.adapter import BlockDTO
+from flaskr.service.shifu.adapter import BlockDTO, LoginDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.user.models import User
 
@@ -32,7 +32,8 @@ def _handle_input_login(
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = get_script_ui_label(app, block_dto.block_content)
+    button: LoginDTO = block_dto.block_content
+    log_script.script_content = get_script_ui_label(app, button.label)
     log_script.script_role = ROLE_STUDENT  # type: ignore
     db.session.add(log_script)
     if user_info.user_state != 0:

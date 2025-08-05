@@ -58,8 +58,6 @@ from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.study.output.handle_output_continue import _handle_output_continue
 
 
-from flaskr.service.study.plugin import check_block_continue
-
 # fill the attend info for the outline items
 
 
@@ -338,59 +336,11 @@ def get_study_record(
         block_dto: BlockDTO = generate_block_dto_from_model_internal(
             last_block, convert_html=False
         )
-        next_block_id = last_block.id
+
         last_lesson_id = last_block.outline_item_bid
+        last_attend = attend_infos[-1]
+        last_outline_item = get_outline_item_dto(app, last_lesson_id, preview_mode)
 
-        if block_dto.type == BLOCK_TYPE_CONTENT:
-            # if the block is content, we need to find the next block
-            app.logger.info("to get next block")
-            q = queue.Queue()
-            q.put(lesson_info)
-            while not q.empty():
-                item: HistoryItem = q.get()
-                if (
-                    item.type == "outline"
-                    and item.children
-                    and item.children[0].type == "block"
-                    and block_dto.bid in [i.bid for i in item.children]
-                ):
-                    index = [i.bid for i in item.children].index(block_dto.bid)
-                    if index < len(item.children) - 1:
-                        next_block_id = item.children[index + 1].id
-                        last_lesson_id = item.bid
-                        break
-                if item.children:
-                    for child in item.children:
-                        q.put(child)
-
-        if next_block_id and next_block_id != last_block.id:
-            last_block: Union[ShifuDraftBlock, ShifuPublishedBlock] = (
-                block_model.query.filter(block_model.id == next_block_id).first()
-            )
-            block_dto: BlockDTO = generate_block_dto_from_model_internal(
-                last_block, convert_html=False
-            )
-            last_lesson_id = last_block.outline_item_bid
-
-        lesson_id = last_lesson_id
-        last_attends = [i for i in attend_infos if i.lesson_id == last_lesson_id]
-        if len(last_attends) == 0:
-            last_attend = (
-                AICourseLessonAttend.query.filter(
-                    AICourseLessonAttend.user_id == user_id,
-                    AICourseLessonAttend.lesson_id == last_lesson_id,
-                    AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-                )
-                .order_by(AICourseLessonAttend.id.desc())
-                .first()
-            )
-            if last_attend is None:
-                pass
-        else:
-            last_attend = last_attends[-1]
-        last_outline_item: ShifuOutlineItemDto = get_outline_item_dto(
-            app, last_lesson_id, preview_mode
-        )
         uis = handle_ui(
             app,
             user_info,
@@ -401,19 +351,17 @@ def get_study_record(
             MockClient(),
             {},
         )
-        app.logger.info(
-            "uis:{}".format(json.dumps([i.__json__() for i in uis], ensure_ascii=False))
-        )
         if len(uis) > 0:
             ret.ui = uis[0]
-        if check_block_continue(
-            app,
-            user_info,
-            last_attend.attend_id,
-            last_outline_item,
-            block_dto,
-            {},
-            MockClient(),
+
+        lesson_id = last_lesson_id
+        app.logger.info(
+            f"last_block.block_bid: {last_block.block_bid} type: {block_dto.type}"
+        )
+
+        if (
+            attend_scripts[-1].script_id == last_block.block_bid
+            and block_dto.type == BLOCK_TYPE_CONTENT
         ):
             ret.ui = _handle_output_continue(
                 app,

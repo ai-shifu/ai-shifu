@@ -625,7 +625,7 @@ class RunScriptContext:
         app.logger.info(
             f"block type: {run_script_info.block_dto.type} {self._input_type}"
         )
-        if self._run_type == RunType.INPUT:
+        if self._run_type == RunType.INPUT and self._input_type != "continue":
             res = handle_block_input(
                 app=app,
                 user_info=self._user_info,
