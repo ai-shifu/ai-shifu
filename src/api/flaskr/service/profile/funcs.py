@@ -361,8 +361,14 @@ def update_user_profile_with_lable(
 
 
 def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str):
-    user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
-    for user_profile in user_profiles:
-        if user_profile.profile_id == variable_id:
-            return user_profile.profile_value
-    return None
+    user_profile = (
+        UserProfile.query.filter(
+            UserProfile.user_id == user_id, UserProfile.profile_id == variable_id
+        )
+        .order_by(UserProfile.id.desc())
+        .first()
+    )
+    if user_profile:
+        return user_profile.profile_value
+    else:
+        return None

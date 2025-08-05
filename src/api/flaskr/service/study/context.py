@@ -220,7 +220,7 @@ class RunScriptContext:
             ).first()
             if not outline_item_info:
                 raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
-            if outline_item_info.type == LESSON_TYPE_NORMAL:
+            if outline_item_info_db.type == LESSON_TYPE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise_error("ORDER.COURSE_NOT_PAID")
             parent_path = find_node_with_parents(

@@ -11,8 +11,6 @@ from ...service.lesson.const import (
     LESSON_TYPE_TRIAL,
     LESSON_TYPE_NORMAL,
     SCRIPT_TYPE_SYSTEM,
-    UI_TYPE_BUTTON,
-    UI_TYPE_EMPTY,
 )
 from ...service.lesson.models import AICourse, AILesson, AILessonScript
 from ...service.order.consts import (
@@ -35,7 +33,6 @@ from ...dao import db
 from ...service.order.funs import query_raw_buy_record
 from ...service.order.consts import BUY_STATUS_SUCCESS
 from flaskr.service.user.models import User
-from flaskr.framework import extensible
 from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 from flaskr.i18n import get_current_language
 from flaskr.service.shifu.dtos import LabelDTO
@@ -707,65 +704,6 @@ def get_model_setting(
         app.config.get("DEFAULT_LLM_MODEL"),
         {"temperature": float(app.config.get("DEFAULT_LLM_TEMPERATURE"))},
     )
-
-
-@extensible
-def check_script_is_last_script(
-    app: Flask,
-    script_info: AILessonScript,
-    lesson_info: AILesson,
-    preview_mode: bool = False,
-) -> bool:
-    status = [STATUS_PUBLISH]
-    if preview_mode:
-        status.append(STATUS_DRAFT)
-    parent_lesson_no = lesson_info.lesson_no
-    if len(parent_lesson_no) > 2:
-        parent_lesson_no = parent_lesson_no[:2]
-    last_lesson = (
-        AILesson.query.filter(
-            AILesson.lesson_no.like(parent_lesson_no + "__"),
-            AILesson.course_id == lesson_info.course_id,
-            AILesson.status.in_(status),
-        )
-        .order_by(AILesson.lesson_no.desc(), AILesson.id.desc())
-        .first()
-    )
-    if last_lesson.lesson_id == script_info.lesson_id:
-        subquery = []
-        last_script = None
-        if preview_mode:
-            subquery = (
-                db.session.query(db.func.max(AILessonScript.id))
-                .filter(
-                    AILessonScript.lesson_id == last_lesson.lesson_id,
-                )
-                .group_by(AILessonScript.script_id)
-            )
-            last_script = (
-                AILessonScript.query.filter(
-                    AILessonScript.id.in_(subquery),
-                    AILessonScript.lesson_id == last_lesson.lesson_id,
-                    AILessonScript.status.in_(status),
-                )
-                .order_by(AILessonScript.script_index.desc())
-                .first()
-            )
-        else:
-            last_script = (
-                AILessonScript.query.filter(
-                    AILessonScript.lesson_id == last_lesson.lesson_id,
-                    AILessonScript.status.in_(status),
-                )
-                .order_by(AILessonScript.script_index.desc())
-                .first()
-            )
-        if (
-            last_script.script_id == script_info.script_id
-            and last_script.script_ui_type in [UI_TYPE_BUTTON, UI_TYPE_EMPTY]
-        ):
-            return True
-    return False
 
 
 def get_script_ui_label(app, text):

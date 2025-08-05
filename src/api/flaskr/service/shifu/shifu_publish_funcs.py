@@ -266,8 +266,8 @@ def _generate_summaries(
     outline_summary_map = {}
 
     # Get model configuration
-    model_name = shifu.llm or shifu.llm
-    temperature = shifu.llm_temperature or shifu.ask_llm_temperature or 0.3
+    model_name = shifu.ask_llm or shifu.llm
+    temperature = shifu.ask_llm_temperature or shifu.llm_temperature or 0.3
     if not model_name:
         model_name = app.config.get("DEFAULT_LLM_MODEL", "")
 
