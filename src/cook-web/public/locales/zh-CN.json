@@ -250,6 +250,12 @@
     "verification-success": "验证成功",
     "verification-success-description": "验证成功描述",
     "verify": "验证",
+    "or-continue-with": "或者使用以下方式继续",
+    "continue-with-google": "使用 Google 继续",
+    "google-script-load-error": "无法加载 Google 登录服务",
+    "google-auth-failed": "Google 登录失败",
+    "google-not-ready": "Google 登录服务未就绪",
+    "please-try-again": "请稍后再试",
     "verify-failed": "验证失败",
     "want-to-experience-creation": "想要体验创作？",
     "your-email": "您的邮箱"
