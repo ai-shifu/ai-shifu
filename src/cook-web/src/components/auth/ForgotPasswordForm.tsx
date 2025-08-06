@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ForgotPasswordCombined } from '@/components/auth/ForgotPasswordCombined';
 import { ForgotPasswordReset } from '@/components/auth/ForgotPasswordReset';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 interface ForgotPasswordFormProps {
   onComplete: () => void;

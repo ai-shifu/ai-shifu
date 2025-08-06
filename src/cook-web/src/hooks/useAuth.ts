@@ -1,4 +1,4 @@
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/c-store/useUserStore';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';

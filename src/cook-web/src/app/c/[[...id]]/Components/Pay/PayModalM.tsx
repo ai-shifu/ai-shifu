@@ -34,7 +34,7 @@ import {
 } from '@/c-api/order';
 import { useWechat } from '@/c-common/hooks/useWechat';
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 
 import { inWechat } from '@/c-constants/uiConstants';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';

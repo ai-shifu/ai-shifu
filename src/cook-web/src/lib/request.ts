@@ -1,7 +1,7 @@
 import { useUserStore } from '@/c-store/useUserStore';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 import i18n from 'i18next';
 import { v4 as uuidv4 } from 'uuid';
 

@@ -29,7 +29,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { submitFeedback } from '@/c-api/bz';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 
 const FEEDBACK_MAX_LENGTH = 300;
 

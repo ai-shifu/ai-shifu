@@ -7,7 +7,7 @@ import { Input } from '../ForkChatUI/components/Input';
 import SubButton from '@/c-components/SubButton';
 import { INTERACTION_OUTPUT_TYPE } from '@/c-constants/courseConstants';
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 
 export const ChatInputSmsCode = ({ onClick }) => {
   const [input, setInput] = useState('');

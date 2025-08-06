@@ -6,7 +6,7 @@ import SettingBaseModal from './SettingBaseModal';
 import clsx from 'clsx';
 import { SEX, SEX_NAMES } from '@/c-constants/userConstants';
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 
 import Image from 'next/image';

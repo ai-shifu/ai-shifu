@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/useToast';
 import { Loader2 } from 'lucide-react';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import apiService from '@/api';

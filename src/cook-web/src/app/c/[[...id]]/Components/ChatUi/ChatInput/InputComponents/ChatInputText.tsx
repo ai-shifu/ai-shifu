@@ -2,7 +2,7 @@ import styles from './ChatInputText.module.scss';
 import { useEffect, useRef, useState, memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/useToast';
 import {
   INTERACTION_OUTPUT_TYPE,
   INTERACTION_TYPE,
