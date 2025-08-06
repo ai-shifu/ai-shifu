@@ -29,7 +29,7 @@ export const SettingHeader = ({ className, onHomeClick }) => {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <span>{t('settings.settingTite')}</span>
+            <span>{t('settings.settingTitle')}</span>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

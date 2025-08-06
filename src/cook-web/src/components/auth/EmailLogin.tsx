@@ -36,12 +36,12 @@ export function EmailLogin({
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('auth.email-empty'));
+      setEmailError(t('auth.emailEmpty'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('auth.email-error'));
+      setEmailError(t('auth.emailError'));
       return false;
     }
 
@@ -51,7 +51,7 @@ export function EmailLogin({
 
   const validatePassword = (password: string) => {
     if (!password) {
-      setPasswordError(t('auth.password-error'));
+      setPasswordError(t('auth.passwordError'));
       return false;
     }
 
@@ -89,7 +89,7 @@ export function EmailLogin({
 
     if (!termsAccepted) {
       toast({
-        title: t('auth.terms-error'),
+        title: t('auth.termsError'),
         variant: 'destructive',
       });
       return;
@@ -116,7 +116,7 @@ export function EmailLogin({
         <Input
           id='email'
           type='email'
-          placeholder={t('auth.email-placeholder')}
+          placeholder={t('auth.emailPlaceholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -139,13 +139,13 @@ export function EmailLogin({
             onClick={onForgotPassword}
             className='text-primary text-sm hover:underline'
           >
-            {t('auth.forgot-password')}
+            {t('auth.forgotPassword')}
           </button>
         </div>
         <Input
           id='password'
           type='password'
-          placeholder={t('auth.password-placeholder')}
+          placeholder={t('auth.passwordPlaceholder')}
           value={password}
           onChange={handlePasswordChange}
           disabled={isLoading}

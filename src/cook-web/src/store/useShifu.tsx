@@ -456,7 +456,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         });
 
         if (!result) {
-          setError('common.error.save.failed');
+          setError('common.errorSaveFailed');
           return result;
         }
 

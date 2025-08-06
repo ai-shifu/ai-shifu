@@ -292,12 +292,12 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
         </div>
         <DialogHeader className='text-center'>
           <DialogTitle className='text-xl font-bold px-2'>
-            {t('ai-debug.debug')}
+            {t('aiDebug.debug')}
           </DialogTitle>
         </DialogHeader>
         <div className=' flex-1 space-y-4 overflow-auto px-4'>
           <div className='text-sm font-medium'>
-            {t('ai-debug.ai-module-content')}
+            {t('aiDebug.aiModuleContent')}
           </div>
           <Collapsible
             open={systemPromptOpen}
@@ -305,14 +305,12 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
             className='w-full border rounded-xl bg-gray-50'
           >
             <CollapsibleTrigger className='flex justify-between items-center w-full p-3'>
-              <span className='text-gray-500'>
-                {t('ai-debug.system-prompt')}
-              </span>
+              <span className='text-gray-500'>{t('aiDebug.systemPrompt')}</span>
               <div className='flex items-center'>
                 <span className='mr-2 text-gray-500'>
                   {systemPromptOpen
-                    ? t('ai-debug.collapse')
-                    : t('ai-debug.expand')}
+                    ? t('aiDebug.collapse')
+                    : t('aiDebug.expand')}
                 </span>
                 {systemPromptOpen ? (
                   <ChevronDown className='h-4 w-4' />
@@ -335,12 +333,10 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
             className='w-full border rounded-xl bg-gray-50'
           >
             <CollapsibleTrigger className='flex justify-between items-center w-full p-3'>
-              <span className='text-gray-500'>{t('ai-debug.user-prompt')}</span>
+              <span className='text-gray-500'>{t('aiDebug.userPrompt')}</span>
               <div className='flex items-center'>
                 <span className='mr-2 text-gray-500'>
-                  {userPromptOpen
-                    ? t('ai-debug.collapse')
-                    : t('ai-debug.expand')}
+                  {userPromptOpen ? t('aiDebug.collapse') : t('aiDebug.expand')}
                 </span>
                 {userPromptOpen ? (
                   <ChevronUp className='h-4 w-4' />
@@ -361,7 +357,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                   className='px-2 h-6 text-primary cursor-pointer'
                   onClick={updateBlock}
                 >
-                  {t('ai-debug.update-to-shifu')}
+                  {t('aiDebug.updateToShifu')}
                 </Button>
               </div>
             </CollapsibleContent>
@@ -369,12 +365,12 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
           <div className='flex flex-col gap-2'>
             <div className='grid grid-cols-2 gap-4'>
               <div>
-                <div className='mb-1 text-sm'>{t('common.select-model')}</div>
+                <div className='mb-1 text-sm'>{t('common.selectModel')}</div>
               </div>
 
               <div>
                 <div className='mb-1 text-sm'>
-                  {t('ai-debug.set-temperature')}
+                  {t('aiDebug.setTemperature')}
                 </div>
               </div>
             </div>
@@ -462,7 +458,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                   className='grid grid-cols-2 gap-4'
                 >
                   <div>
-                    <div className='mb-1 text-sm'>{t('ai-debug.variable')}</div>
+                    <div className='mb-1 text-sm'>{t('aiDebug.variable')}</div>
                     <Input
                       value={item}
                       readOnly
@@ -470,7 +466,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
                   </div>
                   <div>
                     <div className='mb-1 text-sm'>
-                      {t('ai-debug.input-variable-value')}
+                      {t('aiDebug.inputVariableValue')}
                     </div>
                     <Input
                       onChange={e => onProfileValue(item, e.target.value)}
@@ -483,7 +479,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
 
           <div className='grid grid-cols-2 gap-4'>
             <div>
-              <div className='mb-1 text-sm'>{t('ai-debug.column-count')}</div>
+              <div className='mb-1 text-sm'>{t('aiDebug.columnCount')}</div>
               <div className='flex items-center space-x-2'>
                 <Input
                   type='text'
@@ -518,7 +514,7 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
               </div>
             </div>
             <div>
-              <div className='mb-1 text-sm'>{t('ai-debug.row-count')}</div>
+              <div className='mb-1 text-sm'>{t('aiDebug.rowCount')}</div>
               <div className='flex items-center space-x-2'>
                 <Input
                   type='text'
@@ -535,11 +531,11 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
               className='bg-primary hover:bg-primary-lighter text-white w-full'
               onClick={onDebug}
             >
-              {!runing && <span>{t('ai-debug.start-debug')}</span>}
+              {!runing && <span>{t('aiDebug.startDebug')}</span>}
               {runing && (
                 <span className='flex flex-row items-center'>
                   <Loading className='h-4 w-4 animate-spin mr-1' />
-                  {t('ai-debug.stop-output')}
+                  {t('aiDebug.stopOutput')}
                 </span>
               )}
             </Button>

@@ -225,7 +225,7 @@ const Editor: React.FC<EditorProps> = ({
                 foldGutter: false,
               }}
               className='rounded-md'
-              placeholder={t('cm-editor.input-slash-to-insert-content')}
+              placeholder={t('cmEditor.inputSlashToInsertContent')}
               value={content}
               theme='light'
               minHeight='2rem'

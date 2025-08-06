@@ -23,7 +23,7 @@ const ImageInject: React.FC<ImageInjectProps> = ({ value, onSelect }) => {
   const handleSelect = () => {
     onSelect({
       ...resource,
-      resourceTitle: resource.resourceTitle || t('common.image-name'),
+      resourceTitle: resource.resourceTitle || t('common.imageName'),
     });
   };
   const handleImageChange = (resource: ImageResource) => {
@@ -41,7 +41,7 @@ const ImageInject: React.FC<ImageInjectProps> = ({ value, onSelect }) => {
           onClick={handleSelect}
           disabled={!resource?.resourceUrl}
         >
-          {t('common.use-image')}
+          {t('common.useImage')}
         </Button>
       </div>
     </div>

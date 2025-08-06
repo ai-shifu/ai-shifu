@@ -77,50 +77,50 @@ export const SexSettingModal = ({
       open={open}
       onClose={onClose}
       onOk={onOkClick}
-      title={t('settings.dialogTitle.selectSex')}
+      title={t('settings.dialogTitle.selectGender')}
     >
       <div className={styles.sexWrapper}>
         <div
           className={clsx(
             styles.sexItem,
-            getSelectedClassName(t('user.sex.male')),
+            getSelectedClassName(t('user.gender.male')),
           )}
-          onClick={() => setSelectedSex(t('user.sex.male'))}
+          onClick={() => setSelectedSex(t('user.gender.male'))}
         >
           <Image
             className={styles.itemIcon}
             src={sexMaleIcon(SEX_NAMES[SEX.MALE])}
             alt='male'
           />
-          <div className={styles.itemTitle}>{t('user.sex.male')}</div>
+          <div className={styles.itemTitle}>{t('user.gender.male')}</div>
         </div>
         <div
           className={clsx(
             styles.sexItem,
-            getSelectedClassName(t('user.sex.female')),
+            getSelectedClassName(t('user.gender.female')),
           )}
-          onClick={() => setSelectedSex(t('user.sex.female'))}
+          onClick={() => setSelectedSex(t('user.gender.female'))}
         >
           <Image
             className={styles.itemIcon}
             src={sexFemaleIcon(SEX_NAMES[SEX.FEMALE])}
             alt='female'
           />
-          <div className={styles.itemTitle}>{t('user.sex.female')}</div>
+          <div className={styles.itemTitle}>{t('user.gender.female')}</div>
         </div>
         <div
           className={clsx(
             styles.sexItem,
-            getSelectedClassName(t('user.sex.secret')),
+            getSelectedClassName(t('user.gender.secret')),
           )}
-          onClick={() => setSelectedSex(t('user.sex.secret'))}
+          onClick={() => setSelectedSex(t('user.gender.secret'))}
         >
           <Image
             className={styles.itemIcon}
-            src={sexSecretIcon(t('user.sex.secret'))}
+            src={sexSecretIcon(t('user.gender.secret'))}
             alt='secret'
           />
-          <div className={styles.itemTitle}>{t('user.sex.secret')}</div>
+          <div className={styles.itemTitle}>{t('user.gender.secret')}</div>
         </div>
       </div>
     </SettingBaseModal>

@@ -160,7 +160,7 @@ export default memo(function Goto(props: UIBlockDTO) {
     <div className='flex flex-col space-y-1'>
       <div className='flex flex-row items-center space-x-1'>
         <div className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-          {t('goto.select-variable')}
+          {t('goto.selectVariable')}
         </div>
         <Select
           value={selectedProfile?.profile_key || ''}
@@ -173,7 +173,7 @@ export default memo(function Goto(props: UIBlockDTO) {
         >
           <SelectTrigger className='h-8 w-[170px]'>
             <SelectValue>
-              {selectedProfile?.profile_key || t('goto.select-variable')}
+              {selectedProfile?.profile_key || t('goto.selectVariable')}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -192,7 +192,7 @@ export default memo(function Goto(props: UIBlockDTO) {
       </div>
       <div className='flex flex-row items-start py-2'>
         <div className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-          {t('goto.goto-settings')}
+          {t('goto.gotoSettings')}
         </div>
         <div className='flex flex-col space-y-1 '>
           {tempGotoSettings.conditions.map((item, index) => {
@@ -202,7 +202,7 @@ export default memo(function Goto(props: UIBlockDTO) {
                 key={`${item.destination_bid}-${index}`}
               >
                 <span className='w-40'>{item.value}</span>
-                <span className='px-2'>{t('goto.goto-settings-jump-to')}</span>
+                <span className='px-2'>{t('goto.jumpTo')}</span>
                 <span>
                   <OutlineSelector
                     value={item.destination_bid}

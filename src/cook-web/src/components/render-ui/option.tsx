@@ -82,11 +82,11 @@ export default memo(function Option(props: UIBlockDTO) {
   const handleConfirm = () => {
     if (tempOptions.length === 0) {
       const defaultButton = {
-        value: t('option.button-key'),
+        value: t('option.buttonKey'),
         label: {
           lang: {
-            'zh-CN': t('option.button-name'),
-            'en-US': t('option.button-name'),
+            'zh-CN': t('option.buttonText'),
+            'en-US': t('option.buttonText'),
           },
         },
       };
@@ -187,7 +187,7 @@ export default memo(function Option(props: UIBlockDTO) {
         >
           <SelectTrigger className='h-8 w-[170px]'>
             <SelectValue>
-              {selectedProfile?.profile_key || t('option.select-variable')}
+              {selectedProfile?.profile_key || t('option.selectVariable')}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>

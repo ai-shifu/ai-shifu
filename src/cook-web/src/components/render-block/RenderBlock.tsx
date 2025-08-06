@@ -67,7 +67,7 @@ export const useContentTypes = () => {
   return [
     {
       type: 'content',
-      name: t('render-ui.content'),
+      name: t('renderUi.content'),
       properties: {
         content: '',
         llm_enabled: true,
@@ -77,7 +77,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'button',
-      name: t('render-ui.button'),
+      name: t('renderUi.button'),
       properties: {
         label: {
           lang: {
@@ -89,7 +89,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'login',
-      name: t('render-ui.login'),
+      name: t('renderUi.login'),
       properties: {
         label: {
           lang: {
@@ -101,7 +101,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'payment',
-      name: t('render-ui.payment'),
+      name: t('renderUi.payment'),
       properties: {
         label: {
           lang: {
@@ -113,7 +113,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'options',
-      name: t('render-ui.option'),
+      name: t('renderUi.option'),
       properties: {
         result_variable_bid: '',
         options: [
@@ -131,7 +131,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'goto',
-      name: t('render-ui.goto'),
+      name: t('renderUi.goto'),
       properties: {
         conditions: [
           {
@@ -144,7 +144,7 @@ export const useContentTypes = () => {
     },
     {
       type: 'input',
-      name: t('render-ui.textinput'),
+      name: t('renderUi.textInput'),
       properties: {
         placeholder: {
           lang: {

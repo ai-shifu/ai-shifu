@@ -25,7 +25,7 @@ const biliVideoUrlRegexp =
 const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   const { t } = useTranslation();
   const [title, setTitle] = useState(
-    value?.resourceTitle || t('common.video-title'),
+    value?.resourceTitle || t('common.videoTitle'),
   );
   const [inputUrl, setInputUrl] = useState<string>(value?.resourceUrl || '');
   const [embedUrl, setEmbedUrl] = useState('');
@@ -45,7 +45,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
   const handleRun = () => {
     setErrorTips('');
     if (!isValidBilibiliUrl(inputUrl)) {
-      setErrorTips(t('common.please-input-valid-bilibili-url'));
+      setErrorTips(t('common.inputValidBilibiliUrl'));
       return;
     }
 
@@ -63,7 +63,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
       })
       .catch(err => {
         console.log('err', err);
-        setErrorTips(t('common.please-input-valid-bilibili-url'));
+        setErrorTips(t('common.inputValidBilibiliUrl'));
       });
 
     setEmbedUrl(newEmbedUrl);
@@ -102,7 +102,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
           type='text'
           value={inputUrl}
           onChange={e => setInputUrl(e.target.value?.trim())}
-          placeholder={t('common.please-input-bilibili-url')}
+          placeholder={t('common.inputBilibiliUrl')}
           autoComplete='off'
         />
         <Button
@@ -116,7 +116,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
             className='h-8'
             onClick={handleSelect}
           >
-            {t('common.use-resource')}
+            {t('common.useResource')}
           </Button>
         )}
       </div>
@@ -126,9 +126,9 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
         <div className='space-y-4'>
           <Input
             value={title}
-            aria-placeholder={t('common.video-title-placeholder')}
+            aria-placeholder={t('common.videoTitlePlaceholder')}
             onChange={e => setTitle(e.target.value.slice(0, 100))}
-            placeholder={t('common.video-title')}
+            placeholder={t('common.videoTitle')}
             className='mt-4'
             maxLength={100}
           />

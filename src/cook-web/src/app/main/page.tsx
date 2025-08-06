@@ -136,8 +136,8 @@ const ScriptManagementPage = () => {
     try {
       await api.createShifu(values);
       toast({
-        title: t('common.create-success'),
-        description: t('common.create-success-description'),
+        title: t('common.createSuccess'),
+        description: t('common.createSuccessDescription'),
       });
       setShifus([]);
       setHasMore(true);
@@ -146,9 +146,9 @@ const ScriptManagementPage = () => {
       setShowCreateShifuModal(false);
     } catch (error) {
       toast({
-        title: t('common.create-failed'),
+        title: t('common.createFailed'),
         description:
-          error instanceof Error ? error.message : t('common.unknown-error'),
+          error instanceof Error ? error.message : t('common.unknownError'),
         variant: 'destructive',
       });
     }
@@ -233,7 +233,7 @@ const ScriptManagementPage = () => {
             onClick={handleCreateShifuModal}
           >
             <PlusIcon className='w-5 h-5 mr-1' />
-            {t('common.create-blank-shifu')}
+            {t('common.createBlankShifu')}
           </Button>
           <CreateShifuDialog
             open={showCreateShifuModal}
@@ -292,11 +292,11 @@ const ScriptManagementPage = () => {
             {loading && <Loading />}
             {!hasMore && shifus.length > 0 && (
               <p className='text-gray-500 text-sm'>
-                {t('common.no-more-shifus')}
+                {t('common.noMoreShifus')}
               </p>
             )}
             {!loading && !hasMore && shifus.length == 0 && (
-              <p className='text-gray-500 text-sm'>{t('common.no-shifus')}</p>
+              <p className='text-gray-500 text-sm'>{t('common.noShifus')}</p>
             )}
           </div>
         </div>

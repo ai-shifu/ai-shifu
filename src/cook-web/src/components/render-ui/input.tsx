@@ -82,24 +82,24 @@ export default memo(function SingleInput(props: UIBlockDTO) {
     <div className='flex flex-col space-y-2'>
       <div className='flex flex-row space-x-1 items-center'>
         <span className='flex flex-row whitespace-nowrap'>
-          {t('input.input-placeholder')}
+          {t('input.inputPlaceholder')}
         </span>
         <Input
           className='h-8 w-40'
           value={inputSettings.placeholder.lang[i18n.language]}
           onChange={e => onValueChange(e, 'placeholder')}
-          placeholder={t('input.input-placeholder')}
+          placeholder={t('input.inputPlaceholder')}
         />
       </div>
       <div className='flex flex-row space-x-1 items-center'>
         <span className='flex flex-row whitespace-nowrap'>
-          {t('input.input-name')}
+          {t('input.inputName')}
         </span>
         <Input
           className='h-8 w-40'
           value={inputSettings.prompt}
           onChange={e => onValueChange(e, 'prompt')}
-          placeholder={t('input.input-name')}
+          placeholder={t('input.inputName')}
         />
       </div>
     </div>

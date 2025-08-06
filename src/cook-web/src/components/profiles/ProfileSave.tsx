@@ -167,13 +167,13 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
           <DialogHeader>
             <DialogTitle>
               {isEditing
-                ? t('profiles.edit-variable')
-                : t('profiles.add-new-variable')}
+                ? t('profiles.editVariable')
+                : t('profiles.addNewVariable')}
             </DialogTitle>
             <DialogDescription>
               {isEditing
-                ? t('profiles.modify-existing-variable')
-                : t('profiles.create-a-new-custom-variable')}
+                ? t('profiles.modifyExistingVariable')
+                : t('profiles.createNewCustomVariable')}
             </DialogDescription>
           </DialogHeader>
           <div className='grid gap-4 py-4'>
@@ -182,7 +182,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                 htmlFor='profile_key'
                 className='text-right'
               >
-                {t('profiles.variable-name')}
+                {t('profiles.variableName')}
               </Label>
               <Input
                 id='profile_key'
@@ -211,7 +211,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               />
             </div>
             <div className='grid grid-cols-4 items-center gap-4'>
-              <Label className='text-right'>{t('profiles.data-type')}</Label>
+              <Label className='text-right'>{t('profiles.dataType')}</Label>
               <div className='col-span-3'>
                 <RadioGroup
                   value={profile.profile_type}
@@ -263,16 +263,16 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                 <div className='grid grid-cols-4 gap-4'>
                   <div className='col-span-4'>
                     <Label className='mb-2 block'>
-                      {t('profiles.enum-item')}
+                      {t('profiles.enumItem')}
                     </Label>
                     {!!profile.profile_items?.length && (
                       <div className='mb-3 rounded-md border'>
                         <div className='grid grid-cols-12 border-b bg-muted px-3 py-2 text-sm font-medium'>
                           <div className='col-span-5'>
-                            {t('profiles.option-value')}
+                            {t('profiles.optionValue')}
                           </div>
                           <div className='col-span-5'>
-                            {t('profiles.option-name')}
+                            {t('profiles.optionName')}
                           </div>
                           <div className='col-span-2 text-right'>
                             {t('profiles.operation')}
@@ -308,7 +308,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
 
                     <div className='grid grid-cols-12 gap-2'>
                       <Input
-                        placeholder={t('profiles.option-value')}
+                        placeholder={t('profiles.optionValue')}
                         value={newEnumItem.value}
                         onChange={e =>
                           setNewEnumItem({

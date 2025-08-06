@@ -97,7 +97,7 @@ function TextInput(props: UIBlockDTO) {
           htmlFor=''
           className='whitespace-nowrap w-[70px] shrink-0'
         >
-          {t('textinput.input-placeholder')}
+          {t('textInput.inputPlaceholder')}
         </label>
         <Input
           value={tempProperties.placeholder.lang[i18n.language]}
@@ -110,7 +110,7 @@ function TextInput(props: UIBlockDTO) {
           htmlFor=''
           className='whitespace-nowrap w-[70px] shrink-0'
         >
-          {t('textinput.input-name')}
+          {t('textInput.inputName')}
         </label>
         <ProfileFormItem
           value={tempProperties?.result_variable_bids}
@@ -122,7 +122,7 @@ function TextInput(props: UIBlockDTO) {
           htmlFor=''
           className='whitespace-nowrap w-[70px] shrink-0'
         >
-          {t('textinput.prompt')}
+          {t('textInput.prompt')}
         </label>
         <div className='w-full rounded-md border bg-background px-1 py-1'>
           <div
@@ -141,7 +141,7 @@ function TextInput(props: UIBlockDTO) {
           htmlFor=''
           className='whitespace-nowrap w-[70px] shrink-0'
         >
-          {t('textinput.model')}
+          {t('textInput.model')}
         </label>
         <ModelList
           value={tempProperties.llm}
@@ -154,7 +154,7 @@ function TextInput(props: UIBlockDTO) {
           htmlFor=''
           className='whitespace-nowrap w-[70px] shrink-0'
         >
-          {t('textinput.temperature')}
+          {t('textInput.temperature')}
         </label>
         <InputNumber
           min={0}
@@ -171,7 +171,7 @@ function TextInput(props: UIBlockDTO) {
           className='h-8 w-20'
           onClick={handleConfirm}
         >
-          {t('textinput.complete')}
+          {t('textInput.complete')}
         </Button>
       </div>
     </div>

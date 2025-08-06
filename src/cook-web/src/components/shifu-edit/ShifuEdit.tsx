@@ -197,7 +197,7 @@ const DraggableBlock = ({
             <div className='flex flex-col gap-2 text-sm'>
               {type === 'content' && (
                 <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                  {llmEnabled ? t('shifu.ai-block') : t('shifu.regular-block')}
+                  {llmEnabled ? t('shifu.aiBlock') : t('shifu.regularBlock')}
                 </div>
               )}
               {type === 'content' && (
@@ -210,8 +210,8 @@ const DraggableBlock = ({
                 >
                   <Settings2 className='h-4 w-4' />
                   {llmEnabled
-                    ? t('shifu.setting-regular-block')
-                    : t('shifu.setting-ai-block')}
+                    ? t('shifu.setAsRegularBlock')
+                    : t('shifu.setAsAiBlock')}
                 </div>
               )}
               {type === 'content' && llmEnabled && (
@@ -411,7 +411,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 onClick={onAddChapter}
               >
                 <Plus />
-                {t('shifu.new_chapter')}
+                {t('shifu.newChapter')}
               </Button>
             )}
           </div>
@@ -530,18 +530,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('render-block.confirm-delete')}
+              {t('renderBlock.confirmDelete')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('render-block.confirm-delete-description')}
+              {t('renderBlock.confirmDeleteDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('render-block.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('renderBlock.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleConfirmDelete(removeBlockInfo.blockId)}
             >
-              {t('render-block.confirm')}
+              {t('renderBlock.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

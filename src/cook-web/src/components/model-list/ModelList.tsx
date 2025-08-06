@@ -39,7 +39,7 @@ export default function ModelList({
       value={displayValue}
     >
       <SelectTrigger className={cn('w-full', className)}>
-        <SelectValue placeholder={t('common.select-model')} />
+        <SelectValue placeholder={t('common.selectModel')} />
       </SelectTrigger>
       <SelectContent>
         <SelectItem

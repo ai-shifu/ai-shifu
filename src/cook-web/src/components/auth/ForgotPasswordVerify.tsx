@@ -52,20 +52,20 @@ export function ForgotPasswordVerify({
       if (response.code == 0) {
         setCountdown(60);
         toast({
-          title: t('auth.send-success'),
-          description: t('auth.please-check-your-email'),
+          title: t('auth.sendSuccess'),
+          description: t('auth.checkYourEmail'),
         });
       } else {
         toast({
-          title: t('auth.send-failed'),
-          description: t('common.please-try-again-later'),
+          title: t('auth.sendFailed'),
+          description: t('common.pleaseTryAgainLater'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('auth.send-failed'),
-        description: error.message || t('common.network-error'),
+        title: t('auth.sendFailed'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
     } finally {
@@ -76,7 +76,7 @@ export function ForgotPasswordVerify({
   const handleVerifyOtp = async () => {
     if (!otp) {
       toast({
-        title: t('auth.please-input-otp'),
+        title: t('auth.pleaseInputOtp'),
         variant: 'destructive',
       });
       return;
@@ -96,20 +96,20 @@ export function ForgotPasswordVerify({
 
         toast({
           title: t('auth.success'),
-          description: t('auth.verification-success-description'),
+          description: t('auth.verificationSuccessDescription'),
         });
         onNext(otp);
       } else {
         toast({
           title: t('auth.failed'),
-          description: t('auth.otp-error'),
+          description: t('auth.otpError'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
         title: t('auth.failed'),
-        description: error.message || t('common.network-error'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
     } finally {
@@ -123,14 +123,14 @@ export function ForgotPasswordVerify({
         <Label htmlFor='otp'>{t('auth.otp')}</Label>
         <Input
           id='otp'
-          placeholder={t('auth.otp-placeholder')}
+          placeholder={t('auth.otpPlaceholder')}
           value={otp}
           onChange={e => setOtp(e.target.value)}
           disabled={isLoading}
         />
         {countdown > 0 ? (
           <p className='text-sm text-muted-foreground mt-1'>
-            {t('auth.seconds-later', { count: countdown })}
+            {t('auth.secondsLater', { count: countdown })}
           </p>
         ) : (
           <Button
@@ -139,7 +139,7 @@ export function ForgotPasswordVerify({
             onClick={handleResendOtp}
             disabled={isLoading}
           >
-            {t('auth.resend-otp')}
+            {t('auth.resendOtp')}
           </Button>
         )}
       </div>

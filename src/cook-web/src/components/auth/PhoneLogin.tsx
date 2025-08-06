@@ -34,12 +34,12 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   });
   const validatePhone = (phone: string) => {
     if (!phone) {
-      setPhoneError(t('auth.phone-empty'));
+      setPhoneError(t('auth.phoneEmpty'));
       return false;
     }
 
     if (!isValidPhoneNumber(phone)) {
-      setPhoneError(t('auth.phone-error'));
+      setPhoneError(t('auth.phoneError'));
       return false;
     }
 
@@ -64,7 +64,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
 
     if (!termsAccepted) {
       toast({
-        title: t('auth.terms-error'),
+        title: t('auth.termsError'),
         variant: 'destructive',
       });
       return;
@@ -89,8 +89,8 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
         }, 1000);
 
         toast({
-          title: t('auth.send-success'),
-          description: t('auth.please-check-your-phone-sms'),
+          title: t('auth.sendSuccess'),
+          description: t('auth.checkYourSms'),
         });
       }
     } catch {
@@ -103,7 +103,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   const handleVerifyOtp = async () => {
     if (!phoneOtp) {
       toast({
-        title: t('auth.otp-error'),
+        title: t('auth.otpError'),
         variant: 'destructive',
       });
       return;
@@ -111,7 +111,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
 
     if (!termsAccepted) {
       toast({
-        title: t('auth.terms-error'),
+        title: t('auth.termsError'),
         variant: 'destructive',
       });
       return;
@@ -136,7 +136,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
         </Label>
         <Input
           id='phone'
-          placeholder={t('auth.phone-placeholder')}
+          placeholder={t('auth.phonePlaceholder')}
           value={phoneNumber}
           onChange={handlePhoneChange}
           disabled={isLoading}
@@ -151,7 +151,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
         <div className='flex-1'>
           <Input
             id='otp'
-            placeholder={t('auth.otp-placeholder')}
+            placeholder={t('auth.otpPlaceholder')}
             value={phoneOtp}
             onChange={e => setPhoneOtp(e.target.value)}
             disabled={isLoading || !showOtpInput}
@@ -165,9 +165,9 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
           {isLoading && !showOtpInput ? (
             <Loader2 className='h-4 w-4 animate-spin mr-2' />
           ) : countdown > 0 ? (
-            t('auth.seconds-later', { count: countdown })
+            t('auth.secondsLater', { count: countdown })
           ) : (
-            t('auth.get-otp')
+            t('auth.getOtp')
           )}
         </Button>
       </div>

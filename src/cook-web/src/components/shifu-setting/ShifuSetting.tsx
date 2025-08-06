@@ -69,35 +69,22 @@ export default function ShifuSettingDialog({
     url: z.string(),
     name: z
       .string()
-      .min(1, t('shifu-setting.shifu-name-cannot-be-empty'))
-      .max(50, t('shifu-setting.shifu-name-cannot-exceed-50-characters')),
+      .min(1, t('shifuSetting.shifuNameEmpty'))
+      .max(50, t('shifuSetting.shifuNameMaxLength')),
     description: z
       .string()
-      .min(1, t('shifu-setting.shifu-description-cannot-be-empty'))
-      .max(
-        300,
-        t('shifu-setting.shifu-description-cannot-exceed-300-characters'),
-      ),
+      .min(1, t('shifuSetting.shifuDescriptionEmpty'))
+      .max(300, t('shifuSetting.shifuDescriptionMaxLength')),
     model: z.string(),
     price: z
       .string()
-      .min(1, t('shifu-setting.shifu-price-cannot-be-empty'))
-      .regex(
-        /^\d+(\.\d{1,2})?$/,
-        t('shifu-setting.shifu-price-must-be-valid-number-format'),
-      ),
+      .min(1, t('shifuSetting.shifuPriceEmpty'))
+      .regex(/^\d+(\.\d{1,2})?$/, t('shifuSetting.shifuPriceFormat')),
     temperature: z
       .string()
-      .regex(
-        /^\d+(\.\d{1,2})?$/,
-        t('shifu-setting.shifu-temperature-must-be-valid-number-format'),
-      ),
-    temperature_min: z
-      .number()
-      .min(0, t('shifu-setting.shifu-temperature-cannot-be-less-than-0')),
-    temperature_max: z
-      .number()
-      .max(2, t('shifu-setting.shifu-temperature-cannot-exceed-2')),
+      .regex(/^\d+(\.\d{1,2})?$/, t('shifuSetting.shifuTemperatureFormat')),
+    temperature_min: z.number().min(0, t('shifuSetting.shifuTemperatureMin')),
+    temperature_max: z.number().max(2, t('shifuSetting.shifuTemperatureMax')),
   });
 
   const form = useForm({
@@ -145,14 +132,14 @@ export default function ShifuSettingDialog({
     if (file) {
       // Validate file size
       if (file.size > 2 * 1024 * 1024) {
-        setImageError(t('shifu-setting.file-size-cannot-exceed-2mb'));
+        setImageError(t('shifuSetting.fileSizeLimit'));
         setShifuImage(null);
         return;
       }
 
       // Validate file type
       if (!['image/jpeg', 'image/png'].includes(file.type)) {
-        setImageError(t('shifu-setting.only-support-jpg-and-png-format'));
+        setImageError(t('shifuSetting.supportedFormats'));
         setShifuImage(null);
         return;
       }
@@ -187,7 +174,7 @@ export default function ShifuSettingDialog({
         setUploadedImageUrl(res.data); // Assuming the API returns the image URL in a 'url' field
       } catch (error) {
         console.error('Upload error:', error);
-        setImageError(t('shifu-setting.upload-failed-please-try-again'));
+        setImageError(t('shifuSetting.uploadFailed'));
       } finally {
         setIsUploading(false);
       }
@@ -248,7 +235,7 @@ export default function ShifuSettingDialog({
       <DialogContent className='sm:max-w-md md:max-w-lg lg:max-w-xl'>
         <DialogHeader>
           <DialogTitle className='text-lg font-medium'>
-            {t('shifu-setting.title')}
+            {t('shifuSetting.title')}
           </DialogTitle>
         </DialogHeader>
         <Form {...form}>
@@ -260,7 +247,7 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-center gap-2 space-y-0'>
                     <FormLabel className='text-right text-sm'>
-                      {t('shifu-setting.preview-url')}
+                      {t('shifuSetting.previewUrl')}
                     </FormLabel>
                     <div className='col-span-3 flex items-center space-x-2'>
                       <FormControl>
@@ -297,7 +284,7 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-center gap-2 space-y-0'>
                     <FormLabel className='text-right text-sm'>
-                      {t('shifu-setting.learning-url')}
+                      {t('shifuSetting.learningUrl')}
                     </FormLabel>
                     <div className='col-span-3 flex items-center space-x-2'>
                       <FormControl>
@@ -335,14 +322,14 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-start gap-4 space-y-0'>
                     <FormLabel className='text-right text-sm pt-2'>
-                      {t('shifu-setting.shifu-name')}
+                      {t('shifuSetting.shifuName')}
                     </FormLabel>
                     <div className='col-span-3'>
                       <FormControl>
                         <Input
                           {...field}
                           maxLength={50}
-                          placeholder={t('shifu-setting.limit-50-characters')}
+                          placeholder={t('shifuSetting.limit50Characters')}
                         />
                       </FormControl>
                       <p className='text-xs text-gray-500 mt-1'>
@@ -359,14 +346,14 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-start gap-4'>
                     <FormLabel className='text-right text-sm pt-2'>
-                      {t('shifu-setting.shifu-description')}
+                      {t('shifuSetting.shifuDescription')}
                     </FormLabel>
                     <div className='col-span-3'>
                       <FormControl>
                         <Textarea
                           {...field}
                           maxLength={300}
-                          placeholder={t('shifu-setting.limit-300-characters')}
+                          placeholder={t('shifuSetting.limit300Characters')}
                           rows={4}
                         />
                       </FormControl>
@@ -380,7 +367,7 @@ export default function ShifuSettingDialog({
               />
               <div className='grid grid-cols-4 items-start gap-4'>
                 <label className='text-right text-sm pt-2'>
-                  {t('shifu-setting.keywords')}
+                  {t('shifuSetting.keywords')}
                 </label>
                 <div className='col-span-3'>
                   <div className='flex flex-wrap gap-2 mb-2'>
@@ -404,7 +391,7 @@ export default function ShifuSettingDialog({
                   <div className='flex gap-2'>
                     <Input
                       id='keywordInput'
-                      placeholder={t('shifu-setting.input-keywords')}
+                      placeholder={t('shifuSetting.inputKeywords')}
                       className='flex-grow h-8'
                     />
                     <Button
@@ -414,14 +401,14 @@ export default function ShifuSettingDialog({
                       variant='outline'
                       size='sm'
                     >
-                      {t('shifu-setting.add-keyword')}
+                      {t('shifuSetting.addKeyword')}
                     </Button>
                   </div>
                 </div>
               </div>
               <div className='grid grid-cols-4 items-start gap-4'>
                 <label className='text-right text-sm pt-2'>
-                  {t('shifu-setting.shifu-avatar')}
+                  {t('shifuSetting.shifuAvatar')}
                 </label>
                 <div className='col-span-3'>
                   {uploadedImageUrl ? (
@@ -429,7 +416,7 @@ export default function ShifuSettingDialog({
                       <div className='relative w-24 h-24 bg-gray-100 rounded-lg overflow-hidden'>
                         <img
                           src={uploadedImageUrl}
-                          alt={t('shifu-setting.shifu-avatar')}
+                          alt={t('shifuSetting.shifuAvatar')}
                           className='w-full h-full object-cover'
                         />
                         <button
@@ -452,7 +439,7 @@ export default function ShifuSettingDialog({
                     >
                       <Plus className='h-8 w-8 mb-2 text-gray-400' />
                       <p className='text-sm text-center'>
-                        {t('shifu-setting.upload')}
+                        {t('shifuSetting.upload')}
                       </p>
                     </div>
                   )}
@@ -480,7 +467,7 @@ export default function ShifuSettingDialog({
                         ></div>
                       </div>
                       <p className='text-xs text-gray-500 mt-1 text-center'>
-                        {t('shifu-setting.uploading')} {uploadProgress}%
+                        {t('shifuSetting.uploading')} {uploadProgress}%
                       </p>
                     </div>
                   )}
@@ -491,7 +478,7 @@ export default function ShifuSettingDialog({
 
                   {shifuImage && !isUploading && !uploadedImageUrl && (
                     <p className='text-green-500 text-xs mt-1'>
-                      {t('shifu-setting.selected')}: {shifuImage?.name}
+                      {t('shifuSetting.selected')}: {shifuImage?.name}
                     </p>
                   )}
                 </div>
@@ -502,7 +489,7 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-center gap-4'>
                     <FormLabel className='text-right text-sm'>
-                      {t('common.select-model')}
+                      {t('common.selectModel')}
                     </FormLabel>
                     <div className='col-span-3'>
                       <FormControl>
@@ -522,13 +509,13 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-center gap-4'>
                     <FormLabel className='text-right text-sm'>
-                      {t('shifu-setting.shifu-temperature')}
+                      {t('shifuSetting.shifuTemperature')}
                     </FormLabel>
                     <div className='col-span-3'>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={t('shifu-setting.number')}
+                          placeholder={t('shifuSetting.number')}
                           type='number'
                           min={0}
                           max={2}
@@ -546,13 +533,13 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='grid grid-cols-4 items-center gap-4'>
                     <FormLabel className='text-right text-sm'>
-                      {t('shifu-setting.price')}
+                      {t('shifuSetting.price')}
                     </FormLabel>
                     <div className='col-span-3'>
                       <FormControl>
                         <Input
                           {...field}
-                          placeholder={t('shifu-setting.number')}
+                          placeholder={t('shifuSetting.number')}
                         />
                       </FormControl>
                       <FormMessage />
@@ -567,7 +554,7 @@ export default function ShifuSettingDialog({
                 variant='outline'
                 onClick={() => setOpen(false)}
               >
-                {t('shifu-setting.cancel')}
+                {t('shifuSetting.cancel')}
               </Button>
               <Button
                 type='submit'
@@ -576,7 +563,7 @@ export default function ShifuSettingDialog({
                   onSubmit(form.getValues());
                 }}
               >
-                {t('shifu-setting.save')}
+                {t('shifuSetting.save')}
               </Button>
             </DialogFooter>
           </form>

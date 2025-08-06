@@ -27,12 +27,12 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
   const { t } = useTranslation();
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('auth.email-empty'));
+      setEmailError(t('auth.emailEmpty'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('auth.email-error'));
+      setEmailError(t('auth.emailError'));
       return false;
     }
 
@@ -42,12 +42,12 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
 
   const validateContent = (content: string) => {
     if (!content) {
-      setContentError(t('auth.content-empty'));
+      setContentError(t('auth.contentEmpty'));
       return false;
     }
 
     if (content.length < 10) {
-      setContentError(t('auth.content-error'));
+      setContentError(t('auth.contentError'));
       return false;
     }
 
@@ -95,21 +95,21 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
       }
       if (response) {
         toast({
-          title: t('auth.feedback-submitted'),
-          description: t('auth.feedback-submitted-description'),
+          title: t('auth.feedbackSubmitted'),
+          description: t('auth.feedbackSubmittedDescription'),
         });
         onComplete();
       } else {
         toast({
-          title: t('common.submit-failed'),
-          description: response.msg || t('common.network-error'),
+          title: t('common.submitFailed'),
+          description: response.msg || t('common.networkError'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('common.submit-failed'),
-        description: error.message || t('common.network-error'),
+        title: t('common.submitFailed'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
     } finally {
@@ -124,12 +124,12 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
           htmlFor='feedback-email'
           className={emailError ? 'text-red-500' : ''}
         >
-          {t('auth.your-email')}
+          {t('auth.yourEmail')}
         </Label>
         <Input
           id='feedback-email'
           type='email'
-          placeholder={t('auth.email-placeholder')}
+          placeholder={t('auth.emailPlaceholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -144,11 +144,11 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
           htmlFor='feedback-content'
           className={contentError ? 'text-red-500' : ''}
         >
-          {t('auth.feedback-content')}
+          {t('auth.feedbackContent')}
         </Label>
         <Textarea
           id='feedback-content'
-          placeholder={t('auth.content-placeholder')}
+          placeholder={t('auth.contentPlaceholder')}
           rows={5}
           value={content}
           onChange={handleContentChange}
@@ -165,7 +165,7 @@ export function FeedbackForm({ onComplete }: FeedbackFormProps) {
         disabled={isLoading}
       >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('auth.submit-feedback')}
+        {t('auth.submitFeedback')}
       </Button>
     </div>
   );

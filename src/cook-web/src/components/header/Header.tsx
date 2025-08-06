@@ -28,8 +28,8 @@ const Header = () => {
     alert.showAlert({
       confirmText: t('header.confirm'),
       cancelText: t('header.cancel'),
-      title: t('header.confirm-publish'),
-      description: t('header.confirm-publish-description'),
+      title: t('header.confirmPublish'),
+      description: t('header.confirmPublishDescription'),
       async onConfirm() {
         setPublishing(true);
         const reuslt = await api.publishShifu({
@@ -37,12 +37,12 @@ const Header = () => {
         });
         setPublishing(false);
         alert.showAlert({
-          title: t('header.publish-success'),
-          confirmText: t('header.go-to-view'),
+          title: t('header.publishSuccess'),
+          confirmText: t('header.goToView'),
           cancelText: t('header.close'),
           description: (
             <div className='flex flex-col space-y-2'>
-              <span>{t('header.publish-success-description')}</span>
+              <span>{t('header.publishSuccessDescription')}</span>
               <a
                 href={reuslt}
                 target='_blank'

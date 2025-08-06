@@ -42,12 +42,12 @@ export default function ProfileSelectModal({
           className='h-8'
         >
           <Plus className='h-4 w-4 mr-1' />
-          {t('profile-select-modal.add')}
+          {t('profileSelectModal.add')}
         </Button>
       </DialogTrigger>
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle>{t('profile-select-modal.add-variable')}</DialogTitle>
+          <DialogTitle>{t('profileSelectModal.addVariable')}</DialogTitle>
         </DialogHeader>
         <div className='space-y-4 pt-4'>
           <ProfileSelect onSelect={handleProfileSelect} />

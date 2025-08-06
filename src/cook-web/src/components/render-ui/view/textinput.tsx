@@ -68,7 +68,7 @@ export default memo(function TextInputView(props: TextInputViewProps) {
     <div className='flex flex-col space-y-2 w-full'>
       <div className='flex flex-row items-center space-x-1'>
         <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.input-placeholder')}
+          {t('textInput.inputPlaceholder')}
         </label>
         <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
           {properties.input_name}
@@ -76,7 +76,7 @@ export default memo(function TextInputView(props: TextInputViewProps) {
       </div>
       <div className='flex flex-row items-center space-x-1'>
         <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.input-key')}
+          {t('textInput.inputKey')}
         </label>
         <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
           {properties.input_key}
@@ -84,7 +84,7 @@ export default memo(function TextInputView(props: TextInputViewProps) {
       </div>
       <div className='flex flex-row items-center space-x-1'>
         <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.prompt')}
+          {t('textInput.prompt')}
         </label>
         <div className='px-3 py-2 bg-gray-50 rounded-md w-full min-h-[80px] whitespace-pre-wrap'>
           {properties.prompt.properties.prompt}
@@ -92,7 +92,7 @@ export default memo(function TextInputView(props: TextInputViewProps) {
       </div>
       <div className='flex flex-row items-center space-x-1'>
         <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.model')}
+          {t('textInput.model')}
         </label>
         <div className='px-3 py-2 bg-gray-50 rounded-md w-[200px]'>
           {properties.prompt.properties.model}
@@ -100,7 +100,7 @@ export default memo(function TextInputView(props: TextInputViewProps) {
       </div>
       <div className='flex flex-row items-center space-x-1 w-[275px]'>
         <label className='whitespace-nowrap w-[70px] shrink-0'>
-          {t('textinput.temperature')}
+          {t('textInput.temperature')}
         </label>
         <div className='px-3 py-2 bg-gray-50 rounded-md w-full'>
           {properties.prompt.properties.temperature}

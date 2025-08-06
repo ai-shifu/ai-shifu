@@ -80,12 +80,12 @@ export default memo(function Button(props: UIBlockDTO) {
   const getPlaceholder = () => {
     switch (type) {
       case 'login':
-        return t('button.placeholder-login');
+        return t('button.placeholderLogin');
       case 'payment':
-        return t('button.placeholder-payment');
+        return t('button.placeholderPayment');
       case 'edit':
       default:
-        return t('button.placeholder-edit');
+        return t('button.placeholderEdit');
     }
   };
 
@@ -93,7 +93,7 @@ export default memo(function Button(props: UIBlockDTO) {
     <div className='flex flex-col space-y-2'>
       <div className='flex flex-row space-x-1 items-center'>
         <span className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-          {t('button.button-name')}
+          {t('button.buttonText')}
         </span>
         <Input
           className='h-8 w-40'

@@ -59,17 +59,15 @@ export function useAuth(options: UseAuthOptions = {}) {
 
     switch (code) {
       case 1001:
-        description = t('auth.credential-error');
+        description = t('auth.credentialError');
         break;
       case 1003:
         // For SMS context, 1003 means OTP expired; for email context, it means wrong credentials
         description =
-          context === 'sms'
-            ? t('auth.otp-expired')
-            : t('auth.credential-error');
+          context === 'sms' ? t('auth.otpExpired') : t('auth.credentialError');
         break;
       default:
-        description = message || t('common.network-error');
+        description = message || t('common.networkError');
     }
 
     toast({
@@ -112,7 +110,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     } catch (error: any) {
       toast({
         title: t('auth.failed'),
-        description: error.message || t('common.network-error'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
       options.onError?.(error);
@@ -144,7 +142,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     } catch (error: any) {
       toast({
         title: t('auth.failed'),
-        description: error.message || t('common.network-error'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
       options.onError?.(error);
@@ -161,15 +159,15 @@ export function useAuth(options: UseAuthOptions = {}) {
 
       if (response.code !== 0) {
         throw new Error(
-          response.message || response.msg || t('common.network-error'),
+          response.message || response.msg || t('common.networkError'),
         );
       }
 
       return response;
     } catch (error: any) {
       toast({
-        title: t('auth.send-failed'),
-        description: error.message || t('common.network-error'),
+        title: t('auth.sendFailed'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
       throw error;

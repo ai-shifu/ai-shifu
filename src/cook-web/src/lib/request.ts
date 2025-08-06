@@ -79,7 +79,7 @@ const handleBusinessCode = (response: any) => {
       response.code === 9002
     ) {
       toast({
-        title: i18n.t('errors.no-permission'),
+        title: i18n.t('errors.noPermission'),
         variant: 'destructive',
       });
     }

@@ -41,14 +41,11 @@ export const CreateShifuDialog = ({
   const formSchema = z.object({
     name: z
       .string()
-      .min(1, t('create-shifu-dialog.shifu-name-cannot-be-empty'))
-      .max(20, t('create-shifu-dialog.shifu-name-cannot-exceed-20-characters')),
+      .min(1, t('createShifuDialog.shifuNameEmpty'))
+      .max(20, t('createShifuDialog.shifuNameMaxLength')),
     description: z
       .string()
-      .max(
-        500,
-        t('create-shifu-dialog.shifu-description-cannot-exceed-500-characters'),
-      )
+      .max(500, t('createShifuDialog.shifuDescriptionMaxLength'))
       .optional(),
     avatar: z.string().default(''),
   });
@@ -81,9 +78,7 @@ export const CreateShifuDialog = ({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {t('create-shifu-dialog.create-blank-shifu')}
-          </DialogTitle>
+          <DialogTitle>{t('createShifuDialog.createBlankShifu')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -100,7 +95,7 @@ export const CreateShifuDialog = ({
                       color: '#000000',
                     }}
                   >
-                    {t('create-shifu-dialog.shifu-name')}
+                    {t('createShifuDialog.shifuName')}
                   </FormLabel>
                   <FormControl>
                     <Input
@@ -125,7 +120,7 @@ export const CreateShifuDialog = ({
                       color: '#000000',
                     }}
                   >
-                    {t('create-shifu-dialog.shifu-description')}
+                    {t('createShifuDialog.shifuDescription')}
                   </FormLabel>
                   <FormControl>
                     <Textarea
@@ -146,8 +141,8 @@ export const CreateShifuDialog = ({
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting
-                  ? t('create-shifu-dialog.creating')
-                  : t('create-shifu-dialog.create')}
+                  ? t('createShifuDialog.creating')
+                  : t('createShifuDialog.create')}
               </Button>
             </div>
           </form>

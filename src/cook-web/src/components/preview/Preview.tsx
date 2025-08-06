@@ -69,13 +69,13 @@ const PreviewSettingsModal = () => {
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
           <DialogTitle className='text-center text-xl font-medium'>
-            {t('preview.preview-settings')}
+            {t('preview.previewSettings')}
           </DialogTitle>
         </DialogHeader>
 
         <div>
           <div className='flex items-center justify-end space-x-2 mt-4'>
-            <span className='text-sm'>{t('preview.auto-skip')}</span>
+            <span className='text-sm'>{t('preview.autoSkip')}</span>
             <Switch
               checked={autoSkipEmptyFields}
               onCheckedChange={setAutoSkipEmptyFields}
@@ -88,7 +88,7 @@ const PreviewSettingsModal = () => {
             className='w-full bg-primary hover:bg-primary-lighter'
             onClick={handleStartPreview}
           >
-            {t('preview.start-preview')}
+            {t('preview.startPreview')}
           </Button>
         </DialogFooter>
       </DialogContent>

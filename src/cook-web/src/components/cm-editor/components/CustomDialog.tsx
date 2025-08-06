@@ -35,7 +35,7 @@ const CustomDialog: React.FC<CustomDialogProps> = ({ children }) => {
           }}
         >
           <Dialog.Title className='font-medium mb-4'>
-            {t('common.please-set')}
+            {t('common.pleaseSet')}
           </Dialog.Title>
           <div className='space-y-4'>{children}</div>
           <Dialog.Close

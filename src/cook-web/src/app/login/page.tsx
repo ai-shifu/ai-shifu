@@ -112,10 +112,10 @@ export default function AuthPage() {
             {authMode === 'forgot-password' && (
               <>
                 <CardTitle className='text-xl text-center'>
-                  {t('auth.forgot-password')}
+                  {t('auth.forgotPassword')}
                 </CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  {t('auth.forgot-password')}
+                  {t('auth.forgotPassword')}
                 </CardDescription>
               </>
             )}
@@ -196,7 +196,7 @@ export default function AuthPage() {
                   </div>
                 ) : (
                   <p className='text-center text-muted-foreground'>
-                    {t('auth.no-registration-method')}
+                    {t('auth.noRegistrationMethod')}
                   </p>
                 )}
               </>
@@ -214,7 +214,7 @@ export default function AuthPage() {
             {authMode === 'login' && isEmailEnabled && (
               <>
                 <p className='text-sm text-muted-foreground'>
-                  {t('auth.no-account')}
+                  {t('auth.noAccount')}
                   <button
                     onClick={() => setAuthMode('register')}
                     className='text-primary hover:underline'
@@ -227,12 +227,12 @@ export default function AuthPage() {
             {authMode === 'register' && (
               <>
                 <p className='text-sm text-muted-foreground'>
-                  {t('auth.has-account')}
+                  {t('auth.hasAccount')}
                   <button
                     onClick={() => setAuthMode('login')}
                     className='text-primary hover:underline'
                   >
-                    {t('auth.login-now')}
+                    {t('auth.loginNow')}
                   </button>
                 </p>
               </>
@@ -242,7 +242,7 @@ export default function AuthPage() {
                 onClick={handleBackToLogin}
                 className='text-primary hover:underline'
               >
-                {t('auth.back-to-login')}
+                {t('auth.backToLogin')}
               </button>
             )}
             {authMode !== 'feedback' && (
@@ -252,7 +252,7 @@ export default function AuthPage() {
                   onClick={handleFeedback}
                   className='text-primary hover:underline'
                 >
-                  {t('auth.submit-feedback')}
+                  {t('auth.submitFeedback')}
                 </button>
               </p>
             )}

@@ -217,8 +217,8 @@ export const UserSettings = ({
                 maxLength={10}
               />
               <SettingSelectElement
-                title={t('settings.sex')}
-                placeholder={t('settings.sexPlaceholder')}
+                title={t('settings.gender')}
+                placeholder={t('settings.genderPlaceholder')}
                 value={sex}
                 className={styles.inputUnit}
                 onClick={onSexSelectClick}

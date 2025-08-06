@@ -25,12 +25,12 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('auth.email-error'));
+      setEmailError(t('auth.emailError'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('auth.email-error'));
+      setEmailError(t('auth.emailError'));
       return false;
     }
 
@@ -63,21 +63,21 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
 
       if (response.code == 0) {
         toast({
-          title: t('auth.send-success'),
-          description: t('auth.please-check-your-email'),
+          title: t('auth.sendSuccess'),
+          description: t('auth.checkYourEmail'),
         });
         onNext(email);
       } else {
         toast({
-          title: t('auth.send-failed'),
-          description: t('common.please-try-again-later'),
+          title: t('auth.sendFailed'),
+          description: t('common.pleaseTryAgainLater'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('auth.send-failed'),
-        description: error.message || t('common.network-error'),
+        title: t('auth.sendFailed'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
     } finally {
@@ -97,7 +97,7 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
         <Input
           id='email'
           type='email'
-          placeholder={t('auth.email-placeholder')}
+          placeholder={t('auth.emailPlaceholder')}
           value={email}
           onChange={handleEmailChange}
           disabled={isLoading}
@@ -114,7 +114,7 @@ export function ForgotPasswordEmail({ onNext }: ForgotPasswordEmailProps) {
         disabled={isLoading || !email || !!emailError}
       >
         {isLoading ? <Loader2 className='h-4 w-4 animate-spin mr-2' /> : null}
-        {t('auth.get-otp')}
+        {t('auth.getOtp')}
       </Button>
     </div>
   );

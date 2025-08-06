@@ -83,20 +83,20 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     switch (errorCode) {
       case 401:
       case 9002:
-        return t('c.errors.no-permission-title');
+        return t('c.errors.noPermissionTitle');
       case 403:
-        return t('c.errors.forbidden-title');
+        return t('c.errors.forbiddenTitle');
       case 404:
-        return t('c.errors.not-found-title');
+        return t('c.errors.notFoundTitle');
       case 1001:
       case 1004:
       case 1005:
-        return t('c.errors.auth-required-title');
+        return t('c.errors.authRequiredTitle');
       default:
         if (errorCode >= 500 && errorCode < 600) {
-          return t('c.errors.server-error-title');
+          return t('c.errors.serverErrorTitle');
         }
-        return t('c.errors.general-error-title');
+        return t('c.errors.generalErrorTitle');
     }
   };
 
@@ -105,20 +105,20 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     switch (errorCode) {
       case 401:
       case 9002:
-        return t('c.errors.no-permission');
+        return t('c.errors.noPermission');
       case 403:
         return t('c.errors.forbidden');
       case 404:
-        return t('c.errors.not-found');
+        return t('c.errors.notFound');
       case 1001:
       case 1004:
       case 1005:
-        return t('c.errors.auth-required');
+        return t('c.errors.authRequired');
       default:
         if (errorCode >= 500 && errorCode < 600) {
-          return t('c.errors.server-error');
+          return t('c.errors.serverError');
         }
-        return t('c.errors.general-error');
+        return t('c.errors.generalError');
     }
   };
 
@@ -146,13 +146,13 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         {showDetails && (
           <div className='mt-4 p-3 bg-gray-100 rounded-md text-left'>
             <p className='text-sm text-gray-700 font-mono'>
-              <span className='font-semibold'>{t('c.errors.error-code')}:</span>{' '}
+              <span className='font-semibold'>{t('c.errors.errorCode')}:</span>{' '}
               {errorCode}
             </p>
             {errorMessage && (
               <p className='text-sm text-gray-700 font-mono mt-1'>
                 <span className='font-semibold'>
-                  {t('c.errors.error-message')}:
+                  {t('c.errors.errorMessage')}:
                 </span>{' '}
                 {errorMessage}
               </p>

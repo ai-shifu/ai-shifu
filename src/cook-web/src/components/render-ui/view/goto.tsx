@@ -58,7 +58,7 @@ export default memo(function GotoView(props: GotoViewProps) {
   return (
     <div className='flex flex-col space-y-2'>
       <div className='flex flex-row items-center space-x-1'>
-        <span className='whitespace-nowrap'>{t('goto.goto-settings')}</span>
+        <span className='whitespace-nowrap'>{t('goto.gotoSettings')}</span>
         <div className='flex flex-col space-y-1 bg-gray-50 rounded-md p-2'>
           {properties.goto_settings.items.map((item, index) => (
             <div
@@ -71,7 +71,7 @@ export default memo(function GotoView(props: GotoViewProps) {
         </div>
       </div>
       <div className='flex flex-row items-center space-x-1'>
-        <span className='whitespace-nowrap'>{t('goto.button-name')}</span>
+        <span className='whitespace-nowrap'>{t('goto.buttonText')}</span>
         <button
           className='px-4 py-2 bg-gray-100 text-gray-700 rounded-md cursor-default'
           disabled

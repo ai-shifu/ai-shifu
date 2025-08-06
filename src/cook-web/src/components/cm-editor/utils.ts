@@ -273,19 +273,19 @@ function createSlashCommands(
       to: word.to,
       options: [
         {
-          label: t('cm-editor.variable'),
+          label: t('cmEditor.variable'),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Profile);
           },
         },
         {
-          label: t('cm-editor.image'),
+          label: t('cmEditor.image'),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Image);
           },
         },
         {
-          label: t('cm-editor.video'),
+          label: t('cmEditor.video'),
           apply: (view, _, from, to) => {
             handleSelect(view, _, from, to, SelectedOption.Video);
           },

@@ -269,15 +269,13 @@ export const RenderBlockUI = memo(
             onClick={() => handleExpandChange(!expand)}
           >
             <div className='flex flex-row items-center space-x-1'>
-              <span className='w-[70px]'>{t('render-ui.user-operation')}</span>
+              <span className='w-[70px]'>{t('renderUi.userOperation')}</span>
               <Select
                 value={blockProperties[block.bid].type}
                 onValueChange={onUITypeChange.bind(null, block.bid)}
               >
                 <SelectTrigger className='h-8 w-[120px]'>
-                  <SelectValue
-                    placeholder={t('render-ui.select-placeholder')}
-                  />
+                  <SelectValue placeholder={t('renderUi.selectPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -306,7 +304,7 @@ export const RenderBlockUI = memo(
                   expand ? 'rotate-180' : '',
                 )}
               />
-              {expand ? t('render-ui.collapse') : t('render-ui.expand')}
+              {expand ? t('renderUi.collapse') : t('renderUi.expand')}
             </div>
           </div>
           <div className={cn('space-y-1', expand ? 'block' : 'hidden')}>
@@ -330,17 +328,15 @@ export const RenderBlockUI = memo(
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>
-                {t('render-ui.confirm-change')}
-              </AlertDialogTitle>
+              <AlertDialogTitle>{t('renderUi.confirmChange')}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t('render-ui.confirm-change-description')}
+                {t('renderUi.confirmChangeDescription')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('render-ui.cancel')}</AlertDialogCancel>
+              <AlertDialogCancel>{t('renderUi.cancel')}</AlertDialogCancel>
               <AlertDialogAction onClick={handleConfirmChange}>
-                {t('render-ui.confirm')}
+                {t('renderUi.confirm')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -364,41 +360,41 @@ export const useUITypes = () => {
   return [
     {
       type: 'button',
-      name: t('render-ui.button'),
+      name: t('renderUi.button'),
       properties: {
         label: {
           lang: {
-            'zh-CN': t('render-ui.button-name'),
-            'en-US': t('render-ui.button-name'),
+            'zh-CN': t('renderUi.buttonText'),
+            'en-US': t('renderUi.buttonText'),
           },
         },
       },
     },
     {
       type: 'options',
-      name: t('render-ui.option'),
+      name: t('renderUi.option'),
       properties: {
         options: [
           {
             label: {
               lang: {
-                'zh-CN': t('render-ui.button-name'),
-                'en-US': t('render-ui.button-name'),
+                'zh-CN': t('renderUi.buttonText'),
+                'en-US': t('renderUi.buttonText'),
               },
             },
-            value: t('render-ui.button-key'),
+            value: t('renderUi.buttonKey'),
           },
         ],
         result_variable_bid: '',
       },
       validate: (data): string => {
         if (data.properties.options.length === 0) {
-          return t('render-ui.option-buttons-empty');
+          return t('renderUi.optionButtonsEmpty');
         }
         for (let i = 0; i < data.properties.options.length; i++) {
           const item = data.properties.options[i];
           if (!item.value || item.label.lang[i18n.language] == '') {
-            return t('render-ui.option-button-empty');
+            return t('renderUi.optionButtonEmpty');
           }
         }
         return '';
@@ -406,7 +402,7 @@ export const useUITypes = () => {
     },
     {
       type: 'goto',
-      name: t('render-ui.goto'),
+      name: t('renderUi.goto'),
       properties: {
         conditions: [
           {
@@ -419,7 +415,7 @@ export const useUITypes = () => {
     },
     {
       type: 'input',
-      name: t('render-ui.textinput'),
+      name: t('renderUi.textInput'),
 
       properties: {
         placeholder: {
@@ -437,20 +433,20 @@ export const useUITypes = () => {
         const p = data.properties;
 
         if (!p.placeholder.lang[i18n.language]) {
-          return t('render-ui.textinput-placeholder-empty');
+          return t('renderUi.textInputPlaceholderEmpty');
         }
         if (!p?.prompt) {
-          return t('render-ui.textinput-prompt-empty');
+          return t('renderUi.textInputPromptEmpty');
         }
         if (typeof p?.llm_temperature == 'undefined') {
-          return t('render-ui.textinput-temperature-empty');
+          return t('renderUi.textInputTemperatureEmpty');
         }
         return '';
       },
     },
     {
       type: 'login',
-      name: t('render-ui.login'),
+      name: t('renderUi.login'),
       properties: {
         label: {
           lang: {
@@ -462,7 +458,7 @@ export const useUITypes = () => {
     },
     {
       type: 'payment',
-      name: t('render-ui.payment'),
+      name: t('renderUi.payment'),
       properties: {
         label: {
           lang: {
@@ -474,7 +470,7 @@ export const useUITypes = () => {
     },
     {
       type: 'content',
-      name: t('render-ui.content'),
+      name: t('renderUi.content'),
       properties: {
         content: '',
         llm: '',
@@ -483,7 +479,7 @@ export const useUITypes = () => {
       },
       validate: (data): string => {
         if (!data.properties.content) {
-          return t('render-ui.content-empty');
+          return t('renderUi.contentEmpty');
         }
         return '';
       },

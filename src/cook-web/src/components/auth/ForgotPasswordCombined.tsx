@@ -33,12 +33,12 @@ export function ForgotPasswordCombined({
 
   const validateEmail = (email: string) => {
     if (!email) {
-      setEmailError(t('auth.email-empty'));
+      setEmailError(t('auth.emailEmpty'));
       return false;
     }
 
     if (!isValidEmail(email)) {
-      setEmailError(t('auth.email-error'));
+      setEmailError(t('auth.emailError'));
       return false;
     }
 
@@ -48,7 +48,7 @@ export function ForgotPasswordCombined({
 
   const validateOtp = (otp: string) => {
     if (!otp) {
-      setOtpError(t('auth.otp-error'));
+      setOtpError(t('auth.otpError'));
       return false;
     }
 
@@ -103,20 +103,20 @@ export function ForgotPasswordCombined({
         }, 1000);
 
         toast({
-          title: t('auth.send-success'),
-          description: t('auth.please-check-your-email'),
+          title: t('auth.sendSuccess'),
+          description: t('auth.checkYourEmail'),
         });
       } else {
         toast({
-          title: t('auth.send-failed'),
-          description: t('common.please-try-again-later'),
+          title: t('auth.sendFailed'),
+          description: t('common.pleaseTryAgainLater'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
-        title: t('auth.send-failed'),
-        description: error.message || t('common.network-error'),
+        title: t('auth.sendFailed'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
     } finally {
@@ -147,20 +147,20 @@ export function ForgotPasswordCombined({
         // Token handled via login flow, no need to set manually here
         toast({
           title: t('auth.success'),
-          description: t('auth.please-set-new-password'),
+          description: t('auth.pleaseSetNewPassword'),
         });
         onNext(email, otp);
       } else {
         toast({
           title: t('auth.failed'),
-          description: t('auth.otp-error'),
+          description: t('auth.otpError'),
           variant: 'destructive',
         });
       }
     } catch (error: any) {
       toast({
         title: t('auth.failed'),
-        description: error.message || t('common.network-error'),
+        description: error.message || t('common.networkError'),
         variant: 'destructive',
       });
     } finally {
@@ -182,7 +182,7 @@ export function ForgotPasswordCombined({
           <Input
             id='email'
             type='email'
-            placeholder={t('auth.email-placeholder')}
+            placeholder={t('auth.emailPlaceholder')}
             value={email}
             onChange={handleEmailChange}
             disabled={isLoading}
@@ -198,9 +198,9 @@ export function ForgotPasswordCombined({
             {isSendingCode ? (
               <Loader2 className='h-4 w-4 animate-spin mr-2' />
             ) : countdown > 0 ? (
-              t('auth.seconds-later', { count: countdown })
+              t('auth.secondsLater', { count: countdown })
             ) : (
-              t('auth.get-otp')
+              t('auth.getOtp')
             )}
           </Button>
         </div>
@@ -216,7 +216,7 @@ export function ForgotPasswordCombined({
         </Label>
         <Input
           id='otp'
-          placeholder={t('auth.otp-placeholder')}
+          placeholder={t('auth.otpPlaceholder')}
           value={otp}
           onChange={handleOtpChange}
           disabled={isLoading || !codeSent}
