@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import AskButtonInner from './AskButtonInner';
 import { shifu } from 'Service/Shifu';
 import { useShallow } from 'zustand/react/shallow';
@@ -13,7 +13,6 @@ const AskButton = ({
   used = 0,
   onClick = () => {},
 }) => {
-  const [percent, setPercent] = useState(0);
   const isNoLimited = useCallback(() => {
     return used >= total;
   }, [total, used]);
@@ -31,14 +30,6 @@ const AskButton = ({
     onClick?.();
   }, [disabled, isNoLimited, onClick]);
 
-  useEffect(() => {
-    const all = total ? total : 1;
-    let percent = (used / all) * 100;
-
-    setPercent(percent);
-    // setPercent(0.01)
-  }, [isNoLimited, total, used]);
-
   const { inMacOs } = useUiLayoutStore(
     useShallow((state) => ({ inMacOs: state.inMacOs }))
   );
@@ -53,7 +44,6 @@ const AskButton = ({
 
   return (
     <AskButtonInner
-      percent={percent}
       className={className}
       disabled={disabled && !isNoLimited()}
       grayColor={isNoLimited()}
