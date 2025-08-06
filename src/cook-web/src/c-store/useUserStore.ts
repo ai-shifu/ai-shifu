@@ -10,10 +10,7 @@ import { UserStoreState } from '@/c-types/store';
 
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
-  const tokenData = tokenTool.get();
-  if (tokenData.faked) {
-    return tokenData.token;
-  }
+  // Always fetch a fresh guest token to avoid expiration issues
   const res = await registerTmp({ temp_id: genUuid() });
   const token = res.token;
   tokenTool.set({ token, faked: true });
