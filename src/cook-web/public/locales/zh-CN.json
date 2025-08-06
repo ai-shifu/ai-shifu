@@ -57,7 +57,6 @@
     "otpPlaceholder": "请输入验证码",
     "password": "密码",
     "passwordError": "请输入密码",
-    "passwordNotMatch": "密码不匹配",
     "passwordPlaceholder": "请输入密码",
     "passwordReset": "密码已重置",
     "phone": "手机号登录",

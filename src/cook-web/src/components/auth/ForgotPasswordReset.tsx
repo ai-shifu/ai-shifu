@@ -61,7 +61,7 @@ export function ForgotPasswordReset({
     }
 
     if (confirmPassword !== password) {
-      setConfirmPasswordError(t('auth.passwordNotMatch'));
+      setConfirmPasswordError(t('auth.confirmPasswordError'));
       return false;
     }
 

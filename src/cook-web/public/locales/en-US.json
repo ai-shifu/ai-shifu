@@ -57,7 +57,6 @@
     "otpPlaceholder": "Please enter verification code",
     "password": "Password",
     "passwordError": "Please enter password",
-    "passwordNotMatch": "Passwords do not match",
     "passwordPlaceholder": "Please enter password",
     "passwordReset": "Password reset",
     "phone": "Phone Login",
