@@ -28,7 +28,6 @@
     "formal-chapter": "Formal Chapter",
     "hide-chapter": "Hide Chapter",
     "is-hidden": "Is Hidden",
-    "please-input": "Please Input",
     "system-prompt": "System Prompt",
     "title": "Chapter Setting",
     "trial-chapter": "Trial Chapter"
@@ -42,7 +41,6 @@
   "auth": {
     "failed": "Authentication Failed",
     "credential-error": "Invalid Credentials",
-    "expired": "Expired",
     "success": "Authentication Successful",
     "register-success": "Registration Successful",
     "register-failed": "Registration Failed",
@@ -50,11 +48,8 @@
     "password-reset": "Password Reset",
     "send-failed": "Send Failed",
     "send-success": "Send Success",
-    "and": "And",
-    "apply-for-admission": "Apply for Admission",
     "back": "Back",
     "back-to-login": "Back to Login",
-    "click-login-to-represent-you-have-agreed-to": "Click Login to Represent You Have Agreed to",
     "complete-registration": "Complete Registration",
     "confirm-new-password": "Confirm New Password",
     "confirm-new-password-placeholder": "Confirm New Password",
@@ -68,7 +63,6 @@
     "email-empty": "Email Empty",
     "email-error": "Email Error",
     "email-placeholder": "Please Input Email",
-    "email-register": "Email Register",
     "feedback": "Feedback",
     "feedback-content": "Feedback Content",
     "feedback-submitted": "Feedback Submitted",
@@ -90,10 +84,6 @@
     "otp-placeholder": "Please Input Verification Code",
     "password": "Password",
     "password-error": "Password Error",
-    "password-length-at-least-8": "Password Length At Least 8",
-    "password-must-contain-letters": "Password Must Contain Letters",
-    "password-must-contain-numbers": "Password Must Contain Numbers",
-    "password-must-contain-special-characters": "Password Must Contain Special Characters",
     "password-not-match": "Password Not Match",
     "password-placeholder": "Please Input Password",
     "phone": "Phone",
@@ -117,14 +107,8 @@
     "submit-feedback": "Submit Feedback",
     "terms-error": "Please accept the terms of service",
     "title": "Login",
-    "user-agreement": "User Agreement",
-    "username": "Username",
-    "username-not-empty": "Username Not Empty",
-    "username-placeholder": "Username",
     "verification-success-description": "Verification Success Description",
     "verify": "Verify",
-    "verify-failed": "Verification Failed",
-    "want-to-experience-creation": "Want to Experience Creation",
     "your-email": "Your Email"
   },
   "common": {
@@ -141,7 +125,6 @@
     "network-error": "Network error, please try again later",
     "please-try-again-later": "Please try again later",
     "submit-failed": "Submit Failed",
-    "submit-success": "Submit Success",
     "favorites": "Favorites",
     "follow": "Follow",
     "home": "Home",
@@ -159,7 +142,15 @@
     "use-image": "Use Image",
     "use-resource": "Use Resource",
     "video-title": "Video Title",
-    "video-title-placeholder": "Please Input Video Title"
+    "video-title-placeholder": "Please Input Video Title",
+    "companyAddress": "Room 163, 19th Floor, Donghuan Building, Wangjing, Chaoyang District, Beijing",
+    "companyName": "Beijing Chanchanshanmu Technology Co., Ltd.",
+    "expandCollapse": "Expand/Collapse",
+    "networkError": "Network error, please try again later",
+    "ok": "OK",
+    "settings": "Settings",
+    "unknownError": "Unknown error",
+    "waitingForCompletion": "Coming soon"
   },
   "shifu-setting": {
     "add-keyword": "Add Keyword",
@@ -185,22 +176,19 @@
     "only-support-jpg-and-png-format": "Only Support JPG and PNG Format",
     "preview-url": "Preview URL",
     "price": "Price",
-    "price-cannot-be-empty": "Price Cannot Be Empty",
-    "price-must-be-valid-number-format": "Price Must Be Valid Number Format",
     "save": "Save",
     "selected": "Selected",
-    "support-jpg-png-format-file-less-than-2mb": "Support JPG and PNG Format File Less Than 2MB",
     "title": "Title",
     "upload": "Upload",
     "upload-failed-please-try-again": "Upload Failed Please Try Again",
-    "uploading": "Uploading"
+    "uploading": "Uploading",
+    "shifu-price-cannot-be-empty": "Price cannot be empty",
+    "shifu-price-must-be-valid-number-format": "Price must be a valid number"
   },
   "create-shifu-dialog": {
     "create": "Create",
     "create-blank-shifu": "Create New Shifu",
     "creating": "Creating",
-    "please-input-shifu-description": "Please Input Shifu Description",
-    "please-input-shifu-name": "Please Input Shifu Name",
     "shifu-description": "Shifu Description",
     "shifu-description-cannot-exceed-500-characters": "Shifu Description Cannot Exceed 500 Characters",
     "shifu-name": "Shifu Name",
@@ -254,17 +242,12 @@
   "option": {
     "button-key": "Option Key",
     "button-name": "Option Name",
-    "cancel": "Cancel",
     "complete": "Complete",
-    "confirm": "Confirm",
-    "confirm-delete": "Confirm Delete",
-    "confirm-delete-description": "Your operation will cause the current content to be lost, whether to confirm?",
     "option-name": "Option Name",
     "title": "Title",
-    "title-placeholder": "Title",
     "value": "Value",
     "variable": "Variable",
-    "variable-placeholder": "Variable"
+    "select-variable": "Select Variable"
   },
   "outline-selector": {
     "select-chapter": "Select Outline"
@@ -281,11 +264,9 @@
   },
   "preview": {
     "auto-skip": "Auto Skip",
-    "input-variable-value": "Input Variable Value",
     "preview": "Preview",
     "preview-settings": "Preview Settings",
     "start-preview": "Start Preview",
-    "variable-appear": "Variable Appear",
     "title": "Preview",
     "view": "View",
     "close": "Close",
@@ -327,23 +308,15 @@
     "text": "Text"
   },
   "render-block": {
-    "ai-content": "AI Content",
-    "ai-content-empty": "AI Content Empty",
     "cancel": "Cancel",
-    "complete": "Complete",
     "confirm": "Confirm",
     "confirm-delete": "Confirm Delete",
-    "confirm-delete-description": "Your operation will cause the current content to be lost, whether to confirm?",
-    "select-content-type": "Select Content Type",
-    "solid-content": "Solid Content",
-    "solid-content-empty": "Solid Content Empty"
+    "confirm-delete-description": "Your operation will cause the current content to be lost, whether to confirm?"
   },
   "render-ui": {
     "button": "Button",
-    "button-button-key": "Button Key",
     "button-key": "Button Key",
     "button-name": "Button Name",
-    "break": "Break",
     "cancel": "Cancel",
     "collapse": "Collapse",
     "confirm": "Confirm",
@@ -353,19 +326,13 @@
     "content-empty": "Content Empty",
     "expand": "Expand",
     "goto": "Goto",
-    "goto-button-key": "Goto Key",
-    "goto-button-name": "Goto Name",
-    "goto-value": "Goto Value",
     "login": "Login",
-    "none": "None",
     "option": "Option",
     "option-button-empty": "Option Button Empty",
     "option-buttons-empty": "Option Buttons Empty",
-    "option-name-empty": "Option Name Empty",
     "payment": "Payment",
     "select-placeholder": "Select Placeholder",
     "textinput": "Text Input",
-    "textinput-key-empty": "Text Input Key Empty",
     "textinput-placeholder-empty": "Text Input Placeholder Empty",
     "textinput-prompt-empty": "Text Input Prompt Empty",
     "textinput-temperature-empty": "Text Input Temperature Empty",
@@ -385,9 +352,6 @@
     "follow-official-wechat-public-account": "Follow Official Wechat Public Account",
     "join-community": "Join Community"
   },
-  "text-editor": {
-    "placeholder": "Placeholder"
-  },
   "textinput": {
     "complete": "Complete",
     "input-key": "Key",
@@ -395,170 +359,15 @@
     "input-placeholder": "Placeholder",
     "model": "Model",
     "prompt": "Prompt",
-    "prompt-placeholder": "Please enter a prompt to extract and constrain the variable.",
     "temperature": "Temperature"
   },
   "c": {
-    "common": {
-      "collapseExpand": "Collapse/Expand",
-      "expandCollapse": "Expand/Collapse",
-      "waitingForCompletion": "Coming Soon",
-      "companyName": "Beijing Chanchan Shanmu Technology Co., Ltd.",
-      "companyAddress": "Room 163,19th Floor,Wangjing Donghuang Building,Chaoyang District,Beijing",
-      "ok": "OK",
-      "settings": "Settings",
-      "networkError": "Unable to connect to the server, please check the network settings",
-      "backToHome": "Back to Home",
-      "redirectInSeconds": "Redirecting to home in {{seconds}} seconds",
-      "shortcut": {
-        "title": {
-          "continue": "Continue (when no input or selection required)",
-          "ask": "Ask follow-up questions",
-          "shortcut": "Display Shortcuts"
-        },
-        "key": {
-          "a": "A",
-          "b": "B",
-          "c": "C",
-          "d": "D",
-          "e": "E",
-          "ctrl": "Ctrl",
-          "shift": "Shift",
-          "cmd": "⌘",
-          "/": "/",
-          "space": "Space",
-          "enter": "Enter"
-        }
-      }
-    },
     "user": {
-      "loginMainButton": "Login/Register",
-      "confirmLogoutTitle": "Confirm logout?",
-      "confirmLogoutContent": "Are you sure you want to log out?",
-      "defaultUserName": "Default Name",
-      "notLogin": "Not logged in",
-      "login": "Login",
-      "logout": "Logout",
-      "loginTitle": "Login",
-      "loginFeedback": "Submit feedback",
-      "msgHaveRead": "I have read and agreed to ",
-      "msgAgreement": "The Service Agreement",
-      "msgAnd": " and ",
-      "msgPrivacyPolicy": "The Privacy Policy",
-      "msgToAgree": "Please check to agree to the terms",
-      "msgLoginProblem": "Encountering login problems",
-      "msgLoginSuccess": "Login successful",
-      "msgToInputPhone": "Enter phone number",
-      "mstPhoneReg": "Invalid phone number format",
-      "msgPhonePlaceHolder": "Please enter an 11-digit phone number",
-      "msgToInputCode": "Enter SMS Verification Code",
-      "msgToInputCode4": "Enter Verification Code",
-      "msgResendCode": "Resend",
-      "msgToInputPwd": "Enter the password",
-      "msgCheckCode": "Image verification code",
-      "msgToCheckAgreement": "Please check to agree to the terms ",
-      "sex": {
-        "male": "Male",
-        "female": "Female",
-        "secret": "Secret"
-      }
-    },
-    "pay": {
-      "payModalTitle": "Purchase",
-      "paySuccess": "Paid successfully",
-      "protocolDesc": "Purchase means you have read and agreed to the following agreement",
-      "payChannel": "Payment Method",
-      "payChannelWechat": "WeChat",
-      "payChannelAlipay": "Alipay",
-      "modelServiceAgreement": "Model Service Agreement",
-      "userPrivacyPolicy": "User Privacy Policy",
-      "virtualProductDesc": "Notes:",
-      "virtualProductPoint1": "1. By completing this purchase, you acknowledge that you have read and accept {{modelServiceAgreement}} and {{userPrivacyPolicy}}.",
-      "virtualProductPoint2": "2. This purchase is for digital content; once the transaction is finalized, no refunds or transfers will be permitted."
-    },
-    "groupon": {
-      "grouponTitle": "Voucher Code",
-      "grouponPlaceholder": "Enter the Voucher Code",
-      "grouponInputMsg": "Enter the Voucher Code",
-      "grouponUse": "Use Voucher Code >",
-      "grouponModify": "Modify Voucher Code >"
-    },
-    "navigation": {
-      "courseList": "Course Name",
-      "theChapter": " Chapter",
-      "theLesson": " Lesson",
-      "filing": "Registration",
-      "skin": "Skin",
-      "settings": "Settings",
-      "memberSetting": "Membership Management",
-      "icp": "Beijing ICP No.2024076754 -2",
-      "gongan": "Beijing Public Security No.11010502055644 ",
-      "feedbackTitle": "Submit Feedback",
-      "userAgreement": "Service Agreement",
-      "privacyPolicy": "Privacy Policy",
-      "contactUs": "Contact Us",
-      "shortcut": "Shortcut"
-    },
-    "settings": {
-      "home": "Home",
-      "settingTite": "Profile",
-      "basicInfo": "Basic Info",
-      "nickname": "Nickname",
-      "nicknamePersonal": "Nickname",
-      "nicknamePlaceholder": "Please enter your nickname",
-      "sex": "Gender",
-      "sexPlaceholder": "Please select your gender",
-      "birth": "Birthday",
-      "birthPlaceholder": "Please select your birthday",
-      "personalInfo": "Personalized Information",
-      "dialogTitle": {
-        "selectSex": "Select Gender",
-        "selectBirthday": "Select Birthday"
-      }
-    },
-    "feedback": {
-      "feedbackTitle": "Feedback",
-      "feedbackContent": "Feedback Content",
-      "feedbackPlaceholder": "Enter feedback content",
-      "feedbackSubmit": "Submit",
-      "feedbackSuccess": "Feedback submitted successfully. Thank you for your feedback.",
-      "feedbackFail": "Feedback submission failed",
-      "feedbackContentEmpty": "Feedback content cannot be empty",
-      "feedbackContactEmpty": "Contact information cannot be empty"
-    },
-    "chat": {
-      "chatInputWarn": "Please enter content",
-      "chatInputPlaceholder": "Please enter content",
-      "chatTips": "Content is generated by AI large model, cannot guarantee accuracy, for learning reference only",
-      "copyText": "Copy",
-      "copySuccess": "Copied to clipboard",
-      "askContent": "Any questions about what you just learned?",
-      "ask": "Ask",
-      "loginSuccess": "Login successful",
-      "stopAutoSkip": "Stop Auto Skip",
-      "startAutoSkip": "Start Auto Skip"
-    },
-    "lesson": {
-      "reset": {
-        "resetTitle": "Reset",
-        "resetConfirmTitle": "Confirm Reset",
-        "resetConfirmContent": "Resetting will clear your current learning data. Confirm reset?"
-      },
-      "lessonStatus": {
-        "notStart": "Not Start",
-        "prepareLearning": "Ready",
-        "locked": "Locked",
-        "learning": "In Process",
-        "completed": "Done"
-      }
-    },
-    "error": {
-      "pageNotFound": "Sorry, this Shifu is missing..."
+      "login": "Login"
     },
     "errors": {
       "no-permission": "You don't have permission to access this page. Please contact the administrator for access.",
       "no-permission-title": "Permission Denied",
-      "loading-failed": "Loading failed, please try again later",
       "forbidden": "Access forbidden",
       "forbidden-title": "Forbidden",
       "not-found": "The requested resource was not found",
@@ -571,13 +380,100 @@
       "general-error-title": "Error",
       "error-code": "Error Code",
       "error-message": "Error Message"
+    }
+  },
+  "chat": {
+    "ask": "Ask",
+    "askContent": "Any questions about what you just learned?",
+    "chatInputPlaceholder": "Please enter content",
+    "chatInputWarn": "Please enter content",
+    "chatTips": "Content generated by AI, for learning reference only",
+    "copySuccess": "Copied to clipboard",
+    "copyText": "Copy",
+    "loginSuccess": "Login successful",
+    "startAutoSkip": "Start auto-skip",
+    "stopAutoSkip": "Stop auto-skip"
+  },
+  "errors": {
+    "no-permission": "You don't have permission to access this content"
+  },
+  "feedback": {
+    "feedbackPlaceholder": "Please enter feedback",
+    "feedbackSubmit": "Submit",
+    "feedbackSuccess": "Feedback submitted successfully",
+    "feedbackTitle": "Feedback"
+  },
+  "groupon": {
+    "grouponInputMsg": "Please enter redemption code",
+    "grouponModify": "Modify code >",
+    "grouponPlaceholder": "Enter redemption code",
+    "grouponTitle": "Redemption Code",
+    "grouponUse": "Other payment methods"
+  },
+  "lesson": {
+    "reset": {
+      "resetConfirmContent": "Reset will clear current learning data. Confirm?",
+      "resetConfirmTitle": "Confirm Reset",
+      "resetTitle": "Reset"
+    }
+  },
+  "menus": {
+    "navigationMenus": {
+      "basicInfo": "User Info",
+      "language": "Language",
+      "personalInfo": "Personal Settings"
+    }
+  },
+  "navigation": {
+    "contactUs": "Contact Us",
+    "courseList": "Course Name",
+    "feedbackTitle": "Submit Feedback",
+    "filing": "Filing",
+    "gongan": "Beijing Public Security: 11010502055644",
+    "icp": "ICP: 2024076754-2",
+    "privacyPolicy": "Privacy Policy",
+    "shortcut": "Shortcuts",
+    "userAgreement": "Service Agreement"
+  },
+  "pay": {
+    "modelServiceAgreement": "Model Service Agreement",
+    "payChannelAlipay": "Alipay",
+    "payChannelWechat": "WeChat",
+    "paySuccess": "Payment Successful",
+    "userPrivacyPolicy": "User Privacy Policy",
+    "virtualProductDesc": "Note:",
+    "virtualProductPoint1": "1. Purchase indicates you have read and agreed to {{modelServiceAgreement}} and {{userPrivacyPolicy}}.",
+    "virtualProductPoint2": "2. Virtual products are non-refundable and non-transferable."
+  },
+  "settings": {
+    "basicInfo": "Basic Info",
+    "birth": "Birthday",
+    "birthPlaceholder": "Please select birthday",
+    "dialogTitle": {
+      "selectBirthday": "Select Birthday",
+      "selectSex": "Select Gender"
     },
-    "menus": {
-      "navigationMenus": {
-        "basicInfo": "Basic Information",
-        "personalInfo": "Personalized Information",
-        "language": "Language"
-      }
+    "home": "Home",
+    "nickname": "Nickname",
+    "nicknamePersonal": "Nickname (also as personal info)",
+    "nicknamePlaceholder": "Please enter nickname",
+    "personalInfo": "Personal Settings",
+    "settingTite": "Personal Info",
+    "sex": "Gender",
+    "sexPlaceholder": "Please select gender"
+  },
+  "user": {
+    "confirmLogoutContent": "Confirm logout?",
+    "confirmLogoutTitle": "Confirm Logout?",
+    "defaultUserName": "Default Name",
+    "login": "Login",
+    "loginMainButton": "Login/Register",
+    "logout": "Logout",
+    "notLogin": "Not Logged In",
+    "sex": {
+      "female": "Female",
+      "male": "Male",
+      "secret": "Private"
     }
   }
 }

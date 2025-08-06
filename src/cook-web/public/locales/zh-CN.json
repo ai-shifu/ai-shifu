@@ -28,7 +28,6 @@
     "formal-chapter": "正式章节",
     "hide-chapter": "隐藏章节",
     "is-hidden": "是否隐藏",
-    "please-input": "请输入",
     "system-prompt": "系统提示词",
     "title": "章节设置",
     "trial-chapter": "试用章节"
@@ -42,7 +41,6 @@
   "auth": {
     "failed": "认证失败",
     "credential-error": "认证信息错误",
-    "expired": "已过期",
     "success": "认证成功",
     "register-success": "注册成功",
     "register-failed": "注册失败",
@@ -50,11 +48,8 @@
     "password-reset": "密码已重置",
     "send-failed": "发送失败",
     "send-success": "发送成功",
-    "and": "和",
-    "apply-for-admission": "申请入驻",
     "back": "返回",
     "back-to-login": "返回登录",
-    "click-login-to-represent-you-have-agreed-to": "点击登录即表示您已同意",
     "complete-registration": "完成注册",
     "confirm-new-password": "确认新密码",
     "confirm-new-password-placeholder": "确认新密码",
@@ -68,7 +63,6 @@
     "email-empty": "请输入邮箱",
     "email-error": "请输入有效的邮箱地址",
     "email-placeholder": "请输入您的邮箱",
-    "email-register": "邮箱注册",
     "feedback": "请告诉我们您遇到的问题或建议",
     "feedback-content": "反馈内容",
     "feedback-submitted": "反馈提交成功",
@@ -90,10 +84,6 @@
     "otp-placeholder": "请输入验证码",
     "password": "密码",
     "password-error": "请输入密码",
-    "password-length-at-least-8": "密码长度至少为8位",
-    "password-must-contain-letters": "密码必须包含字母",
-    "password-must-contain-numbers": "密码必须包含数字",
-    "password-must-contain-special-characters": "密码必须包含特殊字符",
     "password-not-match": "密码不匹配",
     "password-placeholder": "请输入密码",
     "phone": "手机号登录",
@@ -117,14 +107,8 @@
     "submit-feedback": "提交反馈",
     "terms-error": "请阅读并同意服务协议和隐私政策",
     "title": "登录",
-    "user-agreement": "用户协议",
-    "username": "账号",
-    "username-not-empty": "用户名不能为空",
-    "username-placeholder": "请输入邮箱/手机号",
     "verification-success-description": "验证成功描述",
     "verify": "验证",
-    "verify-failed": "验证失败",
-    "want-to-experience-creation": "想要体验创作？",
     "your-email": "您的邮箱"
   },
   "common": {
@@ -141,7 +125,6 @@
     "network-error": "网络错误,请稍后重试",
     "please-try-again-later": "请稍后重试",
     "submit-failed": "提交失败",
-    "submit-success": "提交成功",
     "favorites": "收藏",
     "follow": "关注",
     "home": "首页",
@@ -159,7 +142,15 @@
     "use-image": "使用图片",
     "use-resource": "使用资源",
     "video-title": "视频名称",
-    "video-title-placeholder": "请输入视频名称"
+    "video-title-placeholder": "请输入视频名称",
+    "companyAddress": "北京朝阳区望京东煌大厦19层163室",
+    "companyName": "北京潺潺山木科技有限公司",
+    "expandCollapse": "展开/折叠",
+    "networkError": "网络错误，请稍后重试",
+    "ok": "确定",
+    "settings": "设置",
+    "unknownError": "未知错误",
+    "waitingForCompletion": "敬请期待"
   },
   "shifu-setting": {
     "add-keyword": "添加关键词",
@@ -185,22 +176,19 @@
     "only-support-jpg-and-png-format": "只支持jpg和png格式",
     "preview-url": "预览地址",
     "price": "价格",
-    "price-cannot-be-empty": "价格不能为空",
-    "price-must-be-valid-number-format": "价格必须为有效数字格式",
     "save": "保存",
     "selected": "已选择",
-    "support-jpg-png-format-file-less-than-2mb": "只支持jpg和png格式，文件大小不能超过2MB",
     "title": "课程设置",
     "upload": "上传",
     "upload-failed-please-try-again": "上传失败，请稍后再试",
-    "uploading": "上传中"
+    "uploading": "上传中",
+    "shifu-price-cannot-be-empty": "价格不能为空",
+    "shifu-price-must-be-valid-number-format": "价格必须为有效数字格式"
   },
   "create-shifu-dialog": {
     "create": "创建",
     "create-blank-shifu": "创建新师傅",
     "creating": "创建中...",
-    "please-input-shifu-description": "请输入师傅描述",
-    "please-input-shifu-name": "请输入师傅名称",
     "shifu-description": "师傅描述",
     "shifu-description-cannot-exceed-500-characters": "师傅描述不能超过500个字符",
     "shifu-name": "师傅名称",
@@ -254,17 +242,12 @@
   "option": {
     "button-key": "按钮key",
     "button-name": "按钮名称",
-    "cancel": "取消",
     "complete": "完成",
-    "confirm": "确认",
-    "confirm-delete": "确认删除",
-    "confirm-delete-description": "您的操作将会造成当前内容的丢失，是否确认？",
     "option-name": "选项名称",
     "title": "标题",
-    "title-placeholder": "标题",
     "value": "值",
     "variable": "变量",
-    "variable-placeholder": "变量"
+    "select-variable": "选择变量"
   },
   "outline-selector": {
     "select-chapter": "选择章节"
@@ -281,11 +264,9 @@
   },
   "preview": {
     "auto-skip": "自动跳过",
-    "input-variable-value": "输入变量值:",
     "preview": "预览",
     "preview-settings": "预览设置",
     "start-preview": "开始预览",
-    "variable-appear": "出现变量:",
     "title": "预览",
     "view": "去查看",
     "close": "关闭",
@@ -327,20 +308,13 @@
     "text": "字符串"
   },
   "render-block": {
-    "ai-content": "AI 块",
-    "ai-content-empty": "AI内容不能为空",
     "cancel": "取消",
-    "complete": "完成",
     "confirm": "确认",
     "confirm-delete": "确认删除",
-    "confirm-delete-description": "您的操作将会造成当前内容的丢失，是否确认？",
-    "select-content-type": "请选择",
-    "solid-content": "固定内容",
-    "solid-content-empty": "固定块内容不能为空"
+    "confirm-delete-description": "您的操作将会造成当前内容的丢失，是否确认？"
   },
   "render-ui": {
     "button": "按钮",
-    "button-button-key": "继续",
     "button-key": "按钮key",
     "button-name": "按钮名称",
     "cancel": "取消",
@@ -352,19 +326,13 @@
     "confirm-change-description": "您的操作将会造成当前内容的丢失，是否确认?",
     "expand": "展开",
     "goto": "跳转",
-    "goto-button-key": "来吧",
-    "goto-button-name": "来吧",
-    "goto-value": "跳转值",
     "login": "登录",
-    "none": "无",
     "option": "选择",
     "option-button-empty": "值或标题不能为空",
     "option-buttons-empty": "选择不能为空",
-    "option-name-empty": "变量名称不能为空",
     "payment": "支付",
     "select-placeholder": "请选择",
     "textinput": "文本输入",
-    "textinput-key-empty": "变量名不能为空",
     "textinput-placeholder-empty": "提示不能为空",
     "textinput-prompt-empty": "提示词不能为空",
     "textinput-temperature-empty": "温度不能为空",
@@ -384,9 +352,6 @@
     "follow-official-wechat-public-account": "关注官方微信",
     "join-community": "加入社区"
   },
-  "text-editor": {
-    "placeholder": "请输入"
-  },
   "textinput": {
     "complete": "完成",
     "input-key": "变量名",
@@ -394,170 +359,15 @@
     "input-placeholder": "输入框提示",
     "model": "指定模型",
     "prompt": "提示词",
-    "prompt-placeholder": "请输入对变量进行提取和约束的提示词",
     "temperature": "设定温度"
   },
   "c": {
-    "common": {
-      "collapseExpand": "折叠/展开",
-      "expandCollapse": "展开/折叠",
-      "waitingForCompletion": "敬请期待",
-      "companyName": "北京潺潺山木科技有限公司",
-      "companyAddress": "北京朝阳区望京东煌大厦19层163室",
-      "settings": "设置",
-      "ok": "确定",
-      "networkError": "无法连接到服务器，请检查网络设置",
-      "backToHome": "返回首页",
-      "redirectInSeconds": "将在 {{seconds}} 秒后返回首页",
-      "shortcut": {
-        "title": {
-          "continue": "继续（无需用户输入或选择时）",
-          "ask": "追问",
-          "shortcut": "显示快捷方式"
-        },
-        "key": {
-          "a": "A",
-          "b": "B",
-          "c": "C",
-          "d": "D",
-          "e": "E",
-          "ctrl": "Ctrl",
-          "shift": "Shift",
-          "cmd": "⌘",
-          "/": "/",
-          "space": "空格",
-          "enter": "回车"
-        }
-      }
-    },
     "user": {
-      "loginMainButton": "登录/注册",
-      "confirmLogoutTitle": "确认退出登录？",
-      "confirmLogoutContent": "确认退出登录吗？",
-      "defaultUserName": "默认名称",
-      "notLogin": "未登录",
-      "login": "登录",
-      "logout": "退出登录",
-      "loginTitle": "登录",
-      "loginFeedback": "提交反馈",
-      "msgHaveRead": "我已阅读并同意",
-      "msgAgreement": "服务协议",
-      "msgAnd": "&",
-      "msgPrivacyPolicy": "隐私政策",
-      "msgToAgree": "请勾选同意协议",
-      "msgLoginProblem": "登录遇到问题",
-      "msgLoginSuccess": "登录成功",
-      "msgToInputPhone": "请输入11位手机号",
-      "mstPhoneReg": "手机号格式不正确",
-      "msgPhonePlaceHolder": "请输入手机号",
-      "msgToInputCode": "请输入4位短信验证码",
-      "msgToInputCode4": "请输入4位验证码",
-      "msgResendCode": "重新发送",
-      "msgToInputPwd": "请输入密码",
-      "msgCheckCode": "图形验证码",
-      "msgToCheckAgreement": "请勾选同意协议",
-      "sex": {
-        "male": "男性",
-        "female": "女性",
-        "secret": "保密"
-      }
-    },
-    "pay": {
-      "payModalTitle": "购买",
-      "payChannel": "支付方式",
-      "payChannelWechat": "微信",
-      "payChannelAlipay": "支付宝",
-      "paySuccess": "支付成功",
-      "protocolDesc": "购买即表示已阅读并同意以下协议",
-      "modelServiceAgreement": "《模型服务协议》",
-      "userPrivacyPolicy": "《用户隐私协议》",
-      "virtualProductDesc": "说明：",
-      "virtualProductPoint1": "1. 购买即表示已阅读并同意{{modelServiceAgreement}}和{{userPrivacyPolicy}}。",
-      "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。"
-    },
-    "groupon": {
-      "grouponTitle": "兑换码",
-      "grouponPlaceholder": "请输入兑换码",
-      "grouponInputMsg": "请输入兑换码",
-      "grouponUse": "其他支付方式",
-      "grouponModify": "修改兑换码 >"
-    },
-    "navigation": {
-      "courseList": "课程名称",
-      "theChapter": "章",
-      "theLesson": "节",
-      "filing": "备案",
-      "skin": "皮肤",
-      "settings": "设置",
-      "memberSetting": "会员管理",
-      "icp": "京ICP备2024076754号-2",
-      "gongan": "京公网安备11010502055644号",
-      "feedbackTitle": "提交反馈",
-      "userAgreement": "服务协议",
-      "privacyPolicy": "隐私政策",
-      "contactUs": "联系我们",
-      "shortcut": "快捷键"
-    },
-    "settings": {
-      "home": "主页",
-      "settingTite": "个人信息",
-      "basicInfo": "基础信息",
-      "nickname": "昵称",
-      "nicknamePersonal": "昵称（同时作为个人基本信息）",
-      "nicknamePlaceholder": "请输入昵称",
-      "sex": "性别",
-      "sexPlaceholder": "请选择性别",
-      "birth": "生日",
-      "birthPlaceholder": "请选择生日",
-      "personalInfo": "个性化设置",
-      "dialogTitle": {
-        "selectSex": "选择性别",
-        "selectBirthday": "选择生日"
-      }
-    },
-    "feedback": {
-      "feedbackTitle": "反馈",
-      "feedbackContent": "反馈内容",
-      "feedbackPlaceholder": "请输入反馈内容",
-      "feedbackSubmit": "提交",
-      "feedbackSuccess": "反馈成功，感谢你的反馈。",
-      "feedbackFail": "反馈失败",
-      "feedbackContentEmpty": "反馈内容不能为空",
-      "feedbackContactEmpty": "联系方式不能为空"
-    },
-    "chat": {
-      "chatInputWarn": "请输入内容",
-      "chatInputPlaceholder": "请输入内容",
-      "chatTips": "内容由 AI 大模型生成，无法确保真实准确，仅供学习参考",
-      "copyText": "复制",
-      "copySuccess": "已复制到剪切板",
-      "askContent": "对刚学的内容有什么问题？",
-      "ask": "追问",
-      "loginSuccess": "已经登录成功了",
-      "stopAutoSkip": "停止自动跳过",
-      "startAutoSkip": "开启自动跳过"
-    },
-    "lesson": {
-      "reset": {
-        "resetTitle": "重修",
-        "resetConfirmTitle": "确认重修",
-        "resetConfirmContent": "重修会清空当前学习数据。确定重修？"
-      },
-      "lessonStatus": {
-        "notStart": "未开始",
-        "prepareLearning": "可学习",
-        "locked": "未解锁",
-        "learning": "正在学",
-        "completed": "已完成"
-      }
-    },
-    "error": {
-      "pageNotFound": "找不到这个师傅了"
+      "login": "登录"
     },
     "errors": {
       "no-permission": "您当前没有权限访问此页面，请联系管理员获取权限",
       "no-permission-title": "权限不足",
-      "loading-failed": "加载失败，请稍后重试",
       "forbidden": "访问被拒绝",
       "forbidden-title": "禁止访问",
       "not-found": "请求的资源不存在",
@@ -570,13 +380,100 @@
       "general-error-title": "出错了",
       "error-code": "错误代码",
       "error-message": "错误信息"
+    }
+  },
+  "chat": {
+    "ask": "追问",
+    "askContent": "对刚学的内容有什么问题？",
+    "chatInputPlaceholder": "请输入内容",
+    "chatInputWarn": "请输入内容",
+    "chatTips": "内容由 AI 大模型生成，无法确保真实准确，仅供学习参考",
+    "copySuccess": "已复制到剪切板",
+    "copyText": "复制",
+    "loginSuccess": "已经登录成功了",
+    "startAutoSkip": "开启自动跳过",
+    "stopAutoSkip": "停止自动跳过"
+  },
+  "errors": {
+    "no-permission": "您当前没有权限访问此内容"
+  },
+  "feedback": {
+    "feedbackPlaceholder": "请输入反馈内容",
+    "feedbackSubmit": "提交",
+    "feedbackSuccess": "反馈成功，感谢您的反馈",
+    "feedbackTitle": "反馈"
+  },
+  "groupon": {
+    "grouponInputMsg": "请输入兑换码",
+    "grouponModify": "修改兑换码 >",
+    "grouponPlaceholder": "请输入兑换码",
+    "grouponTitle": "兑换码",
+    "grouponUse": "其他支付方式"
+  },
+  "lesson": {
+    "reset": {
+      "resetConfirmContent": "重修会清空当前学习数据。确定重修？",
+      "resetConfirmTitle": "确认重修",
+      "resetTitle": "重修"
+    }
+  },
+  "menus": {
+    "navigationMenus": {
+      "basicInfo": "用户信息",
+      "language": "语言",
+      "personalInfo": "个性化设置"
+    }
+  },
+  "navigation": {
+    "contactUs": "联系我们",
+    "courseList": "课程名称",
+    "feedbackTitle": "提交反馈",
+    "filing": "备案",
+    "gongan": "京公网安备11010502055644号",
+    "icp": "京ICP备2024076754号-2",
+    "privacyPolicy": "隐私政策",
+    "shortcut": "快捷键",
+    "userAgreement": "服务协议"
+  },
+  "pay": {
+    "modelServiceAgreement": "模型服务协议",
+    "payChannelAlipay": "支付宝",
+    "payChannelWechat": "微信",
+    "paySuccess": "支付成功",
+    "userPrivacyPolicy": "用户隐私协议",
+    "virtualProductDesc": "说明：",
+    "virtualProductPoint1": "1. 购买即表示已阅读并同意{{modelServiceAgreement}}和{{userPrivacyPolicy}}。",
+    "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。"
+  },
+  "settings": {
+    "basicInfo": "基础信息",
+    "birth": "生日",
+    "birthPlaceholder": "请选择生日",
+    "dialogTitle": {
+      "selectBirthday": "选择生日",
+      "selectSex": "选择性别"
     },
-    "menus": {
-      "navigationMenus": {
-        "basicInfo": "用户信息",
-        "personalInfo": "个性化设置",
-        "language": "语言"
-      }
+    "home": "主页",
+    "nickname": "昵称",
+    "nicknamePersonal": "昵称（同时作为个人基本信息）",
+    "nicknamePlaceholder": "请输入昵称",
+    "personalInfo": "个性化设置",
+    "settingTite": "个人信息",
+    "sex": "性别",
+    "sexPlaceholder": "请选择性别"
+  },
+  "user": {
+    "confirmLogoutContent": "确认退出登录吗？",
+    "confirmLogoutTitle": "确认退出登录？",
+    "defaultUserName": "默认名称",
+    "login": "登录",
+    "loginMainButton": "登录/注册",
+    "logout": "退出登录",
+    "notLogin": "未登录",
+    "sex": {
+      "female": "女性",
+      "male": "男性",
+      "secret": "保密"
     }
   }
 }
