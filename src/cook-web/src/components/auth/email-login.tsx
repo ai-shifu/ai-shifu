@@ -11,7 +11,7 @@ import { Loader2 } from 'lucide-react';
 import { TermsCheckbox } from '@/components/terms-checkbox';
 import { isValidEmail } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/useAuth';
 
 import type { UserInfo } from '@/c-types';
 

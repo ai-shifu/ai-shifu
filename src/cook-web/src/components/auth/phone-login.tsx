@@ -12,7 +12,7 @@ import { TermsCheckbox } from '@/components/terms-checkbox';
 import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/useAuth';
 
 import type { UserInfo } from '@/c-types';
 interface PhoneLoginProps {
