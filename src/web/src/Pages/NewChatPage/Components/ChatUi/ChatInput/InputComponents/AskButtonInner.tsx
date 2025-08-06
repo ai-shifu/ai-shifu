@@ -95,15 +95,19 @@ const AskButtonInner = ({
         onClick={onButtonClick}
       >
         <svg width="76" height="76" viewBox="0 0 152 152">
-          <circle cx="76" cy="76" r="64" fill="#E2E2E2" />
-          <>
+          {/* Temporarily disable progress bar display - START */}
+          {/* Gray background circle */}
+          {/* <circle cx="76" cy="76" r="64" fill="#E2E2E2" /> */}
+          {/* Blue progress sector */}
+          {/* <>
             <path
               className={classNames(styles.glow)}
               id="sector"
               d={`M76,76 L76,12 A64,64 0 ${largeArcFlag},0 ${endPoint.x},${endPoint.y} Z`}
               fill="#8d9fe6"
             />
-          </>
+          </> */}
+          {/* Temporarily disable progress bar display - END */}
           <circle
             cx="76"
             cy="76"
