@@ -26,7 +26,7 @@ import {
   Trash2,
 } from 'lucide-react';
 
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store';
 import { v4 as uuidv4 } from 'uuid';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';

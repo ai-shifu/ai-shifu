@@ -1,5 +1,5 @@
 'use client';
-import { UserProvider } from '@/store/userProvider';
+import { UserProvider } from '@/store';
 import React from 'react';
 import ShifuEdit from '../shifu-edit';
 

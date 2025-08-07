@@ -1,4 +1,4 @@
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 import { tokenTool } from './storeUtil';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';

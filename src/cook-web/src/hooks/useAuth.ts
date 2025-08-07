@@ -1,5 +1,5 @@
 import { useToast } from '@/hooks/useToast';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
 import type { UserInfo } from '@/c-types';

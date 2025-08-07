@@ -42,7 +42,7 @@ import { SettingInputM } from '@/c-components/m/SettingInputM';
 import PayModalFooter from './PayModalFooter';
 
 import { getStringEnv } from '@/c-utils/envUtils';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 
 const CompletedSection = memo(() => {

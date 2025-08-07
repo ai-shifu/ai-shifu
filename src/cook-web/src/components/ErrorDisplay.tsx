@@ -9,7 +9,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
-import { useUserStore } from '@/store/useUserStore';
+import { useUserStore } from '@/store';
 
 interface ErrorDisplayProps {
   errorCode: number;
