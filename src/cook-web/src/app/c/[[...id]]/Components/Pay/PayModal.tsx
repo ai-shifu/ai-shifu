@@ -27,7 +27,7 @@ import {
 import PayModalFooter from './PayModalFooter';
 import PayChannelSwitch from './PayChannelSwitch';
 import { getStringEnv } from '@/c-utils/envUtils';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 import { shifu } from '@/c-service/Shifu';
 import { getCourseInfo } from '@/c-api/course';
 import { useSystemStore } from '@/c-store/useSystemStore';

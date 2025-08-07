@@ -1,4 +1,4 @@
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { toast } from '@/hooks/useToast';

@@ -20,12 +20,8 @@ import {
   CourseStoreState,
 } from '@/c-types/store';
 
-import {
-  useEnvStore,
-  useCourseStore,
-  UserProvider,
-  useUserStore,
-} from '@/c-store';
+import { useEnvStore, useCourseStore } from '@/c-store';
+import { UserProvider, useUserStore } from '@/store';
 
 const initializeEnvData = async (): Promise<void> => {
   const {

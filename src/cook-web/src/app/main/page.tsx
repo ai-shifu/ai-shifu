@@ -23,7 +23,7 @@ import Loading from '@/components/loading';
 import { useTranslation } from 'react-i18next';
 import { ErrorWithCode } from '@/lib/request';
 import ErrorDisplay from '@/components/ErrorDisplay';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 interface ShifuCardProps {
   id: string;
   image: string | undefined;

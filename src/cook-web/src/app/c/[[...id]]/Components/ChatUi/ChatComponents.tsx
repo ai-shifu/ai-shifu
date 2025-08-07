@@ -37,7 +37,7 @@ import {
   CHAT_MESSAGE_TYPE,
 } from '@/c-constants/courseConstants';
 
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 import { fixMarkdown, fixMarkdownStream } from '@/c-utils/markdownUtils';
 import PayModal from '../Pay/PayModal';
 // TODO: FIXME

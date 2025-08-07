@@ -3,7 +3,7 @@ import styles from './NavFooter.module.scss';
 import clsx from 'clsx';
 import { memo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useUserStore } from '@/c-store';
+import { useUserStore } from '@/store/useUserStore';
 
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
 

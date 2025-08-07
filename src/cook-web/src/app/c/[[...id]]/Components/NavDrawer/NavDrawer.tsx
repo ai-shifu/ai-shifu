@@ -22,7 +22,7 @@ import {
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import MainMenuModal from './MainMenuModal';
 
-import { useUserStore } from '@/c-store';
+import { useUserStore } from '@/store/useUserStore';
 
 /**
  * 导航栏展示形式

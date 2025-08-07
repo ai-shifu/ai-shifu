@@ -18,7 +18,7 @@ import {
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
 // import { languages } from '@/c-service/constants';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 
 import { shifu } from '@/c-service/Shifu';
 // import { getUserProfile, updateUserProfile } from '@/c-api/user';

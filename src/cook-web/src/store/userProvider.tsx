@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,

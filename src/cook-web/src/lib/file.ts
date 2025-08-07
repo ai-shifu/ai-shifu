@@ -1,7 +1,7 @@
 /**
  * File upload utility functions
  */
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 import { v4 as uuidv4 } from 'uuid';
 import { getDynamicApiBaseUrl } from '@/config/environment';
 import { getStringEnv } from '@/c-utils/envUtils';

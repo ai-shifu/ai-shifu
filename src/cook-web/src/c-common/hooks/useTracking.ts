@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { EVENT_NAMES, tracking } from '@/c-common/tools/tracking';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { getScriptInfo } from '@/c-api/lesson';

@@ -12,7 +12,7 @@ import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import LanguageSelect from '@/components/language-select';
 import i18n from '@/i18n';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 
 const UserProfileCard = () => {
   const { t } = useTranslation();

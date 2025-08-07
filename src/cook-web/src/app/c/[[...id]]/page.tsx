@@ -18,11 +18,11 @@ import { EVENT_NAMES, events } from './events';
 
 import {
   useEnvStore,
-  useUserStore,
   useCourseStore,
   useUiLayoutStore,
   useSystemStore,
 } from '@/c-store';
+import { useUserStore } from '@/store/useUserStore';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useLessonTree } from './hooks/useLessonTree';
 import { updateWxcode } from '@/c-api/user';

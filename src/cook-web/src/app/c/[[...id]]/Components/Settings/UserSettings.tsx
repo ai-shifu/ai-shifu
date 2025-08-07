@@ -16,7 +16,7 @@ import { updateUserProfile } from '@/c-api/user';
 import BirthdaySettingModal from './BirthdaySettingModal';
 import { SEX, SEX_NAMES } from '@/c-constants/userConstants';
 import DynamicSettingItem from './DynamicSettingItem';
-import { useUserStore } from '@/c-store/useUserStore';
+import { useUserStore } from '@/store/useUserStore';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useEnvStore } from '@/c-store/envStore';
