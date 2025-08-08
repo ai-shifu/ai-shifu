@@ -41,11 +41,11 @@ export const CreateShifuDialog = ({
   const formSchema = z.object({
     name: z
       .string()
-      .min(1, t('createShifuDialog.shifuNameEmpty'))
-      .max(20, t('createShifuDialog.shifuNameMaxLength')),
+      .min(1, t('createShifuDialog.nameRequired'))
+      .max(20, t('createShifuDialog.nameMaxLength')),
     description: z
       .string()
-      .max(500, t('createShifuDialog.shifuDescriptionMaxLength'))
+      .max(500, t('createShifuDialog.descriptionMaxLength'))
       .optional(),
     avatar: z.string().default(''),
   });
@@ -78,7 +78,7 @@ export const CreateShifuDialog = ({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('createShifuDialog.createBlankShifu')}</DialogTitle>
+          <DialogTitle>{t('createShifuDialog.title')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -95,14 +95,12 @@ export const CreateShifuDialog = ({
                       color: '#000000',
                     }}
                   >
-                    {t('createShifuDialog.shifuName')}
+                    {t('createShifuDialog.nameLabel')}
                   </FormLabel>
                   <FormControl>
                     <Input
                       autoComplete='off'
-                      placeholder={t(
-                        'create-shifu-dialog.please-input-shifu-name',
-                      )}
+                      placeholder={t('createShifuDialog.namePlaceholder')}
                       {...field}
                     />
                   </FormControl>
@@ -120,13 +118,13 @@ export const CreateShifuDialog = ({
                       color: '#000000',
                     }}
                   >
-                    {t('createShifuDialog.shifuDescription')}
+                    {t('createShifuDialog.descriptionLabel')}
                   </FormLabel>
                   <FormControl>
                     <Textarea
                       autoComplete='off'
                       placeholder={t(
-                        'create-shifu-dialog.please-input-shifu-description',
+                        'createShifuDialog.descriptionPlaceholder',
                       )}
                       {...field}
                     />

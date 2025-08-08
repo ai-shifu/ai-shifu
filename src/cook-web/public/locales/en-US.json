@@ -184,13 +184,15 @@
   },
   "createShifuDialog": {
     "create": "Create",
-    "createBlankShifu": "Create New Shifu",
     "creating": "Creating...",
-    "shifuDescription": "Shifu Description",
-    "shifuDescriptionMaxLength": "Shifu description cannot exceed 500 characters",
-    "shifuName": "Shifu Name",
-    "shifuNameEmpty": "Shifu name cannot be empty",
-    "shifuNameMaxLength": "Shifu name cannot exceed 20 characters"
+    "descriptionLabel": "Shifu Description",
+    "descriptionMaxLength": "Shifu description cannot exceed 500 characters",
+    "descriptionPlaceholder": "Please input shifu description",
+    "nameLabel": "Shifu Name",
+    "nameMaxLength": "Shifu name cannot exceed 20 characters",
+    "namePlaceholder": "Please input shifu name",
+    "nameRequired": "Shifu name cannot be empty",
+    "title": "Create New Shifu"
   },
   "errors": {
     "noPermission": "You don't have permission to access this content"

@@ -184,13 +184,15 @@
   },
   "createShifuDialog": {
     "create": "创建",
-    "createBlankShifu": "创建新师傅",
     "creating": "创建中...",
-    "shifuDescription": "师傅描述",
-    "shifuDescriptionMaxLength": "师傅描述不能超过500个字符",
-    "shifuName": "师傅名称",
-    "shifuNameEmpty": "师傅名称不能为空",
-    "shifuNameMaxLength": "师傅名称不能超过20个字符"
+    "descriptionLabel": "师傅描述",
+    "descriptionMaxLength": "师傅描述不能超过500个字符",
+    "descriptionPlaceholder": "请输入师傅描述",
+    "nameLabel": "师傅名称",
+    "nameMaxLength": "师傅名称不能超过20个字符",
+    "namePlaceholder": "请输入师傅名称",
+    "nameRequired": "师傅名称不能为空",
+    "title": "创建新师傅"
   },
   "errors": {
     "noPermission": "您当前没有权限访问此内容"
