@@ -25,6 +25,7 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 from flaskr.service.shifu.shifu_block_funcs import __get_block_list_internal
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
+from flaskr.service.shifu.cache import delete_shifu_cache
 from flaskr.common import get_config
 from flaskr.util import generate_id
 from datetime import datetime
@@ -188,6 +189,8 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
         thread.daemon = True  # Ensure thread doesn't prevent app shutdown
         thread.start()
         db.session.commit()
+        delete_shifu_cache(shifu_id)
+        get_shifu_outline_tree(app, shifu_id)
         return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu_id
 
 
