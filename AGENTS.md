@@ -128,6 +128,84 @@ Cook Web provides tools for:
 - Key tables include: `ai_course`, `ai_lesson`, `ai_lesson_script`, `user_info`, `user_profile`
 - Database schema managed through Alembic migrations in `src/api/migrations/`
 
+### Database Migration Rules
+
+**CRITICAL**: Every database schema change MUST follow this process:
+
+#### Required Steps for Database Changes
+
+1. **Make model changes** in SQLAlchemy model files (`src/api/flaskr/service/*/models.py`)
+2. **Generate migration script** using Flask-Migrate:
+   ```bash
+   cd src/api
+   flask db migrate -m "descriptive message about the change"
+   ```
+3. **Review the generated migration** in `src/api/migrations/versions/`
+4. **Commit the migration file** to version control
+
+**Note**: `flask db upgrade` is used for deployment/environment setup, not required during development.
+
+#### Prerequisites for Migration Commands
+
+Before running `flask db migrate`, ensure:
+
+```bash
+# 1. Navigate to API directory
+cd src/api
+
+# 2. Set environment variables
+export FLASK_APP=flaskr
+export DATABASE_URL="mysql://user:password@localhost/dbname"
+
+# 3. Generate new migration
+flask db migrate -m "describe your changes"
+```
+
+#### When to Use Migration Commands
+
+- **Adding new tables or columns**
+- **Modifying column types or constraints**
+- **Dropping tables or columns**
+- **Adding or removing indexes**
+- **Any structural database changes**
+
+#### Migration Best Practices
+
+- **Always review** the auto-generated migration before applying
+- **Use descriptive messages** that explain the business purpose
+- **Test migrations** on a copy of production data
+- **Never edit applied migrations** - create new ones instead
+- **Include both upgrade() and downgrade()** functions for rollback capability
+
+#### Common Migration Issues & Solutions
+
+**Problem**: `flask: command not found`
+
+```bash
+export FLASK_APP=flaskr
+# or use: python -m flask db migrate
+```
+
+**Problem**: `Could not locate a Flask application`
+
+```bash
+export FLASK_APP=flaskr
+```
+
+**Problem**: `Target database is not up to date`
+
+```bash
+# This usually means database state doesn't match migration history
+# Check current migration status: flask db current
+# Review migration history: flask db history
+```
+
+**Problem**: Database connection errors
+
+```bash
+export DATABASE_URL="your_database_connection_string"
+```
+
 ## Environment Configuration
 
 Environment variables are managed through `.env` files:
@@ -167,6 +245,7 @@ The Cook Web frontend has been unified to use a single, consistent API request s
 - Supports streaming methods (STREAM, STREAMLINE)
 
 **3. Business Code Handling (`handleBusinessCode` function)**
+
 - Centrally processes all API responses
 - Checks `response.code` for business logic errors
 - Handles authentication errors (codes 1001, 1004, 1005) with automatic redirects
@@ -215,6 +294,7 @@ Both `/main` and `/c` routes now use identical request infrastructure:
 #### Migration Notes
 
 Previous architecture had dual systems:
+
 - `/main` used `Request` class with `api.ts` generation
 - `/c` used `axiosrequest` with manual response handling
 
@@ -222,12 +302,12 @@ This has been unified so all business code receives clean data directly:
 
 ```typescript
 // Before (mixed patterns):
-const res = await api.getUserInfo({});     // /main - direct data
-const userInfo = res.data;                // /c - manual extraction
+const res = await api.getUserInfo({}); // /main - direct data
+const userInfo = res.data; // /c - manual extraction
 
 // After (unified):
 const userInfo = await api.getUserInfo({}); // Both routes - direct data
-const userInfo = await getUserInfo();       // Both routes - direct data
+const userInfo = await getUserInfo(); // Both routes - direct data
 ```
 
 #### Important Files
