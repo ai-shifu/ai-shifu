@@ -13,21 +13,22 @@ from sqlalchemy.sql import func
 from ...dao import db
 
 
-# AI Course
-# Todo
-# 加入购买渠道
-class AICourseBuyRecord(db.Model):
-    __tablename__ = "ai_course_buy_record"
+# AI Shifu Order
+class OrderItem(db.Model):
+    """
+    Order Item
+    """
+    __tablename__ = "order_items"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    record_id = Column(
-        String(36), nullable=False, default="", comment="Record UUID", index=True
+    order_bid = Column(
+        String(36), nullable=False, default="", comment="Order Business ID", index=True
     )
-    course_id = Column(
-        String(36), nullable=False, default="", comment="Course UUID", index=True
+    shifu_bid= Column(
+        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
     )
-    user_id = Column(
-        String(36), nullable=False, default="", comment="User UUID", index=True
+    user_bid = Column(
+        String(36), nullable=False, default="", comment="User Business ID", index=True
     )
     price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Price of the course"
@@ -38,45 +39,45 @@ class AICourseBuyRecord(db.Model):
     discount_value = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Discount value"
     )
-    paid_value = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Paid value"
-    )
     created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+        DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
     updated = Column(
-        TIMESTAMP,
+        DateTime,
         nullable=False,
         default=func.now(),
         onupdate=func.now(),
         comment="Update time",
     )
-    status = Column(Integer, nullable=False, default=0, comment="Status of the record")
+    status = Column(Integer, nullable=False, default=0, comment="Status of the record: 501-unpaid, 502-paid, 503-refunded, 504-closed, 505-failed")
 
 
-class AICourseLessonAttend(db.Model):
-    __tablename__ = "ai_course_lesson_attend"
+class ShifuUserComsumptionRecord(db.Model):
+    """
+    Shifu User Comsumption
+    """
+    __tablename__ = "shifu_user_comsumption_records"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    attend_id = Column(
-        String(36), nullable=False, default="", comment="Attend UUID", index=True
+    usage_bid = Column(
+        String(36), nullable=False, default="", comment="Usage Business ID", index=True
     )
-    lesson_id = Column(
-        String(36), nullable=False, default="", comment="Lesson UUID", index=True
+
+    shifu_bid = Column(
+        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
     )
-    course_id = Column(
-        String(36), nullable=False, default="", comment="Course UUID", index=True
+    outline_bid = Column(
+        String(36), nullable=False, default="", comment="Outline Business ID", index=True
     )
-    lesson_no = Column(String(36), nullable=False, default="", comment="Lesson no")
-    user_id = Column(
+    outline_postion = Column(String(36), nullable=False, default="", comment="Outline postion")
+    outline_name = Column(String(36), nullable=False, default="", comment="Outline name")
+    user_bid = Column(
         String(36), nullable=False, default="", comment="User UUID", index=True
     )
-    lesson_updated = Column(
-        Integer, nullable=False, default=0, comment="Lesson is  updated"
+    outline_updated = Column(
+        Integer, nullable=False, default=0, comment="Usage is  updated"
     )
-    lesson_unique_id = Column(
-        String(36), nullable=False, default="", comment="Lesson unique ID", index=True
-    )
+    
     status = Column(
         Integer,
         nullable=False,
@@ -84,14 +85,11 @@ class AICourseLessonAttend(db.Model):
         comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
         index=True,
     )
-    script_index = Column(
+    block_position_index = Column(
         Integer,
         nullable=False,
         default=0,
         comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
-    )
-    script_unique_id = Column(
-        String(36), nullable=False, default="", comment="Script unique ID", index=True
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
@@ -106,9 +104,9 @@ class AICourseLessonAttend(db.Model):
 
 
 class PingxxOrder(db.Model):
-    __tablename__ = "pingxx_order"
+    __tablename__ = "order_paychannel_pingxx_orders"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    order_id = Column(
+    order_bid = Column(
         String(36), index=True, nullable=False, default="", comment="Order UUID"
     )
     user_id = Column(
@@ -183,9 +181,9 @@ class PingxxOrder(db.Model):
 
 # 折扣码
 class Discount(db.Model):
-    __tablename__ = "discount"
+    __tablename__ = "order_discounts"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    discount_id = Column(
+    discount_bid = Column(
         String(36), index=True, nullable=False, default="", comment="Discount UUID"
     )
     discount_code = Column(
@@ -242,32 +240,35 @@ class Discount(db.Model):
     )
 
 
-class DiscountRecord(db.Model):
-    __tablename__ = "discount_record"
+class DiscountUsageRecord(db.Model):
+    """
+    Discount Usage Record
+    """
+    __tablename__ = "order_discount_usage_records"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    record_id = Column(
-        String(36), index=True, nullable=False, default="", comment="Record UUID"
+    discount_usage_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Discount Usage Business ID"
     )
-    discount_id = Column(
-        String(36), index=True, nullable=False, default="", comment="Discount UUID"
+    discount_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Discount Business ID"
     )
     discount_name = Column(
         String(255), nullable=False, default="", comment="Discount name"
     )
-    user_id = Column(
-        String(36), index=True, nullable=False, default="", comment="User UUID"
+    user_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="User Business ID"
     )
-    course_id = Column(
-        String(36), index=True, nullable=False, default="", comment="Course UUID"
+    shifu_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Shifu Business ID"
     )
-    order_id = Column(
-        String(36), index=True, nullable=False, default="", comment="Order UUID"
+    order_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Order Business ID"
     )
     discount_code = Column(
-        String(36), nullable=False, default="", comment="Discount code"
+        String(36), nullable=False, default="", comment="Discount Code"
     )
     discount_type = Column(
-        Integer, nullable=False, default=0, comment="Discount type: 0-percent, 1-amount"
+        Integer, nullable=False, default=0, comment="Discount Type: 0-percent, 1-amount"
     )
     discount_value = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Discount value"
@@ -276,7 +277,7 @@ class DiscountRecord(db.Model):
         Integer,
         nullable=False,
         default=0,
-        comment="Status of the record: 0-inactive, 1-active",
+        comment="Status of the record: 0-unpaid, 1-paid, 2-refunded, 3-closed, 4-failed",
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
