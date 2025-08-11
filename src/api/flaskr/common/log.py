@@ -73,8 +73,6 @@ def init_log(app: Flask) -> Flask:
     @app.before_request
     def setup_logging():
         request_id = request.headers.get("X-Request-ID", uuid.uuid4().hex)
-        mode = request.headers.get("X-API-MODE", "api")
-        thread_local.mode = mode
         thread_local.request_id = request_id
         thread_local.url = request.path
         if "X-Forwarded-For" in request.headers:
@@ -186,7 +184,3 @@ def init_log(app: Flask) -> Flask:
     app.logger.setLevel(logging.INFO)
     app.logger.propagate = False
     return app
-
-
-def get_mode():
-    return getattr(thread_local, "mode", None)

@@ -8,7 +8,7 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from ..service.user import (
-    create_new_admin_user,
+    create_new_user,
     verify_user,
     validate_user,
     update_user_info,
@@ -108,7 +108,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         email = request.get_json().get("email", "")
         name = request.get_json().get("name", "")
         mobile = request.get_json().get("mobile", "")
-        user_token = create_new_admin_user(app, username, name, password, email, mobile)
+        user_token = create_new_user(app, username, name, password, email, mobile)
         resp = make_response(make_common_response(user_token))
         return resp
 
@@ -132,13 +132,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                         password:
                             type: string
                             description: password
-            -   in: header
-                required: false
-                name: X-API-MODE
-                schema:
-                    type: string
-                    description: mode (api, admin)
-                    default: api
         responses:
             200:
                 description: login is success

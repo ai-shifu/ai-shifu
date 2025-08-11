@@ -116,58 +116,6 @@ class UserConversion(db.Model):
         self.conversion_third_platform = conversion_third_platform
 
 
-class AdminUser(db.Model):
-    __tablename__ = "admin_info"
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
-    user_id = Column(String(36), nullable=False, default="", comment="User UUID")
-    username = Column(String(255), nullable=False, default="", comment="Login username")
-    name = Column(String(255), nullable=False, default="", comment="User real name")
-    password_hash = Column(
-        String(255), nullable=False, default="", comment="Hashed password"
-    )
-    email = Column(String(255), nullable=False, default="", comment="Email")
-    mobile = Column(String(20), nullable=False, default="", comment="Mobile")
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
-    )
-    updated = Column(
-        TIMESTAMP,
-        nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
-        comment="Update time",
-    )
-    user_state = Column(Integer, nullable=True, default=0, comment="User_state")
-    user_sex = Column(Integer, nullable=True, default=0, comment="user sex")
-    user_birth = Column(Date, nullable=True, default="2003-1-1", comment="user birth")
-    user_avatar = Column(String(255), nullable=True, default="", comment="user avatar")
-    is_admin = Column(Boolean, nullable=False, default=False, comment="is admin")
-    is_creator = Column(Boolean, nullable=False, default=False, comment="is creator")
-    user_language = Column(
-        String(30), nullable=True, default="zh-CN", comment="user language"
-    )
-
-    def __init__(
-        self,
-        user_id,
-        username="",
-        name="",
-        password_hash="",
-        email="",
-        mobile="",
-        user_state=0,
-        language="zh-CN",
-    ):
-        self.user_id = user_id
-        self.username = username
-        self.name = name
-        self.password_hash = password_hash
-        self.email = email
-        self.mobile = mobile
-        self.user_state = user_state
-        self.user_language = language
-
-
 class UserToken(db.Model):
     __tablename__ = "user_token"
     id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)

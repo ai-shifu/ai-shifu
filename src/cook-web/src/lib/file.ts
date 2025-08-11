@@ -124,7 +124,6 @@ export const uploadFile = async (
         ...mergedHeaders,
         Authorization: `Bearer ${token}`,
         Token: token,
-        'X-API-MODE': 'admin',
         'X-Request-ID': uuidv4().replace(/-/g, ''),
       };
     }
@@ -181,7 +180,6 @@ export const uploadMultipleFiles = async (
       ...mergedHeaders,
       Authorization: `Bearer ${token}`,
       Token: token,
-      'X-API-MODE': 'admin',
       'X-Request-ID': uuidv4().replace(/-/g, ''),
     };
   }

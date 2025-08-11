@@ -19,7 +19,6 @@ def test_save_profile_item(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.json)
@@ -46,7 +45,6 @@ def test_save_profile_item_option(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.json)
@@ -58,7 +56,6 @@ def test_get_profile_list_api(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.data)
@@ -83,7 +80,6 @@ def test_get_profile_item_defination_option_list(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.data)
@@ -97,7 +93,6 @@ def test_delete_profile_item(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.data)
@@ -110,7 +105,6 @@ def test_delete_profile_item(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.data)
@@ -120,7 +114,6 @@ def test_delete_profile_item(test_client, app, token):
         headers={
             "Token": token,
             "Content-Type": "application/json",
-            "X-API-MODE": "admin",
         },
     )
     app.logger.info(response.data)
