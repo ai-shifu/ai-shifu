@@ -2,7 +2,6 @@ from sqlalchemy import (
     Column,
     String,
     Integer,
-    TIMESTAMP,
     Text,
     Numeric,
     SmallInteger,
@@ -12,14 +11,16 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 
+from .consts import BUY_STATUS_INIT, ATTEND_STATUS_LOCKED
+
 
 # AI Shifu Order
-class OrderItem(db.Model):
+class Order(db.Model):
     """
     Order Item
     """
 
-    __tablename__ = "order_items"
+    __tablename__ = "order_orders"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     order_bid = Column(
@@ -31,43 +32,48 @@ class OrderItem(db.Model):
     user_bid = Column(
         String(36), nullable=False, default="", comment="User Business ID", index=True
     )
-    price = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Price of the course"
+    order_price = Column(
+        Numeric(10, 2), nullable=False, default="0.00", comment="Order Price"
     )
-    pay_value = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Payment value"
-    )
-    discount_value = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Discount value"
-    )
-    created = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation time"
-    )
-    updated = Column(
-        DateTime,
-        nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
-        comment="Update time",
+    paid_price = Column(
+        Numeric(10, 2), nullable=False, default="0.00", comment="Paid Price"
     )
     status = Column(
         Integer,
-        nullable=False,
+        nullable=BUY_STATUS_INIT,
         default=0,
-        comment="Status of the record: 501-unpaid, 502-paid, 503-refunded, 504-closed, 505-failed",
+        comment="Status of the record: 501-init, 502-paid, 503-refunded, 504-to be paid, 505-timeout",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation timestamp",
+    )
+
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
     )
 
 
-class ShifuUserComsumptionRecord(db.Model):
+class OrderUserComsumptionRecord(db.Model):
     """
     Shifu User Comsumption
     """
 
-    __tablename__ = "shifu_user_comsumption_records"
+    __tablename__ = "order_user_comsumption_records"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    usage_bid = Column(
-        String(36), nullable=False, default="", comment="Usage Business ID", index=True
+    consumption_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Consumption Business ID",
+        index=True,
     )
 
     shifu_bid = Column(
@@ -80,23 +86,16 @@ class ShifuUserComsumptionRecord(db.Model):
         comment="Outline Business ID",
         index=True,
     )
-    outline_postion = Column(
-        String(36), nullable=False, default="", comment="Outline postion"
-    )
-    outline_name = Column(
-        String(36), nullable=False, default="", comment="Outline name"
-    )
     user_bid = Column(
-        String(36), nullable=False, default="", comment="User UUID", index=True
+        String(36), nullable=False, default="", comment="User Business ID", index=True
     )
     outline_updated = Column(
-        Integer, nullable=False, default=0, comment="Usage is  updated"
+        Integer, nullable=False, default=0, comment="Usage is updated"
     )
-
     status = Column(
         Integer,
         nullable=False,
-        default=0,
+        default=ATTEND_STATUS_LOCKED,
         comment="Status of the comsumption: 601-not started, 602-in progress, 603-completed, 604-refund, 605-locked, 606-unavailable, 607-branch, 608-reset",
         index=True,
     )
@@ -106,23 +105,35 @@ class ShifuUserComsumptionRecord(db.Model):
         default=0,
         comment="block position index of the comsumption",
     )
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
-    )
-    updated = Column(
-        TIMESTAMP,
+    created_at = Column(
+        DateTime,
         nullable=False,
         default=func.now(),
+        comment="Creation timestamp",
+    )
+
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
         onupdate=func.now(),
-        comment="Update time",
     )
 
 
 class PingxxOrder(db.Model):
+    """
+    Pingxx Order
+    """
+
     __tablename__ = "order_paychannel_pingxx_orders"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     pingxx_order_bid = Column(
-        String(36), index=True, nullable=False, default="", comment="Pingxx Order Business ID"
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Pingxx Order Business ID",
     )
     user_bid = Column(
         String(36), index=True, nullable=False, default="", comment="User Business ID"
@@ -155,16 +166,6 @@ class PingxxOrder(db.Model):
     order_no = Column(String(255), nullable=False, default="", comment="Order number")
     client_ip = Column(String(255), nullable=False, default="", comment="Client IP")
     extra = Column(Text, nullable=False, comment="Extra information")
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
-    )
-    updated = Column(
-        TIMESTAMP,
-        nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
-        comment="Update time",
-    )
     status = Column(
         Integer,
         nullable=False,
@@ -173,16 +174,16 @@ class PingxxOrder(db.Model):
     )
     charge_id = Column(String(255), nullable=False, default="", comment="Charge ID")
     paid_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Payment time"
+        DateTime, nullable=False, default=func.now(), comment="Payment time"
     )
     refunded_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Refund time"
+        DateTime, nullable=False, default=func.now(), comment="Refund time"
     )
     closed_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Close time"
+        DateTime, nullable=False, default=func.now(), comment="Close time"
     )
     failed_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Failed time"
+        DateTime, nullable=False, default=func.now(), comment="Failed time"
     )
     refund_id = Column(String(255), nullable=False, default="", comment="Refund ID")
     failure_code = Column(
@@ -191,7 +192,21 @@ class PingxxOrder(db.Model):
     failure_msg = Column(
         String(255), nullable=False, default="", comment="Failure message"
     )
-    charge_object = Column(Text, nullable=False, comment="Charge object")
+    charge_object = Column(Text, nullable=False, comment="Pingxx's raw charge object")
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation timestamp",
+    )
+
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
+    )
 
 
 # 折扣码
@@ -214,38 +229,32 @@ class Discount(db.Model):
         Integer,
         nullable=False,
         default=0,
-        comment="Discount apply type: 801-all, 802-specific",
+        comment="Discount apply type: 801: one discount code for multiple times, 802: one discount code for one time",
     )
     discount_value = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Discount value"
     )
-    discount_limit = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Discount limit"
-    )
     discount_start = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Discount start time"
+        DateTime, nullable=False, default=func.now(), comment="Discount start time"
     )
     discount_end = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Discount end time"
+        DateTime, nullable=False, default=func.now(), comment="Discount end time"
     )
     discount_channel = Column(
         String(36), nullable=False, default="", comment="Discount channel"
     )
     discount_filter = Column(Text, nullable=False, comment="Discount filter")
-    discount_count = Column(BIGINT, nullable=False, default=0, comment="Discount count")
-    discount_used = Column(BIGINT, nullable=False, default=0, comment="Discount used")
-    discount_generated_user = Column(
-        String(36), nullable=False, default="", comment="Discount generated user"
+    discount_total_count = Column(
+        BIGINT, nullable=False, default=0, comment="Discount total count"
     )
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    discount_used_count = Column(
+        BIGINT, nullable=False, default=0, comment="Discount used count"
     )
-    updated = Column(
-        TIMESTAMP,
+    created_user_bid = Column(
+        String(36),
         nullable=False,
-        default=func.now(),
-        onupdate=func.now(),
-        comment="Update time",
+        default="",
+        comment="Creator user business identifier",
     )
     status = Column(
         Integer,
@@ -253,14 +262,28 @@ class Discount(db.Model):
         default=0,
         comment="Status of the discount: 0-inactive, 1-active",
     )
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        onupdate=func.now(),
+        comment="Update time",
+    )
 
 
-class DiscountUsageRecord(db.Model):
+class DiscountUsage(db.Model):
     """
     Discount Usage Record
+    Generated:
+
+    1. Generated one when user use a discount code that could be used multiple times
+    2. Generated `discount_total_count` when discount that could be used multiple times is created
     """
 
-    __tablename__ = "order_discount_usage_records"
+    __tablename__ = "order_discount_usages"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     discount_usage_bid = Column(
         String(36),
@@ -292,10 +315,16 @@ class DiscountUsageRecord(db.Model):
         String(36), nullable=False, default="", comment="Discount Code"
     )
     discount_type = Column(
-        Integer, nullable=False, default=0, comment="Discount Type: 0-percent, 1-amount"
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Discount Type: 701-fixed, 702-percent",
     )
     discount_value = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Discount value"
+        Numeric(10, 2),
+        nullable=False,
+        default="0.00",
+        comment="Discount value: would be calculated to amount by discount type",
     )
     status = Column(
         Integer,
@@ -303,11 +332,11 @@ class DiscountUsageRecord(db.Model):
         default=0,
         comment="Status of the record: 901-inactive, 902-active, 903-used, 904-timeout",
     )
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
-    updated = Column(
-        TIMESTAMP,
+    updated_at = Column(
+        DateTime,
         nullable=False,
         default=func.now(),
         onupdate=func.now(),

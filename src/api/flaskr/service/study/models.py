@@ -21,18 +21,22 @@ class ShifuUserComsumptionRecordLog(db.Model):
     log_id = Column(
         String(36), nullable=False, index=True, default="", comment="Log UUID"
     )
-    comsumption_record_bid = Column(
+    consumption_bid = Column(
         String(36),
         nullable=False,
         default="",
-        comment="Comsumption Record Business ID",
+        comment="Consumption Business ID",
         index=True,
     )
     block_bid = Column(
         String(36), nullable=False, default="", comment="Block Business ID", index=True
     )
     outline_bid = Column(
-        String(36), nullable=False, default="", comment="Outline Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline Business ID",
+        index=True,
     )
     shifu_bid = Column(
         String(36), nullable=False, default="", comment="Shifu Business ID", index=True
@@ -41,7 +45,10 @@ class ShifuUserComsumptionRecordLog(db.Model):
         Integer, nullable=False, default=0, comment="Block Content Type"
     )
     block_content_conf = Column(
-        Text, nullable=False, default="", comment="Block Content Config"
+        Text,
+        nullable=False,
+        default="",
+        comment="Block Content Config(used for re-generate)",
     )
     user_bid = Column(
         String(36), nullable=False, default="", comment="User Business ID", index=True
@@ -59,11 +66,16 @@ class ShifuUserComsumptionRecordLog(db.Model):
     block_generate_content = Column(
         Text, nullable=False, comment="Block Generate Content"
     )
-    status = Column(Integer, nullable=False, default=0, comment="Status of the record")
-    created = Column(
+    status = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Status of the record: 1-active, 0-history",
+    )
+    created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
     )
-    updated = Column(
+    updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
