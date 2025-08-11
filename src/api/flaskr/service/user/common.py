@@ -568,6 +568,7 @@ def verify_mail_code(
 def init_first_course(app: Flask, user_id: str):
     """
     Check if there is only one user and one course. If so, update the creator of the course
+    and set the first user as admin and creator
     """
     # Check the number of users
     user_count = User.query.filter(User.user_state != USER_STATE_UNREGISTERED).count()
@@ -578,6 +579,12 @@ def init_first_course(app: Flask, user_id: str):
     course_count = AICourse.query.count()
     if course_count != 1:
         return
+
+    # Set the first user as admin and creator
+    first_user = User.query.filter(User.user_id == user_id).first()
+    if first_user:
+        first_user.is_admin = True
+        first_user.is_creator = True
 
     # Get the only course
     course = AICourse.query.first()
