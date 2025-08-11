@@ -18,6 +18,3 @@ def test_get_user_profile(app):
                 item["value"] = "MacOS"
                 update_user_profile(app, "42e03ab0a33d4904bf84793d5fc1f71b", resp)
         print_json(resp)
-
-
-#     pass
