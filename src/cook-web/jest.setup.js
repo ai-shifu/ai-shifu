@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import '@testing-library/jest-dom';
 
 // Mock Next.js router

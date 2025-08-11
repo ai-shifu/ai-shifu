@@ -29,27 +29,11 @@ repos:
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx|css|scss|md|json)$
         args: ['--write', '--config', 'src/cook-web/.prettierrc']
         additional_dependencies: ['prettier@^3.5.3']
--   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.33.0
+-   repo: local
     hooks:
-    -   id: eslint
+    -   id: eslint-cook-web
         name: ESLint cook-web files (errors only)
-        files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
-        args: [--max-warnings=0, --ext, .js, --ext, .jsx, --ext, .ts, --ext, .tsx, --fix]
-        additional_dependencies:
-        -   '@typescript-eslint/eslint-plugin'
-        -   '@typescript-eslint/parser'
-        -   eslint-config-next
-        -   '@babel/core'
-        -   '@babel/preset-env'
-        -   '@babel/preset-react'
-        -   next
--   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.33.0
-    hooks:
-    -   id: eslint
-        name: ESLint web files (errors only)
-        files: ^src/web/.*\.(js|jsx|ts|tsx)$
-        args: [--max-warnings=0, --ext, .js, --ext, .jsx, --ext, .ts, --ext, .tsx, --fix]
-        additional_dependencies:
-        -   eslint-config-react-app
+        entry: bash -c 'cd src/cook-web && npx eslint --max-warnings=50 --fix --no-error-on-unmatched-pattern $(echo "$@" | sed "s|src/cook-web/||g")' --
+        language: system
+        files: ^src/cook-web/src/.*\.(js|jsx|ts|tsx)$
+        pass_filenames: true

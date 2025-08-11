@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 const fs = require('fs'); // eslint-disable-line
 const path = require('path'); // eslint-disable-line
 
