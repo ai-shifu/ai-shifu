@@ -18,13 +18,14 @@ class OrderItem(db.Model):
     """
     Order Item
     """
+
     __tablename__ = "order_items"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     order_bid = Column(
         String(36), nullable=False, default="", comment="Order Business ID", index=True
     )
-    shifu_bid= Column(
+    shifu_bid = Column(
         String(36), nullable=False, default="", comment="Shifu Business ID", index=True
     )
     user_bid = Column(
@@ -49,13 +50,19 @@ class OrderItem(db.Model):
         onupdate=func.now(),
         comment="Update time",
     )
-    status = Column(Integer, nullable=False, default=0, comment="Status of the record: 501-unpaid, 502-paid, 503-refunded, 504-closed, 505-failed")
+    status = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Status of the record: 501-unpaid, 502-paid, 503-refunded, 504-closed, 505-failed",
+    )
 
 
 class ShifuUserComsumptionRecord(db.Model):
     """
     Shifu User Comsumption
     """
+
     __tablename__ = "shifu_user_comsumption_records"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
@@ -67,17 +74,25 @@ class ShifuUserComsumptionRecord(db.Model):
         String(36), nullable=False, default="", comment="Shifu Business ID", index=True
     )
     outline_bid = Column(
-        String(36), nullable=False, default="", comment="Outline Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline Business ID",
+        index=True,
     )
-    outline_postion = Column(String(36), nullable=False, default="", comment="Outline postion")
-    outline_name = Column(String(36), nullable=False, default="", comment="Outline name")
+    outline_postion = Column(
+        String(36), nullable=False, default="", comment="Outline postion"
+    )
+    outline_name = Column(
+        String(36), nullable=False, default="", comment="Outline name"
+    )
     user_bid = Column(
         String(36), nullable=False, default="", comment="User UUID", index=True
     )
     outline_updated = Column(
         Integer, nullable=False, default=0, comment="Usage is  updated"
     )
-    
+
     status = Column(
         Integer,
         nullable=False,
@@ -244,13 +259,22 @@ class DiscountUsageRecord(db.Model):
     """
     Discount Usage Record
     """
+
     __tablename__ = "order_discount_usage_records"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     discount_usage_bid = Column(
-        String(36), index=True, nullable=False, default="", comment="Discount Usage Business ID"
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Discount Usage Business ID",
     )
     discount_bid = Column(
-        String(36), index=True, nullable=False, default="", comment="Discount Business ID"
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Discount Business ID",
     )
     discount_name = Column(
         String(255), nullable=False, default="", comment="Discount name"

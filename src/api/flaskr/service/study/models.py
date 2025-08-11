@@ -14,6 +14,7 @@ class ShifuUserComsumptionRecordLog(db.Model):
     """
     Shifu User Comsumption Record Log
     """
+
     __tablename__ = "shifu_user_comsumption_record_logs"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
@@ -21,7 +22,11 @@ class ShifuUserComsumptionRecordLog(db.Model):
         String(36), nullable=False, index=True, default="", comment="Log UUID"
     )
     comsumption_record_bid = Column(
-        String(36), nullable=False, default="", comment="Comsumption Record Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="Comsumption Record Business ID",
+        index=True,
     )
     block_bid = Column(
         String(36), nullable=False, default="", comment="Script UUID", index=True
@@ -47,9 +52,13 @@ class ShifuUserComsumptionRecordLog(db.Model):
         default=0,
         comment="Interaction type: 0-no interaction, 1-like, 2-dislike",
     )
-    block_position_index = Column(Integer, nullable=False, default=0, comment="Block Position Index")
+    block_position_index = Column(
+        Integer, nullable=False, default=0, comment="Block Position Index"
+    )
     block_log_role = Column(Integer, nullable=False, default=0, comment="Block Role")
-    block_generate_content = Column(Text, nullable=False, comment="Block Generate Content")
+    block_generate_content = Column(
+        Text, nullable=False, comment="Block Generate Content"
+    )
     status = Column(Integer, nullable=False, default=0, comment="Status of the record")
     created = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -61,5 +70,3 @@ class ShifuUserComsumptionRecordLog(db.Model):
         onupdate=func.now(),
         comment="Update time",
     )
-
- 
