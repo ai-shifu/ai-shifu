@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import '@testing-library/jest-dom';
 
 // Mock Next.js router
@@ -61,6 +62,7 @@ window.location = {
 
 // Suppress console errors in tests
 const originalError = console.error;
+
 beforeAll(() => {
   console.error = (...args) => {
     if (

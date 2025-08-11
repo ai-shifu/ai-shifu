@@ -10,6 +10,7 @@ files.forEach(file => {
     const code = file.replace('.json', '');
     const content = fs.readFileSync(path.join(localesDir, file), 'utf-8');
     const json = JSON.parse(content);
+
     langMap[code] = json.langName;
   }
 });

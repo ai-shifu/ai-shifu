@@ -29,3 +29,29 @@ repos:
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx|css|scss|md|json)$
         args: ['--write', '--config', 'src/cook-web/.prettierrc']
         additional_dependencies: ['prettier@^3.5.3']
+-   repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.33.0
+    hooks:
+    -   id: eslint
+        name: ESLint cook-web files (errors only)
+        files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
+        args: [--max-warnings=0, --ext, .js, --ext, .jsx, --ext, .ts, --ext, .tsx, --fix]
+        additional_dependencies:
+        -   eslint@^8.57.0
+        -   '@typescript-eslint/eslint-plugin'
+        -   '@typescript-eslint/parser'
+        -   eslint-config-next
+        -   '@babel/core'
+        -   '@babel/preset-env'
+        -   '@babel/preset-react'
+        -   next
+-   repo: https://github.com/pre-commit/mirrors-eslint
+    rev: v9.33.0
+    hooks:
+    -   id: eslint
+        name: ESLint web files (errors only)
+        files: ^src/web/.*\.(js|jsx|ts|tsx)$
+        args: [--max-warnings=0, --ext, .js, --ext, .jsx, --ext, .ts, --ext, .tsx, --fix]
+        additional_dependencies:
+        -   eslint@^8.57.0
+        -   eslint-config-react-app
