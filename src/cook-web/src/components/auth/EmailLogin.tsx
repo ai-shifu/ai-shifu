@@ -15,10 +15,7 @@ interface EmailLoginProps {
   onForgotPassword?: () => void;
 }
 
-export function EmailLogin({
-  onLoginSuccess,
-  onForgotPassword,
-}: EmailLoginProps) {
+export function EmailLogin({}: EmailLoginProps) {
   const { t } = useTranslation();
 
   return (
