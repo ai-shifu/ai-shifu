@@ -13,8 +13,6 @@ import {
 } from '@/components/ui/Card';
 import { PhoneLogin } from '@/components/auth/PhoneLogin';
 import { EmailLogin } from '@/components/auth/EmailLogin';
-import { EmailRegister } from '@/components/auth/EmailRegister';
-import { ForgotPasswordForm } from '@/components/auth/ForgotPasswordForm';
 import { FeedbackForm } from '@/components/auth/FeedbackForm';
 import Image from 'next/image';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
@@ -26,9 +24,7 @@ import { environment } from '@/config/environment';
 
 export default function AuthPage() {
   const router = useRouter();
-  const [authMode, setAuthMode] = useState<
-    'login' | 'register' | 'forgot-password' | 'feedback'
-  >('login');
+  const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
 
   // Get login methods from environment configuration
   const enabledMethods = environment.loginMethodsEnabled;
@@ -51,10 +47,6 @@ export default function AuthPage() {
     // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
     // router.push('/main')
     router.replace(redirect);
-  };
-
-  const handleForgotPassword = () => {
-    setAuthMode('forgot-password');
   };
 
   const handleFeedback = () => {
@@ -102,23 +94,6 @@ export default function AuthPage() {
                 </CardTitle>
               </>
             )}
-            {authMode === 'register' && (
-              <>
-                <CardTitle className='text-xl text-center'>
-                  {t('auth.register')}
-                </CardTitle>
-              </>
-            )}
-            {authMode === 'forgot-password' && (
-              <>
-                <CardTitle className='text-xl text-center'>
-                  {t('auth.forgotPassword')}
-                </CardTitle>
-                <CardDescription className='text-sm text-center'>
-                  {t('auth.forgotPassword')}
-                </CardDescription>
-              </>
-            )}
             {authMode === 'feedback' && (
               <>
                 <CardTitle className='text-xl text-center'>
@@ -163,10 +138,7 @@ export default function AuthPage() {
 
                     {isEmailEnabled && (
                       <TabsContent value='email'>
-                        <EmailLogin
-                          onLoginSuccess={handleAuthSuccess}
-                          onForgotPassword={handleForgotPassword}
-                        />
+                        <EmailLogin onLoginSuccess={handleAuthSuccess} />
                       </TabsContent>
                     )}
                   </Tabs>
@@ -177,33 +149,11 @@ export default function AuthPage() {
                       <PhoneLogin onLoginSuccess={handleAuthSuccess} />
                     )}
                     {isEmailEnabled && (
-                      <EmailLogin
-                        onLoginSuccess={handleAuthSuccess}
-                        onForgotPassword={handleForgotPassword}
-                      />
+                      <EmailLogin onLoginSuccess={handleAuthSuccess} />
                     )}
                   </div>
                 )}
               </>
-            )}
-
-            {authMode === 'register' && (
-              <>
-                {/* Only email registration is needed since phone now auto-registers */}
-                {isEmailEnabled ? (
-                  <div className='w-full'>
-                    <EmailRegister onRegisterSuccess={handleAuthSuccess} />
-                  </div>
-                ) : (
-                  <p className='text-center text-muted-foreground'>
-                    {t('auth.noRegistrationMethod')}
-                  </p>
-                )}
-              </>
-            )}
-
-            {authMode === 'forgot-password' && (
-              <ForgotPasswordForm onComplete={handleBackToLogin} />
             )}
 
             {authMode === 'feedback' && (
@@ -211,33 +161,7 @@ export default function AuthPage() {
             )}
           </CardContent>
           <CardFooter className='flex flex-col items-center space-y-2'>
-            {authMode === 'login' && isEmailEnabled && (
-              <>
-                <p className='text-sm text-muted-foreground'>
-                  {t('auth.noAccount')}
-                  <button
-                    onClick={() => setAuthMode('register')}
-                    className='text-primary hover:underline'
-                  >
-                    {t('auth.register')}
-                  </button>
-                </p>
-              </>
-            )}
-            {authMode === 'register' && (
-              <>
-                <p className='text-sm text-muted-foreground'>
-                  {t('auth.hasAccount')}
-                  <button
-                    onClick={() => setAuthMode('login')}
-                    className='text-primary hover:underline'
-                  >
-                    {t('auth.loginNow')}
-                  </button>
-                </p>
-              </>
-            )}
-            {(authMode === 'forgot-password' || authMode === 'feedback') && (
+            {authMode === 'feedback' && (
               <button
                 onClick={handleBackToLogin}
                 className='text-primary hover:underline'
