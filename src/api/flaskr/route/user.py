@@ -8,7 +8,6 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from ..service.user import (
-    create_new_user,
     verify_user,
     validate_user,
     update_user_info,
@@ -55,62 +54,6 @@ def optional_token_validation(f):
 
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
-    @app.route(path_prefix + "/register", methods=["POST"])
-    @bypass_token_validation
-    @optional_token_validation
-    def register():
-        """
-        register
-        ---
-        tags:
-          - user
-        parameters:
-            -   in:   body
-                required: true
-                schema:
-                    properties:
-                        username:
-                            type: string
-                            description: user name
-                        password:
-                            type: string
-                            description: password
-                        email:
-                            type: string
-                            description: email
-                        name:
-                            type: string
-                            description: name
-                        mobile:
-                            type: string
-                            description: mobile phone number
-        responses:
-            200:
-                description: Registration success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: return code
-                                message:
-                                    type: string
-                                    description: return information
-                                data:
-                                    $ref: "#/components/schemas/UserToken"
-            400:
-                description: parameter error
-        """
-        app.logger.info("register")
-        username = request.get_json().get("username", "")
-        password = request.get_json().get("password", "")
-        email = request.get_json().get("email", "")
-        name = request.get_json().get("name", "")
-        mobile = request.get_json().get("mobile", "")
-        user_token = create_new_user(app, username, name, password, email, mobile)
-        resp = make_response(make_common_response(user_token))
-        return resp
 
     @app.route(path_prefix + "/login", methods=["POST"])
     @bypass_token_validation
@@ -163,7 +106,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             request.endpoint
             in [
                 "login",
-                "register",
                 "require_reset_code",
                 "reset_password",
                 "invoke",
