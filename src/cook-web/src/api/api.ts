@@ -13,13 +13,11 @@
 
 const api = {
   // auth
-  login: 'POST /user/login',
   sendSmsCode: 'POST /user/send_sms_code',
   sendMailCode: 'POST /user/send_mail_code',
   requireTmp: 'POST /user/require_tmp',
   verifyMailCode: 'POST /user/verify_mail_code',
   verifySmsCode: 'POST /user/verify_sms_code',
-  setPassword: 'POST /user/set_user_password',
   submitFeedback: 'POST /user/submit-feedback',
 
   // shifu api start

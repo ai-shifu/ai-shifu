@@ -26,7 +26,6 @@ class UserInfo:
     user_state: str
     language: str
     user_avatar: str
-    has_password: bool
     is_admin: bool
     is_creator: bool
 
@@ -40,7 +39,6 @@ class UserInfo:
         user_state,
         wx_openid,
         language,
-        has_password,
         user_avatar=None,
         is_admin=False,
         is_creator=False,
@@ -54,7 +52,6 @@ class UserInfo:
         self.wx_openid = wx_openid
         self.language = language
         self.user_avatar = user_avatar
-        self.has_password = has_password
         self.is_admin = is_admin
         self.is_creator = is_creator
 
@@ -69,7 +66,6 @@ class UserInfo:
             "openid": self.wx_openid,
             "language": self.language,
             "avatar": self.user_avatar,
-            "has_password": self.has_password,
             "is_admin": self.is_admin,
             "is_creator": self.is_creator,
         }

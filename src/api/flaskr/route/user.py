@@ -8,19 +8,14 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from ..service.user import (
-    verify_user,
     validate_user,
     update_user_info,
-    change_user_passwd,
-    require_reset_pwd_code,
-    reset_pwd,
     generate_temp_user,
     generation_img_chk,
     send_sms_code,
     send_email_code,
     verify_sms_code,
     verify_mail_code,
-    set_user_password,
     upload_user_avatar,
     update_user_open_id,
 )
@@ -55,59 +50,11 @@ def optional_token_validation(f):
 
 def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
-    @app.route(path_prefix + "/login", methods=["POST"])
-    @bypass_token_validation
-    @optional_token_validation
-    def login():
-        """
-        user login
-        ---
-        tags:
-            - user
-        parameters:
-            -   in: body
-                required: true
-                schema:
-                    properties:
-                        username:
-                            type: string
-                            description: user name
-                        password:
-                            type: string
-                            description: password
-        responses:
-            200:
-                description: login is success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: return code
-                                message:
-                                    type: string
-                                    description: return information
-                                data:
-                                    $ref: "#/components/schemas/UserToken"
-            400:
-                description: parameter error
-        """
-        app.logger.info("login")
-        username = request.get_json().get("username", "")
-        password = request.get_json().get("password", "")
-        user_token = verify_user(app, username, password)
-        resp = make_response(make_common_response(user_token))
-        return resp
-
     @app.before_request
     def before_request():
         if (
             request.endpoint
             in [
-                "login",
-                "require_reset_code",
-                "reset_password",
                 "invoke",
                 "update_lesson",
             ]
@@ -204,26 +151,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         return make_common_response(
             update_user_info(app, request.user, name, email, mobile, language)
         )
-
-    @app.route(path_prefix + "/update_password", methods=["POST"])
-    def update_password():
-        old_password = request.get_json().get("old_password", None)
-        new_password = request.get_json().get("new_password", None)
-        return make_common_response(
-            change_user_passwd(app, request.user, old_password, new_password)
-        )
-
-    @app.route(path_prefix + "/require_reset_code", methods=["POST"])
-    def require_reset_code():
-        username = request.get_json().get("username", None)
-        return make_common_response(require_reset_pwd_code(app, username))
-
-    @app.route(path_prefix + "/reset_password", methods=["POST"])
-    def reset_password():
-        username = request.get_json().get("username", None)
-        code = request.get_json().get("code", None)
-        new_password = request.get_json().get("new_password", None)
-        return make_common_response(reset_pwd(app, username, code, new_password))
 
     @app.route(path_prefix + "/require_tmp", methods=["POST"])
     @bypass_token_validation
@@ -761,57 +688,6 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp
-
-    # set_user_password
-    @app.route(path_prefix + "/set_user_password", methods=["POST"])
-    # @bypass_token_validation
-    def set_user_password_api():
-        """
-        Send set user password
-        ---
-        tags:
-            - user
-        parameters:
-            -   in: body
-                required: true
-                schema:
-                    properties:
-                        mail:
-                            type: string
-                            description: mail
-                        mobile:
-                            type: string
-                            description: mail chekcode
-                        raw_password:
-                            type: string
-                            description: course id
-        responses:
-            200:
-                description: user set password success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: return code
-                                message:
-                                    type: string
-                                    description: return information
-            400:
-                description: parameter error
-        """
-        with app.app_context():
-            mail = request.get_json().get("mail", None)
-            mobile = request.get_json().get("mobile", None)
-            raw_password = request.get_json().get("raw_password", None)
-            if not mail and not mobile:
-                raise_param_error("mail")
-            if not raw_password:
-                raise_param_error("password")
-            return make_common_response(
-                set_user_password(app, raw_password, mail, mobile)
-            )
 
     # health check
     @app.route("/health", methods=["GET"])

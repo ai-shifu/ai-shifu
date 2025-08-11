@@ -90,34 +90,6 @@ export function useAuth(options: UseAuthOptions = {}) {
     return false;
   };
 
-  // Email/Password login with automatic retry on token expiration
-  const loginWithEmailPassword = async (username: string, password: string) => {
-    try {
-      const response = await callWithTokenRefresh(() =>
-        apiService.login({ username, password }),
-      );
-
-      const success = await processLoginResponse(response);
-      if (!success) {
-        handleLoginError(
-          response.code,
-          response.message || response.msg,
-          'email',
-        );
-      }
-
-      return response;
-    } catch (error: any) {
-      toast({
-        title: t('auth.failed'),
-        description: error.message || t('common.networkError'),
-        variant: 'destructive',
-      });
-      options.onError?.(error);
-      throw error;
-    }
-  };
-
   // SMS verification login with automatic retry on token expiration
   const loginWithSmsCode = async (
     mobile: string,
@@ -175,7 +147,6 @@ export function useAuth(options: UseAuthOptions = {}) {
   };
 
   return {
-    loginWithEmailPassword,
     loginWithSmsCode,
     sendSmsCode,
     callWithTokenRefresh,
