@@ -33,7 +33,7 @@ repos:
     hooks:
     -   id: eslint-cook-web
         name: ESLint cook-web files (errors only)
-        entry: bash -c 'cd src/cook-web && npx eslint --max-warnings=50 --fix --no-error-on-unmatched-pattern $(echo "$@" | sed "s|src/cook-web/||g")' --
+        entry: bash -c 'cd src/cook-web && ./node_modules/.bin/eslint --max-warnings=50 --fix --no-error-on-unmatched-pattern $(echo "$@" | sed "s|src/cook-web/||g")' --
         language: system
         files: ^src/cook-web/src/.*\.(js|jsx|ts|tsx)$
         pass_filenames: true
