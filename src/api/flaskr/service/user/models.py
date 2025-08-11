@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text, Boolean
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 
@@ -7,7 +7,7 @@ from ...dao import db
 class User(db.Model):
     __tablename__ = "user_info"
 
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    id = Column(BigInteger, primary_key=True, comment="Unique ID", autoincrement=True)
     user_id = Column(
         String(36), nullable=False, index=True, default="", comment="User UUID"
     )
@@ -71,7 +71,7 @@ class User(db.Model):
 class UserConversion(db.Model):
     __tablename__ = "user_conversion"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     conversion_id = Column(
         String(36), nullable=False, default="", comment="Conversion UUID"
@@ -118,7 +118,7 @@ class UserConversion(db.Model):
 
 class AdminUser(db.Model):
     __tablename__ = "admin_info"
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    id = Column(BigInteger, primary_key=True, comment="Unique ID", autoincrement=True)
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     username = Column(String(255), nullable=False, default="", comment="Login username")
     name = Column(String(255), nullable=False, default="", comment="User real name")
@@ -170,7 +170,7 @@ class AdminUser(db.Model):
 
 class UserToken(db.Model):
     __tablename__ = "user_token"
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    id = Column(BigInteger, primary_key=True, comment="Unique ID", autoincrement=True)
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     token = Column(String(255), nullable=False, default="", comment="Token")
     token_type = Column(Integer, nullable=False, default=0, comment="Token type")
@@ -191,7 +191,7 @@ class UserToken(db.Model):
 
 class UserVerifyCode(db.Model):
     __tablename__ = "user_verify_code"
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    id = Column(BigInteger, primary_key=True, comment="Unique ID", autoincrement=True)
     phone = Column(String(36), nullable=False, default="", comment="User phone")
     mail = Column(String(36), nullable=False, default="", comment="User mail")
     verify_code = Column(String(10), nullable=False, default="", comment="Verify code")

@@ -5,7 +5,7 @@ from sqlalchemy import (
     TIMESTAMP,
     Text,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 
@@ -50,7 +50,7 @@ CONST_PROFILE_SCOPE_SYSTEM = "system"
 # table to save user profile
 class UserProfile(db.Model):
     __tablename__ = "user_profile"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     user_id = Column(
         String(36), nullable=False, default="", comment="User UUID", index=True
     )
@@ -85,7 +85,7 @@ class UserProfile(db.Model):
 # table to save profile item / definations
 class ProfileItem(db.Model):
     __tablename__ = "profile_item"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     profile_id = Column(String(36), nullable=False, comment="Profile ID", unique=True)
     parent_id = Column(
         String(36), nullable=False, default="", comment="parent_id", index=True
@@ -138,7 +138,7 @@ class ProfileItem(db.Model):
 
 class ProfileItemValue(db.Model):
     __tablename__ = "profile_item_value"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     profile_id = Column(String(36), nullable=False, comment="Profile ID", index=True)
     profile_item_id = Column(
         String(36), nullable=False, comment="Profile item ID", index=True
@@ -169,7 +169,7 @@ class ProfileItemValue(db.Model):
 
 class ProfileItemI18n(db.Model):
     __tablename__ = "profile_item_i18n"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     parent_id = Column(
         String(36), nullable=False, default="", comment="parent_id", index=True
     )

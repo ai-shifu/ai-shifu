@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, TIMESTAMP, Text
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 
 from ...dao import db
@@ -7,7 +7,7 @@ from ...dao import db
 
 class Tag(db.Model):
     __tablename__ = "tag"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     tag_id = Column(
         String(36),
         nullable=False,

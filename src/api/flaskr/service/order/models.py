@@ -8,7 +8,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 
@@ -19,7 +19,7 @@ from ...dao import db
 class AICourseBuyRecord(db.Model):
     __tablename__ = "ai_course_buy_record"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     record_id = Column(
         String(36), nullable=False, default="", comment="Record UUID", index=True
     )
@@ -57,7 +57,7 @@ class AICourseBuyRecord(db.Model):
 class AICourseLessonAttend(db.Model):
     __tablename__ = "ai_course_lesson_attend"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     attend_id = Column(
         String(36), nullable=False, default="", comment="Attend UUID", index=True
     )
@@ -107,7 +107,7 @@ class AICourseLessonAttend(db.Model):
 
 class PingxxOrder(db.Model):
     __tablename__ = "pingxx_order"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     order_id = Column(
         String(36), index=True, nullable=False, default="", comment="Order UUID"
     )
@@ -135,7 +135,9 @@ class PingxxOrder(db.Model):
     )
     pingxx_id = Column(String(36), nullable=False, default="", comment="Pingxx ID")
     channel = Column(String(36), nullable=False, default="", comment="Payment channel")
-    amount = Column(BIGINT, nullable=False, default="0.00", comment="Payment amount")
+    amount = Column(
+        BigInteger, nullable=False, default="0.00", comment="Payment amount"
+    )
     currency = Column(String(36), nullable=False, default="CNY", comment="Currency")
     subject = Column(String(255), nullable=False, default="", comment="Payment subject")
     body = Column(String(255), nullable=False, default="", comment="Payment body")
@@ -184,7 +186,7 @@ class PingxxOrder(db.Model):
 # 折扣码
 class Discount(db.Model):
     __tablename__ = "discount"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     discount_id = Column(
         String(36), index=True, nullable=False, default="", comment="Discount UUID"
     )
@@ -219,8 +221,12 @@ class Discount(db.Model):
         String(36), nullable=False, default="", comment="Discount channel"
     )
     discount_filter = Column(Text, nullable=False, comment="Discount filter")
-    discount_count = Column(BIGINT, nullable=False, default=0, comment="Discount count")
-    discount_used = Column(BIGINT, nullable=False, default=0, comment="Discount used")
+    discount_count = Column(
+        BigInteger, nullable=False, default=0, comment="Discount count"
+    )
+    discount_used = Column(
+        BigInteger, nullable=False, default=0, comment="Discount used"
+    )
     discount_generated_user = Column(
         String(36), nullable=False, default="", comment="Discount generated user"
     )
@@ -244,7 +250,7 @@ class Discount(db.Model):
 
 class DiscountRecord(db.Model):
     __tablename__ = "discount_record"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     record_id = Column(
         String(36), index=True, nullable=False, default="", comment="Record UUID"
     )
@@ -292,7 +298,7 @@ class DiscountRecord(db.Model):
 
 class BannerInfo(db.Model):
     __tablename__ = "order_banner_info"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     banner_id = Column(
         String(36), nullable=False, default="", index=True, comment="Banner ID"
     )

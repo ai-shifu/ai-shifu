@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, TIMESTAMP, Text, Numeric, DECIMAL
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 from .const import ASK_MODE_DEFAULT, LESSON_TYPE_TRIAL
@@ -9,7 +9,7 @@ from decimal import Decimal
 
 class AICourse(db.Model):
     __tablename__ = "ai_course"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     course_id = Column(
         String(36), nullable=False, default="", comment="Course UUID", index=True
     )
@@ -139,7 +139,7 @@ class AICourse(db.Model):
 
 class AILesson(db.Model):
     __tablename__ = "ai_lesson"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     lesson_id = Column(
         String(36), nullable=False, default="", comment="Lesson UUID", index=True
     )
@@ -307,7 +307,7 @@ class AILesson(db.Model):
 
 class AILessonScript(db.Model):
     __tablename__ = "ai_lesson_script"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     script_id = Column(String(36), nullable=False, default="", comment="Script UUID")
     lesson_id = Column(String(36), nullable=False, default="", comment="Lesson UUID")
     script_name = Column(String(255), nullable=False, default="", comment="Script name")

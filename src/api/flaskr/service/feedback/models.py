@@ -4,14 +4,14 @@ from sqlalchemy import (
     String,
     TIMESTAMP,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 
 
 class FeedBack(db.Model):
     __tablename__ = "user_feedback"
 
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    id = Column(BigInteger, primary_key=True, comment="Unique ID", autoincrement=True)
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     feedback = Column(String(300), nullable=False, comment="Feedback")
     created = Column(

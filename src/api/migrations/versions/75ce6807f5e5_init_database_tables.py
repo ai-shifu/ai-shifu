@@ -8,8 +8,7 @@ Create Date: 2024-10-23 05:35:00.366247
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy import Integer
-from sqlalchemy.dialects import mysql
+
 
 # revision identifiers, used by Alembic.
 revision = "75ce6807f5e5"
@@ -24,7 +23,7 @@ def upgrade():
         "active",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -103,7 +102,7 @@ def upgrade():
         "active_user_record",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -138,7 +137,7 @@ def upgrade():
         "admin_info",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -178,7 +177,7 @@ def upgrade():
         "ai_course",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
         ),
@@ -270,7 +269,7 @@ def upgrade():
         "ai_course_buy_record",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -317,7 +316,7 @@ def upgrade():
         "ai_course_lesson_attend",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -352,7 +351,7 @@ def upgrade():
         "ai_course_lesson_attend_association",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -389,7 +388,7 @@ def upgrade():
         "ai_course_lesson_attendscript",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -431,7 +430,7 @@ def upgrade():
         "ai_lesson",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
         ),
@@ -522,7 +521,7 @@ def upgrade():
         "ai_lesson_script",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -640,7 +639,7 @@ def upgrade():
         "discount",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -698,12 +697,12 @@ def upgrade():
         ),
         sa.Column(
             "discount_count",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             nullable=False,
             comment="Discount count",
         ),
         sa.Column(
-            "discount_used", mysql.BIGINT(), nullable=False, comment="Discount used"
+            "discount_used", sa.BigInteger(), nullable=False, comment="Discount used"
         ),
         sa.Column(
             "discount_generated_user",
@@ -733,7 +732,7 @@ def upgrade():
         "discount_record",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -806,7 +805,7 @@ def upgrade():
         "pingxx_order",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -845,7 +844,7 @@ def upgrade():
         sa.Column(
             "channel", sa.String(length=36), nullable=False, comment="Payment channel"
         ),
-        sa.Column("amount", mysql.BIGINT(), nullable=False, comment="Payment amount"),
+        sa.Column("amount", sa.BigInteger(), nullable=False, comment="Payment amount"),
         sa.Column("extra", sa.Text(), nullable=False, comment="Extra information"),
         sa.Column("currency", sa.String(length=36), nullable=False, comment="Currency"),
         sa.Column(
@@ -919,7 +918,7 @@ def upgrade():
         "risk_control_result",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -950,7 +949,7 @@ def upgrade():
         "user_conversion",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -994,7 +993,7 @@ def upgrade():
         "user_feedback",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -1011,7 +1010,7 @@ def upgrade():
         "user_info",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -1080,7 +1079,7 @@ def upgrade():
         "user_profile",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -1110,7 +1109,7 @@ def upgrade():
         "user_token",
         sa.Column(
             "id",
-            mysql.BIGINT().with_variant(Integer, "sqlite"),
+            sa.BigInteger().with_variant(sa.Integer, "sqlite"),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",

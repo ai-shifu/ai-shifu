@@ -8,7 +8,7 @@ Create Date: 2025-04-29 12:52:04.880611
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+
 
 # revision identifiers, used by Alembic.
 # Update profile_type column and clean up active_user_record statuses
@@ -26,7 +26,7 @@ def upgrade():
     with op.batch_alter_table("user_profile", schema=None) as batch_op:
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="0 default, 1 system configuration, 2 user configuration, 3 course configuration",
             existing_nullable=False,
             existing_server_default=sa.text("'0'"),
@@ -42,7 +42,7 @@ def downgrade():
     with op.batch_alter_table("user_profile", schema=None) as batch_op:
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment=None,
             existing_comment="0 default, 1 system configuration, 2 user configuration, 3 course configuration",
             existing_nullable=False,

@@ -17,7 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 from .consts import ASK_MODE_DEFAULT
@@ -36,7 +36,7 @@ class FavoriteScenario(db.Model):
     """
 
     __tablename__ = "scenario_favorite"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     scenario_id = Column(
         String(36), nullable=False, default="", comment="Scenario UUID"
     )
@@ -60,7 +60,7 @@ class ScenarioResource(db.Model):
     """
 
     __tablename__ = "scenario_resource"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     resource_resource_id = Column(
         String(36), nullable=False, default="", comment="Resource UUID", index=True
     )
@@ -86,7 +86,7 @@ class AiCourseAuth(db.Model):
     """
 
     __tablename__ = "ai_course_auth"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     course_auth_id = Column(
         String(36),
         nullable=False,
@@ -118,7 +118,7 @@ class ShifuDraftShifu(db.Model):
     """
 
     __tablename__ = "shifu_draft_shifus"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
         nullable=False,
@@ -253,7 +253,7 @@ class ShifuDraftShifu(db.Model):
 
 class ShifuDraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
         nullable=False,
@@ -412,7 +412,7 @@ class ShifuDraftOutlineItem(db.Model):
 
 class ShifuDraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
         nullable=False,
@@ -514,7 +514,7 @@ class ShifuDraftBlock(db.Model):
 
 class ShifuLogDraftStruct(db.Model):
     __tablename__ = "shifu_log_draft_structs"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     struct_bid = Column(
         String(32),
         nullable=False,
@@ -566,7 +566,7 @@ class ShifuLogDraftStruct(db.Model):
 # published shifu's model
 class ShifuPublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
         nullable=False,
@@ -643,7 +643,7 @@ class ShifuPublishedShifu(db.Model):
 
 class ShifuPublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
         nullable=False,
@@ -749,7 +749,7 @@ class ShifuPublishedOutlineItem(db.Model):
 
 class ShifuPublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
         nullable=False,
@@ -823,7 +823,7 @@ class ShifuPublishedBlock(db.Model):
 
 class ShifuLogPublishedStruct(db.Model):
     __tablename__ = "shifu_log_published_structs"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     struct_bid = Column(
         String(32),
         nullable=False,

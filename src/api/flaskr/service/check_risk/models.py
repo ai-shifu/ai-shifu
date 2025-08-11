@@ -6,14 +6,14 @@ from sqlalchemy import (
     TIMESTAMP,
     Text,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 
 
 class RiskControlResult(db.Model):
     __tablename__ = "risk_control_result"
 
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    id = Column(BigInteger, primary_key=True, comment="Unique ID", autoincrement=True)
     chat_id = Column(String(36), nullable=False, default="", comment="Chat UUID")
     user_id = Column(String(36), nullable=False, default="", comment="User UUID")
     text = Column(Text, nullable=False, comment="Text")

@@ -1,12 +1,12 @@
 from sqlalchemy import Column, String, Integer, TIMESTAMP
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 
 
 class Resource(db.Model):
     __tablename__ = "resource"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     resource_id = Column(String(36), nullable=False, comment="Resource UUID")
     name = Column(String(255), nullable=False, comment="Resource name")
     type = Column(Integer, nullable=False, comment="Resource type")
@@ -27,7 +27,7 @@ class Resource(db.Model):
 
 class ResourceUsage(db.Model):
     __tablename__ = "resource_usage"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     usage_id = Column(String(36), nullable=False, comment="Usage UUID")
     resource_id = Column(String(36), nullable=False, comment="Resource UUID")
     usage_type = Column(Integer, nullable=False, comment="Usage type")

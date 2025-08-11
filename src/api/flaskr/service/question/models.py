@@ -5,14 +5,14 @@ from sqlalchemy import (
     TIMESTAMP,
     Text,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 
 
 class SelectQuestion(db.Model):
     __tablename__ = "select_question"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     question_id = Column(String(36), index=True, nullable=False, comment="Question ID")
     script_id = Column(String(36), index=True, nullable=False, comment="Script ID")
     logscript_id = Column(

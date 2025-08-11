@@ -8,7 +8,7 @@ Create Date: 2025-02-13 10:41:54.218555
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+
 
 # revision identifiers, used by Alembic.
 revision = "d3ff04145fbc"
@@ -23,12 +23,12 @@ def upgrade():
         "profile_item",
         sa.Column(
             "id",
-            mysql.BIGINT(),
+            sa.BigInteger(),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
         ),
-        sa.Column("profile_id", mysql.BIGINT(), nullable=False, comment="Profile ID"),
+        sa.Column("profile_id", sa.BigInteger(), nullable=False, comment="Profile ID"),
         sa.Column(
             "parent_id", sa.String(length=36), nullable=False, comment="parent_id"
         ),
@@ -73,7 +73,7 @@ def upgrade():
         "profile_item_i18n",
         sa.Column(
             "id",
-            mysql.BIGINT(),
+            sa.BigInteger(),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
@@ -119,14 +119,17 @@ def upgrade():
         "profile_item_value",
         sa.Column(
             "id",
-            mysql.BIGINT(),
+            sa.BigInteger(),
             autoincrement=True,
             nullable=False,
             comment="Unique ID",
         ),
-        sa.Column("profile_id", mysql.BIGINT(), nullable=False, comment="Profile ID"),
+        sa.Column("profile_id", sa.BigInteger(), nullable=False, comment="Profile ID"),
         sa.Column(
-            "profile_item_id", mysql.BIGINT(), nullable=False, comment="Profile item ID"
+            "profile_item_id",
+            sa.BigInteger(),
+            nullable=False,
+            comment="Profile item ID",
         ),
         sa.Column("profile_value", sa.Text(), nullable=False, comment="Profile value"),
         sa.Column("created", sa.TIMESTAMP(), nullable=False, comment="Creation time"),
@@ -163,7 +166,7 @@ def upgrade():
         )
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="",
             existing_comment="0 default, 1 system configuration, 2 user configuration, 3 course configuration",
             existing_nullable=False,
@@ -190,7 +193,7 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_user_profile_profile_id"))
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="0 default, 1 system configuration, 2 user configuration, 3 course configuration",
             existing_comment="",
             existing_nullable=False,

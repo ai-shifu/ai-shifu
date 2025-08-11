@@ -8,7 +8,7 @@ Create Date: 2025-02-04 07:57:26.720701
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+
 
 # revision identifiers, used by Alembic.
 revision = "35619240774c"
@@ -22,7 +22,7 @@ def upgrade():
     with op.batch_alter_table("active", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -33,7 +33,7 @@ def upgrade():
     with op.batch_alter_table("active_user_record", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -44,7 +44,7 @@ def upgrade():
     with op.batch_alter_table("admin_info", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -55,7 +55,7 @@ def upgrade():
     with op.batch_alter_table("ai_course", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -69,7 +69,7 @@ def upgrade():
     with op.batch_alter_table("ai_course_buy_record", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -89,7 +89,7 @@ def upgrade():
     with op.batch_alter_table("ai_course_lesson_attend", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -126,7 +126,7 @@ def upgrade():
     with op.batch_alter_table("ai_course_lesson_attendscript", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -137,7 +137,7 @@ def upgrade():
     with op.batch_alter_table("ai_lesson", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -154,14 +154,14 @@ def upgrade():
     with op.batch_alter_table("ai_lesson_script", schema=None) as batch_op:
         batch_op.alter_column(
             "ask_prompt",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             type_=sa.Text(),
             existing_comment="Ask count history",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -172,7 +172,7 @@ def upgrade():
     with op.batch_alter_table("discount", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -183,7 +183,7 @@ def upgrade():
     with op.batch_alter_table("discount_record", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -194,7 +194,7 @@ def upgrade():
     with op.batch_alter_table("pingxx_order", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -205,7 +205,7 @@ def upgrade():
     with op.batch_alter_table("risk_control_result", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -216,7 +216,7 @@ def upgrade():
     with op.batch_alter_table("user_conversion", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -227,7 +227,7 @@ def upgrade():
     with op.batch_alter_table("user_feedback", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -238,7 +238,7 @@ def upgrade():
     with op.batch_alter_table("user_info", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -249,7 +249,7 @@ def upgrade():
     with op.batch_alter_table("user_profile", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -260,7 +260,7 @@ def upgrade():
     with op.batch_alter_table("user_token", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment="Update time",
             existing_nullable=False,
             existing_server_default=sa.text(
@@ -276,7 +276,7 @@ def downgrade():
     with op.batch_alter_table("user_token", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -288,7 +288,7 @@ def downgrade():
     with op.batch_alter_table("user_profile", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -300,7 +300,7 @@ def downgrade():
     with op.batch_alter_table("user_info", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -312,7 +312,7 @@ def downgrade():
     with op.batch_alter_table("user_feedback", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -324,7 +324,7 @@ def downgrade():
     with op.batch_alter_table("user_conversion", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -336,7 +336,7 @@ def downgrade():
     with op.batch_alter_table("risk_control_result", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -348,7 +348,7 @@ def downgrade():
     with op.batch_alter_table("pingxx_order", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -360,7 +360,7 @@ def downgrade():
     with op.batch_alter_table("discount_record", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -372,7 +372,7 @@ def downgrade():
     with op.batch_alter_table("discount", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -384,7 +384,7 @@ def downgrade():
     with op.batch_alter_table("ai_lesson_script", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -395,7 +395,7 @@ def downgrade():
         batch_op.alter_column(
             "ask_prompt",
             existing_type=sa.Text(),
-            type_=mysql.INTEGER(display_width=11),
+            type_=sa.Integer(),
             existing_comment="Ask count history",
             existing_nullable=False,
         )
@@ -405,7 +405,7 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_ai_lesson_course_id"))
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -417,7 +417,7 @@ def downgrade():
     with op.batch_alter_table("ai_course_lesson_attendscript", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -435,7 +435,7 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_ai_course_lesson_attend_attend_id"))
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -450,7 +450,7 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_ai_course_buy_record_course_id"))
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -463,7 +463,7 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_ai_course_course_id"))
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -475,7 +475,7 @@ def downgrade():
     with op.batch_alter_table("admin_info", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -487,7 +487,7 @@ def downgrade():
     with op.batch_alter_table("active_user_record", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,
@@ -499,7 +499,7 @@ def downgrade():
     with op.batch_alter_table("active", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
-            existing_type=mysql.TIMESTAMP(),
+            existing_type=sa.TIMESTAMP(),
             comment=None,
             existing_comment="Update time",
             existing_nullable=False,

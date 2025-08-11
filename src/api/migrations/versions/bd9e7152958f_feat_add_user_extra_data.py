@@ -8,7 +8,7 @@ Create Date: 2025-02-28 07:52:17.649263
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql
+
 
 # revision identifiers, used by Alembic.
 revision = "bd9e7152958f"
@@ -69,25 +69,25 @@ def upgrade():
         )
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "profile_value_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "profile_show_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "profile_check_model",
-            existing_type=mysql.VARCHAR(length=255),
+            existing_type=sa.String(length=255),
             comment="",
             existing_nullable=False,
         )
@@ -100,7 +100,7 @@ def upgrade():
     with op.batch_alter_table("profile_item_i18n", schema=None) as batch_op:
         batch_op.alter_column(
             "conf_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="",
             existing_nullable=False,
         )
@@ -113,7 +113,7 @@ def upgrade():
     with op.batch_alter_table("user_profile", schema=None) as batch_op:
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment="",
             existing_nullable=False,
             existing_server_default=sa.text("'0'"),
@@ -127,7 +127,7 @@ def downgrade():
     with op.batch_alter_table("user_profile", schema=None) as batch_op:
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment=None,
             existing_comment="",
             existing_nullable=False,
@@ -140,7 +140,7 @@ def downgrade():
     with op.batch_alter_table("profile_item_i18n", schema=None) as batch_op:
         batch_op.alter_column(
             "conf_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment=None,
             existing_comment="",
             existing_nullable=False,
@@ -150,28 +150,28 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_profile_item_profile_script_id"))
         batch_op.alter_column(
             "profile_check_model",
-            existing_type=mysql.VARCHAR(length=255),
+            existing_type=sa.String(length=255),
             comment=None,
             existing_comment="",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "profile_show_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment=None,
             existing_comment="",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "profile_value_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment=None,
             existing_comment="",
             existing_nullable=False,
         )
         batch_op.alter_column(
             "profile_type",
-            existing_type=mysql.INTEGER(display_width=11),
+            existing_type=sa.Integer(),
             comment=None,
             existing_comment="",
             existing_nullable=False,

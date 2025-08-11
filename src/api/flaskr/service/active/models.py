@@ -7,7 +7,7 @@ from sqlalchemy import (
     Text,
     Numeric,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 
 
@@ -19,7 +19,7 @@ from .consts import ACTIVE_JOIN_TYPE_AUTO
 # active model
 class Active(db.Model):
     __tablename__ = "active"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     active_id = Column(String(36), nullable=False, default="", comment="Active UUID")
     active_name = Column(String(255), nullable=False, default="", comment="Active name")
     active_desc = Column(Text, nullable=False, default="", comment="Active description")
@@ -77,7 +77,7 @@ class Active(db.Model):
 
 class ActiveUserRecord(db.Model):
     __tablename__ = "active_user_record"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     record_id = Column(String(36), nullable=False, default="", comment="Record UUID")
     active_id = Column(String(36), nullable=False, default="", comment="Active UUID")
     active_name = Column(String(255), nullable=False, default="", comment="Active name")

@@ -5,7 +5,7 @@ from sqlalchemy import (
     TIMESTAMP,
     Text,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from ...dao import db
 
@@ -13,7 +13,7 @@ from ...dao import db
 class AICourseLessonAttendScript(db.Model):
     __tablename__ = "ai_course_lesson_attendscript"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     log_id = Column(
         String(36), nullable=False, index=True, default="", comment="Log UUID"
     )
@@ -62,7 +62,7 @@ class AICourseLessonAttendScript(db.Model):
 
 class AICourseAttendAsssotion(db.Model):
     __tablename__ = "ai_course_lesson_attend_association"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment="Unique ID")
     association_id = Column(
         String(36), nullable=False, default="", comment="Attend UUID"
     )

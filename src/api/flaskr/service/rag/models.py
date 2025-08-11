@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer, TIMESTAMP, Text
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import BigInteger
 from sqlalchemy.sql import func
 from pymilvus import MilvusClient, DataType
 
@@ -12,7 +12,7 @@ default_embedding_model_dim = get_config("DEFAULT_EMBEDDING_MODEL_DIM")
 
 class KnowledgeBase(db.Model):
     __tablename__ = "knowledge_base"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     kb_id = Column(
         String(36),
         nullable=False,
@@ -72,7 +72,7 @@ class KnowledgeBase(db.Model):
 
 class KnowledgeFile(db.Model):
     __tablename__ = "knowledge_file"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     kb_id = Column(
         String(36),
         nullable=False,
@@ -118,7 +118,7 @@ class KnowledgeFile(db.Model):
 
 class KnowledgeChunk(db.Model):
     __tablename__ = "knowledge_chunk"
-    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
     kb_id = Column(
         String(36),
         nullable=False,
