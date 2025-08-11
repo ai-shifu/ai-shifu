@@ -97,14 +97,14 @@ class ShifuUserComsumptionRecord(db.Model):
         Integer,
         nullable=False,
         default=0,
-        comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
+        comment="Status of the comsumption: 601-not started, 602-in progress, 603-completed, 604-refund, 605-locked, 606-unavailable, 607-branch, 608-reset",
         index=True,
     )
     block_position_index = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
+        comment="block position index of the comsumption",
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
@@ -121,17 +121,17 @@ class ShifuUserComsumptionRecord(db.Model):
 class PingxxOrder(db.Model):
     __tablename__ = "order_paychannel_pingxx_orders"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    pingxx_order_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Pingxx Order Business ID"
+    )
+    user_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="User Business ID"
+    )
+    shifu_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Shifu Business ID"
+    )
     order_bid = Column(
-        String(36), index=True, nullable=False, default="", comment="Order UUID"
-    )
-    user_id = Column(
-        String(36), index=True, nullable=False, default="", comment="User UUID"
-    )
-    course_id = Column(
-        String(36), index=True, nullable=False, default="", comment="Course UUID"
-    )
-    record_id = Column(
-        String(36), index=True, nullable=False, default="", comment="Record UUID"
+        String(36), index=True, nullable=False, default="", comment="Order Business ID"
     )
     pingxx_transaction_no = Column(
         String(36),
@@ -301,7 +301,7 @@ class DiscountUsageRecord(db.Model):
         Integer,
         nullable=False,
         default=0,
-        comment="Status of the record: 0-unpaid, 1-paid, 2-refunded, 3-closed, 4-failed",
+        comment="Status of the record: 901-inactive, 902-active, 903-used, 904-timeout",
     )
     created = Column(
         TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"

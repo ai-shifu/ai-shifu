@@ -29,13 +29,13 @@ class ShifuUserComsumptionRecordLog(db.Model):
         index=True,
     )
     block_bid = Column(
-        String(36), nullable=False, default="", comment="Script UUID", index=True
+        String(36), nullable=False, default="", comment="Block Business ID", index=True
     )
     outline_bid = Column(
-        String(36), nullable=False, default="", comment="Outline UUID", index=True
+        String(36), nullable=False, default="", comment="Outline Business ID", index=True
     )
     shifu_bid = Column(
-        String(36), nullable=False, default="", comment="Course UUID", index=True
+        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
     )
     block_content_type = Column(
         Integer, nullable=False, default=0, comment="Block Content Type"
