@@ -42,6 +42,7 @@ repos:
         -   '@typescript-eslint/parser@^8'
         -   '@eslint/eslintrc@^3'
         -   'eslint-config-next@15.1.4'
+        -   'next@15.1.4'
     -   id: eslint
         name: ESLint web files (errors only)
         files: ^src/web/.*\.(js|jsx|ts|tsx)$
