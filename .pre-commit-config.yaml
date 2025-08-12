@@ -37,6 +37,7 @@ repos:
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
         args: [--max-warnings=0, --ext, .js, --ext, .jsx, --ext, .ts, --ext, .tsx, --fix]
         additional_dependencies:
+        -   eslint@^9
         -   '@typescript-eslint/eslint-plugin'
         -   '@typescript-eslint/parser'
         -   eslint-config-next
@@ -45,4 +46,5 @@ repos:
         files: ^src/web/.*\.(js|jsx|ts|tsx)$
         args: [--max-warnings=0, --ext, .js, --ext, .jsx, --ext, .ts, --ext, .tsx, --fix]
         additional_dependencies:
+        -   eslint@^9
         -   eslint-config-react-app
