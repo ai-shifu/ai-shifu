@@ -4,6 +4,7 @@ from sqlalchemy import (
     Integer,
     DateTime,
     Text,
+    SmallInteger,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
@@ -53,7 +54,7 @@ class LearnOutlineItemProgress(db.Model):
         Integer, nullable=False, default=0, comment="Outline is updated"
     )
     status = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=LEARN_STATUS_LOCKED,
         comment="Status: 601=not started, 602=in progress, 603=completed, 604=refund, 605=locked, 606=unavailable, 607=branch, 608=reset",
@@ -64,6 +65,12 @@ class LearnOutlineItemProgress(db.Model):
         nullable=False,
         default=0,
         comment="Block position index of the outlineitem",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
         DateTime,
@@ -153,6 +160,12 @@ class LearnBlockLog(db.Model):
     block_log_role = Column(Integer, nullable=False, default=0, comment="Block role")
     block_generate_content = Column(
         Text, nullable=False, comment="Block generate content"
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     status = Column(
         Integer,

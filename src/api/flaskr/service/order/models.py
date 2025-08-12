@@ -54,10 +54,16 @@ class Order(db.Model):
         Numeric(10, 2), nullable=False, default="0.00", comment="Paid price"
     )
     status = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=ORDER_STATUS_INIT,
         comment="Status of the order: 501=init, 502=paid, 503=refunded, 504=unpaid, 505=timeout",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
         DateTime,
@@ -132,7 +138,7 @@ class OrderPingxx(db.Model):
     client_ip = Column(String(255), nullable=False, default="", comment="Client IP")
     extra = Column(Text, nullable=False, comment="Extra information")
     status = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=0,
         comment="Status of the order: 0=unpaid, 1=paid, 2=refunded, 3=closed, 4=failed",
@@ -162,6 +168,12 @@ class OrderPingxx(db.Model):
         String(255), nullable=False, default="", comment="Failure message"
     )
     charge_object = Column(Text, nullable=False, comment="Pingxx raw charge object")
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
     created_at = Column(
         DateTime,
         nullable=False,
@@ -196,13 +208,13 @@ class Coupon(db.Model):
         String(36), index=True, nullable=False, default="", comment="Coupon code"
     )
     coupon_type = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=COUPON_TYPE_FIXED,
         comment="Coupon type: 701=fixed, 702=percent",
     )
     coupon_apply_type = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=COUPON_APPLY_TYPE_ALL,
         comment="Coupon apply type: 801=one coupon code for multiple times, 802=one coupon code for one time",
@@ -233,10 +245,16 @@ class Coupon(db.Model):
         comment="Creator user business identifier",
     )
     status = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=0,
         comment="Status of the discount: 0=inactive, 1=active",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
@@ -299,7 +317,7 @@ class CouponUsage(db.Model):
     )
     coupon_code = Column(String(36), nullable=False, default="", comment="Coupon code")
     coupon_type = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=COUPON_TYPE_FIXED,
         comment="Coupon Type: 701=fixed, 702=percent",
@@ -311,10 +329,16 @@ class CouponUsage(db.Model):
         comment="Coupon value: would be calculated to amount by coupon type",
     )
     status = Column(
-        Integer,
+        SmallInteger,
         nullable=False,
         default=COUPON_STATUS_ACTIVE,
         comment="Status of the record: 901=inactive, 902=active, 903=used, 904=timeout",
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
