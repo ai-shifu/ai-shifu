@@ -40,7 +40,7 @@ class Order(db.Model):
         Integer,
         nullable=BUY_STATUS_INIT,
         default=0,
-        comment="Status of the record: 501-init, 502-paid, 503-refunded, 504-to be paid, 505-timeout",
+        comment="Status of the order: 501-init, 502-paid, 503-refunded, 504-to be paid, 505-timeout",
     )
     created_at = Column(
         DateTime,
@@ -80,20 +80,17 @@ class PingxxOrder(db.Model):
     order_bid = Column(
         String(36), index=True, nullable=False, default="", comment="Order Business ID"
     )
-    pingxx_transaction_no = Column(
+    transaction_no = Column(
         String(36),
         index=True,
         nullable=False,
         default="",
         comment="Pingxx transaction number",
     )
-    pingxx_app_id = Column(
+    app_id = Column(
         String(36), index=True, nullable=False, default="", comment="Pingxx app ID"
     )
-    pingxx_channel = Column(
-        String(36), nullable=False, default="", comment="Payment channel"
-    )
-    pingxx_id = Column(String(36), nullable=False, default="", comment="Pingxx ID")
+    channel = Column(String(36), nullable=False, default="", comment="Payment channel")
     channel = Column(String(36), nullable=False, default="", comment="Payment channel")
     amount = Column(BIGINT, nullable=False, default="0.00", comment="Payment amount")
     currency = Column(String(36), nullable=False, default="CNY", comment="Currency")
@@ -108,7 +105,9 @@ class PingxxOrder(db.Model):
         default=0,
         comment="Status of the order: 0-unpaid, 1-paid, 2-refunded, 3-closed, 4-failed",
     )
-    charge_id = Column(String(255), nullable=False, default="", comment="Charge ID")
+    charge_id = Column(
+        String(255), nullable=False, index=True, default="", comment="Charge ID"
+    )
     paid_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Payment time"
     )
@@ -121,7 +120,9 @@ class PingxxOrder(db.Model):
     failed_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Failed time"
     )
-    refund_id = Column(String(255), nullable=False, default="", comment="Refund ID")
+    refund_id = Column(
+        String(255), nullable=False, index=True, default="", comment="Refund ID"
+    )
     failure_code = Column(
         String(255), nullable=False, default="", comment="Failure code"
     )
