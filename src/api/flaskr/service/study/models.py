@@ -9,12 +9,12 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 
-from order.consts import ATTEND_STATUS_LOCKED
+from order.consts import LEARN_STATUS_LOCKED
 
 
 class LearnOutlineItemProgress(db.Model):
     """
-    Shifu User Comsumption
+    Learn outline item progress
     """
 
     __tablename__ = "learn_outlineitems_progress"
@@ -24,51 +24,59 @@ class LearnOutlineItemProgress(db.Model):
         String(36),
         nullable=False,
         default="",
-        comment="Learn Outline Item Business ID",
+        comment="Learn outline item business identifier",
         index=True,
     )
 
     shifu_bid = Column(
-        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
     )
     outline_bid = Column(
         String(36),
         nullable=False,
         default="",
-        comment="Outline Business ID",
+        comment="Outline business identifier",
         index=True,
     )
     user_bid = Column(
-        String(36), nullable=False, default="", comment="User Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
     )
     outline_updated = Column(
-        Integer, nullable=False, default=0, comment="Usage is updated"
+        Integer, nullable=False, default=0, comment="Outline is updated"
     )
     status = Column(
         Integer,
         nullable=False,
-        default=ATTEND_STATUS_LOCKED,
-        comment="Status of the comsumption: 601-not started, 602-in progress, 603-completed, 604-refund, 605-locked, 606-unavailable, 607-branch, 608-reset",
+        default=LEARN_STATUS_LOCKED,
+        comment="Status: 601=not started, 602=in progress, 603=completed, 604=refund, 605=locked, 606=unavailable, 607=branch, 608=reset",
         index=True,
     )
     block_position_index = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="block position index of the comsumption",
+        comment="Block position index of the outlineitem",
     )
     created_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Creation timestamp",
+        comment="Creation time",
     )
 
     updated_at = Column(
         DateTime,
         nullable=False,
         default=func.now(),
-        comment="Last update timestamp",
+        comment="Update time",
         onupdate=func.now(),
     )
 
@@ -81,63 +89,76 @@ class LearnBlockLog(db.Model):
     __tablename__ = "learn_blocks_logs"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+
     learn_block_log_bid = Column(
         String(36),
         nullable=False,
         index=True,
         default="",
-        comment="Learn Block Log Business ID",
+        comment="Learn block log business identifier",
     )
     learn_outline_item_bid = Column(
         String(36),
         nullable=False,
         default="",
-        comment="Learn Outline Item Business ID",
+        comment="Learn outline item business identifier",
         index=True,
     )
     block_bid = Column(
-        String(36), nullable=False, default="", comment="Block Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="Block business identifier",
+        index=True,
     )
     outline_bid = Column(
         String(36),
         nullable=False,
         default="",
-        comment="Outline Business ID",
+        comment="Outline business identifier",
         index=True,
     )
     shifu_bid = Column(
-        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
     )
     block_content_type = Column(
-        Integer, nullable=False, default=0, comment="Block Content Type"
+        Integer, nullable=False, default=0, comment="Block content type"
     )
     block_content_conf = Column(
         Text,
         nullable=False,
         default="",
-        comment="Block Content Config(used for re-generate)",
+        comment="Block content config(used for re-generate)",
     )
     user_bid = Column(
-        String(36), nullable=False, default="", comment="User Business ID", index=True
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
     )
     interaction_type = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Interaction type: 0-no interaction, 1-like, 2-dislike",
+        comment="Interaction type: 0=no interaction, 1=like, 2=dislike",
     )
     block_position_index = Column(
-        Integer, nullable=False, default=0, comment="Block Position Index"
+        Integer, nullable=False, default=0, comment="Block position index"
     )
-    block_log_role = Column(Integer, nullable=False, default=0, comment="Block Role")
+    block_log_role = Column(Integer, nullable=False, default=0, comment="Block role")
     block_generate_content = Column(
-        Text, nullable=False, comment="Block Generate Content"
+        Text, nullable=False, comment="Block generate content"
     )
     status = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Status of the record: 1-active, 0-history",
+        comment="Status of the record: 1=active, 0=history",
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
