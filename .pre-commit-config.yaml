@@ -1,3 +1,6 @@
+ci:
+  skip: [eslint]  # Skip ESLint hooks in pre-commit.ci
+
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
