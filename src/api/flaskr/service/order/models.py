@@ -14,14 +14,12 @@ from ...dao import db
 from .consts import BUY_STATUS_INIT
 
 
-# AI Shifu Order
 class Order(db.Model):
     """
-    Order Item
+    Order
     """
 
     __tablename__ = "order_orders"
-
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     order_bid = Column(
         String(36), nullable=False, default="", comment="Order Business ID", index=True
@@ -50,7 +48,6 @@ class Order(db.Model):
         default=func.now(),
         comment="Creation timestamp",
     )
-
     updated_at = Column(
         DateTime,
         nullable=False,
@@ -65,7 +62,7 @@ class PingxxOrder(db.Model):
     Pingxx Order
     """
 
-    __tablename__ = "order_paychannel_pingxx_orders"
+    __tablename__ = "order_channels_pingxx_orders"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     pingxx_order_bid = Column(
         String(36),
