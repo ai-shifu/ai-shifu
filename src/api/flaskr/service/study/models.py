@@ -18,17 +18,16 @@ class LearnOutlineItemProgress(db.Model):
     Learn outline item progress
     """
 
-    __tablename__ = "learn_outlineitems_progress"
+    __tablename__ = "learn_progress_records"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-    learn_outline_item_bid = Column(
+    progress_record_bid = Column(
         String(36),
         nullable=False,
         default="",
         comment="Learn outline item business identifier",
         index=True,
     )
-
     shifu_bid = Column(
         String(36),
         nullable=False,
@@ -36,7 +35,7 @@ class LearnOutlineItemProgress(db.Model):
         comment="Shifu business identifier",
         index=True,
     )
-    outline_bid = Column(
+    outline_item_bid = Column(
         String(36),
         nullable=False,
         default="",
@@ -50,7 +49,7 @@ class LearnOutlineItemProgress(db.Model):
         comment="User business identifier",
         index=True,
     )
-    outline_updated = Column(
+    outline_item_updated = Column(
         Integer, nullable=False, default=0, comment="Outline is updated"
     )
     status = Column(
@@ -60,7 +59,7 @@ class LearnOutlineItemProgress(db.Model):
         comment="Status: 601=not started, 602=in progress, 603=completed, 604=refund, 605=locked, 606=unavailable, 607=branch, 608=reset",
         index=True,
     )
-    block_position_index = Column(
+    block_position = Column(
         Integer,
         nullable=False,
         default=0,
@@ -78,7 +77,6 @@ class LearnOutlineItemProgress(db.Model):
         default=func.now(),
         comment="Creation time",
     )
-
     updated_at = Column(
         DateTime,
         nullable=False,
@@ -93,22 +91,28 @@ class LearnBlockLog(db.Model):
     Learn Block Log
     """
 
-    __tablename__ = "learn_blocks_logs"
+    __tablename__ = "learn_generated_blocks"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
-
-    learn_block_log_bid = Column(
+    generated_block_bid = Column(
         String(36),
         nullable=False,
         index=True,
         default="",
         comment="Learn block log business identifier",
     )
-    learn_outline_item_bid = Column(
+    progress_record_bid = Column(
         String(36),
         nullable=False,
         default="",
         comment="Learn outline item business identifier",
+        index=True,
+    )
+    user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
         index=True,
     )
     block_bid = Column(
@@ -118,7 +122,7 @@ class LearnBlockLog(db.Model):
         comment="Block business identifier",
         index=True,
     )
-    outline_bid = Column(
+    outline_item_bid = Column(
         String(36),
         nullable=False,
         default="",
@@ -132,34 +136,28 @@ class LearnBlockLog(db.Model):
         comment="Shifu business identifier",
         index=True,
     )
-    block_content_type = Column(
+    type = Column(
         Integer, nullable=False, default=0, comment="Block content type"
     )
+    role = Column(Integer, nullable=False, default=0, comment="Block role")
+    generated_content = Column(
+        Text, nullable=False, comment="Block generate content"
+    )
+    position = Column(
+        Integer, nullable=False, default=0, comment="Block position index"
+    )
+    #???????
     block_content_conf = Column(
         Text,
         nullable=False,
         default="",
         comment="Block content config(used for re-generate)",
     )
-    user_bid = Column(
-        String(36),
-        nullable=False,
-        default="",
-        comment="User business identifier",
-        index=True,
-    )
-    interaction_type = Column(
+    liked = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Interaction type: 0=no interaction, 1=like, 2=dislike",
-    )
-    block_position_index = Column(
-        Integer, nullable=False, default=0, comment="Block position index"
-    )
-    block_log_role = Column(Integer, nullable=False, default=0, comment="Block role")
-    block_generate_content = Column(
-        Text, nullable=False, comment="Block generate content"
+        comment="Interaction type: -1=disliked, 0=not available, 1=liked",
     )
     deleted = Column(
         SmallInteger,
