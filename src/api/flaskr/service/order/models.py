@@ -134,9 +134,9 @@ class OrderPingxx(db.Model):
     currency = Column(String(36), nullable=False, default="CNY", comment="Currency")
     subject = Column(String(255), nullable=False, default="", comment="Payment subject")
     body = Column(String(255), nullable=False, default="", comment="Payment body")
-    order_no = Column(String(255), nullable=False, default="", comment="Order number")
     client_ip = Column(String(255), nullable=False, default="", comment="Client IP")
     extra = Column(Text, nullable=False, comment="Extra information")
+    # Reconsider the design
     status = Column(
         SmallInteger,
         nullable=False,
@@ -180,7 +180,6 @@ class OrderPingxx(db.Model):
         default=func.now(),
         comment="Creation time",
     )
-
     updated_at = Column(
         DateTime,
         nullable=False,
@@ -238,12 +237,6 @@ class Coupon(db.Model):
     coupon_used_count = Column(
         BIGINT, nullable=False, default=0, comment="Coupon used count"
     )
-    created_user_bid = Column(
-        String(36),
-        nullable=False,
-        default="",
-        comment="Creator user business identifier",
-    )
     status = Column(
         SmallInteger,
         nullable=False,
@@ -258,6 +251,12 @@ class Coupon(db.Model):
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation time"
+    )
+    created_user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Creator user business identifier",
     )
     updated_at = Column(
         DateTime,
