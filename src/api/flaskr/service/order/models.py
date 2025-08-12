@@ -22,25 +22,25 @@ class Order(db.Model):
     __tablename__ = "order_orders"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     order_bid = Column(
-        String(36), nullable=False, default="", comment="Order Business ID", index=True
+        String(36), nullable=False, default="", comment="Order business ID", index=True
     )
     shifu_bid = Column(
-        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
+        String(36), nullable=False, default="", comment="Shifu business ID", index=True
     )
     user_bid = Column(
-        String(36), nullable=False, default="", comment="User Business ID", index=True
+        String(36), nullable=False, default="", comment="User business ID", index=True
     )
-    order_price = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Order Price"
+    payable_price = Column(
+        Numeric(10, 2), nullable=False, default="0.00", comment="Shifu original price"
     )
     paid_price = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Paid Price"
+        Numeric(10, 2), nullable=False, default="0.00", comment="Paid price"
     )
     status = Column(
         Integer,
-        nullable=BUY_STATUS_INIT,
-        default=0,
-        comment="Status of the order: 501-init, 502-paid, 503-refunded, 504-to be paid, 505-timeout",
+        nullable=False,
+        default=BUY_STATUS_INIT,
+        comment="Status of the order: 501-init, 502-paid, 503-refunded, 504-unpaid, 505-timeout",
     )
     created_at = Column(
         DateTime,
@@ -62,7 +62,7 @@ class PingxxOrder(db.Model):
     Pingxx Order
     """
 
-    __tablename__ = "order_channels_pingxx_orders"
+    __tablename__ = "order_pingxx_orders"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     pingxx_order_bid = Column(
         String(36),
