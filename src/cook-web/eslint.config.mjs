@@ -34,7 +34,12 @@ const eslintConfig = [
     },
   },
   {
-    files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*', '**/scripts/**/*.js', '**/jest.setup.js'],
+    files: [
+      '**/*.test.{js,jsx,ts,tsx}',
+      '**/__tests__/**/*',
+      '**/scripts/**/*.js',
+      '**/jest.setup.js',
+    ],
     rules: {
       'no-console': 'off', // Allow console in tests, scripts, and test setup
     },
