@@ -26,7 +26,7 @@ repos:
         name: Prettier cook-web files
         entry: prettier
         language: node
-        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|css|scss|md|json)$
+        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|cjs|css|scss|md|json)$
         args: ['--write', '--config', 'src/cook-web/.prettierrc']
         additional_dependencies: ['prettier@^3.5.3']
 -   repo: https://github.com/pre-commit/mirrors-eslint
@@ -35,7 +35,7 @@ repos:
     -   id: eslint
         name: ESLint cook-web files (errors only)
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
-        args: [--config, src/cook-web/eslint.config.mjs, --max-warnings=0, --fix]
+        args: [--config, src/cook-web/eslint.config.cjs, --max-warnings=0, --fix]
         additional_dependencies:
         -   eslint@^9
         -   '@typescript-eslint/eslint-plugin@^8'
@@ -44,7 +44,7 @@ repos:
     -   id: eslint
         name: ESLint web files (errors only)
         files: ^src/web/.*\.(js|jsx|ts|tsx)$
-        args: [--config, src/web/eslint.config.mjs, --max-warnings=0, --fix]
+        args: [--config, src/web/eslint.config.cjs, --max-warnings=0, --fix]
         additional_dependencies:
         -   eslint@^9
         -   '@typescript-eslint/eslint-plugin@^8'

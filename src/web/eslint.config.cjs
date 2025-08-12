@@ -1,5 +1,5 @@
-import typescriptEslint from '@typescript-eslint/eslint-plugin';
-import typescriptParser from '@typescript-eslint/parser';
+const typescriptEslint = require('@typescript-eslint/eslint-plugin');
+const typescriptParser = require('@typescript-eslint/parser');
 
 const eslintConfig = [
   {
@@ -21,29 +21,19 @@ const eslintConfig = [
       // Basic JavaScript/TypeScript rules
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'warn',
 
-      // React/Next.js specific rules
+      // React specific rules
       'react/react-in-jsx-scope': 'off', // Not needed with React 17+
       'react/prop-types': 'off', // Using TypeScript for prop validation
-
-      // Next.js specific
-      '@next/next/no-img-element': 'off',
-      '@next/next/no-html-link-for-pages': 'off',
     },
   },
   {
-    files: [
-      '**/*.test.{js,jsx,ts,tsx}',
-      '**/__tests__/**/*',
-      '**/scripts/**/*.js',
-      '**/jest.setup.js',
-    ],
+    files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*', '**/scripts/**/*.js'],
     rules: {
-      'no-console': 'off', // Allow console in tests, scripts, and test setup
+      'no-console': 'off', // Allow console in tests and scripts
     },
   },
 ];
 
-export default eslintConfig;
+module.exports = eslintConfig;
