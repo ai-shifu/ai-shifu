@@ -53,7 +53,6 @@ const initializeEnvData = async (): Promise<void> => {
         await updateSiteUrl(data?.REACT_APP_SITE_URL);
       }
     } catch (error) {
-      const unusedVar = 'test'; // This should trigger an error
     } finally {
       let { umamiWebsiteId, umamiScriptSrc } = useEnvStore.getState() as EnvStoreState;
       if (getBoolEnv('eruda')) {
