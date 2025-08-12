@@ -40,7 +40,6 @@ repos:
         -   eslint@^9
         -   '@typescript-eslint/eslint-plugin'
         -   '@typescript-eslint/parser'
-        -   eslint-config-next@15.1.4
         -   '@eslint/eslintrc@^3'
     -   id: eslint
         name: ESLint web files (errors only)

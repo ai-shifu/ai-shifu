@@ -1,5 +1,5 @@
-const fs = require('fs'); // eslint-disable-line
-const path = require('path'); // eslint-disable-line
+const fs = require('fs');
+const path = require('path');
 
 function getAllFiles(dir, files = []) {
   try {

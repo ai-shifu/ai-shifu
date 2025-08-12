@@ -29,9 +29,9 @@ const eslintConfig = [
     },
   },
   {
-    files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*'],
+    files: ['**/*.test.{js,jsx,ts,tsx}', '**/__tests__/**/*', '**/scripts/**/*.js'],
     rules: {
-      'no-console': 'off', // Allow console in tests
+      'no-console': 'off', // Allow console in tests and scripts
     },
   },
 ];
