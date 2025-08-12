@@ -26,7 +26,7 @@ repos:
         name: Prettier cook-web files
         entry: prettier
         language: node
-        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|css|scss|md|json)$
+        files: ^src/cook-web/.*\.(js|jsx|ts|tsx|mjs|css|scss|md|json)$
         args: ['--write', '--config', 'src/cook-web/.prettierrc']
         additional_dependencies: ['prettier@^3.5.3']
 -   repo: https://github.com/pre-commit/mirrors-eslint
