@@ -20,7 +20,7 @@ class LearnOutlineItemProgress(db.Model):
 
     __tablename__ = "learn_outlineitems_progress"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     learn_outline_item_bid = Column(
         String(36),
         nullable=False,
@@ -95,7 +95,7 @@ class LearnBlockLog(db.Model):
 
     __tablename__ = "learn_blocks_logs"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
 
     learn_block_log_bid = Column(
         String(36),

@@ -25,7 +25,7 @@ class Order(db.Model):
     """
 
     __tablename__ = "order_orders"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     order_bid = Column(
         String(36),
         nullable=False,
@@ -86,7 +86,7 @@ class OrderPingxx(db.Model):
     """
 
     __tablename__ = "order_pingxx_orders"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     pingxx_order_bid = Column(
         String(36),
         index=True,
@@ -196,7 +196,7 @@ class Coupon(db.Model):
     """
 
     __tablename__ = "promo_coupons"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_bid = Column(
         String(36),
         index=True,
@@ -278,7 +278,7 @@ class CouponUsage(db.Model):
     """
 
     __tablename__ = "promo_coupon_usages"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_usage_bid = Column(
         String(36),
         index=True,
@@ -354,7 +354,7 @@ class CouponUsage(db.Model):
 
 class BannerInfo(db.Model):
     __tablename__ = "order_banner_info"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     banner_id = Column(
         String(36), nullable=False, default="", index=True, comment="Banner identifier"
     )
