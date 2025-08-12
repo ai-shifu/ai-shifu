@@ -11,7 +11,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 
-from .consts import BUY_STATUS_INIT, ATTEND_STATUS_LOCKED
+from .consts import BUY_STATUS_INIT
 
 
 # AI Shifu Order
@@ -43,67 +43,6 @@ class Order(db.Model):
         nullable=BUY_STATUS_INIT,
         default=0,
         comment="Status of the record: 501-init, 502-paid, 503-refunded, 504-to be paid, 505-timeout",
-    )
-    created_at = Column(
-        DateTime,
-        nullable=False,
-        default=func.now(),
-        comment="Creation timestamp",
-    )
-
-    updated_at = Column(
-        DateTime,
-        nullable=False,
-        default=func.now(),
-        comment="Last update timestamp",
-        onupdate=func.now(),
-    )
-
-
-class LearnOutlineItemRecord(db.Model):
-    """
-    Shifu User Comsumption
-    """
-
-    __tablename__ = "learn_outlineitems_records"
-
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    learn_outline_item_bid = Column(
-        String(36),
-        nullable=False,
-        default="",
-        comment="Learn Outline Item Business ID",
-        index=True,
-    )
-
-    shifu_bid = Column(
-        String(36), nullable=False, default="", comment="Shifu Business ID", index=True
-    )
-    outline_bid = Column(
-        String(36),
-        nullable=False,
-        default="",
-        comment="Outline Business ID",
-        index=True,
-    )
-    user_bid = Column(
-        String(36), nullable=False, default="", comment="User Business ID", index=True
-    )
-    outline_updated = Column(
-        Integer, nullable=False, default=0, comment="Usage is updated"
-    )
-    status = Column(
-        Integer,
-        nullable=False,
-        default=ATTEND_STATUS_LOCKED,
-        comment="Status of the comsumption: 601-not started, 602-in progress, 603-completed, 604-refund, 605-locked, 606-unavailable, 607-branch, 608-reset",
-        index=True,
-    )
-    block_position_index = Column(
-        Integer,
-        nullable=False,
-        default=0,
-        comment="block position index of the comsumption",
     )
     created_at = Column(
         DateTime,
@@ -209,46 +148,50 @@ class PingxxOrder(db.Model):
     )
 
 
-# 折扣码
-class Discount(db.Model):
-    __tablename__ = "order_discounts"
+# 优惠券
+class Coupon(db.Model):
+    """
+    Coupon
+    """
+
+    __tablename__ = "promo_coupons"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    discount_bid = Column(
-        String(36), index=True, nullable=False, default="", comment="Discount UUID"
+    coupon_bid = Column(
+        String(36), index=True, nullable=False, default="", comment="Coupon Business ID"
     )
-    discount_code = Column(
-        String(36), index=True, nullable=False, default="", comment="Discount code"
+    coupon_code = Column(
+        String(36), index=True, nullable=False, default="", comment="Coupon code"
     )
-    discount_type = Column(
+    coupon_type = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Discount type: 701-fixed, 702-percent",
+        comment="Coupon type: 701-fixed, 702-percent",
     )
-    discount_apply_type = Column(
+    coupon_apply_type = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Discount apply type: 801: one discount code for multiple times, 802: one discount code for one time",
+        comment="Coupon apply type: 801: one coupon code for multiple times, 802: one coupon code for one time",
     )
-    discount_value = Column(
-        Numeric(10, 2), nullable=False, default="0.00", comment="Discount value"
+    coupon_value = Column(
+        Numeric(10, 2), nullable=False, default="0.00", comment="Coupon value"
     )
-    discount_start = Column(
-        DateTime, nullable=False, default=func.now(), comment="Discount start time"
+    coupon_start = Column(
+        DateTime, nullable=False, default=func.now(), comment="Coupon start time"
     )
-    discount_end = Column(
-        DateTime, nullable=False, default=func.now(), comment="Discount end time"
+    coupon_end = Column(
+        DateTime, nullable=False, default=func.now(), comment="Coupon end time"
     )
-    discount_channel = Column(
+    coupon_channel = Column(
         String(36), nullable=False, default="", comment="Discount channel"
     )
-    discount_filter = Column(Text, nullable=False, comment="Discount filter")
-    discount_total_count = Column(
-        BIGINT, nullable=False, default=0, comment="Discount total count"
+    coupon_filter = Column(Text, nullable=False, comment="Coupon filter")
+    coupon_total_count = Column(
+        BIGINT, nullable=False, default=0, comment="Coupon total count"
     )
-    discount_used_count = Column(
-        BIGINT, nullable=False, default=0, comment="Discount used count"
+    coupon_used_count = Column(
+        BIGINT, nullable=False, default=0, comment="Coupon used count"
     )
     created_user_bid = Column(
         String(36),
@@ -274,34 +217,32 @@ class Discount(db.Model):
     )
 
 
-class DiscountUsage(db.Model):
+class CouponUsage(db.Model):
     """
-    Discount Usage Record
+    Coupon Usage Record
     Generated:
 
-    1. Generated one when user use a discount code that could be used multiple times
-    2. Generated `discount_total_count` when discount that could be used multiple times is created
+    1. Generated one when user use a coupon code that could be used multiple times
+    2. Generated `coupon_total_count` when coupon that could be used multiple times is created
     """
 
-    __tablename__ = "order_discount_usages"
+    __tablename__ = "promo_coupon_usages"
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    discount_usage_bid = Column(
+    coupon_usage_bid = Column(
         String(36),
         index=True,
         nullable=False,
         default="",
-        comment="Discount Usage Business ID",
+        comment="Coupon Usage Business ID",
     )
-    discount_bid = Column(
+    coupon_bid = Column(
         String(36),
         index=True,
         nullable=False,
         default="",
-        comment="Discount Business ID",
+        comment="Coupon Business ID",
     )
-    discount_name = Column(
-        String(255), nullable=False, default="", comment="Discount name"
-    )
+    coupon_name = Column(String(255), nullable=False, default="", comment="Coupon name")
     user_bid = Column(
         String(36), index=True, nullable=False, default="", comment="User Business ID"
     )
@@ -311,20 +252,18 @@ class DiscountUsage(db.Model):
     order_bid = Column(
         String(36), index=True, nullable=False, default="", comment="Order Business ID"
     )
-    discount_code = Column(
-        String(36), nullable=False, default="", comment="Discount Code"
-    )
-    discount_type = Column(
+    coupon_code = Column(String(36), nullable=False, default="", comment="Coupon Code")
+    coupon_type = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Discount Type: 701-fixed, 702-percent",
+        comment="Coupon Type: 701-fixed, 702-percent",
     )
-    discount_value = Column(
+    coupon_value = Column(
         Numeric(10, 2),
         nullable=False,
         default="0.00",
-        comment="Discount value: would be calculated to amount by discount type",
+        comment="Coupon value: would be calculated to amount by coupon type",
     )
     status = Column(
         Integer,
