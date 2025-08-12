@@ -40,7 +40,9 @@ repos:
         -   eslint@^9
         -   '@typescript-eslint/eslint-plugin@^8'
         -   '@typescript-eslint/parser@^8'
-        -   '@eslint/eslintrc@^3'
+        -   eslint-plugin-react@^7
+        -   eslint-plugin-react-hooks@^4
+        -   '@next/eslint-plugin-next@15.1.4'
     -   id: eslint
         name: ESLint web files (errors only)
         files: ^src/web/.*\.(js|jsx|ts|tsx)$
@@ -50,4 +52,3 @@ repos:
         -   '@typescript-eslint/eslint-plugin@^8'
         -   '@typescript-eslint/parser@^8'
         -   eslint-config-react-app
-        -   '@eslint/eslintrc@^3'

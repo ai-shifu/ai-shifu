@@ -1,11 +1,17 @@
 const typescriptEslint = require('@typescript-eslint/eslint-plugin');
 const typescriptParser = require('@typescript-eslint/parser');
+const reactPlugin = require('eslint-plugin-react');
+const reactHooksPlugin = require('eslint-plugin-react-hooks');
+const nextPlugin = require('@next/eslint-plugin-next');
 
 const eslintConfig = [
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     plugins: {
       '@typescript-eslint': typescriptEslint,
+      react: reactPlugin,
+      'react-hooks': reactHooksPlugin,
+      '@next/next': nextPlugin,
     },
     languageOptions: {
       parser: typescriptParser,
@@ -17,6 +23,11 @@ const eslintConfig = [
         },
       },
     },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
     rules: {
       // Basic JavaScript/TypeScript rules
       'no-unused-vars': 'off',
@@ -24,13 +35,9 @@ const eslintConfig = [
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'warn',
 
-      // React/Next.js specific rules
+      // React/Next.js specific rules - let plugins provide their defaults
       'react/react-in-jsx-scope': 'off', // Not needed with React 17+
       'react/prop-types': 'off', // Using TypeScript for prop validation
-
-      // Next.js specific
-      '@next/next/no-img-element': 'off',
-      '@next/next/no-html-link-for-pages': 'off',
     },
   },
   {
