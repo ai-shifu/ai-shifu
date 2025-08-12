@@ -10,12 +10,12 @@ from sqlalchemy.sql import func
 from ...dao import db
 
 
-class ShifuUserComsumptionRecordLog(db.Model):
+class LearnBlockRecord(db.Model):
     """
     Shifu User Comsumption Record Log
     """
 
-    __tablename__ = "shifu_user_comsumption_record_logs"
+    __tablename__ = "learn_blocks_records"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
     log_id = Column(

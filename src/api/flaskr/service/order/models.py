@@ -60,19 +60,19 @@ class Order(db.Model):
     )
 
 
-class OrderUserComsumptionRecord(db.Model):
+class LearnOutlineItemRecord(db.Model):
     """
     Shifu User Comsumption
     """
 
-    __tablename__ = "order_user_comsumption_records"
+    __tablename__ = "learn_outlineitems_records"
 
     id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    consumption_bid = Column(
+    learn_outline_item_bid = Column(
         String(36),
         nullable=False,
         default="",
-        comment="Consumption Business ID",
+        comment="Learn Outline Item Business ID",
         index=True,
     )
 
