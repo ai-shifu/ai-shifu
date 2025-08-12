@@ -178,7 +178,6 @@ class OrderPingxx(db.Model):
     )
 
 
-# 优惠券
 class Coupon(db.Model):
     """
     Coupon
