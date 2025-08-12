@@ -136,17 +136,13 @@ class LearnBlockLog(db.Model):
         comment="Shifu business identifier",
         index=True,
     )
-    type = Column(
-        Integer, nullable=False, default=0, comment="Block content type"
-    )
+    type = Column(Integer, nullable=False, default=0, comment="Block content type")
     role = Column(Integer, nullable=False, default=0, comment="Block role")
-    generated_content = Column(
-        Text, nullable=False, comment="Block generate content"
-    )
+    generated_content = Column(Text, nullable=False, comment="Block generate content")
     position = Column(
         Integer, nullable=False, default=0, comment="Block position index"
     )
-    #???????
+    # ???????
     block_content_conf = Column(
         Text,
         nullable=False,
