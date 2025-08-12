@@ -38,8 +38,8 @@ repos:
         args: [--config, src/cook-web/eslint.config.mjs, --max-warnings=0, --fix]
         additional_dependencies:
         -   eslint@^9
-        -   '@typescript-eslint/eslint-plugin'
-        -   '@typescript-eslint/parser'
+        -   '@typescript-eslint/eslint-plugin@^8'
+        -   '@typescript-eslint/parser@^8'
         -   '@eslint/eslintrc@^3'
     -   id: eslint
         name: ESLint web files (errors only)
@@ -47,7 +47,7 @@ repos:
         args: [--config, src/web/eslint.config.mjs, --max-warnings=0, --fix]
         additional_dependencies:
         -   eslint@^9
-        -   '@typescript-eslint/eslint-plugin'
-        -   '@typescript-eslint/parser'
+        -   '@typescript-eslint/eslint-plugin@^8'
+        -   '@typescript-eslint/parser@^8'
         -   eslint-config-react-app
         -   '@eslint/eslintrc@^3'
