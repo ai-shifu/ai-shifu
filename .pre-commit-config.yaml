@@ -2,7 +2,7 @@ ci:
   skip: [eslint]  # Skip ESLint hooks in pre-commit.ci since not work
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v2.3.0
+    rev: v6.0.0
     hooks:
     -   id: check-yaml
         exclude: ^src/web/pnpm-lock\.yaml$
@@ -16,9 +16,12 @@ repos:
     -   id: pretty-format-json
         args: ['--autofix', '--indent=2', '--no-ensure-ascii', '--top-keys=langName']
         files: ^(src/web/public/locales/.*\.json|src/cook-web/public/locales/.*\.json)$
+    -   id: requirements-txt-fixer
+-   repo: https://github.com/PyCQA/flake8
+    rev: 7.3.0
+    hooks:
     -   id: flake8
         args: [--max-line-length=200,--ignore=F403,--ignore=W503]
-    -   id: requirements-txt-fixer
 -   repo: https://github.com/psf/black
     rev: 25.1.0
     hooks:
