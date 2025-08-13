@@ -20,6 +20,8 @@ from flaskr.service.shifu.models import (
     ShifuPublishedShifu,
     ShifuPublishedOutlineItem,
 )
+from flaskr.service.shifu import cache as shifu_cache
+from flaskr.common.config import get_config
 
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.common import raise_error
@@ -76,22 +78,28 @@ def get_shifu_struct(
     """
     with app.app_context():
         app.logger.info(f"get_shifu_struct:{shifu_bid},{is_preview}")
-        if is_preview:
-            model = ShifuLogDraftStruct
-        else:
-            model = ShifuLogPublishedStruct
-        shifu_struct = (
-            model.query.filter(
-                model.shifu_bid == shifu_bid,
+        cache_key = shifu_cache.struct_cache_key(shifu_bid, is_preview)
+        expire = int(get_config("SHIFU_STRUCT_CACHE_EXPIRE", "300"))
+
+        def loader() -> str:
+            model = ShifuLogDraftStruct if is_preview else ShifuLogPublishedStruct
+            shifu_struct = (
+                model.query.filter(
+                    model.shifu_bid == shifu_bid,
+                )
+                .order_by(
+                    model.id.desc(),
+                )
+                .first()
             )
-            .order_by(
-                model.id.desc(),
-            )
-            .first()
-        )
-        if not shifu_struct:
+            if not shifu_struct:
+                raise_error("SHIFU.SHIFU_NOT_FOUND")
+            return shifu_struct.struct
+
+        struct_json = shifu_cache.get_or_set(cache_key, loader, expire)
+        if struct_json is None:
             raise_error("SHIFU.SHIFU_NOT_FOUND")
-        return HistoryItem.from_json(shifu_struct.struct)
+        return HistoryItem.from_json(struct_json)
 
 
 def get_shifu_outline_tree(
@@ -99,79 +107,88 @@ def get_shifu_outline_tree(
 ) -> ShifuInfoDto:
     with app.app_context():
         app.logger.info("get_shifu_outline_tree:{}".format(shifu_bid))
-        struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)
-        if is_preview:
-            shifu_model = ShifuDraftShifu
-            outline_item_model = ShifuDraftOutlineItem
-        else:
-            shifu_model = ShifuPublishedShifu
-            outline_item_model = ShifuPublishedOutlineItem
+        cache_key = shifu_cache.outline_cache_key(shifu_bid, is_preview)
+        expire = int(get_config("SHIFU_OUTLINE_CACHE_EXPIRE", "300"))
 
-        shifu_ids = []
-        outline_item_ids = []
-        q = queue.Queue()
-        q.put(struct)
-        while not q.empty():
-            item = q.get()
-            if item.type == "shifu":
-                shifu_ids.append(item.id)
-            elif item.type == "outline":
-                outline_item_ids.append(item.id)
-            if item.children:
-                for child in item.children:
-                    q.put(child)
-        if len(shifu_ids) != 1:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
-        shifu: Union[ShifuDraftShifu, ShifuPublishedShifu] = shifu_model.query.filter(
-            shifu_model.id.in_(shifu_ids),
-        ).first()
-        if not shifu:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
-        outline_items = outline_item_model.query.filter(
-            outline_item_model.id.in_(outline_item_ids),
-        ).all()
-        app.logger.info(f"outline_items: len={len(outline_items)}")
-        outline_items_map = {i.id: i for i in outline_items}
+        def loader() -> str:
+            struct: HistoryItem = get_shifu_struct(app, shifu_bid, is_preview)
+            if is_preview:
+                shifu_model = ShifuDraftShifu
+                outline_item_model = ShifuDraftOutlineItem
+            else:
+                shifu_model = ShifuPublishedShifu
+                outline_item_model = ShifuPublishedOutlineItem
 
-        shifu_info = ShifuInfoDto(
-            bid=shifu.shifu_bid,
-            title=shifu.title,
-            description=shifu.description,
-            avatar=get_shifu_res_url(shifu.avatar_res_bid),
-            price=shifu.price,
-            outline_items=[],
-        )
+            shifu_ids = []
+            outline_item_ids = []
+            q = queue.Queue()
+            q.put(struct)
+            while not q.empty():
+                item = q.get()
+                if item.type == "shifu":
+                    shifu_ids.append(item.id)
+                elif item.type == "outline":
+                    outline_item_ids.append(item.id)
+                if item.children:
+                    for child in item.children:
+                        q.put(child)
+            if len(shifu_ids) != 1:
+                raise_error("SHIFU.SHIFU_NOT_FOUND")
+            shifu: Union[ShifuDraftShifu, ShifuPublishedShifu] = (
+                shifu_model.query.filter(
+                    shifu_model.id.in_(shifu_ids),
+                ).first()
+            )
+            if not shifu:
+                raise_error("SHIFU.SHIFU_NOT_FOUND")
+            outline_items = outline_item_model.query.filter(
+                outline_item_model.id.in_(outline_item_ids),
+            ).all()
+            app.logger.info(f"outline_items: len={len(outline_items)}")
+            outline_items_map = {i.id: i for i in outline_items}
 
-        def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
-            if item.type == "outline":
-                outline_item: Union[
-                    ShifuDraftOutlineItem, ShifuPublishedOutlineItem
-                ] = outline_items_map.get(item.id, None)
-                if not outline_item:
-                    app.logger.error(f"outline_item not found: {item.id}")
+            shifu_info = ShifuInfoDto(
+                bid=shifu.shifu_bid,
+                title=shifu.title,
+                description=shifu.description,
+                avatar=get_shifu_res_url(shifu.avatar_res_bid),
+                price=shifu.price,
+                outline_items=[],
+            )
 
-                if outline_item and outline_item.hidden == 0:
-                    outline_item_dto = ShifuOutlineItemDto(
-                        bid=outline_item.outline_item_bid,
-                        position=outline_item.position,
-                        title=outline_item.title,
-                        type=outline_item.type,
-                        shifu_bid=shifu.shifu_bid,
-                        children=[],
-                    )
-                    if item.children:
-                        for child in item.children:
-                            if child.type == "outline":
-                                ret = recurse_outline_item(child)
-                                if ret:
-                                    outline_item_dto.children.append(ret)
-                    return outline_item_dto
-            return None
+            def recurse_outline_item(item: HistoryItem) -> ShifuOutlineItemDto:
+                if item.type == "outline":
+                    outline_item: Union[
+                        ShifuDraftOutlineItem, ShifuPublishedOutlineItem
+                    ] = outline_items_map.get(item.id, None)
+                    if not outline_item:
+                        app.logger.error(f"outline_item not found: {item.id}")
 
-        outline_items = [recurse_outline_item(i) for i in struct.children]
-        shifu_info.outline_items = [i for i in outline_items if i]
-        app.logger.info(f"shifu_info: {shifu_info.__json__()}")
-        return shifu_info
+                    if outline_item and outline_item.hidden == 0:
+                        outline_item_dto = ShifuOutlineItemDto(
+                            bid=outline_item.outline_item_bid,
+                            position=outline_item.position,
+                            title=outline_item.title,
+                            type=outline_item.type,
+                            shifu_bid=shifu.shifu_bid,
+                            children=[],
+                        )
+                        if item.children:
+                            for child in item.children:
+                                if child.type == "outline":
+                                    ret = recurse_outline_item(child)
+                                    if ret:
+                                        outline_item_dto.children.append(ret)
+                        return outline_item_dto
+                return None
+
+            outline_items = [recurse_outline_item(i) for i in struct.children]
+            shifu_info.outline_items = [i for i in outline_items if i]
+            app.logger.info(f"shifu_info: {shifu_info.__json__()}")
+            return shifu_info.__json__()
+
+        outline_json = shifu_cache.get_or_set(cache_key, loader, expire)
+        return ShifuInfoDto.model_validate_json(outline_json)
 
 
 def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> ShifuInfoDto:
