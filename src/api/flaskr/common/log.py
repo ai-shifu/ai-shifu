@@ -151,9 +151,7 @@ def init_log(app: Flask) -> Flask:
     log_dir = os.path.dirname(log_file)
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
-    file_handler = TimedRotatingFileHandler(
-        app.config["LOGGING_PATH"], when="midnight", backupCount=7
-    )
+    file_handler = TimedRotatingFileHandler(log_file, when="midnight", backupCount=7)
     file_handler.setFormatter(formatter)
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(color_formatter)  # use color formatter
