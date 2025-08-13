@@ -322,6 +322,10 @@
     "title": "Preview",
     "view": "View"
   },
+  "profileSelectModal": {
+    "add": "Add",
+    "addVariable": "Add Variable"
+  },
   "profiles": {
     "add": "Add",
     "addNewVariable": "Add New Variable",
@@ -339,18 +343,14 @@
     "noVariableFound": "No variable found",
     "operation": "Operation",
     "option": "Enum",
-    "optional": "Optional",
     "optionName": "Option Name",
     "optionValue": "Option Value",
+    "optional": "Optional",
     "save": "Save",
     "string": "String",
     "systemVariable": "System Variable",
     "title": "Title",
     "variableName": "Variable Name"
-  },
-  "profileSelectModal": {
-    "add": "Add",
-    "addVariable": "Add Variable"
   },
   "profilesManage": {
     "enum": "Enum",

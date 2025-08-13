@@ -322,6 +322,10 @@
     "title": "预览",
     "view": "去查看"
   },
+  "profileSelectModal": {
+    "add": "添加",
+    "addVariable": "添加变量"
+  },
   "profiles": {
     "add": "添加",
     "addNewVariable": "添加新变量",
@@ -339,18 +343,14 @@
     "noVariableFound": "没有找到变量",
     "operation": "操作",
     "option": "枚举",
-    "optional": "可选",
     "optionName": "枚举名称",
     "optionValue": "枚举值",
+    "optional": "可选",
     "save": "保存",
     "string": "字符串",
     "systemVariable": "系统变量",
     "title": "标题",
     "variableName": "变量名"
-  },
-  "profileSelectModal": {
-    "add": "添加",
-    "addVariable": "添加变量"
   },
   "profilesManage": {
     "enum": "选项",
