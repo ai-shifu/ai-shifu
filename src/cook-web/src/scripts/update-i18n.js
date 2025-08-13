@@ -26,12 +26,27 @@ function getAllFiles(dir, files = []) {
 function extractKeysFromFile(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
-    const regex =
-      /(?:{)?\s*t\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"]\s*(?:,\s*\{[^}]*\})?\s*\)(?:})?/g;
+    // First normalize the content to handle multiline t() calls
+    // Replace newlines within t() calls with spaces
+    const normalizedContent = content.replace(/\bt\s*\(\s*\n\s*/g, 't(');
+
+    // Match t() function calls in various contexts including JSX attributes
+    // This regex handles: t('key'), t('key', {...}), {t('key')}, placeholder={t('key')}, etc.
+    const tRegex =
+      /\bt\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"](?:\s*,\s*[^)]+)?\s*\)/g;
+    const setErrorRegex =
+      /setError\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"]\s*\)/g;
+
     let match,
       keys = [];
 
-    while ((match = regex.exec(content)) !== null) {
+    // Extract keys from t() calls
+    while ((match = tRegex.exec(normalizedContent)) !== null) {
+      keys.push(match[1]);
+    }
+
+    // Extract keys from setError() calls that use translation keys
+    while ((match = setErrorRegex.exec(normalizedContent)) !== null) {
       keys.push(match[1]);
     }
 

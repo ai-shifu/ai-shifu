@@ -418,6 +418,7 @@
     "addKeyword": "添加关键词",
     "cancel": "取消",
     "fileSizeLimit": "文件大小不能超过2MB",
+    "imageFormatHint": "只支持jpg和png格式，文件大小不能超过2MB",
     "inputKeywords": "输入关键词",
     "keywords": "关键词",
     "learningUrl": "学习地址",

@@ -31,7 +31,7 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
 
   const formSchema = z.object({
     couponCode: z.string().min(1, {
-      message: t('groupon.grouponInputMsg'),
+      message: t('groupon.inputMessage'),
     }),
   });
 
@@ -69,7 +69,7 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
             onPointerDownOutside={evt => evt.preventDefault()}
           >
             <DialogHeader>
-              <DialogTitle>{t('groupon.grouponTitle')}</DialogTitle>
+              <DialogTitle>{t('groupon.title')}</DialogTitle>
             </DialogHeader>
 
             <FormField
@@ -79,7 +79,7 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
                 <FormItem>
                   <FormControl>
                     <Input
-                      placeholder={t('groupon.grouponPlaceholder')}
+                      placeholder={t('groupon.placeholder')}
                       {...field}
                     />
                   </FormControl>

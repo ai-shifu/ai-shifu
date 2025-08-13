@@ -320,8 +320,8 @@ export const PayModalM = ({
                             onClick={onCouponCodeButtonClick}
                           >
                             {!couponCode
-                              ? t('groupon.grouponUse')
-                              : t('groupon.grouponModify')}
+                              ? t('groupon.useOtherPayment')
+                              : t('groupon.modify')}
                           </MainButtonM>
                         </div>
                         <PayModalFooter className={styles.payModalFooter} />

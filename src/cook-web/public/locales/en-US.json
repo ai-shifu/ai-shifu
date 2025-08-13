@@ -418,6 +418,7 @@
     "addKeyword": "Add Keyword",
     "cancel": "Cancel",
     "fileSizeLimit": "File size cannot exceed 2MB",
+    "imageFormatHint": "Support JPG and PNG format, file size cannot exceed 2MB",
     "inputKeywords": "Input Keywords",
     "keywords": "Keywords",
     "learningUrl": "Learning URL",

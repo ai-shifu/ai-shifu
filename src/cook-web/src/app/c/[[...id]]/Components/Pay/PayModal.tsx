@@ -362,8 +362,8 @@ export const PayModal = ({
                           className={styles.couponCodeButton}
                         >
                           {!couponCode
-                            ? t('groupon.grouponUse')
-                            : t('groupon.grouponModify')}
+                            ? t('groupon.useOtherPayment')
+                            : t('groupon.modify')}
                         </Button>
                       </div>
                     </>
