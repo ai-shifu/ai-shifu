@@ -36,7 +36,7 @@ repos:
     hooks:
     -   id: local-eslint
         name: ESLint cook-web files (errors only)
-        entry: npm run lint
+        entry: bash -c 'cd src/cook-web && npm run lint'
         language: system
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
 -   repo: https://github.com/pre-commit/mirrors-eslint
