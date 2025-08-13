@@ -1,6 +1,4 @@
 const { FlatCompat } = require('@eslint/eslintrc');
-const typescriptEslint = require('@typescript-eslint/eslint-plugin');
-const typescriptParser = require('@typescript-eslint/parser');
 
 const compat = new FlatCompat({
   baseDirectory: __dirname,
@@ -8,15 +6,9 @@ const compat = new FlatCompat({
 
 const eslintConfig = [
   // Use Next.js recommended configuration (includes React, React Hooks, and Next.js rules)
-  ...compat.extends('next/core-web-vitals', 'next/typescript'),
+  ...compat.extends('next/core-web-vitals', 'next/typescript', 'prettier'),
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
-    plugins: {
-      '@typescript-eslint': typescriptEslint,
-    },
-    languageOptions: {
-      parser: typescriptParser,
-    },
     rules: {
       // Override specific rules as needed
       '@typescript-eslint/no-explicit-any': 'off',
