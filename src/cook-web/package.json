@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint --cache-location .eslintcache",
-    "lint-file": "next lint --file",
+    "lint-file": "next lint --fix --file",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "precommit": "lint-staged",
