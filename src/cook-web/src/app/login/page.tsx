@@ -46,7 +46,7 @@ export default function AuthPage() {
   const handleAuthSuccess = () => {
     let redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/c';
+      redirect = '/main';
     }
     // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
     // router.push('/main')
