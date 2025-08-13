@@ -1,3 +1,5 @@
+ci:
+  skip: [eslint]  # Skip ESLint hooks in pre-commit.ci since not work
 repos:
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
@@ -43,8 +45,3 @@ repos:
         name: ESLint web files (errors only)
         files: ^src/web/.*\.(js|jsx|ts|tsx)$
         args: [--config, src/web/eslint.config.cjs, --max-warnings=0, --fix]
-        additional_dependencies:
-        -   eslint@^9
-        -   '@typescript-eslint/eslint-plugin@^8'
-        -   '@typescript-eslint/parser@^8'
-        -   eslint-config-react-app
