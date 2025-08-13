@@ -12,7 +12,6 @@ import type { UserInfo } from '@/c-types';
 
 interface EmailLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
-  onForgotPassword?: () => void;
 }
 
 export function EmailLogin({}: EmailLoginProps) {
