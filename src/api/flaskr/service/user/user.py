@@ -133,7 +133,6 @@ def generate_temp_user(
                     user_state=user.user_state,
                     wx_openid=user.user_open_id,
                     language=user.user_language,
-                    has_password=bool(user.password_hash),
                 ),
                 token=token,
             )

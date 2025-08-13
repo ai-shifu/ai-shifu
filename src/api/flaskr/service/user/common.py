@@ -122,7 +122,6 @@ def update_user_info(
                 wx_openid=get_user_openid(user),
                 language=dbuser.user_language,
                 user_avatar=dbuser.user_avatar,
-                has_password=dbuser.password_hash != "",
                 is_admin=dbuser.is_admin,
                 is_creator=dbuser.is_creator,
             )
@@ -144,7 +143,6 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
                 wx_openid=get_user_openid(user),
                 language=get_user_language(user),
                 user_avatar=user.user_avatar,
-                has_password=user.password_hash != "",
                 is_admin=user.is_admin,
                 is_creator=user.is_creator,
             )
