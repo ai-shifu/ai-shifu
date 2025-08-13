@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('fs'); // eslint-disable-line
+const path = require('path'); // eslint-disable-line
 
 const localesDir = path.join(__dirname, '../../public/locales');
 const files = fs.readdirSync(localesDir);
