@@ -88,6 +88,45 @@ def init_db(app: Flask):
 
 def init_redis(app: Flask):
     global redis_client
+    # Use an in-memory Redis when REDIS_MOCK is enabled. This is helpful for running
+    # tests without requiring an actual Redis service.
+    if str(app.config.get("REDIS_MOCK", "false")).lower() == "true":
+        try:
+            import fakeredis
+
+            redis_client = fakeredis.FakeRedis()
+        except ModuleNotFoundError:
+            from threading import Lock
+
+            class _SimpleRedis:
+                def __init__(self):
+                    self.store = {}
+                    self.locks = {}
+
+                def get(self, key):
+                    return self.store.get(key)
+
+                def set(self, key, value, ex=None):
+                    self.store[key] = value
+
+                def delete(self, key):
+                    self.store.pop(key, None)
+
+                def ttl(self, key):
+                    return None
+
+                def incr(self, key):
+                    self.store[key] = int(self.store.get(key, 0)) + 1
+                    return self.store[key]
+
+                def lock(self, key, timeout=None, blocking_timeout=None):
+                    return self.locks.setdefault(key, Lock())
+
+            redis_client = _SimpleRedis()
+
+        app.logger.info("init fakeredis done")
+        return
+
     app.logger.info(
         "init redis {} {} {}".format(
             app.config["REDIS_HOST"], app.config["REDIS_PORT"], app.config["REDIS_DB"]

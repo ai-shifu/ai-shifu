@@ -1,20 +1,15 @@
+import os
 import pytest
-from app import create_app
-from flask_migrate import upgrade
 
 
-# Path: test/test_flaskr.py
-# Compare this snippet from flaskr/plugin/test.py:
-# from ..service.schedule import *
-#
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def app():
+    os.environ.setdefault("REDIS_MOCK", "true")
+    os.environ.setdefault("LOGGING_PATH", "/tmp/test.log")
+    os.environ.setdefault("SQLALCHEMY_DATABASE_URI", "sqlite:///:memory:")
+    from app import create_app
 
     app = create_app()
-
-    with app.app_context():
-        upgrade("migrations")
-
     yield app
 
 
