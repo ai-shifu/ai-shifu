@@ -6,6 +6,9 @@ repos:
     hooks:
     -   id: check-yaml
         exclude: ^src/web/pnpm-lock\.yaml$
+    -   id: check-json
+    -   id: check-merge-conflict
+    -   id: check-symlinks
     -   id: end-of-file-fixer
         exclude: ^src/web/pnpm-lock\.yaml$
     -   id: trailing-whitespace
