@@ -35,8 +35,8 @@ def _handle_input_login(
         app, user_info, attend_id, outline_item_info, block_dto
     )
     button: LoginDTO = block_dto.block_content
-    log_script.script_content = get_script_ui_label(app, button.label)
-    log_script.script_role = ROLE_STUDENT  # type: ignore
+    log_script.generated_content = get_script_ui_label(app, button.label)
+    log_script.role = ROLE_STUDENT  # type: ignore
     db.session.add(log_script)
     if user_info.user_state != 0:
         yield make_script_dto("text", "", block_dto.bid, outline_item_info.bid)

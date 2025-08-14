@@ -40,8 +40,8 @@ def _handle_input_checkcode(
         log_script = generation_attend(
             app, user_info, attend_id, outline_item_info, block_dto
         )
-        log_script.script_content = input
-        log_script.script_role = ROLE_STUDENT  # type: ignore
+        log_script.generated_content = input
+        log_script.role = ROLE_STUDENT  # type: ignore
         db.session.add(log_script)
         course_id = outline_item_info.shifu_bid
         ret = verify_sms_code_without_phone(app, user_info, input, course_id)
@@ -77,7 +77,7 @@ def _handle_input_checkcode(
         log_script = generation_attend(
             app, user_info, attend_id, outline_item_info, block_dto
         )
-        log_script.script_content = e.message
-        log_script.script_role = ROLE_TEACHER
+        log_script.generated_content = e.message
+        log_script.role = ROLE_TEACHER
         db.session.add(log_script)
         raise BreakException

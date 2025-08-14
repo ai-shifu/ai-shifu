@@ -107,9 +107,9 @@ def _handle_input_input(
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = input
-    log_script.script_role = ROLE_STUDENT
-    log_script.script_ui_conf = json.dumps(
+    log_script.generated_content = input
+    log_script.role = ROLE_STUDENT
+    log_script.block_content_conf = json.dumps(
         _handle_output_input(
             app, user_info, attend_id, outline_item_info, block_dto, trace, trace_args
         ).__json__()
@@ -219,8 +219,8 @@ def _handle_input_input(
         log_script = generation_attend(
             app, user_info, attend_id, outline_item_info, block_dto
         )
-        log_script.script_content = reason
-        log_script.script_role = ROLE_TEACHER
+        log_script.generated_content = reason
+        log_script.role = ROLE_TEACHER
         db.session.add(log_script)
         span.end(output=response_text)
         trace_args["output"] = trace_args["output"] + "\r\n" + response_text
@@ -231,7 +231,7 @@ def _handle_input_input(
             "",
             outline_item_info.bid,
             outline_item_info.bid,
-            log_script.log_id,
+            log_script.generated_block_bid,
         )
         yield make_script_dto_to_stream(
             _handle_output_input(

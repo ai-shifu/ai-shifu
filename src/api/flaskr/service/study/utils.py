@@ -11,7 +11,7 @@ from ...service.lesson.const import (
 from ...service.lesson.models import AICourse, AILesson, AILessonScript
 from ...service.profile.funcs import get_user_profiles
 from ...service.study.dtos import ScriptDTO
-from ...service.study.models import AICourseLessonAttendScript
+from ...service.study.models import LearnBlockLog
 from flaskr.service.user.models import User
 from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 from flaskr.i18n import get_current_language
@@ -32,7 +32,7 @@ def generation_attend(
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
     with_ui_conf: bool = False,
-) -> AICourseLessonAttendScript:
+) -> LearnBlockLog:
     """
     Generation attend
     the attend is used to store the attend info
@@ -50,17 +50,17 @@ def generation_attend(
     if block_type is None:
         app.logger.error(f"Invalid block type: {block_dto.type}")
         block_type = 0
-    attend_script: AICourseLessonAttendScript = AICourseLessonAttendScript()
-    attend_script.attend_id = attend_id
-    attend_script.user_id = user_info.user_id
-    attend_script.lesson_id = outline_item_info.bid
-    attend_script.course_id = outline_item_info.shifu_bid
-    attend_script.script_id = block_dto.bid
-    attend_script.script_ui_type = block_type
-    attend_script.log_id = generate_id(app)
+    attend_script: LearnBlockLog = LearnBlockLog()
+    attend_script.progress_record_bid = attend_id
+    attend_script.user_bid = user_info.user_id
+    attend_script.outline_item_bid = outline_item_info.bid
+    attend_script.shifu_bid = outline_item_info.shifu_bid
+    attend_script.block_bid = block_dto.bid
+    attend_script.type = block_type
+    attend_script.generated_block_bid = generate_id(app)
     attend_script.status = 1
     if with_ui_conf:
-        attend_script.script_ui_conf = json.dumps(
+        attend_script.block_content_conf = json.dumps(
             block_dto.block_content.__json__(), ensure_ascii=False
         )
     return attend_script

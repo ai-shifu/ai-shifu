@@ -8,13 +8,13 @@ from flaskr.service.study.const import (
 from ...service.study.dtos import AILessonAttendDTO, StudyRecordDTO
 import json
 from ...service.order.consts import (
-    ATTEND_STATUS_LOCKED,
-    ATTEND_STATUS_NOT_STARTED,
-    ATTEND_STATUS_IN_PROGRESS,
-    ATTEND_STATUS_RESET,
+    LEARN_STATUS_LOCKED,
+    LEARN_STATUS_NOT_STARTED,
+    LEARN_STATUS_IN_PROGRESS,
+    LEARN_STATUS_RESET,
     get_attend_status_values,
     BUY_STATUS_SUCCESS,
-    ATTEND_STATUS_NOT_EXIST,
+    LEARN_STATUS_NOT_EXIST,
 )
 
 from .dtos import AICourseDTO, StudyRecordItemDTO, ScriptInfoDTO
@@ -23,11 +23,10 @@ from ...service.lesson.const import (
 )
 from ...dao import db
 
-from ...service.order.models import (
-    AICourseBuyRecord,
-    AICourseLessonAttend,
+from flaskr.service.study.models import (
+    LearnOutlineItemProgress,
+    LearnBlockLog,
 )
-from .models import AICourseLessonAttendScript
 from .plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
@@ -53,6 +52,7 @@ from flaskr.service.shifu.consts import BLOCK_TYPE_CONTENT
 import queue
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.study.output.handle_output_continue import _handle_output_continue
+from flaskr.service.order.models import Order
 
 
 # fill the attend info for the outline items
@@ -82,7 +82,7 @@ def fill_attend_info(
 
     while not q.empty():
         lesson: AILessonAttendDTO = q.get()
-        if lesson.status_value == ATTEND_STATUS_NOT_EXIST:
+        if lesson.status_value == LEARN_STATUS_NOT_EXIST:
             # lesson_trial
             if lesson.lesson_type == LESSON_TYPE_TRIAL:
                 if not has_trial_init:
@@ -91,8 +91,8 @@ def fill_attend_info(
                         app.logger.info(f"first_trial_lesson: {lesson.lesson_id}")
                         app.logger.info(f"lesson: {lesson.__json__()}")
                         first_lessons.append(lesson)
-                        lesson.status_value = ATTEND_STATUS_NOT_STARTED
-                        lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
+                        lesson.status_value = LEARN_STATUS_NOT_STARTED
+                        lesson.status = attend_status_values[LEARN_STATUS_NOT_STARTED]
                         lesson.updated = True
                     elif (
                         first_trial_lesson
@@ -100,16 +100,16 @@ def fill_attend_info(
                         and len(first_lessons[-1].children) > 0
                         and first_lessons[-1].children[0] == lesson
                     ):
-                        lesson.status_value = ATTEND_STATUS_NOT_STARTED
-                        lesson.status = attend_status_values[ATTEND_STATUS_NOT_STARTED]
+                        lesson.status_value = LEARN_STATUS_NOT_STARTED
+                        lesson.status = attend_status_values[LEARN_STATUS_NOT_STARTED]
                         lesson.updated = True
                         first_lessons.append(lesson)
                         if not lesson.children or len(lesson.children) == 0:
                             has_trial_init = True
 
             else:
-                lesson.status_value = ATTEND_STATUS_LOCKED
-                lesson.status = attend_status_values[ATTEND_STATUS_LOCKED]
+                lesson.status_value = LEARN_STATUS_LOCKED
+                lesson.status = attend_status_values[LEARN_STATUS_LOCKED]
                 lesson.updated = True
         else:
             if lesson.lesson_type == LESSON_TYPE_TRIAL:
@@ -120,13 +120,13 @@ def fill_attend_info(
                 q.put(child)
 
     for lesson in first_lessons:
-        attend_info: AICourseLessonAttend = AICourseLessonAttend(
-            user_id=user_id,
-            course_id=ret.course_id,
-            lesson_id=lesson.lesson_id,
-            status=ATTEND_STATUS_NOT_STARTED,
-            script_index=0,
-            attend_id=generate_id(app),
+        attend_info: LearnOutlineItemProgress = LearnOutlineItemProgress(
+            user_bid=user_id,
+            shifu_bid=ret.course_id,
+            outline_item_bid=lesson.lesson_id,
+            status=LEARN_STATUS_NOT_STARTED,
+            outline_item_updated=0,
+            progress_record_bid=generate_id(app),
         )
         db.session.add(attend_info)
     if len(first_lessons) > 0:
@@ -162,8 +162,8 @@ def get_lesson_tree_to_study_inner(
 
         is_paid = preview_mode or shifu_info.price == 0
         if not is_paid:
-            buy_record = AICourseBuyRecord.query.filter_by(
-                user_id=user_id, course_id=course_id
+            buy_record = Order.query.filter_by(
+                user_bid=user_id, shifu_bid=course_id
             ).first()
             if buy_record:
                 is_paid = buy_record.status == BUY_STATUS_SUCCESS
@@ -175,11 +175,11 @@ def get_lesson_tree_to_study_inner(
             lessons=[],
         )
 
-        attend_infos = AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_id,
-            AICourseLessonAttend.course_id == course_id,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-            AICourseLessonAttend.lesson_id.in_(outline_ids),
+        attend_infos = LearnOutlineItemProgress.query.filter(
+            LearnOutlineItemProgress.user_bid == user_id,
+            LearnOutlineItemProgress.shifu_bid == course_id,
+            LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
+            LearnOutlineItemProgress.outline_item_bid.in_(outline_ids),
         ).all()
         attend_map = {i.lesson_id: i for i in attend_infos}
         attend_status_values = get_attend_status_values()
@@ -190,8 +190,8 @@ def get_lesson_tree_to_study_inner(
                 lesson_id=item.bid,
                 lesson_name=item.title,
                 lesson_no=item.position,
-                status_value=ATTEND_STATUS_NOT_EXIST,
-                status=attend_status_values[ATTEND_STATUS_NOT_EXIST],
+                status_value=LEARN_STATUS_NOT_EXIST,
+                status=attend_status_values[LEARN_STATUS_NOT_EXIST],
                 lesson_type=item.type,
                 children=[],
                 unique_id=item.bid,
@@ -309,24 +309,24 @@ def get_study_record(
         if not lesson_ids:
             return ret
         attend_infos = (
-            AICourseLessonAttend.query.filter(
-                AICourseLessonAttend.user_id == user_id,
-                AICourseLessonAttend.lesson_id.in_(lesson_ids),
-                AICourseLessonAttend.course_id == shifu_info.bid,
-                AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+            LearnOutlineItemProgress.query.filter(
+                LearnOutlineItemProgress.user_bid == user_id,
+                LearnOutlineItemProgress.outline_item_bid.in_(lesson_ids),
+                LearnOutlineItemProgress.shifu_bid == shifu_info.bid,
+                LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
             )
-            .order_by(AICourseLessonAttend.id)
+            .order_by(LearnOutlineItemProgress.id)
             .all()
         )
         if not attend_infos:
             return ret
         attend_scripts = (
-            AICourseLessonAttendScript.query.filter(
-                AICourseLessonAttendScript.lesson_id.in_(lesson_ids),
-                AICourseLessonAttendScript.status == 1,
-                AICourseLessonAttendScript.user_id == user_id,
+            LearnBlockLog.query.filter(
+                LearnBlockLog.outline_item_bid.in_(lesson_ids),
+                LearnBlockLog.status == 1,
+                LearnBlockLog.user_bid == user_id,
             )
-            .order_by(AICourseLessonAttendScript.id.asc())
+            .order_by(LearnBlockLog.id.asc())
             .all()
         )
 
@@ -339,8 +339,8 @@ def get_study_record(
                 0,
                 i.script_content,
                 i.script_id,
-                i.lesson_id if i.lesson_id in lesson_ids else lesson_id,
-                i.log_id,
+                i.outline_item_bid if i.outline_item_bid in lesson_ids else lesson_id,
+                i.generated_block_bid,
                 i.interaction_type,
                 ui=json.loads(i.script_ui_conf) if i.script_ui_conf else None,
             )
@@ -350,8 +350,8 @@ def get_study_record(
         ret.records = items
         last_block_id = attend_scripts[-1].script_id
         last_lesson_id = attend_scripts[-1].lesson_id
-        last_attend: AICourseLessonAttend = [
-            atend for atend in attend_infos if atend.lesson_id == last_lesson_id
+        last_attend: LearnOutlineItemProgress = [
+            atend for atend in attend_infos if atend.outline_item_bid == last_lesson_id
         ][-1]
         last_outline_item = get_outline_item_dto(app, last_lesson_id, preview_mode)
         if (
@@ -399,7 +399,7 @@ def get_study_record(
             ret.ui = _handle_output_continue(
                 app,
                 user_info,
-                last_attend.attend_id,
+                last_attend.progress_record_bid,
                 last_outline_item,
                 block_dto,
                 {},
@@ -485,31 +485,31 @@ def reset_user_study_info_by_lesson(
         while top.children and top.children[0].type == "outline":
             first_lesson_ids.add(top.children[0].bid)
             top = top.children[0]
-        AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_id,
-            AICourseLessonAttend.lesson_id.in_(lesson_ids),
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-            AICourseLessonAttend.course_id == struct.bid,
-        ).update({"status": ATTEND_STATUS_RESET})
+        LearnOutlineItemProgress.query.filter(
+            LearnOutlineItemProgress.user_bid == user_id,
+            LearnOutlineItemProgress.outline_item_bid.in_(lesson_ids),
+            LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
+            LearnOutlineItemProgress.shifu_bid == struct.bid,
+        ).update({"status": LEARN_STATUS_RESET})
 
         # insert the new attend info for the lessons that are available
         for lesson in lesson_ids:
-            attend_info = AICourseLessonAttend(
-                user_id=user_id,
-                lesson_id=lesson,
-                course_id=struct.bid,
-                status=ATTEND_STATUS_LOCKED,
-                script_index=0,
+            attend_info = LearnOutlineItemProgress(
+                user_bid=user_id,
+                outline_item_bid=lesson,
+                shifu_bid=struct.bid,
+                status=LEARN_STATUS_LOCKED,
+                outline_item_updated=0,
             )
-            attend_info.attend_id = generate_id(app)
+            attend_info.progress_record_bid = generate_id(app)
             if lesson in first_lesson_ids:
-                attend_info.status = ATTEND_STATUS_IN_PROGRESS
+                attend_info.status = LEARN_STATUS_IN_PROGRESS
             else:
-                attend_info.status = ATTEND_STATUS_LOCKED
+                attend_info.status = LEARN_STATUS_LOCKED
             db.session.add(attend_info)
-        AICourseLessonAttendScript.query.filter(
-            AICourseLessonAttendScript.lesson_id.in_(lesson_ids),
-            AICourseLessonAttendScript.status == 1,
+        LearnBlockLog.query.filter(
+            LearnBlockLog.outline_item_bid.in_(lesson_ids),
+            LearnBlockLog.status == 1,
         ).update({"status": 0})
         db.session.commit()
         return True
@@ -520,9 +520,9 @@ def set_script_content_operation(
     app: Flask, user_id: str, log_id: str, interaction_type: int
 ):
     with app.app_context():
-        script_info = AICourseLessonAttendScript.query.filter(
-            AICourseLessonAttendScript.log_id == log_id,
-            AICourseLessonAttendScript.user_id == user_id,
+        script_info = LearnBlockLog.query.filter(
+            LearnBlockLog.generated_block_bid == log_id,
+            LearnBlockLog.user_bid == user_id,
         ).first()
         if not script_info:
             return None

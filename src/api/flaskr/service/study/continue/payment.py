@@ -4,7 +4,7 @@ from flaskr.service.user.models import User
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
-from flaskr.service.order.models import AICourseBuyRecord
+from flaskr.service.order.models import Order
 from flaskr.service.order.consts import BUY_STATUS_SUCCESS
 
 
@@ -19,10 +19,10 @@ def _handle_continue_payment(
     trace: StatefulTraceClient,
     is_preview: bool = False,
 ) -> bool:
-    order: AICourseBuyRecord = AICourseBuyRecord.query.filter(
-        AICourseBuyRecord.user_id == user_info.user_id,
-        AICourseBuyRecord.course_id == outline_item_info.shifu_bid,
-        AICourseBuyRecord.status == BUY_STATUS_SUCCESS,
+    order: Order = Order.query.filter(
+        Order.user_bid == user_info.user_id,
+        Order.shifu_bid == outline_item_info.shifu_bid,
+        Order.status == BUY_STATUS_SUCCESS,
     ).first()
 
     if order is None:

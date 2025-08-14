@@ -13,6 +13,7 @@ from flaskr.service.study.context import LLMSettings, RunScriptContext
 from flaskr.api.llm import invoke_llm
 from flaskr.dao import db
 from typing import Generator
+from flaskr.service.study.models import LearnBlockLog
 
 
 @register_shifu_output_handler("content")
@@ -31,17 +32,21 @@ def handle_output_content(
     prompt = get_fmt_prompt(
         app, user_info.user_id, outline_item_info.shifu_bid, profile_tmplate=content
     )
-    log_script = generation_attend(
+    log_script: LearnBlockLog = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = prompt
-    log_script.script_role = ROLE_TEACHER
+    log_script.generated_content = prompt
+    log_script.role = ROLE_TEACHER
     text = ""
     if not content_dto.llm_enabled:
         span = trace.span(name="prompt_sript")
         for i in prompt:
             msg = make_script_dto(
-                "text", i, block_dto.bid, outline_item_info.bid, log_script.log_id
+                "text",
+                i,
+                block_dto.bid,
+                outline_item_info.bid,
+                log_script.generated_block_bid,
             )
             yield msg
             time.sleep(0.01)
@@ -104,14 +109,18 @@ def handle_output_content(
                     current_content,
                     block_dto.bid,
                     outline_item_info.bid,
-                    log_script.log_id,
+                    log_script.generated_block_bid,
                 )
         trace_args["output"] = trace_args["output"] + "\r\n" + response_text
         trace.update(**trace_args)
         text = response_text
     yield make_script_dto(
-        "text_end", "", block_dto.bid, outline_item_info.bid, log_script.log_id
+        "text_end",
+        "",
+        block_dto.bid,
+        outline_item_info.bid,
+        log_script.generated_block_bid,
     )
-    log_script.script_content = text
+    log_script.generated_content = text
     db.session.add(log_script)
     db.session.flush()

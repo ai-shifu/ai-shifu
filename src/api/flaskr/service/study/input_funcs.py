@@ -2,7 +2,7 @@ import time
 
 from flask import Flask
 
-from flaskr.service.study.models import AICourseLessonAttendScript
+from flaskr.service.study.models import LearnBlockLog
 from flaskr.api.llm import invoke_llm
 from flaskr.api.check import (
     check_text,
@@ -29,7 +29,7 @@ class BreakException(Exception):
 def check_text_with_llm_response(
     app: Flask,
     user_info: User,
-    log_script: AICourseLessonAttendScript,
+    log_script: LearnBlockLog,
     input: str,
     span,
     outline_item_info: ShifuOutlineItemDto,
@@ -37,11 +37,11 @@ def check_text_with_llm_response(
     attend_id: str,
     fmt_prompt: str,
 ):
-    res = check_text(app, log_script.log_id, input, user_info.user_id)
+    res = check_text(app, log_script.generated_block_bid, input, user_info.user_id)
     span.event(name="check_text", input=input, output=res)
     add_risk_control_result(
         app,
-        log_script.log_id,
+        log_script.generated_block_bid,
         user_info.user_id,
         input,
         res.provider,
@@ -90,7 +90,7 @@ def check_text_with_llm_response(
 
         for i in res:
             yield make_script_dto(
-                "text", i.result, log_script.script_id, log_script.lesson_id
+                "text", i.result, log_script.block_bid, log_script.outline_item_bid
             )
             response_text += i.result
             time.sleep(0.01)
@@ -103,7 +103,7 @@ def check_text_with_llm_response(
         db.session.add(log_script)
         db.session.flush()
         yield make_script_dto(
-            "text_end", "", log_script.script_id, log_script.lesson_id
+            "text_end", "", log_script.block_bid, log_script.outline_item_bid
         )
     else:
         app.logger.info(f"check_text_by_{res.provider} is None")

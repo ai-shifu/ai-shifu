@@ -5,13 +5,13 @@ from typing import List
 
 
 from flaskr.service.order.consts import (
-    BUY_STATUS_INIT,
-    BUY_STATUS_SUCCESS,
-    BUY_STATUS_TO_BE_PAID,
-    BUY_STATUS_VALUES,
-    BUY_STATUS_TIMEOUT,
+    ORDER_STATUS_INIT,
+    ORDER_STATUS_SUCCESS,
+    ORDER_STATUS_TO_BE_PAID,
+    ORDER_STATUS_TIMEOUT,
     DISCOUNT_TYPE_FIXED,
     DISCOUNT_TYPE_PERCENT,
+    ORDER_STATUS_VALUES,
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
 from flaskr.service.user.models import User, UserConversion
@@ -23,7 +23,7 @@ from flaskr.service.active import (
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.api.doc.feishu import send_notify
-from .models import AICourseBuyRecord, PingxxOrder
+from .models import Order, PingxxOrder
 from flask import Flask
 from ...dao import db, redis_client
 from ..common.models import (
@@ -142,7 +142,7 @@ class AICourseBuyRecordDTO:
             "course_id": self.course_id,
             "price": format_decimal(self.price),
             "status": self.status,
-            "status_desc": BUY_STATUS_VALUES[self.status],
+            "status_desc": ORDER_STATUS_VALUES[self.status],
             "discount": format_decimal(self.discount),
             "value_to_pay": format_decimal(self.value_to_pay),
             "price_item": [item.__json__() for item in self.price_item],
@@ -187,7 +187,7 @@ def send_order_feishu(app: Flask, record_id: str):
     send_notify(app, title, msgs)
 
 
-def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
+def is_order_has_timeout(app: Flask, origin_record: Order):
     pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME")
     if pay_order_expire_time is None:
         return False
@@ -199,7 +199,7 @@ def is_order_has_timeout(app: Flask, origin_record: AICourseBuyRecord):
     if current_timestamp > (created_timestamp + pay_order_expire_time):
         # Order timeout
         # Update the order status
-        origin_record.status = BUY_STATUS_TIMEOUT
+        origin_record.status = ORDER_STATUS_TIMEOUT
         db.session.commit()
         # Check if there are discount coupons in the order. If there are, rollback the discount coupons
         from .discount import timeout_discount_code_rollback
@@ -219,16 +219,16 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         if not course_info:
             raise_error("LESSON.COURSE_NOT_FOUND")
         origin_record = (
-            AICourseBuyRecord.query.filter(
-                AICourseBuyRecord.user_id == user_id,
-                AICourseBuyRecord.course_id == course_id,
-                AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
+            Order.query.filter(
+                Order.user_bid == user_id,
+                Order.shifu_bid == course_id,
+                Order.status != ORDER_STATUS_TIMEOUT,
             )
-            .order_by(AICourseBuyRecord.id.asc())
+            .order_by(Order.id.asc())
             .first()
         )
         if origin_record:
-            if origin_record.status != BUY_STATUS_SUCCESS:
+            if origin_record.status != ORDER_STATUS_SUCCESS:
                 order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
             if order_timeout_make_new_order:
                 # Check if there are any coupons in the order. If there are, make them failure
@@ -242,14 +242,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             return query_buy_record(app, origin_record.record_id)
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
-            buy_record = AICourseBuyRecord()
-            buy_record.user_id = user_id
-            buy_record.course_id = course_id
-            buy_record.price = decimal.Decimal(course_info.course_price)
-            buy_record.status = BUY_STATUS_INIT
-            buy_record.record_id = order_id
-            buy_record.discount_value = decimal.Decimal(0.00)
-            buy_record.pay_value = course_info.course_price
+            buy_record = Order()
+            buy_record.user_bid = user_id
+            buy_record.shifu_bid = course_id
+            buy_record.payable_price = decimal.Decimal(course_info.course_price)
+            buy_record.status = ORDER_STATUS_INIT
+            buy_record.order_bid = order_id
+            buy_record.payable_price = course_info.course_price
         else:
             buy_record = origin_record
             order_id = origin_record.record_id
@@ -262,12 +261,12 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         price_items.append(
             PayItemDto("商品", "基础价格", buy_record.price, False, None)
         )
+        discount_value = decimal.Decimal(0.00)
         if active_records:
             for active_record in active_records:
-                buy_record.discount_value = 0
-                buy_record.discount_value = decimal.Decimal(
-                    buy_record.discount_value
-                ) + decimal.Decimal(active_record.price)
+                discount_value = decimal.Decimal(discount_value) + decimal.Decimal(
+                    active_record.price
+                )
                 price_items.append(
                     PayItemDto(
                         "活动",
@@ -277,18 +276,18 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                         None,
                     )
                 )
-        buy_record.pay_value = decimal.Decimal(buy_record.price) - decimal.Decimal(
-            buy_record.discount_value
-        )
+        buy_record.payable_price = decimal.Decimal(
+            buy_record.payable_price
+        ) - decimal.Decimal(discount_value)
         db.session.merge(buy_record)
         db.session.commit()
         return AICourseBuyRecordDTO(
-            buy_record.record_id,
-            buy_record.user_id,
-            buy_record.course_id,
-            buy_record.price,
+            buy_record.order_bid,
+            buy_record.user_bid,
+            buy_record.shifu_bid,
+            buy_record.payable_price,
             buy_record.status,
-            buy_record.discount_value,
+            discount_value,
             price_items,
         )
 
@@ -333,9 +332,9 @@ def generate_charge(
             "generate charge for record:{} channel:{}".format(record_id, channel)
         )
 
-        buy_record = AICourseBuyRecord.query.filter(
-            AICourseBuyRecord.record_id == record_id,
-            AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
+        buy_record = Order.query.filter(
+            Order.order_bid == record_id,
+            Order.status != ORDER_STATUS_TIMEOUT,
         ).first()
         if not buy_record:
             raise_error("ORDER.ORDER_NOT_FOUND")
@@ -343,7 +342,7 @@ def generate_charge(
         if not course:
             raise_error("COURSE.COURSE_NOT_FOUND")
         app.logger.info("buy record found:{}".format(buy_record))
-        if buy_record.status == BUY_STATUS_SUCCESS:
+        if buy_record.status == ORDER_STATUS_SUCCESS:
             app.logger.warning("buy record:{} status is not init".format(record_id))
             return BuyRecordDTO(
                 buy_record.record_id,
@@ -429,22 +428,22 @@ def generate_charge(
             app.logger.error("channel:{} not support".format(channel))
             raise_error("PAY.PAY_CHANNEL_NOT_SUPPORT")
         app.logger.info("charge created:{}".format(charge))
-        buy_record.status = BUY_STATUS_TO_BE_PAID
+        buy_record.status = ORDER_STATUS_TO_BE_PAID
         pingxxOrder = PingxxOrder()
-        pingxxOrder.order_id = order_no
-        pingxxOrder.user_id = buy_record.user_id
-        pingxxOrder.course_id = buy_record.course_id
-        pingxxOrder.record_id = buy_record.record_id
-        pingxxOrder.pingxx_transaction_no = charge["transaction_no"]
-        pingxxOrder.pingxx_app_id = charge["app"]
-        pingxxOrder.pingxx_channel = charge["channel"]
-        pingxxOrder.pingxx_id = charge["id"]
+        pingxxOrder.order_bid = order_no
+        pingxxOrder.user_bid = buy_record.user_bid
+        pingxxOrder.shifu_bid = buy_record.shifu_bid
+        pingxxOrder.order_bid = buy_record.order_bid
+        pingxxOrder.transaction_no = charge["transaction_no"]
+        pingxxOrder.app_id = charge["app"]
+        pingxxOrder.channel = charge["channel"]
+        pingxxOrder.id = charge["id"]
         pingxxOrder.channel = charge["channel"]
         pingxxOrder.amount = amount
         pingxxOrder.currency = charge["currency"]
         pingxxOrder.subject = charge["subject"]
         pingxxOrder.body = charge["body"]
-        pingxxOrder.order_no = charge["order_no"]
+        pingxxOrder.transaction_no = charge["order_no"]
         pingxxOrder.client_ip = charge["client_ip"]
         pingxxOrder.extra = str(charge["extra"])
         pingxxOrder.charge_id = charge["id"]
@@ -490,11 +489,11 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                 pingxx_order.status = 1
                 pingxx_order.charge_object = json.dumps(body)
                 if pingxx_order:
-                    buy_record = AICourseBuyRecord.query.filter(
-                        AICourseBuyRecord.record_id == pingxx_order.record_id
+                    buy_record = Order.query.filter(
+                        Order.order_bid == pingxx_order.order_bid
                     ).first()
 
-                    if buy_record and buy_record.status == BUY_STATUS_TO_BE_PAID:
+                    if buy_record and buy_record.status == ORDER_STATUS_TO_BE_PAID:
                         try:
                             user_info = User.query.filter(
                                 User.user_id == buy_record.user_id
@@ -507,7 +506,7 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
                                 user_info.user_state = USER_STATE_PAID
                         except Exception as e:
                             app.logger.error("update user state error:{}".format(e))
-                        buy_record.status = BUY_STATUS_SUCCESS
+                        buy_record.status = ORDER_STATUS_SUCCESS
                         db.session.commit()
                         send_order_feishu(app, buy_record.record_id)
                         return query_buy_record(app, buy_record.record_id)
@@ -534,16 +533,14 @@ def success_buy_record(app: Flask, record_id: str):
     """
     with app.app_context():
         app.logger.info('success buy record:"{}"'.format(record_id))
-        buy_record = AICourseBuyRecord.query.filter(
-            AICourseBuyRecord.record_id == record_id
-        ).first()
+        buy_record = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
             user_info = User.query.filter(User.user_id == buy_record.user_id).first()
             if not user_info:
                 app.logger.error("user:{} not found".format(buy_record.user_id))
             else:
                 user_info.user_state = USER_STATE_PAID
-            buy_record.status = BUY_STATUS_SUCCESS
+            buy_record.status = ORDER_STATUS_SUCCESS
             db.session.commit()
             send_order_feishu(app, buy_record.record_id)
             return query_buy_record(app, record_id)
@@ -552,15 +549,15 @@ def success_buy_record(app: Flask, record_id: str):
         return None
 
 
-def query_raw_buy_record(app: Flask, user_id, course_id) -> AICourseBuyRecord:
+def query_raw_buy_record(app: Flask, user_id, course_id) -> Order:
     """
     Query raw buy record
     """
     with app.app_context():
-        buy_record = AICourseBuyRecord.query.filter(
-            AICourseBuyRecord.course_id == course_id,
-            AICourseBuyRecord.user_id == user_id,
-            AICourseBuyRecord.status != BUY_STATUS_TIMEOUT,
+        buy_record = Order.query.filter(
+            Order.course_bid == course_id,
+            Order.user_bid == user_id,
+            Order.status != ORDER_STATUS_TIMEOUT,
         ).first()
         if buy_record:
             return buy_record
@@ -620,13 +617,11 @@ def calculate_discount_value(
 def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
     with app.app_context():
         app.logger.info('query buy record:"{}"'.format(record_id))
-        buy_record = AICourseBuyRecord.query.filter(
-            AICourseBuyRecord.record_id == record_id
-        ).first()
+        buy_record = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
             item = []
             item.append(PayItemDto("商品", "基础价格", buy_record.price, False, None))
-            recaul_discount = buy_record.status != BUY_STATUS_SUCCESS
+            recaul_discount = buy_record.status != ORDER_STATUS_SUCCESS
             if buy_record.discount_value > 0:
                 aitive_records = query_active_record(app, record_id, recaul_discount)
                 discount_records = query_discount_record(
@@ -648,12 +643,12 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 item = discount_info.items
 
             return AICourseBuyRecordDTO(
-                buy_record.record_id,
-                buy_record.user_id,
-                buy_record.course_id,
-                buy_record.price,
+                buy_record.order_bid,
+                buy_record.user_bid,
+                buy_record.shifu_bid,
+                buy_record.payable_price,
                 buy_record.status,
-                buy_record.discount_value,
+                buy_record.payable_price - buy_record.payable_price,
                 item,
             )
         raise_error("ORDER.ORDER_NOT_FOUND")

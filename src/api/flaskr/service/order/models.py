@@ -80,7 +80,7 @@ class Order(db.Model):
     )
 
 
-class OrderPingxx(db.Model):
+class PingxxOrder(db.Model):
     """
     Pingxx Order
     """
