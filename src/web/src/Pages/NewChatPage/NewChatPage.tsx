@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
 import classNames from 'classnames';
 import styles from './NewChatPage.module.scss';
 import { Skeleton } from 'antd';
@@ -25,7 +24,6 @@ import FeedbackModal from './Components/FeedbackModal/FeedbackModal';
 import PayModalM from 'Pages/NewChatPage/Components/Pay/PayModalM';
 import PayModal from 'Pages/NewChatPage/Components/Pay/PayModal';
 import { useTranslation } from 'react-i18next';
-import { useEnvStore } from 'stores/envStore';
 import { shifu } from 'Service/Shifu';
 import { EVENT_NAMES, events } from './events';
 import { useSystemStore } from 'stores/useSystemStore';
@@ -89,8 +87,6 @@ const NewChatPage = (props) => {
     initOpen: mobileStyle ? false : true,
   });
 
-  const { courseId } = useParams();
-  const { updateCourseId } = useEnvStore.getState();
   const { wechatCode } = useSystemStore(
     useShallow((state) => ({ wechatCode: state.wechatCode }))
   );
@@ -245,14 +241,6 @@ const NewChatPage = (props) => {
     };
   }, [updateFrameLayout]);
 
-  useEffect(() => {
-    const updateCourse = async () => {
-      if (courseId) {
-        await updateCourseId(courseId);
-      }
-    };
-    updateCourse();
-  }, [courseId, updateCourseId]);
 
   useEffect(() => {
     if (hasCheckLogin) {
