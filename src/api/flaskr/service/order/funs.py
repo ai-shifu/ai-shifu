@@ -31,7 +31,7 @@ from ..common.models import (
 )
 from ...util.uuid import generate_id as get_uuid
 from .pingxx_order import create_pingxx_order
-from .models import Discount
+from .models import Coupon, CouponUsage as CouponUsageModel
 import pytz
 from flaskr.service.lesson.funcs import get_course_info
 from flaskr.service.lesson.funcs import AICourseDTO
@@ -205,7 +205,7 @@ def is_order_has_timeout(app: Flask, origin_record: Order):
         from .discount import timeout_discount_code_rollback
 
         timeout_discount_code_rollback(
-            app, origin_record.user_id, origin_record.record_id
+            app, origin_record.user_bid, origin_record.order_bid
         )
         return True
     return False
@@ -555,7 +555,7 @@ def query_raw_buy_record(app: Flask, user_id, course_id) -> Order:
     """
     with app.app_context():
         buy_record = Order.query.filter(
-            Order.course_bid == course_id,
+            Order.shifu_bid == course_id,
             Order.user_bid == user_id,
             Order.status != ORDER_STATUS_TIMEOUT,
         ).first()
@@ -574,7 +574,10 @@ class DiscountInfo:
 
 
 def calculate_discount_value(
-    app: Flask, price: str, active_records: list, discount_records: list
+    app: Flask,
+    price: str,
+    active_records: list,
+    discount_records: list[CouponUsageModel],
 ) -> DiscountInfo:
     """
     Calculate discount value
@@ -590,11 +593,11 @@ def calculate_discount_value(
                 )
             )
     if discount_records is not None and len(discount_records) > 0:
-        discount_ids = [i.discount_id for i in discount_records]
-        discounts = Discount.query.filter(Discount.discount_id.in_(discount_ids)).all()
-        discount_maps = {i.discount_id: i for i in discounts}
+        discount_ids = [i.coupon_id for i in discount_records]
+        discounts = Coupon.query.filter(Coupon.coupon_id.in_(discount_ids)).all()
+        discount_maps = {i.coupon_id: i for i in discounts}
         for discount_record in discount_records:
-            discount = discount_maps.get(discount_record.discount_id, None)
+            discount = discount_maps.get(discount_record.coupon_id, None)
             if discount:
                 if discount.discount_type == DISCOUNT_TYPE_FIXED:
                     discount_value += discount.discount_value
@@ -622,7 +625,7 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
             item = []
             item.append(PayItemDto("商品", "基础价格", buy_record.price, False, None))
             recaul_discount = buy_record.status != ORDER_STATUS_SUCCESS
-            if buy_record.discount_value > 0:
+            if buy_record.payable_price > 0:
                 aitive_records = query_active_record(app, record_id, recaul_discount)
                 discount_records = query_discount_record(
                     app, record_id, recaul_discount
@@ -632,13 +635,15 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 )
                 if (
                     recaul_discount
-                    and discount_info.discount_value != buy_record.discount_value
+                    and discount_info.discount_value != buy_record.payable_price
                 ):
                     app.logger.info(
                         "update discount value for buy record:{}".format(record_id)
                     )
-                    buy_record.discount_value = discount_info.discount_value
-                    buy_record.pay_value = buy_record.price - buy_record.discount_value
+                    buy_record.payable_price = discount_info.discount_value
+                    buy_record.pay_value = (
+                        buy_record.payable_price - buy_record.payable_price
+                    )
                     db.session.commit()
                 item = discount_info.items
 
