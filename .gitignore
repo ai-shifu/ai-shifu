@@ -183,6 +183,9 @@ docker/mysql_data/
 docker/redis_data/
 docker/milvus_data/
 
+# Logs
+src/api/logs/
+
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
 ###############################################################################
