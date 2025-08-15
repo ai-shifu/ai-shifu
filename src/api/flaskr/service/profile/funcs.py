@@ -105,6 +105,10 @@ def get_profile_labels(course_id: str = None):
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
             "default": "zh-CN",
         },
+        "sys_user_language": {
+            "label": _("PROFILE.COURSE_LANGUAGE"),
+            "default": "English",
+        },
         "sys_user_style": {
             "label": _("PROFILE.STYLE"),
         },
