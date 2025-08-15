@@ -8,6 +8,11 @@ import logging
 import traceback
 import os
 
+# Initialize global variables
+db = None
+redis_client = None
+milvus_client = None
+
 
 def init_db(app: Flask):
     global db

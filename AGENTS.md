@@ -40,8 +40,6 @@ The project follows a microservices architecture with 3 main components:
 cd src/api
 # Development server
 flask run
-# Database migrations
-flask db upgrade
 # Run tests
 pytest
 ```
@@ -297,10 +295,6 @@ class ShifuPublishedBlock(db.Model):
 
 1. **Make model changes** in SQLAlchemy model files (`src/api/flaskr/service/*/models.py`)
 2. **Generate migration script** using Flask-Migrate:
-   ```bash
-   cd src/api
-   flask db migrate -m "descriptive message about the change"
-   ```
 3. **Review the generated migration** in `src/api/migrations/versions/`
 4. **Commit the migration file** to version control
 
@@ -315,12 +309,34 @@ Before running `flask db migrate`, ensure:
 cd src/api
 
 # 2. Set environment variables
-export FLASK_APP=flaskr
+export FLASK_APP=app.py
 export DATABASE_URL="mysql://user:password@localhost/dbname"
 
-# 3. Generate new migration
+# 3. Generate new migration (multiple options):
+
+# Option A: Standard migration (requires Redis/Milvus running)
 flask db migrate -m "describe your changes"
+
+# Option B: Skip external services (recommended for local development)
+FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "describe your changes"
+
+# Option C: If FLASK_APP is already in .env file
+SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "describe your changes"
 ```
+
+#### Skipping External Services
+
+When running database migrations or other maintenance tasks that don't require external services:
+
+```bash
+# Skip initialization of Redis, Milvus, and other external services
+FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "your migration message"
+```
+
+This is useful when:
+- You don't have Redis/Milvus running locally
+- You're only working on database schema changes
+- You want faster startup for migration tasks
 
 #### When to Use Migration Commands
 

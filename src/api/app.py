@@ -1,3 +1,12 @@
+"""
+AI-Shifu API Application
+
+Environment Variables:
+    SKIP_EXTERNAL_SERVICES: Set to '1' to skip initialization of external services
+                            (Redis, Milvus, etc.) during database migrations or maintenance.
+                            Usage: SKIP_EXTERNAL_SERVICES=1 flask db migrate
+"""
+
 import os
 import time
 from flask import Flask
@@ -45,11 +54,21 @@ def create_app() -> Flask:
 
     load_translations(app)
 
-    # init redis
-    dao.init_redis(app)
+    # Skip external services initialization if SKIP_EXTERNAL_SERVICES is set
+    # This is useful for database migrations and other maintenance tasks
+    if os.environ.get("SKIP_EXTERNAL_SERVICES") != "1":
+        # init redis
+        dao.init_redis(app)
 
-    # init milvus
-    dao.init_milvus(app)
+        # init milvus
+        dao.init_milvus(app)
+    else:
+        app.logger.info(
+            "Skipping external services initialization (SKIP_EXTERNAL_SERVICES=1)"
+        )
+        # Ensure globals are set to None when skipping
+        dao.redis_client = None
+        dao.milvus_client = None
 
     # Init LLM
     with app.app_context():
@@ -62,7 +81,21 @@ def create_app() -> Flask:
     from flaskr.framework.plugin.load_plugin import load_plugins_from_dir
     from flaskr.framework.plugin.plugin_manager import plugin_manager
 
-    load_plugins_from_dir(app, os.path.join("flaskr", "service"))
+    if os.environ.get("SKIP_EXTERNAL_SERVICES") == "1":
+        # Define service directories to skip
+        SKIP_SERVICES = ["rag", "study"]  # Can easily add more services to skip
+
+        app.logger.info(f"Skipping external services: {SKIP_SERVICES}")
+
+        # Load services individually, skipping specified ones
+        service_base = os.path.join("flaskr", "service")
+        for service_name in os.listdir(service_base):
+            service_path = os.path.join(service_base, service_name)
+            if os.path.isdir(service_path) and service_name not in SKIP_SERVICES:
+                load_plugins_from_dir(app, service_path)
+    else:
+        # Normal loading of all services
+        load_plugins_from_dir(app, os.path.join("flaskr", "service"))
     try:
         load_plugins_from_dir(app, os.path.join("flaskr", "plugins"), plugin_manager)
     except Exception as e:
