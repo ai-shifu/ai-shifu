@@ -27,7 +27,7 @@ def register_route(app):
 
     # Only register rag handler when external services are enabled
     # Only register rag handler if it was imported (external services enabled)
-    if 'register_rag_handler' in globals():
+    if "register_rag_handler" in globals():
         app = register_rag_handler(app, prefix + "/rag")
 
     app = register_tag_handler(app, prefix + "/tag")
