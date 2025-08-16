@@ -236,7 +236,7 @@ class RunScriptContext:
                     attend_info.user_bid = self._user_info.user_id
                     attend_info.status = LEARN_STATUS_NOT_STARTED
                     attend_info.progress_record_bid = generate_id(self.app)
-                    attend_info.outline_item_updated = 0
+                    attend_info.block_position = 0
                     db.session.add(attend_info)
                     db.session.flush()
                     break
@@ -390,13 +390,14 @@ class RunScriptContext:
                 ):
                     self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                     self._current_attend.outline_item_updated = 0
+                    self._current_attend.block_position = 0
                     db.session.flush()
                     continue
                 self._current_attend = self._get_current_attend(
                     self._current_outline_item
                 )
                 self.app.logger.info(
-                    f"current_attend: {self._current_attend.outline_item_bid} {self._current_attend.status} {self._current_attend.outline_item_updated}"
+                    f"current_attend: {self._current_attend.outline_item_bid} {self._current_attend.status} {self._current_attend.block_position}"
                 )
 
                 if (
@@ -540,7 +541,7 @@ class RunScriptContext:
             goto_attend.outline_item_bid = destination_condition.destination_bid
             goto_attend.progress_record_bid = generate_id(self.app)
             goto_attend.status = LEARN_STATUS_IN_PROGRESS
-            goto_attend.outline_item_updated = 0
+            goto_attend.block_position = 0
             db.session.add(goto_attend)
             db.session.flush()
         return goto_attend
@@ -568,9 +569,9 @@ class RunScriptContext:
 
         outline_struct = self._get_outline_struct(outline_item_id)
 
-        if attend.outline_item_updated >= len(outline_struct.children):
+        if attend.block_position >= len(outline_struct.children):
             return None
-        block_id = outline_struct.children[attend.outline_item_updated].id
+        block_id = outline_struct.children[attend.block_position].id
         block_info: Union[DraftBlock, PublishedBlock] = self._block_model.query.filter(
             self._block_model.id == block_id,
         ).first()
@@ -584,8 +585,8 @@ class RunScriptContext:
                 block_dto, self._user_info, outline_item_info
             )
             goto_outline_struct = self._get_outline_struct(goto_attend.outline_item_bid)
-            if goto_attend.outline_item_updated >= len(goto_outline_struct.children):
-                attend.outline_item_updated = attend.outline_item_updated + 1
+            if goto_attend.block_position >= len(goto_outline_struct.children):
+                attend.block_position = attend.block_position + 1
                 goto_attend.status = LEARN_STATUS_COMPLETED
                 db.session.flush()
                 ret = self._get_run_script_info(attend)
@@ -628,7 +629,7 @@ class RunScriptContext:
 
     def run(self, app: Flask) -> Generator[str, None, None]:
         app.logger.info(
-            f"run_context.run {self._current_attend.outline_item_updated} {self._current_attend.status}"
+            f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
         yield make_script_dto("teacher_avatar", self._shifu_info.avatar, "")
         if not self._current_attend:
