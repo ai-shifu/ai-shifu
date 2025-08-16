@@ -1,7 +1,7 @@
 from flask import Flask
 from flaskr.service.user import generate_temp_user
 from flaskr.service.order import init_buy_record
-from flaskr.service.order.discount import use_discount_code
+from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.user.models import User
 from flaskr.service.common.dtos import USER_STATE_REGISTERED
 import uuid
@@ -31,4 +31,4 @@ def import_user(
         else:
             user_id = user.user_id
         order = init_buy_record(app, user_id, course_id)
-        use_discount_code(app, user_id, discount_code, order.order_id)
+        use_coupon_code(app, user_id, discount_code, order.order_id)

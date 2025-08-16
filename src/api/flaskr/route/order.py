@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.promo import use_coupon_code
+from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.route.common import make_common_response
 from flaskr.service.order import (
     generate_charge,
