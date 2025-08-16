@@ -25,7 +25,6 @@ def register_route(app):
     app = register_callback_handler(app, prefix + "/callback")
     app = register_test_routes(app, prefix + "/test")
 
-    # Only register rag handler when external services are enabled
     # Only register rag handler if it was imported (external services enabled)
     if "register_rag_handler" in globals():
         app = register_rag_handler(app, prefix + "/rag")
