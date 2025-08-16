@@ -22,7 +22,7 @@ if get_config("OPENAI_API_KEY"):
     openai_enabled = True
     openai_client = openai.Client(
         api_key=get_config("OPENAI_API_KEY"),
-        base_url=get_config("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        base_url=get_config("OPENAI_BASE_URL"),
     )
     try:
         OPENAI_MODELS = [
@@ -40,7 +40,7 @@ if get_config("DEEPSEEK_API_KEY"):
     deepseek_enabled = True
     deepseek_client = openai.Client(
         api_key=get_config("DEEPSEEK_API_KEY"),
-        base_url=get_config("DEEPSEEK_API_URL", "https://api.deepseek.com"),
+        base_url=get_config("DEEPSEEK_API_URL"),
     )
 else:
     current_app.logger.warning("DEEPSEEK_API_KEY not configured")

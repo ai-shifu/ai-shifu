@@ -58,7 +58,7 @@ def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict, skip:
             raise_error("SHIFU.SHIFU_NOT_FOUND")
 
         return (
-            get_config("WEB_URL", "UNCONFIGURED")
+            get_config("WEB_URL")
             + "/c/"
             + shifu_id
             + "?preview=true"
@@ -186,7 +186,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
         thread.daemon = True  # Ensure thread doesn't prevent app shutdown
         thread.start()
         db.session.commit()
-        return get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu_id
+        return get_config("WEB_URL") + "/c/" + shifu_id
 
 
 def _run_summary_with_error_handling(app, shifu_id):

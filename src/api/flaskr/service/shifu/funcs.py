@@ -224,12 +224,12 @@ def _upload_to_oss(app, file_content, file_id: str, content_type: str) -> str:
         str: The URL of the uploaded file
     """
     endpoint = get_config("ALIBABA_CLOUD_OSS_COURSES_ENDPOINT")
-    ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID", None)
-    ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET", None)
-    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_COURSES_URL", None)
-    BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_COURSES_BUCKET", None)
+    ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID")
+    ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET")
+    FILE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_COURSES_URL")
+    BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_COURSES_BUCKET")
 
-    if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
+    if not ALI_API_ID or not ALI_API_SECRET:
         app.logger.warning(
             "ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID or ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET not configured"
         )
@@ -406,13 +406,13 @@ def shifu_permission_verification(
     """
     with app.app_context():
         cache_key = (
-            get_config("REDIS_KEY_PREFIX", "ai-shifu:")
+            get_config("REDIS_KEY_PREFIX")
             + "shifu_permission:"
             + user_id
             + ":"
             + shifu_id
         )
-        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE", "1"))
+        cache_key_expire = int(get_config("SHIFU_PERMISSION_CACHE_EXPIRE"))
         cache_result = redis.get(cache_key)
         if cache_result is not None:
             try:

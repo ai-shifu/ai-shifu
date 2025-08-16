@@ -156,7 +156,9 @@ def init_log(app: Flask) -> Flask:
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(color_formatter)  # use color formatter
 
-    if "gunicorn" in os.getenv("SERVER_SOFTWARE", ""):
+    from .config import get_config
+
+    if "gunicorn" in get_config("SERVER_SOFTWARE"):
         gunicorn_logger = logging.getLogger("gunicorn.info")
         if gunicorn_logger.handlers:
             for handler in gunicorn_logger.handlers:

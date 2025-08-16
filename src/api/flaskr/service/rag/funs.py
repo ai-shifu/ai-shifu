@@ -28,11 +28,11 @@ bj_time = pytz.timezone("Asia/Shanghai")
 # oss
 # copy from ../user/user.py
 endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
-ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None)
-ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET", None)
-IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL", None)
-BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET", None)
-if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
+ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
+ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
+IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL")
+BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET")
+if not ALI_API_ID or not ALI_API_SECRET:
     current_app.logger.warning(
         "ALIBABA_CLOUD_ACCESS_KEY_ID or ALIBABA_CLOUD_ACCESS_KEY_SECRET not configured"
     )
@@ -303,12 +303,7 @@ def get_content_type(extension: str):
 def oss_file_add(app: Flask, upload_file):
     with app.app_context():
         # file_upload
-        if (
-            not ALI_API_ID
-            or not ALI_API_SECRET
-            or ALI_API_ID == ""
-            or ALI_API_SECRET == ""
-        ):
+        if not ALI_API_ID or not ALI_API_SECRET:
             raise_error_with_args(
                 "API.ALIBABA_CLOUD_NOT_CONFIGURED",
                 config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",
@@ -328,12 +323,7 @@ def oss_file_add(app: Flask, upload_file):
 
 def oss_file_drop(app: Flask, file_key_list):
     with app.app_context():
-        if (
-            not ALI_API_ID
-            or not ALI_API_SECRET
-            or ALI_API_ID == ""
-            or ALI_API_SECRET == ""
-        ):
+        if not ALI_API_ID or not ALI_API_SECRET:
             raise_error_with_args(
                 "API.ALIBABA_CLOUD_NOT_CONFIGURED",
                 config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",

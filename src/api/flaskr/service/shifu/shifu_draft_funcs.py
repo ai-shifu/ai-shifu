@@ -63,8 +63,8 @@ def return_shifu_draft_dto(shifu_draft: DraftShifu) -> ShifuDetailDto:
         shifu_model=shifu_draft.llm,
         shifu_temperature=shifu_draft.llm_temperature,
         shifu_price=shifu_draft.price,
-        shifu_url=get_config("WEB_URL", "UNCONFIGURED") + "/c/" + shifu_draft.shifu_bid,
-        shifu_preview_url=get_config("WEB_URL", "UNCONFIGURED")
+        shifu_url=get_config("WEB_URL") + "/c/" + shifu_draft.shifu_bid,
+        shifu_preview_url=get_config("WEB_URL")
         + "/c/"
         + shifu_draft.shifu_bid
         + "?preview=true",

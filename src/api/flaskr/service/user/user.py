@@ -19,11 +19,11 @@ import oss2
 
 endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
 
-ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID", None)
-ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET", None)
-IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL", None)
-BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET", None)
-if not ALI_API_ID or not ALI_API_SECRET or ALI_API_ID == "" or ALI_API_SECRET == "":
+ALI_API_ID = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_ID")
+ALI_API_SECRET = get_config("ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET")
+IMAGE_BASE_URL = get_config("ALIBABA_CLOUD_OSS_BASE_URL")
+BUCKET_NAME = get_config("ALIBABA_CLOUD_OSS_BUCKET")
+if not ALI_API_ID or not ALI_API_SECRET:
     current_app.logger.warning(
         "ALIBABA_CLOUD_ACCESS_KEY_ID or ALIBABA_CLOUD_ACCESS_KEY_SECRET not configured"
     )
@@ -171,12 +171,7 @@ def get_content_type(filename):
 
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
     with app.app_context():
-        if (
-            not ALI_API_ID
-            or not ALI_API_SECRET
-            or ALI_API_ID == ""
-            or ALI_API_SECRET == ""
-        ):
+        if not ALI_API_ID or not ALI_API_SECRET:
             raise_error_with_args(
                 "API.ALIBABA_CLOUD_NOT_CONFIGURED",
                 config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",

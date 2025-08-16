@@ -12,7 +12,12 @@ from flaskr.framework.plugin.plugin_manager import enable_plugin_manager
 if os.name == "nt":
     os.system('tzutil /s "UTC"')
 else:
-    os.environ["TZ"] = "UTC"
+    # Load environment variables first so we can use get_config
+    load_dotenv()
+    from flaskr.common.config import get_config
+
+    timezone = get_config("TZ")
+    os.environ["TZ"] = timezone
     time.tzset()
 app = None
 
@@ -24,7 +29,6 @@ def create_app() -> Flask:
     import pymysql
 
     pymysql.install_as_MySQLdb()
-    load_dotenv()
     app = Flask(__name__, instance_relative_config=True)
     CORS(app, resources={r"/*": {"supports_credentials": True}})
     from flaskr.common import Config, init_log
