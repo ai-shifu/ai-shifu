@@ -28,9 +28,14 @@ def upgrade():
             nullable=False,
             comment="Unique ID",
         ),
-        sa.Column("profile_id", mysql.BIGINT(), nullable=False, comment="Profile ID"),
         sa.Column(
-            "parent_id", sa.String(length=36), nullable=False, comment="parent_id"
+            "profile_id", sa.String(length=36), nullable=False, comment="Profile ID"
+        ),
+        sa.Column(
+            "parent_id",
+            sa.String(length=36),
+            nullable=False,
+            comment="Parent ID: now is shifu_bid",
         ),
         sa.Column(
             "profile_index", sa.Integer(), nullable=False, comment="Profile index"
@@ -124,9 +129,14 @@ def upgrade():
             nullable=False,
             comment="Unique ID",
         ),
-        sa.Column("profile_id", mysql.BIGINT(), nullable=False, comment="Profile ID"),
         sa.Column(
-            "profile_item_id", mysql.BIGINT(), nullable=False, comment="Profile item ID"
+            "profile_id", sa.String(length=36), nullable=False, comment="Profile ID"
+        ),
+        sa.Column(
+            "profile_item_id",
+            sa.String(length=36),
+            nullable=False,
+            comment="Profile item ID",
         ),
         sa.Column("profile_value", sa.Text(), nullable=False, comment="Profile value"),
         sa.Column("created", sa.TIMESTAMP(), nullable=False, comment="Creation time"),
@@ -165,7 +175,7 @@ def upgrade():
             "profile_type",
             existing_type=mysql.INTEGER(display_width=11),
             comment="",
-            existing_comment="0 default, 1 system configuration, 2 user configuration, 3 course configuration",
+            existing_comment="profile type: 2900=input_unconf, 2901=input_text, 2902=input_number, 2903=input_select, 2904=input_sex, 2905=input_date",
             existing_nullable=False,
             existing_server_default=sa.text("'0'"),
         )
@@ -191,7 +201,7 @@ def downgrade():
         batch_op.alter_column(
             "profile_type",
             existing_type=mysql.INTEGER(display_width=11),
-            comment="0 default, 1 system configuration, 2 user configuration, 3 course configuration",
+            comment="profile type: 2900=input_unconf, 2901=input_text, 2902=input_number, 2903=input_select, 2904=input_sex, 2905=input_date",
             existing_comment="",
             existing_nullable=False,
             existing_server_default=sa.text("'0'"),
