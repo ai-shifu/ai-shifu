@@ -202,9 +202,9 @@ def is_order_has_timeout(app: Flask, origin_record: Order):
         origin_record.status = ORDER_STATUS_TIMEOUT
         db.session.commit()
         # Check if there are discount coupons in the order. If there are, rollback the discount coupons
-        from .discount import timeout_discount_code_rollback
+        from ...service.promo import timeout_coupon_code_rollback
 
-        timeout_discount_code_rollback(
+        timeout_coupon_code_rollback(
             app, origin_record.user_bid, origin_record.order_bid
         )
         return True
