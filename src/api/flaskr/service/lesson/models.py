@@ -15,9 +15,7 @@ class AICourse(db.Model):
     )
     course_name = Column(String(255), nullable=False, default="", comment="Course name")
     course_desc = Column(Text, nullable=False, comment="Course description", default="")
-    course_keywords = Column(
-        Text, nullable=False, comment="Course keywords", default=""
-    )
+    course_keywords = Column(Text, nullable=True, comment="Course keywords", default="")
     course_price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Course price"
     )
@@ -147,7 +145,7 @@ class AILesson(db.Model):
         String(36), nullable=False, default="", comment="Course UUID", index=True
     )
     parent_id = Column(
-        String(36), nullable=False, default="", comment="Parent lesson UUID", index=True
+        String(36), nullable=True, default="", comment="Parent lesson UUID", index=True
     )
     lesson_name = Column(String(255), nullable=False, default="", comment="Lesson name")
     lesson_desc = Column(Text, nullable=False, comment="Lesson description", default="")
@@ -213,9 +211,6 @@ class AILesson(db.Model):
         nullable=False,
         default=0,
         comment="Status of the lesson: 0-delete ,1-publish,2-draft",
-    )
-    parent_id = Column(
-        String(36), nullable=False, default="", comment="Parent lesson UUID", index=True
     )
 
     def is_final(self):
@@ -356,7 +351,7 @@ class AILessonScript(db.Model):
     )
     script_ui_profile_id = Column(
         String(36),
-        nullable=False,
+        nullable=True,
         default="",
         comment="Script UI profile id",
         index=True,
@@ -380,13 +375,7 @@ class AILessonScript(db.Model):
     ask_mode = Column(
         Integer, nullable=False, default=ASK_MODE_DEFAULT, comment="Ask mode"
     )
-    script_ui_profile_id = Column(
-        String(36),
-        nullable=False,
-        default="",
-        comment="Script UI profile id",
-        index=True,
-    )
+
     created_user_id = Column(
         String(36), nullable=True, default="", comment="created user ID"
     )
