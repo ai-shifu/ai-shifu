@@ -96,7 +96,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False, comment="Creation time"),
         sa.Column("updated_at", sa.DateTime(), nullable=False, comment="Update time"),
         sa.PrimaryKeyConstraint("id"),
-        sa.Comment("Learn generated blocks"),
+        comment="Learn generated blocks",
     )
     with op.batch_alter_table("learn_generated_blocks", schema=None) as batch_op:
         batch_op.create_index(
@@ -182,7 +182,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False, comment="Creation time"),
         sa.Column("updated_at", sa.DateTime(), nullable=False, comment="Update time"),
         sa.PrimaryKeyConstraint("id"),
-        sa.Comment("Learn progress records"),
+        comment="Learn progress records",
     )
     with op.batch_alter_table("learn_progress_records", schema=None) as batch_op:
         batch_op.create_index(
@@ -255,7 +255,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False, comment="Creation time"),
         sa.Column("updated_at", sa.DateTime(), nullable=False, comment="Update time"),
         sa.PrimaryKeyConstraint("id"),
-        sa.Comment("Order orders"),
+        comment="Order orders",
     )
     with op.batch_alter_table("order_orders", schema=None) as batch_op:
         batch_op.create_index(
@@ -371,7 +371,7 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), nullable=False, comment="Creation time"),
         sa.Column("updated_at", sa.DateTime(), nullable=False, comment="Update time"),
         sa.PrimaryKeyConstraint("id"),
-        sa.Comment("Order pingxx orders"),
+        comment="Order pingxx orders",
     )
     with op.batch_alter_table("order_pingxx_orders", schema=None) as batch_op:
         batch_op.create_index(
@@ -477,7 +477,7 @@ def upgrade():
             comment="Update timestamp",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.Comment("Promo coupon usages"),
+        comment="Promo coupon usages",
     )
     with op.batch_alter_table("promo_coupon_usages", schema=None) as batch_op:
         batch_op.create_index(
@@ -578,7 +578,7 @@ def upgrade():
             comment="Update timestamp",
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.Comment("Promo coupons"),
+        comment="Promo coupons",
     )
     with op.batch_alter_table("promo_coupons", schema=None) as batch_op:
         batch_op.create_index(
