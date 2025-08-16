@@ -23,7 +23,6 @@ The project follows a microservices architecture with 3 main components:
   - `service/study/`: Learning session management and user interactions
   - `service/user/`: User authentication and profile management
   - `service/order/`: Payment and subscription handling
-  - `service/rag/`: Knowledge base and retrieval functionality
 - Database migrations managed with Alembic (`migrations/`)
 - Internationalization support with separate locale files (`i18n/`)
 
