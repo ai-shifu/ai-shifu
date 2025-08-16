@@ -46,7 +46,6 @@ target_db = current_app.extensions["migrate"].db
 
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table":
-        # 确保所有表都被包含在迁移中
         return True
     if hasattr(object, "table"):
         return include_object(
