@@ -295,10 +295,16 @@ class ShifuPublishedBlock(db.Model):
 
 1. **Make model changes** in SQLAlchemy model files (`src/api/flaskr/service/*/models.py`)
 2. **Generate migration script** using Flask-Migrate:
+   ```bash
+   cd src/api
+   FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "describe your changes"
+   ```
 3. **Review the generated migration** in `src/api/migrations/versions/`
-4. **Commit the migration file** to version control
-
-**Note**: `flask db upgrade` is used for deployment/environment setup, not required during development.
+4. **Test the migration locally** (optional but recommended):
+   ```bash
+   flask db upgrade  # Apply migration to local database
+   ```
+5. **Commit the migration file** to version control
 
 #### Prerequisites for Migration Commands
 
@@ -308,35 +314,14 @@ Before running `flask db migrate`, ensure:
 # 1. Navigate to API directory
 cd src/api
 
-# 2. Set environment variables
-export FLASK_APP=app.py
-export DATABASE_URL="mysql://user:password@localhost/dbname"
+# 2. Set required environment variables
+export SQLALCHEMY_DATABASE_URI="mysql://username:password@localhost/ai-shifu"  # Adjust for your database
 
-# 3. Generate new migration (multiple options):
-
-# Option A: Standard migration (requires Redis/Milvus running)
-flask db migrate -m "describe your changes"
-
-# Option B: Skip external services (recommended for local development)
+# 3. Use SKIP_EXTERNAL_SERVICES=1 to avoid Redis/Milvus dependencies
 FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "describe your changes"
-
-# Option C: If FLASK_APP is already in .env file
-SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "describe your changes"
 ```
 
-#### Skipping External Services
-
-When running database migrations or other maintenance tasks that don't require external services:
-
-```bash
-# Skip initialization of Redis, Milvus, and other external services
-FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "your migration message"
-```
-
-This is useful when:
-- You don't have Redis/Milvus running locally
-- You're only working on database schema changes
-- You want faster startup for migration tasks
+**Note**: The `SKIP_EXTERNAL_SERVICES=1` flag skips initialization of Redis, Milvus, and certain service modules (rag, study) that require external dependencies. This is the recommended approach for local development when working on database schema changes.
 
 #### When to Use Migration Commands
 
@@ -350,38 +335,31 @@ This is useful when:
 
 - **Always review** the auto-generated migration before applying
 - **Use descriptive messages** that explain the business purpose
-- **Test migrations** on a copy of production data
+- **Test migrations** on a copy of production data when possible
 - **Never edit applied migrations** - create new ones instead
 - **Include both upgrade() and downgrade()** functions for rollback capability
 
 #### Common Migration Issues & Solutions
 
-**Problem**: `flask: command not found`
-
+**Problem**: `Could not locate a Flask application`
 ```bash
-export FLASK_APP=flaskr
-# or use: python -m flask db migrate
+export FLASK_APP=app.py
 ```
 
-**Problem**: `Could not locate a Flask application`
-
+**Problem**: External service connection errors (Redis, OpenAI, etc.)
 ```bash
-export FLASK_APP=flaskr
+# Use SKIP_EXTERNAL_SERVICES flag
+FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "your message"
 ```
 
 **Problem**: `Target database is not up to date`
-
 ```bash
-# This usually means database state doesn't match migration history
-# Check current migration status: flask db current
-# Review migration history: flask db history
+# Apply pending migrations first
+flask db upgrade
+# Then generate new migration
+FLASK_APP=app.py SKIP_EXTERNAL_SERVICES=1 flask db migrate -m "your message"
 ```
 
-**Problem**: Database connection errors
-
-```bash
-export DATABASE_URL="your_database_connection_string"
-```
 
 ## Environment Configuration
 
