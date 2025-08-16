@@ -4,7 +4,6 @@ from logging.config import fileConfig
 from flask import current_app
 
 from alembic import context
-from flaskr.dao import db
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -47,18 +46,13 @@ target_db = current_app.extensions["migrate"].db
 
 def include_object(object, name, type_, reflected, compare_to):
     if type_ == "table":
-        if hasattr(object, "metadata"):
-            for mapper in db.Model.registry.mappers:
-                if mapper.local_table is object:
-                    model_class = mapper.class_
-                    return model_class.__module__.startswith("flaskr.service")
-
-        return False
+        # 确保所有表都被包含在迁移中
+        return True
     if hasattr(object, "table"):
         return include_object(
             object.table, object.table.name, "table", reflected, compare_to
         )
-    return False
+    return True
 
 
 def get_metadata():
@@ -85,6 +79,9 @@ def run_migrations_offline():
         include_object=include_object,
         target_metadata=get_metadata(),
         literal_binds=True,
+        compare_type=True,
+        compare_server_default=True,
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -112,6 +109,14 @@ def run_migrations_online():
     conf_args = current_app.extensions["migrate"].configure_args
     if conf_args.get("process_revision_directives") is None:
         conf_args["process_revision_directives"] = process_revision_directives
+
+    # 确保关键参数存在，避免重复
+    if "compare_type" not in conf_args:
+        conf_args["compare_type"] = True
+    if "compare_server_default" not in conf_args:
+        conf_args["compare_server_default"] = True
+    if "render_as_batch" not in conf_args:
+        conf_args["render_as_batch"] = True
 
     connectable = get_engine()
 
