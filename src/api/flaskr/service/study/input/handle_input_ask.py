@@ -1,4 +1,3 @@
-import time
 from typing import Generator
 from flask import Flask
 from flaskr.api.llm import chat_llm
@@ -21,11 +20,6 @@ from flaskr.service.study.input_funcs import (
     generation_attend,
 )
 from flaskr.service.user.models import User
-
-from flaskr.service.rag.funs import (
-    get_kb_list,
-    retrieval_fun,
-)
 from flaskr.service.lesson.const import UI_TYPE_ASK
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
@@ -120,34 +114,7 @@ def _handle_input_ask(
                 {"role": "assistant", "content": script.script_content}
             )  # Add assistant message
 
-    # Start knowledge base retrieval
-    time_1 = time.time()
-    retrieval_result_list = []  # Store retrieval results
-    shifu_id = outline_item_info.shifu_bid
-    my_filter = ""
-    limit = 3  # Maximum 3 results per knowledge base
-    output_fields = ["text"]  # Only return text fields
-
-    # Get course-related knowledge base list
-    kb_list = get_kb_list(app, [], [shifu_id])
-
-    # Iterate through each knowledge base for retrieval
-    for kb in kb_list:
-        retrieval_result = retrieval_fun(
-            kb_id=kb["kb_id"],
-            query=input,  # Use user input as query
-            my_filter=my_filter,
-            limit=limit,
-            output_fields=output_fields,
-        )
-        retrieval_result_list.append(retrieval_result)
-        # break
-
-    # Merge all retrieval results
-    all_retrieval_result = "\n\n".join(retrieval_result_list)
-    time_2 = time.time()
-    app.logger.info(f"all retrieval_fun takes: {time_2 - time_1}s")
-    app.logger.info(f"all_retrieval_result: {all_retrieval_result}")
+    # RAG retrieval has been removed from this system
 
     messages.append(
         {

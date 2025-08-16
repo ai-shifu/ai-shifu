@@ -1,7 +1,6 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from redis import Redis
-from pymilvus import MilvusClient
 from sqlalchemy import event
 import sqlparse
 import logging
@@ -137,21 +136,3 @@ def run_with_redis(app, key, timeout: int, func, args):
         else:
             app.logger.info("run_with_redis get lock failed {}".format(key))
             return None
-
-
-def init_milvus(app: Flask):
-    global milvus_client
-    if (
-        app.config.get("MILVUS_URI") is not None
-        and app.config.get("MILVUS_TOKEN") is not None
-        and app.config.get("MILVUS_DB_NAME") is not None
-    ):
-        milvus_client = MilvusClient(
-            uri=app.config.get("MILVUS_URI"),
-            token=app.config.get("MILVUS_TOKEN"),
-            db_name=app.config.get("MILVUS_DB_NAME"),
-        )
-        app.logger.info("init milvus done")
-    else:
-        milvus_client = None
-        app.logger.warning("init milvus failed")
