@@ -45,8 +45,8 @@ def _handle_output_goto(
             if shifu_info.price > 0:
                 success_buy_record = (
                     Order.query.filter(
-                        Order.user_id == user_info.user_id,
-                        Order.course_id == shifu_info.bid,
+                        Order.user_bid == user_info.user_id,
+                        Order.shifu_bid == shifu_info.bid,
                         Order.status == ORDER_STATUS_SUCCESS,
                     )
                     .order_by(Order.id.desc())

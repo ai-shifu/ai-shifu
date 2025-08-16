@@ -336,22 +336,22 @@ def get_study_record(
             return ret
         items = [
             StudyRecordItemDTO(
-                i.script_index,
-                ROLE_VALUES[i.script_role],
+                i.position,
+                ROLE_VALUES[i.role],
                 0,
-                i.script_content,
-                i.script_id,
+                i.generated_content,
+                i.generated_block_bid,
                 i.outline_item_bid if i.outline_item_bid in lesson_ids else lesson_id,
                 i.generated_block_bid,
-                i.interaction_type,
-                ui=json.loads(i.script_ui_conf) if i.script_ui_conf else None,
+                i.liked,
+                ui=json.loads(i.block_content_conf) if i.block_content_conf else None,
             )
             for i in attend_scripts
         ]
         user_info = User.query.filter_by(user_id=user_id).first()
         ret.records = items
-        last_block_id = attend_scripts[-1].script_id
-        last_lesson_id = attend_scripts[-1].lesson_id
+        last_block_id = attend_scripts[-1].generated_block_bid
+        last_lesson_id = attend_scripts[-1].outline_item_bid
         last_attend: LearnOutlineItemProgress = [
             atend for atend in attend_infos if atend.outline_item_bid == last_lesson_id
         ][-1]
@@ -359,10 +359,10 @@ def get_study_record(
         if (
             last_lesson_id in lesson_outline_map
             and len(lesson_outline_map.get(last_lesson_id, []))
-            > last_attend.script_index
+            > last_attend.block_position
         ):
             last_block_id = lesson_outline_map.get(last_lesson_id, [])[
-                last_attend.script_index
+                last_attend.block_position
             ]
         last_block = (
             block_model.query.filter(
@@ -395,7 +395,7 @@ def get_study_record(
         lesson_id = last_lesson_id
 
         if (
-            attend_scripts[-1].script_id == last_block.block_bid
+            attend_scripts[-1].generated_block_bid == last_block.block_bid
             and block_dto.type == BLOCK_TYPE_CONTENT
         ):
             ret.ui = _handle_output_continue(

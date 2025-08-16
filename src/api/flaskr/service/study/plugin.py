@@ -27,11 +27,11 @@ def handle_ui(
     app.logger.info(f"handle_ui {block_dto.type}")
     if block_dto.type in SHIFU_OUTPUT_HANDLER_MAP:
         app.logger.info(
-            "generation ui lesson_id:{}  script type:{},user_id:{},script_index:{}".format(
-                attend.lesson_id,
+            "generation ui lesson_id:{}  script type:{},user_id:{},block_position:{}".format(
+                attend.outline_item_bid,
                 block_dto.type,
                 user_info.user_id,
-                attend.script_index,
+                attend.block_position,
             )
         )
         ret = []
