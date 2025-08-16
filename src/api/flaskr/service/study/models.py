@@ -19,6 +19,7 @@ class LearnOutlineItemProgress(db.Model):
     """
 
     __tablename__ = "learn_progress_records"
+    __table_args__ = {"comment": "Learn progress records"}
 
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     progress_record_bid = Column(
@@ -92,7 +93,7 @@ class LearnBlockLog(db.Model):
     """
 
     __tablename__ = "learn_generated_blocks"
-
+    __table_args__ = {"comment": "Learn generated blocks"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     generated_block_bid = Column(
         String(36),

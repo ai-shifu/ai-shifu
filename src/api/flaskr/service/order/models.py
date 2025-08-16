@@ -22,6 +22,7 @@ class Order(db.Model):
     """
 
     __tablename__ = "order_orders"
+    __table_args__ = {"comment": "Order orders"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     order_bid = Column(
         String(36),
@@ -83,6 +84,7 @@ class PingxxOrder(db.Model):
     """
 
     __tablename__ = "order_pingxx_orders"
+    __table_args__ = {"comment": "Order pingxx orders"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     pingxx_order_bid = Column(
         String(36),
@@ -188,6 +190,7 @@ class PingxxOrder(db.Model):
 
 class BannerInfo(db.Model):
     __tablename__ = "order_banner_info"
+    __table_args__ = {"comment": "Order banner info"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     banner_id = Column(
         String(36), nullable=False, default="", index=True, comment="Banner identifier"

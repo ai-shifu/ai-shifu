@@ -22,6 +22,7 @@ class Coupon(db.Model):
     """
 
     __tablename__ = "promo_coupons"
+    __table_args__ = {"comment": "Promo coupons"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_bid = Column(
         String(36),
@@ -112,6 +113,7 @@ class CouponUsage(db.Model):
     """
 
     __tablename__ = "promo_coupon_usages"
+    __table_args__ = {"comment": "Promo coupon usages"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     coupon_usage_bid = Column(
         String(36),
