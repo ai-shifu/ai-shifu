@@ -31,6 +31,8 @@ def init_db(app: Flask):
             + str(app.config["MYSQL_PORT"])
             + "/"
             + app.config["MYSQL_DB"]
+            + "?charset="
+            + app.config.get("MYSQL_CHARSET", "utf8mb4")
         )
     else:
         app.logger.info("init dbconfig from config")
