@@ -2,86 +2,177 @@ from sqlalchemy import (
     Column,
     String,
     Integer,
-    TIMESTAMP,
+    DateTime,
     Text,
+    SmallInteger,
 )
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 
+from flaskr.service.order.consts import LEARN_STATUS_LOCKED
 
-class AICourseLessonAttendScript(db.Model):
-    __tablename__ = "ai_course_lesson_attendscript"
 
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    log_id = Column(
-        String(36), nullable=False, index=True, default="", comment="Log UUID"
+class LearnOutlineItemProgress(db.Model):
+    """
+    Learn outline item progress
+    """
+
+    __tablename__ = "learn_progress_records"
+    __table_args__ = {"comment": "Learn progress records"}
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    progress_record_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Learn outline item business identifier",
+        index=True,
     )
-    attend_id = Column(
-        String(36), nullable=False, default="", comment="Attend UUID", index=True
+    shifu_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
     )
-    script_id = Column(
-        String(36), nullable=False, default="", comment="Script UUID", index=True
+    outline_item_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline business identifier",
+        index=True,
     )
-    lesson_id = Column(
-        String(36), nullable=False, default="", comment="Lesson UUID", index=True
+    user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
     )
-    course_id = Column(
-        String(36), nullable=False, default="", comment="Course UUID", index=True
+    outline_item_updated = Column(
+        Integer, nullable=False, default=0, comment="Outline is updated"
     )
-    script_ui_type = Column(
-        Integer, nullable=False, default=0, comment="Script UI type"
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=LEARN_STATUS_LOCKED,
+        comment="Status: 601=not started, 602=in progress, 603=completed, 604=refund, 605=locked, 606=unavailable, 607=branch, 608=reset",
+        index=True,
     )
-    script_ui_conf = Column(
-        Text, nullable=False, default="", comment="Script UI Config"
-    )
-    user_id = Column(
-        String(36), nullable=False, default="", comment="User UUID", index=True
-    )
-    interaction_type = Column(
+    block_position = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Interaction type: 0-no interaction, 1-like, 2-dislike",
+        comment="Block position index of the outlineitem",
     )
-    script_index = Column(Integer, nullable=False, default=0, comment="Script index")
-    script_role = Column(Integer, nullable=False, default=0, comment="Script role")
-    script_content = Column(Text, nullable=False, comment="Script content")
-    status = Column(Integer, nullable=False, default=0, comment="Status of the attend")
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
-    updated = Column(
-        TIMESTAMP,
+    created_at = Column(
+        DateTime,
         nullable=False,
         default=func.now(),
-        onupdate=func.now(),
+        comment="Creation time",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
         comment="Update time",
+        onupdate=func.now(),
     )
 
 
-class AICourseAttendAsssotion(db.Model):
-    __tablename__ = "ai_course_lesson_attend_association"
-    id = Column(BIGINT, primary_key=True, autoincrement=True, comment="Unique ID")
-    association_id = Column(
-        String(36), nullable=False, default="", comment="Attend UUID"
+class LearnBlockLog(db.Model):
+    """
+    Learn Block Log
+    """
+
+    __tablename__ = "learn_generated_blocks"
+    __table_args__ = {"comment": "Learn generated blocks"}
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    generated_block_bid = Column(
+        String(36),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Learn block log business identifier",
     )
-    from_attend_id = Column(
-        String(36), nullable=False, default="", comment="Attend UUID"
+    progress_record_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Learn outline item business identifier",
+        index=True,
     )
-    to_attend_id = Column(String(36), nullable=False, default="", comment="Attend UUID")
-    user_id = Column(String(36), nullable=False, default="", comment="Attend UUID")
-    association_status = Column(
+    user_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
+    )
+    block_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Block business identifier",
+        index=True,
+    )
+    outline_item_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Outline business identifier",
+        index=True,
+    )
+    shifu_bid = Column(
+        String(36),
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+        index=True,
+    )
+    type = Column(Integer, nullable=False, default=0, comment="Block content type")
+    role = Column(Integer, nullable=False, default=0, comment="Block role")
+    generated_content = Column(Text, nullable=False, comment="Block generate content")
+    position = Column(
+        Integer, nullable=False, default=0, comment="Block position index"
+    )
+    # ???????
+    block_content_conf = Column(
+        Text,
+        nullable=False,
+        default="",
+        comment="Block content config(used for re-generate)",
+    )
+    liked = Column(
         Integer,
         nullable=False,
         default=0,
-        comment="Status of the attend: 0-not started, 1-in progress, 2-completed",
+        comment="Interaction type: -1=disliked, 0=not available, 1=liked",
     )
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
     )
-    updated = Column(
-        TIMESTAMP,
+    status = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Status of the record: 1=active, 0=history",
+    )
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation time"
+    )
+    updated_at = Column(
+        DateTime,
         nullable=False,
         default=func.now(),
         onupdate=func.now(),

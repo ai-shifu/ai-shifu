@@ -1,5 +1,5 @@
 from flask import Flask
-from flaskr.service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.order.funs import init_buy_record
 from flaskr.service.study.const import INPUT_TYPE_CONTINUE
 from flaskr.service.study.plugin import (
@@ -27,7 +27,7 @@ def _handle_output_payment(
     is_preview: bool = False,
 ) -> ScriptDTO:
     order = init_buy_record(app, user_info.user_id, outline_item_info.shifu_bid)
-    if order.status != BUY_STATUS_SUCCESS:
+    if order.status != ORDER_STATUS_SUCCESS:
         payment: PaymentDTO = block_dto.block_content
         title = payment.label
         title = get_script_ui_label(app, title)

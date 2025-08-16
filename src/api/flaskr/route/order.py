@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.order.discount import use_discount_code
+from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.route.common import make_common_response
 from flaskr.service.order import (
     generate_charge,
@@ -174,7 +174,7 @@ def register_order_handler(app: Flask, path_prefix: str):
             raise_param_error("order_id")
         user_id = request.user.user_id
         return make_common_response(
-            use_discount_code(app, user_id, discount_code, order_id)
+            use_coupon_code(app, user_id, discount_code, order_id)
         )
 
     return app

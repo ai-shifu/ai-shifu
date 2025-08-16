@@ -4,7 +4,7 @@ from flask import Flask
 from flaskr.api.llm import chat_llm
 from flaskr.service.study.const import ROLE_STUDENT, ROLE_TEACHER
 
-from flaskr.service.study.models import AICourseLessonAttendScript
+from flaskr.service.study.models import LearnBlockLog
 from flaskr.service.study.plugin import register_shifu_input_handler
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 from flaskr.service.study.utils import (
@@ -67,10 +67,10 @@ def _handle_input_ask(
 
     # Query historical conversation records, ordered by time
     history_scripts = (
-        AICourseLessonAttendScript.query.filter(
-            AICourseLessonAttendScript.attend_id == attend_id,
+        LearnBlockLog.query.filter(
+            LearnBlockLog.progress_record_bid == attend_id,
         )
-        .order_by(AICourseLessonAttendScript.id.desc())
+        .order_by(LearnBlockLog.id.desc())
         .limit(ask_max_history_len)
         .all()
     )
@@ -111,13 +111,13 @@ def _handle_input_ask(
 
     # Add historical conversation records to system messages
     for script in history_scripts:
-        if script.script_role == ROLE_STUDENT:
+        if script.role == ROLE_STUDENT:
             messages.append(
-                {"role": "user", "content": script.script_content}
+                {"role": "user", "content": script.generated_content}
             )  # Add user message
-        elif script.script_role == ROLE_TEACHER:
+        elif script.role == ROLE_TEACHER:
             messages.append(
-                {"role": "assistant", "content": script.script_content}
+                {"role": "assistant", "content": script.generated_content}
             )  # Add assistant message
 
     # Start knowledge base retrieval
@@ -236,16 +236,16 @@ def _handle_input_ask(
             response_text += current_content
             # Return each text fragment in real-time
             yield make_script_dto(
-                "text", i.result, log_script.script_id, log_script.lesson_id
+                "text", i.result, log_script.block_bid, log_script.outline_item_bid
             )
 
     # Log AI response to database
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = response_text
-    log_script.script_role = ROLE_TEACHER  # Mark as teacher role
-    log_script.script_ui_type = UI_TYPE_ASK  # Mark as Q&A type
+    log_script.generated_content = response_text
+    log_script.role = ROLE_TEACHER  # Mark as teacher role
+    log_script.type = UI_TYPE_ASK  # Mark as Q&A type
     db.session.add(log_script)
 
     # End trace span
@@ -256,5 +256,9 @@ def _handle_input_ask(
 
     # Return end marker
     yield make_script_dto(
-        "text_end", "", log_script.script_id, log_script.lesson_id, log_script.log_id
+        "text_end",
+        "",
+        log_script.block_bid,
+        log_script.outline_item_bid,
+        log_script.generated_block_bid,
     )

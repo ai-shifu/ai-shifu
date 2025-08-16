@@ -38,8 +38,8 @@ def _handle_input_phone(
     log_script = generation_attend(
         app, user_info, attend_id, outline_item_info, block_dto
     )
-    log_script.script_content = input
-    log_script.script_role = ROLE_STUDENT  # type: ignore
+    log_script.generated_content = input
+    log_script.role = ROLE_STUDENT  # type: ignore
     phone_input: PhoneDTO = block_dto.block_content
     db.session.add(log_script)
     span = trace.span(name="user_input_phone", input=input)
@@ -58,8 +58,8 @@ def _handle_input_phone(
         log_script = generation_attend(
             app, user_info, attend_id, outline_item_info, block_dto
         )
-        log_script.script_content = response_text
-        log_script.script_role = ROLE_TEACHER
+        log_script.generated_content = response_text
+        log_script.role = ROLE_TEACHER
         db.session.add(log_script)
         span.end(output=response_text)
         db.session.flush()

@@ -37,8 +37,8 @@ def _handle_input_continue(
             log_script = generation_attend(
                 app, user_info, attend_id, outline_item_info, block_dto
             )
-            log_script.script_content = get_script_ui_label(app, button_label.label)
-            log_script.script_role = ROLE_STUDENT
+            log_script.generated_content = get_script_ui_label(app, button_label.label)
+            log_script.role = ROLE_STUDENT
             db.session.add(log_script)
         span = trace.span(name="user_continue", input=input)
         span.end()
