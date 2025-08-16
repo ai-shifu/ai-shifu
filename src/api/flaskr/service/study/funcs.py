@@ -181,7 +181,9 @@ def get_lesson_tree_to_study_inner(
             LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
             LearnOutlineItemProgress.outline_item_bid.in_(outline_ids),
         ).all()
-        attend_map = {i.lesson_id: i for i in attend_infos}
+        attend_map: dict[str, LearnOutlineItemProgress] = {
+            i.outline_item_bid: i for i in attend_infos
+        }
         attend_status_values = get_learn_status_values()
 
         def recurse_outline_item(item: ShifuOutlineItemDto) -> AILessonAttendDTO:

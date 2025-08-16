@@ -174,12 +174,12 @@ class RunScriptContext:
                     self._q.put(child)
         self._current_attend = self._get_current_attend(self._outline_item_info)
         self.app.logger.info(
-            f"current_attend: {self._current_attend.attend_id} {self._current_attend.script_index}"
+            f"current_attend: {self._current_attend.progress_record_bid} {self._current_attend.block_position}"
         )
 
         self._trace_args = {}
         self._trace_args["user_id"] = user_info.user_id
-        self._trace_args["session_id"] = self._current_attend.attend_id
+        self._trace_args["session_id"] = self._current_attend.progress_record_bid
         self._trace_args["input"] = ""
         self._trace_args["name"] = self._outline_item_info.title
         self._trace = langfuse.trace(**self._trace_args)
@@ -341,7 +341,7 @@ class RunScriptContext:
                     else:
                         res.append(_OutlineUpate(_OutlineUpateType.LEAF_START, item))
 
-        if self._current_attend.script_index >= len(
+        if self._current_attend.block_position >= len(
             self._current_outline_item.children
         ):
             _mark_sub_node_completed(self._current_outline_item, res)
@@ -404,7 +404,7 @@ class RunScriptContext:
                     or self._current_attend.status == LEARN_STATUS_LOCKED
                 ):
                     self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                    self._current_attend.script_index = 0
+                    self._current_attend.block_position = 0
                     db.session.flush()
                     yield make_script_dto(
                         "lesson_update",
@@ -448,7 +448,7 @@ class RunScriptContext:
                     status = LEARN_STATUS_IN_PROGRESS
                 current_attend = self._get_current_attend(update.outline_item_info)
                 current_attend.status = LEARN_STATUS_IN_PROGRESS
-                current_attend.script_index = 0
+                current_attend.block_position = 0
                 db.session.flush()
 
                 yield make_script_dto(
@@ -645,7 +645,7 @@ class RunScriptContext:
             res = handle_block_input(
                 app=app,
                 user_info=self._user_info,
-                attend_id=run_script_info.attend.attend_id,
+                attend_id=run_script_info.attend.progress_record_bid,
                 input_type=self._input_type,
                 input=self._input,
                 outline_item_info=self._outline_item_info,
@@ -660,7 +660,7 @@ class RunScriptContext:
                 run_script_info.block_dto.type != "content"
                 and self._input_type != "ask"
             ):
-                run_script_info.attend.script_index += 1
+                run_script_info.attend.block_position += 1
             run_script_info.attend.status = LEARN_STATUS_IN_PROGRESS
             self._input_type = "continue"
             self._run_type = RunType.OUTPUT
@@ -669,7 +669,7 @@ class RunScriptContext:
             continue_check = check_block_continue(
                 app=app,
                 user_info=self._user_info,
-                attend_id=run_script_info.attend.attend_id,
+                attend_id=run_script_info.attend.progress_record_bid,
                 outline_item_info=self._outline_item_info,
                 block_dto=run_script_info.block_dto,
                 trace_args=self._trace_args,
@@ -679,7 +679,7 @@ class RunScriptContext:
                 res = handle_block_output(
                     app=app,
                     user_info=self._user_info,
-                    attend_id=run_script_info.attend.attend_id,
+                    attend_id=run_script_info.attend.progress_record_bid,
                     outline_item_info=self._outline_item_info,
                     block_dto=run_script_info.block_dto,
                     trace_args=self._trace_args,
@@ -693,7 +693,7 @@ class RunScriptContext:
             app.logger.info(f"output block type: {run_script_info.block_dto.type}")
             self._can_continue = continue_check
             if self._can_continue:
-                run_script_info.attend.script_index += 1
+                run_script_info.attend.block_position += 1
             db.session.flush()
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:

@@ -78,8 +78,8 @@ def run_script_inner(
             if shifu_info.price > 0:
                 success_buy_record = (
                     Order.query.filter(
-                        Order.user_id == user_id,
-                        Order.course_id == course_id,
+                        Order.user_bid == user_id,
+                        Order.shifu_bid == course_id,
                         Order.status == ORDER_STATUS_SUCCESS,
                     )
                     .order_by(Order.id.desc())
