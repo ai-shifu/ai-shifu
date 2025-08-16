@@ -5,7 +5,7 @@ from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.order.models import Order
-from flaskr.service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 
 
 @register_shifu_continue_handler("payment")
@@ -22,7 +22,7 @@ def _handle_continue_payment(
     order: Order = Order.query.filter(
         Order.user_bid == user_info.user_id,
         Order.shifu_bid == outline_item_info.shifu_bid,
-        Order.status == BUY_STATUS_SUCCESS,
+        Order.status == ORDER_STATUS_SUCCESS,
     ).first()
 
     if order is None:

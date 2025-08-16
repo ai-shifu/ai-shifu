@@ -9,7 +9,7 @@ from flaskr.service.promo.consts import (
     COUPON_TYPE_PERCENT,
 )
 from flaskr.service.common import raise_error
-from flaskr.service.util import generate_id
+from flaskr.util import generate_id
 import pytz
 from datetime import datetime
 import json

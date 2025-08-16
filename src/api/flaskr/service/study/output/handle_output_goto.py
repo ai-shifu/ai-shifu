@@ -5,8 +5,8 @@ from flaskr.service.study.dtos import ScriptDTO
 from flaskr.service.user.models import User
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
-from flaskr.service.order.models import AICourseBuyRecord
-from flaskr.service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.service.order.models import Order
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
@@ -14,8 +14,8 @@ from flaskr.service.shifu.shifu_struct_manager import (
     ShifuOutlineItemDto,
     get_shifu_struct,
 )
-from flaskr.service.order.models import AICourseLessonAttend
-from flaskr.service.order.consts import ATTEND_STATUS_RESET
+from flaskr.service.study.models import LearnOutlineItemProgress
+from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.study.plugin import SHIFU_OUTPUT_HANDLER_MAP
 
 
@@ -44,12 +44,12 @@ def _handle_output_goto(
 
             if shifu_info.price > 0:
                 success_buy_record = (
-                    AICourseBuyRecord.query.filter(
-                        AICourseBuyRecord.user_id == user_info.user_id,
-                        AICourseBuyRecord.course_id == shifu_info.bid,
-                        AICourseBuyRecord.status == BUY_STATUS_SUCCESS,
+                    Order.query.filter(
+                        Order.user_id == user_info.user_id,
+                        Order.course_id == shifu_info.bid,
+                        Order.status == ORDER_STATUS_SUCCESS,
                     )
-                    .order_by(AICourseBuyRecord.id.desc())
+                    .order_by(Order.id.desc())
                     .first()
                 )
                 if not success_buy_record:
@@ -68,11 +68,11 @@ def _handle_output_goto(
                 is_paid=is_paid,
                 preview_mode=is_preview,
             )
-        attend = AICourseLessonAttend.query.filter(
-            AICourseLessonAttend.user_id == user_info.user_id,
-            AICourseLessonAttend.course_id == outline_item_info.shifu_bid,
-            AICourseLessonAttend.lesson_id == outline_item_info.bid,
-            AICourseLessonAttend.status != ATTEND_STATUS_RESET,
+        attend = LearnOutlineItemProgress.query.filter(
+            LearnOutlineItemProgress.user_bid == user_info.user_id,
+            LearnOutlineItemProgress.shifu_bid == outline_item_info.shifu_bid,
+            LearnOutlineItemProgress.outline_item_bid == outline_item_info.bid,
+            LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
         ).first()
 
         run_script_info = run_script_context._get_run_script_info(attend)

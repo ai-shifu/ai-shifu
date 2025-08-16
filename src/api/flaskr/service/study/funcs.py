@@ -12,8 +12,8 @@ from ...service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_IN_PROGRESS,
     LEARN_STATUS_RESET,
-    get_attend_status_values,
-    BUY_STATUS_SUCCESS,
+    get_learn_status_values,
+    ORDER_STATUS_SUCCESS,
     LEARN_STATUS_NOT_EXIST,
 )
 
@@ -71,7 +71,7 @@ def fill_attend_info(
     Returns:
         AICourseDTO
     """
-    attend_status_values = get_attend_status_values()
+    attend_status_values = get_learn_status_values()
     q = queue.Queue()
     for lesson in ret.lessons:
         q.put(lesson)
@@ -166,7 +166,7 @@ def get_lesson_tree_to_study_inner(
                 user_bid=user_id, shifu_bid=course_id
             ).first()
             if buy_record:
-                is_paid = buy_record.status == BUY_STATUS_SUCCESS
+                is_paid = buy_record.status == ORDER_STATUS_SUCCESS
         ret: AICourseDTO = AICourseDTO(
             course_id=course_id,
             course_name=shifu_info.title,
@@ -182,7 +182,7 @@ def get_lesson_tree_to_study_inner(
             LearnOutlineItemProgress.outline_item_bid.in_(outline_ids),
         ).all()
         attend_map = {i.lesson_id: i for i in attend_infos}
-        attend_status_values = get_attend_status_values()
+        attend_status_values = get_learn_status_values()
 
         def recurse_outline_item(item: ShifuOutlineItemDto) -> AILessonAttendDTO:
             attend_info = attend_map.get(item.bid, None)

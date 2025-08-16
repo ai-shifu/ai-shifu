@@ -4,7 +4,8 @@
 
 from typing import List
 from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.service.order.funs import AICourseLessonAttendDTO
+
+# from flaskr.service.study.dtos import AILessonAttendDTO as AICourseLessonAttendDTO
 from decimal import Decimal
 import json
 
@@ -94,7 +95,7 @@ class AILessonAttendDTO:
     lesson_name: str
     lesson_id: str
     status: str
-    children: List[AICourseLessonAttendDTO]
+    children: List["AILessonAttendDTO"]
     status_value: int
     updated: bool
     unique_id: str

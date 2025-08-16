@@ -1,5 +1,5 @@
 from flask import Flask
-from flaskr.service.order.models import CouponUsage as CouponUsageModel
+from flaskr.service.promo.models import CouponUsage as CouponUsageModel
 
 
 def query_discount_record(

@@ -21,8 +21,8 @@ from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_struct,
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.order.models import AICourseBuyRecord
-from flaskr.service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.service.order.models import Order
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.study.context import RunScriptContext
 from flaskr.service.study.input_funcs import BreakException
 
@@ -77,12 +77,12 @@ def run_script_inner(
 
             if shifu_info.price > 0:
                 success_buy_record = (
-                    AICourseBuyRecord.query.filter(
-                        AICourseBuyRecord.user_id == user_id,
-                        AICourseBuyRecord.course_id == course_id,
-                        AICourseBuyRecord.status == BUY_STATUS_SUCCESS,
+                    Order.query.filter(
+                        Order.user_id == user_id,
+                        Order.course_id == course_id,
+                        Order.status == ORDER_STATUS_SUCCESS,
                     )
-                    .order_by(AICourseBuyRecord.id.desc())
+                    .order_by(Order.id.desc())
                     .first()
                 )
                 if not success_buy_record:

@@ -40,7 +40,7 @@ from flaskr.service.study.plugin import (
 )
 
 from flaskr.service.user.models import User
-from flaskr.service.order.consts import get_attend_status_values
+from flaskr.service.order.consts import get_learn_status_values
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.shifu.dtos import GotoDTO, GotoConditionDTO
@@ -355,7 +355,7 @@ class RunScriptContext:
     def _render_outline_updates(
         self, outline_updates: list[_OutlineUpate], new_chapter: bool = False
     ) -> Generator[str, None, None]:
-        attend_status_values = get_attend_status_values()
+        attend_status_values = get_learn_status_values()
         shif_bids = [o.outline_item_info.bid for o in outline_updates]
         outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
             self._outline_model.query.filter(

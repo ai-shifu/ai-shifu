@@ -10,7 +10,7 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 
-from order.consts import LEARN_STATUS_LOCKED
+from flaskr.service.order.consts import LEARN_STATUS_LOCKED
 
 
 class LearnOutlineItemProgress(db.Model):

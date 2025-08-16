@@ -1,6 +1,6 @@
 from flask import Flask
 from flaskr.service.common.models import AppException
-from flaskr.service.order.models import AICourseLessonAttend
+from flaskr.service.study.models import LearnOutlineItemProgress
 from flaskr.dao import db
 from flaskr.service.user.models import User
 from flaskr.service.study.output.ui_continue import make_continue_ui
@@ -16,7 +16,7 @@ from flaskr.service.study.output.handle_output_ask import _handle_output_ask
 def handle_ui(
     app: Flask,
     user_info: User,
-    attend: AICourseLessonAttend,
+    attend: LearnOutlineItemProgress,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
     input: str,
@@ -38,7 +38,7 @@ def handle_ui(
         if check_block_continue(
             app,
             user_info,
-            attend.attend_id,
+            attend.progress_record_bid,
             outline_item_info,
             block_dto,
             trace_args,
@@ -50,7 +50,7 @@ def handle_ui(
                 make_continue_ui(
                     app,
                     user_info,
-                    attend.attend_id,
+                    attend.progress_record_bid,
                     outline_item_info,
                     block_dto,
                     trace_args,
@@ -76,7 +76,7 @@ def handle_ui(
             _handle_output_ask(
                 app,
                 user_info,
-                attend.attend_id,
+                attend.progress_record_bid,
                 outline_item_info,
                 block_dto,
                 trace_args,

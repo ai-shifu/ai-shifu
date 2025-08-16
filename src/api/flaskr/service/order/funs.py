@@ -9,8 +9,6 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
     ORDER_STATUS_TO_BE_PAID,
     ORDER_STATUS_TIMEOUT,
-    DISCOUNT_TYPE_FIXED,
-    DISCOUNT_TYPE_PERCENT,
     ORDER_STATUS_VALUES,
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
@@ -20,7 +18,6 @@ from flaskr.service.active import (
     query_and_join_active,
     query_to_failure_active,
 )
-from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.api.doc.feishu import send_notify
 from .models import Order, PingxxOrder
@@ -31,10 +28,12 @@ from ..common.models import (
 )
 from ...util.uuid import generate_id as get_uuid
 from .pingxx_order import create_pingxx_order
-from .models import Coupon, CouponUsage as CouponUsageModel
+from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
 import pytz
 from flaskr.service.lesson.funcs import get_course_info
 from flaskr.service.lesson.funcs import AICourseDTO
+from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from flaskr.service.order.query_discount import query_discount_record
 
 
 @register_schema_to_swagger
@@ -599,17 +598,17 @@ def calculate_discount_value(
         for discount_record in discount_records:
             discount = discount_maps.get(discount_record.coupon_id, None)
             if discount:
-                if discount.discount_type == DISCOUNT_TYPE_FIXED:
+                if discount.discount_type == COUPON_TYPE_FIXED:
                     discount_value += discount.discount_value
-                elif discount.discount_type == DISCOUNT_TYPE_PERCENT:
+                elif discount.discount_type == COUPON_TYPE_PERCENT:
                     discount_value += discount.discount_value * price
                 items.append(
                     PayItemDto(
                         "优惠",
-                        discount.discount_channel,
-                        discount_record.discount_value,
+                        discount.name,
+                        discount.value,
                         True,
-                        discount.discount_code,
+                        discount.name,
                     )
                 )
     if discount_value > price:

@@ -9,11 +9,11 @@ from flask import Flask
 
 import jwt
 
-from flaskr.service.order.consts import ATTEND_STATUS_RESET
+from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.user.models import User
 from sqlalchemy import text
 from flaskr.api.sms.aliyun import send_sms_code_ali
-from flaskr.service.order.models import AICourseLessonAttend
+from flaskr.service.study.models import LearnOutlineItemProgress
 from ..common.dtos import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
@@ -23,7 +23,7 @@ from ..common.dtos import (
 from ..common.models import raise_error
 from .utils import generate_token, get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
-from flaskr.service.lesson.models import AICourse
+from flaskr.service.shifu.models import PublishedShifu
 from flaskr.i18n import get_i18n_list
 
 FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
@@ -218,15 +218,15 @@ def migrate_user_study_record(
         + " to_user_id:"
         + to_user_id
     )
-    from_attends = AICourseLessonAttend.query.filter(
-        AICourseLessonAttend.user_id == from_user_id,
-        AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-        AICourseLessonAttend.course_id == course_id,
+    from_attends = LearnOutlineItemProgress.query.filter(
+        LearnOutlineItemProgress.user_bid == from_user_id,
+        LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
+        LearnOutlineItemProgress.shifu_bid == course_id,
     ).all()
-    to_attends = AICourseLessonAttend.query.filter(
-        AICourseLessonAttend.user_id == to_user_id,
-        AICourseLessonAttend.status != ATTEND_STATUS_RESET,
-        AICourseLessonAttend.course_id == course_id,
+    to_attends = LearnOutlineItemProgress.query.filter(
+        LearnOutlineItemProgress.user_bid == to_user_id,
+        LearnOutlineItemProgress.status != LEARN_STATUS_RESET,
+        LearnOutlineItemProgress.shifu_bid == course_id,
     ).all()
     migrate_attends = []
     for from_attend in from_attends:
@@ -242,18 +242,18 @@ def migrate_user_study_record(
     if len(migrate_attends) > 0:
         db.session.execute(
             text(
-                "update ai_course_lesson_attend set user_id = '%s' where id in (%s)"
+                "update learn_outline_item_progress set user_id = '%s' where id in (%s)"
                 % (to_user_id, ",".join([str(attend.id) for attend in migrate_attends]))
             )
         )
         db.session.execute(
             text(
-                "update ai_course_lesson_attendscript set user_id = '%s' where attend_id in (%s)"
+                "update learn_outline_item_progress_script set user_id = '%s' where progress_record_bid in (%s)"
                 % (
                     to_user_id,
                     ",".join(
                         [
-                            "'" + str(attend.attend_id) + "'"
+                            "'" + str(attend.progress_record_bid) + "'"
                             for attend in migrate_attends
                         ]
                     ),
@@ -463,7 +463,7 @@ def init_first_course(app: Flask, user_id: str):
         return
 
     # Check the number of courses
-    course_count = AICourse.query.count()
+    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
     if course_count != 1:
         return
 
@@ -474,7 +474,11 @@ def init_first_course(app: Flask, user_id: str):
         first_user.is_creator = True
 
     # Get the only course
-    course = AICourse.query.first()
+    course = (
+        PublishedShifu.query.filter(PublishedShifu.deleted == 0)
+        .order_by(PublishedShifu.id.asc())
+        .first()
+    )
     # The creator of the updated course
     course.created_user_id = user_id
     db.session.flush()

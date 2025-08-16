@@ -1,6 +1,6 @@
 from flask import Flask
 from flaskr.service.user.models import User, UserConversion
-from flaskr.service.common import send_notify
+from flaskr.api.doc.feishu import send_notify
 
 
 def send_feishu_coupon_code(

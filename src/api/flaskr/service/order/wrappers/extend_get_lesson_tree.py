@@ -1,9 +1,9 @@
 from flask import Flask
 from flaskr.framework.plugin.plugin_manager import extension
 
-from flaskr.service.study.dtos import AICourseDTO, AICourseLessonAttendDTO
+from flaskr.service.study.dtos import AICourseDTO, AILessonAttendDTO
 from flaskr.service.order.funs import query_raw_buy_record
-from flaskr.service.order.consts import BUY_STATUS_SUCCESS
+from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.i18n import _
 from flaskr.service.lesson.const import LESSON_TYPE_TRIAL
 from decimal import Decimal
@@ -88,16 +88,14 @@ class ExtendLesson:
     lesson_name: str
     lesson_id: str
     status: str
-    children: List[AICourseLessonAttendDTO]
+    children: List[AILessonAttendDTO]
     status_value: int
     updated: bool
     unique_id: str
     lesson_type: int
     banner_info: LessonBannerInfo
 
-    def __init__(
-        self, lesson: AICourseLessonAttendDTO, banner_info: LessonBannerInfo = None
-    ):
+    def __init__(self, lesson: AILessonAttendDTO, banner_info: LessonBannerInfo = None):
         self.lesson_no = lesson.lesson_no
         self.lesson_name = lesson.lesson_name
         self.lesson_id = lesson.lesson_id
@@ -152,7 +150,7 @@ def extend_get_lesson_tree(
         is_paid = result.course_price == Decimal(0)
         if not is_paid:
             buy_record = query_raw_buy_record(app, user_id, course_id)
-            is_paid = buy_record and buy_record.status == BUY_STATUS_SUCCESS
+            is_paid = buy_record and buy_record.status == ORDER_STATUS_SUCCESS
 
         if not is_paid:
             result = ExtendCourseInfo(course_id, result)
