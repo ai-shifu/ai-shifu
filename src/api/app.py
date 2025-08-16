@@ -59,7 +59,6 @@ def create_app() -> Flask:
     if os.environ.get("SKIP_EXTERNAL_SERVICES") != "1":
         # init redis
         dao.init_redis(app)
-
         # init milvus
         dao.init_milvus(app)
     else:
