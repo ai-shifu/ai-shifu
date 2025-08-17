@@ -356,7 +356,12 @@ def run_migrations_online() -> None:
             if table_name in system_tables or table_name.startswith("information_"):
                 return True
 
-            # skip the tables that do not belong to the application
+            # 对于删除操作，不应该基于当前模型来过滤，因为被删除的表在当前模型中已经不存在了
+            if op_type == "DropTableOp":
+                # 删除操作不应该被跳过，让include_object来决定
+                return False
+
+            # skip the tables that do not belong to the application (只对非删除操作执行此检查)
             if not any(table_name.startswith(prefix) for prefix in app_table_prefixes):
                 return True
 
