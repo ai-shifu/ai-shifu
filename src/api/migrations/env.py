@@ -47,107 +47,59 @@ target_db = current_app.extensions["migrate"].db
 
 def include_object(object, name, type_, reflected, compare_to):
     """
-    Enhanced include_object function that properly handles:
-    - Table deletions
-    - Column deletions
-    - Comment changes
-    - All changes in one migration
+    The simplest mode to avoid separation
     """
-
-    # 定义应用表前缀
-    app_table_prefixes = [
-        "ai_",
-        "user_",
-        "shifu_",
-        "order_",
-        "rag_",
-        "study_",
-        "sys_",
-        "draft_",
-        "published_",
-        "profile_",
-        "active_",
-        "pingxx_",
-        "discount_",
-        "risk_",
-    ]
-
-    # 排除的系统表
+    # the system tables
     system_tables = [
         "alembic_version",
         "information_schema",
         "performance_schema",
         "mysql",
         "sys",
-        "test",
     ]
 
     if type_ == "table":
-        # 排除系统表
+        # the system tables
         if name in system_tables or name.startswith("information_"):
             return False
 
-        # 检查是否是我们应用的表
-        is_app_table = any(name.startswith(prefix) for prefix in app_table_prefixes)
-
         if reflected:
-            # 对于从数据库反射的表，包含所有应用表
-            # 这样能检测到表的删除
-            return is_app_table
+            # for the table reflected from the database, check if it has the corresponding model definition
+            for mapper in db.Model.registry.mappers:
+                model_class = mapper.class_
+                if (
+                    model_class.__module__.startswith("flaskr.service")
+                    and mapper.local_table.name == name
+                ):
+                    return True
+            # if not found the corresponding model, but not the system table, also include (for detection of deletion)
+            return True
         else:
-            # 对于模型表，检查是否属于我们的服务模块
+            # for the model table, check if it belongs to our service module
             if hasattr(object, "metadata"):
                 for mapper in db.Model.registry.mappers:
                     if mapper.local_table is object:
                         model_class = mapper.class_
-                        # 只包含 flaskr.service 模块下的模型
                         return model_class.__module__.startswith("flaskr.service")
-
-            # 如果没有找到对应的 mapper，但表名符合应用前缀，也包含
-            return is_app_table
-
-    elif type_ == "column":
-        # 对于列，始终包含属于应用表的列
-        # 这是检测列删除的关键 - 必须包含数据库中的列以便与模型比较
-        if hasattr(object, "table"):
-            table_name = object.table.name
-            # 检查表是否属于我们的应用
-            is_app_table = any(
-                table_name.startswith(prefix) for prefix in app_table_prefixes
-            )
-            if not is_app_table or table_name in system_tables:
-                return False
-            return True
-        return False
+            return False
 
     elif type_ in [
+        "column",
         "index",
         "unique_constraint",
         "foreign_key_constraint",
         "check_constraint",
     ]:
-        # 对于索引和约束，检查其所属的表
+        # for the column, index, constraint, check if it belongs to our service module
         if hasattr(object, "table"):
             table_name = object.table.name
-            is_app_table = any(
-                table_name.startswith(prefix) for prefix in app_table_prefixes
-            )
-            if not is_app_table or table_name in system_tables:
+            # the system tables
+            if table_name in system_tables or table_name.startswith("information_"):
                 return False
             return True
         return False
 
-    # 对于其他对象类型，检查是否与我们的表相关
-    if hasattr(object, "table"):
-        table_name = object.table.name
-        is_app_table = any(
-            table_name.startswith(prefix) for prefix in app_table_prefixes
-        )
-        if not is_app_table or table_name in system_tables:
-            return False
-        return True
-
-    return False
+    return True
 
 
 def get_metadata():
@@ -201,15 +153,15 @@ def run_migrations_online() -> None:
                 directives[:] = []
                 logger.info("No changes in schema detected.")
             else:
-                # 过滤掉重复或不必要的操作
+                # filter out the duplicate or unnecessary operations
                 filter_unnecessary_operations(script)
 
-                # 检查过滤后是否还有操作
+                # check if there are operations after filtering
                 if script.upgrade_ops.is_empty():
                     directives[:] = []
                     logger.info("All detected changes were filtered as unnecessary.")
                 else:
-                    # 检查是否只包含无意义的类型转换
+                    # check if it only contains meaningless type conversions
                     has_meaningful_changes = False
 
                     for op in script.upgrade_ops.ops:
@@ -226,28 +178,28 @@ def run_migrations_online() -> None:
                         if has_meaningful_changes:
                             break
 
-                    # 如果只包含无意义的类型转换，跳过整个迁移
+                    # if it only contains meaningless type conversions, skip the whole migration
                     if not has_meaningful_changes:
                         directives[:] = []
                         logger.info(
                             "Migration contains only meaningless type conversions - skipping migration generation."
                         )
                     else:
-                        # 合并相关的变更到同一个迁移中
+                        # merge the related changes into the same migration
                         merge_related_changes(script)
 
     def is_meaningful_operation(op):
-        """判断一个操作是否有意义（不是无意义的类型转换）"""
+        """judge if an operation is meaningful (not meaningless type conversion)"""
         op_type = type(op).__name__
 
-        # 对于 ALTER COLUMN 操作，检查是否是无意义的类型转换
+        # for the ALTER COLUMN operation, check if it is meaningless type conversion
         if op_type == "AlterColumnOp":
-            # 如果只是类型修改，检查是否是无意义的转换
+            # if it is only type modification, check if it is meaningless conversion
             if hasattr(op, "modify_type") and op.modify_type is not None:
                 existing_type_str = str(getattr(op, "existing_type", "")).upper()
                 modify_type_str = str(op.modify_type).upper()
 
-                # 检查是否是无意义的类型转换
+                # check if it is meaningless type conversion
                 if (
                     ("DECIMAL" in existing_type_str and "NUMERIC" in modify_type_str)
                     or ("NUMERIC" in existing_type_str and "DECIMAL" in modify_type_str)
@@ -261,7 +213,7 @@ def run_migrations_online() -> None:
                     )
                 ):
 
-                    # 检查是否有其他有意义的修改
+                    # check if there are other meaningful modifications
                     has_other_changes = False
                     if hasattr(op, "modify_comment") and op.modify_comment is not None:
                         has_other_changes = True
@@ -276,21 +228,21 @@ def run_migrations_online() -> None:
                     ):
                         has_other_changes = True
 
-                    # 如果只是类型转换，没有其他修改，认为不是有意义的操作
+                    # if it is only type conversion, without other modifications, it is not meaningful
                     if not has_other_changes:
                         return False
 
-            # 如果有其他类型的修改，或者不是被过滤的类型转换，认为是有意义的
+            # if there are other types of modifications, or it is not the filtered type conversion, it is meaningful
             return True
 
-        # 对于其他操作类型（ADD COLUMN, DROP COLUMN, CREATE TABLE 等），都认为是有意义的
+        # for other operation types (ADD COLUMN, DROP COLUMN, CREATE TABLE, etc.), it is meaningful
         if op_type in ["AddColumnOp", "DropColumnOp", "CreateTableOp", "DropTableOp"]:
             return True
 
         return True
 
     def filter_unnecessary_operations(script):
-        """过滤掉不必要的或重复的操作"""
+        """filter out the unnecessary or duplicate operations"""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
@@ -299,14 +251,14 @@ def run_migrations_online() -> None:
         seen_operations = set()
 
         for op in original_ops:
-            # 检查是否是不必要的操作
+            # check if it is unnecessary operation
             if should_skip_operation(op):
                 logger.info(
                     f"Skipping unnecessary operation: {type(op).__name__} on {getattr(op, 'table_name', 'unknown')}"
                 )
                 continue
 
-            # 生成操作的唯一标识符以避免重复
+            # generate the unique identifier of the operation to avoid duplication
             op_signature = get_operation_signature(op)
             if op_signature in seen_operations:
                 logger.info(f"Skipping duplicate operation: {op_signature}")
@@ -315,7 +267,7 @@ def run_migrations_online() -> None:
             seen_operations.add(op_signature)
             filtered_ops.append(op)
 
-        # 更新操作列表
+        # update the operation list
         script.upgrade_ops.ops[:] = filtered_ops
 
         if len(filtered_ops) != len(original_ops):
@@ -324,16 +276,16 @@ def run_migrations_online() -> None:
             )
 
     def get_operation_signature(op):
-        """生成操作的唯一签名以检测重复"""
+        """generate the unique signature of the operation to detect duplication"""
         op_type = type(op).__name__
 
         if hasattr(op, "table_name"):
             table_name = op.table_name
             if hasattr(op, "column_name"):
                 column_name = op.column_name
-                # 对于列操作，包含更多详细信息
+                # for the column operation, contains more detailed information
                 if op_type == "AlterColumnOp":
-                    # 检查实际修改的内容
+                    # check the actual modified content
                     modifications = []
                     if hasattr(op, "modify_comment") and op.modify_comment is not None:
                         modifications.append(f"comment:{op.modify_comment}")
@@ -355,61 +307,73 @@ def run_migrations_online() -> None:
             return f"{op_type}:unknown"
 
     def should_skip_operation(op):
-        """判断是否应该跳过某个操作"""
+        """judge if it should skip the operation"""
         op_type = type(op).__name__
 
-        # 应用表前缀 - 与 include_object 保持一致
-        app_table_prefixes = [
-            "ai_",
-            "user_",
-            "shifu_",
-            "order_",
-            "rag_",
-            "study_",
-            "sys_",
-            "draft_",
-            "published_",
-            "profile_",
-            "active_",
-            "pingxx_",
-            "discount_",
-            "risk_",
-        ]
+        # dynamically get the application table prefixes, based on the actual defined models
+        def get_app_table_prefixes():
+            """dynamically get the table prefixes from the actual models"""
+            prefixes = set()
 
-        # 系统表
+            # traverse all the registered models
+            for mapper in db.Model.registry.mappers:
+                model_class = mapper.class_
+                # only check the models in the flaskr.service module
+                if model_class.__module__.startswith("flaskr.service"):
+                    table_name = mapper.local_table.name
+                    # extract the table prefix (take the part before the first underscore and add an underscore)
+                    if "_" in table_name:
+                        prefix = table_name.split("_")[0] + "_"
+                        prefixes.add(prefix)
+
+            # add some special prefixes (compound prefixes)
+            special_prefixes = ["draft_", "published_"]
+            for prefix in special_prefixes:
+                # check if there are tables with these prefixes at the beginning
+                for mapper in db.Model.registry.mappers:
+                    model_class = mapper.class_
+                    if model_class.__module__.startswith("flaskr.service"):
+                        table_name = mapper.local_table.name
+                        if table_name.startswith(prefix):
+                            prefixes.add(prefix)
+
+            return list(prefixes)
+
+        app_table_prefixes = get_app_table_prefixes()
+
+        # the system tables
         system_tables = [
             "alembic_version",
             "information_schema",
             "performance_schema",
             "mysql",
             "sys",
-            "test",
         ]
 
-        # 跳过系统表相关的操作
+        # skip the operations related to the system tables
         if hasattr(op, "table_name"):
             table_name = op.table_name
             if table_name in system_tables or table_name.startswith("information_"):
                 return True
 
-            # 跳过不属于应用的表
+            # skip the tables that do not belong to the application
             if not any(table_name.startswith(prefix) for prefix in app_table_prefixes):
                 return True
 
-        # 跳过空的或无意义的 AlterColumnOp
+        # skip the empty or meaningless AlterColumnOp
         if op_type == "AlterColumnOp":
-            # 检查是否是无意义的类型转换
+            # check if it is meaningless type conversion
             if hasattr(op, "modify_type") and op.modify_type is not None:
                 existing_type_str = str(getattr(op, "existing_type", "")).upper()
                 modify_type_str = str(op.modify_type).upper()
 
-                # 跳过 DECIMAL ↔ NUMERIC 转换
+                # skip the DECIMAL ↔ NUMERIC conversion
                 if (
                     "DECIMAL" in existing_type_str and "NUMERIC" in modify_type_str
                 ) or ("NUMERIC" in existing_type_str and "DECIMAL" in modify_type_str):
                     return True
 
-                # 跳过 TINYINT(1) ↔ BOOLEAN 转换
+                # skip the TINYINT(1) ↔ BOOLEAN conversion
                 if (
                     "TINYINT(1)" in existing_type_str and "BOOLEAN" in modify_type_str
                 ) or (
@@ -417,16 +381,16 @@ def run_migrations_online() -> None:
                 ):
                     return True
 
-            # 检查是否是重复的注释变更（只修改注释且是"Update time"这种通用注释）
+            # check if it is a duplicate comment change (only modify the comment and is the "Update time" type of general comment)
             if hasattr(op, "modify_comment") and op.modify_comment is not None:
                 existing_comment = str(
                     getattr(op, "existing_comment", "") or ""
                 ).strip()
                 modify_comment = str(op.modify_comment or "").strip()
 
-                # 如果是添加"Update time"这种通用注释，且没有其他修改，跳过
+                # if it is the "Update time" type of general comment, and there are no other modifications, skip
                 if not existing_comment and modify_comment == "Update time":
-                    # 检查是否还有其他修改
+                    # check if there are other modifications
                     has_other_changes = (
                         (hasattr(op, "modify_type") and op.modify_type is not None)
                         or (
@@ -441,17 +405,17 @@ def run_migrations_online() -> None:
                     if not has_other_changes:
                         return True
 
-            # 检查是否真的有实质性的修改
+            # check if there are substantial modifications
             has_meaningful_change = False
 
             if hasattr(op, "modify_comment") and op.modify_comment is not None:
-                # 对于注释变更，进行更严格的检查
+                # for the comment change, do a more strict check
                 existing_comment = str(
                     getattr(op, "existing_comment", "") or ""
                 ).strip()
                 modify_comment = str(op.modify_comment or "").strip()
 
-                # 如果不是添加"Update time"这种通用注释，认为是有意义的
+                # if it is not the "Update time" type of general comment, it is meaningful
                 if not (not existing_comment and modify_comment == "Update time"):
                     has_meaningful_change = True
 
@@ -461,11 +425,11 @@ def run_migrations_online() -> None:
             ):
                 has_meaningful_change = True
             if hasattr(op, "modify_type") and op.modify_type is not None:
-                # 但是排除掉我们已经过滤的类型转换
+                # but exclude the filtered type conversions
                 existing_type_str = str(getattr(op, "existing_type", "")).upper()
                 modify_type_str = str(op.modify_type).upper()
 
-                # 如果是被过滤的类型转换，不认为是有意义的修改
+                # if it is the filtered type conversion, it is not meaningful
                 is_filtered_type_change = (
                     ("DECIMAL" in existing_type_str and "NUMERIC" in modify_type_str)
                     or ("NUMERIC" in existing_type_str and "DECIMAL" in modify_type_str)
@@ -485,22 +449,22 @@ def run_migrations_online() -> None:
             if hasattr(op, "modify_nullable") and op.modify_nullable is not None:
                 has_meaningful_change = True
 
-            # 如果没有实质性修改，跳过
+            # if there are no substantial modifications, skip
             if not has_meaningful_change:
                 return True
 
-            # 检查是否是无意义的 server_default 变更（例如从 None 到 None）
+            # check if it is a meaningless server_default change (for example, from None to None)
             if hasattr(op, "modify_server_default") and hasattr(
                 op, "existing_server_default"
             ):
                 new_default = op.modify_server_default
                 existing_default = op.existing_server_default
 
-                # 如果新旧值实际相同，跳过
+                # if the new and old values are actually the same, skip
                 if str(new_default) == str(existing_default):
                     return True
 
-                # 如果都是 None 或空值，跳过
+                # if both are None or empty values, skip
                 if (new_default is None or new_default == "") and (
                     existing_default is None or existing_default == ""
                 ):
@@ -509,14 +473,14 @@ def run_migrations_online() -> None:
         return False
 
     def merge_related_changes(script):
-        """合并相关的变更到同一个迁移中"""
+        """merge the related changes into the same migration"""
         if not hasattr(script, "upgrade_ops") or not script.upgrade_ops:
             return
 
-        # 按表名分组变更
+        # group the changes by table name
         table_changes = {}
 
-        # 收集所有变更
+        # collect all the changes
         for op in script.upgrade_ops.ops:
             if hasattr(op, "table_name"):
                 table_name = op.table_name
@@ -524,18 +488,18 @@ def run_migrations_online() -> None:
                     table_changes[table_name] = []
                 table_changes[table_name].append(op)
 
-        # 检查是否有需要合并的变更
+        # check if there are changes that need to be merged
         for table_name, changes in table_changes.items():
             if len(changes) > 1:
                 logger.info(
                     f"Table {table_name} has {len(changes)} changes, ensuring they are in the same migration"
                 )
 
-                # 检查是否有相关的变更类型
+                # check if there are related change types
                 change_types = [type(op).__name__ for op in changes]
                 logger.info(f"Change types for {table_name}: {change_types}")
 
-                # 如果同一个表有 comment 和 server_default 的变化，记录日志
+                # if the same table has comment and server_default changes, log
                 has_comment_change = any("comment" in str(op).lower() for op in changes)
                 has_server_default_change = any(
                     "server_default" in str(op).lower() for op in changes
@@ -546,17 +510,17 @@ def run_migrations_online() -> None:
                         f"Table {table_name} has both comment and server_default changes - they should be in the same migration"
                     )
 
-                # 尝试合并相关的操作
+                # try to merge the related operations
                 merged_ops = []
                 i = 0
                 while i < len(changes):
                     current_op = changes[i]
                     merged_ops.append(current_op)
 
-                    # 检查下一个操作是否可以合并
+                    # check if the next operation can be merged
                     if i + 1 < len(changes):
                         next_op = changes[i + 1]
-                        # 如果两个操作都是 alter_column 且针对同一个列，尝试合并
+                        # if both operations are alter_column and for the same column, try to merge
                         if (
                             hasattr(current_op, "column_name")
                             and hasattr(next_op, "column_name")
@@ -568,27 +532,27 @@ def run_migrations_online() -> None:
                             logger.info(
                                 f"Merging operations for column {current_op.column_name} in table {table_name}"
                             )
-                            # 这里可以添加合并逻辑
-                            i += 2  # 跳过下一个操作
+                            # here you can add the merge logic
+                            i += 2  # skip the next operation
                             continue
 
                     i += 1
 
-                # 更新操作列表
+                # update the operation list
                 if len(merged_ops) < len(changes):
                     logger.info(
                         f"Reduced operations for table {table_name} from {len(changes)} to {len(merged_ops)}"
                     )
-                    # 这里可以更新 script.upgrade_ops.ops
+                    # here you can update script.upgrade_ops.ops
 
     conf_args = current_app.extensions["migrate"].configure_args
     if conf_args.get("process_revision_directives") is None:
         conf_args["process_revision_directives"] = process_revision_directives
 
-    # 设置迁移配置参数 - 先设置基础参数
+    # set the migration configuration parameters - first set the basic parameters
     conf_args.setdefault("render_as_batch", True)
 
-    # 禁用一些可能导致不必要迁移的选项
+    # disable some options that may cause unnecessary migrations
     conf_args["compare_name"] = False
     conf_args["compare_schema"] = False
 
