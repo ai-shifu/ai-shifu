@@ -1,17 +1,18 @@
-"""check sql update
+"""update mysql to migrate version
 
-Revision ID: b1280510b6f4
-Revises: 017491f98d4a
-Create Date: 2025-08-16 17:15:39.195021
+Revision ID: bd4a3ef686c3
+Revises: ca7e9533368b
+Create Date: 2025-08-17 07:59:57.174693
 
 """
 
 from alembic import op
+import sqlalchemy as sa
 from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
-revision = "b1280510b6f4"
-down_revision = "017491f98d4a"
+revision = "bd4a3ef686c3"
+down_revision = "ca7e9533368b"
 branch_labels = None
 depends_on = None
 
@@ -223,6 +224,15 @@ def downgrade():
             existing_nullable=False,
         )
 
+    with op.batch_alter_table("discount", schema=None) as batch_op:
+        batch_op.alter_column(
+            "updated",
+            existing_type=mysql.TIMESTAMP(),
+            server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
+            existing_comment="Update time",
+            existing_nullable=False,
+        )
+
     with op.batch_alter_table("ai_lesson_script", schema=None) as batch_op:
         batch_op.alter_column(
             "updated",
@@ -291,6 +301,15 @@ def downgrade():
             "updated",
             existing_type=mysql.TIMESTAMP(),
             comment=None,
+            existing_comment="Update time",
+            existing_nullable=False,
+        )
+
+    with op.batch_alter_table("active", schema=None) as batch_op:
+        batch_op.alter_column(
+            "updated",
+            existing_type=mysql.TIMESTAMP(),
+            server_default=sa.text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"),
             existing_comment="Update time",
             existing_nullable=False,
         )
