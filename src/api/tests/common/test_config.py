@@ -422,16 +422,16 @@ class TestGetConfigFunction:
             monkeypatch.setenv("REDIS_HOST", "env-redis-host")
             value = get_config("REDIS_HOST")
             assert value == "env-redis-host"
-            
+
             # Test with unknown key - should get from environment
             monkeypatch.setenv("CUSTOM_KEY", "custom-value")
             value = get_config("CUSTOM_KEY")
             assert value == "custom-value"
-            
+
             # Test with unknown key not in environment - should return default
             value = get_config("UNKNOWN_KEY", "default-value")
             assert value == "default-value"
-            
+
             # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
             monkeypatch.delenv("REDIS_HOST", raising=False)
             value = get_config("REDIS_HOST")
