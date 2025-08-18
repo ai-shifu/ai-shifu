@@ -609,7 +609,7 @@ const userInfo = await getUserInfo(); // Both routes - direct data
     - `build:` (build system or external dependencies)
     - `ci:` (CI configuration and scripts)
     - `perf:` (performance improvements)
-    - `style:` (formatting, missing semicolons, etc. — no code change)
+    - `style:` (formatting, missing semicolons, etc. - no code change)
     - `revert:` (revert a previous commit)
   - ✅ Correct: `feat: add user profile export functionality`
   - ✅ Correct: `fix: resolve database connection timeout issue`
