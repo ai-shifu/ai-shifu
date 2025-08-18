@@ -82,11 +82,7 @@ These variables are essential for the application to run:
    - Generate secure key: `python -c "import secrets; print(secrets.token_urlsafe(32))"`
    - **Important**: Use different keys for dev/test/prod environments
 
-3. **Testing/Development**
-   - `UNIVERSAL_VERIFICATION_CODE`: Universal code for testing (e.g., "1024")
-   - **Warning**: Disable or change this in production
-
-4. **LLM Provider** (at least one required)
+3. **LLM Provider** (at least one required)
    - Choose from: OpenAI, ERNIE, ARK, SiliconFlow, GLM, DeepSeek, Qwen
    - See `.env.example.full` for specific provider configurations
 
@@ -129,7 +125,6 @@ Update your `.env` file for local development:
 ```bash
 # Update database URLs for local services
 SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@localhost:3306/ai-shifu"
-REDIS_HOST="localhost"
 
 # Update API base URL
 REACT_APP_BASEURL="http://localhost:5800"
