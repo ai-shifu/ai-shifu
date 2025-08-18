@@ -823,7 +823,7 @@ class EnhancedConfig:
             errors.append("At least one LLM API key must be configured")
         for var_name, env_var in self.env_vars.items():
             # Check required variables (those with required=True)
-            if env_var.required and var_name not in os.environ:
+            if env_var.required and not os.environ.get(var_name):
                 missing_required.append(f"- {var_name}: {env_var.description}")
                 continue
             # Get value (from environment or default)
