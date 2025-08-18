@@ -1094,10 +1094,6 @@ class Config(FlaskConfig):
         if value is not None:
             return value
 
-        value = os.environ.get(key, None)
-        if value is not None:
-            return value
-
         # Fallback to parent Flask config
         return self.parent.get(key, default)
 
