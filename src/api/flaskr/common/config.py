@@ -1,5 +1,6 @@
 import os
 import re
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Dict, List, Type
 from flask import Flask
@@ -860,7 +861,14 @@ class EnhancedConfig:
             else:
                 try:
                     value = env_var.convert_type(value)
-                except Exception:
+                except Exception as e:
+                    # Log warning about type conversion failure
+                    logger = logging.getLogger(__name__)
+                    logger.warning(
+                        f"Failed to convert environment variable '{key}' with value '{value}' "
+                        f"to type {env_var.type.__name__}. Using default value '{env_var.default}'. "
+                        f"Error: {str(e)}"
+                    )
                     value = env_var.default
             # Apply interpolation
             if isinstance(value, str):

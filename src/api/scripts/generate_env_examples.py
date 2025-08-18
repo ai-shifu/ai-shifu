@@ -9,7 +9,7 @@ This script generates two types of environment configuration files:
 Usage:
     python scripts/generate_env_examples.py
 
-The generated files will be created in the src/api directory.
+The generated files will be created in the docker directory.
 """
 
 import sys

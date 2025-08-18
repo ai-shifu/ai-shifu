@@ -12,8 +12,4 @@ from flaskr.common.config import get_config, EnvironmentConfigError
 load_dotenv()
 
 # Set Django settings module using get_config
-try:
-    os.environ["DJANGO_SETTINGS_MODULE"] = get_config("DJANGO_SETTINGS_MODULE")
-except EnvironmentConfigError:
-    # If configuration not initialized, use default
-    os.environ["DJANGO_SETTINGS_MODULE"] = "api.settings"
+os.environ["DJANGO_SETTINGS_MODULE"] = get_config("DJANGO_SETTINGS_MODULE")
