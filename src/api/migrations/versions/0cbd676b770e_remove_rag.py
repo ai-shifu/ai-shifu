@@ -1,4 +1,4 @@
-"""empty message
+"""feat: remove RAG and tag related tables
 
 Revision ID: 0cbd676b770e
 Revises: bd4a3ef686c3
