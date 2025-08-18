@@ -594,11 +594,29 @@ const userInfo = await getUserInfo(); // Both routes - direct data
 
 - **Git Commit Messages and PR Titles**: MUST use Conventional Commits format
   - **Required Format**: `<type>: <description>` (e.g., `fix: resolve database connection timeout issue`)
-  - **Common Types**: `feat:` (new feature), `fix:` (bug fix), `docs:` (documentation), `refactor:` (code refactoring), `test:` (tests), `chore:` (maintenance)
+  - **Style Rules**:
+    - Type must be lowercase (e.g., `fix:` not `Fix:`)
+    - Use imperative mood in description (e.g., "add", "fix", "remove" not "added", "fixes", "removing")
+    - Keep subject line concise (≤ 72 characters) and omit trailing period
+    - English only
+  - **Common Types**:
+    - `feat:` (new feature)
+    - `fix:` (bug fix)
+    - `docs:` (documentation)
+    - `refactor:` (code refactoring)
+    - `test:` (tests)
+    - `chore:` (maintenance)
+    - `build:` (build system or external dependencies)
+    - `ci:` (CI configuration and scripts)
+    - `perf:` (performance improvements)
+    - `style:` (formatting, missing semicolons, etc. — no code change)
+    - `revert:` (revert a previous commit)
   - ✅ Correct: `feat: add user profile export functionality`
   - ✅ Correct: `fix: resolve database connection timeout issue`
+  - ✅ Correct: `refactor: remove mysql prefix configuration`
   - ❌ Wrong: `修复：解决数据库连接超时问题` (not in English)
-  - ❌ Wrong: `Fixed the bug` (missing type prefix)
+  - ❌ Wrong: `Fixed the bug` (past tense, missing type prefix)
+  - ❌ Wrong: `Fix: Added new feature.` (capitalized type, past tense, trailing period)
   - **Applies to**: All git commits AND all PR titles
 
 - **Code Documentation**: README files, API documentation, code architecture docs
