@@ -521,10 +521,13 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Universal verification code for testing. **SECURITY WARNING:** Do NOT set this in production environments. If set, it will allow anyone to bypass verification. Only use for local development or testing.",
         group="auth",
         validator=lambda value: (
-            None if os.environ.get("FLASK_ENV", "production") != "production" else
-            (_ for _ in ()).throw(EnvironmentConfigError(
-                "UNIVERSAL_VERIFICATION_CODE must NOT be set in production. Remove this environment variable immediately."
-            ))
+            None
+            if os.environ.get("FLASK_ENV", "production") != "production"
+            else (_ for _ in ()).throw(
+                EnvironmentConfigError(
+                    "UNIVERSAL_VERIFICATION_CODE must NOT be set in production. Remove this environment variable immediately."
+                )
+            )
         ),
     ),
     # Alibaba Cloud Configuration
