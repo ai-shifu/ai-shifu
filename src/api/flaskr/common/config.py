@@ -43,6 +43,9 @@ class EnvVar:
 
     def convert_type(self, value: Any) -> Any:
         """Convert string value to the specified type."""
+        # Trim whitespace from string values before conversion
+        if isinstance(value, str):
+            value = value.strip()
         if value is None or value == "":
             return self.default
         # If value is already the correct type, return it
@@ -515,7 +518,11 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
-        description="Universal verification code for testing. **SECURITY WARNING:** Do NOT set this in production environments. If set, it will allow anyone to bypass verification. Only use for local development or testing.",
+        description=(
+            "Universal verification code for testing. **SECURITY WARNING:** "
+            "Do NOT set this in production environments. If set, it will allow "
+            "anyone to bypass verification. Only use for local development or testing."
+        ),
         group="auth",
         validator=lambda value: (
             None
@@ -820,11 +827,16 @@ class EnhancedConfig:
             errors.append("At least one LLM API key must be configured")
         for var_name, env_var in self.env_vars.items():
             # Check required variables (those with required=True)
-            if env_var.required and not os.environ.get(var_name):
+            raw_value = os.environ.get(var_name)
+            # Trim whitespace from environment variable values during validation
+            if isinstance(raw_value, str):
+                raw_value = raw_value.strip()
+
+            if env_var.required and not raw_value:
                 missing_required.append(f"- {var_name}: {env_var.description}")
                 continue
             # Get value (from environment or default)
-            value = os.environ.get(var_name, env_var.default)
+            value = raw_value if raw_value else env_var.default
             # Validate value if present
             if value is not None and value != "":
                 try:
@@ -855,6 +867,9 @@ class EnhancedConfig:
         if key in self.env_vars:
             env_var = self.env_vars[key]
             value = os.environ.get(key, env_var.default)
+            # Trim whitespace from environment variable values
+            if isinstance(value, str):
+                value = value.strip()
             if value is None or value == "":
                 value = env_var.default
             else:

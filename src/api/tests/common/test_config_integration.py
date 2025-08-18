@@ -363,8 +363,8 @@ class TestErrorHandling:
 class TestBackwardCompatibility:
     """Test that backward compatibility is properly removed."""
 
-    def test_no_direct_environ_access(self):
-        """Test that direct os.environ access is not supported."""
+    def test_no_direct_environ_access(self, monkeypatch):
+        """Test that get_config supports direct os.environ access when not initialized."""
         # Clear global instance to test uninitialized state
         import flaskr.common.config as config_module
 
@@ -372,11 +372,24 @@ class TestBackwardCompatibility:
         config_module.__INSTANCE__ = None
 
         try:
-            # Should raise error, not fall back to os.environ
-            with pytest.raises(EnvironmentConfigError) as exc_info:
-                get_config("ANY_KEY")
+            # Test with a known ENV_VAR key - should get from environment or default
+            monkeypatch.setenv("REDIS_HOST", "env-redis-host")
+            value = get_config("REDIS_HOST")
+            assert value == "env-redis-host"
 
-            assert "Configuration not initialized" in str(exc_info.value)
+            # Test with unknown key in environment - should get from environment
+            monkeypatch.setenv("CUSTOM_KEY", "custom-value")
+            value = get_config("CUSTOM_KEY")
+            assert value == "custom-value"
+
+            # Test with unknown key not in environment - should return default
+            value = get_config("UNKNOWN_KEY", "default-value")
+            assert value == "default-value"
+
+            # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
+            monkeypatch.delenv("REDIS_HOST", raising=False)
+            value = get_config("REDIS_HOST")
+            assert value == "localhost"  # Default value from ENV_VARS
         finally:
             config_module.__INSTANCE__ = original_instance
 
