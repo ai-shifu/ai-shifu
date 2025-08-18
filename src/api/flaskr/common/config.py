@@ -432,6 +432,7 @@ CRITICAL: Used to encrypt/decrypt user authentication tokens
 Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))" """,
         secret=True,
         group="auth",
+        validator=lambda value: bool(value and str(value).strip()),
     ),
     "TOKEN_EXPIRE_TIME": EnvVar(
         name="TOKEN_EXPIRE_TIME",
