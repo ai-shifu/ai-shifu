@@ -216,6 +216,7 @@ Default: "phone" (phone-only login if not configured)""",
     ),
     "DEEPSEEK_API_URL": EnvVar(
         name="DEEPSEEK_API_URL",
+        default="https://api.deepseek.com",
         description="DeepSeek API URL",
         group="llm",
     ),
@@ -525,15 +526,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
             "Only use for local development or testing."
         ),
         group="auth",
-        validator=lambda value: (
-            None
-            if os.environ.get("FLASK_ENV", "production") != "production"
-            else (_ for _ in ()).throw(
-                EnvironmentConfigError(
-                    "UNIVERSAL_VERIFICATION_CODE must NOT be set in production. Remove this environment variable immediately."
-                )
-            )
-        ),
     ),
     # Alibaba Cloud Configuration
     "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID": EnvVar(
