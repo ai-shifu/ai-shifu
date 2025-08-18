@@ -75,6 +75,13 @@ class EnvVar:
 
 # Environment variable registry
 ENV_VARS: Dict[str, EnvVar] = {
+    # System Configuration
+    "TZ": EnvVar(
+        name="TZ",
+        default="UTC",
+        description="Timezone setting for the application",
+        group="system",
+    ),
     # Application Configuration
     "WEB_URL": EnvVar(
         name="WEB_URL",
@@ -119,12 +126,6 @@ Default: "phone" (phone-only login if not configured)""",
         name="SHIFU_PERMISSION_CACHE_EXPIRE",
         default="1",
         description="Shifu permission cache expiration time in seconds",
-        group="app",
-    ),
-    "TZ": EnvVar(
-        name="TZ",
-        default="UTC",
-        description="System timezone setting",
         group="app",
     ),
     # LLM Configuration
@@ -286,8 +287,7 @@ DeepSeek: deepseek-chat""",
         name="SQLALCHEMY_DATABASE_URI",
         required=True,
         description="""MySQL database connection URI
-Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4
-For Docker: mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4""",
+Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""",
         secret=True,
         group="database",
     ),
@@ -517,9 +517,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
-        required=True,
         description="Universal verification code for testing",
-        secret=True,
         group="auth",
     ),
     # Alibaba Cloud Configuration
@@ -862,8 +860,8 @@ class EnhancedConfig:
                 value = self._interpolate(value)
             self._cache[key] = value
             return value
-        # No fallback - key must be defined in ENV_VARS
-        raise EnvironmentConfigError(f"Unknown configuration key: {key}")
+        # Return None for unknown keys to allow fallback in Config class
+        return None
 
     def get_str(self, key: str) -> str:
         """Get string configuration value."""
@@ -1093,10 +1091,13 @@ class Config(FlaskConfig):
             raise
 
     def __getitem__(self, key: Any) -> Any:
-        """Get configuration value using enhanced config first."""
+        """Get configuration value using enhanced config first, with fallback to parent."""
+        # Try enhanced config first
         value = self.enhanced.get(key)
         if value is not None:
             return value
+
+        # Fallback to parent Flask config
         try:
             return self.parent.__getitem__(key)
         except KeyError:
@@ -1118,9 +1119,25 @@ class Config(FlaskConfig):
         if key in self.enhanced._cache:
             del self.enhanced._cache[key]
 
-    def get(self, key: Any) -> Any:
-        """Get configuration value."""
-        return self.enhanced.get(key)
+    def get(self, key: Any, default: Any = None) -> Any:
+        """Get configuration value with fallback to parent and optional default.
+
+        This method maintains compatibility with Flask's Config.get() API.
+
+        Args:
+            key: Configuration key to look up
+            default: Default value to return if key is not found (default: None)
+
+        Returns:
+            The configuration value, or default if not found
+        """
+        # Try enhanced config first
+        value = self.enhanced.get(key)
+        if value is not None:
+            return value
+
+        # Fallback to parent Flask config
+        return self.parent.get(key, default)
 
     def get_str(self, key: str) -> str:
         """Get string configuration value."""
@@ -1146,18 +1163,38 @@ class Config(FlaskConfig):
         return self.parent.__call__(*args, **kwds)
 
     def setdefault(self, key: Any, default: Any = None) -> Any:
-        """Set default value if key doesn't exist."""
+        """Set default value if key doesn't exist.
+
+        This method maintains compatibility with Flask's Config.setdefault() API.
+        """
+        # Check enhanced config first
         value = self.enhanced.get(key)
         if value is not None:
             return value
+
+        # Use parent's setdefault for consistency
         return self.parent.setdefault(key, default)
 
 
-def get_config(key: str) -> Any:
-    """Get configuration value."""
+def get_config(key: str, default: Any = None) -> Any:
+    """Get configuration value.
+
+    Args:
+        key: Configuration key to look up
+        default: Default value if key not found or config not initialized
+
+    Returns:
+        Configuration value or default
+    """
     if __INSTANCE__ is None:
-        # If not initialized, raise an error - no backward compatibility
-        raise EnvironmentConfigError(
-            f"Configuration not initialized. Cannot access {key}"
-        )
-    return __INSTANCE__.get(key)
+        # Before initialization, try to get from environment directly
+        # This is needed for module-level calls like timezone setup
+        if key in ENV_VARS:
+            env_var = ENV_VARS[key]
+            value = os.environ.get(key, env_var.default)
+            if value is None:
+                return default
+            return value
+        # For unknown keys, check environment directly
+        return os.environ.get(key, default)
+    return __INSTANCE__.get(key, default)
