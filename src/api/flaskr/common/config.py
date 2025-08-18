@@ -818,7 +818,7 @@ class EnhancedConfig:
             "QWEN_API_KEY",
             "BIGMODEL_API_KEY",
         ]
-        has_llm = any(os.environ.get(var, "") != "" for var in llm_vars)
+        has_llm = any(self.get(var) not in (None, "") for var in llm_vars)
         if not has_llm:
             errors.append("At least one LLM API key must be configured")
         for var_name, env_var in self.env_vars.items():
