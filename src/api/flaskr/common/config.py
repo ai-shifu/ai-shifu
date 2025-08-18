@@ -252,38 +252,6 @@ DeepSeek: deepseek-chat""",
         group="llm",
         validator=lambda x: 0.0 <= float(x) <= 2.0,
     ),
-    # Knowledge Base
-    "DEFAULT_KB_ID": EnvVar(
-        name="DEFAULT_KB_ID",
-        default="default",
-        description="Default knowledge base ID",
-        group="knowledge_base",
-    ),
-    "EMBEDDING_MODEL_BASE_URL": EnvVar(
-        name="EMBEDDING_MODEL_BASE_URL",
-        default="",
-        description="OpenAI-API-compatible embedding model base URL (OpenAI, SILICON, Xinference, One-API, etc.)",
-        group="knowledge_base",
-    ),
-    "EMBEDDING_MODEL_API_KEY": EnvVar(
-        name="EMBEDDING_MODEL_API_KEY",
-        default="",
-        description="API key for embedding model",
-        secret=True,
-        group="knowledge_base",
-    ),
-    "DEFAULT_EMBEDDING_MODEL": EnvVar(
-        name="DEFAULT_EMBEDDING_MODEL",
-        default="BAAI/bge-large-zh-v1.5",
-        description="Default embedding model name",
-        group="knowledge_base",
-    ),
-    "DEFAULT_EMBEDDING_MODEL_DIM": EnvVar(
-        name="DEFAULT_EMBEDDING_MODEL_DIM",
-        default="1024",
-        description="Dimension of default embedding model",
-        group="knowledge_base",
-    ),
     # Database Configuration
     "SQLALCHEMY_DATABASE_URI": EnvVar(
         name="SQLALCHEMY_DATABASE_URI",
