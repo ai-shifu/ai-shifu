@@ -481,6 +481,67 @@ const userInfo = await getUserInfo(); // Both routes - direct data
 
 ## Code Quality
 
+### Language Requirements
+
+**English-Only Policy for Code**: All code-related content MUST be written in English to ensure consistency, maintainability, and international collaboration.
+
+#### What MUST be in English:
+
+- **Code Comments**: All inline comments, block comments, and documentation comments
+  - ✅ Correct: `# Calculate user discount based on membership level`
+  - ❌ Wrong: `# 根据会员等级计算用户折扣`
+
+- **Variable and Function Names**: All identifiers in the code
+  - ✅ Correct: `getUserProfile()`, `isValid`, `maxRetryCount`
+  - ❌ Wrong: `获取用户资料()`, `是否有效`, `最大重试次数`
+
+- **Database Elements**: Table names, column names, and database comments
+  - ✅ Correct: `user_profile`, `created_at`, comment="User creation timestamp"
+  - ❌ Wrong: `用户资料`, `创建时间`, comment="用户创建时间戳"
+
+- **Constants and Enums**: All constant values and enumeration names
+  - ✅ Correct: `STATUS_ACTIVE = 1`, `PaymentStatus.PENDING`
+  - ❌ Wrong: `状态_激活 = 1`, `支付状态.待处理`
+
+- **Log Messages and Debug Output**: All logging statements and debug information
+  - ✅ Correct: `logger.info("User login successful")`
+  - ❌ Wrong: `logger.info("用户登录成功")`
+
+- **Error Messages in Code**: Internal error messages and exception messages
+  - ✅ Correct: `raise ValueError("Invalid email format")`
+  - ❌ Wrong: `raise ValueError("无效的邮箱格式")`
+
+- **Configuration Keys**: All configuration file keys and environment variable names
+  - ✅ Correct: `DATABASE_URL`, `max_connections`
+  - ❌ Wrong: `数据库地址`, `最大连接数`
+
+- **Git Commit Messages**: All commit messages and PR descriptions
+  - ✅ Correct: `fix: resolve database connection timeout issue`
+  - ❌ Wrong: `修复：解决数据库连接超时问题`
+
+- **Code Documentation**: README files, API documentation, code architecture docs
+  - ✅ Correct: Technical documentation in English
+  - ❌ Wrong: Technical documentation in other languages
+
+#### Exceptions (Where Other Languages ARE Allowed):
+
+- **User-Facing Strings**: All text displayed to end users should use i18n
+  - These should be translation keys, not hardcoded strings
+  - Actual translations in locale files (`zh-CN.json`, `en-US.json`, etc.)
+
+- **Test Data**: Sample user data or content used for testing may be in any language if testing internationalization
+
+- **Business Logic Comments**: When documenting specific regional business requirements, a brief explanation in the local language may be added AFTER the English comment for clarity
+  - Example: `# Check if user has valid ID card (检查身份证有效性)`
+
+#### Rationale:
+
+- Ensures codebase is accessible to international developers
+- Facilitates easier debugging and maintenance
+- Improves consistency across the entire project
+- Enables better collaboration with global teams
+- Makes code review more effective
+
 ### Pre-commit Hooks
 
 - **ALWAYS run pre-commit before committing code**: This ensures code quality and consistency
