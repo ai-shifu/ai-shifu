@@ -519,9 +519,10 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
         description=(
-            "Universal verification code for testing. **SECURITY WARNING:** "
-            "Do NOT set this in production environments. If set, it will allow "
-            "anyone to bypass verification. Only use for local development or testing."
+            "Universal verification code for testing.\n"
+            "**SECURITY WARNING:** Do NOT set this in production environments.\n"
+            "If set, it will allow anyone to bypass verification.\n"
+            "Only use for local development or testing."
         ),
         group="auth",
         validator=lambda value: (
