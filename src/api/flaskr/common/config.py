@@ -963,39 +963,6 @@ class EnhancedConfig:
                 print(item)
         print("\n" + "=" * 30 + "\n")
 
-    def export_env_example(self) -> str:
-        """Export environment variable definitions as .env.example format."""
-        lines = ["# AI-Shifu Environment Configuration\n"]
-        groups = {}
-        for var_name, env_var in self.env_vars.items():
-            if env_var.group not in groups:
-                groups[env_var.group] = []
-            groups[env_var.group].append(env_var)
-        for group, vars in sorted(groups.items()):
-            lines.append(f"\n#{'=' * 20}")
-            lines.append(f"# {group.replace('_', ' ').title()}")
-            lines.append(f"#{'=' * 20}\n")
-            for env_var in sorted(vars, key=lambda x: x.name):
-                if env_var.description:
-                    # Handle multi-line descriptions
-                    description_lines = env_var.description.strip().split("\n")
-                    for desc_line in description_lines:
-                        lines.append(f"# {desc_line.strip()}")
-                if env_var.required:
-                    lines.append("# (REQUIRED - must be set)")
-                elif env_var.default is None:
-                    lines.append("# (Optional - handled by libraries)")
-                if env_var.type != str:
-                    lines.append(f"# Type: {env_var.type.__name__}")
-                if env_var.validator:
-                    lines.append("# (Has validation)")
-                default_value = env_var.default if env_var.default is not None else ""
-                if env_var.secret and default_value:
-                    default_value = ""
-                lines.append(f'{env_var.name}="{default_value}"')
-                lines.append("")
-        return "\n".join(lines)
-
     def export_env_example_filtered(self, filter_type: str = "all") -> str:
         """Export environment variable definitions as .env.example format with filtering.
 
