@@ -75,13 +75,6 @@ class EnvVar:
 
 # Environment variable registry
 ENV_VARS: Dict[str, EnvVar] = {
-    # System Configuration
-    "TZ": EnvVar(
-        name="TZ",
-        default="UTC",
-        description="Timezone setting for the application",
-        group="system",
-    ),
     # Application Configuration
     "WEB_URL": EnvVar(
         name="WEB_URL",
@@ -128,6 +121,12 @@ Default: "phone" (phone-only login if not configured)""",
         description="Shifu permission cache expiration time in seconds",
         group="app",
     ),
+    "TZ": EnvVar(
+        name="TZ",
+        default="UTC",
+        description="Timezone setting for the application",
+        group="app",
+    ),
     # LLM Configuration
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
@@ -138,7 +137,6 @@ Default: "phone" (phone-only login if not configured)""",
     ),
     "OPENAI_BASE_URL": EnvVar(
         name="OPENAI_BASE_URL",
-        default="https://api.openai.com/v1",
         description="OpenAI API base URL",
         group="llm",
     ),
@@ -214,7 +212,6 @@ Default: "phone" (phone-only login if not configured)""",
     ),
     "DEEPSEEK_API_URL": EnvVar(
         name="DEEPSEEK_API_URL",
-        default="https://api.deepseek.com",
         description="DeepSeek API URL",
         group="llm",
     ),
