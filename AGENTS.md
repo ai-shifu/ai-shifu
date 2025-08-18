@@ -592,9 +592,14 @@ const userInfo = await getUserInfo(); // Both routes - direct data
   - ✅ Correct: `DATABASE_URL`, `max_connections`
   - ❌ Wrong: `数据库地址`, `最大连接数`
 
-- **Git Commit Messages**: All commit messages and PR descriptions
+- **Git Commit Messages and PR Titles**: MUST use Conventional Commits format
+  - **Required Format**: `<type>: <description>` (e.g., `fix: resolve database connection timeout issue`)
+  - **Common Types**: `feat:` (new feature), `fix:` (bug fix), `docs:` (documentation), `refactor:` (code refactoring), `test:` (tests), `chore:` (maintenance)
+  - ✅ Correct: `feat: add user profile export functionality`
   - ✅ Correct: `fix: resolve database connection timeout issue`
-  - ❌ Wrong: `修复：解决数据库连接超时问题`
+  - ❌ Wrong: `修复：解决数据库连接超时问题` (not in English)
+  - ❌ Wrong: `Fixed the bug` (missing type prefix)
+  - **Applies to**: All git commits AND all PR titles
 
 - **Code Documentation**: README files, API documentation, code architecture docs
   - ✅ Correct: Technical documentation in English
