@@ -6,7 +6,7 @@
 import os
 from dotenv import load_dotenv
 from .test_app import *  # noqa
-from flaskr.common.config import get_config, EnvironmentConfigError
+from flaskr.common.config import get_config
 
 # Load environment variables first
 load_dotenv()
