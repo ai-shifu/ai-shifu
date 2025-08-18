@@ -193,13 +193,11 @@ class TestEnhancedConfigGet:
         assert value2 == "test-redis"  # Still the cached value
 
     def test_get_unknown_key(self):
-        """Test getting unknown configuration key."""
+        """Test getting unknown configuration key returns None."""
         config = EnhancedConfig(MINIMAL_ENV_VARS)
 
-        with pytest.raises(EnvironmentConfigError) as exc_info:
-            config.get("UNKNOWN_KEY")
-
-        assert "Unknown configuration key: UNKNOWN_KEY" in str(exc_info.value)
+        # Unknown keys should return None to allow fallback in Config class
+        assert config.get("UNKNOWN_KEY") is None
 
     def test_get_empty_value_returns_default(self, monkeypatch):
         """Test that empty string returns default value."""
