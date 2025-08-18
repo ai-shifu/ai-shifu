@@ -409,8 +409,8 @@ class TestGetConfigFunction:
         value = get_config("REDIS_HOST")
         assert value == "global-redis"
 
-    def test_get_config_without_initialized_instance(self):
-        """Test get_config raises error when not initialized."""
+    def test_get_config_without_initialized_instance(self, monkeypatch):
+        """Test get_config works before initialization by reading from environment."""
         # Clear global instance
         import flaskr.common.config as config_module
 
@@ -418,11 +418,24 @@ class TestGetConfigFunction:
         config_module.__INSTANCE__ = None
 
         try:
-            with pytest.raises(EnvironmentConfigError) as exc_info:
-                get_config("ANY_KEY")
-
-            assert "Configuration not initialized" in str(exc_info.value)
-            assert "ANY_KEY" in str(exc_info.value)
+            # Test with a known ENV_VAR key - should get from environment or default
+            monkeypatch.setenv("REDIS_HOST", "env-redis-host")
+            value = get_config("REDIS_HOST")
+            assert value == "env-redis-host"
+            
+            # Test with unknown key - should get from environment
+            monkeypatch.setenv("CUSTOM_KEY", "custom-value")
+            value = get_config("CUSTOM_KEY")
+            assert value == "custom-value"
+            
+            # Test with unknown key not in environment - should return default
+            value = get_config("UNKNOWN_KEY", "default-value")
+            assert value == "default-value"
+            
+            # Test with known ENV_VAR key not in environment - should return default from ENV_VARS
+            monkeypatch.delenv("REDIS_HOST", raising=False)
+            value = get_config("REDIS_HOST")
+            assert value == "localhost"  # Default value from ENV_VARS
         finally:
             # Restore original instance
             config_module.__INSTANCE__ = original_instance
