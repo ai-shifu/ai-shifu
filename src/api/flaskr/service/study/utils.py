@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+from typing import Union
 from flaskr.service.common.models import raise_error
 from flask import Flask
 from flaskr.util.uuid import generate_id
@@ -21,7 +22,12 @@ from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.shifu.consts import BLOCK_TYPE_VALUES
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
 from flaskr.service.shifu.struct_utils import find_node_with_parents
-from flaskr.service.shifu.models import PublishedOutlineItem, PublishedShifu
+from flaskr.service.shifu.models import (
+    PublishedOutlineItem,
+    PublishedShifu,
+    DraftOutlineItem,
+    DraftShifu,
+)
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 
@@ -314,14 +320,16 @@ def get_follow_up_info(
             ask_mode=ASK_MODE_DISABLE,
         )
     path = list(reversed(path))
-
     path: list[HistoryItem] = [p for p in path if p.type == "outline"]
     outline_ids = [p.id for p in path]
-
-    outline_infos: list[PublishedOutlineItem] = PublishedOutlineItem.query.filter(
-        PublishedOutlineItem.id.in_(outline_ids),
-    ).all()
-    outline_infos_map: dict[str, PublishedOutlineItem] = {
+    outline_model = PublishedOutlineItem if not is_preview else DraftOutlineItem
+    shifu_model = PublishedShifu if not is_preview else DraftShifu
+    outline_infos: list[Union[PublishedOutlineItem, DraftOutlineItem]] = (
+        outline_model.query.filter(
+            outline_model.id.in_(outline_ids),
+        ).all()
+    )
+    outline_infos_map: dict[str, Union[PublishedOutlineItem, DraftOutlineItem]] = {
         o.outline_item_bid: o for o in outline_infos
     }
 
@@ -337,9 +345,13 @@ def get_follow_up_info(
                     model_args={"temperature": outline_info.ask_llm_temperature},
                     ask_mode=outline_info.ask_enabled_status,
                 )
-    shifu_info: PublishedShifu = PublishedShifu.query.filter(
-        PublishedShifu.shifu_bid == shifu_bid, PublishedShifu.deleted == 0
-    ).first()
+    shifu_info: Union[PublishedShifu, DraftShifu] = (
+        shifu_model.query.filter(
+            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
+        )
+        .order_by(shifu_model.id.desc())
+        .first()
+    )
     ask_model = shifu_info.ask_llm
     ask_prompt = shifu_info.ask_llm_system_prompt
     ask_history_count = 10
