@@ -119,7 +119,7 @@ class TestEnvironmentVariableFallback:
         app, config = setup_app
 
         # Test with non-existent var and default
-        # Note: Config.get() returns None if not found, not the default from the method parameter
+        # Note: Config.get() returns the default parameter value if the key is not found
         # The default is only used if the key exists but has None value
         value = config.get("NON_EXISTENT_VAR")
 
