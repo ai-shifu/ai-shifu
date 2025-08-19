@@ -482,7 +482,7 @@ The Cook Web frontend has been unified to use a single, consistent API request s
 #### Architecture Overview
 
 ```text
-Business Code → Request Class → handleBusinessCode() → Return Business Data
+Application Logic → Request Handler → Business Code Handler → Business Data Response
 ```
 
 #### Key Components
