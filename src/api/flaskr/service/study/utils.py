@@ -288,7 +288,19 @@ def get_follow_up_info(
     is_preview: bool = False,
 ) -> FollowUpInfo:
     """
-    Get follow up info
+    Get follow up info.
+
+    Args:
+        app (Flask): The Flask application instance.
+        shifu_bid (str): The shifu business ID.
+        block_dto (BlockDTO): The block data transfer object.
+        attend_id (str): The attendance ID.
+        is_preview (bool, optional): Whether to retrieve the follow up info in preview mode.
+            If True, retrieves data as it would appear in preview (unpublished) state; if False,
+            retrieves data as it appears in the published state. Defaults to False.
+
+    Returns:
+        FollowUpInfo: The follow up information for the given parameters.
     """
     struct_info = get_shifu_struct(app, shifu_bid, is_preview)
     path = find_node_with_parents(struct_info, block_dto.bid)
