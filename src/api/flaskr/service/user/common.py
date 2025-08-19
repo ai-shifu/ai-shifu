@@ -26,7 +26,7 @@ from ...dao import redis_client as redis, db
 from flaskr.service.shifu.models import PublishedShifu
 from flaskr.i18n import get_i18n_list
 
-FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
+FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE") or None
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
@@ -279,10 +279,10 @@ def verify_sms_code(
     )
 
     check_save = redis.get(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
-    if check_save is None and chekcode != FIX_CHECK_CODE:
+    if check_save is None and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
         raise_error("USER.SMS_SEND_EXPIRED")
     check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-    if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
+    if chekcode != check_save_str and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
         raise_error("USER.SMS_CHECK_ERROR")
     else:
         redis.delete(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
@@ -373,10 +373,10 @@ def verify_mail_code(
     )
 
     check_save = redis.get(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + mail)
-    if check_save is None and chekcode != FIX_CHECK_CODE:
+    if check_save is None and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
         raise_error("USER.MAIL_SEND_EXPIRED")
     check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-    if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
+    if chekcode != check_save_str and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
         raise_error("USER.MAIL_CHECK_ERROR")
     else:
         redis.delete(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + mail)
