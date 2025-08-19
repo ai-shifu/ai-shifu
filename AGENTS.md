@@ -249,6 +249,7 @@ class Order(db.Model):
     updated_user_bid = Column(
         String(32),
         nullable=False,
+        index=True,
         default="",
         comment="Last updater user business identifier"
     )
@@ -257,7 +258,7 @@ class Order(db.Model):
 #### Database Change Checklist
 
 - [ ] Model changes made in `src/api/flaskr/service/[module]/models.py`
-- [ ] Migration generated: `flask db migrate -m "description"`
+- [ ] Migration generated: `FLASK_APP=app.py flask db migrate -m "description"`
 - [ ] Migration reviewed in `src/api/migrations/versions/`
 - [ ] Migration file committed to version control
 - [ ] Tests updated/added for new model
@@ -267,8 +268,8 @@ class Order(db.Model):
 
 | Problem | Solution |
 |---------|----------|
-| `flask: command not found` | `export FLASK_APP=flaskr` or `python -m flask db migrate` |
-| `Could not locate a Flask application` | `export FLASK_APP=flaskr` |
+| `flask: command not found` | `export FLASK_APP=app.py` or `python -m flask db migrate` |
+| `Could not locate a Flask application` | `export FLASK_APP=app.py` |
 | `Target database is not up to date` | Check status: `flask db current`, then `flask db upgrade` |
 | Database connection errors | `export DATABASE_URL="mysql://user:pass@host/db"` |
 | Migration not detecting changes | Check model is imported in `__init__.py` |
