@@ -89,7 +89,7 @@ The project follows a microservices architecture with 3 main components:
 cd src/api
 
 # Development server
-flask run
+FLASK_APP=app.py flask run
 
 # Database operations
 FLASK_APP=app.py flask db migrate -m "descriptive message"  # Create migration
