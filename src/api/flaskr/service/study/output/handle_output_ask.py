@@ -24,7 +24,7 @@ def _handle_output_ask(
     shifu_bid = outline_item_info.shifu_bid
     app.logger.info(f"block_dto: {shifu_bid}")
     follow_up_info = get_follow_up_info(
-        app, outline_item_info.shifu_bid, block_dto, attend_id
+        app, outline_item_info.shifu_bid, block_dto, attend_id, is_preview
     )
 
     ask_mode = follow_up_info.ask_mode

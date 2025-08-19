@@ -281,12 +281,16 @@ class FollowUpInfo:
 
 
 def get_follow_up_info(
-    app: Flask, shifu_bid: str, block_dto: BlockDTO, attend_id: str
+    app: Flask,
+    shifu_bid: str,
+    block_dto: BlockDTO,
+    attend_id: str,
+    is_preview: bool = False,
 ) -> FollowUpInfo:
     """
     Get follow up info
     """
-    struct_info = get_shifu_struct(app, shifu_bid)
+    struct_info = get_shifu_struct(app, shifu_bid, is_preview)
     path = find_node_with_parents(struct_info, block_dto.bid)
     if not path:
         return FollowUpInfo(

@@ -47,7 +47,7 @@ def _handle_input_ask(
 
     # Get follow-up information (including Q&A prompts and model configuration)
     follow_up_info = get_follow_up_info(
-        app, outline_item_info.shifu_bid, block_dto, attend_id
+        app, outline_item_info.shifu_bid, block_dto, attend_id, is_preview
     )
 
     context = RunScriptContext.get_current_context(app)
