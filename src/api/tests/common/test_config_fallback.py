@@ -139,8 +139,8 @@ class TestEnhancedConfigFallback:
         """Create EnhancedConfig instance."""
         return EnhancedConfig(ENV_VARS)
 
-    def test_enhanced_get_fallback_to_env(self, enhanced_config, monkeypatch, caplog):
-        """Test EnhancedConfig.get() fallback to environment variable."""
+    def test_enhanced_get_no_fallback(self, enhanced_config, monkeypatch):
+        """Test EnhancedConfig.get() does NOT fallback to environment variable."""
         # Set an undefined environment variable
         monkeypatch.setenv("ENHANCED_UNDEFINED_VAR", "enhanced_value")
 
@@ -148,35 +148,31 @@ class TestEnhancedConfigFallback:
         enhanced_config._cache.clear()
 
         # Access undefined variable
-        with caplog.at_level(logging.WARNING):
-            value = enhanced_config.get("ENHANCED_UNDEFINED_VAR")
+        value = enhanced_config.get("ENHANCED_UNDEFINED_VAR")
 
-        # Check value is retrieved correctly
-        assert value == "enhanced_value"
+        # EnhancedConfig should return None for undefined vars
+        # (fallback only happens at Config level)
+        assert value is None
 
-        # Check warning was logged
-        assert "ENHANCED_UNDEFINED_VAR" in caplog.text
-        assert "not defined in ENV_VARS registry" in caplog.text
-
-    def test_enhanced_get_caches_fallback_value(self, enhanced_config, monkeypatch):
-        """Test that fallback values are cached."""
-        # Set an undefined environment variable
-        monkeypatch.setenv("CACHED_UNDEFINED_VAR", "cached_value")
+    def test_enhanced_get_caches_defined_values(self, enhanced_config, monkeypatch):
+        """Test that defined values are cached in EnhancedConfig."""
+        # Set a defined environment variable
+        monkeypatch.setenv("REDIS_HOST", "cached_redis_host")
 
         # Clear cache
         enhanced_config._cache.clear()
 
         # First access
-        value1 = enhanced_config.get("CACHED_UNDEFINED_VAR")
+        value1 = enhanced_config.get("REDIS_HOST")
 
         # Check value is in cache
-        assert "CACHED_UNDEFINED_VAR" in enhanced_config._cache
-        assert enhanced_config._cache["CACHED_UNDEFINED_VAR"] == "cached_value"
+        assert "REDIS_HOST" in enhanced_config._cache
+        assert enhanced_config._cache["REDIS_HOST"] == "cached_redis_host"
 
         # Second access should use cache
-        value2 = enhanced_config.get("CACHED_UNDEFINED_VAR")
+        value2 = enhanced_config.get("REDIS_HOST")
 
-        assert value1 == value2 == "cached_value"
+        assert value1 == value2 == "cached_redis_host"
 
     def test_enhanced_get_undefined_not_in_env(self, enhanced_config):
         """Test EnhancedConfig.get() returns None for non-existent vars."""
