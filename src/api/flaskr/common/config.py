@@ -1050,7 +1050,7 @@ class Config(FlaskConfig):
 
     def __getitem__(self, key: Any) -> Any:
         """Get configuration value using enhanced config first, with fallback to parent."""
-        return self.get(key, None)
+        return self.get(key)
 
     def __getattr__(self, key: Any) -> Any:
         """Get configuration attribute using enhanced config first."""
