@@ -571,6 +571,11 @@ Cook Web provides tools for:
 - **Configuration Keys**: All configuration file keys and environment variable names
 - **Git Commit Messages and PR Titles**: MUST use Conventional Commits format
 - **Code Documentation**: README files, API documentation, code architecture docs
+#### Exceptions to English-Only Policy
+
+- **User-Facing Text**: All text for the UI must use i18n keys. The translation files (e.g., `en-US.json`, `zh-CN.json`) will naturally contain non-English text.
+- **Test Data**: Test data can be in any language, especially for testing internationalization features.
+- **Clarifying Comments**: For complex, region-specific business logic, a non-English comment can be added *after* the English one for extra clarity. Example: `# Check for valid ID card (检查身份证有效性)`
 
 #### Conventional Commits Format
 
