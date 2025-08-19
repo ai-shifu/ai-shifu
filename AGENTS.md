@@ -21,7 +21,7 @@ This file provides guidance to all Coding Agents such as Claude Code (claude.ai/
 
 ```bash
 # Backend (src/api/.env)
-export FLASK_APP=app.py
+FLASK_APP=app.py
 
 # Frontend (src/web/.env)
 REACT_APP_API_URL=http://localhost:5000
