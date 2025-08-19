@@ -112,7 +112,7 @@ class TestEnvironmentVariableFallback:
             value = config.get("UNDEFINED_VAR_1")
 
         assert value == "undefined_value_1"
-        # Note: config.get() doesn't trigger warning at Config level, only at EnhancedConfig level
+        # Note: config.get() does trigger a warning when falling back to environment variables.
 
     def test_get_method_with_default(self, setup_app):
         """Test Config.get() method with default value."""
