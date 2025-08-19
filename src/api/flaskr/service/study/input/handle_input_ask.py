@@ -107,11 +107,11 @@ def _handle_input_ask(
     for script in history_scripts:
         if script.role == ROLE_STUDENT:
             messages.append(
-                {"role": "user", "content": script.script_content}
+                {"role": "user", "content": script.generated_content}
             )  # Add user message
         elif script.role == ROLE_TEACHER:
             messages.append(
-                {"role": "assistant", "content": script.script_content}
+                {"role": "assistant", "content": script.generated_content}
             )  # Add assistant message
 
     # RAG retrieval has been removed from this system
