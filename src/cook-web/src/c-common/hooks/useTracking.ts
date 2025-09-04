@@ -24,7 +24,7 @@ export const useTracking = () => {
       }
       // Identify user with their unique ID, or clear identification if no user
       umami.identify(userInfo?.user_id || null);
-    } catch (error) {
+    } catch {
       // Silently fail - tracking errors should not affect user experience
       // Uncomment for debugging: console.error('Umami identify error:', error);
     }
