@@ -15,27 +15,20 @@ export const useTracking = () => {
   const { frameLayout } = useUiLayoutStore(state => state);
   const { userInfo } = useUserStore(state => state);
 
-  const identifyUser = useCallback(() => {
+  // Identify user when user info changes
+  useEffect(() => {
     try {
       const umami = window.umami;
       if (!umami) {
         return;
       }
-
-      if (userInfo?.user_id) {
-        // Identify user with their unique ID
-        umami.identify(userInfo.user_id);
-      } else {
-        // Clear identification when no user
-        umami.identify(null);
-      }
-    } catch (error) {}
+      // Identify user with their unique ID, or clear identification if no user
+      umami.identify(userInfo?.user_id || null);
+    } catch (error) {
+      // Silently fail - tracking errors should not affect user experience
+      // Uncomment for debugging: console.error('Umami identify error:', error);
+    }
   }, [userInfo?.user_id]);
-
-  // Call identify when user info changes
-  useEffect(() => {
-    identifyUser();
-  }, [identifyUser]);
 
   const getEventBasicData = useCallback(() => {
     return {
