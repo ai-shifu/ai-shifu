@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { EVENT_NAMES, tracking } from '@/c-common/tools/tracking';
 import { useUserStore } from '@/store';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
@@ -14,6 +14,28 @@ const USER_STATE_DICT = {
 export const useTracking = () => {
   const { frameLayout } = useUiLayoutStore(state => state);
   const { userInfo } = useUserStore(state => state);
+
+  const identifyUser = useCallback(() => {
+    try {
+      const umami = window.umami;
+      if (!umami) {
+        return;
+      }
+
+      if (userInfo?.user_id) {
+        // Identify user with their unique ID
+        umami.identify(userInfo.user_id);
+      } else {
+        // Clear identification when no user
+        umami.identify(null);
+      }
+    } catch (error) {}
+  }, [userInfo?.user_id]);
+
+  // Call identify when user info changes
+  useEffect(() => {
+    identifyUser();
+  }, [identifyUser]);
 
   const getEventBasicData = useCallback(() => {
     return {
