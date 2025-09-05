@@ -22,13 +22,29 @@ export const useTracking = () => {
       if (!umami) {
         return;
       }
-      // Identify user with their unique ID, or clear identification if no user
-      umami.identify(userInfo?.user_id || null);
+
+      // Build session data with only safe fields
+      const sessionData: Record<string, any> = {};
+      if (userInfo?.name) sessionData.nickname = userInfo.name;
+      if (userInfo?.state) sessionData.user_state = userInfo.state;
+      if (userInfo?.language) sessionData.language = userInfo.language;
+
+      // Identify user with their unique ID and session data
+      if (userInfo?.user_id) {
+        if (Object.keys(sessionData).length > 0) {
+          umami.identify(userInfo.user_id, sessionData);
+        } else {
+          umami.identify(userInfo.user_id);
+        }
+      } else {
+        // Clear identification if no user
+        umami.identify(null);
+      }
     } catch {
       // Silently fail - tracking errors should not affect user experience
       // Uncomment for debugging: console.error('Umami identify error:', error);
     }
-  }, [userInfo?.user_id]);
+  }, [userInfo?.user_id, userInfo?.name, userInfo?.state, userInfo?.language]);
 
   const getEventBasicData = useCallback(() => {
     return {
