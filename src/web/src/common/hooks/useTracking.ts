@@ -24,7 +24,7 @@ export const useTracking = () => {
       }
 
       // Build session data with only safe fields
-      const sessionData: Record<string, any> = {};
+      const sessionData: { nickname?: string; user_state?: string; language?: string } = {};
       if (userInfo?.name) sessionData.nickname = userInfo.name;
       if (userInfo?.state) sessionData.user_state = userInfo.state;
       if (userInfo?.language) sessionData.language = userInfo.language;
