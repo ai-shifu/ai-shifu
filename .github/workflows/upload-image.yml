@@ -1,8 +1,9 @@
 name: Build and Push API & Web
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*.*.*'
 
 concurrency:
   group: build-push-${{ github.head_ref || github.run_id }}
@@ -48,8 +49,8 @@ jobs:
 
       - name: Set Tag Version
         run: |
-          # Extract version from release tag
-          TAG_VERSION="${{ github.event.release.tag_name }}"
+          # Extract version from git tag
+          TAG_VERSION="${{ github.ref_name }}"
           echo "TAG_VERSION=\"$TAG_VERSION\"" >> $GITHUB_ENV
           echo "RELEASE_BUILD=true" >> $GITHUB_ENV
           echo "🏷️ Building with tag: $TAG_VERSION"
