@@ -307,6 +307,7 @@ jobs:
         if: steps.bump-version.outputs.bump_needed == 'true'
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.version.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
           body: |
