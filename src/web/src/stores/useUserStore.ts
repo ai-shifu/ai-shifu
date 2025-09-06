@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getUserInfo, registerTmp } from 'Api/user';
+import { getUserInfo, registerTmp, updateUserProfile } from 'Api/user';
 import { userInfoStore, tokenTool } from 'Service/storeUtil';
 import { genUuid } from 'Utils/common';
 import { verifySmsCode } from 'Api/user';
@@ -9,6 +9,22 @@ import { removeParamFromUrl } from 'Utils/urlUtils';
 import i18n from '../i18n';
 import { UserStoreState } from '../types/store';
 import { useEnvStore } from './envStore';
+import { selectCourseLanguage } from 'constants/userConstants';
+
+// Helper function to initialize sys_user_language with browser's course language
+const initializeCourseLanguage = async () => {
+  try {
+    const browserLang = navigator.language || navigator.languages[0];
+    const courseLanguage = selectCourseLanguage(browserLang);
+    const courseId = useEnvStore.getState().courseId;
+    await updateUserProfile([{
+      key: 'sys_user_language',
+      value: courseLanguage
+    }], courseId);
+  } catch (error) {
+    console.warn('Failed to set initial course language:', error);
+  }
+};
 
 export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelector", never]]>(
   subscribeWithSelector((set) => ({
@@ -34,6 +50,10 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         const res = await registerTmp({ temp_id: genUuid() });
         const token = res.data.token;
         await tokenTool.set({ token, faked: true });
+
+        // Initialize sys_user_language with browser's course language
+        await initializeCourseLanguage();
+
         set(() => ({
           hasLogin: false,
           userInfo: null,
@@ -74,6 +94,9 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
           const token = res.data.token;
           await tokenTool.set({ token, faked: true });
 
+          // Initialize sys_user_language with browser's course language
+          await initializeCourseLanguage();
+
           set(() => ({
             hasCheckLogin: true,
             hasLogin: false,
@@ -97,6 +120,9 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
       const token = res.data.token;
       await tokenTool.set({ token, faked: true });
       await userInfoStore.remove();
+
+      // Initialize sys_user_language with browser's course language
+      await initializeCourseLanguage();
 
       set(() => {
         return {
