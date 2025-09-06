@@ -71,6 +71,11 @@ def get_profile_labels(course_id: str = None):
             "default": "",
         },
         "sys_user_background": {"label": _("PROFILE.USER_BACKGROUND")},
+        # Course language (pure text, default English). Not mapped to User model.
+        "sys_user_language": {
+            "label": _("PROFILE.COURSE_LANGUAGE"),
+            "default": "English",
+        },
         "sex": {
             "label": _("PROFILE.SEX"),
             "mapping": "user_sex",
