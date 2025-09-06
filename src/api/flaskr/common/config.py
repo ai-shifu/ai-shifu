@@ -488,6 +488,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "UNIVERSAL_VERIFICATION_CODE": EnvVar(
         name="UNIVERSAL_VERIFICATION_CODE",
+        default="",
         description=(
             "Universal verification code for testing.\n"
             "**SECURITY WARNING:** Do NOT set this in production environments.\n"
