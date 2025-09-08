@@ -282,7 +282,9 @@ def verify_sms_code(
     if check_save is None and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
         raise_error("USER.SMS_SEND_EXPIRED")
     check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-    if chekcode != check_save_str and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
+    if chekcode != check_save_str and (
+        FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE
+    ):
         raise_error("USER.SMS_CHECK_ERROR")
     else:
         redis.delete(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
@@ -376,7 +378,9 @@ def verify_mail_code(
     if check_save is None and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
         raise_error("USER.MAIL_SEND_EXPIRED")
     check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-    if chekcode != check_save_str and (FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE):
+    if chekcode != check_save_str and (
+        FIX_CHECK_CODE is None or chekcode != FIX_CHECK_CODE
+    ):
         raise_error("USER.MAIL_CHECK_ERROR")
     else:
         redis.delete(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + mail)
