@@ -24,7 +24,7 @@ repos:
         args: [ --fix ]
     -   id: ruff-format
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.8.3  # use latest stable version
+    rev: v4.8.4  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]
@@ -46,7 +46,7 @@ repos:
         language: system
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
 -   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.34.0
+    rev: v9.35.0
     hooks:
     -   id: eslint
         name: ESLint web files (errors only)
