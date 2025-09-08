@@ -181,10 +181,15 @@ class DraftShifu(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
@@ -197,13 +202,13 @@ class DraftShifu(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
     updated_user_bid = Column(
         String(32),
         nullable=False,
-        index=True,
         default="",
         comment="Last updater user business identifier",
     )
@@ -253,6 +258,7 @@ class DraftShifu(db.Model):
 
 class DraftOutlineItem(db.Model):
     __tablename__ = "shifu_draft_outline_items"
+    __table_args__ = {"comment": "Draft outline item entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -338,14 +344,20 @@ class DraftOutlineItem(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
         nullable=False,
+        index=True,
         default="",
         comment="Creator user business identifier",
     )
@@ -353,6 +365,7 @@ class DraftOutlineItem(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
@@ -412,6 +425,7 @@ class DraftOutlineItem(db.Model):
 
 class DraftBlock(db.Model):
     __tablename__ = "shifu_draft_blocks"
+    __table_args__ = {"comment": "Draft block entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
@@ -420,19 +434,19 @@ class DraftBlock(db.Model):
         default="",
         comment="Block business identifier",
     )
-    shifu_bid = Column(
-        String(32),
-        nullable=False,
-        index=True,
-        default="",
-        comment="Shifu business identifier",
-    )
     outline_item_bid = Column(
         String(32),
         nullable=False,
         index=True,
         default="",
         comment="Outline item business identifier",
+    )
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
@@ -459,14 +473,20 @@ class DraftBlock(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
         nullable=False,
+        index=True,
         default="",
         comment="Creator user business identifier",
     )
@@ -474,6 +494,7 @@ class DraftBlock(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
@@ -514,6 +535,7 @@ class DraftBlock(db.Model):
 
 class LogDraftStruct(db.Model):
     __tablename__ = "shifu_log_draft_structs"
+    __table_args__ = {"comment": "Draft structure log entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     struct_bid = Column(
         String(32),
@@ -537,14 +559,20 @@ class LogDraftStruct(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
         nullable=False,
+        index=True,
         default="",
         comment="Creator user business identifier",
     )
@@ -552,6 +580,7 @@ class LogDraftStruct(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
@@ -566,6 +595,7 @@ class LogDraftStruct(db.Model):
 # published shifu's model
 class PublishedShifu(db.Model):
     __tablename__ = "shifu_published_shifus"
+    __table_args__ = {"comment": "Published shifu entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     shifu_bid = Column(
         String(32),
@@ -614,10 +644,15 @@ class PublishedShifu(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
@@ -630,6 +665,7 @@ class PublishedShifu(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
@@ -643,6 +679,7 @@ class PublishedShifu(db.Model):
 
 class PublishedOutlineItem(db.Model):
     __tablename__ = "shifu_published_outline_items"
+    __table_args__ = {"comment": "Published outline item entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     outline_item_bid = Column(
         String(32),
@@ -720,10 +757,15 @@ class PublishedOutlineItem(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
@@ -736,6 +778,7 @@ class PublishedOutlineItem(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
@@ -749,6 +792,7 @@ class PublishedOutlineItem(db.Model):
 
 class PublishedBlock(db.Model):
     __tablename__ = "shifu_published_blocks"
+    __table_args__ = {"comment": "Published block entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     block_bid = Column(
         String(32),
@@ -757,19 +801,19 @@ class PublishedBlock(db.Model):
         default="",
         comment="Block business identifier",
     )
-    shifu_bid = Column(
-        String(32),
-        nullable=False,
-        index=True,
-        default="",
-        comment="Shifu business identifier",
-    )
     outline_item_bid = Column(
         String(32),
         nullable=False,
         index=True,
         default="",
         comment="Outline item business identifier",
+    )
+    shifu_bid = Column(
+        String(32),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Shifu business identifier",
     )
     type = Column(SmallInteger, nullable=False, default=0, comment="Block type")
     position = Column(
@@ -795,14 +839,20 @@ class PublishedBlock(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
         nullable=False,
+        index=True,
         default="",
         comment="Creator user business identifier",
     )
@@ -810,6 +860,7 @@ class PublishedBlock(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
@@ -823,6 +874,7 @@ class PublishedBlock(db.Model):
 
 class LogPublishedStruct(db.Model):
     __tablename__ = "shifu_log_published_structs"
+    __table_args__ = {"comment": "Published structure log entities"}
     id = Column(BIGINT, primary_key=True, autoincrement=True)
     struct_bid = Column(
         String(32),
@@ -849,14 +901,20 @@ class LogPublishedStruct(db.Model):
         SmallInteger,
         nullable=False,
         default=0,
+        index=True,
         comment="Deletion flag: 0=active, 1=deleted",
     )
     created_at = Column(
-        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
+        comment="Creation timestamp",
     )
     created_user_bid = Column(
         String(32),
         nullable=False,
+        index=True,
         default="",
         comment="Creator user business identifier",
     )
@@ -864,6 +922,7 @@ class LogPublishedStruct(db.Model):
         DateTime,
         nullable=False,
         default=func.now(),
+        server_default=func.now(),
         comment="Last update timestamp",
         onupdate=func.now(),
     )
