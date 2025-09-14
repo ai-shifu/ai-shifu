@@ -1,5 +1,5 @@
 """
-Unit tests for markdown_flow_adapter.py
+Unit tests for block_to_mdflow_adapter.py
 
 This module contains unit tests for the convert_block_to_markdown_flow
 function, testing various block type conversion scenarios.
@@ -22,7 +22,7 @@ from flaskr.service.shifu.dtos import (
 class TestMarkdownFlowAdapter:
     """Test markdown flow adapter conversion function"""
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_content_block_llm_enabled(self, mock_print):
         """Test converting content block with LLM enabled"""
         content = ContentDTO(
@@ -36,7 +36,7 @@ class TestMarkdownFlowAdapter:
         assert result == "这是一个测试内容"
         mock_print.assert_called_once_with("这是一个测试内容")
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_content_block_llm_disabled(self, mock_print):
         """Test converting content block with LLM disabled"""
         content = ContentDTO(content="静态内容", llm_enabled=False, llm_temperature=0.0)
@@ -53,7 +53,7 @@ class TestMarkdownFlowAdapter:
     # (which expects result_variable_bid). This indicates a potential bug
     # in the original code that should be addressed separately.
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_options_block(self, mock_print):
         """Test converting options block"""
         options = OptionsDTO(
@@ -76,7 +76,7 @@ class TestMarkdownFlowAdapter:
         assert result == expected
         mock_print.assert_called_once_with(expected)
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_login_block(self, mock_print):
         """Test converting login block"""
         login = LoginDTO(label={"zh-CN": "用户登录"})
@@ -89,7 +89,7 @@ class TestMarkdownFlowAdapter:
         assert result == expected
         mock_print.assert_called_once_with(expected)
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_break_block_without_label(self, mock_print):
         """Test converting break block without label (uses default)"""
         break_dto = BreakDTO()
@@ -102,7 +102,7 @@ class TestMarkdownFlowAdapter:
         assert result == expected
         mock_print.assert_called_once_with(expected)
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_block_with_none_content(self, mock_print):
         """Test converting content block when content is None"""
         content = ContentDTO(content=None, llm_enabled=True, llm_temperature=0.5)
@@ -114,7 +114,7 @@ class TestMarkdownFlowAdapter:
         assert result == ""
         mock_print.assert_called_once_with("")
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_options_with_dict_objects(self, mock_print):
         """Test converting options block with dict objects"""
         options = OptionsDTO(
@@ -137,7 +137,7 @@ class TestMarkdownFlowAdapter:
         assert result == expected
         mock_print.assert_called_once_with(expected)
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
     def test_convert_chinese_content(self, mock_print):
         """Test converting content block with Chinese characters"""
         content = ContentDTO(
@@ -152,8 +152,8 @@ class TestMarkdownFlowAdapter:
         assert result == expected
         mock_print.assert_called_once_with(expected)
 
-    @patch("flaskr.service.shifu.markdown_flow_adapter.print")
-    @patch("flaskr.service.shifu.markdown_flow_adapter.raise_error")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.print")
+    @patch("flaskr.service.shifu.block_to_mdflow_adapter.raise_error")
     def test_convert_block_invalid_type(self, mock_raise_error, mock_print):
         """Test converting block with invalid type raises error"""
         content = ContentDTO(content="测试", llm_enabled=True, llm_temperature=0.5)
