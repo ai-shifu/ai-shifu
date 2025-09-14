@@ -111,7 +111,7 @@ def __convert_break_to_mdflow(break_dto: BreakDTO, variable_map: dict[str, str])
         return __convert_button_with_value_to_mdflow(label_dto, "break")
 
 
-def __convert_content_to_markdownflow(
+def __convert_content_to_mdflow(
     content: ContentDTO, variable_map: dict[str, str]
 ) -> str:
     if content.content is None:
@@ -174,7 +174,7 @@ def convert_block_to_mdflow(block: BlockDTO, variable_map: dict[str, str]) -> st
         block_type = content_class.replace("DTO", "").lower()
 
     convert_func_map = {
-        BLOCK_TYPE_CONTENT: __convert_content_to_markdownflow,
+        BLOCK_TYPE_CONTENT: __convert_content_to_mdflow,
         BLOCK_TYPE_BREAK: __convert_break_to_mdflow,
         BLOCK_TYPE_INPUT: __convert_input_to_mdflow,
         BLOCK_TYPE_OPTIONS: __convert_options_to_mdflow,
