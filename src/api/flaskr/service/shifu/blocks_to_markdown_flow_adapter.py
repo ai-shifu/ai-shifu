@@ -1,5 +1,5 @@
 """
-MarkdownFlow adapter
+Blocks to MarkdownFlow adapter
 
 This module contains functions for converting shifu's original structure based on blocks to MarkdownFlow.
 
