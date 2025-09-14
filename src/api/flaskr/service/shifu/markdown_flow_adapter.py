@@ -46,10 +46,10 @@ def __convert_label_to_mdflow(label: LabelDTO) -> str:
 
 def __convert_button_with_value_to_mdflow(label: LabelDTO, value: None | str) -> str:
     """
-    Convert button to MarkdownFlow format
+    Convert button with value or action to MarkdownFlow format
     Args:
         label: The label of the button
-        value: The value to convert
+        value: The value or action to convert
     Returns:
         The MarkdownFlow format
     """
