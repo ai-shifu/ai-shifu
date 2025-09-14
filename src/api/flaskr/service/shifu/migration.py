@@ -47,7 +47,7 @@ from flaskr.service.lesson.const import SCRIPT_TYPE_SYSTEM
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.shifu.utils import parse_shifu_res_bid
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
-from flaskr.service.shifu.blocks_to_markdown_flow_adapter import convert_block_to_mdflow
+from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.shifu_block_funcs import (
     generate_block_dto_from_model_internal,
 )
