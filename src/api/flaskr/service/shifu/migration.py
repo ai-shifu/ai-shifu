@@ -47,7 +47,7 @@ from flaskr.service.lesson.const import SCRIPT_TYPE_SYSTEM
 from flaskr.service.lesson.models import AILessonScript
 from flaskr.service.shifu.utils import parse_shifu_res_bid
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
-from flaskr.service.shifu.markdown_flow_adapter import convert_block_to_markdownflow
+from flaskr.service.shifu.markdown_flow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.shifu_block_funcs import (
     generate_block_dto_from_model_internal,
 )
@@ -430,16 +430,18 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
             )
 
 
-def migrate_shifu_to_markdownflow_content(app, shifu_bid: str):
+def migrate_shifu_to_mdflow_content(app, shifu_bid: str):
     """
-    Migrate a shifu to markdown content
+    Migrate a shifu based on blocks to MarkdownFlow content
 
     Args:
         app: Flask application instance
         shifu_bid: The ID of the shifu to migrate
     """
     with app.app_context():
-        app.logger.info(f"migrate shifu to markdown content, shifu_bid: {shifu_bid}")
+        app.logger.info(
+            f"migrate shifu to MarkdownFlow content, shifu_bid: {shifu_bid}"
+        )
         plugin_manager.is_enabled = False
         # migrate to draft shifu
         db.session.begin()
@@ -525,9 +527,8 @@ def migrate_shifu_to_markdownflow_content(app, shifu_bid: str):
                             block_dto = generate_block_dto_from_model_internal(
                                 block, convert_html=False
                             )
-                            markdown_flow_content += (
-                                "\n"
-                                + convert_block_to_markdownflow(block_dto, variable_map)
+                            markdown_flow_content += "\n" + convert_block_to_mdflow(
+                                block_dto, variable_map
                             )
                         outline.content = markdown_flow_content
                         db.session.flush()

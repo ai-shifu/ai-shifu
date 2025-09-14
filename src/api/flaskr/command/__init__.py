@@ -5,7 +5,7 @@ import logging
 from sqlalchemy import create_engine, text
 from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
-from flaskr.service.shifu.migration import migrate_shifu_to_markdownflow_content
+from flaskr.service.shifu.migration import migrate_shifu_to_mdflow_content
 
 
 def setup_migration_logging():
@@ -157,11 +157,13 @@ def enable_commands(app: Flask):
             if "migration_task" in locals():
                 migration_task.close()
 
-    @console.command(name="migrate_blocks_to_markdownflow")
+    @console.command(name="migrate_to_mdflow")
     @click.argument("shifu_bid")
-    def migrate_blocks_to_markdownflow_command(shifu_bid):
-        """Migrate shifu to markdown content"""
-        migrate_shifu_to_markdownflow_content(app, shifu_bid)
+    def migrate_to_mdflow_command(shifu_bid):
+        """This command is used to migrate shifu's original structure based on blocks to MarkdownFlow content
+        usage: flask console migrate_to_mdflow <shifu_bid>
+        """
+        migrate_shifu_to_mdflow_content(app, shifu_bid)
 
     @console.command(name="verify")
     def verify_command():

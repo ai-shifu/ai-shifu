@@ -17,7 +17,7 @@ depends_on = None
 
 
 def upgrade():
-    from flaskr.service.shifu.migration import migrate_shifu_to_markdown_content
+    from flaskr.service.shifu.migration import migrate_shifu_to_mdflow_content
     from flaskr.service.shifu.models import DraftShifu
     from flask import current_app
     from sqlalchemy import text
@@ -33,7 +33,7 @@ def upgrade():
             print(
                 f"migrate shifu to markdown content, shifu_bid: {shifu_bid}, {i + 1}/{len(old_shifu_bids)}"
             )
-            migrate_shifu_to_markdown_content(current_app, shifu_bid)
+            migrate_shifu_to_mdflow_content(current_app, shifu_bid)
             connection.execute(text("SELECT now()"))
             time.sleep(1)
     pass
