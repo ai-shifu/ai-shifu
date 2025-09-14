@@ -30,7 +30,7 @@ from .shifu_history_manager import (
     HistoryInfo,
 )
 from datetime import datetime
-from flaskr.service.shifu.markdown_flow_adapter import convert_block_to_mdflow
+from flaskr.service.shifu.blocks_to_markdown_flow_adapter import convert_block_to_mdflow
 
 
 def __get_block_list_internal(outline_id: str) -> list[DraftBlock]:
