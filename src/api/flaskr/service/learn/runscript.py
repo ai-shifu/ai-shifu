@@ -7,9 +7,9 @@ from flaskr.service.user.models import User
 from flaskr.i18n import _
 
 
-from ...service.learn.dtos import ScriptDTO
-from ...dao import db, redis_client
-from .utils import (
+from flaskr.service.learn.dtos import ScriptDTO
+from flaskr.dao import db, redis_client
+from flaskr.service.learn.utils import (
     make_script_dto,
 )
 from flaskr.service.shifu.shifu_struct_manager import (
