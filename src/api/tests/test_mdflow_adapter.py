@@ -9,7 +9,7 @@ Date: 2025-09-10
 """
 
 from unittest.mock import patch
-from flaskr.service.shifu.markdown_flow_adapter import convert_block_to_markdownflow
+from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.dtos import (
     BlockDTO,
     ContentDTO,
@@ -32,7 +32,7 @@ class TestMarkdownFlowAdapter:
             bid="test1", block_content=content, variable_bids=[], resource_bids=[]
         )
 
-        result = convert_block_to_markdownflow(block, {})
+        result = convert_block_to_mdflow(block, {})
         assert result == "这是一个测试内容"
         mock_print.assert_called_once_with("这是一个测试内容")
 
@@ -44,7 +44,7 @@ class TestMarkdownFlowAdapter:
             bid="test2", block_content=content, variable_bids=[], resource_bids=[]
         )
 
-        result = convert_block_to_markdownflow(block, {})
+        result = convert_block_to_mdflow(block, {})
         assert result == "===静态内容==="
         mock_print.assert_called_once_with("===静态内容===")
 
@@ -71,7 +71,7 @@ class TestMarkdownFlowAdapter:
         )
         variable_map = {"var123": "user_choice"}
 
-        result = convert_block_to_markdownflow(block, variable_map)
+        result = convert_block_to_mdflow(block, variable_map)
         expected = "?[%{{user_choice}}选项1//option1|选项2//option2]"
         assert result == expected
         mock_print.assert_called_once_with(expected)
@@ -84,7 +84,7 @@ class TestMarkdownFlowAdapter:
             bid="test5", block_content=login, variable_bids=[], resource_bids=[]
         )
 
-        result = convert_block_to_markdownflow(block, {})
+        result = convert_block_to_mdflow(block, {})
         expected = "?[用户登录//login]"
         assert result == expected
         mock_print.assert_called_once_with(expected)
@@ -97,7 +97,7 @@ class TestMarkdownFlowAdapter:
             bid="test6", block_content=break_dto, variable_bids=[], resource_bids=[]
         )
 
-        result = convert_block_to_markdownflow(block, {})
+        result = convert_block_to_mdflow(block, {})
         expected = "?[休息//break]"
         assert result == expected
         mock_print.assert_called_once_with(expected)
@@ -110,7 +110,7 @@ class TestMarkdownFlowAdapter:
             bid="test7", block_content=content, variable_bids=[], resource_bids=[]
         )
 
-        result = convert_block_to_markdownflow(block, {})
+        result = convert_block_to_mdflow(block, {})
         assert result == ""
         mock_print.assert_called_once_with("")
 
@@ -132,7 +132,7 @@ class TestMarkdownFlowAdapter:
         )
         variable_map = {"var456": "confirmation"}
 
-        result = convert_block_to_markdownflow(block, variable_map)
+        result = convert_block_to_mdflow(block, variable_map)
         expected = "?[%{{confirmation}}是//yes|否//no]"
         assert result == expected
         mock_print.assert_called_once_with(expected)
@@ -147,7 +147,7 @@ class TestMarkdownFlowAdapter:
             bid="test10", block_content=content, variable_bids=[], resource_bids=[]
         )
 
-        result = convert_block_to_markdownflow(block, {})
+        result = convert_block_to_mdflow(block, {})
         expected = "测试中文字符：你好世界！"
         assert result == expected
         mock_print.assert_called_once_with(expected)
@@ -166,7 +166,7 @@ class TestMarkdownFlowAdapter:
 
         # The function should call raise_error when it can't find a handler
         try:
-            convert_block_to_markdownflow(block, {})
+            convert_block_to_mdflow(block, {})
         except Exception:
             pass  # Expected since raise_error is mocked
 
