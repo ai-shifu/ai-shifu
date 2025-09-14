@@ -5,9 +5,15 @@ from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.learn.const import (
     ROLE_VALUES,
 )
-from ...service.learn.dtos import AILessonAttendDTO, StudyRecordDTO
+from flaskr.service.learn.dtos import (
+    AILessonAttendDTO,
+    StudyRecordDTO,
+    AICourseDTO,
+    StudyRecordItemDTO,
+    ScriptInfoDTO,
+)
 import json
-from ...service.order.consts import (
+from flaskr.service.order.consts import (
     LEARN_STATUS_LOCKED,
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_IN_PROGRESS,
@@ -17,17 +23,16 @@ from ...service.order.consts import (
     LEARN_STATUS_NOT_EXIST,
 )
 
-from .dtos import AICourseDTO, StudyRecordItemDTO, ScriptInfoDTO
-from ...service.lesson.const import (
+from flaskr.service.lesson.const import (
     LESSON_TYPE_TRIAL,
 )
-from ...dao import db
+from flaskr.dao import db
 
 from flaskr.service.learn.models import (
     LearnProgressRecord,
     LearnGeneratedBlock,
 )
-from .plugin import handle_ui
+from flaskr.service.learn.plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.models import User
