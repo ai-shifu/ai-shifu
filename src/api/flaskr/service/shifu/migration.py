@@ -436,7 +436,7 @@ def migrate_shifu_to_mdflow_content(app, shifu_bid: str):
 
     Args:
         app: Flask application instance
-        shifu_bid: The ID of the shifu to migrate
+        shifu_bid: The business unique identifier of the shifu to migrate
     """
     with app.app_context():
         app.logger.info(
