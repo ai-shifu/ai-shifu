@@ -1,6 +1,6 @@
 from flask import Flask, request
 from flaskr.route.common import make_common_response
-from flaskr.service.study import reset_user_study_info
+from flaskr.service.learn import reset_user_study_info
 
 
 def register_tools_handler(app: Flask, path_prefix: str) -> Flask:
