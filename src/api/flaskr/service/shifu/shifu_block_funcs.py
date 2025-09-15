@@ -339,6 +339,9 @@ def add_block(
                     HistoryInfo(bid=new_block.block_bid, id=new_block.id)
                 )
 
+        outline.content = (
+            outline.content + "\n" + convert_block_to_mdflow(block_dto, {})
+        )
         save_blocks_history(app, user_id, outline.shifu_bid, outline_id, blocks_history)
         db.session.commit()
         return generate_block_dto_from_model_internal(block_model)
