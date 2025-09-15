@@ -16,9 +16,7 @@ if (typeof window !== 'undefined') {
     .use(initReactI18next)
     .init({
       fallbackLng: {
-        en: ['en-US'],
-        zh: ['zh-CN'],
-        default: ['en-US'],
+        default: ['en-US'], // All unsupported languages fallback to English
       },
       lng: browserLanguage,
       backend: {

@@ -12,7 +12,6 @@ import { getCourseInfo } from './Api/course';
 import { useEnvStore } from 'stores/envStore';
 import { useUserStore } from 'stores/useUserStore';
 import { useShallow } from 'zustand/react/shallow';
-import { selectDefaultLanguage } from 'constants/userConstants';
 import { useCourseStore } from 'stores/useCourseStore';
 import { EnvStoreState, SystemStoreState, CourseStoreState, UserStoreState } from './types/store';
 
@@ -100,9 +99,8 @@ const App = () => {
     updateSkip,
   } = useSystemStore() as SystemStoreState;
 
-  const browserLanguage = selectDefaultLanguage(
-    navigator.language || navigator.languages[0]
-  );
+  // Use the original browser language without conversion
+  const browserLanguage = navigator.language || navigator.languages?.[0];
 
   const [language] = useState(browserLanguage);
 

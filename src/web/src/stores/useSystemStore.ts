@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { SystemStoreState } from '../types/store';
 
 export const useSystemStore = create<SystemStoreState>((set) => ({
-  language: 'en',
+  language: typeof window !== 'undefined' ? (navigator.language || navigator.languages?.[0] || 'en-US') : 'en-US',
   channel: '',
   wechatCode: '',
   showVip: true,

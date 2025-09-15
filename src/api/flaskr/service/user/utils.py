@@ -25,10 +25,17 @@ def get_user_openid(user):
 
 
 def get_user_language(user):
-    if hasattr(user, "user_language"):
-        return user.user_language if user.user_language else "zh_CN"
+    if hasattr(user, "user_language") and user.user_language:
+        # Return the user's language as-is, let the i18n system handle fallback
+        # Only normalize old format for compatibility
+        normalization_map = {
+            "zh_CN": "zh-CN",
+            "en_US": "en-US",
+        }
+        return normalization_map.get(user.user_language, user.user_language)
     else:
-        return "zh_CN"
+        # No language set, default to English
+        return "en-US"
 
 
 # generate token
