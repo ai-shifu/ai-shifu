@@ -120,8 +120,7 @@ def __convert_content_to_mdflow(
         content_text = html_2_markdown(content.content, [])
         content_text = re.sub(r"\n\s*\n+", "\n\n", content_text)
         content_text = content_text.strip()
-        content_text = content_text.replace("{", "{{")
-        content_text = content_text.replace("}", "}}")
+        content_text = re.sub(r"\{([^}]+)\}", r"{{ \1 }}", content_text)
     if content.llm_enabled:
         return content_text + "\n---\n"
     else:
