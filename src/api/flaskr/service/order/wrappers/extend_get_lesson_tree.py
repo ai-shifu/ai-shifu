@@ -1,7 +1,7 @@
 from flask import Flask
 from flaskr.framework.plugin.plugin_manager import extension
 
-from flaskr.service.study.dtos import AICourseDTO, AILessonAttendDTO
+from flaskr.service.learn.dtos import AICourseDTO, AILessonAttendDTO
 from flaskr.service.order.funs import query_raw_buy_record
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.i18n import _

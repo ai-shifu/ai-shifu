@@ -1,7 +1,7 @@
 from flask import Flask, Response, request
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
-from flaskr.service.study import (
+from flaskr.service.learn import (
     get_lesson_tree_to_study,
     get_study_record,
     run_script,
@@ -9,7 +9,7 @@ from flaskr.service.study import (
     reset_user_study_info_by_lesson,
     set_script_content_operation,
 )
-from flaskr.service.study.const import VALID_INTERACTION_TYPES
+from flaskr.service.learn.const import VALID_INTERACTION_TYPES
 
 
 def register_study_handler(app: Flask, path_prefix: str) -> Flask:
