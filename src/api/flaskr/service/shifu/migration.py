@@ -490,11 +490,11 @@ def migrate_shifu_to_mdflow_content(app, shifu_bid: str):
                                 f"outline not found, outline_item_bid: {node.bid}"
                             )
                             return
-                        block_bids = [c.bid for c in node.children]
+                        block_ids = [c.id for c in node.children]
                         if is_preview:
                             block_list = (
                                 DraftBlock.query.filter(
-                                    DraftBlock.block_bid.in_(block_bids),
+                                    DraftBlock.id.in_(block_ids),
                                     DraftBlock.deleted == 0,
                                 )
                                 .order_by(DraftBlock.position.asc())
@@ -503,7 +503,7 @@ def migrate_shifu_to_mdflow_content(app, shifu_bid: str):
                         else:
                             block_list = (
                                 PublishedBlock.query.filter(
-                                    PublishedBlock.block_bid.in_(block_bids),
+                                    PublishedBlock.id.in_(block_ids),
                                     PublishedBlock.deleted == 0,
                                 )
                                 .order_by(PublishedBlock.position.asc())
