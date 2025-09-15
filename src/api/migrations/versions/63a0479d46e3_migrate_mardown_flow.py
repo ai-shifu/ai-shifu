@@ -1,4 +1,4 @@
-"""migrate mardown flow
+"""migrate to MarkdownFlow
 
 Revision ID: 63a0479d46e3
 Revises: c10b5c691b59
