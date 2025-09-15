@@ -121,9 +121,9 @@ def __convert_content_to_mdflow(
         content_text = re.sub(r"\n\s*\n+", "\n\n", content_text)
         content_text = content_text.strip()
     if content.llm_enabled:
-        return content_text
+        return content_text + "\n---\n"
     else:
-        return f"==={content_text}==="
+        return f"!===\n{content_text}\n!===\n"
 
 
 def __convert_goto_to_mdflow(goto: GotoDTO, variable_map: dict[str, str]) -> str:
