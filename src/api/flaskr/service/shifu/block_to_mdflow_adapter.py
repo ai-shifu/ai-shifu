@@ -64,7 +64,7 @@ def __convert_login_to_mdflow(login: LoginDTO, variable_map: dict[str, str]) -> 
         label_dto = LabelDTO(lang=login.label)
     else:
         label_dto = login.label
-    return __convert_button_with_value_to_mdflow(label_dto, "login")
+    return __convert_button_with_value_to_mdflow(label_dto, "_sys_login")
 
 
 def __convert_pay_to_mdflow(payment: PaymentDTO, variable_map: dict[str, str]) -> str:
@@ -72,7 +72,7 @@ def __convert_pay_to_mdflow(payment: PaymentDTO, variable_map: dict[str, str]) -
         label_dto = LabelDTO(lang=payment.label)
     else:
         label_dto = payment.label
-    return __convert_button_with_value_to_mdflow(label_dto, "pay")
+    return __convert_button_with_value_to_mdflow(label_dto, "_sys_pay")
 
 
 def __convert_options_to_mdflow(
@@ -128,30 +128,30 @@ def __convert_content_to_mdflow(
 
 def __convert_goto_to_mdflow(goto: GotoDTO, variable_map: dict[str, str]) -> str:
     if hasattr(goto, "label") and goto.label:
-        return __convert_button_with_value_to_mdflow(goto.label, "goto")
+        return __convert_button_with_value_to_mdflow(goto.label, "_sys_goto")
     else:
         # Create a default label for goto
         label_dto = LabelDTO(lang={"zh-CN": "跳转"})
-        return __convert_button_with_value_to_mdflow(label_dto, "goto")
+        return __convert_button_with_value_to_mdflow(label_dto, "_sys_goto")
 
 
 def __convert_phone_to_mdflow(phone: PhoneDTO, variable_map: dict[str, str]) -> str:
     if hasattr(phone, "label") and phone.label:
-        return __convert_button_with_value_to_mdflow(phone.label, "phone")
+        return __convert_button_with_value_to_mdflow(phone.label, "_sys_phone")
     else:
         label_dto = LabelDTO(lang={"zh-CN": "手机验证"})
-        return __convert_button_with_value_to_mdflow(label_dto, "phone")
+        return __convert_button_with_value_to_mdflow(label_dto, "_sys_phone")
 
 
 def __convert_checkcode_to_mdflow(
     checkcode: CheckCodeDTO, variable_map: dict[str, str]
 ) -> str:
     if hasattr(checkcode, "label") and checkcode.label:
-        return __convert_button_with_value_to_mdflow(checkcode.label, "checkcode")
+        return __convert_button_with_value_to_mdflow(checkcode.label, "_sys_checkcode")
     else:
         # Create a default label for checkcode
         label_dto = LabelDTO(lang={"zh-CN": "验证码"})
-        return __convert_button_with_value_to_mdflow(label_dto, "checkcode")
+        return __convert_button_with_value_to_mdflow(label_dto, "_sys_checkcode")
 
 
 def __convert_button_to_mdflow(button: ButtonDTO, variable_map: dict[str, str]) -> str:
