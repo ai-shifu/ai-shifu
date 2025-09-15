@@ -118,7 +118,6 @@ def __convert_content_to_mdflow(
         content_text = ""
     else:
         content_text = html_2_markdown(content.content, [], convert_image_to_html=False)
-        content_text = re.sub(r"\n\s*\n+", "\n\n", content_text)
         content_text = content_text.strip()
         content_text = re.sub(r"\{([^}]+)\}", r"{{ \1 }}", content_text)
     if content.llm_enabled:
