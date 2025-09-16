@@ -11,24 +11,15 @@ import { useEffect, useState } from 'react';
 import api from '@/api';
 import { useTranslation } from 'react-i18next';
 import LanguageSelect from '@/components/language-select';
-import i18n from '@/i18n';
+import i18n, { normalizeLanguage } from '@/i18n';
 import { useUserStore } from '@/store';
 
 const UserProfileCard = () => {
   const { t } = useTranslation();
-  const [language, setLanguage] = useState<string>(i18n.language);
+  const [language, setLanguage] = useState<string>(
+    normalizeLanguage(i18n.language),
+  );
   const { logout, userInfo, isInitialized } = useUserStore();
-
-  const normalizeLanguage = (lang: string): string => {
-    const supportedLanguages = Object.values(
-      i18n.options.fallbackLng || {},
-    ).flat();
-    const normalizedLang = lang.replace('_', '-');
-    if (supportedLanguages.includes(normalizedLang)) {
-      return normalizedLang;
-    }
-    return 'en-US';
-  };
 
   // Use userInfo from store instead of making API call
   useEffect(() => {
