@@ -316,7 +316,12 @@ def add_block(
         blocks_history = []
         db.session.add(block_model)
         db.session.flush()
+        markdown_flow_content = ""
+        is_add_to_content = False
         for block in existing_blocks:
+            markdown_flow_content += "\n" + convert_block_to_mdflow(
+                generate_block_dto_from_model_internal(block, False), {}
+            )
             if block.position < block_index:
                 blocks_history.append(HistoryInfo(bid=block.block_bid, id=block.id))
                 continue
@@ -325,6 +330,10 @@ def add_block(
                 blocks_history.append(
                     HistoryInfo(bid=block_model.block_bid, id=block_model.id)
                 )
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    generate_block_dto_from_model_internal(block_model, False), {}
+                )
+                is_add_to_content = True
                 continue
 
             if block.position >= block_index:
@@ -338,10 +347,11 @@ def add_block(
                 blocks_history.append(
                     HistoryInfo(bid=new_block.block_bid, id=new_block.id)
                 )
-
-        outline.content = (
-            outline.content + "\n" + convert_block_to_mdflow(block_dto, {})
-        )
+        if not is_add_to_content:
+            markdown_flow_content += "\n" + convert_block_to_mdflow(
+                generate_block_dto_from_model_internal(block_model, False), {}
+            )
+        outline.content = markdown_flow_content
         save_blocks_history(app, user_id, outline.shifu_bid, outline_id, blocks_history)
         db.session.commit()
         return generate_block_dto_from_model_internal(block_model)
