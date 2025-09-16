@@ -34,8 +34,8 @@ export const normalizeLanguage = (lang?: string | null): string => {
 };
 
 const detectedBrowserLanguage =
-  typeof window !== 'undefined' && navigator.language
-    ? navigator.language
+  typeof window !== 'undefined'
+    ? navigator.language || navigator.languages?.[0] || fallbackLanguage
     : fallbackLanguage;
 
 export const browserLanguage = normalizeLanguage(detectedBrowserLanguage);
