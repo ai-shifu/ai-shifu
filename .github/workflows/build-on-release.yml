@@ -1,0 +1,245 @@
+name: Build and Deploy on Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_DOCKERHUB_USER: aishifu
+
+jobs:
+  validate-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.extract.outputs.tag }}
+      version: ${{ steps.extract.outputs.version }}
+      is_prerelease: ${{ steps.extract.outputs.is_prerelease }}
+      should_build: ${{ steps.extract.outputs.should_build }}
+
+    steps:
+      - name: Extract release information
+        id: extract
+        run: |
+          TAG_NAME="${{ github.event.release.tag_name }}"
+          IS_PRERELEASE="${{ github.event.release.prerelease }}"
+          IS_DRAFT="${{ github.event.release.draft }}"
+
+          echo "📋 Release Information:"
+          echo "  Tag: $TAG_NAME"
+          echo "  Prerelease: $IS_PRERELEASE"
+          echo "  Draft: $IS_DRAFT"
+
+          # Extract version (remove 'v' prefix if present)
+          VERSION="${TAG_NAME#v}"
+
+          # Validate tag format
+          if [[ ! $TAG_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "⚠️ Warning: Tag $TAG_NAME doesn't follow semantic versioning, but proceeding anyway"
+          fi
+
+          # Determine if we should build
+          SHOULD_BUILD="true"
+
+          # Skip prerelease builds (only build final releases)
+          if [ "$IS_PRERELEASE" = "true" ]; then
+            echo "⏭️ Skipping build for prerelease $TAG_NAME"
+            SHOULD_BUILD="false"
+          fi
+
+          # Skip draft builds (should not happen with published event, but extra safety)
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "⏭️ Skipping build for draft release $TAG_NAME"
+            SHOULD_BUILD="false"
+          fi
+
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "is_prerelease=$IS_PRERELEASE" >> $GITHUB_OUTPUT
+          echo "should_build=$SHOULD_BUILD" >> $GITHUB_OUTPUT
+
+          if [ "$SHOULD_BUILD" = "true" ]; then
+            echo "✅ Will proceed with building release $TAG_NAME"
+          fi
+
+  build-docker:
+    name: Build & Push Docker (${{ matrix.service_name }})
+    needs: validate-release
+    runs-on: ubuntu-latest
+    if: needs.validate-release.outputs.should_build == 'true'
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service_name: "build-api"
+            image_name_env: "AI_SHIFU_API_IMAGE_NAME"
+            context: "src/api"
+          - service_name: "build-web"
+            image_name_env: "AI_SHIFU_WEB_IMAGE_NAME"
+            context: "src/web"
+          - service_name: "build-cook-web"
+            image_name_env: "AI_SHIFU_COOK_WEB_IMAGE_NAME"
+            context: "src/cook-web"
+
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
+      AI_SHIFU_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_WEB_IMAGE_NAME || 'ai-shifu-web' }}
+      AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-shifu-api' }}
+      AI_SHIFU_COOK_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_WEB_IMAGE_NAME || 'ai-shifu-cook-web' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set build environment
+        run: |
+          TAG_VERSION="${{ needs.validate-release.outputs.tag }}"
+          echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
+          echo "RELEASE_BUILD=true" >> $GITHUB_ENV
+          echo "🏷️ Building release images with tag: $TAG_VERSION"
+
+      - name: Login to Docker Hub
+        if: env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - name: Login to Aliyun Docker Registry
+        if: env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
+          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
+          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKERHUB_USER && format('{0}/{1}', env.DOCKERHUB_USER, env[matrix.image_name_env]) || '' }}
+            ${{ env.ALIYUN_DOCKER_USERNAME && format('{0}/ai-shifu/{1}', env.ALIYUN_DOCKER_REGISTRY, env[matrix.image_name_env]) || '' }}
+          labels: |
+            org.opencontainers.image.title=AI-Shifu ${{ matrix.service_name }}
+            org.opencontainers.image.description=AI-led chat platform - ${{ matrix.service_name }} service
+            org.opencontainers.image.vendor=AI-Shifu Team
+            org.opencontainers.image.licenses=Apache-2.0 WITH Commercial-Use-Conditions
+            org.opencontainers.image.source=https://github.com/ai-shifu/ai-shifu
+            org.opencontainers.image.documentation=https://github.com/ai-shifu/ai-shifu/blob/main/README.md
+            org.opencontainers.image.url=https://github.com/ai-shifu/ai-shifu
+            org.opencontainers.image.version=${{ env.TAG_VERSION }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            ai-shifu.license-file=https://github.com/ai-shifu/ai-shifu/blob/main/LICENSE.txt
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ env.TAG_VERSION }},enable=${{ env.RELEASE_BUILD == 'true' }}
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: "${{ matrix.context }}"
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            TAG_VERSION=${{ env.TAG_VERSION }}
+
+      - name: Update Docker Hub repository description
+        if: env.RELEASE_BUILD == 'true' && env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        continue-on-error: true
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+          repository: ${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}
+          short-description: "AI-Shifu ${{ matrix.service_name }} - AI-led chat platform"
+          readme-filepath: ./README.md
+
+      - name: Build summary
+        run: |
+          echo "### 🐳 Docker Build Complete - ${{ matrix.service_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Service**: ${{ matrix.service_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: ${{ env.TAG_VERSION }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Context**: ${{ matrix.context }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Platforms**: linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Built Images**:" >> $GITHUB_STEP_SUMMARY
+
+          # Show built images
+          if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
+            echo "- 🐙 Docker Hub: \`${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "- 🐙 Docker Hub: \`${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}:latest\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -n "${{ env.ALIYUN_DOCKER_USERNAME }}" ]; then
+            echo "- 🏗️ Aliyun: \`${{ env.ALIYUN_DOCKER_REGISTRY }}/ai-shifu/${{ env[matrix.image_name_env] }}:${{ env.TAG_VERSION }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  deploy-summary:
+    runs-on: ubuntu-latest
+    needs: [validate-release, build-docker]
+    if: always() && needs.validate-release.outputs.should_build == 'true'
+
+    steps:
+      - name: Create deployment summary
+        run: |
+          echo "## 🚀 Release Build and Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Release**: ${{ needs.validate-release.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ needs.build-docker.result == 'success' && '✅ Success' || '❌ Failed' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.build-docker.result }}" = "success" ]; then
+            echo "### ✅ All Docker Images Built Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "The following images are now available:" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "#### Quick Start Commands" >> $GITHUB_STEP_SUMMARY
+            echo '```bash' >> $GITHUB_STEP_SUMMARY
+            echo '# Pull all images' >> $GITHUB_STEP_SUMMARY
+            echo 'docker pull ${{ secrets.DOCKERHUB_USER || env.DEFAULT_DOCKERHUB_USER }}/ai-shifu-api:${{ needs.validate-release.outputs.tag }}' >> $GITHUB_STEP_SUMMARY
+            echo 'docker pull ${{ secrets.DOCKERHUB_USER || env.DEFAULT_DOCKERHUB_USER }}/ai-shifu-web:${{ needs.validate-release.outputs.tag }}' >> $GITHUB_STEP_SUMMARY
+            echo 'docker pull ${{ secrets.DOCKERHUB_USER || env.DEFAULT_DOCKERHUB_USER }}/ai-shifu-cook-web:${{ needs.validate-release.outputs.tag }}' >> $GITHUB_STEP_SUMMARY
+            echo '' >> $GITHUB_STEP_SUMMARY
+            echo '# Start with Docker Compose (production-ready)' >> $GITHUB_STEP_SUMMARY
+            echo 'cd docker' >> $GITHUB_STEP_SUMMARY
+            echo 'docker compose -f docker-compose.prod.yml up -d' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📦 Image Details" >> $GITHUB_STEP_SUMMARY
+            echo "- **API Server**: Contains the Flask backend with all business logic" >> $GITHUB_STEP_SUMMARY
+            echo "- **Web Application**: React-based user interface" >> $GITHUB_STEP_SUMMARY
+            echo "- **Cook Web**: Next.js content management system" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All images support both **linux/amd64** and **linux/arm64** architectures." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "### ❌ Build Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please check the build logs for details and retry if necessary." >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "🤖 Automated build triggered by release: **${{ needs.validate-release.outputs.tag }}**" >> $GITHUB_STEP_SUMMARY
