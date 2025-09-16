@@ -1,6 +1,6 @@
 """change default user language from zh-CN to en-US
 
-Revision ID: change_default_language_001
+Revision ID: 8d807c14ad21
 Revises: d2c6607d312a
 Create Date: 2025-09-16 06:08:00.000000
 
@@ -10,7 +10,7 @@ from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = "change_default_language_001"
+revision = "8d807c14ad21"
 down_revision = "d2c6607d312a"
 branch_labels = None
 depends_on = None
