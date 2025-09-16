@@ -28,6 +28,24 @@ export interface GetLessonStudyRecordParams {
   preview_mode?: 'cook' | 'preview' | 'normal';
 }
 
+export interface PostGeneratedContentActionParams {
+  shifu_bid: string;
+  generated_block_bid: string;
+  action: LikeStatus;
+}
+
+export interface ApiResponse<T> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+export interface PostGeneratedContentActionData {
+  shifu_bid: string;
+  generated_block_bid: string;
+  action: LikeStatus;
+}
+
 export const runScript = (
   course_id,
   lesson_id,
@@ -116,9 +134,19 @@ export const getLessonStudyRecord = async ({
   };
 };
 
-export const scriptContentOperation = async (logID, interactionType) => {
-  return request.post('/api/study/script-content-operation', {
-    log_id: logID,
-    interaction_type: interactionType,
-  });
-};
+/**
+ * 点赞/点踩 生成内容
+ * shifu_bid: shifu_bid
+ * generated_block_bid: 生成内容bid
+ * action: 动作 like|dislike|none
+ * @param params 
+ * @returns 
+ */
+export async function postGeneratedContentAction(
+  params: PostGeneratedContentActionParams,
+): Promise<PostGeneratedContentActionData> {
+  const { shifu_bid, generated_block_bid, action } = params;
+  const url = `/api/learn/shifu/${shifu_bid}/generated-contents/${generated_block_bid}/${action}`;
+  // Use standard request wrapper; it will return response.data when code===0
+  return request.post(url, params);
+}

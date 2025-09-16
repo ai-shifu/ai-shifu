@@ -18,7 +18,6 @@ import useMessages from './ForkChatUI/hooks/useMessages';
 import { Chat } from './ForkChatUI/components/Chat';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 
-import { ThumbsUp, ThumbsDown } from 'lucide-react';
 // i18n
 
 import {
@@ -65,6 +64,7 @@ import logoColor120 from '@/c-assets/logos/logo-color-120.png';
 import { STUDY_PREVIEW_MODE } from '@/c-constants/study';
 import { StudyRecordItem, LikeStatus } from '@/c-api/studyV2';
 import { ContentRender } from 'markdown-flow-ui';
+import InteractionBlock from './InteractionBlock';
 
 interface ContentItem {
   content: string;
@@ -72,6 +72,7 @@ interface ContentItem {
   defaultButtonText: string;
   defaultInputText: string;
   readonly: boolean;
+  generated_block_bid: string;
   like_status?: LikeStatus; // bussiness logic, not from api
 }
 
@@ -91,7 +92,7 @@ export const NewChatComponents = forwardRef<any, any>(
   ) => {
     // const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
-    const { courseId } = useEnvStore.getState()
+    const { courseId: shifu_bid } = useEnvStore.getState()
 
     const [inputModal, setInputModal] = useState(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -103,6 +104,7 @@ export const NewChatComponents = forwardRef<any, any>(
        const result: ContentItem[]= [];
        records.forEach((item: StudyRecordItem) => {
         result.push({
+          generated_block_bid: item.generated_block_bid,
           content: item.content,
           customRenderBar: () => null,
           defaultButtonText: '',
@@ -113,7 +115,8 @@ export const NewChatComponents = forwardRef<any, any>(
         // if like_status is exist, add interaction block
         if(item.like_status){
          result.push({
-            content: item.generated_block_bid,
+            generated_block_bid: item.generated_block_bid,
+            content: '',
             like_status: item.like_status,
             customRenderBar: () => null,
             defaultButtonText: '',
@@ -127,7 +130,7 @@ export const NewChatComponents = forwardRef<any, any>(
 
     const refreshData = async () => {
       const recordResp = await getLessonStudyRecord({ 
-        shifu_bid: courseId,
+        shifu_bid,
         outline_bid: chapterId,
       });
       if(recordResp?.records?.length > 0) {
@@ -154,20 +157,24 @@ export const NewChatComponents = forwardRef<any, any>(
           mobileStyle ? styles.mobile : '',
         )}
       >
-        {contentList.map((item, idx) => (
-          <div key={idx}>
+        {contentList.map((item, idx) => (item.like_status ? 
+            <InteractionBlock
+              key={`${item.generated_block_bid}-interaction`}
+              shifu_bid={shifu_bid}
+              generated_block_bid={item.generated_block_bid}
+              like_status={item.like_status}
+              readonly={item.readonly}
+            />
+            :
             <ContentRender
+              key={item.generated_block_bid}
               content={item.content}
               customRenderBar={item.customRenderBar}
               defaultButtonText={item.defaultButtonText}
               defaultInputText={item.defaultInputText}
               readonly={item.readonly}
             />
-          </div>
         ))}
-        {inputModal && (
-         '互动块'
-        )}
         
         {/* {payModalOpen &&
           (mobileStyle ? (
