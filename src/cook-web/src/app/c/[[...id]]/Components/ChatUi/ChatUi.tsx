@@ -6,7 +6,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 
 import { AppContext } from '@/c-components/AppContext';
-import ChatComponents from './ChatComponents';
+import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import GlobalInfoButton from './GlobalInfoButton';
