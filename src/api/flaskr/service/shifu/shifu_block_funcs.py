@@ -319,10 +319,10 @@ def add_block(
         markdown_flow_content = ""
         is_add_to_content = False
         for block in existing_blocks:
-            markdown_flow_content += "\n" + convert_block_to_mdflow(
-                generate_block_dto_from_model_internal(block, False), {}
-            )
             if block.position < block_index:
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    generate_block_dto_from_model_internal(block, False), {}
+                )
                 blocks_history.append(HistoryInfo(bid=block.block_bid, id=block.id))
                 continue
 
@@ -337,6 +337,9 @@ def add_block(
                 continue
 
             if block.position >= block_index:
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    generate_block_dto_from_model_internal(block, False), {}
+                )
                 new_block = block.clone()
                 new_block.position = block.position + 1
                 new_block.updated_at = now_time
