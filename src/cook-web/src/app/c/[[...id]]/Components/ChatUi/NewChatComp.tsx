@@ -12,6 +12,7 @@ import {
   useCallback,
 } from 'react';
 import { cn } from '@/lib/utils';
+import dynamic from 'next/dynamic';
 
 import useMessages from './ForkChatUI/hooks/useMessages';
 import { Chat } from './ForkChatUI/components/Chat';
@@ -24,7 +25,7 @@ import {
   runScript,
   getLessonStudyRecord,
   scriptContentOperation,
-} from '@/c-api/study';
+} from '@/c-api/studyV2';
 import { genUuid } from '@/c-utils/common';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea';
 import { AppContext } from '@/c-components/AppContext';
@@ -61,8 +62,19 @@ import { convertKeysToCamelCase } from '@/c-utils/objUtils';
 import { useShallow } from 'zustand/react/shallow';
 
 import logoColor120 from '@/c-assets/logos/logo-color-120.png';
+import { STUDY_PREVIEW_MODE } from '@/c-constants/study';
+import { StudyRecordItem, LikeStatus } from '@/c-api/studyV2';
+import { ContentRender } from 'markdown-flow-ui';
 
-// TODO: FIXME
+interface ContentItem {
+  content: string;
+  customRenderBar: () => null;
+  defaultButtonText: string;
+  defaultInputText: string;
+  readonly: boolean;
+  like_status?: LikeStatus; // bussiness logic, not from api
+}
+
 export const NewChatComponents = forwardRef<any, any>(
   (
     {
@@ -79,14 +91,60 @@ export const NewChatComponents = forwardRef<any, any>(
   ) => {
     // const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
-    const { courseId } = useEnvStore.getState();
+    const { courseId } = useEnvStore.getState()
 
     const [inputModal, setInputModal] = useState(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
+    const [contentList, setContentList] = useState<ContentItem[]>([]);
     const { mobileStyle } = useContext(AppContext);
 
-    
+    const reduceRecordsToContent = (records: StudyRecordItem[]) => {
+       const result: ContentItem[]= [];
+       records.forEach((item: StudyRecordItem) => {
+        result.push({
+          content: item.content,
+          customRenderBar: () => null,
+          defaultButtonText: '',
+          defaultInputText: '',
+          readonly: false
+        } as ContentItem);
+
+        // if like_status is exist, add interaction block
+        if(item.like_status){
+         result.push({
+            content: item.generated_block_bid,
+            like_status: item.like_status,
+            customRenderBar: () => null,
+            defaultButtonText: '',
+            defaultInputText: '',
+            readonly: false
+          })
+        };
+      });
+      return result;
+    };
+
+    const refreshData = async () => {
+      const recordResp = await getLessonStudyRecord({ 
+        shifu_bid: courseId,
+        outline_bid: chapterId,
+      });
+      if(recordResp?.records?.length > 0) {
+        console.log('获取学习记录', recordResp);
+        setLoadedData(true);
+        setLoadedChapterId(chapterId);
+        const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
+        setContentList(contentRecords);
+        console.log('contentList', contentRecords);
+      }else{
+        console.log('获取学习记录为空，开始run');
+      }
+    };
+
+    useEffect(() => {
+      refreshData();
+    }, [chapterId]);
 
     return (
       <div
@@ -96,10 +154,21 @@ export const NewChatComponents = forwardRef<any, any>(
           mobileStyle ? styles.mobile : '',
         )}
       >
-        chat块
+        {contentList.map((item, idx) => (
+          <div key={idx}>
+            <ContentRender
+              content={item.content}
+              customRenderBar={item.customRenderBar}
+              defaultButtonText={item.defaultButtonText}
+              defaultInputText={item.defaultInputText}
+              readonly={item.readonly}
+            />
+          </div>
+        ))}
         {inputModal && (
          '互动块'
         )}
+        
         {/* {payModalOpen &&
           (mobileStyle ? (
             <PayModalM
