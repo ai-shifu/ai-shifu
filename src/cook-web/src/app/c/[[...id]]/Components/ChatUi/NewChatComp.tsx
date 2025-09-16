@@ -10,6 +10,7 @@ import {
   useRef,
   memo,
   useCallback,
+  useMemo,
 } from 'react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
@@ -23,7 +24,7 @@ import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScrol
 import {
   runScript,
   getLessonStudyRecord,
-  scriptContentOperation,
+  // scriptContentOperation,
 } from '@/c-api/studyV2';
 import { genUuid } from '@/c-utils/common';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea';
@@ -39,7 +40,7 @@ import {
 } from '@/c-constants/courseConstants';
 
 import { useUserStore } from '@/store';
-import { fixMarkdown, fixMarkdownStream } from '@/c-utils/markdownUtils';
+import { fixMarkdownStream } from '@/c-utils/markdownUtils';
 import PayModal from '../Pay/PayModal';
 // TODO: FIXME
 // import LoginModal from '../Login/LoginModal';
@@ -62,10 +63,9 @@ import { useShallow } from 'zustand/react/shallow';
 
 import logoColor120 from '@/c-assets/logos/logo-color-120.png';
 import { STUDY_PREVIEW_MODE } from '@/c-constants/study';
-import { StudyRecordItem, LikeStatus } from '@/c-api/studyV2';
-import { ContentRender } from 'markdown-flow-ui';
+import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE} from '@/c-api/studyV2';
+import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
 import InteractionBlock from './InteractionBlock';
-
 interface ContentItem {
   content: string;
   customRenderBar: () => null;
@@ -75,6 +75,14 @@ interface ContentItem {
   generated_block_bid: string;
   like_status?: LikeStatus; // bussiness logic, not from api
 }
+
+interface SSEParams {
+  input: string | Record<string, any>;
+  input_type: SSE_INPUT_TYPE;
+  reload_generated_block_bid?: string;
+}
+
+
 
 export const NewChatComponents = forwardRef<any, any>(
   (
@@ -87,18 +95,108 @@ export const NewChatComponents = forwardRef<any, any>(
       onPurchased,
       chapterUpdate,
       updateSelectedLesson,
+      preview_mode = 'normal',
     },
     ref,
   ) => {
     // const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
     const { courseId: shifu_bid } = useEnvStore.getState()
+    const outline_bid = lessonId || chapterId;
 
+   
+ 
     const [inputModal, setInputModal] = useState(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
     const [contentList, setContentList] = useState<ContentItem[]>([]);
     const { mobileStyle } = useContext(AppContext);
+    const [isLoading, setIsLoading] = useState(false);
+    const currentContentRef = useRef<string>('');
+    const currentBlockIdRef = useRef<string | null>(null);
+
+
+    useEffect(() => {
+      if(!outline_bid){
+        return
+      }
+      refreshData();
+    }, [outline_bid]);
+
+
+    const run = (sseParams: SSEParams) => {
+      // Reset current stream context; blocks will be created on first TEXT chunk
+      currentContentRef.current = '';
+      currentBlockIdRef.current = null;
+
+      getRunMessage(
+        shifu_bid,
+        outline_bid,
+        preview_mode,
+        sseParams,
+        async response => {
+          try {
+            // Stream typing effect
+            if (response.type === RESP_EVENT_TYPE.TEXT) {
+              // Create a new content block on first TEXT of a segment
+              if (!currentBlockIdRef.current) {
+                const id = genUuid();
+                currentBlockIdRef.current = id;
+                currentContentRef.current = '';
+                setContentList(prev => [
+                  ...prev,
+                  {
+                    generated_block_bid: id,
+                    content: '',
+                    customRenderBar: () => null,
+                    defaultButtonText: '',
+                    defaultInputText: '',
+                    readonly: false,
+                  } as ContentItem,
+                ]);
+              }
+
+              const prevText = currentContentRef.current || '';
+              const delta = fixMarkdownStream(prevText, response.content || '');
+              const nextText = prevText + delta;
+              currentContentRef.current = nextText;
+
+              const blockId = currentBlockIdRef.current;
+              if (blockId) {
+                setContentList(prev =>
+                  prev.map(item =>
+                    item.generated_block_bid === blockId
+                      ? { ...item, content: nextText }
+                      : item,
+                  ),
+                );
+              }
+              return;
+            }
+
+            if (response.type === RESP_EVENT_TYPE.TEXT_END) {
+              const blockId = currentBlockIdRef.current;
+              if (blockId) {
+                setContentList(prev =>
+                  prev.map(item =>
+                    item.generated_block_bid === blockId
+                      ? { ...item, readonly: true }
+                      : item,
+                  ),
+                );
+              }
+              // Prepare for possible next segment in the same stream
+              currentBlockIdRef.current = null;
+              currentContentRef.current = '';
+              return;
+            }
+          } catch (e) {
+            // eslint-disable-next-line no-console
+            console.warn('SSE handling error:', e);
+          }
+        },
+      );
+    };
 
     const reduceRecordsToContent = (records: StudyRecordItem[]) => {
        const result: ContentItem[]= [];
@@ -129,25 +227,38 @@ export const NewChatComponents = forwardRef<any, any>(
     };
 
     const refreshData = async () => {
-      const recordResp = await getLessonStudyRecord({ 
-        shifu_bid,
-        outline_bid: chapterId,
-      });
-      if(recordResp?.records?.length > 0) {
-        console.log('获取学习记录', recordResp);
-        setLoadedData(true);
-        setLoadedChapterId(chapterId);
-        const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
-        setContentList(contentRecords);
-        console.log('contentList', contentRecords);
-      }else{
+      // const recordResp = await getLessonStudyRecord({ 
+      //   shifu_bid,
+      //   outline_bid,
+      // });
+      // if(recordResp?.records?.length > 0) {
+      //   console.log('获取学习记录', recordResp);
+      //   setLoadedData(true);
+      //   setLoadedChapterId(chapterId);
+      //   const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
+      //   setContentList(contentRecords);
+      //   console.log('contentList', contentRecords);
+      // }else{
         console.log('获取学习记录为空，开始run');
-      }
+        run({
+          input: '',
+          input_type: 'normal',
+        })
+      // }
     };
 
-    useEffect(() => {
-      refreshData();
-    }, [chapterId]);
+
+    const onSend = (content: OnSendContentParams) => {
+      console.log('onSend', content);
+      const { variableName, buttonText, inputText } = content;
+      run({
+        input: {
+          [variableName as string]: buttonText || inputText
+        },
+        input_type: 'normal',
+      })
+    };
+
 
     return (
       <div
@@ -157,7 +268,7 @@ export const NewChatComponents = forwardRef<any, any>(
           mobileStyle ? styles.mobile : '',
         )}
       >
-        {contentList.map((item, idx) => (item.like_status ? 
+        {contentList.map((item) => (item.like_status ? 
             <InteractionBlock
               key={`${item.generated_block_bid}-interaction`}
               shifu_bid={shifu_bid}
@@ -173,6 +284,7 @@ export const NewChatComponents = forwardRef<any, any>(
               defaultButtonText={item.defaultButtonText}
               defaultInputText={item.defaultInputText}
               readonly={item.readonly}
+              onSend={onSend}
             />
         ))}
         

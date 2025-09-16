@@ -8,6 +8,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 // ===== Types for Learn/Shifu records mock =====
 export type BlockType = 'content' | 'interaction';
 export type LikeStatus = 'like' | 'dislike' | 'none';
+export type SSE_INPUT_TYPE = 'normal' | 'ask';
 
 export interface StudyRecordItem {
   block_type: BlockType;
@@ -46,41 +47,51 @@ export interface PostGeneratedContentActionData {
   action: LikeStatus;
 }
 
-export const runScript = (
-  course_id,
-  lesson_id,
-  input,
-  input_type,
-  script_id,
-  onMessage,
+export const getRunMessage = (
+  shifu_bid,
+  outline_bid,
+  preview_mode = 'normal',
+  body,
+  onFinish,
 ) => {
+  console.log('getRunMessage', shifu_bid, outline_bid, preview_mode, body)
+  // const source = new SSE(
+  //   `/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
+  //   {
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //       'X-Request-ID': v4().replace(/-/g, ''),
+  //     },
+  //     payload: JSON.stringify(body),
+  //   },
+  // );
+
+  // 先mock以前老的数据，后续再替换为新的数据
   let baseURL = getStringEnv('baseURL');
   if (baseURL === '' || baseURL === '/') {
     baseURL = window.location.origin;
   }
-  const preview_mode = useSystemStore.getState().previewMode;
   const source = new SSE(
-    `${baseURL}/api/study/run?preview_mode=${preview_mode}&token=${tokenStore.get()}`,
+    `${baseURL}/api/study/run?preview_mode=false&token=${tokenStore.get()}`,
     {
       headers: {
         'Content-Type': 'application/json',
         'X-Request-ID': v4().replace(/-/g, ''),
       },
       payload: JSON.stringify({
-        course_id,
-        lesson_id,
-        input,
-        input_type,
-        script_id,
-        preview_mode,
+        course_id:'ca3265b045e84774b8d845a4c3c5b0a3',
+        lesson_id:"fddec7afa702475ba080a2bc66643ccf",
+        input:'',
+        input_type:'start',
+        preview_mode:'false',
       }),
     },
   );
   source.onmessage = event => {
     try {
       const response = JSON.parse(event.data);
-      if (onMessage) {
-        onMessage(response);
+      if (onFinish) {
+        onFinish(response);
       }
     } catch (e) {
       console.log(e);

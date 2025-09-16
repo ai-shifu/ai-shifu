@@ -32,7 +32,7 @@ export default function InteractionBlock({
   like_status = 'none',
   readonly = false,
   disabled = false,
-  size = 'md',
+  size = 'sm',
   className,
 }: InteractionBlockProps) {
   const [status, setStatus] = useState<LikeStatus>(
