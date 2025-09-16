@@ -1,6 +1,7 @@
 import typing
 import ast
 import inspect
+from enum import Enum
 
 swagger_config = {
     "openapi": "3.0.2",
@@ -35,28 +36,23 @@ def parse_comments(cls):
     tree = ast.parse(source)
     comments = {}
 
-    # 获取源代码的所有行
     source_lines = source.splitlines()
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
             for item in node.body:
                 if isinstance(item, (ast.AnnAssign, ast.Assign)):
-                    # 获取字段名
                     if isinstance(item, ast.AnnAssign):
                         field_name = item.target.id
                     else:  # ast.Assign
                         field_name = item.targets[0].id
 
-                    # 获取行号
                     line_num = item.lineno - 1  # ast 行号从1开始，列表索引从0开始
                     line = source_lines[line_num].strip()
 
-                    # 查找行内注释
                     if "#" in line:
                         comment = line.split("#", 1)[1].strip()
                         comments[field_name] = comment
-                    # 如果没有注释但有字符串赋值，使用字符串值作为注释
                     elif item.value and isinstance(item.value, (ast.Str, ast.Constant)):
                         if isinstance(item.value, ast.Str):
                             comments[field_name] = item.value.s
@@ -72,7 +68,14 @@ def get_field_schema(typ, description: str = ""):
     field_schema = {}
     origin = typing.get_origin(typ)
     args = typing.get_args(typ)
-    if typ in (str, int, float, bool):
+
+    if isinstance(typ, type) and issubclass(typ, Enum):
+        field_schema["type"] = "string"
+        field_schema["enum"] = [member.value for member in typ]
+        field_schema["description"] = (
+            f"Enum values: {', '.join([member.value for member in typ])}"
+        )
+    elif typ in (str, int, float, bool):
         field_schema["type"] = typ.__name__
         if typ is str:
             field_schema["type"] = "string"
@@ -80,7 +83,20 @@ def get_field_schema(typ, description: str = ""):
             field_schema["type"] = "integer"
         elif typ is float:
             field_schema["type"] = "number"
-    # 处理列表类型
+    elif origin is typing.Union or (hasattr(typ, "__args__") and "|" in str(typ)):
+        if hasattr(typ, "__args__"):
+            union_types = typ.__args__
+        else:
+            union_types = args
+
+        non_none_types = [t for t in union_types if t is not type(None)]
+
+        if len(non_none_types) == 1:
+            return get_field_schema(non_none_types[0], description)
+        else:
+            field_schema["oneOf"] = []
+            for union_type in non_none_types:
+                field_schema["oneOf"].append(get_field_schema(union_type))
     elif origin is list:
         item_type = args[0]
         field_schema["type"] = "array"
@@ -93,7 +109,8 @@ def get_field_schema(typ, description: str = ""):
         field_schema["$ref"] = f"#/components/schemas/{typ.__name__}"
     else:
         field_schema["type"] = "object"
-    if description:
+
+    if description and not (isinstance(typ, type) and issubclass(typ, Enum)):
         field_schema["description"] = description
     return field_schema
 
@@ -101,6 +118,16 @@ def get_field_schema(typ, description: str = ""):
 def register_schema_to_swagger(cls):
     if swagger_config["components"]["schemas"].get(cls.__name__, None):
         return swagger_config["components"]["schemas"].get(cls.__name__)
+
+    if isinstance(cls, type) and issubclass(cls, Enum):
+        schema = {
+            "type": "string",
+            "enum": [member.value for member in cls],
+            "description": f"Enum values: {', '.join([member.value for member in cls])}",
+        }
+        swagger_config["components"]["schemas"][cls.__name__] = schema
+        return cls
+
     properties = {}
     required = []
     comments = parse_comments(cls)
