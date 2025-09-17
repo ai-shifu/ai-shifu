@@ -24,15 +24,41 @@ def get_user_openid(user):
         return ""
 
 
+def _normalize_language_code(language_code: str) -> str:
+    """Normalize legacy or inconsistent language codes into a canonical form."""
+    if not language_code:
+        return ""
+
+    normalized = language_code.replace("_", "-")
+    parts = [segment for segment in normalized.split("-") if segment]
+
+    if not parts:
+        return ""
+
+    primary = parts[0].lower()
+    subtags = []
+
+    for index, segment in enumerate(parts[1:], start=1):
+        if len(segment) == 2 and segment.isalpha():
+            subtags.append(segment.upper())
+        elif len(segment) == 4 and segment.isalpha():
+            subtags.append(segment.title())
+        else:
+            subtags.append(segment)
+
+    normalized_parts = [primary]
+    normalized_parts.extend(subtags)
+    return "-".join(normalized_parts)
+
+
 def get_user_language(user):
     if hasattr(user, "user_language") and user.user_language:
         # Return the user's language as-is, let the i18n system handle fallback
         # Only normalize old format for compatibility
-        normalization_map = {
-            "zh_CN": "zh-CN",
-            "en_US": "en-US",
-        }
-        return normalization_map.get(user.user_language, user.user_language)
+        normalized = _normalize_language_code(user.user_language)
+        if normalized:
+            return normalized
+        return user.user_language
     else:
         # No language set, default to English
         return "en-US"

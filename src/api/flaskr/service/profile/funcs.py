@@ -4,6 +4,7 @@ from flask import Flask
 from .models import UserProfile
 from ...dao import db
 from ..user.models import User
+from ..user.utils import get_user_language
 from ...i18n import _
 import datetime
 from ..check_risk.funcs import add_risk_control_result
@@ -21,6 +22,52 @@ from flaskr.service.profile.models import (
     CONST_PROFILE_TYPE_OPTION,
 )
 from flaskr.service.profile.dtos import ProfileToSave
+
+
+SYS_USER_LANGUAGE = "sys_user_language"
+
+_LANGUAGE_SPECIFIC_DISPLAY = {
+    "zh-CN": "简体中文",
+    "zh-SG": "简体中文",
+    "zh-TW": "繁体中文",
+    "zh-HK": "繁体中文",
+    "zh-MO": "繁体中文",
+}
+
+_LANGUAGE_BASE_DISPLAY = {
+    "en": "English",
+    "zh": "中文",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "ja": "Japanese",
+    "ko": "Korean",
+    "ru": "Russian",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ar": "Arabic",
+    "hi": "Hindi",
+    "vi": "Vietnamese",
+    "th": "Thai",
+    "id": "Indonesian",
+    "ms": "Malay",
+    "tr": "Turkish",
+    "pl": "Polish",
+}
+
+_DEFAULT_LANGUAGE_DISPLAY = "English"
+
+
+def _language_display_value(language_code: str) -> str:
+    """Return a human readable representation for a language code."""
+    if not language_code:
+        return _DEFAULT_LANGUAGE_DISPLAY
+
+    if language_code in _LANGUAGE_SPECIFIC_DISPLAY:
+        return _LANGUAGE_SPECIFIC_DISPLAY[language_code]
+
+    base_code = language_code.split("-")[0]
+    return _LANGUAGE_BASE_DISPLAY.get(base_code, language_code)
 
 
 def check_text_content(
@@ -243,7 +290,14 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
+    user_info = User.query.filter(User.user_id == user_id).first()
     result = {}
+
+    if user_info:
+        language_code = get_user_language(user_info)
+        result[SYS_USER_LANGUAGE] = _language_display_value(language_code)
+    else:
+        result[SYS_USER_LANGUAGE] = _DEFAULT_LANGUAGE_DISPLAY
 
     for profile_item in profiles_items:
         user_profile = next(
