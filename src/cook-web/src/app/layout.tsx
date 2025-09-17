@@ -28,14 +28,16 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased overflow-hidden`}
       >
-        <ConfigProvider>
-          <UserProvider>
-            <AlertProvider>
-              {children}
-              <Toaster />
-            </AlertProvider>
-          </UserProvider>
-        </ConfigProvider>
+        <div id='root'>
+          <ConfigProvider>
+            <UserProvider>
+              <AlertProvider>
+                {children}
+                <Toaster />
+              </AlertProvider>
+            </UserProvider>
+          </ConfigProvider>
+        </div>
       </body>
     </html>
   );

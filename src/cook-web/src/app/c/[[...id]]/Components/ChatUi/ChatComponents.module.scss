@@ -4,6 +4,9 @@
   position: relative;
   box-sizing: border-box;
 
+  :global(.content-render){
+    margin: 16px auto;
+  }
   :global(.MessageContainer) {
     background-color: var(--color-4);
 
@@ -34,7 +37,6 @@
 
     :global(.Message.left) {
       color: var(--font-color-main);
-      font-size: var(--font-size-3);
 
       :global(.Bubble) {
         background-color: transparent;

@@ -1,4 +1,5 @@
 import './ForkChatUI/styles/index.scss';
+import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
   useEffect,

@@ -32,14 +32,12 @@ export default function InteractionBlock({
   like_status = LIKE_STATUS.NONE,
   readonly = false,
   disabled = false,
-  size = 'sm',
   className,
 }: InteractionBlockProps) {
   const [status, setStatus] = useState<LikeStatus>(
     (like_status as LikeStatus) ?? LIKE_STATUS.NONE,
   );
 
-  const iconSize = sizeMap[size];
   const isLike = status === LIKE_STATUS.LIKE;
   const isDislike = status === LIKE_STATUS.DISLIKE;
 
@@ -48,15 +46,11 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: iconSize + 12,
-      height: iconSize + 12,
-      borderRadius: 6,
-      background: isLike ? 'rgba(22,163,74,0.12)' : 'transparent',
-      border: '1px solid',
-      borderColor: isLike ? 'rgba(22,163,74,0.35)' : 'rgba(107,114,128,0.25)',
+      width: 28,
+      height: 14,
       cursor: disabled ? 'not-allowed' : 'pointer',
     }),
-    [iconSize, isLike, disabled],
+    [disabled],
   );
 
   const dislikeBtnStyle = useMemo(
@@ -64,17 +58,11 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: iconSize + 12,
-      height: iconSize + 12,
-      borderRadius: 6,
-      background: isDislike ? 'rgba(239,68,68,0.12)' : 'transparent',
-      border: '1px solid',
-      borderColor: isDislike
-        ? 'rgba(239,68,68,0.35)'
-        : 'rgba(107,114,128,0.25)',
+      width: 28,
+      height: 14,
       cursor: disabled ? 'not-allowed' : 'pointer',
     }),
-    [iconSize, isDislike, disabled],
+    [disabled],
   );
 
   const send = (action: LikeStatus) => {
@@ -108,8 +96,8 @@ export default function InteractionBlock({
 
   return (
     <div
-      className={cn('interaction-block', className)}
-      style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+      className={cn(['interaction-block'], className)}
+      style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}
     >
       <button
         type="button"
@@ -121,9 +109,8 @@ export default function InteractionBlock({
         style={likeBtnStyle}
       >
         <ThumbsUp
-          size={iconSize}
-          color={isLike ? '#16a34a' : '#6b7280'}
-          strokeWidth={2}
+          size={14}
+          className={cn(isLike ? 'text-blue-500' : 'text-gray-400', 'w-5', 'h-5')}
         />
       </button>
 
@@ -137,9 +124,8 @@ export default function InteractionBlock({
         style={dislikeBtnStyle}
       >
         <ThumbsDown
-          size={iconSize}
-          color={isDislike ? '#ef4444' : '#6b7280'}
-          strokeWidth={2}
+          size={14}
+          className={cn(isDislike ? 'text-blue-500' : 'text-gray-400', 'w-5', 'h-5')}
         />
       </button>
     </div>

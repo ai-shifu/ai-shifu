@@ -57,7 +57,6 @@ export const ChatUi = ({
           onGoChapter={onGoChapter}
           className={styles.chatComponents}
           onPurchased={onPurchased}
-          onMobileSettingClick={onMobileSettingClick}
           chapterUpdate={chapterUpdate}
           updateSelectedLesson={updateSelectedLesson}
         />
