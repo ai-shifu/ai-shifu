@@ -4,7 +4,13 @@ import asyncio
 from typing import Generator, Union, AsyncGenerator
 from enum import Enum
 from pydantic import BaseModel
-from markdown_flow import MarkdownFlow, ProcessMode, LLMProvider, BlockType
+from markdown_flow import (
+    MarkdownFlow,
+    ProcessMode,
+    LLMProvider,
+    BlockType,
+    InteractionParser,
+)
 from flask import Flask
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import (
@@ -256,9 +262,6 @@ class RunScriptContextV2:
                 for child in item.children:
                     self._q.put(child)
         self._current_attend = self._get_current_attend(self._outline_item_info.bid)
-        self.app.logger.info(
-            f"current_attend: {self._current_attend.progress_record_bid} {self._current_attend.block_position}"
-        )
         self._trace_args = {}
         self._trace_args["user_id"] = user_info.user_id
         self._trace_args["session_id"] = self._current_attend.progress_record_bid
@@ -316,7 +319,6 @@ class RunScriptContextV2:
                     attend_info.block_position = 0
                     db.session.add(attend_info)
                     db.session.flush()
-                    break
         return attend_info
 
     # outline is a leaf when has block item as children
@@ -345,10 +347,11 @@ class RunScriptContextV2:
             if item.children:
                 for child in item.children:
                     q.put(child)
-        outline_item_info_db: list[tuple[str, bool]] = (
+        outline_item_info_db: list[tuple[str, bool, str]] = (
             db.session.query(
                 self._outline_model.outline_item_bid,
                 self._outline_model.hidden,
+                self._outline_model.title,
             )
             .filter(
                 self._outline_model.outline_item_bid.in_(outline_ids),
@@ -357,7 +360,10 @@ class RunScriptContextV2:
             .all()
         )
         outline_item_hidden_map: dict[str, bool] = {
-            o[0]: o[1] for o in outline_item_info_db
+            bid: hidden for bid, hidden, _title in outline_item_info_db
+        }
+        outline_item_title_map: dict[str, str] = {
+            bid: title for bid, _hidden, title in outline_item_info_db
         }
 
         def _mark_sub_node_completed(
@@ -366,24 +372,19 @@ class RunScriptContextV2:
             q = queue.Queue()
             q.put(self._struct)
             if self._is_leaf_outline_item(outline_item_info):
-                # res.append(
-                # _OutlineUpate(_OutlineUpateType.LEAF_COMPLETED, outline_item_info)
                 res.append(
                     OutlineItemUpdateDTO(
                         outline_bid=outline_item_info.bid,
-                        title=outline_item_info.title,
+                        title=outline_item_title_map.get(outline_item_info.bid, ""),
                         status=LearnStatus.COMPLETED,
                         has_children=False,
                     )
                 )
             else:
-                # res.append(
-                #     _OutlineUpate(_OutlineUpateType.NODE_COMPLETED, outline_item_info)
-                # )
                 res.append(
                     OutlineItemUpdateDTO(
                         outline_bid=outline_item_info.bid,
-                        title=outline_item_info.title,
+                        title=outline_item_title_map.get(outline_item_info.bid, ""),
                         status=LearnStatus.COMPLETED,
                         has_children=True,
                     )
@@ -406,26 +407,22 @@ class RunScriptContextV2:
                             current_node.children
                             and current_node.children[0].type == "outline"
                         ):
-                            # res.append(
-                            #     _OutlineUpate(
-                            #         _OutlineUpateType.NODE_START, current_node
-                            #     )
-                            # )
                             res.append(
                                 OutlineItemUpdateDTO(
                                     outline_bid=current_node.bid,
-                                    title=current_node.title,
-                                    status=LearnStatus.NOT_STARTED,
+                                    title=outline_item_title_map.get(
+                                        current_node.bid, ""
+                                    ),
+                                    status=LearnStatus.IN_PROGRESS,
                                     has_children=True,
                                 )
                             )
                             current_node = current_node.children[0]
                         res.append(
-                            # _OutlineUpate(_OutlineUpateType.LEAF_START, current_node)
                             OutlineItemUpdateDTO(
                                 outline_bid=current_node.bid,
-                                title=current_node.title,
-                                status=LearnStatus.NOT_STARTED,
+                                title=outline_item_title_map.get(current_node.bid, ""),
+                                status=LearnStatus.IN_PROGRESS,
                                 has_children=False,
                             )
                         )
@@ -443,21 +440,19 @@ class RunScriptContextV2:
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":
-                        # res.append(_OutlineUpate(_OutlineUpateType.NODE_START, item))
                         res.append(
                             OutlineItemUpdateDTO(
                                 outline_bid=item.bid,
-                                title=item.title,
+                                title=outline_item_title_map.get(item.bid, ""),
                                 status=LearnStatus.IN_PROGRESS,
                                 has_children=True,
                             )
                         )
                     else:
-                        # res.append(_OutlineUpate(_OutlineUpateType.LEAF_START, item))
                         res.append(
                             OutlineItemUpdateDTO(
                                 outline_bid=item.bid,
-                                title=item.title,
+                                title=outline_item_title_map.get(item.bid, ""),
                                 status=LearnStatus.IN_PROGRESS,
                                 has_children=False,
                             )
@@ -477,10 +472,10 @@ class RunScriptContextV2:
     def _render_outline_updates(
         self, outline_updates: list[OutlineItemUpdateDTO], new_chapter: bool = False
     ) -> Generator[str, None, None]:
-        shif_bids = [o.outline_item_info.bid for o in outline_updates]
+        shifu_bids = [o.outline_bid for o in outline_updates]
         outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
             self._outline_model.query.filter(
-                self._outline_model.outline_item_bid.in_(shif_bids),
+                self._outline_model.outline_item_bid.in_(shifu_bids),
                 self._outline_model.deleted == 0,
             ).all()
         )
@@ -488,26 +483,28 @@ class RunScriptContextV2:
             str, Union[DraftOutlineItem, PublishedOutlineItem]
         ] = {o.outline_item_bid: o for o in outline_item_info_db}
         for update in outline_updates:
-            self.app.logger.info(f"outline update: {update.__json__()}")
             outline_item_info = outline_item_info_map.get(update.outline_bid, None)
             if not outline_item_info:
                 continue
             if outline_item_info.hidden:
                 continue
-            if (not update.has_children) and update.status == LearnStatus.NOT_STARTED:
-                self._current_outline_item = update.outline_item_info
+            if (not update.has_children) and update.status == LearnStatus.IN_PROGRESS:
+                self._current_outline_item = self._get_outline_struct(
+                    update.outline_bid
+                )
                 if self._current_attend.outline_item_bid == update.outline_bid:
                     self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                     self._current_attend.outline_item_updated = 0
                     self._current_attend.block_position = 0
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=update.outline_bid,
+                        generated_block_bid="",
+                        type=GeneratedType.OUTLINE_ITEM_UPDATE,
+                        content=update,
+                    )
                     db.session.flush()
                     continue
-                self._current_attend = self._get_current_attend(
-                    self._current_outline_item
-                )
-                self.app.logger.info(
-                    f"current_attend: {self._current_attend.outline_item_bid} {self._current_attend.status} {self._current_attend.block_position}"
-                )
+                self._current_attend = self._get_current_attend(update.outline_bid)
 
                 if (
                     self._current_attend.status == LEARN_STATUS_NOT_STARTED
@@ -516,39 +513,19 @@ class RunScriptContextV2:
                     self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                     self._current_attend.block_position = 0
                     db.session.flush()
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=update.outline_bid,
-                        generated_block_bid=None,
-                        type=GeneratedType.OUTLINE_ITEM_UPDATE,
-                        content=update,
-                    )
-                    # yield make_script_dto(
-                    #     "lesson_update",
-                    #     {
-                    #         "lesson_id": update.outline_item_info.bid,
-                    #         "status_value": LEARN_STATUS_NOT_STARTED,
-                    #         "status": attend_status_values[LEARN_STATUS_NOT_STARTED],
-                    #         **outline_item_info_args,
-                    #     },
-                    #     "",
-                    # )
-                    # yield make_script_dto(
-                    #     "lesson_update",
-                    #     {
-                    #         "lesson_id": update.outline_item_info.bid,
-                    #         "status_value": LEARN_STATUS_IN_PROGRESS,
-                    #         "status": attend_status_values[LEARN_STATUS_IN_PROGRESS],
-                    #         **outline_item_info_args,
-                    #     },
-                    #     "",
-                    # )
+                yield RunMarkdownFlowDTO(
+                    outline_bid=update.outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.OUTLINE_ITEM_UPDATE,
+                    content=update,
+                )
             elif (not update.has_children) and update.status == LearnStatus.COMPLETED:
                 current_attend = self._get_current_attend(update.outline_bid)
                 current_attend.status = LEARN_STATUS_COMPLETED
                 db.session.flush()
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
-                    generated_block_bid=None,
+                    generated_block_bid="",
                     type=GeneratedType.OUTLINE_ITEM_UPDATE,
                     content=update,
                 )
@@ -562,63 +539,32 @@ class RunScriptContextV2:
                 #     },
                 #     "",
                 # )
-            elif update.has_children and update.status == LearnStatus.NOT_STARTED:
+            elif update.has_children and update.status == LearnStatus.IN_PROGRESS:
                 if new_chapter:
                     status = LEARN_STATUS_NOT_STARTED
                 else:
                     status = LEARN_STATUS_IN_PROGRESS
-                current_attend = self._get_current_attend(update.outline_item_info)
+                current_attend = self._get_current_attend(update.outline_bid)
                 current_attend.status = status
                 current_attend.block_position = 0
                 db.session.flush()
 
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
-                    generated_block_bid=None,
+                    generated_block_bid="",
                     type=GeneratedType.OUTLINE_ITEM_UPDATE,
                     content=update,
                 )
-                # yield make_script_dto(
-                #     "chapter_update",
-                #     {
-                #         "lesson_id": update.outline_item_info.bid,
-                #         "status_value": status,
-                #         "status": attend_status_values[status],
-                #         **outline_item_info_args,
-                #     },
-                #     "",
-                # )
-
-                # yield make_script_dto(
-                #     "next_chapter",
-                #     {
-                #         "lesson_id": update.outline_item_info.bid,
-                #         "status_value": status,
-                #         "status": attend_status_values[status],
-                #         **outline_item_info_args,
-                #     },
-                #     "",
-                # )
             elif update.has_children and update.status == LearnStatus.COMPLETED:
                 current_attend = self._get_current_attend(update.outline_bid)
                 current_attend.status = LEARN_STATUS_COMPLETED
                 db.session.flush()
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
-                    generated_block_bid=None,
+                    generated_block_bid="",
                     type=GeneratedType.OUTLINE_ITEM_UPDATE,
                     content=update,
                 )
-                # yield make_script_dto(
-                #     "chapter_update",
-                #     {
-                #         "lesson_id": update.outline_item_info.bid,
-                #         "status_value": LEARN_STATUS_COMPLETED,
-                #         "status": attend_status_values[LEARN_STATUS_COMPLETED],
-                #         **outline_item_info_args,
-                #     },
-                #     "",
-                # )
 
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
@@ -631,52 +577,6 @@ class RunScriptContextV2:
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
         self._input = input
-        self.app.logger.info(f"set_input {input} {input_type}")
-
-    # def _get_goto_attend(
-    #     self,
-    #     block_dto: BlockDTO,
-    #     user_info: User,
-    #     outline_item_info: ShifuOutlineItemDto,
-    # ) -> LearnProgressRecord:
-    #     goto: GotoDTO = block_dto.block_content
-    #     variable_id = block_dto.variable_bids[0] if block_dto.variable_bids else ""
-    #     if not variable_id:
-    #         return None
-    #     user_variable = get_user_variable_by_variable_id(
-    #         self.app, user_info.user_id, variable_id
-    #     )
-
-    #     if not user_variable:
-    #         return None
-    #     destination_condition: GotoConditionDTO = None
-    #     for condition in goto.conditions:
-    #         if condition.value == user_variable:
-    #             destination_condition = condition
-    #             break
-    #     if not destination_condition:
-    #         return None
-
-    #     goto_attend = LearnProgressRecord.query.filter(
-    #         LearnProgressRecord.user_bid == user_info.user_id,
-    #         LearnProgressRecord.shifu_bid == outline_item_info.shifu_bid,
-    #         LearnProgressRecord.outline_item_bid
-    #         == destination_condition.destination_bid,
-    #         LearnProgressRecord.status.notin_(
-    #             [LEARN_STATUS_RESET, LEARN_STATUS_COMPLETED]
-    #         ),
-    #     ).first()
-    #     if not goto_attend:
-    #         goto_attend = LearnProgressRecord()
-    #         goto_attend.user_bid = user_info.user_id
-    #         goto_attend.shifu_bid = outline_item_info.shifu_bid
-    #         goto_attend.outline_item_bid = destination_condition.destination_bid
-    #         goto_attend.progress_record_bid = generate_id(self.app)
-    #         goto_attend.status = LEARN_STATUS_IN_PROGRESS
-    #         goto_attend.block_position = 0
-    #         db.session.add(goto_attend)
-    #         db.session.flush()
-    #     return goto_attend
 
     def _get_outline_struct(self, outline_item_id: str) -> HistoryItem:
         q = queue.Queue()
@@ -702,7 +602,6 @@ class RunScriptContextV2:
         block_list = mddoc.get_all_blocks()
         if attend.block_position >= len(block_list):
             return None
-
         return RunScriptInfo(
             attend=attend,
             outline_bid=outline_item_info.outline_bid,
@@ -793,9 +692,34 @@ class RunScriptContextV2:
                 self._can_continue = False
                 db.session.flush()
             return
-
         block = block_list[run_script_info.block_position]
         if self._run_type == RunType.INPUT:
+            if block.block_type != BlockType.INTERACTION:
+                self._can_continue = True
+                self._run_type = RunType.OUTPUT
+                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                db.session.flush()
+                return
+            self.app.logger.info(f"block.content: {block}")
+            interaction_parser: InteractionParser = InteractionParser()
+            parsed_interaction = interaction_parser.parse(block.content)
+            self.app.logger.info(f"parsed_interaction: {parsed_interaction}")
+            if (
+                parsed_interaction.get("buttons")
+                and len(parsed_interaction.get("buttons")) > 0
+            ):
+                for button in parsed_interaction.get("buttons"):
+                    if button.get("value") == "__sys_pay":
+                        pass
+                    if button.get("value") == "__sys_login":
+                        pass
+            if not parsed_interaction.get("variable"):
+                self._can_continue = True
+                self._run_type = RunType.OUTPUT
+                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                self._current_attend.block_position += 1
+                db.session.flush()
+                return
             validate_result = asyncio.run(
                 mdflow.process(
                     run_script_info.block_position,
@@ -803,6 +727,7 @@ class RunScriptContextV2:
                     user_input=self._input,
                 )
             )
+
             if (
                 validate_result.variables is not None
                 and len(validate_result.variables) > 0
@@ -822,9 +747,6 @@ class RunScriptContextV2:
                 self._run_type = RunType.OUTPUT
                 db.session.flush()
             else:
-                app.logger.error(
-                    f"validate_result.variables is empty: {validate_result.content}"
-                )
                 for i in validate_result.content:
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
@@ -861,15 +783,16 @@ class RunScriptContextV2:
             else:
 
                 async def process_stream():
-                    async for i in mdflow.process(
+                    stream_gen = await mdflow.process(
                         run_script_info.block_position,
                         ProcessMode.STREAM,
                         variables=user_profile,
-                        input=self._input,
-                    ):
+                        user_input=self._input,
+                    )
+                    async for i in stream_gen:
                         yield i
 
-                res = asyncio.run(self._collect_async_generator(process_stream()))
+                res = self._collect_async_generator(process_stream())
 
                 for i in res:
                     yield RunMarkdownFlowDTO(
@@ -888,64 +811,6 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
-
-        # if run_script_info and self._run_type == RunType.INPUT:
-        #     res = handle_block_input(
-        #         app=app,
-        #         user_info=self._user_info,
-        #         attend_id=run_script_info.attend.progress_record_bid,
-        #         input_type=self._input_type,
-        #         input=self._input,
-        #         outline_item_info=self._outline_item_info,
-        #         block_dto=run_script_info.block_dto,
-        #         trace_args=self._trace_args,
-        #         trace=self._trace,
-        #         is_preview=self._preview_mode,
-        #     )
-        #     if res:
-        #         yield from res
-        #     self._can_continue = True
-        #     if (
-        #         run_script_info.block_dto.type != "content"
-        #         and self._input_type != "ask"
-        #     ):
-        #         run_script_info.attend.block_position += 1
-        #     run_script_info.attend.status = LEARN_STATUS_IN_PROGRESS
-        #     self._input_type = "continue"
-        #     self._run_type = RunType.OUTPUT
-        #     db.session.flush()
-        # elif run_script_info:
-        #     continue_check = check_block_continue(
-        #         app=app,
-        #         user_info=self._user_info,
-        #         attend_id=run_script_info.attend.progress_record_bid,
-        #         outline_item_info=self._outline_item_info,
-        #         block_dto=run_script_info.block_dto,
-        #         trace_args=self._trace_args,
-        #         trace=self._trace,
-        #         is_preview=self._preview_mode,
-        #     )
-        #     if run_script_info.block_dto.type == "content" or not continue_check:
-        #         res = handle_block_output(
-        #             app=app,
-        #             user_info=self._user_info,
-        #             attend_id=run_script_info.attend.progress_record_bid,
-        #             outline_item_info=self._outline_item_info,
-        #             block_dto=run_script_info.block_dto,
-        #             trace_args=self._trace_args,
-        #             trace=self._trace,
-        #             is_preview=self._preview_mode,
-        #         )
-        #         if res:
-        #             yield from res
-        # self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-        # self._input_type = "continue"
-        # self._run_type = RunType.OUTPUT
-        # app.logger.info(f"output block type: {run_script_info.block_dto.type}")
-        # self._can_continue = False
-        # if self._can_continue:
-        #     run_script_info.attend.block_position += 1
-        # db.session.flush()
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
@@ -954,7 +819,6 @@ class RunScriptContextV2:
         self._trace.update(**self._trace_args)
 
     def has_next(self) -> bool:
-        self.app.logger.info(f"has_next {self._can_continue}")
         return self._can_continue
 
     def get_system_prompt(self, outline_item_info: ShifuOutlineItemDto) -> str:
