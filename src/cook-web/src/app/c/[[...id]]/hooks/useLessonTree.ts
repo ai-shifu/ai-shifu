@@ -87,6 +87,7 @@ export const useLessonTree = () => {
     // }
 
     let lessonCount = 0;
+    // TODO: MOCK
     // const catalogs = (treeData.outline_items || []).map(l => {
     const catalogs = treeData.map(l => {
       const lessons = l.children.map(c => {
@@ -103,8 +104,8 @@ export const useLessonTree = () => {
       return {
         id: l.bid,
         name: l.title,
-        status: LESSON_STATUS_VALUE.LEARNING , // TODO:MOCK
-        status_value: LESSON_STATUS_VALUE.LEARNING , // TODO: DELETE status_value
+        status: LESSON_STATUS_VALUE.LEARNING , // TODO: MOCK
+        status_value: LESSON_STATUS_VALUE.LEARNING , // TODO: MOCK
         lessons,
         collapse: false,
       };
@@ -114,7 +115,14 @@ export const useLessonTree = () => {
       catalogCount: catalogs.length,
       catalogs,
       lessonCount,
-      bannerInfo: treeData.banner_info, 
+      // bannerInfo: treeData.banner_info, 
+      bannerInfo: {
+        title: "Unlock All",
+        pop_up_title: "Unlock All Content Anytime",
+        pop_up_content: "Gain unlimited access and enjoy stress-free learning",
+        pop_up_confirm_text: "Unlock Now!",
+        pop_up_cancel_text: "Keep Exploring",
+      },
     };
 
     return newTree;

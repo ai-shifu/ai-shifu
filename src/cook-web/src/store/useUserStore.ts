@@ -118,7 +118,6 @@ export const useUserStore = create<
           set(() => ({
             userInfo,
           }));
-
           if (userInfo.language) {
             i18n.changeLanguage(userInfo.language);
           }

@@ -3,7 +3,8 @@ import styles from './MainMenuModal.module.scss';
 import { memo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-
+import i18n from '@/i18n';
+import api from '@/api';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -123,6 +124,26 @@ const MainMenuModal = ({
     setLogoutConfirmOpen(false);
   };
 
+
+  const normalizeLanguage = (lang: string): string => {
+    const supportedLanguages = Object.values(
+      i18n.options.fallbackLng || {},
+    ).flat();
+    const normalizedLang = lang.replace('_', '-');
+    if (supportedLanguages.includes(normalizedLang)) {
+      return normalizedLang;
+    }
+    return 'en-US';
+  };
+
+
+  const updateLanguage = (language: string) => {
+    const normalizedLang = normalizeLanguage(language);
+    i18n.changeLanguage(language);
+
+    api.updateUserInfo({ language: normalizedLang });
+  };
+
   return (
     <>
       <AlertDialog
@@ -211,7 +232,7 @@ const MainMenuModal = ({
                 </div>
               </div>
               <div className={styles.languageRowRight}>
-                <LanguageSelect contentClassName='z-[1001]' />
+                <LanguageSelect  onSetLanguage={updateLanguage} contentClassName='z-[1001]' />
               </div>
             </div>
           </div>
