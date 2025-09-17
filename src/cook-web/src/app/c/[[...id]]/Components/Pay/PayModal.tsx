@@ -41,7 +41,7 @@ const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
 
 const CompletedSection = memo(() => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   return (
     <div className={styles.completedSection}>
       <div className={styles.title}>{t('pay.paySuccess')}</div>
@@ -65,7 +65,7 @@ export const PayModal = ({
   type = '',
   payload = {},
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [initLoading, setInitLoading] = useState(true);
   const [isTimeout, setIsTimeout] = useState(false);

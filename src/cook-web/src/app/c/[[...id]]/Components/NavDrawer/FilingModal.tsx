@@ -16,7 +16,7 @@ export const FillingModal = ({
   onFeedbackClick,
   className,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   return (
     // @ts-expect-error EXPECT

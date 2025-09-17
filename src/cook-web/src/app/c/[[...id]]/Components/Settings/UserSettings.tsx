@@ -39,7 +39,7 @@ export const UserSettings = ({
     })),
   );
 
-  const { t, i18n } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t, i18n } = useTranslation();
 
   const [sexSettingModalOpen, setSexSettingModalOpen] = useState(false);
   const [birthModalOpen, setBirthModalOpen] = useState(false);

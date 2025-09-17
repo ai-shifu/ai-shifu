@@ -26,7 +26,7 @@ export const ResetChapterButton = ({
   onClick,
   onConfirm,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   const { trackEvent } = useTracking();
 
   const [showConfirm, setShowConfirm] = useState(false);

@@ -43,9 +43,7 @@ import PayModal from './Components/Pay/PayModal';
 
 // the main page of course learning
 export default function ChatPage() {
-  const { i18n } = useTranslation('translation', {
-    keyPrefix: 'c',
-  });
+  const { i18n } = useTranslation();
 
   /**
    * User info and init part

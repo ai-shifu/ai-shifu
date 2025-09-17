@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
 export const SettingHeader = ({ className, onHomeClick }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   return (
     <div className={cn(styles.settingHeader, className)}>
       <Breadcrumb>

@@ -27,7 +27,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const formSchema = z.object({
     couponCode: z.string().min(1, {

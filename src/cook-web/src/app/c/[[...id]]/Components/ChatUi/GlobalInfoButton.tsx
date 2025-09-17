@@ -39,7 +39,7 @@ import {
 import beianIcon from '@/c-assets/newchat/light/beian.png';
 
 const GlobalInfoButton = ({ className }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const {
     open: feedbackModalOpen,

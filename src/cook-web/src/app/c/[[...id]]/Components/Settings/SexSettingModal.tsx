@@ -26,7 +26,7 @@ export const SexSettingModal = ({
   // @ts-expect-error EXPECT
   const [selectedSex, setSelectedSex] = useState(initialValues.sex);
 
-  const { t } = useTranslation('tanslation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   const checkSelected = useCallback(
     sex => {
       return sex === selectedSex;

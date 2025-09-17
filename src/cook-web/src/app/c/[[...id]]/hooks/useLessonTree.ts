@@ -103,8 +103,8 @@ export const useLessonTree = () => {
       return {
         id: l.bid,
         name: l.title,
-        status: l.status,
-        status_value: l.status, // TODO: DELETE status_value
+        status: LESSON_STATUS_VALUE.LEARNING , // TODO:MOCK
+        status_value: LESSON_STATUS_VALUE.LEARNING , // TODO: DELETE status_value
         lessons,
         collapse: false,
       };

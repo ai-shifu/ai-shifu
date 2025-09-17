@@ -42,7 +42,7 @@ const MainMenuModal = ({
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const htmlRef = useRef(null);
   const { isLoggedIn, logout } = useUserStore(

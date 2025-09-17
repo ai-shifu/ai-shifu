@@ -46,7 +46,7 @@ import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 
 const CompletedSection = memo(() => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   return (
     <div className={styles.completedSection}>
       <div className={styles.title}>{t('pay.paySuccess')}</div>
@@ -82,7 +82,7 @@ export const PayModalM = ({
   const [originalPrice, setOriginalPrice] = useState('');
   const [priceItems, setPriceItems] = useState([]);
 
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   const { payByJsApi } = useWechat();
 
   const {
