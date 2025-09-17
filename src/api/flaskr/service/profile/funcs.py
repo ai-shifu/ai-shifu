@@ -292,11 +292,8 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     user_info = User.query.filter(User.user_id == user_id).first()
     result = {}
 
-    if user_info:
-        language_code = get_user_language(user_info)
-        result[SYS_USER_LANGUAGE] = _language_display_value(language_code)
-    else:
-        result[SYS_USER_LANGUAGE] = _DEFAULT_LANGUAGE_DISPLAY
+    language_code = get_user_language(user_info) if user_info else None
+    result[SYS_USER_LANGUAGE] = _language_display_value(language_code)
 
     for profile_item in profiles_items:
         user_profile = next(
