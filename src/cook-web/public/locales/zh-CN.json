@@ -99,6 +99,14 @@
       "serverError": "服务器错误，请稍后重试",
       "serverErrorTitle": "服务器错误"
     },
+    "permission": {
+      "requestTitle": "申请访问权限",
+      "requestDescription": "请简单说明您申请权限的原因，我们会尽快处理您的申请。",
+      "requestPlaceholder": "请输入申请理由（例如：工作需要、学习目的等）",
+      "requestSubmit": "提交申请",
+      "requestSuccess": "权限申请已提交，我们会尽快处理",
+      "requestError": "申请提交失败，请稍后重试"
+    },
     "user": {
       "login": "登录"
     }

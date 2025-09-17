@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ExclamationTriangleIcon,
@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/store';
+import { PermissionRequestModal } from '@/components/PermissionRequestModal';
 
 interface ErrorDisplayProps {
   errorCode: number;
@@ -68,6 +69,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
   const { t } = useTranslation();
   const router = useRouter();
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
 
   const handleLogin = () => {
     const currentPath = encodeURIComponent(
@@ -133,6 +135,23 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     );
   };
 
+  // Determine if permission request button should be shown
+  const shouldShowPermissionRequest = () => {
+    return (
+      isLoggedIn &&
+      (errorCode === 401 || errorCode === 9002 || errorCode === 403)
+    );
+  };
+
+  // Handle retry with permission request modal for permission errors
+  const handleRetry = () => {
+    if (shouldShowPermissionRequest()) {
+      setShowPermissionModal(true);
+    } else if (onRetry) {
+      onRetry();
+    }
+  };
+
   return (
     <div className='flex flex-col items-center justify-center h-full min-h-[400px] p-8'>
       <div className='text-center max-w-md'>
@@ -140,27 +159,11 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
         <h2 className='text-xl font-semibold text-gray-900 mb-2'>
           {getTitle()}
         </h2>
-        <p className='text-gray-600 mb-2'>{getFriendlyMessage()}</p>
+        <p className='text-gray-600 mb-6'>{getFriendlyMessage()}</p>
 
-        {/* Error details section */}
-        {showDetails && (
-          <div className='mt-4 p-3 bg-gray-100 rounded-md text-left'>
-            <p className='text-sm text-gray-700 font-mono'>
-              <span className='font-semibold'>{t('c.errors.errorCode')}:</span>{' '}
-              {errorCode}
-            </p>
-            {errorMessage && (
-              <p className='text-sm text-gray-700 font-mono mt-1'>
-                <span className='font-semibold'>
-                  {t('c.errors.errorMessage')}:
-                </span>{' '}
-                {errorMessage}
-              </p>
-            )}
-          </div>
-        )}
+        {/* Error details section - Completely hidden in production */}
 
-        <div className='flex gap-3 justify-center mt-6'>
+        <div className='flex gap-3 justify-center mt-8'>
           {shouldShowLoginButton() && (
             <Button
               onClick={handleLogin}
@@ -169,13 +172,16 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
               {t('c.user.login')}
             </Button>
           )}
-          {onRetry && (
+          {(onRetry || shouldShowPermissionRequest()) && (
             <Button
-              onClick={onRetry}
+              onClick={handleRetry}
               variant='outline'
               className='min-w-[120px]'
             >
-              {t('common.retry')}
+              {shouldShowPermissionRequest()
+                ? t('c.permission.requestTitle')
+                : t('common.retry')
+              }
             </Button>
           )}
           {customAction && (
@@ -191,6 +197,11 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
           )}
         </div>
       </div>
+
+      <PermissionRequestModal
+        open={showPermissionModal}
+        onClose={() => setShowPermissionModal(false)}
+      />
     </div>
   );
 };
