@@ -2,6 +2,13 @@ from flask import Flask, request
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
+from flaskr.service.learn.learn_funcs import (
+    get_shifu_info,
+    get_outline_item_tree,
+    get_learn_record,
+    handle_reaction,
+    reset_learn_record,
+)
 
 
 @inject
@@ -42,14 +49,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     description: message
                                 data:
                                     type: object
-                                    $ref: "#/components/schemas/ShifuInfoDTO"
+                                    $ref: "#/components/schemas/LearnShifuInfoDTO"
         """
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
             f"get shifu, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
-        return make_common_response("learn")
+        return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
     def get_outline_item_tree_api(app: Flask, shifu_bid: str):
@@ -79,14 +86,17 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                 data:
                                     type: array
                                     items:
-                                        $ref: "#/components/schemas/OutlineItemInfoDTO"
+                                        $ref: "#/components/schemas/LearnOutlineItemInfoDTO"
         """
         preview_mode = request.args.get("preview_mode", "False")
         app.logger.info(
             f"get outline item tree, shifu_bid: {shifu_bid}, preview_mode: {preview_mode}"
         )
         preview_mode = True if preview_mode.lower() == "true" else False
-        return make_common_response("learn")
+        user_bid = request.user.user_id
+        return make_common_response(
+            get_outline_item_tree(app, shifu_bid, user_bid, preview_mode)
+        )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
     def run_outline_item_api(app: Flask, shifu_bid: str, outline_bid: str):
@@ -164,7 +174,15 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     $ref: "#/components/schemas/LearnRecordDTO"
 
         """
-        return make_common_response("learn")
+        preview_mode = request.args.get("preview_mode", "False")
+        app.logger.info(
+            f"get learn record, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
+        )
+        preview_mode = True if preview_mode.lower() == "true" else False
+        user_bid = request.user.user_id
+        return make_common_response(
+            get_learn_record(app, shifu_bid, user_bid, preview_mode)
+        )
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
@@ -197,14 +215,20 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     description: message
 
         """
-        return make_common_response("learn")
+        user_bid = request.user.user_id
+
+        return make_common_response(
+            reset_learn_record(app, shifu_bid, outline_bid, user_bid)
+        )
 
     @app.route(
         path_prefix
         + "/shifu/<shifu_bid>/generated-contents/<generated_block_bid>/<action>",
         methods=["POST"],
     )
-    def generate_content_api(app: Flask, shifu_bid: str, generated_block_bid: str):
+    def generate_content_api(
+        app: Flask, shifu_bid: str, generated_block_bid: str, action: str
+    ):
         """
         generate the content of the generated block
         ---
@@ -233,6 +257,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                                     type: string
                                     description: message
         """
-        return make_common_response("learn")
+        user_bid = request.user.user_id
+        app.logger.info(
+            f"generate content, shifu_bid: {shifu_bid}, generated_block_bid: {generated_block_bid}, action: {action}"
+        )
+        return make_common_response(
+            handle_reaction(app, shifu_bid, user_bid, generated_block_bid, action)
+        )
 
     return app

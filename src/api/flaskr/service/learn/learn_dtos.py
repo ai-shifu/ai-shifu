@@ -94,13 +94,13 @@ class OutlineItemUpdateDTO(BaseModel):
 
 
 @register_schema_to_swagger
-class ShifuInfoDTO(BaseModel):
+class LearnShifuInfoDTO(BaseModel):
     bid: str = Field(..., description="shifu id", required=False)
     title: str = Field(..., description="shifu title", required=False)
     description: str = Field(..., description="shifu description", required=False)
     keywords: list[str] = Field(..., description="shifu keywords", required=False)
     avatar: str = Field(..., description="shifu avatar", required=False)
-    price: float = Field(..., description="shifu price", required=False)
+    price: str = Field(..., description="shifu price", required=False)
 
     def __init__(
         self,
@@ -109,7 +109,7 @@ class ShifuInfoDTO(BaseModel):
         description: str,
         keywords: list[str],
         avatar: str,
-        price: float,
+        price: str,
     ):
         super().__init__(
             bid=bid,
@@ -132,12 +132,12 @@ class ShifuInfoDTO(BaseModel):
 
 
 @register_schema_to_swagger
-class OutlineItemInfoDTO(BaseModel):
+class LearnOutlineItemInfoDTO(BaseModel):
     bid: str = Field(..., description="outline id", required=False)
     position: str = Field(..., description="outline position", required=False)
     title: str = Field(..., description="outline title", required=False)
     status: LearnStatus = Field(..., description="outline status", required=False)
-    children: list["OutlineItemInfoDTO"] = Field(
+    children: list["LearnOutlineItemInfoDTO"] = Field(
         ..., description="outline children", required=False
     )
 
@@ -147,7 +147,7 @@ class OutlineItemInfoDTO(BaseModel):
         position: str,
         title: str,
         status: LearnStatus,
-        children: list["OutlineItemInfoDTO"],
+        children: list["LearnOutlineItemInfoDTO"],
     ):
         super().__init__(
             bid=bid, position=position, title=title, status=status, children=children
