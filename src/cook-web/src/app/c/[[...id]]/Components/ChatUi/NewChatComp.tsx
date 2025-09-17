@@ -56,7 +56,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import logoColor120 from '@/c-assets/logos/logo-color-120.png';
 import { STUDY_PREVIEW_MODE } from '@/c-constants/study';
-import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord, PREVIEW_MODE, SSE_OUTPUT_TYPE} from '@/c-api/studyV2';
+import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord, PREVIEW_MODE, SSE_OUTPUT_TYPE, SYS_INTERACTION_TYPE} from '@/c-api/studyV2';
 import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
 import InteractionBlock from './InteractionBlock';
 import { LoadingBar } from './LoadingBar';
@@ -93,9 +93,14 @@ export const NewChatComponents = forwardRef<any, any>(
     // const { t } = useTranslation();
     const { trackEvent, trackTrailProgress } = useTracking();
     const { courseId: shifu_bid } = useEnvStore.getState()
-    const outline_bid = lessonId || chapterId;
+    const { updateUserInfo, refreshUserInfo } = useUserStore(
+      useShallow(state => ({
+        updateUserInfo: state.updateUserInfo,
+        refreshUserInfo: state.refreshUserInfo,
+      })),
+    );
 
-   
+    const outline_bid = lessonId || chapterId;
  
     const [inputModal, setInputModal] = useState(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -106,6 +111,22 @@ export const NewChatComponents = forwardRef<any, any>(
     const currentContentRef = useRef<string>('');
     const currentBlockIdRef = useRef<string | null>(null);
 
+    const {
+      open: payModalOpen,
+      onOpen: onPayModalOpen,
+      onClose: onPayModalClose,
+    } = useDisclosure();
+
+    const {
+      // open: loginModalOpen,
+      onOpen: onLoginModalOpen,
+      // onClose: onLoginModalClose,
+    } = useDisclosure();
+
+    const onPayModalOk = () => {
+      onPurchased?.();
+      refreshUserInfo();
+    }
 
     useEffect(() => {
       if(!outline_bid){
@@ -312,6 +333,23 @@ export const NewChatComponents = forwardRef<any, any>(
     const onSend = (content: OnSendContentParams) => {
       console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
+      if(buttonText === SYS_INTERACTION_TYPE.PAY){
+        trackEvent(EVENT_NAMES.POP_PAY, { from: 'show-btn' });
+        onPayModalOpen();
+        return;
+      }
+      if(buttonText === SYS_INTERACTION_TYPE.LOGIN){
+        console.log('onLoginModalOpen');
+        // onLoginModalOpen();
+        // redirect to login page
+        window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+        return;
+      }
+      if(buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER){
+        // TODO: test if new outline_bid
+        // onGoChapter?.(val.lessonId);
+        return;
+      }
       run({
         input: {
           [variableName as string]: buttonText || inputText
@@ -349,11 +387,11 @@ export const NewChatComponents = forwardRef<any, any>(
             />
         ))}
         
-        {/* {payModalOpen &&
+        {payModalOpen &&
           (mobileStyle ? (
             <PayModalM
               open={payModalOpen}
-              onCancel={_onPayModalClose}
+              onCancel={onPayModalClose}
               onOk={onPayModalOk}
               type={''}
               payload={{}}
@@ -361,12 +399,12 @@ export const NewChatComponents = forwardRef<any, any>(
           ) : (
             <PayModal
               open={payModalOpen}
-              onCancel={_onPayModalClose}
+              onCancel={onPayModalClose}
               onOk={onPayModalOk}
               type={''}
               payload={{}}
             />
-          ))} */}
+          ))}
       </div>
     );
   },

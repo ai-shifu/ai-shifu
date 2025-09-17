@@ -41,6 +41,13 @@ export const SSE_OUTPUT_TYPE = {
 } as const;
 export type SSE_OUTPUT_TYPE = (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
 
+export const SYS_INTERACTION_TYPE = {
+  PAY: '_sys_pay',
+  LOGIN: '_sys_login',
+  NEXT_CHAPTER: '_sys_next_chapter', // TODO: wait for backend to support
+} as const;
+export type SysInteractionType = (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
+
 
 export interface StudyRecordItem {
   block_type: BlockType;
@@ -169,7 +176,7 @@ export const getLessonStudyRecord = async ({
       {
         block_type: 'interaction',
         content:
-          '?[%{{背景}}创业者|大学生|自媒体|...请告诉我您的身份信息]',
+          '?[支付按钮//'+SYS_INTERACTION_TYPE.LOGIN+']',
         generated_block_bid: '2',
         // like_status: 'like',
       },
