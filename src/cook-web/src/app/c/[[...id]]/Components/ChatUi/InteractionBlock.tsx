@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LikeStatus } from '@/c-api/studyV2';
-import { postGeneratedContentAction } from '@/c-api/studyV2';
+import { postGeneratedContentAction, LIKE_STATUS } from '@/c-api/studyV2';
 
 type Size = 'sm' | 'md' | 'lg';
 
@@ -29,19 +29,19 @@ const sizeMap: Record<Size, number> = {
 export default function InteractionBlock({
   shifu_bid,
   generated_block_bid,
-  like_status = 'none',
+  like_status = LIKE_STATUS.NONE,
   readonly = false,
   disabled = false,
   size = 'sm',
   className,
 }: InteractionBlockProps) {
   const [status, setStatus] = useState<LikeStatus>(
-    (like_status as LikeStatus) ?? 'none',
+    (like_status as LikeStatus) ?? LIKE_STATUS.NONE,
   );
 
   const iconSize = sizeMap[size];
-  const isLike = status === 'like';
-  const isDislike = status === 'dislike';
+  const isLike = status === LIKE_STATUS.LIKE;
+  const isDislike = status === LIKE_STATUS.DISLIKE;
 
   const likeBtnStyle = useMemo(
     () => ({
@@ -92,7 +92,7 @@ export default function InteractionBlock({
   const onLike = () => {
     if (disabled || readonly) return;
     setStatus(prev => {
-      const next: LikeStatus = prev === 'like' ? 'none' : 'like';
+      const next: LikeStatus = prev === LIKE_STATUS.LIKE ? LIKE_STATUS.NONE : LIKE_STATUS.LIKE;
       send(next);
       return next;
     });
@@ -100,7 +100,7 @@ export default function InteractionBlock({
   const onDislike = () => {
     if (disabled || readonly) return;
     setStatus(prev => {
-      const next: LikeStatus = prev === 'dislike' ? 'none' : 'dislike';
+      const next: LikeStatus = prev === LIKE_STATUS.DISLIKE ? LIKE_STATUS.NONE : LIKE_STATUS.DISLIKE;
       send(next);
       return next;
     });

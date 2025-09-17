@@ -56,7 +56,7 @@ import { useShallow } from 'zustand/react/shallow';
 
 import logoColor120 from '@/c-assets/logos/logo-color-120.png';
 import { STUDY_PREVIEW_MODE } from '@/c-constants/study';
-import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord} from '@/c-api/studyV2';
+import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord, PREVIEW_MODE, SSE_OUTPUT_TYPE} from '@/c-api/studyV2';
 import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
 import InteractionBlock from './InteractionBlock';
 import { LoadingBar } from './LoadingBar';
@@ -86,7 +86,7 @@ export const NewChatComponents = forwardRef<any, any>(
       onPurchased,
       chapterUpdate,
       updateSelectedLesson,
-      preview_mode = 'normal',
+      preview_mode = PREVIEW_MODE.NORMAL,
     },
     ref,
   ) => {
@@ -114,6 +114,35 @@ export const NewChatComponents = forwardRef<any, any>(
       refreshData();
     }, [outline_bid]);
 
+    const lessonUpdateResp = useCallback(
+      (response, isEnd) => {
+        const {outline_bid: currentOutlineBid, status,title} = response.content;
+        console.log('节更新前=====', outline_bid, currentOutlineBid);
+        lessonUpdate?.({
+          id: currentOutlineBid,
+          name: title,
+          status: status,
+          status_value: status,
+        });
+        console.log('节更新后=====', outline_bid, currentOutlineBid);
+        if (
+          status === LESSON_STATUS_VALUE.PREPARE_LEARNING &&
+          !isEnd
+        ) {
+          // TODO: test if new outline_bid
+          run({
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          });
+        }
+
+        if (status === LESSON_STATUS_VALUE.LEARNING && !isEnd) {
+          updateSelectedLesson(currentOutlineBid);
+        }
+      },
+      [lessonUpdate, updateSelectedLesson],
+    );
+
 
     const run = (sseParams: SSEParams) => {
       // Create a placeholder block immediately with a loading bar
@@ -132,6 +161,7 @@ export const NewChatComponents = forwardRef<any, any>(
         } as ContentItem,
       ]);
 
+      let isEnd = false;
       getRunMessage(
         shifu_bid,
         outline_bid,
@@ -139,11 +169,25 @@ export const NewChatComponents = forwardRef<any, any>(
         sseParams,
         async response => {
           try {
+            // TODO: MOCK 
+            const nid = response.script_id || response.generated_block_bid;
             // Stream typing effect
-            if (response.type === RESP_EVENT_TYPE.TEXT) {
+            if (
+              [
+                SSE_OUTPUT_TYPE.CONTENT,
+                SSE_OUTPUT_TYPE.BREAK,
+                SSE_OUTPUT_TYPE.INTERACTION
+              ].includes(response.type)
+            ) {
+              trackTrailProgress(nid);
+            }
+            if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
+              if (isEnd) {
+                return;
+              }
               // Ensure we have a current block id (create if absent)
               if (!currentBlockIdRef.current) {
-                const nid = genUuid();
+           
                 currentBlockIdRef.current = nid;
                 currentContentRef.current = '';
                 setContentList(prev => [
@@ -175,10 +219,24 @@ export const NewChatComponents = forwardRef<any, any>(
                   ),
                 );
               }
-              return;
             }
-
-            if (response.type === RESP_EVENT_TYPE.TEXT_END) {
+            else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
+              if(response.content.have_children) {
+                // is chapter
+                const {
+                  status,
+                  outline_bid: chapterId,
+                } = response.content;
+                // HACK: chapterUpdate NEED status_value!
+                chapterUpdate?.({ id: chapterId, status, status_value: status });
+                if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                  isEnd = true;
+                }
+              }else{
+                // is lesson
+                lessonUpdateResp(response, isEnd);
+              }
+            }else if (response.type === SSE_OUTPUT_TYPE.BREAK) {
               const blockId = currentBlockIdRef.current;
               if (blockId) {
                 setContentList(prev =>
@@ -192,7 +250,6 @@ export const NewChatComponents = forwardRef<any, any>(
               // Prepare for possible next segment in the same stream
               currentBlockIdRef.current = null;
               currentContentRef.current = '';
-              return;
             }
           } catch (e) {
             // eslint-disable-next-line no-console
@@ -259,7 +316,7 @@ export const NewChatComponents = forwardRef<any, any>(
         input: {
           [variableName as string]: buttonText || inputText
         },
-        input_type: 'normal',
+        input_type: SSE_INPUT_TYPE.NORMAL,
       })
     };
 

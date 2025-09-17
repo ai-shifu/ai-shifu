@@ -5,10 +5,42 @@ import { v4 } from 'uuid';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
-// ===== Types for Learn/Shifu records mock =====
-export type BlockType = 'content' | 'interaction';
-export type LikeStatus = 'like' | 'dislike' | 'none';
-export type SSE_INPUT_TYPE = 'normal' | 'ask';
+// ===== Constants + Types for shared literals =====
+export const BLOCK_TYPE = {
+  CONTENT: 'content',
+  INTERACTION: 'interaction',
+} as const;
+export type BlockType = (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
+
+export const LIKE_STATUS = {
+  LIKE: 'like',
+  DISLIKE: 'dislike',
+  NONE: 'none',
+} as const;
+export type LikeStatus = (typeof LIKE_STATUS)[keyof typeof LIKE_STATUS];
+
+export const SSE_INPUT_TYPE = {
+  NORMAL: 'normal',
+  ASK: 'ask',
+} as const;
+export type SSE_INPUT_TYPE = (typeof SSE_INPUT_TYPE)[keyof typeof SSE_INPUT_TYPE];
+
+export const PREVIEW_MODE = {
+  COOK: 'cook',
+  PREVIEW: 'preview',
+  NORMAL: 'normal',
+} as const;
+export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
+
+export const SSE_OUTPUT_TYPE = {
+    CONTENT: 'content',
+    BREAK: 'break',
+    INTERACTION: 'interaction',
+    OUTLINE_ITEM_UPDATE: 'outline_item_update',
+    PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
+} as const;
+export type SSE_OUTPUT_TYPE = (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
+
 
 export interface StudyRecordItem {
   block_type: BlockType;
@@ -26,7 +58,7 @@ export interface GetLessonStudyRecordParams {
   shifu_bid: string;
   outline_bid: string;
   // Optional preview mode flag
-  preview_mode?: 'cook' | 'preview' | 'normal';
+  preview_mode?: PreviewMode;
 }
 
 export interface PostGeneratedContentActionParams {
@@ -50,7 +82,7 @@ export interface PostGeneratedContentActionData {
 export const getRunMessage = (
   shifu_bid,
   outline_bid,
-  preview_mode = 'normal',
+  preview_mode = PREVIEW_MODE.NORMAL,
   body,
   onFinish,
 ) => {
