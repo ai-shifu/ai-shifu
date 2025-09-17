@@ -59,7 +59,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         return make_common_response(get_shifu_info(app, shifu_bid, preview_mode))
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/outline-item-tree", methods=["GET"])
-    def get_outline_item_tree_api(app: Flask, shifu_bid: str):
+    def get_outline_item_tree_api(shifu_bid: str):
         """
         get outline item tree
         ---
@@ -99,7 +99,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         )
 
     @app.route(path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>", methods=["PUT"])
-    def run_outline_item_api(app: Flask, shifu_bid: str, outline_bid: str):
+    def run_outline_item_api(shifu_bid: str, outline_bid: str):
         """
         run the MarkdownFlow of the outline
         ---
@@ -144,7 +144,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]
     )
-    def get_record_api(app: Flask, shifu_bid: str, outline_bid: str):
+    def get_record_api(shifu_bid: str, outline_bid: str):
         """
         get learn records of the outline
         ---
@@ -187,7 +187,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["DELETE"]
     )
-    def delete_record_api(app: Flask, shifu_bid: str, outline_bid: str):
+    def delete_record_api(shifu_bid: str, outline_bid: str):
         """
         reset the record of the outline
         ---
@@ -226,9 +226,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         + "/shifu/<shifu_bid>/generated-contents/<generated_block_bid>/<action>",
         methods=["POST"],
     )
-    def generate_content_api(
-        app: Flask, shifu_bid: str, generated_block_bid: str, action: str
-    ):
+    def generate_content_api(shifu_bid: str, generated_block_bid: str, action: str):
         """
         generate the content of the generated block
         ---
