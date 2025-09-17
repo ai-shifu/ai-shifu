@@ -165,7 +165,7 @@ def get_outline_item_tree(
                         outline_item_info.children.append(child_info)
             return outline_item_info
 
-        outline_items = [build_outline_item_tree(i) for i in outline_items]
+        outline_items = [build_outline_item_tree(i) for i in struct.children]
         return outline_items
 
 
