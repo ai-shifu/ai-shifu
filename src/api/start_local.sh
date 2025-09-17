@@ -12,8 +12,8 @@ export FLASK_DEBUG=True
 # Database connection - use Docker MySQL
 export SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@localhost:3306/ai-shifu?charset=utf8mb4"
 
-# JWT Secret
-export SECRET_KEY="xwCuWpG9sD7CYk99Rr27NKU9YQBV_ehQn3DEY0jvuBQ"
+# JWT Secret - Use environment variable or generate one for development
+export SECRET_KEY="${SECRET_KEY:-dev-secret-key-please-change-in-production}"
 
 # Universal verification code for testing
 export UNIVERSAL_VERIFICATION_CODE="1024"
