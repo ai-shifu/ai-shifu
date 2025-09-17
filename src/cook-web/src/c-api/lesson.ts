@@ -1,5 +1,6 @@
 import request from '@/lib/request';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { useEnvStore } from '@/c-store/envStore';
 
 export const getLessonTree = async (courseId: string, previewMode: boolean) => {
   return request.get(
@@ -15,10 +16,7 @@ export const getScriptInfo = async (scriptId: string) => {
   );
 };
 
-export const resetChapter = async ({ chapterId }) => {
-  const preview_mode = useSystemStore.getState().previewMode;
-  return request.post('/api/study/reset-study-progress', {
-    lesson_id: chapterId,
-    preview_mode: preview_mode,
-  });
+export const resetChapter = async ({  chapterId: outline_bid }) => {
+  const {courseId: shifu_bid} = useEnvStore.getState();
+  return request.delete(`/api/learn/shifu/${shifu_bid}/records/${outline_bid}`);
 };
