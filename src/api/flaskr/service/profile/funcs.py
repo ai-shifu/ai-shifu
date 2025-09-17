@@ -26,33 +26,32 @@ from flaskr.service.profile.dtos import ProfileToSave
 
 SYS_USER_LANGUAGE = "sys_user_language"
 
-_LANGUAGE_SPECIFIC_DISPLAY = {
-    "zh-CN": "简体中文",
-    "zh-SG": "简体中文",
-    "zh-TW": "繁体中文",
-    "zh-HK": "繁体中文",
-    "zh-MO": "繁体中文",
-}
-
 _LANGUAGE_BASE_DISPLAY = {
     "en": "English",
     "zh": "中文",
-    "es": "Spanish",
-    "fr": "French",
-    "de": "German",
-    "ja": "Japanese",
-    "ko": "Korean",
-    "ru": "Russian",
-    "it": "Italian",
-    "pt": "Portuguese",
-    "ar": "Arabic",
-    "hi": "Hindi",
-    "vi": "Vietnamese",
-    "th": "Thai",
-    "id": "Indonesian",
-    "ms": "Malay",
-    "tr": "Turkish",
-    "pl": "Polish",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "ja": "日本語",
+    "ko": "한국어",
+    "ru": "Русский",
+    "it": "Italiano",
+    "pt": "Português",
+    "ar": "العربية",
+    "hi": "हिंदी",
+    "vi": "Tiếng Việt",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "ms": "Bahasa Melayu",
+    "tr": "Türkçe",
+    "pl": "Polski",
+}
+
+_LANGUAGE_SPECIFIC_DISPLAY = {
+    "zh-TW": "繁体中文",
+    "zh-HK": "繁体中文",
+    "zh-MO": "繁体中文",
+    "zh-Hant": "繁体中文",
 }
 
 _DEFAULT_LANGUAGE_DISPLAY = "English"
