@@ -11,7 +11,6 @@ export const checkChapterCanLearning = ({ status_value }) => {
     status_value === LESSON_STATUS_VALUE.LEARNING ||
     status_value === LESSON_STATUS_VALUE.COMPLETED ||
     status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING;
-
   return canLearn;
 };
 
@@ -82,31 +81,32 @@ export const useLessonTree = () => {
       return null;
     }
 
-    if (treeData.course_id !== useEnvStore.getState().courseId) {
-      await updateCourseId(treeData.course_id);
-    }
+    // new api without course_id
+    // if (treeData.course_id !== useEnvStore.getState().courseId) {
+    //   await updateCourseId(treeData.course_id);
+    // }
 
     let lessonCount = 0;
-    const catalogs = treeData.lessons.map(l => {
+    // const catalogs = (treeData.outline_items || []).map(l => {
+    const catalogs = treeData.map(l => {
       const lessons = l.children.map(c => {
         lessonCount += 1;
         return {
-          id: c.lesson_id,
-          name: c.lesson_name,
+          id: c.bid,
+          name: c.title,
           status: c.status,
-          status_value: c.status_value,
-          canLearning: checkChapterCanLearning(c),
+          status_value: c.status, // TODO: DELETE status_value
+          canLearning: checkChapterCanLearning({status_value: c.status}),
         };
       });
 
       return {
-        id: l.lesson_id,
-        name: l.lesson_name,
+        id: l.bid,
+        name: l.title,
         status: l.status,
-        status_value: l.status_value,
+        status_value: l.status, // TODO: DELETE status_value
         lessons,
         collapse: false,
-        bannerInfo: l.banner_info,
       };
     });
 
@@ -114,7 +114,7 @@ export const useLessonTree = () => {
       catalogCount: catalogs.length,
       catalogs,
       lessonCount,
-      bannerInfo: treeData.banner_info,
+      bannerInfo: treeData.banner_info, 
     };
 
     return newTree;
@@ -180,13 +180,12 @@ export const useLessonTree = () => {
       } else {
         newTree = tree;
       }
-
+      
       const selected = setSelectedState(newTree, chapterId, lessonId);
       if (!selected) {
         initialSelectedChapter(newTree);
       }
       setTree(newTree);
-
       return newTree;
     },
     [initialSelectedChapter, loadTreeInner, setSelectedState, tree],

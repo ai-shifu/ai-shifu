@@ -74,13 +74,7 @@ export default function ChatPage() {
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    if(location.pathname.startsWith('/c')){
-      // if has shifu_bid, redirect to /c/:shifu_bid
-      window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
-    }else{
-      // old logic
-      window.location.href = `/login?redirect=${encodeURIComponent('/c')}`;
-    }
+    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);

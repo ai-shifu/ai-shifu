@@ -2,11 +2,9 @@ import request from '@/lib/request';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
 export const getLessonTree = async (courseId: string, previewMode: boolean) => {
-  if (courseId === '' || courseId === null || courseId === undefined) {
-    return request.get(`/api/study/get_lesson_tree`);
-  }
   return request.get(
-    `/api/study/get_lesson_tree?course_id=${courseId}&preview_mode=${previewMode}`,
+    // `/api/study/get_lesson_tree?course_id=${courseId}&preview_mode=${previewMode}`,
+    `/api/learn/shifu/${courseId}/outline-item-tree?preview_mode=${previewMode}`,
   );
 };
 

@@ -1,12 +1,14 @@
 export const LESSON_STATUS_VALUE = {
-  PREPARE_LEARNING: 601,
-  LEARNING: 602,
-  COMPLETED: 603,
-  REFUND: 604,
-  LOCKED: 605,
-  UNAVAILABLE: 606,
-  BRANCH: 607,
-  RESET: 608,
+  PREPARE_LEARNING: 'not_started',
+  LEARNING: 'in_progress',
+  COMPLETED: 'completed',
+  LOCKED: 'locked',
+
+  // no use in project
+  // REFUND: 604,
+  // UNAVAILABLE: 606,
+  // BRANCH: 607,
+  // RESET: 608,
 };
 // 交互组件的展示类型
 export const INTERACTION_DISPLAY_TYPE = {
