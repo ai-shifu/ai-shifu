@@ -104,8 +104,8 @@ export const useLessonTree = () => {
       return {
         id: l.bid,
         name: l.title,
-        status: LESSON_STATUS_VALUE.LEARNING , // TODO: MOCK
-        status_value: LESSON_STATUS_VALUE.LEARNING , // TODO: MOCK
+        status: l.status , 
+        status_value: l.status ,
         lessons,
         collapse: false,
       };
@@ -115,14 +115,7 @@ export const useLessonTree = () => {
       catalogCount: catalogs.length,
       catalogs,
       lessonCount,
-      // bannerInfo: treeData.banner_info, 
-      bannerInfo: {
-        title: "Unlock All",
-        pop_up_title: "Unlock All Content Anytime",
-        pop_up_content: "Gain unlimited access and enjoy stress-free learning",
-        pop_up_confirm_text: "Unlock Now!",
-        pop_up_cancel_text: "Keep Exploring",
-      },
+      bannerInfo: treeData.banner_info, 
     };
 
     return newTree;

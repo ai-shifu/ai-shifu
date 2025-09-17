@@ -5,7 +5,7 @@
   box-sizing: border-box;
 
   :global(.content-render){
-    margin: 16px auto;
+    margin: 16px 0;
   }
   :global(.MessageContainer) {
     background-color: var(--color-4);

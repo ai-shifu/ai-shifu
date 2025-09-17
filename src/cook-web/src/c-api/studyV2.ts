@@ -4,6 +4,7 @@ import { tokenStore } from '@/c-service/storeUtil';
 import { v4 } from 'uuid';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { useUserStore } from '@/store/useUserStore';
 
 // ===== Constants + Types for shared literals =====
 export const BLOCK_TYPE = {
@@ -94,38 +95,46 @@ export const getRunMessage = (
   onFinish,
 ) => {
   console.log('getRunMessage', shifu_bid, outline_bid, preview_mode, body)
-  // const source = new SSE(
-  //   `/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
-  //   {
-  //     headers: {
-  //       'Content-Type': 'application/json',
-  //       'X-Request-ID': v4().replace(/-/g, ''),
-  //     },
-  //     payload: JSON.stringify(body),
-  //   },
-  // );
+  const token = useUserStore.getState().getToken();
 
-  // 先mock以前老的数据，后续再替换为新的数据
   let baseURL = getStringEnv('baseURL');
   if (baseURL === '' || baseURL === '/') {
     baseURL = window.location.origin;
   }
   const source = new SSE(
-    `${baseURL}/api/study/run?preview_mode=false&token=${tokenStore.get()}`,
+    `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
     {
       headers: {
         'Content-Type': 'application/json',
         'X-Request-ID': v4().replace(/-/g, ''),
+        Authorization: `Bearer ${token}`,
+        Token: token,
       },
-      payload: JSON.stringify({
-        course_id:'ca3265b045e84774b8d845a4c3c5b0a3',
-        lesson_id:"fddec7afa702475ba080a2bc66643ccf",
-        input:'',
-        input_type:'start',
-        preview_mode:'false',
-      }),
+      payload: JSON.stringify(body),
+      method: 'PUT',
     },
   );
+
+  // 先mock以前老的数据，后续再替换为新的数据
+
+  // const source = new SSE(
+  //   `${baseURL}/api/study/run?preview_mode=false&token=${tokenStore.get()}`,
+  //   {
+  //     headers: {
+  //       'Content-Type': 'application/json',
+  //       'X-Request-ID': v4().replace(/-/g, ''),
+  //     },
+  //     payload: JSON.stringify({
+  //       course_id:'ca3265b045e84774b8d845a4c3c5b0a3',
+  //       lesson_id:"fddec7afa702475ba080a2bc66643ccf",
+  //       input:'',
+  //       input_type:'start',
+  //       preview_mode:'false',
+  //     }),
+  //   },
+  // );
+
+  // mock end
   source.onmessage = event => {
     try {
       const response = JSON.parse(event.data);
@@ -159,29 +168,29 @@ export const getLessonStudyRecord = async ({
   outline_bid,
   preview_mode,
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
-  // return request.get(
-  //   `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
-  // );
+  return request.get(
+    `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
+  );
 
-  return {
-    mdflow: 'string',
-    records: [
-      {
-        block_type: 'content',
-        content:
-          '嘿你好，我是快刀青衣，AI学习圈的联合创始人。今天想和你聊聊我们刚上线的Get笔记新功能，绝对能帮你省不少事儿。对了，你现在主要做什么工作的？',
-        generated_block_bid: '1',
-        like_status: 'dislike',
-      },
-      {
-        block_type: 'interaction',
-        content:
-          '?[支付按钮//'+SYS_INTERACTION_TYPE.LOGIN+']',
-        generated_block_bid: '2',
-        // like_status: 'like',
-      },
-    ],
-  };
+  // return {
+  //   mdflow: 'string',
+  //   records: [
+  //     {
+  //       block_type: 'content',
+  //       content:
+  //         '嘿你好，我是快刀青衣，AI学习圈的联合创始人。今天想和你聊聊我们刚上线的Get笔记新功能，绝对能帮你省不少事儿。对了，你现在主要做什么工作的？',
+  //       generated_block_bid: '1',
+  //       like_status: 'dislike',
+  //     },
+  //     {
+  //       block_type: 'interaction',
+  //       content:
+  //         '?[支付按钮//'+SYS_INTERACTION_TYPE.LOGIN+']',
+  //       generated_block_bid: '2',
+  //       // like_status: 'like',
+  //     },
+  //   ],
+  // };
 };
 
 /**

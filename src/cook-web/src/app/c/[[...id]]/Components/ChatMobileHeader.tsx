@@ -10,10 +10,7 @@ import {
 } from '@/components/ui/Popover';
 
 import { Button } from '@/components/ui/Button';
-import {
-  CircleEllipsisIcon as MoreIcon,
-  CircleX as CloseIcon,
-} from 'lucide-react';
+import { MoreHorizontal as MoreIcon, X as CloseIcon } from 'lucide-react';
 
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import LogoWithText from '@/c-components/logo/LogoWithText';
@@ -36,6 +33,8 @@ export const ChatMobileHeader = ({
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
 
+  const popoverVisible = iconPopoverOpen && hasPopoverContentControl;
+
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>
       {iconPopoverPayload && (
@@ -46,7 +45,6 @@ export const ChatMobileHeader = ({
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
             onOpen={onIconPopoverOpen}
-            onClose={onIconPopoverClose}
           />
         </div>
       )}
@@ -54,19 +52,42 @@ export const ChatMobileHeader = ({
         direction='row'
         size={30}
       />
-      <Popover open={iconPopoverOpen && hasPopoverContentControl}>
+      <Popover
+        open={popoverVisible}
+        onOpenChange={next => {
+          if (!next) {
+            onIconPopoverClose();
+          }
+        }}
+      >
         <PopoverTrigger asChild>
-          <Button onClick={onSettingClick}>
-            {navOpen ? <CloseIcon /> : <MoreIcon />}
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-9 w-9 rounded-full border border-black/5 bg-white/80 text-slate-600 shadow-sm backdrop-blur'
+            onClick={onSettingClick}
+            aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
+          >
+            {navOpen ? (
+              <CloseIcon className='h-5 w-5' />
+            ) : (
+              <MoreIcon className='h-5 w-5' />
+            )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className={styles.iconButtonPopover}>
-          <MobileHeaderIconPopover
-            payload={iconPopoverPayload}
-            onOpen={onIconPopoverOpen}
-            onClose={onIconPopoverClose}
-          />
-        </PopoverContent>
+        {iconPopoverPayload && (
+          <PopoverContent
+            className={cn(styles.iconButtonPopover, 'border-none bg-transparent p-0 shadow-none')}
+            align='end'
+            side='bottom'
+          >
+            <MobileHeaderIconPopover
+              payload={iconPopoverPayload}
+              onOpen={onIconPopoverOpen}
+              onClose={onIconPopoverClose}
+            />
+          </PopoverContent>
+        )}
       </Popover>
     </div>
   );

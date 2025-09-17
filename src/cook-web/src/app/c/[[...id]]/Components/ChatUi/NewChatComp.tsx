@@ -176,14 +176,12 @@ export const NewChatComponents = (
             // Stream typing effect
             if (
               [
-                SSE_OUTPUT_TYPE.CONTENT,
                 SSE_OUTPUT_TYPE.BREAK,
-                SSE_OUTPUT_TYPE.INTERACTION
               ].includes(response.type)
             ) {
               trackTrailProgress(nid);
             }
-            if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
+            if (response.type === SSE_OUTPUT_TYPE.CONTENT || response.type === SSE_OUTPUT_TYPE.INTERACTION) {
               if (isEnd) {
                 return;
               }
