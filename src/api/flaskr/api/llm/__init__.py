@@ -319,8 +319,8 @@ def invoke_llm(
     if client:
         messages = []
         if system:
-            messages.append({"content": system, "role": "system"})
-        messages.append({"content": message, "role": "user"})
+            messages.append({"content": system, "role": "system", "type": "text"})
+        messages.append({"content": message, "role": "user", "type": "text"})
         if json:
             kwargs["response_format"] = ResponseFormatJSONObject(type="json_object")
         kwargs["temperature"] = float(kwargs.get("temperature", 0.8))
@@ -393,8 +393,8 @@ def invoke_llm(
             kwargs["temperature"] = str(kwargs["temperature"])
         messages = []
         if system:
-            messages.append({"content": system, "role": "system"})
-        messages.append({"content": message, "role": "user"})
+            messages.append({"content": system, "role": "system", "type": "text"})
+        messages.append({"content": message, "role": "user", "type": "text"})
         response = invoke_glm(app, model.lower(), messages, **kwargs)
         for res in response:
             if start_completion_time is None:
@@ -445,7 +445,7 @@ def invoke_llm(
         metadata=kwargs,
         completion_start_time=start_completion_time,
     )
-    span.end(output=response_text)
+    span.update(output=response_text)
 
 
 def chat_llm(

@@ -13,7 +13,6 @@ import { useShallow } from 'zustand/react/shallow';
 import { inWechat, wechatLogin } from '@/c-constants/uiConstants';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import { getCourseInfo } from '@/c-api/course';
-import { selectDefaultLanguage } from '@/c-constants/userConstants';
 import {
   EnvStoreState,
   SystemStoreState,
@@ -116,9 +115,8 @@ export default function ChatLayout({
     updateSkip,
   } = useSystemStore() as SystemStoreState;
 
-  const browserLanguage = selectDefaultLanguage(
-    navigator.language || navigator.languages[0],
-  );
+  // Use the original browser language without conversion
+  const browserLanguage = navigator.language || navigator.languages?.[0];
 
   const [language] = useState(browserLanguage);
 

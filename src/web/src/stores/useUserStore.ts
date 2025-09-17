@@ -25,6 +25,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         hasLogin: true,
         userInfo,
       }));
+      // Let i18next handle the language and its fallback mechanism
       i18n.changeLanguage(userInfo.language);
 
     },
@@ -67,6 +68,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
             userInfo: userInfo,
           }));
         }
+        // Let i18next handle the language and its fallback mechanism
         i18n.changeLanguage(userInfo.language);
       } catch (err) {
         if ((err.status && err.status === 403) || (err.code && err.code === 1005) || (err.code && err.code === 1001)) {
@@ -131,6 +133,7 @@ export const useUserStore = create<UserStoreState, [["zustand/subscribeWithSelec
         }
       }));
       await userInfoStore.set(res.data);
+      // Let i18next handle the language and its fallback mechanism
       i18n.changeLanguage(res.data.language);
 
     },

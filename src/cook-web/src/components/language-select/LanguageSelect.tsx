@@ -9,7 +9,7 @@ import { GlobeIcon } from 'lucide-react';
 import languages from '../../../public/locales/languages.json';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { browserLanguage } from '@/i18n';
+import { browserLanguage, normalizeLanguage } from '@/i18n';
 
 import { type ClassValue } from 'clsx';
 import { cn } from '@/lib/utils';
@@ -28,11 +28,14 @@ export default function LanguageSelect(props: languageProps) {
       ? 'w-[80px] h-[35px] rounded-lg p-0 flex items-center justify-center border-none shadow-none focus:outline-none'
       : 'flex items-center justify-start space-x-2 px-3 py-2 rounded-lg border-none hover:bg-gray-100 focus:ring-0 focus:ring-offset-0';
 
-  const language = props?.language || i18nInstance.language || browserLanguage;
+  const language = normalizeLanguage(
+    props?.language || i18nInstance.language || browserLanguage,
+  );
 
   const handleSetLanguage = (value: string) => {
-    i18n.changeLanguage(value);
-    props.onSetLanguage?.(value);
+    const normalizedValue = normalizeLanguage(value);
+    i18n.changeLanguage(normalizedValue);
+    props.onSetLanguage?.(normalizedValue);
   };
 
   return (

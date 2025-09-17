@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
@@ -9,6 +9,7 @@ from flaskr.service.learn.learn_funcs import (
     handle_reaction,
     reset_learn_record,
 )
+from flaskr.service.learn.runscript_v2 import run_script
 
 
 @inject
@@ -139,7 +140,35 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         schema:
                             $ref: "#/components/schemas/RunMarkdownFlowDTO"
         """
-        return make_common_response("learn")
+        user_bid = request.user.user_id
+        input = request.get_json().get("input", None)
+        input_type = request.get_json().get("input_type", None)
+        reload_generated_block_bid = request.get_json().get(
+            "reload_generated_block_bid", None
+        )
+        preview_mode = request.args.get("preview_mode", "False")
+        app.logger.info(
+            f"run outline item, shifu_bid: {shifu_bid}, outline_bid: {outline_bid}, preview_mode: {preview_mode}"
+        )
+        preview_mode = True if preview_mode.lower() == "true" else False
+        try:
+            return Response(
+                run_script(
+                    app=app,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    user_bid=user_bid,
+                    input=input,
+                    input_type=input_type,
+                    reload_generated_block_bid=reload_generated_block_bid,
+                    preview_mode=preview_mode,
+                ),
+                headers={"Cache-Control": "no-cache"},
+                mimetype="text/event-stream",
+            )
+        except Exception as e:
+            app.logger.error(e)
+            return make_common_response(e)
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]

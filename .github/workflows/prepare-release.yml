@@ -413,28 +413,37 @@ jobs:
           prerelease: false
           make_latest: false
 
-      - name: Commit version changes (without tag)
+      - name: Create PR with version changes
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          commit-message: "chore: flow version to ${{ steps.version.outputs.tag }}"
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          branch: release/version-bump-${{ steps.version.outputs.tag }}
+          base: ${{ github.ref_name }}
+          title: "chore: flow version to ${{ steps.version.outputs.tag }}"
+          body: |
+            This PR prepares the repository for release ${{ steps.version.outputs.tag }}.
+
+            - Updates detected version files to `${{ steps.version.outputs.version }}`
+            - Keeps release tag creation separate (draft already created)
+
+            Changelog preview:
+
+            ${{ steps.changelog.outputs.changelog_content }}
+
+          labels: |
+            release
+            automated
+          draft: false
+
+      - name: Output PR info
+        if: steps.cpr.outputs.pull-request-number
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          TAG_NAME="${{ steps.version.outputs.tag }}"
-
-          echo "📝 Committing version changes..."
-
-          # Add changed files
-          git add -A
-
-          # Check if there are changes to commit
-          if git diff --cached --quiet; then
-            echo "No version file changes to commit"
-          else
-            # Commit version changes (but don't create tag yet)
-            git commit -m "chore: flow to $TAG_NAME" || echo "No changes to commit"
-
-            # Push changes to the branch (but no tag yet)
-            git push origin HEAD:${{ github.ref_name }} || echo "No commits to push"
-
-            echo "✅ Version changes committed and pushed"
-          fi
+          echo "✅ Created PR #${{ steps.cpr.outputs.pull-request-number }}: ${{ steps.cpr.outputs.pull-request-url }}"
+          echo "Pull Request URL: ${{ steps.cpr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Summary
         run: |

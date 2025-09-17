@@ -18,7 +18,7 @@ class LearnStatus(Enum):
 class GeneratedType(Enum):
     CONTENT = "content"
     BREAK = "break"
-    MDFLOW = "mdflow"
+    INTERACTION = "interaction"
     VARIABLE_UPDATE = "variable_update"
     OUTLINE_ITEM_UPDATE = "outline_item_update"
 
@@ -49,7 +49,7 @@ class LikeStatus(Enum):
 @register_schema_to_swagger
 class BlockType(Enum):
     CONTENT = "content"
-    MDFLOW = "mdflow"
+    INTERACTION = "interaction"
 
 
 @register_schema_to_swagger
@@ -76,20 +76,30 @@ class OutlineItemUpdateDTO(BaseModel):
     outline_bid: str = Field(..., description="outline item id", required=False)
     title: str = Field(..., description="outline item name", required=False)
     status: LearnStatus = Field(..., description="outline item status", required=False)
+    has_children: bool = Field(
+        ..., description="outline item has children", required=False
+    )
 
     def __init__(
         self,
         outline_bid: str,
         title: str,
         status: LearnStatus,
+        has_children: bool,
     ):
-        super().__init__(outline_bid=outline_bid, title=title, status=status)
+        super().__init__(
+            outline_bid=outline_bid,
+            title=title,
+            status=status,
+            has_children=has_children,
+        )
 
     def __json__(self):
         return {
             "outline_bid": self.outline_bid,
             "title": self.title,
             "status": self.status.value,
+            "has_children": self.has_children,
         }
 
 
@@ -236,17 +246,17 @@ class LearnRecordDTO(BaseModel):
     records: list[GeneratedBlockDTO] = Field(
         ..., description="generated blocks", required=False
     )
-    mdflow: str = Field(..., description="mdflow", required=False)
+    interaction: str = Field(..., description="interaction", required=False)
 
     def __init__(
         self,
         records: list[GeneratedBlockDTO],
-        mdflow: str,
+        interaction: str,
     ):
-        super().__init__(records=records, mdflow=mdflow)
+        super().__init__(records=records, interaction=interaction)
 
     def __json__(self):
         return {
             "records": self.records,
-            "mdflow": self.mdflow,
+            "interaction": self.interaction,
         }

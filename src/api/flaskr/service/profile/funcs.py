@@ -1,9 +1,11 @@
 from flask import Flask
 
 
+from .constants import SYS_USER_LANGUAGE
 from .models import UserProfile
 from ...dao import db
 from ..user.models import User
+from ..user.utils import get_user_language
 from ...i18n import _
 import datetime
 from ..check_risk.funcs import add_risk_control_result
@@ -21,6 +23,48 @@ from flaskr.service.profile.models import (
     CONST_PROFILE_TYPE_OPTION,
 )
 from flaskr.service.profile.dtos import ProfileToSave
+
+_LANGUAGE_BASE_DISPLAY = {
+    "en": "English",
+    "zh": "简体中文",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+    "ja": "日本語",
+    "ko": "한국어",
+    "ru": "Русский",
+    "it": "Italiano",
+    "pt": "Português",
+    "ar": "العربية",
+    "hi": "हिंदी",
+    "vi": "Tiếng Việt",
+    "th": "ไทย",
+    "id": "Bahasa Indonesia",
+    "ms": "Bahasa Melayu",
+    "tr": "Türkçe",
+    "pl": "Polski",
+}
+
+_LANGUAGE_SPECIFIC_DISPLAY = {
+    "zh-TW": "繁体中文",
+    "zh-HK": "繁体中文",
+    "zh-MO": "繁体中文",
+    "zh-Hant": "繁体中文",
+}
+
+_DEFAULT_LANGUAGE_DISPLAY = "English"
+
+
+def _language_display_value(language_code: str) -> str:
+    """Return a human readable representation for a language code."""
+    if not language_code:
+        return _DEFAULT_LANGUAGE_DISPLAY
+
+    if language_code in _LANGUAGE_SPECIFIC_DISPLAY:
+        return _LANGUAGE_SPECIFIC_DISPLAY[language_code]
+
+    base_code = language_code.split("-")[0]
+    return _LANGUAGE_BASE_DISPLAY.get(base_code, language_code)
 
 
 def check_text_content(
@@ -243,7 +287,11 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
+    user_info = User.query.filter(User.user_id == user_id).first()
     result = {}
+
+    language_code = get_user_language(user_info) if user_info else None
+    result[SYS_USER_LANGUAGE] = _language_display_value(language_code)
 
     for profile_item in profiles_items:
         user_profile = next(

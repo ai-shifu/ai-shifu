@@ -38,7 +38,7 @@ class User(db.Model):
         String(255), nullable=True, index=True, default="", comment="user unicon id"
     )
     user_language = Column(
-        String(30), nullable=True, default="zh-CN", comment="user language"
+        String(30), nullable=True, default="en-US", comment="user language"
     )
     is_admin = Column(Boolean, nullable=False, default=False, comment="is admin")
     is_creator = Column(Boolean, nullable=False, default=False, comment="is creator")
@@ -52,7 +52,7 @@ class User(db.Model):
         email="",
         mobile="",
         user_state=0,
-        language="zh_CN",
+        language="en-US",
     ):
         self.user_id = user_id
         self.username = username

@@ -327,7 +327,8 @@ def verify_sms_code(
             ):
                 user_info.user_state = USER_STATE_REGISTERED
             user_info.mobile = phone
-            user_info.user_language = language
+            if language:
+                user_info.user_language = language
             db.session.add(user_info)
             # New user registration requires course association detection
             # When there is an install ui, the logic here should be removed
@@ -336,7 +337,8 @@ def verify_sms_code(
         if user_info.user_state == USER_STATE_UNREGISTERED:
             user_info.mobile = phone
             user_info.user_state = USER_STATE_REGISTERED
-            user_info.user_language = language
+            if language:
+                user_info.user_language = language
         user_id = user_info.user_id
         token = generate_token(app, user_id=user_id)
         db.session.flush()

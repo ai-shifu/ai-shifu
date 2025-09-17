@@ -18,13 +18,13 @@ repos:
         files: ^(src/web/public/locales/.*\.json|src/cook-web/public/locales/.*\.json)$
     -   id: requirements-txt-fixer
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.12
+    rev: v0.13.0
     hooks:
     -   id: ruff-check
         args: [ --fix ]
     -   id: ruff-format
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.8.4  # use latest stable version
+    rev: v4.9.1  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]
