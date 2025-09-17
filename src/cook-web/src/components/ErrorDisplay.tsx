@@ -180,8 +180,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
             >
               {shouldShowPermissionRequest()
                 ? t('c.permission.requestTitle')
-                : t('common.retry')
-              }
+                : t('common.retry')}
             </Button>
           )}
           {customAction && (

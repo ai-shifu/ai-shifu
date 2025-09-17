@@ -36,7 +36,10 @@ interface PermissionRequestModalProps {
   onClose: () => void;
 }
 
-export const PermissionRequestModal = ({ open, onClose }: PermissionRequestModalProps) => {
+export const PermissionRequestModal = ({
+  open,
+  onClose,
+}: PermissionRequestModalProps) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
   const formSchema = z.object({
@@ -88,17 +91,17 @@ export const PermissionRequestModal = ({ open, onClose }: PermissionRequestModal
       open={open}
       onOpenChange={handleOpenChange}
     >
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className='sm:max-w-md'>
         <DialogHeader>
-          <DialogTitle className="text-center text-lg">
+          <DialogTitle className='text-center text-lg'>
             {t('permission.requestTitle')}
           </DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmitRequest)}>
-            <div className="py-4">
-              <p className="text-sm text-gray-600 mb-4">
+            <div className='py-4'>
+              <p className='text-sm text-gray-600 mb-4'>
                 {t('permission.requestDescription')}
               </p>
 
@@ -122,18 +125,20 @@ export const PermissionRequestModal = ({ open, onClose }: PermissionRequestModal
               />
             </div>
 
-            <DialogFooter className="flex justify-between items-center">
+            <DialogFooter className='flex justify-between items-center'>
               <Button
-                type="button"
-                variant="outline"
+                type='button'
+                variant='outline'
                 onClick={() => handleOpenChange(false)}
-                className="min-w-[100px]"
+                className='min-w-[100px]'
               >
-                {t('permission.requestTitle') === '申请访问权限' ? '取消' : 'Cancel'}
+                {t('permission.requestTitle') === '申请访问权限'
+                  ? '取消'
+                  : 'Cancel'}
               </Button>
               <Button
                 type='submit'
-                className="min-w-[120px]"
+                className='min-w-[120px]'
               >
                 {t('permission.requestSubmit')}
               </Button>
