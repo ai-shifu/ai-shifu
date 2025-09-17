@@ -1,6 +1,5 @@
 from flask import Flask
 from datetime import datetime
-from .constants import SYS_USER_LANGUAGE
 from .models import (
     ProfileItem,
     ProfileItemValue,
@@ -94,30 +93,6 @@ def convert_profile_item_to_profile_item_definition(
     )
 
 
-def _ensure_sys_user_language_definition(
-    definitions: list[ProfileItemDefinition],
-) -> list[ProfileItemDefinition]:
-    """Add the sys_user_language system profile when missing."""
-    if any(item.profile_key == SYS_USER_LANGUAGE for item in definitions):
-        return definitions
-
-    language_color = DEFAULT_COLOR_SETTINGS[0]
-    definitions.insert(
-        0,
-        ProfileItemDefinition(
-            SYS_USER_LANGUAGE,
-            ColorSetting(language_color.color, language_color.text_color),
-            "text",
-            _("PROFILE.PROFILE_TYPE_TEXT"),
-            "User language display value",
-            CONST_PROFILE_SCOPE_SYSTEM,
-            _("PROFILE.PROFILE_SCOPE_SYSTEM"),
-            SYS_USER_LANGUAGE,
-        ),
-    )
-    return definitions
-
-
 # get profile item definition list
 # type: all, text, option
 # parent_id: scenario_id, profile_id
@@ -138,15 +113,12 @@ def get_profile_item_definition_list(
             query = query
         app.logger.info(type)
         profile_item_list = query.order_by(ProfileItem.profile_index.asc()).all()
-        definitions = []
         if profile_item_list:
-            definitions = [
+            return [
                 convert_profile_item_to_profile_item_definition(profile_item)
                 for profile_item in profile_item_list
             ]
-        if type in ["all", CONST_PROFILE_TYPE_TEXT]:
-            definitions = _ensure_sys_user_language_definition(definitions)
-        return definitions
+        return []
 
 
 def get_profile_item_definition_option_list(
