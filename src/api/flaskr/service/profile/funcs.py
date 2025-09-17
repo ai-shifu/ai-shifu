@@ -1,6 +1,7 @@
 from flask import Flask
 
 
+from .constants import SYS_USER_LANGUAGE
 from .models import UserProfile
 from ...dao import db
 from ..user.models import User
@@ -22,9 +23,6 @@ from flaskr.service.profile.models import (
     CONST_PROFILE_TYPE_OPTION,
 )
 from flaskr.service.profile.dtos import ProfileToSave
-
-
-SYS_USER_LANGUAGE = "sys_user_language"
 
 _LANGUAGE_BASE_DISPLAY = {
     "en": "English",
