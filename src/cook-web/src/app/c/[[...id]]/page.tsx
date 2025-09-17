@@ -182,20 +182,19 @@ export default function ChatPage() {
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
   // TODO: REMOVE
-  console.log(
-    'chapterId: ',
-    chapterId,
-    'lessonId: ',
-    lessonId,
-    'initialized: ',
-    initialized,
-    'loadedChapterId: ',
-    loadedChapterId,
-  );
+  // console.log(
+  //   'chapterId: ',
+  //   chapterId,
+  //   'lessonId: ',
+  //   lessonId,
+  //   'initialized: ',
+  //   initialized,
+  //   'loadedChapterId: ',
+  //   loadedChapterId,
+  // );
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
-    console.log('onLessonSelect chapter',chapter);
     if (!chapter) {
       return;
     }
@@ -203,11 +202,9 @@ export default function ChatPage() {
     if (chapter.id !== chapterId) {
       updateChapterId(chapter.id);
     }
-    console.log('onLessonSelect lessonId',lessonId,id);
     if (lessonId === id) {
       return;
     }
-    console.log('onLessonSelect events.dispatchEvent', chapter.id, id);
     events.dispatchEvent(
       new CustomEvent(EVENT_NAMES.GO_TO_NAVIGATION_NODE, {
         detail: {

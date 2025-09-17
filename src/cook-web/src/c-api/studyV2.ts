@@ -159,29 +159,29 @@ export const getLessonStudyRecord = async ({
   outline_bid,
   preview_mode,
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
-  // return request.get(
-  //   `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
-  // );
+  return request.get(
+    `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
+  );
 
-  return {
-    mdflow: 'string',
-    records: [
-      {
-        block_type: 'content',
-        content:
-          '嘿你好，我是快刀青衣，AI学习圈的联合创始人。今天想和你聊聊我们刚上线的Get笔记新功能，绝对能帮你省不少事儿。对了，你现在主要做什么工作的？',
-        generated_block_bid: '1',
-        like_status: 'dislike',
-      },
-      {
-        block_type: 'interaction',
-        content:
-          '?[支付按钮//'+SYS_INTERACTION_TYPE.LOGIN+']',
-        generated_block_bid: '2',
-        // like_status: 'like',
-      },
-    ],
-  };
+  // return {
+  //   mdflow: 'string',
+  //   records: [
+  //     {
+  //       block_type: 'content',
+  //       content:
+  //         '嘿你好，我是快刀青衣，AI学习圈的联合创始人。今天想和你聊聊我们刚上线的Get笔记新功能，绝对能帮你省不少事儿。对了，你现在主要做什么工作的？',
+  //       generated_block_bid: '1',
+  //       like_status: 'dislike',
+  //     },
+  //     {
+  //       block_type: 'interaction',
+  //       content:
+  //         '?[支付按钮//'+SYS_INTERACTION_TYPE.LOGIN+']',
+  //       generated_block_bid: '2',
+  //       // like_status: 'like',
+  //     },
+  //   ],
+  // };
 };
 
 /**

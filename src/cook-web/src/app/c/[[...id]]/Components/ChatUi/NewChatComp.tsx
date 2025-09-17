@@ -328,8 +328,10 @@ export const NewChatComponents = forwardRef<any, any>(
       return result;
     }, []);
 
-    // page init
+    // page init or chapter/lesson change 
     const refreshData = useCallback(async () => {
+      setContentList([]);
+      console.log('refreshData=====', outline_bid);
       const recordResp = await getLessonStudyRecord({ 
         shifu_bid,
         outline_bid,
@@ -352,7 +354,7 @@ export const NewChatComponents = forwardRef<any, any>(
       if (!chapterId) {
         return;
       }
-
+      console.log('useEffect=====', chapterId, loadedChapterId);
       if (loadedChapterId === chapterId) {
         return;
       }
@@ -442,6 +444,7 @@ export const NewChatComponents = forwardRef<any, any>(
         }
         scrollToLesson(lessonId);
         updateSelectedLesson(lessonId);
+        refreshData()
       };
 
       events.addEventListener(
@@ -457,12 +460,6 @@ export const NewChatComponents = forwardRef<any, any>(
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
 
-    useEffect(() => {
-      if (!outline_bid) {
-        return;
-      }
-      refreshData();
-    }, [outline_bid, refreshData]);
 
     return (
       <div
