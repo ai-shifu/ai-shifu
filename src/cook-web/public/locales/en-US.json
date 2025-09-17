@@ -122,7 +122,8 @@
     "copyText": "Copy",
     "loginSuccess": "Login successful",
     "startAutoSkip": "Start Auto-skip",
-    "stopAutoSkip": "Stop Auto-skip"
+    "stopAutoSkip": "Stop Auto-skip",
+    "thinking": "Thinking..."
   },
   "cmEditor": {
     "image": "Image",

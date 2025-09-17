@@ -1,6 +1,5 @@
 import './ForkChatUI/styles/index.scss';
 import styles from './ChatComponents.module.scss';
-
 import {
   useEffect,
   forwardRef,
@@ -14,18 +13,12 @@ import {
 } from 'react';
 import { cn } from '@/lib/utils';
 import dynamic from 'next/dynamic';
+import { useTranslation } from 'react-i18next';
 
 import useMessages from './ForkChatUI/hooks/useMessages';
 import { Chat } from './ForkChatUI/components/Chat';
 import { useChatComponentsScroll } from './ChatComponents/useChatComponentsScroll';
 
-// i18n
-
-import {
-  runScript,
-  getLessonStudyRecord,
-  // scriptContentOperation,
-} from '@/c-api/studyV2';
 import { genUuid } from '@/c-utils/common';
 import ChatInteractionArea from './ChatInput/ChatInteractionArea';
 import { AppContext } from '@/c-components/AppContext';
@@ -63,26 +56,24 @@ import { useShallow } from 'zustand/react/shallow';
 
 import logoColor120 from '@/c-assets/logos/logo-color-120.png';
 import { STUDY_PREVIEW_MODE } from '@/c-constants/study';
-import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE} from '@/c-api/studyV2';
+import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord} from '@/c-api/studyV2';
 import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
 import InteractionBlock from './InteractionBlock';
+import { LoadingBar } from './LoadingBar';
 interface ContentItem {
   content: string;
-  customRenderBar: () => null;
+  customRenderBar?: (() => JSX.Element | null) | React.ComponentType<any>;
   defaultButtonText: string;
   defaultInputText: string;
   readonly: boolean;
   generated_block_bid: string;
-  like_status?: LikeStatus; // bussiness logic, not from api
+  like_status?: LikeStatus; // business logic, not from api
 }
-
 interface SSEParams {
   input: string | Record<string, any>;
   input_type: SSE_INPUT_TYPE;
   reload_generated_block_bid?: string;
 }
-
-
 
 export const NewChatComponents = forwardRef<any, any>(
   (
@@ -125,9 +116,21 @@ export const NewChatComponents = forwardRef<any, any>(
 
 
     const run = (sseParams: SSEParams) => {
-      // Reset current stream context; blocks will be created on first TEXT chunk
+      // Create a placeholder block immediately with a loading bar
+      const id = genUuid();
+      currentBlockIdRef.current = id;
       currentContentRef.current = '';
-      currentBlockIdRef.current = null;
+      setContentList(prev => [
+        ...prev,
+        {
+          generated_block_bid: id,
+          content: '',
+          customRenderBar: () => <LoadingBar />,
+          defaultButtonText: '',
+          defaultInputText: '',
+          readonly: false,
+        } as ContentItem,
+      ]);
 
       getRunMessage(
         shifu_bid,
@@ -138,17 +141,17 @@ export const NewChatComponents = forwardRef<any, any>(
           try {
             // Stream typing effect
             if (response.type === RESP_EVENT_TYPE.TEXT) {
-              // Create a new content block on first TEXT of a segment
+              // Ensure we have a current block id (create if absent)
               if (!currentBlockIdRef.current) {
-                const id = genUuid();
-                currentBlockIdRef.current = id;
+                const nid = genUuid();
+                currentBlockIdRef.current = nid;
                 currentContentRef.current = '';
                 setContentList(prev => [
                   ...prev,
                   {
-                    generated_block_bid: id,
+                    generated_block_bid: nid,
                     content: '',
-                    customRenderBar: () => null,
+                    customRenderBar: () => <LoadingBar />,
                     defaultButtonText: '',
                     defaultInputText: '',
                     readonly: false,
@@ -156,6 +159,7 @@ export const NewChatComponents = forwardRef<any, any>(
                 ]);
               }
 
+              // Update streaming text incrementally
               const prevText = currentContentRef.current || '';
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
@@ -166,7 +170,7 @@ export const NewChatComponents = forwardRef<any, any>(
                 setContentList(prev =>
                   prev.map(item =>
                     item.generated_block_bid === blockId
-                      ? { ...item, content: nextText }
+                      ? { ...item, content: nextText, customRenderBar: () => null }
                       : item,
                   ),
                 );
@@ -180,7 +184,7 @@ export const NewChatComponents = forwardRef<any, any>(
                 setContentList(prev =>
                   prev.map(item =>
                     item.generated_block_bid === blockId
-                      ? { ...item, readonly: true }
+                      ? { ...item, readonly: true, customRenderBar: () => null }
                       : item,
                   ),
                 );
@@ -227,24 +231,24 @@ export const NewChatComponents = forwardRef<any, any>(
     };
 
     const refreshData = async () => {
-      // const recordResp = await getLessonStudyRecord({ 
-      //   shifu_bid,
-      //   outline_bid,
-      // });
-      // if(recordResp?.records?.length > 0) {
-      //   console.log('获取学习记录', recordResp);
-      //   setLoadedData(true);
-      //   setLoadedChapterId(chapterId);
-      //   const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
-      //   setContentList(contentRecords);
-      //   console.log('contentList', contentRecords);
-      // }else{
+      const recordResp = await getLessonStudyRecord({ 
+        shifu_bid,
+        outline_bid,
+      });
+      if(recordResp?.records?.length > 0) {
+        console.log('获取学习记录', recordResp);
+        setLoadedData(true);
+        setLoadedChapterId(chapterId);
+        const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
+        setContentList(contentRecords);
+        console.log('contentList', contentRecords);
+      }else{
         console.log('获取学习记录为空，开始run');
         run({
           input: '',
           input_type: 'normal',
         })
-      // }
+      }
     };
 
 
