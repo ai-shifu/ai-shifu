@@ -99,10 +99,14 @@ export const NewChatComponents = forwardRef<any, any>(
         refreshUserInfo: state.refreshUserInfo,
       })),
     );
+    const { updateResetedChapterId } = useCourseStore(
+      useShallow(state => ({
+        updateResetedChapterId: state.updateResetedChapterId,
+      })),
+    );
 
     const outline_bid = lessonId || chapterId;
  
-    const [inputModal, setInputModal] = useState(null);
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
     const [contentList, setContentList] = useState<ContentItem[]>([]);
@@ -110,6 +114,20 @@ export const NewChatComponents = forwardRef<any, any>(
     const [isLoading, setIsLoading] = useState(false);
     const currentContentRef = useRef<string>('');
     const currentBlockIdRef = useRef<string | null>(null);
+    const runRef = useRef<((params: SSEParams) => void) | null>(null);
+    const chatRef = useRef(null);
+    const {
+      scrollToLesson,
+      scrollToBottom,
+    } = useChatComponentsScroll({
+      chatRef,
+      containerStyle: styles.chatComponents,
+      // HACK: messages is not used in NewChatComp
+      messages : [],
+      appendMsg: () => {}, 
+      deleteMsg: () => {},
+    });
+
 
     const {
       open: payModalOpen,
@@ -117,41 +135,28 @@ export const NewChatComponents = forwardRef<any, any>(
       onClose: onPayModalClose,
     } = useDisclosure();
 
-    const {
-      // open: loginModalOpen,
-      onOpen: onLoginModalOpen,
-      // onClose: onLoginModalClose,
-    } = useDisclosure();
 
     const onPayModalOk = () => {
       onPurchased?.();
       refreshUserInfo();
     }
 
-    useEffect(() => {
-      if(!outline_bid){
-        return
-      }
-      refreshData();
-    }, [outline_bid]);
-
+  
+    // when get type: LESSON_UPDATE, update lesson info
     const lessonUpdateResp = useCallback(
       (response, isEnd) => {
         const {outline_bid: currentOutlineBid, status,title} = response.content;
-        console.log('节更新前=====', outline_bid, currentOutlineBid);
         lessonUpdate?.({
           id: currentOutlineBid,
           name: title,
           status: status,
           status_value: status,
         });
-        console.log('节更新后=====', outline_bid, currentOutlineBid);
         if (
           status === LESSON_STATUS_VALUE.PREPARE_LEARNING &&
           !isEnd
         ) {
-          // TODO: test if new outline_bid
-          run({
+          runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
@@ -164,8 +169,8 @@ export const NewChatComponents = forwardRef<any, any>(
       [lessonUpdate, updateSelectedLesson],
     );
 
-
-    const run = (sseParams: SSEParams) => {
+    // get sse message
+    const run = useCallback((sseParams: SSEParams) => {
       // Create a placeholder block immediately with a loading bar
       const id = genUuid();
       currentBlockIdRef.current = id;
@@ -271,6 +276,8 @@ export const NewChatComponents = forwardRef<any, any>(
               // Prepare for possible next segment in the same stream
               currentBlockIdRef.current = null;
               currentContentRef.current = '';
+            }else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
+              updateUserInfo({ [response.content.key]: response.content.value });
             }
           } catch (e) {
             // eslint-disable-next-line no-console
@@ -278,9 +285,22 @@ export const NewChatComponents = forwardRef<any, any>(
           }
         },
       );
-    };
+    }, [
+      chapterUpdate,
+      lessonUpdateResp,
+      outline_bid,
+      preview_mode,
+      shifu_bid,
+      trackTrailProgress,
+    ]);
 
-    const reduceRecordsToContent = (records: StudyRecordItem[]) => {
+    useEffect(() => {
+      runRef.current = run;
+    }, [run]);
+
+
+    //  map mdf learn records to content & separate interaction block (like_status is exist)
+    const reduceRecordsToContent = useCallback((records: StudyRecordItem[]) => {
        const result: ContentItem[]= [];
        records.forEach((item: StudyRecordItem) => {
         result.push({
@@ -306,30 +326,84 @@ export const NewChatComponents = forwardRef<any, any>(
         };
       });
       return result;
-    };
+    }, []);
 
-    const refreshData = async () => {
+    // page init
+    const refreshData = useCallback(async () => {
       const recordResp = await getLessonStudyRecord({ 
         shifu_bid,
         outline_bid,
       });
       if(recordResp?.records?.length > 0) {
-        console.log('获取学习记录', recordResp);
         setLoadedData(true);
         setLoadedChapterId(chapterId);
         const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
         setContentList(contentRecords);
-        console.log('contentList', contentRecords);
       }else{
-        console.log('获取学习记录为空，开始run');
-        run({
+        runRef.current?.({
           input: '',
           input_type: 'normal',
-        })
+        });
       }
-    };
+    }, [chapterId, outline_bid, reduceRecordsToContent, shifu_bid]);
+
+    // user choose chapter should refresh data
+    useEffect(() => {
+      if (!chapterId) {
+        return;
+      }
+
+      if (loadedChapterId === chapterId) {
+        return;
+      }
+
+      setLoadedChapterId(chapterId);
+      refreshData();
+    }, [chapterId, loadedChapterId, refreshData]);
+
+    // user reset chapter
+    useEffect(() => {
+      const unsubscribe = useCourseStore.subscribe(
+        state => state.resetedChapterId,
+        curr => {
+          if (!curr) {
+            return;
+          }
+
+          if (curr === loadedChapterId) {
+            refreshData();
+            // @ts-expect-error EXPECT
+            updateResetedChapterId(null);
+          }
+        },
+      );
+
+      return () => {
+        unsubscribe();
+      };
+    }, [loadedChapterId, refreshData, updateResetedChapterId]);
+
+    // user login success
+    useEffect(() => {
+      const unsubscribe = useUserStore.subscribe(
+        state => state.isLoggedIn,
+        () => {
+          if (!chapterId) {
+            return;
+          }
+
+          setLoadedChapterId(chapterId);
+          refreshData();
+        },
+      );
+
+      return () => {
+        unsubscribe();
+      };
+    }, [chapterId, refreshData]);
 
 
+    // user choose interaction in chat
     const onSend = (content: OnSendContentParams) => {
       console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
@@ -339,17 +413,18 @@ export const NewChatComponents = forwardRef<any, any>(
         return;
       }
       if(buttonText === SYS_INTERACTION_TYPE.LOGIN){
-        console.log('onLoginModalOpen');
-        // onLoginModalOpen();
         // redirect to login page
         window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
         return;
       }
       if(buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER){
-        // TODO: test if new outline_bid
-        // onGoChapter?.(val.lessonId);
+        const nextOutlineBid = (variableName || inputText || '').trim();
+        if(nextOutlineBid && nextOutlineBid !== outline_bid){
+          onGoChapter?.(nextOutlineBid);
+        }
         return;
       }
+      scrollToBottom();
       run({
         input: {
           [variableName as string]: buttonText || inputText
@@ -358,6 +433,36 @@ export const NewChatComponents = forwardRef<any, any>(
       })
     };
 
+    // event listener: select lesson in course catalog
+    useEffect(() => {
+      const onGoToNavigationNode = e => {
+        const { chapterId, lessonId } = e.detail;
+        if (chapterId !== loadedChapterId) {
+          return;
+        }
+        scrollToLesson(lessonId);
+        updateSelectedLesson(lessonId);
+      };
+
+      events.addEventListener(
+        BZ_EVENT_NAMES.GO_TO_NAVIGATION_NODE,
+        onGoToNavigationNode,
+      );
+
+      return () => {
+        events.removeEventListener(
+          BZ_EVENT_NAMES.GO_TO_NAVIGATION_NODE,
+          onGoToNavigationNode,
+        );
+      };
+    }, [loadedChapterId, scrollToLesson, updateSelectedLesson]);
+
+    useEffect(() => {
+      if (!outline_bid) {
+        return;
+      }
+      refreshData();
+    }, [outline_bid, refreshData]);
 
     return (
       <div
@@ -366,6 +471,7 @@ export const NewChatComponents = forwardRef<any, any>(
           className,
           mobileStyle ? styles.mobile : '',
         )}
+        ref={chatRef}
       >
         {contentList.map((item) => (item.like_status ? 
             <InteractionBlock
