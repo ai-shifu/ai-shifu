@@ -38,7 +38,7 @@ def _normalize_language_code(language_code: str) -> str:
     primary = parts[0].lower()
     subtags = []
 
-    for index, segment in enumerate(parts[1:], start=1):
+    for segment in parts[1:]:
         if len(segment) == 2 and segment.isalpha():
             subtags.append(segment.upper())
         elif len(segment) == 4 and segment.isalpha():
