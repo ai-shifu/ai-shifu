@@ -26,7 +26,7 @@ from flaskr.service.profile.dtos import ProfileToSave
 
 _LANGUAGE_BASE_DISPLAY = {
     "en": "English",
-    "zh": "中文",
+    "zh": "简体中文",
     "es": "Español",
     "fr": "Français",
     "de": "Deutsch",
