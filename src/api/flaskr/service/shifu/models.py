@@ -334,6 +334,7 @@ class DraftOutlineItem(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask mode LLM system prompt"
     )
+    content = Column(Text, nullable=False, default="", comment="MarkdownFlow content")
     deleted = Column(
         SmallInteger,
         nullable=False,
@@ -378,6 +379,7 @@ class DraftOutlineItem(db.Model):
             ask_llm=self.ask_llm,
             ask_llm_temperature=self.ask_llm_temperature,
             ask_llm_system_prompt=self.ask_llm_system_prompt,
+            content=self.content,
             type=self.type,
             hidden=self.hidden,
             deleted=self.deleted,
@@ -404,6 +406,7 @@ class DraftOutlineItem(db.Model):
             and self.ask_llm == other.ask_llm
             and compare_decimal(self.ask_llm_temperature, other.ask_llm_temperature)
             and self.ask_llm_system_prompt == other.ask_llm_system_prompt
+            and self.content == other.content
         )
 
     def get_str_to_check(self):
@@ -716,6 +719,7 @@ class PublishedOutlineItem(db.Model):
     ask_llm_system_prompt = Column(
         Text, nullable=False, default="", comment="Ask agent LLM system prompt"
     )
+    content = Column(Text, nullable=False, default="", comment="MarkdownFlow content")
     deleted = Column(
         SmallInteger,
         nullable=False,
