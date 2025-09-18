@@ -191,7 +191,7 @@ export const NewChatComponents = (
             if(response.type === SSE_OUTPUT_TYPE.INTERACTION){
               // let interaction block show after typewriter end
               setLastInteractionBlock({
-                generated_block_bid: nid,
+                generated_block_bid: currentBlockIdRef.current || '',
                 content: response.content,
                 customRenderBar: () => null,
                 defaultButtonText: '',
@@ -517,13 +517,14 @@ export const NewChatComponents = (
     }
     
    
-
+    // when typewriter finished, add interaction block
     const onTypeFinished = () => {
       console.log('====打字完毕');
       if(lastInteractionBlock){
+        const gid = contentList[contentList.length - 1].generated_block_bid
         console.log('====添加互动块', currentBlockIdRef.current, currentContentRef.current);
         const newInteractionBlock = [{
-          generated_block_bid: currentBlockIdRef.current,
+          generated_block_bid: gid,
           content: '',
           like_status:  LIKE_STATUS.NONE,
           customRenderBar: () => null,
@@ -535,6 +536,8 @@ export const NewChatComponents = (
         setLastInteractionBlock(null);
       }
     }
+
+    
     return (
       <div id='chat-box'
         className={cn(
