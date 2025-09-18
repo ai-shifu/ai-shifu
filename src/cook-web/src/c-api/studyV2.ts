@@ -152,7 +152,9 @@ export const getRunMessage = (
   };
 
   source.onerror = () => {};
-  source.onclose = () => {};
+  source.onclose = () => {
+    console.log('==sse close==')
+  };
   source.onopen = () => {};
   source.close = () => {};
   source.stream();

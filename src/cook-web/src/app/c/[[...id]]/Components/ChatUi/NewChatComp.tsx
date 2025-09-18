@@ -19,7 +19,7 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 import {
   LESSON_STATUS_VALUE,
 } from '@/c-constants/courseConstants';
-
+import useAutoScroll from './useAutoScroll';
 import { useUserStore } from '@/store';
 import { fixMarkdownStream } from '@/c-utils/markdownUtils';
 import PayModal from '../Pay/PayModal';
@@ -95,7 +95,6 @@ export const NewChatComponents = (
     const chatRef = useRef(null);
     const {
       scrollToLesson,
-      scrollToBottom,
     } = useChatComponentsScroll({
       chatRef,
       containerStyle: styles.chatComponents,
@@ -117,6 +116,8 @@ export const NewChatComponents = (
       onPurchased?.();
       refreshUserInfo();
     }
+
+    const { scrollToBottom } = useAutoScroll(chatRef as any, { bottomSelector: '#chat-box-bottom', threshold: 120 });
 
   
     // when get type: LESSON_UPDATE, update lesson info
@@ -278,6 +279,7 @@ export const NewChatComponents = (
     }, [run]);
 
 
+
     //  map mdf learn records to content & separate interaction block (like_status is exist)
     const reduceRecordsToContent = useCallback((records: StudyRecordItem[]) => {
        const result: ContentItem[]= [];
@@ -329,7 +331,7 @@ export const NewChatComponents = (
           contentListRef.current = contentRecords;
           return contentRecords;
         });
-        
+        scrollToBottom('smooth');
       }else{
         runRef.current?.({
           input: '',
@@ -513,6 +515,7 @@ export const NewChatComponents = (
         readonly: item.readonly,
       }))
     }
+    
    
 
     const onTypeFinished = () => {
@@ -553,6 +556,7 @@ export const NewChatComponents = (
             :
               <ContentRender
                 key={idx}
+                typingSpeed={60}
                 enableTypewriter={!item.isHistory}
                 content={item.content}
                 customRenderBar={item.customRenderBar}
