@@ -12,6 +12,8 @@ const SocialLinks = () => {
       <div className='space-y-3'>
         <a
           href='https://github.com/ai-shifu/ai-shifu'
+          target='_blank'
+          rel='noopener noreferrer'
           className='flex items-center space-x-2 text-gray-700 hover:bg-gray-50 p-2 rounded-md transition-colors'
         >
           <Image

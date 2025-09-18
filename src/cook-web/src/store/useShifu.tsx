@@ -138,12 +138,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
   const findNode = (id: string) => {
     const find = (nodes: Outline[]): any => {
-      for (let i = 0; i < nodes.length; i++) {
-        if (nodes[i].id === id) {
-          return nodes[i];
+      for (const node of nodes) {
+        if (node.id === id) {
+          return node;
         }
-        if (nodes[i].children) {
-          const result = find(nodes[i].children || []);
+        if (node.children) {
+          const result = find(node.children || []);
           if (result) {
             return result;
           }
@@ -153,49 +153,131 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     };
     return find(chapters);
   };
+
+  // Helper function to find the best node to select after deletion
+  const findBestNodeAfterDeletion = (
+    deletedOutline: Outline,
+  ): Outline | null => {
+    // If it's a chapter (depth 0), don't auto-select anything
+    if ((deletedOutline.depth || 0) === 0) {
+      return null;
+    }
+
+    // Find the parent node using parent_bid first
+    let parent = findNode(deletedOutline.parent_bid || '');
+
+    // If parent_bid is undefined or parent not found, search through all chapters to find the actual parent
+    if (!parent) {
+      for (const chapter of chapters) {
+        const searchInNode = (node: Outline): Outline | null => {
+          if (node.children) {
+            for (const child of node.children) {
+              if (child.id === deletedOutline.id) {
+                return node; // Found the parent
+              }
+              const result = searchInNode(child);
+              if (result) return result;
+            }
+          }
+          return null;
+        };
+        const foundParent = searchInNode(chapter);
+        if (foundParent) {
+          parent = foundParent;
+          break;
+        }
+      }
+    }
+
+    if (!parent?.children) {
+      return null;
+    }
+
+    // Find the index of the deleted node in parent's children
+    const deletedIndex = parent.children.findIndex(
+      (child: any) => child.id === deletedOutline.id,
+    );
+
+    if (deletedIndex > 0) {
+      // Select the previous sibling (the node above)
+      return parent.children[deletedIndex - 1];
+    } else if (deletedIndex === 0) {
+      // If it's the first child, select the parent (chapter)
+      return parent;
+    }
+
+    return null;
+  };
+  // Helper function to remove outline from tree structure
+  const removeOutlineFromTree = (outline: Outline) => {
+    if (outline.parent_bid) {
+      const parent = findNode(outline.parent_bid || '');
+      if (parent) {
+        parent.children = parent.children?.filter(
+          (child: any) => child.id !== outline.id,
+        );
+      }
+    } else {
+      const list = chapters.filter((child: any) => child.id !== outline.id);
+      setChapters([...list]);
+      return;
+    }
+    setChapters([...chapters]);
+  };
+
+  // Helper function to clean up catalog data
+  const cleanupCatalogData = (outline: Outline) => {
+    delete cataData[outline.id];
+    setCataData({ ...cataData });
+  };
+
+  // Helper function to handle API deletion
+  const deleteOutlineAPI = async (outline: Outline) => {
+    if (outline.id === 'new_chapter') {
+      return;
+    }
+    await api.deleteOutline({
+      shifu_bid: currentShifu?.bid || '',
+      outline_bid: outline.id,
+    });
+  };
+
+  // Helper function to handle cursor positioning after deletion
+  const handleCursorPositioning = async (nextNode: Outline | null) => {
+    if (nextNode) {
+      setCurrentNode(nextNode);
+      if (nextNode.bid) {
+        await loadBlocks(nextNode.bid, currentShifu?.bid || '');
+      } else {
+        setBlocks([]);
+      }
+    } else {
+      setCurrentNode(null);
+      setBlocks([]);
+    }
+    setFocusId('');
+  };
+
   const removeOutline = async (outline: Outline) => {
     setIsSaving(true);
     setError(null);
+
+    const isCurrentNodeDeleted = currentNode?.id === outline.id;
+    const nextNode = isCurrentNodeDeleted
+      ? findBestNodeAfterDeletion(outline)
+      : null;
+
     try {
       console.log('removeOutline', outline);
-      if (outline.parent_bid) {
-        const parent = findNode(outline.parent_bid || '');
-        if (parent) {
-          parent.children = parent.children?.filter(
-            (child: any) => child.id !== outline.id,
-          );
-        }
 
-        setChapters([...chapters]);
+      removeOutlineFromTree(outline);
+      cleanupCatalogData(outline);
+      await deleteOutlineAPI(outline);
 
-        delete cataData[outline.id];
-        setCataData({
-          ...cataData,
-        });
-        if (outline.id == 'new_chapter') {
-          return;
-        }
-        await api.deleteOutline({
-          shifu_bid: currentShifu?.bid || '',
-          outline_bid: outline.id,
-        });
-      } else {
-        const list = chapters.filter((child: any) => child.id !== outline.id);
-        setChapters([...list]);
-
-        delete cataData[outline.id];
-        setCataData({
-          ...cataData,
-        });
-
-        if (outline.id == 'new_chapter') {
-          return;
-        }
-        await api.deleteOutline({
-          shifu_bid: currentShifu?.bid || '',
-          outline_bid: outline.id,
-        });
+      if (isCurrentNodeDeleted) {
+        await handleCursorPositioning(nextNode);
       }
+
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -619,7 +701,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
     const parent = findNode(data.parent_bid || '');
     const index =
-      parent?.children?.findIndex(child => child.bid === data.bid) || 0;
+      parent?.children?.findIndex((child: Outline) => child.bid === data.bid) ||
+      0;
 
     try {
       if (data.bid === 'new_chapter') {
@@ -682,11 +765,13 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       const parent = findNode(data.parent_bid || '');
       // get node index in children
-      const index = parent.children.findIndex(child => child.id === data.id);
+      const index = parent.children.findIndex(
+        (child: Outline) => child.id === data.id,
+      );
 
       const newUnit = await api.createOutline({
         parent_bid: data.parent_bid,
-        index: index - 1,
+        index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
         type: 'trial',
