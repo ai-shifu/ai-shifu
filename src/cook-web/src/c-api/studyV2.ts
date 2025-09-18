@@ -92,7 +92,7 @@ export const getRunMessage = (
   outline_bid,
   preview_mode = PREVIEW_MODE.NORMAL,
   body,
-  onFinish,
+  onMessage,
 ) => {
   const token = useUserStore.getState().getToken();
 
@@ -141,8 +141,8 @@ export const getRunMessage = (
     try {
       const response = JSON.parse(event.data);
       console.log('======sse response======', response)
-      if (onFinish) {
-        onFinish(response);
+      if (onMessage) {
+        onMessage(response);
       }
     } catch (e) {
       console.log(e);

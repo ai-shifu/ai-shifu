@@ -186,7 +186,6 @@ export const NewChatComponents = (
               }
               // Ensure we have a current block id (create if absent)
               if (!currentBlockIdRef.current) {
-           
                 currentBlockIdRef.current = nid;
                 currentContentRef.current = '';
                 setContentList(prev => [
@@ -204,11 +203,14 @@ export const NewChatComponents = (
 
               // Update streaming text incrementally
               const prevText = currentContentRef.current || '';
+              console.log('之前的文本', prevText);
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
+              console.log('之后的文本', nextText);
 
               const blockId = currentBlockIdRef.current;
+              console.log('blockId', blockId);
               if (blockId) {
                 setContentList(prev =>
                   prev.map(item =>
@@ -217,6 +219,7 @@ export const NewChatComponents = (
                       : item,
                   ),
                 );
+                console.log('设置更新后的内容', contentList);
               }
             }
             else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
@@ -433,13 +436,13 @@ export const NewChatComponents = (
         window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
         return;
       }
-      if(buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER){
-        const nextOutlineBid = (variableName || inputText || '').trim();
-        if(nextOutlineBid && nextOutlineBid !== outline_bid){
-          onGoChapter?.(nextOutlineBid);
-        }
-        return;
-      }
+      // if(buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER){
+      //   const nextOutlineBid = (variableName || inputText || '').trim();
+      //   if(nextOutlineBid && nextOutlineBid !== outline_bid){
+      //     onGoChapter?.(nextOutlineBid);
+      //   }
+      //   return;
+      // }
 
       scrollToBottom();
       run({

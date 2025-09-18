@@ -87,9 +87,7 @@ export const useLessonTree = () => {
     // }
 
     let lessonCount = 0;
-    // TODO: MOCK
-    // const catalogs = (treeData.outline_items || []).map(l => {
-    const catalogs = treeData.map(l => {
+    const catalogs = (treeData.outline_items || []).map(l => {
       const lessons = l.children.map(c => {
         lessonCount += 1;
         return {

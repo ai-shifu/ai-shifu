@@ -111,7 +111,7 @@ export const PayModal = ({
       }
       setCountDown(countDwon - COUNTDOWN_INTERVAL);
 
-      const { data: resp } = await queryOrder({ orderId });
+      const resp = await queryOrder({ orderId });
 
       if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
         setIsCompleted(true);
@@ -130,7 +130,7 @@ export const PayModal = ({
   const refreshOrderQrcode = useCallback(
     async orderId => {
       if (orderId) {
-        const { data: qrcodeResp } = await getPayUrl({
+        const qrcodeResp= await getPayUrl({
           channel: payChannel,
           orderId,
         });
@@ -158,7 +158,8 @@ export const PayModal = ({
     setInterval(null);
     setCouponCode('');
     setOriginalPrice('');
-    const { data: resp } = await initOrderUniform(courseId);
+    const resp = await initOrderUniform(courseId);
+    console.log('payModal data=====', resp);
     setPrice(resp.value_to_pay);
     setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
     const orderId = resp.order_id;

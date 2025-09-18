@@ -15,6 +15,7 @@ export interface InteractionBlockProps {
   disabled?: boolean;
   size?: Size;
   className?: string;
+  onRefresh?: (generated_block_bid: string) => void;
 }
 
 const sizeMap: Record<Size, number> = {
