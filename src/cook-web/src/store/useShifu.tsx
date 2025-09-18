@@ -138,12 +138,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
   const findNode = (id: string) => {
     const find = (nodes: Outline[]): any => {
-      for (let i = 0; i < nodes.length; i++) {
-        if (nodes[i].id === id) {
-          return nodes[i];
+      for (const node of nodes) {
+        if (node.id === id) {
+          return node;
         }
-        if (nodes[i].children) {
-          const result = find(nodes[i].children || []);
+        if (node.children) {
+          const result = find(node.children || []);
           if (result) {
             return result;
           }
@@ -208,79 +208,72 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
     return null;
   };
+  // Helper function to remove outline from tree structure
+  const removeOutlineFromTree = (outline: Outline) => {
+    if (outline.parent_bid) {
+      const parent = findNode(outline.parent_bid || '');
+      if (parent) {
+        parent.children = parent.children?.filter(
+          (child: any) => child.id !== outline.id,
+        );
+      }
+    } else {
+      const list = chapters.filter((child: any) => child.id !== outline.id);
+      setChapters([...list]);
+      return;
+    }
+    setChapters([...chapters]);
+  };
+
+  // Helper function to clean up catalog data
+  const cleanupCatalogData = (outline: Outline) => {
+    delete cataData[outline.id];
+    setCataData({ ...cataData });
+  };
+
+  // Helper function to handle API deletion
+  const deleteOutlineAPI = async (outline: Outline) => {
+    if (outline.id === 'new_chapter') {
+      return;
+    }
+    await api.deleteOutline({
+      shifu_bid: currentShifu?.bid || '',
+      outline_bid: outline.id,
+    });
+  };
+
+  // Helper function to handle cursor positioning after deletion
+  const handleCursorPositioning = async (nextNode: Outline | null) => {
+    if (nextNode) {
+      setCurrentNode(nextNode);
+      if (nextNode.bid) {
+        await loadBlocks(nextNode.bid, currentShifu?.bid || '');
+      } else {
+        setBlocks([]);
+      }
+    } else {
+      setCurrentNode(null);
+      setBlocks([]);
+    }
+    setFocusId('');
+  };
+
   const removeOutline = async (outline: Outline) => {
     setIsSaving(true);
     setError(null);
 
-    // Check if we're deleting the currently selected node
     const isCurrentNodeDeleted = currentNode?.id === outline.id;
-
-    // Find the best node to select after deletion (before we delete the node)
-    const nextNode = isCurrentNodeDeleted
-      ? findBestNodeAfterDeletion(outline)
-      : null;
+    const nextNode = isCurrentNodeDeleted ? findBestNodeAfterDeletion(outline) : null;
 
     try {
       console.log('removeOutline', outline);
-      if (outline.parent_bid) {
-        const parent = findNode(outline.parent_bid || '');
-        if (parent) {
-          parent.children = parent.children?.filter(
-            (child: any) => child.id !== outline.id,
-          );
-        }
 
-        setChapters([...chapters]);
+      removeOutlineFromTree(outline);
+      cleanupCatalogData(outline);
+      await deleteOutlineAPI(outline);
 
-        delete cataData[outline.id];
-        setCataData({
-          ...cataData,
-        });
-        if (outline.id == 'new_chapter') {
-          return;
-        }
-        await api.deleteOutline({
-          shifu_bid: currentShifu?.bid || '',
-          outline_bid: outline.id,
-        });
-      } else {
-        const list = chapters.filter((child: any) => child.id !== outline.id);
-        setChapters([...list]);
-
-        delete cataData[outline.id];
-        setCataData({
-          ...cataData,
-        });
-
-        if (outline.id == 'new_chapter') {
-          return;
-        }
-        await api.deleteOutline({
-          shifu_bid: currentShifu?.bid || '',
-          outline_bid: outline.id,
-        });
-      }
-
-      // Handle cursor positioning after deletion
       if (isCurrentNodeDeleted) {
-        if (nextNode) {
-          // Auto-select the best node
-          setCurrentNode(nextNode);
-
-          // Check if the selected node has a bid (meaning it's a section with content)
-          if (nextNode.bid) {
-            // If it has a bid, load its blocks
-            await loadBlocks(nextNode.bid, currentShifu?.bid || '');
-          } else {
-            // If it's a chapter without bid, clear blocks
-            setBlocks([]);
-          }
-        } else {
-          // No suitable node found, clear selection
-          setCurrentNode(null);
-          setBlocks([]);
-        }
-        setFocusId('');
+        await handleCursorPositioning(nextNode);
       }
 
       setLastSaveTime(new Date());
