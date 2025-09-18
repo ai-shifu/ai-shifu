@@ -403,6 +403,20 @@ export const NewChatComponents = (
       }
     }
 
+    const onRefresh = (generated_block_bid: string) => {  
+      const newList = [...contentList]
+      const needChangeItemIndex = newList.findIndex(item => item.generated_block_bid === generated_block_bid)
+      // delete the item after the needChangeItemIndex, include the needChangeItemIndex
+      newList.length =  needChangeItemIndex
+      setContentList(newList)
+      // refresh the item
+      run({
+        input: '',
+        input_type: SSE_INPUT_TYPE.NORMAL,
+        reload_generated_block_bid: generated_block_bid,
+      })
+    }
+
     // user choose interaction in chat
     const onSend = (content: OnSendContentParams) => {
       console.log('onSend', content);
@@ -479,6 +493,7 @@ export const NewChatComponents = (
               generated_block_bid={item.generated_block_bid}
               like_status={item.like_status}
               readonly={item.readonly}
+              onRefresh={onRefresh}
             />
             :
               <ContentRender

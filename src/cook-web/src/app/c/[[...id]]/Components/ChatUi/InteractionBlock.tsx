@@ -3,6 +3,7 @@ import { ThumbsUp, ThumbsDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { LikeStatus } from '@/c-api/studyV2';
 import { postGeneratedContentAction, LIKE_STATUS } from '@/c-api/studyV2';
+import { RefreshCcw } from 'lucide-react';
 
 type Size = 'sm' | 'md' | 'lg';
 
@@ -33,6 +34,7 @@ export default function InteractionBlock({
   readonly = false,
   disabled = false,
   className,
+  onRefresh,
 }: InteractionBlockProps) {
   const [status, setStatus] = useState<LikeStatus>(
     (like_status as LikeStatus) ?? LIKE_STATUS.NONE,
@@ -54,6 +56,18 @@ export default function InteractionBlock({
   );
 
   const dislikeBtnStyle = useMemo(
+    () => ({
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: 28,
+      height: 14,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+    }),
+    [disabled],
+  );
+
+  const refreshBtnStyle = useMemo(
     () => ({
       display: 'inline-flex',
       alignItems: 'center',
@@ -127,6 +141,16 @@ export default function InteractionBlock({
           size={14}
           className={cn(isDislike ? 'text-blue-500' : 'text-gray-400', 'w-5', 'h-5')}
         />
+      </button>
+      <button
+        type="button"
+        aria-label="Refresh"
+        aria-pressed={false}
+        style={refreshBtnStyle}
+        disabled={disabled || readonly}
+        onClick={() => onRefresh?.(generated_block_bid)}
+      >
+        <RefreshCcw size={14} className={cn('text-gray-400', 'w-5', 'h-5')} />
       </button>
     </div>
   );
