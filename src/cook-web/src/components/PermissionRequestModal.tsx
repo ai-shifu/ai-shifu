@@ -131,7 +131,7 @@ export const PermissionRequestModal = ({
                 onClick={() => handleOpenChange(false)}
                 className='min-w-[100px]'
               >
-{t('common.cancel')}
+                {t('common.cancel')}
               </Button>
               <Button
                 type='submit'
