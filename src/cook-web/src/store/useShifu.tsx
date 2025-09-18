@@ -504,8 +504,15 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (parent.children?.find((child: any) => child.id === 'new_chapter')) {
       return;
     }
+
     const id = 'new_chapter';
-    parent.children?.push({
+
+    // Ensure parent.children exists
+    if (!parent.children) {
+      parent.children = [];
+    }
+
+    parent.children.push({
       id,
       bid: id,
       parent_bid: parent.id,
