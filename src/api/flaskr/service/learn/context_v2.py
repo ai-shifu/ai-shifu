@@ -66,6 +66,7 @@ from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
     ProfileItemDefinition,
 )
+from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 
 context_local = threading.local()
 
@@ -823,16 +824,27 @@ class RunScriptContextV2:
                 validate_result.variables is not None
                 and len(validate_result.variables) > 0
             ):
-                profile_to_save = []
+                profile_to_save: list[ProfileToSave] = []
                 for key, value in validate_result.variables.items():
                     profile_id = variable_definition_key_id_map.get(key, "")
                     profile_to_save.append(ProfileToSave(key, value, profile_id))
+
                 save_user_profiles(
                     app,
                     self._user_info.user_id,
                     self._outline_item_info.shifu_bid,
                     profile_to_save,
                 )
+                for profile in profile_to_save:
+                    yield RunMarkdownFlowDTO(
+                        outline_bid=run_script_info.outline_bid,
+                        generated_block_bid=generated_block.generated_block_bid,
+                        type=GeneratedType.VARIABLE_UPDATE,
+                        content=VariableUpdateDTO(
+                            variable_name=profile.key,
+                            variable_value=profile.value,
+                        ),
+                    )
                 self._can_continue = True
                 self._current_attend.block_position += 1
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -841,6 +853,7 @@ class RunScriptContextV2:
                     f"passed and position: {self._current_attend.block_position}"
                 )
                 db.session.flush()
+                return
             else:
                 generated_block: LearnGeneratedBlock = _init_generated_block(
                     app,
