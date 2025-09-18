@@ -225,9 +225,28 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setChapters([...chapters]);
   };
 
-  // Helper function to clean up catalog data
+  // Helper function to clean up catalog data recursively
   const cleanupCatalogData = (outline: Outline) => {
+    // Clean up the node itself
     delete cataData[outline.id];
+
+    // Clean up all children recursively
+    if (outline.children) {
+      const cleanupChildren = (children: Outline[]) => {
+        children.forEach(child => {
+          delete cataData[child.id];
+          if (child.children) {
+            cleanupChildren(child.children);
+          }
+        });
+      };
+      cleanupChildren(outline.children);
+    }
+
+    // Always clean up the global 'new_chapter' state if it exists
+    // This ensures that pending new nodes don't block future additions
+    delete cataData['new_chapter'];
+
     setCataData({ ...cataData });
   };
 
