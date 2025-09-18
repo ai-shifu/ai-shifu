@@ -1100,21 +1100,22 @@ class RunScriptContextV2:
         generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
         ).first()
-
-        LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.progress_record_bid
-            == generated_block.progress_record_bid,
-            LearnGeneratedBlock.outline_item_bid == generated_block.outline_item_bid,
-            LearnGeneratedBlock.user_bid == self._user_info.user_id,
-            LearnGeneratedBlock.id > generated_block.id,
-        ).update(
-            {
-                LearnGeneratedBlock.status: 0,
-            }
-        )
         self._can_continue = False
-        self._current_attend.block_position = generated_block.position
-        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-        db.session.flush()
+        if generated_block:
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == generated_block.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid
+                == generated_block.outline_item_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.id > generated_block.id,
+            ).update(
+                {
+                    LearnGeneratedBlock.status: 0,
+                }
+            )
+            self._current_attend.block_position = generated_block.position
+            self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+            db.session.flush()
         yield from self.run(app)
         return
