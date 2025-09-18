@@ -155,7 +155,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   // Helper function to find the best node to select after deletion
-  const findBestNodeAfterDeletion = (deletedOutline: Outline): Outline | null => {
+  const findBestNodeAfterDeletion = (
+    deletedOutline: Outline,
+  ): Outline | null => {
     // If it's a chapter (depth 0), don't auto-select anything
     if ((deletedOutline.depth || 0) === 0) {
       return null;
@@ -192,7 +194,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }
 
     // Find the index of the deleted node in parent's children
-    const deletedIndex = parent.children.findIndex((child: any) => child.id === deletedOutline.id);
+    const deletedIndex = parent.children.findIndex(
+      (child: any) => child.id === deletedOutline.id,
+    );
 
     if (deletedIndex > 0) {
       // Select the previous sibling (the node above)
@@ -212,7 +216,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const isCurrentNodeDeleted = currentNode?.id === outline.id;
 
     // Find the best node to select after deletion (before we delete the node)
-    const nextNode = isCurrentNodeDeleted ? findBestNodeAfterDeletion(outline) : null;
+    const nextNode = isCurrentNodeDeleted
+      ? findBestNodeAfterDeletion(outline)
+      : null;
 
     try {
       console.log('removeOutline', outline);
@@ -700,7 +706,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
     const parent = findNode(data.parent_bid || '');
     const index =
-      parent?.children?.findIndex((child: Outline) => child.bid === data.bid) || 0;
+      parent?.children?.findIndex((child: Outline) => child.bid === data.bid) ||
+      0;
 
     try {
       if (data.bid === 'new_chapter') {
@@ -763,7 +770,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       const parent = findNode(data.parent_bid || '');
       // get node index in children
-      const index = parent.children.findIndex((child: Outline) => child.id === data.id);
+      const index = parent.children.findIndex(
+        (child: Outline) => child.id === data.id,
+      );
 
       const newUnit = await api.createOutline({
         parent_bid: data.parent_bid,
