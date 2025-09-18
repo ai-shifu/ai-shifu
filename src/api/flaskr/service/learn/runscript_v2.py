@@ -220,6 +220,6 @@ def run_script(
             lock.release()
         return
     else:
-        app.logger.info("lockfail")
+        app.logger.warning("lockfail")
         yield make_script_dto("text_end", "", None)
     return

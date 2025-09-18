@@ -1,8 +1,13 @@
 import queue
 import threading
 import asyncio
+import inspect
 from typing import Generator, Union, AsyncGenerator
 from enum import Enum
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+    BLOCK_TYPE_MDCONTENT_VALUE,
+)
 from pydantic import BaseModel
 from markdown_flow import (
     MarkdownFlow,
@@ -56,8 +61,35 @@ from flaskr.service.learn.learn_dtos import (
 from flaskr.api.llm import invoke_llm
 from flaskr.service.learn.input.handle_input_ask import _handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
+from flaskr.service.profile.profile_manage import (
+    get_profile_item_definition_list,
+    ProfileItemDefinition,
+)
 
 context_local = threading.local()
+
+
+def _init_generated_block(
+    app: Flask,
+    shifu_bid: str,
+    outline_item_bid: str,
+    progress_record_bid: str,
+    user_bid: str,
+    block_type: int,
+    mdflow: str,
+) -> LearnGeneratedBlock:
+    generated_block: LearnGeneratedBlock = LearnGeneratedBlock()
+    generated_block.progress_record_bid = progress_record_bid
+    generated_block.user_bid = user_bid
+    generated_block.outline_item_bid = outline_item_bid
+    generated_block.shifu_bid = shifu_bid
+    generated_block.block_bid = ""
+    generated_block.type = block_type
+    generated_block.generated_block_bid = generate_id(app)
+    generated_block.generated_content = ""
+    generated_block.status = 1
+    generated_block.block_content_conf = mdflow
+    return generated_block
 
 
 class RunType(Enum):
@@ -505,7 +537,6 @@ class RunScriptContextV2:
                     db.session.flush()
                     continue
                 self._current_attend = self._get_current_attend(update.outline_bid)
-
                 if (
                     self._current_attend.status == LEARN_STATUS_NOT_STARTED
                     or self._current_attend.status == LEARN_STATUS_LOCKED
@@ -522,6 +553,7 @@ class RunScriptContextV2:
             elif (not update.has_children) and update.status == LearnStatus.COMPLETED:
                 current_attend = self._get_current_attend(update.outline_bid)
                 current_attend.status = LEARN_STATUS_COMPLETED
+                self._current_attend = current_attend
                 db.session.flush()
                 yield RunMarkdownFlowDTO(
                     outline_bid=update.outline_bid,
@@ -529,16 +561,6 @@ class RunScriptContextV2:
                     type=GeneratedType.OUTLINE_ITEM_UPDATE,
                     content=update,
                 )
-                # yield make_script_dto(
-                #     "lesson_update",
-                #     {
-                #         "lesson_id": update.outline_item_info.bid,
-                #         "status_value": LEARN_STATUS_COMPLETED,
-                #         "status": attend_status_values[LEARN_STATUS_COMPLETED],
-                #         **outline_item_info_args,
-                #     },
-                #     "",
-                # )
             elif update.has_children and update.status == LearnStatus.IN_PROGRESS:
                 if new_chapter:
                     status = LEARN_STATUS_NOT_STARTED
@@ -547,6 +569,7 @@ class RunScriptContextV2:
                 current_attend = self._get_current_attend(update.outline_bid)
                 current_attend.status = status
                 current_attend.block_position = 0
+
                 db.session.flush()
 
                 yield RunMarkdownFlowDTO(
@@ -600,6 +623,9 @@ class RunScriptContextV2:
 
         mddoc = MarkdownFlow(outline_item_info.mdflow)
         block_list = mddoc.get_all_blocks()
+        self.app.logger.info(
+            f"attend position: {attend.block_position} blocks:{len(block_list)}"
+        )
         if attend.block_position >= len(block_list):
             return None
         return RunScriptInfo(
@@ -637,7 +663,7 @@ class RunScriptContextV2:
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
         if not self._current_attend:
-            self._current_attend = self._get_current_attend(self._outline_item_info)
+            self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
@@ -646,6 +672,18 @@ class RunScriptContextV2:
                 self._can_continue = False
                 return
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
+        if run_script_info is None:
+            self.app.logger.warning("run script is none")
+            self._can_continue = False
+            outline_updates = self._get_next_outline_item()
+            if len(outline_updates) > 0:
+                yield from self._render_outline_updates(
+                    outline_updates, new_chapter=True
+                )
+                self._can_continue = False
+                db.session.flush()
+            return
+            return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         mdflow = MarkdownFlow(
             run_script_info.mdflow,
@@ -682,6 +720,14 @@ class RunScriptContextV2:
         user_profile = get_user_profiles(
             app, self._user_info.user_id, self._outline_item_info.shifu_bid
         )
+        variable_definition: list[ProfileItemDefinition] = (
+            get_profile_item_definition_list(
+                app, self._user_info.user_id, self._outline_item_info.shifu_bid
+            )
+        )
+        variable_definition_key_id_map: dict[str:str] = {
+            p.profile_key: p.profile_id for p in variable_definition
+        }
 
         if run_script_info.block_position >= len(block_list):
             outline_updates = self._get_next_outline_item()
@@ -704,15 +750,56 @@ class RunScriptContextV2:
             interaction_parser: InteractionParser = InteractionParser()
             parsed_interaction = interaction_parser.parse(block.content)
             self.app.logger.info(f"parsed_interaction: {parsed_interaction}")
+            generated_block: LearnGeneratedBlock = _init_generated_block(
+                app,
+                shifu_bid=run_script_info.attend.shifu_bid,
+                outline_item_bid=run_script_info.outline_bid,
+                progress_record_bid=run_script_info.attend.progress_record_bid,
+                user_bid=self._user_info.user_id,
+                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                mdflow=block.content,
+            )
+            db.session.add(generated_block)
+            db.session.flush()
             if (
                 parsed_interaction.get("buttons")
                 and len(parsed_interaction.get("buttons")) > 0
             ):
                 for button in parsed_interaction.get("buttons"):
                     if button.get("value") == "__sys_pay":
-                        pass
+                        if not self._is_paid:
+                            yield RunMarkdownFlowDTO(
+                                outline_bid=run_script_info.outline_bid,
+                                generated_block_bid=generated_block.generated_block_bid,
+                                type=GeneratedType.INTERACTION,
+                                content=block.content,
+                            )
+                            self._can_continue = False
+                            db.session.flush()
+                            return
+                        else:
+                            self._can_continue = True
+                            self._current_attend.block_position += 1
+                            self._run_type = RunType.OUTPUT
+                            db.session.flush()
+                            return
                     if button.get("value") == "__sys_login":
-                        pass
+                        if bool(self._user_info.mobile):
+                            self._can_continue = True
+                            self._current_attend.block_position += 1
+                            self._run_type = RunType.OUTPUT
+                            db.session.flush()
+                            return
+                        else:
+                            yield RunMarkdownFlowDTO(
+                                outline_bid=run_script_info.outline_bid,
+                                generated_block_bid=generated_block.generated_block_bid,
+                                type=GeneratedType.INTERACTION,
+                                content=block.content,
+                            )
+                            self._can_continue = False
+                            db.session.flush()
+                            return
             if not parsed_interaction.get("variable"):
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
@@ -734,7 +821,8 @@ class RunScriptContextV2:
             ):
                 profile_to_save = []
                 for key, value in validate_result.variables.items():
-                    profile_to_save.append(ProfileToSave(key, value, ""))
+                    profile_id = variable_definition_key_id_map.get(key, "")
+                    profile_to_save.append(ProfileToSave(key, value, profile_id))
                 save_user_profiles(
                     app,
                     self._user_info.user_id,
@@ -745,6 +833,9 @@ class RunScriptContextV2:
                 self._current_attend.block_position += 1
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._run_type = RunType.OUTPUT
+                self.app.logger.warning(
+                    f"passed and position: {self._current_attend.block_position}"
+                )
                 db.session.flush()
             else:
                 for i in validate_result.content:
@@ -770,36 +861,82 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 db.session.flush()
         if self._run_type == RunType.OUTPUT:
+            generated_block: LearnGeneratedBlock = _init_generated_block(
+                app,
+                shifu_bid=run_script_info.attend.shifu_bid,
+                outline_item_bid=run_script_info.outline_bid,
+                progress_record_bid=run_script_info.attend.progress_record_bid,
+                user_bid=self._user_info.user_id,
+                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                mdflow=block.content,
+            )
             if block.block_type == BlockType.INTERACTION:
+                generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
+                generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=f"block_{block.index}",
+                    generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
                     content=block.content,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                db.session.add(generated_block)
                 db.session.flush()
             else:
+                generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
+                generated_content = ""
 
                 async def process_stream():
-                    stream_gen = await mdflow.process(
+                    # Run in STREAM mode; mdflow.process may return a coroutine or an async generator
+                    stream_or_result = mdflow.process(
                         run_script_info.block_position,
                         ProcessMode.STREAM,
                         variables=user_profile,
                         user_input=self._input,
                     )
-                    async for i in stream_gen:
-                        yield i
+                    # Await if it's awaitable (coroutine returning either a result or an async generator)
+                    if inspect.isawaitable(stream_or_result):
+                        stream_or_result = await stream_or_result
+
+                    # If it's an async generator, yield chunks from it
+                    if inspect.isasyncgen(stream_or_result):
+                        async for chunk in stream_or_result:
+                            # chunk may be a simple string or an object with content/result/text
+                            if isinstance(chunk, str):
+                                yield chunk
+                            elif hasattr(chunk, "content") and chunk.content:
+                                yield chunk.content
+                            elif hasattr(chunk, "result") and chunk.result:
+                                yield chunk.result
+                            elif hasattr(chunk, "text") and chunk.text:
+                                yield chunk.text
+                            else:
+                                yield str(chunk)
+                        return
+
+                    # Otherwise, handle a single result object
+                    result = stream_or_result
+                    if isinstance(result, str):
+                        yield result
+                    elif hasattr(result, "content") and result.content:
+                        yield result.content
+                    elif hasattr(result, "result") and result.result:
+                        yield result.result
+                    elif hasattr(result, "text") and result.text:
+                        yield result.text
+                    else:
+                        # Fallback: convert to string to avoid leaking object reprs
+                        yield str(result) if result else ""
 
                 res = self._collect_async_generator(process_stream())
-
                 for i in res:
+                    generated_content += i
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=f"block_{block.index}",
                         type=GeneratedType.CONTENT,
-                        content=i.content,
+                        content=i,  # i is now a string, not an object with content attribute
                     )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
@@ -807,6 +944,8 @@ class RunScriptContextV2:
                     type=GeneratedType.BREAK,
                     content="",
                 )
+                generated_block.generated_content = generated_content
+                db.session.add(generated_block)
                 self._can_continue = True
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
@@ -896,17 +1035,5 @@ class RunScriptContextV2:
                 LearnGeneratedBlock.status: 0,
             }
         )
-        # res = handle_block_output(
-        #     app=app,
-        #     user_info=self._user_info,
-        #     attend_id=run_script_info.attend.progress_record_bid,
-        #     outline_item_info=run_script_info.outline_item_info,
-        #     block_dto=run_script_info.block_dto,
-        #     trace_args=self._trace_args,
-        #     trace=self._trace,
-        #     is_preview=self._preview_mode,
-        # )
-        # if res:
-        #     yield from res
         self._can_continue = False
         db.session.flush()
