@@ -76,7 +76,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
         profile_id: editingId?.toString(),
         parent_id: parentId,
       };
-      const res = await api.saveProfile(profileToSave).catch((error) => {
+      const res = await api.saveProfile(profileToSave).catch(error => {
         // Log error for debugging
         console.error('Failed to save profile:', error);
         // TODO: Show user-friendly error message via toast or notification
