@@ -174,7 +174,7 @@ const GlobalInfoButton = ({ className }) => {
                   className={styles.miitLink}
                   href='https://beian.miit.gov.cn/'
                   target='_blank'
-                  rel='noreferrer'
+                  rel='noopener noreferrer'
                 >
                   {t('navigation.icp')}
                 </a>

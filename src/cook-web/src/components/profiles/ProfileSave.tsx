@@ -66,16 +66,20 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
   };
 
   const handleSaveProfile = async () => {
-    if (profile.profile_key.trim()) {
+    const trimmedKey = profile.profile_key.trim();
+    if (trimmedKey) {
       const profileToSave: Profile = {
         ...profile,
+        profile_key: trimmedKey,
         profile_items:
           profile.profile_type === 'option' ? profile.profile_items : undefined,
-        profile_id: editingId as unknown as string,
+        profile_id: editingId?.toString(),
         parent_id: parentId,
       };
-      const res = await api.saveProfile(profileToSave).catch(() => {
-        // Error handling - could be logged to external service in production
+      const res = await api.saveProfile(profileToSave).catch((error) => {
+        // Log error for debugging
+        console.error('Failed to save profile:', error);
+        // TODO: Show user-friendly error message via toast or notification
         return null;
       });
       if (res) {

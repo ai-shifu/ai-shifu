@@ -771,7 +771,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       const newUnit = await api.createOutline({
         parent_bid: data.parent_bid,
-        index: index - 1,
+        index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
         type: 'trial',

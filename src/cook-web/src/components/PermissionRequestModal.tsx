@@ -130,9 +130,7 @@ export const PermissionRequestModal = ({
                 onClick={() => handleOpenChange(false)}
                 className='min-w-[100px]'
               >
-                {t('permission.requestTitle') === '申请访问权限'
-                  ? '取消'
-                  : 'Cancel'}
+{t('common.cancel')}
               </Button>
               <Button
                 type='submit'
