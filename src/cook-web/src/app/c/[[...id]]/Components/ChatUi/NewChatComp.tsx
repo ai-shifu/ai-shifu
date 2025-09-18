@@ -3,7 +3,6 @@ import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
   useEffect,
-  forwardRef,
   useState,
   useContext,
   useRef,
@@ -34,7 +33,7 @@ import {
   EVENT_NAMES as BZ_EVENT_NAMES,
 } from '@/app/c/[[...id]]/events';
 import { useShallow } from 'zustand/react/shallow';
-import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord, PREVIEW_MODE, SSE_OUTPUT_TYPE, SYS_INTERACTION_TYPE} from '@/c-api/studyV2';
+import { StudyRecordItem, LikeStatus ,getRunMessage, SSE_INPUT_TYPE, getLessonStudyRecord, PREVIEW_MODE, SSE_OUTPUT_TYPE, SYS_INTERACTION_TYPE, LIKE_STATUS} from '@/c-api/studyV2';
 import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
 import InteractionBlock from './InteractionBlock';
 import { LoadingBar } from './LoadingBar';
@@ -44,6 +43,7 @@ interface ContentItem {
   defaultButtonText: string;
   defaultInputText: string;
   readonly: boolean;
+  isHistory?: boolean;
   generated_block_bid: string;
   like_status?: LikeStatus; // business logic, not from api
 }
@@ -86,6 +86,7 @@ export const NewChatComponents = (
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
     const [contentList, setContentList] = useState<ContentItem[]>([]);
+    const contentListRef = useRef<ContentItem[]>([]);
     const { mobileStyle } = useContext(AppContext);
     const [isLoading, setIsLoading] = useState(true);
     const currentContentRef = useRef<string>('');
@@ -104,7 +105,7 @@ export const NewChatComponents = (
       deleteMsg: () => {},
     });
 
-
+    const [lastInteractionBlock, setLastInteractionBlock] = useState<ContentItem | null>(null);
     const {
       open: payModalOpen,
       onOpen: onPayModalOpen,
@@ -151,17 +152,22 @@ export const NewChatComponents = (
       const id = genUuid();
       currentBlockIdRef.current = id;
       currentContentRef.current = '';
-      setContentList(prev => [
-        ...prev,
-        {
-          generated_block_bid: id,
-          content: '',
-          customRenderBar: () => <LoadingBar />,
-          defaultButtonText: '',
-          defaultInputText: '',
-          readonly: false,
-        } as ContentItem,
-      ]);
+      setLastInteractionBlock(null);
+      setContentList(prev => {
+        const newList = [
+          ...prev,
+          {
+            generated_block_bid: id,
+            content: '',
+            customRenderBar: () => <LoadingBar />,
+            defaultButtonText: '',
+            defaultInputText: '',
+            readonly: false,
+          } as ContentItem,
+        ];
+        contentListRef.current = newList;
+        return newList;
+      });
 
       let isEnd = false;
       getRunMessage(
@@ -180,46 +186,40 @@ export const NewChatComponents = (
             ) {
               trackTrailProgress(nid);
             }
-            if (response.type === SSE_OUTPUT_TYPE.CONTENT || response.type === SSE_OUTPUT_TYPE.INTERACTION) {
+
+            if(response.type === SSE_OUTPUT_TYPE.INTERACTION){
+              // let interaction block show after typewriter end
+              setLastInteractionBlock({
+                generated_block_bid: nid,
+                content: response.content,
+                customRenderBar: () => null,
+                defaultButtonText: '',
+                defaultInputText: '',
+                readonly: false,
+              });
+            }else 
+            if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
               if (isEnd) {
                 return;
-              }
-              // Ensure we have a current block id (create if absent)
-              if (!currentBlockIdRef.current) {
-                currentBlockIdRef.current = nid;
-                currentContentRef.current = '';
-                setContentList(prev => [
-                  ...prev,
-                  {
-                    generated_block_bid: nid,
-                    content: '',
-                    customRenderBar: () => <LoadingBar />,
-                    defaultButtonText: '',
-                    defaultInputText: '',
-                    readonly: false,
-                  } as ContentItem,
-                ]);
               }
 
               // Update streaming text incrementally
               const prevText = currentContentRef.current || '';
-              console.log('之前的文本', prevText);
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
-              console.log('之后的文本', nextText);
 
               const blockId = currentBlockIdRef.current;
-              console.log('blockId', blockId);
               if (blockId) {
-                setContentList(prev =>
-                  prev.map(item =>
-                    item.generated_block_bid === blockId
-                      ? { ...item, content: nextText, customRenderBar: () => null }
-                      : item,
-                  ),
-                );
-                console.log('设置更新后的内容', contentList);
+                  setContentList(prev => {
+                    const updatedList = prev.map(item =>
+                      item.generated_block_bid === blockId
+                        ? { ...item, content: nextText, customRenderBar: () => null }
+                        : item,
+                    );
+                    contentListRef.current = updatedList;
+                    return updatedList;
+                  });
               }
             }
             else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
@@ -241,13 +241,15 @@ export const NewChatComponents = (
             }else if (response.type === SSE_OUTPUT_TYPE.BREAK) {
               const blockId = currentBlockIdRef.current;
               if (blockId) {
-                setContentList(prev =>
-                  prev.map(item =>
+                setContentList(prev => {
+                  const updatedList = prev.map(item =>
                     item.generated_block_bid === blockId
                       ? { ...item, readonly: true, customRenderBar: () => null }
                       : item,
-                  ),
-                );
+                  );
+                  contentListRef.current = updatedList;
+                  return updatedList;
+                });
               }
               // Prepare for possible next segment in the same stream
               currentBlockIdRef.current = null;
@@ -268,6 +270,7 @@ export const NewChatComponents = (
       preview_mode,
       shifu_bid,
       trackTrailProgress,
+      updateUserInfo,
     ]);
 
     useEffect(() => {
@@ -283,9 +286,10 @@ export const NewChatComponents = (
           generated_block_bid: item.generated_block_bid,
           content: item.content,
           customRenderBar: () => null,
-          defaultButtonText: item.user_input || '',
-          defaultInputText: item.user_input || '',
-          readonly: false
+          defaultButtonText: '',
+          defaultInputText: '',
+          readonly: false,
+          isHistory: true,
         } as ContentItem);
 
         // if like_status is exist, add interaction block
@@ -297,7 +301,7 @@ export const NewChatComponents = (
             customRenderBar: () => null,
             defaultButtonText: '',
             defaultInputText: '',
-            readonly: false
+            readonly: false,
           })
         };
       });
@@ -307,7 +311,10 @@ export const NewChatComponents = (
 
     // page init or chapter/lesson change 
     const refreshData = useCallback(async () => {
-      setContentList([]);
+      setContentList(() => {
+        contentListRef.current = [];
+        return [];
+      });
       setIsLoading(true);
       console.log('refreshData=====', outline_bid);
       const recordResp = await getLessonStudyRecord({ 
@@ -318,7 +325,10 @@ export const NewChatComponents = (
         setLoadedData(true);
         setLoadedChapterId(chapterId);
         const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
-        setContentList(contentRecords);
+        setContentList(() => {
+          contentListRef.current = contentRecords;
+          return contentRecords;
+        });
         
       }else{
         runRef.current?.({
@@ -329,6 +339,10 @@ export const NewChatComponents = (
       setIsLoading(false);
     }, [chapterId, outline_bid, reduceRecordsToContent, shifu_bid]);
 
+
+    useEffect(() => {
+      console.log('=========contentList======', contentList)
+    }, [contentList])
     // user choose chapter should refresh data
     useEffect(() => {
       if (!chapterId) {
@@ -384,11 +398,13 @@ export const NewChatComponents = (
     }, [chapterId, refreshData]);
 
 
-    const updateContentListWithUserOperate = (
+    const updateContentListWithUserOperate = useCallback((
       params: OnSendContentParams,
-    ): ContentItem[] => {
+    ): { newList: ContentItem[], needChangeItemIndex: number } => {
       const newList = [...contentList]
-      const needChangeItemIndex = newList.findIndex(item => item.content.includes(params.variableName))
+      console.log("当前的 list",contentList,'要找到list中含有',params.variableName,'的')
+      const needChangeItemIndex = newList.findIndex(item => item.content.includes(params.variableName || ''))
+      console.log('找到的needChangeItemIndex', newList[needChangeItemIndex])
       if(needChangeItemIndex !== -1) {
         newList[needChangeItemIndex] = {
           ...newList[needChangeItemIndex],
@@ -400,32 +416,40 @@ export const NewChatComponents = (
       // remove the item after the needChangeItemIndex
       newList.length = needChangeItemIndex + 1
       console.log('修改指定内容后的newList',newList[needChangeItemIndex])
-      return {
-        newList,
-        needChangeItemIndex
-      }
-    }
+      
+      setContentList(() => {
+        contentListRef.current = newList;
+        return newList;
+      });
+      
+      return { newList, needChangeItemIndex };
+    }, [contentList]);
 
-    const onRefresh = (generated_block_bid: string) => {  
-      const newList = [...contentList]
+    const onRefresh = useCallback((generated_block_bid: string) => {  
+      const currentList = contentListRef.current;
+      const newList = [...currentList]
       const needChangeItemIndex = newList.findIndex(item => item.generated_block_bid === generated_block_bid)
       // delete the item after the needChangeItemIndex, include the needChangeItemIndex
-      newList.length =  needChangeItemIndex
-      setContentList(newList)
+      newList.length = needChangeItemIndex
+      
+      setContentList(() => {
+        contentListRef.current = newList;
+        return newList;
+      });
+      
       // refresh the item
       run({
         input: '',
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid: generated_block_bid,
       })
-    }
+    }, [run]);
 
     // user choose interaction in chat
-    const onSend = (content: OnSendContentParams) => {
+    const onSend = useCallback((content: OnSendContentParams) => {
       console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(content)
-      setContentList(newList)
       if(buttonText === SYS_INTERACTION_TYPE.PAY){
         trackEvent(EVENT_NAMES.POP_PAY, { from: 'show-btn' });
         onPayModalOpen();
@@ -452,7 +476,7 @@ export const NewChatComponents = (
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid: needChangeItemIndex !== -1 ? newList[needChangeItemIndex].generated_block_bid : undefined, // for reload
       })
-    };
+    }, [updateContentListWithUserOperate, trackEvent, onPayModalOpen, scrollToBottom, run]);
 
     // event listener: select lesson in course catalog
     useEffect(() => {
@@ -479,7 +503,35 @@ export const NewChatComponents = (
       };
     }, [loadedChapterId, scrollToLesson, updateSelectedLesson, refreshData]);
 
+    const getAdaptedContentList = () => {
+      return contentList.map(item => ({
+        ...item,
+        content: item.content,
+        customRenderBar: item.customRenderBar || (() => null),
+        defaultButtonText: item.defaultButtonText,
+        defaultInputText: item.defaultInputText,
+        readonly: item.readonly,
+      }))
+    }
+   
 
+    const onTypeFinished = () => {
+      console.log('====打字完毕');
+      if(lastInteractionBlock){
+        console.log('====添加互动块', currentBlockIdRef.current, currentContentRef.current);
+        const newInteractionBlock = [{
+          generated_block_bid: currentBlockIdRef.current,
+          content: '',
+          like_status:  LIKE_STATUS.NONE,
+          customRenderBar: () => null,
+          defaultButtonText: '',
+          defaultInputText: '',
+          readonly: false,
+        }, lastInteractionBlock];
+        setContentList((p) => [...p, ...newInteractionBlock] as ContentItem[])
+        setLastInteractionBlock(null);
+      }
+    }
     return (
       <div id='chat-box'
         className={cn(
@@ -489,7 +541,7 @@ export const NewChatComponents = (
         )}
         ref={chatRef}
       >
-        {isLoading ? <></> : contentList.map((item,idx) => (item.like_status ? 
+        {isLoading ? <></> : getAdaptedContentList().map((item,idx) => (item.like_status ? 
             <InteractionBlock
               key={`${item.generated_block_bid}-interaction`}
               shifu_bid={shifu_bid}
@@ -501,12 +553,14 @@ export const NewChatComponents = (
             :
               <ContentRender
                 key={idx}
+                enableTypewriter={!item.isHistory}
                 content={item.content}
                 customRenderBar={item.customRenderBar}
                 defaultButtonText={item.defaultButtonText}
                 defaultInputText={item.defaultInputText}
                 readonly={item.readonly}
                 onSend={onSend}
+                onTypeFinished={onTypeFinished}
               />
           
         ))}
