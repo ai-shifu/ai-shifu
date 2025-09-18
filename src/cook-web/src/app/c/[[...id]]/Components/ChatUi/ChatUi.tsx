@@ -11,6 +11,7 @@ import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import GlobalInfoButton from './GlobalInfoButton';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { useUiLayoutStore } from '@/c-store';
 
 /**
  * 聊天区的整体画布
@@ -28,7 +29,7 @@ export const ChatUi = ({
   chapterUpdate,
   updateSelectedLesson,
 }) => {
-  const { frameLayout } = useContext(AppContext);
+  const { frameLayout } = useUiLayoutStore(state => state);
   const { skip, updateSkip, previewMode } = useSystemStore(
     useShallow(state => ({
       skip: state.skip,

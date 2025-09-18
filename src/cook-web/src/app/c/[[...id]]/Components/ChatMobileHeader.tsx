@@ -8,6 +8,9 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/Popover';
+import IconButton from './IconButton/IconButton';
+import moeIcon from './IconButton/icon16-more2x.png';
+import closeIcon from './IconButton/close-2x.png';
 
 import { Button } from '@/components/ui/Button';
 import { MoreHorizontal as MoreIcon, X as CloseIcon } from 'lucide-react';
@@ -53,41 +56,20 @@ export const ChatMobileHeader = ({
         size={30}
       />
       <Popover
-        open={popoverVisible}
-        onOpenChange={next => {
-          if (!next) {
-            onIconPopoverClose();
-          }
-        }}
+        content={
+          <MobileHeaderIconPopover
+            payload={iconPopoverPayload}
+            onClose={onIconPopoverClose}
+          />
+        }
+        className={styles.iconButtonPopover}
+        visible={iconPopoverOpen && hasPopoverContentControl}
+        placement="bottom-end"
       >
-        <PopoverTrigger asChild>
-          <Button
-            variant='ghost'
-            size='icon'
-            className='h-9 w-9 rounded-full border border-black/5 bg-white/80 text-slate-600 shadow-sm backdrop-blur'
-            onClick={onSettingClick}
-            aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
-          >
-            {navOpen ? (
-              <CloseIcon className='h-5 w-5' />
-            ) : (
-              <MoreIcon className='h-5 w-5' />
-            )}
-          </Button>
-        </PopoverTrigger>
-        {iconPopoverPayload && (
-          <PopoverContent
-            className={cn(styles.iconButtonPopover, 'border-none bg-transparent p-0 shadow-none')}
-            align='end'
-            side='bottom'
-          >
-            <MobileHeaderIconPopover
-              payload={iconPopoverPayload}
-              onOpen={onIconPopoverOpen}
-              onClose={onIconPopoverClose}
-            />
-          </PopoverContent>
-        )}
+        <IconButton
+          icon={navOpen ? closeIcon.src : moeIcon.src}
+          onClick={onSettingClick}
+        />
       </Popover>
     </div>
   );

@@ -126,7 +126,7 @@ const NavDrawer = ({
     <div
       className={clsx(
         styles.navDrawerWrapper,
-        mobileStyle ? styles.mobile : '',
+        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
       )}
       style={{ width: isCollapse ? COLLAPSE_WIDTH : calcNavWidth(frameLayout) }}
     >
@@ -177,7 +177,7 @@ const NavDrawer = ({
           // @ts-expect-error EXPECT
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
-          mobileStyle={mobileStyle}
+          mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE }
           onBasicInfoClick={onBasicInfoClick}
           onPersonalInfoClick={onPersonalInfoClick}
         />
