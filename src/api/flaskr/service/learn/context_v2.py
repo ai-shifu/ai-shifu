@@ -685,6 +685,7 @@ class RunScriptContextV2:
                 )
                 self._can_continue = False
                 db.session.flush()
+            return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         mdflow = MarkdownFlow(
             run_script_info.mdflow,
