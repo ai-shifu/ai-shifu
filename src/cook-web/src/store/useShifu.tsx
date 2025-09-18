@@ -153,9 +153,67 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     };
     return find(chapters);
   };
+
+  // Helper function to find the best node to select after deletion
+  const findBestNodeAfterDeletion = (deletedOutline: Outline): Outline | null => {
+    // If it's a chapter (depth 0), don't auto-select anything
+    if ((deletedOutline.depth || 0) === 0) {
+      return null;
+    }
+
+    // Find the parent node using parent_bid first
+    let parent = findNode(deletedOutline.parent_bid || '');
+
+    // If parent_bid is undefined or parent not found, search through all chapters to find the actual parent
+    if (!parent) {
+      for (const chapter of chapters) {
+        const searchInNode = (node: Outline): Outline | null => {
+          if (node.children) {
+            for (const child of node.children) {
+              if (child.id === deletedOutline.id) {
+                return node; // Found the parent
+              }
+              const result = searchInNode(child);
+              if (result) return result;
+            }
+          }
+          return null;
+        };
+        const foundParent = searchInNode(chapter);
+        if (foundParent) {
+          parent = foundParent;
+          break;
+        }
+      }
+    }
+
+    if (!parent?.children) {
+      return null;
+    }
+
+    // Find the index of the deleted node in parent's children
+    const deletedIndex = parent.children.findIndex((child: any) => child.id === deletedOutline.id);
+
+    if (deletedIndex > 0) {
+      // Select the previous sibling (the node above)
+      return parent.children[deletedIndex - 1];
+    } else if (deletedIndex === 0) {
+      // If it's the first child, select the parent (chapter)
+      return parent;
+    }
+
+    return null;
+  };
   const removeOutline = async (outline: Outline) => {
     setIsSaving(true);
     setError(null);
+
+    // Check if we're deleting the currently selected node
+    const isCurrentNodeDeleted = currentNode?.id === outline.id;
+
+    // Find the best node to select after deletion (before we delete the node)
+    const nextNode = isCurrentNodeDeleted ? findBestNodeAfterDeletion(outline) : null;
+
     try {
       console.log('removeOutline', outline);
       if (outline.parent_bid) {
@@ -196,6 +254,29 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           outline_bid: outline.id,
         });
       }
+
+      // Handle cursor positioning after deletion
+      if (isCurrentNodeDeleted) {
+        if (nextNode) {
+          // Auto-select the best node
+          setCurrentNode(nextNode);
+
+          // Check if the selected node has a bid (meaning it's a section with content)
+          if (nextNode.bid) {
+            // If it has a bid, load its blocks
+            await loadBlocks(nextNode.bid, currentShifu?.bid || '');
+          } else {
+            // If it's a chapter without bid, clear blocks
+            setBlocks([]);
+          }
+        } else {
+          // No suitable node found, clear selection
+          setCurrentNode(null);
+          setBlocks([]);
+        }
+        setFocusId('');
+      }
+
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
@@ -619,7 +700,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
     const parent = findNode(data.parent_bid || '');
     const index =
-      parent?.children?.findIndex(child => child.bid === data.bid) || 0;
+      parent?.children?.findIndex((child: Outline) => child.bid === data.bid) || 0;
 
     try {
       if (data.bid === 'new_chapter') {
@@ -682,7 +763,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       const parent = findNode(data.parent_bid || '');
       // get node index in children
-      const index = parent.children.findIndex(child => child.id === data.id);
+      const index = parent.children.findIndex((child: Outline) => child.id === data.id);
 
       const newUnit = await api.createOutline({
         parent_bid: data.parent_bid,

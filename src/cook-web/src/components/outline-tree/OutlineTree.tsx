@@ -197,14 +197,14 @@ const MinimalTreeItemComponent = React.forwardRef<
               }}
             />
           </span>
-          {(props.item?.depth || 0 > 0) && (
+          {((props.item?.depth || 0) > 0) && (
             <div className='flex items-center space-x-1'>
               {cataData[props.item.id!]?.status == 'saving' && (
                 <Loading className='h-4 w-4' />
               )}
             </div>
           )}
-          {(props.item?.depth || 0 > 0) && (
+          {((props.item?.depth || 0) > 0) && (
             <div
               className={cn(
                 'items-center space-x-2 flex',
