@@ -42,6 +42,7 @@ const PreviewSettingsModal = () => {
           <a
             href={result}
             target='_blank'
+            className='text-blue-500 hover:underline break-all'
           >
             {result}
           </a>

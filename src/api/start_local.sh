@@ -4,19 +4,37 @@
 
 echo "🚀 Starting AI-Shifu API Server locally..."
 
-# Load environment variables
+# Load environment variables from .env.local if it exists
+if [ -f ".env.local" ]; then
+    echo "📁 Loading environment variables from .env.local"
+    export $(grep -v '^#' .env.local | xargs)
+else
+    echo "⚠️  No .env.local file found. Please create one from .env.example"
+fi
+
+# Set default Flask configuration
 export FLASK_APP=app.py
 export FLASK_ENV=development
 export FLASK_DEBUG=True
 
-# Database connection - use Docker MySQL
-export SQLALCHEMY_DATABASE_URI="mysql://root:ai-shifu@localhost:3306/ai-shifu?charset=utf8mb4"
+# Database connection - use environment variable or fail-fast
+if [ -z "$SQLALCHEMY_DATABASE_URI" ]; then
+    echo "❌ Error: SQLALCHEMY_DATABASE_URI environment variable is not set"
+    echo "Please set it in your .env file or environment"
+    echo "Example: export SQLALCHEMY_DATABASE_URI='mysql://username:password@localhost:3306/ai-shifu?charset=utf8mb4'"
+    exit 1
+fi
 
-# JWT Secret - Use environment variable or generate one for development
-export SECRET_KEY="${SECRET_KEY:-dev-secret-key-please-change-in-production}"
+# JWT Secret - Use environment variable or fail-fast
+if [ -z "$SECRET_KEY" ]; then
+    echo "❌ Error: SECRET_KEY environment variable is not set"
+    echo "Please set it in your .env file or environment"
+    echo "Example: export SECRET_KEY='your-secret-key-here'"
+    exit 1
+fi
 
-# Universal verification code for testing
-export UNIVERSAL_VERIFICATION_CODE="1024"
+# Universal verification code - use environment variable or default for development
+export UNIVERSAL_VERIFICATION_CODE="${UNIVERSAL_VERIFICATION_CODE:-1024}"
 
 # Redis (optional - use Docker Redis)
 export REDIS_URL="redis://localhost:6379"
@@ -24,11 +42,15 @@ export REDIS_URL="redis://localhost:6379"
 # Development settings
 export NODE_ENV="development"
 
-# Add a dummy LLM API key to satisfy validation (won't be used for basic auth)
-export OPENAI_API_KEY="sk-dummy-key-for-development"
+# LLM API Key - use environment variable or warn if missing
+if [ -z "$OPENAI_API_KEY" ]; then
+    echo "⚠️  Warning: OPENAI_API_KEY environment variable is not set"
+    echo "LLM features may not work properly. Set it in your .env file if needed."
+    echo "Example: export OPENAI_API_KEY='sk-your-openai-key-here'"
+fi
 
 echo "📋 Environment variables set"
-echo "🗄️  Database: mysql://root:***@localhost:3306/ai-shifu"
+echo "🗄️  Database: ${SQLALCHEMY_DATABASE_URI%:*}:***@${SQLALCHEMY_DATABASE_URI#*@}"
 
 # Initialize database
 echo "🗄️  Initializing database migrations..."
