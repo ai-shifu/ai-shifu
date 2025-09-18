@@ -159,7 +159,6 @@ export const PayModal = ({
     setCouponCode('');
     setOriginalPrice('');
     const resp = await initOrderUniform(courseId);
-    console.log('payModal data=====', resp);
     setPrice(resp.value_to_pay);
     setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
     const orderId = resp.order_id;
