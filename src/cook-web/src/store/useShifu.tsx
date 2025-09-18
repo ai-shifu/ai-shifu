@@ -154,7 +154,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     return find(chapters);
   };
   // Helper function to find the best node to select after deletion
-  const findBestNodeAfterDeletion = (deletedOutline: Outline): Outline | null => {
+  const findBestNodeAfterDeletion = (
+    deletedOutline: Outline,
+  ): Outline | null => {
     // If it's a chapter (depth 0), don't auto-select anything
     if ((deletedOutline.depth || 0) === 0) {
       return null;
@@ -167,7 +169,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     }
 
     // Find the index of the deleted node in parent's children
-    const deletedIndex = parent.children.findIndex((child: any) => child.id === deletedOutline.id);
+    const deletedIndex = parent.children.findIndex(
+      (child: any) => child.id === deletedOutline.id,
+    );
 
     if (deletedIndex > 0) {
       // Select the previous sibling (the node above)
