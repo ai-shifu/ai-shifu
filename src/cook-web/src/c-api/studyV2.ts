@@ -55,6 +55,7 @@ export interface StudyRecordItem {
   content: string;
   generated_block_bid: string;
   like_status?: LikeStatus;
+  user_input?: string;
 }
 
 export interface LessonStudyRecords {

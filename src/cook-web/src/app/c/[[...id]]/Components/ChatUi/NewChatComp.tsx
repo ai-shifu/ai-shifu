@@ -283,8 +283,8 @@ export const NewChatComponents = (
           generated_block_bid: item.generated_block_bid,
           content: item.content,
           customRenderBar: () => null,
-          defaultButtonText: '',
-          defaultInputText: '',
+          defaultButtonText: item.user_input || '',
+          defaultInputText: item.user_input || '',
           readonly: false
         } as ContentItem);
 
