@@ -157,7 +157,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setIsSaving(true);
     setError(null);
     try {
-      console.log('removeOutline', outline);
+      // Check if the deleted node is currently selected
+      const isCurrentNodeDeleted = currentNode?.id === outline.id;
+
       if (outline.parent_bid) {
         const parent = findNode(outline.parent_bid || '');
         if (parent) {
@@ -196,6 +198,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           outline_bid: outline.id,
         });
       }
+
+      // Reset current node and blocks if the deleted node was selected
+      if (isCurrentNodeDeleted) {
+        setCurrentNode(null);
+        setBlocks([]);
+        setFocusId('');
+      }
+
       setLastSaveTime(new Date());
     } catch (error) {
       console.error(error);
