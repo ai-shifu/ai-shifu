@@ -50,6 +50,10 @@ class LikeStatus(Enum):
 class BlockType(Enum):
     CONTENT = "content"
     INTERACTION = "interaction"
+    ERROR_MESSAGE = "error_message"
+
+    def __json__(self):
+        return self.value
 
 
 @register_schema_to_swagger

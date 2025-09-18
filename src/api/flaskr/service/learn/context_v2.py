@@ -7,6 +7,7 @@ from enum import Enum
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDERRORMESSAGE_VALUE,
 )
 from pydantic import BaseModel
 from markdown_flow import (
@@ -682,8 +683,6 @@ class RunScriptContextV2:
                 )
                 self._can_continue = False
                 db.session.flush()
-            return
-            return
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         mdflow = MarkdownFlow(
             run_script_info.mdflow,
@@ -750,17 +749,17 @@ class RunScriptContextV2:
             interaction_parser: InteractionParser = InteractionParser()
             parsed_interaction = interaction_parser.parse(block.content)
             self.app.logger.info(f"parsed_interaction: {parsed_interaction}")
-            generated_block: LearnGeneratedBlock = _init_generated_block(
-                app,
-                shifu_bid=run_script_info.attend.shifu_bid,
-                outline_item_bid=run_script_info.outline_bid,
-                progress_record_bid=run_script_info.attend.progress_record_bid,
-                user_bid=self._user_info.user_id,
-                block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                mdflow=block.content,
+            generated_block: LearnGeneratedBlock = (
+                LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.progress_record_bid
+                    == run_script_info.attend.progress_record_bid,
+                    LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
+                    LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                    LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                )
+                .order_by(LearnGeneratedBlock.id.desc())
+                .first()
             )
-            db.session.add(generated_block)
-            db.session.flush()
             if (
                 parsed_interaction.get("buttons")
                 and len(parsed_interaction.get("buttons")) > 0
@@ -800,6 +799,9 @@ class RunScriptContextV2:
                             self._can_continue = False
                             db.session.flush()
                             return
+
+            generated_block.generated_content = self._input
+            db.session.flush()
             if not parsed_interaction.get("variable"):
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
@@ -838,27 +840,53 @@ class RunScriptContextV2:
                 )
                 db.session.flush()
             else:
+                generated_block: LearnGeneratedBlock = _init_generated_block(
+                    app,
+                    shifu_bid=run_script_info.attend.shifu_bid,
+                    outline_item_bid=run_script_info.outline_bid,
+                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                    user_bid=self._user_info.user_id,
+                    block_type=BLOCK_TYPE_MDERRORMESSAGE_VALUE,
+                    mdflow=block.content,
+                )
+                content = ""
                 for i in validate_result.content:
+                    content += i
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=f"block_{block.index}",
+                        generated_block_bid=generated_block.generated_block_bid,
                         type=GeneratedType.CONTENT,
                         content=i,
                     )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=f"block_{block.index}",
+                    generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.BREAK,
                     content="",
                 )
+                generated_block.generated_content = content
+                generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
+                generated_block.block_content_conf = block.content
+                db.session.add(generated_block)
+                db.session.flush()
+                generated_block: LearnGeneratedBlock = _init_generated_block(
+                    app,
+                    shifu_bid=run_script_info.attend.shifu_bid,
+                    outline_item_bid=run_script_info.outline_bid,
+                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                    user_bid=self._user_info.user_id,
+                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                    mdflow=block.content,
+                )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=f"block_{block.index}",
+                    generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.INTERACTION,
                     content=block.content,
                 )
                 self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                db.session.add(generated_block)
                 db.session.flush()
         if self._run_type == RunType.OUTPUT:
             generated_block: LearnGeneratedBlock = _init_generated_block(
@@ -898,7 +926,6 @@ class RunScriptContextV2:
                     # Await if it's awaitable (coroutine returning either a result or an async generator)
                     if inspect.isawaitable(stream_or_result):
                         stream_or_result = await stream_or_result
-
                     # If it's an async generator, yield chunks from it
                     if inspect.isasyncgen(stream_or_result):
                         async for chunk in stream_or_result:
@@ -934,13 +961,13 @@ class RunScriptContextV2:
                     generated_content += i
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=f"block_{block.index}",
+                        generated_block_bid=generated_block.generated_block_bid,
                         type=GeneratedType.CONTENT,
                         content=i,  # i is now a string, not an object with content attribute
                     )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
-                    generated_block_bid=f"block_{block.index}",
+                    generated_block_bid=generated_block.generated_block_bid,
                     type=GeneratedType.BREAK,
                     content="",
                 )

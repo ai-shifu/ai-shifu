@@ -35,6 +35,7 @@ from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
+    BLOCK_TYPE_MDERRORMESSAGE_VALUE,
 )
 
 STATUS_MAP = {
@@ -193,6 +194,8 @@ def get_learn_record(
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.user_bid == user_bid,
                 LearnGeneratedBlock.shifu_bid == shifu_bid,
+                LearnGeneratedBlock.progress_record_bid
+                == progress_record.progress_record_bid,
                 LearnGeneratedBlock.outline_item_bid == outline_bid,
                 LearnGeneratedBlock.deleted == 0,
             )
@@ -204,6 +207,7 @@ def get_learn_record(
         BLOCK_TYPE_MAP = {
             BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
             BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
+            BLOCK_TYPE_MDERRORMESSAGE_VALUE: BlockType.ERROR_MESSAGE,
         }
         LIKE_STATUS_MAP = {
             1: LikeStatus.LIKE,
@@ -212,19 +216,18 @@ def get_learn_record(
         }
         for generated_block in generated_blocks:
             block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
-            records.append(
-                GeneratedBlockDTO(
-                    generated_block.generated_block_bid,
-                    generated_block.generated_content
-                    if block_type == BlockType.CONTENT
-                    else generated_block.block_content_conf,
-                    LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
-                    block_type,
-                    generated_block.generated_content
-                    if block_type == BlockType.INTERACTION
-                    else "",
-                )
+            record = GeneratedBlockDTO(
+                generated_block.generated_block_bid,
+                generated_block.generated_content
+                if block_type in (BlockType.CONTENT, BlockType.ERROR_MESSAGE)
+                else generated_block.block_content_conf,
+                LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
+                block_type,
+                generated_block.generated_content
+                if block_type == BlockType.INTERACTION
+                else "",
             )
+            records.append(record)
         return LearnRecordDTO(
             records=records,
             interaction=interaction,
@@ -257,10 +260,13 @@ def handle_reaction(
         ).first()
         if not generated_block:
             raise_error("LEARN.GENERATED_BLOCK_NOT_FOUND")
-
+        if action not in ["like", "dislike", "none"]:
+            raise_error("LEARN.INVALID_ACTION")
         if action == "like":
             generated_block.liked = 1
         if action == "dislike":
             generated_block.liked = -1
+        if action == "none":
+            generated_block.liked = 0
         db.session.commit()
         return True
