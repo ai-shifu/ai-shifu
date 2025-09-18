@@ -74,8 +74,9 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
         profile_id: editingId as unknown as string,
         parent_id: parentId,
       };
-      const res = await api.saveProfile(profileToSave).catch((err: Error) => {
-        console.error('Error saving profile:', err);
+      const res = await api.saveProfile(profileToSave).catch(() => {
+        // Error handling - could be logged to external service in production
+        return null;
       });
       if (res) {
         onSaveSuccess?.(profileToSave);
@@ -120,25 +121,24 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
           });
           if (res) {
             const enumItems: EnumItem[] = [];
-            for (let i = 0; i < res.length; i++) {
-              const item = res[i];
+            for (const item of res) {
               enumItems.push({
                 value: item.value,
                 name: item.name,
               });
             }
-            await setProfile({
+            setProfile({
               ...value,
               profile_items: enumItems,
             });
           } else {
-            await setProfile({
+            setProfile({
               ...value,
               profile_items: [],
             });
           }
         } else {
-          await setProfile({
+          setProfile({
             ...value,
             profile_items: [],
           });
@@ -151,8 +151,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
   }, [value]);
 
   return (
-    <>
-      <Dialog
+    <Dialog
         open={open}
         onOpenChange={(isOpen) => {
           if (!isOpen) {
@@ -243,25 +242,6 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               </div>
             </div>
 
-            {/* {profile.profile_type === 'text' && (
-              <div className='grid grid-cols-4 items-center gap-4'>
-                <Label htmlFor='defaultValue' className='text-right'>
-                  默认值
-                </Label>
-                <Input
-                  id='defaultValue'
-                  value={profile.defaultValue || ''}
-                  onChange={e =>
-                    setProfile({
-                      ...profile,
-                      defaultValue: e.target.value
-                    })
-                  }
-                  className='col-span-3'
-                  placeholder='可选'
-                />
-              </div>
-            )} */}
 
             {profile.profile_type === 'option' && (
               <>
@@ -286,7 +266,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                         <div className='divide-y'>
                           {(profile.profile_items || []).map((item, index) => (
                             <div
-                              key={index}
+                              key={`${item.value}-${index}`}
                               className='grid grid-cols-12 items-center px-3 py-2'
                             >
                               <div className='col-span-5 truncate'>
@@ -346,39 +326,6 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                     </div>
                   </div>
                 </div>
-                {/* {!!profile.profile_items?.length && (
-                  <div className='grid grid-cols-4 gap-4'>
-                    <div className='col-span-4 flex flex-row justify-between align-items-center'>
-                      <Label className='block w-30' htmlFor='defaultValue'>
-                        默认值
-                      </Label>
-                      <Select
-                        onValueChange={(value: string) => {
-                          setProfile({
-                            ...profile,
-                            defaultValue: value || ''
-                          })
-                        }}
-                        defaultValue={profile.defaultValue}
-                      >
-                        <SelectTrigger className='rounded-md border'>
-                          <SelectValue placeholder='可选' />
-                        </SelectTrigger>
-                        <SelectContent className='rounded-md border'>
-                          {(profile.profile_items || []).map(item => (
-                            <SelectItem
-                              key={item.value}
-                              value={item.value}
-                              className='cursor-pointer'
-                            >
-                              {item.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )} */}
               </>
             )}
           </div>
@@ -404,7 +351,6 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
   );
 };
 export default ProfileSave;
