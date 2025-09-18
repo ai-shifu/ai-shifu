@@ -153,12 +153,45 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     };
     return find(chapters);
   };
+  // Helper function to find the best node to select after deletion
+  const findBestNodeAfterDeletion = (deletedOutline: Outline): Outline | null => {
+    // If it's a chapter (depth 0), don't auto-select anything
+    if ((deletedOutline.depth || 0) === 0) {
+      return null;
+    }
+
+    // Find the parent node
+    const parent = findNode(deletedOutline.parent_bid || '');
+    if (!parent?.children) {
+      return null;
+    }
+
+    // Find the index of the deleted node in parent's children
+    const deletedIndex = parent.children.findIndex((child: any) => child.id === deletedOutline.id);
+
+    if (deletedIndex > 0) {
+      // Select the previous sibling (the node above)
+      return parent.children[deletedIndex - 1];
+    } else if (deletedIndex === 0) {
+      // If it's the first child, select the parent (chapter)
+      return parent;
+    }
+
+    return null;
+  };
+
   const removeOutline = async (outline: Outline) => {
     setIsSaving(true);
     setError(null);
     try {
       // Check if the deleted node is currently selected
       const isCurrentNodeDeleted = currentNode?.id === outline.id;
+
+      // Find the best node to select after deletion (before actually deleting)
+      let nextNode: Outline | null = null;
+      if (isCurrentNodeDeleted) {
+        nextNode = findBestNodeAfterDeletion(outline);
+      }
 
       if (outline.parent_bid) {
         const parent = findNode(outline.parent_bid || '');
@@ -199,10 +232,23 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         });
       }
 
-      // Reset current node and blocks if the deleted node was selected
+      // Handle cursor positioning after deletion
       if (isCurrentNodeDeleted) {
-        setCurrentNode(null);
-        setBlocks([]);
+        if (nextNode) {
+          // Auto-select the best node
+          setCurrentNode(nextNode);
+          if (nextNode.depth && nextNode.depth > 0) {
+            // If it's a section, load its blocks
+            await loadBlocks(nextNode.bid || '', currentShifu?.bid || '');
+          } else {
+            // If it's a chapter, clear blocks
+            setBlocks([]);
+          }
+        } else {
+          // No suitable node found, clear selection
+          setCurrentNode(null);
+          setBlocks([]);
+        }
         setFocusId('');
       }
 
