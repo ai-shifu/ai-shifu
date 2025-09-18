@@ -7,7 +7,10 @@ echo "🚀 Starting AI-Shifu API Server locally..."
 # Load environment variables from .env.local if it exists
 if [ -f ".env.local" ]; then
     echo "📁 Loading environment variables from .env.local"
-    export $(grep -v '^#' .env.local | xargs)
+    # Source the file safely to avoid security issues with special characters
+    set -a  # automatically export all variables
+    source .env.local
+    set +a  # turn off automatic export
 else
     echo "⚠️  No .env.local file found. Please create one from .env.example"
 fi
@@ -33,8 +36,12 @@ if [ -z "$SECRET_KEY" ]; then
     exit 1
 fi
 
-# Universal verification code - use environment variable or default for development
-export UNIVERSAL_VERIFICATION_CODE="${UNIVERSAL_VERIFICATION_CODE:-1024}"
+# Universal verification code - use environment variable only (no default for security)
+if [ -z "$UNIVERSAL_VERIFICATION_CODE" ]; then
+    echo "⚠️  Warning: UNIVERSAL_VERIFICATION_CODE environment variable is not set"
+    echo "Set it in your .env file for development testing if needed."
+    echo "Example: export UNIVERSAL_VERIFICATION_CODE='your-dev-code-here'"
+fi
 
 # Redis (optional - use Docker Redis)
 export REDIS_URL="redis://localhost:6379"
