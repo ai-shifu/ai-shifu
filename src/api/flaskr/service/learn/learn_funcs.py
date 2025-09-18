@@ -228,7 +228,10 @@ def get_learn_record(
             LearnProgressRecord.status != LEARN_STATUS_RESET,
         ).first()
         if not progress_record:
-            raise_error("LEARN.PROGRESS_RECORD_NOT_FOUND")
+            return LearnRecordDTO(
+                records=[],
+                interaction="",
+            )
         generated_blocks = (
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.user_bid == user_bid,
