@@ -145,7 +145,9 @@ export const PermissionRequestModal = ({
                 disabled={isSubmitting}
                 className='min-w-[120px]'
               >
-                {isSubmitting ? t('common.submitting') : t('permission.requestSubmit')}
+                {isSubmitting
+                  ? t('common.submitting')
+                  : t('permission.requestSubmit')}
               </Button>
             </DialogFooter>
           </form>
