@@ -1,3 +1,4 @@
+from decimal import Decimal
 from flask import Flask
 from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
@@ -7,6 +8,8 @@ from flaskr.service.learn.learn_dtos import (
     GeneratedBlockDTO,
     BlockType,
     LikeStatus,
+    LearnOutlineItemsWithBannerInfoDTO,
+    LearnBannerInfoDTO,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -20,7 +23,8 @@ from flaskr.service.learn.models import LearnProgressRecord, LearnGeneratedBlock
 from flaskr.service.common import raise_error
 from flaskr.service.shifu.utils import get_shifu_res_url
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
-from flaskr.service.order.models import Order
+from flaskr.service.order.models import Order, BannerInfo
+from flaskr.i18n import _
 from flaskr.service.order.consts import (
     ORDER_STATUS_SUCCESS,
     LEARN_STATUS_LOCKED,
@@ -68,7 +72,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
 
 def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
-) -> list[LearnOutlineItemInfoDTO]:
+) -> LearnOutlineItemsWithBannerInfoDTO:
     with app.app_context():
         is_paid = preview_mode
         if preview_mode:
@@ -174,7 +178,42 @@ def get_outline_item_tree(
             return outline_item_info
 
         outline_items = [build_outline_item_tree(i) for i in struct.children]
-        return outline_items
+        banner_info_dto = None
+
+        banner_info = BannerInfo.query.filter(
+            BannerInfo.course_id == shifu_bid,
+            BannerInfo.deleted == 0,
+        ).first()
+        add_banner = banner_info and banner_info.show_banner == 1
+        add_lesson_banner = banner_info and banner_info.show_lesson_banner == 1
+
+        if not add_banner and not add_lesson_banner:
+            return LearnOutlineItemsWithBannerInfoDTO(
+                banner_info=banner_info_dto,
+                outline_items=outline_items,
+            )
+        is_paid = shifu.price == Decimal(0)
+        if not is_paid:
+            buy_record = Order.query.filter(
+                Order.user_bid == user_bid,
+                Order.shifu_bid == shifu_bid,
+                Order.status == ORDER_STATUS_SUCCESS,
+            ).first()
+            is_paid = buy_record and buy_record.status == ORDER_STATUS_SUCCESS
+
+        if not is_paid:
+            if add_banner:
+                banner_info_dto = LearnBannerInfoDTO(
+                    title=_("BANNER.BANNER_TITLE"),
+                    pop_up_title=_("BANNER.BANNER_POP_UP_TITLE"),
+                    pop_up_content=_("BANNER.BANNER_POP_UP_CONTENT"),
+                    pop_up_confirm_text=_("BANNER.BANNER_POP_UP_CONFIRM_TEXT"),
+                    pop_up_cancel_text=_("BANNER.BANNER_POP_UP_CANCEL_TEXT"),
+                )
+        return LearnOutlineItemsWithBannerInfoDTO(
+            banner_info=banner_info_dto,
+            outline_items=outline_items,
+        )
 
 
 def get_learn_record(

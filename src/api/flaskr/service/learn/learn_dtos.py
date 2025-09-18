@@ -145,6 +145,45 @@ class LearnShifuInfoDTO(BaseModel):
         }
 
 
+class LearnBannerInfoDTO(BaseModel):
+    title: str = Field(..., description="banner title", required=False)
+    pop_up_title: str = Field(..., description="banner pop up title", required=False)
+    pop_up_content: str = Field(
+        ..., description="banner pop up content", required=False
+    )
+    pop_up_confirm_text: str = Field(
+        ..., description="banner pop up confirm text", required=False
+    )
+    pop_up_cancel_text: str = Field(
+        ..., description="banner pop up cancel text", required=False
+    )
+
+    def __init__(
+        self,
+        title: str,
+        pop_up_title: str,
+        pop_up_content: str,
+        pop_up_confirm_text: str,
+        pop_up_cancel_text: str,
+    ):
+        super().__init__(
+            title=title,
+            pop_up_title=pop_up_title,
+            pop_up_content=pop_up_content,
+            pop_up_confirm_text=pop_up_confirm_text,
+            pop_up_cancel_text=pop_up_cancel_text,
+        )
+
+    def __json__(self):
+        return {
+            "title": self.title,
+            "pop_up_title": self.pop_up_title,
+            "pop_up_content": self.pop_up_content,
+            "pop_up_confirm_text": self.pop_up_confirm_text,
+            "pop_up_cancel_text": self.pop_up_cancel_text,
+        }
+
+
 @register_schema_to_swagger
 class LearnOutlineItemInfoDTO(BaseModel):
     bid: str = Field(..., description="outline id", required=False)
@@ -174,6 +213,34 @@ class LearnOutlineItemInfoDTO(BaseModel):
             "title": self.title,
             "status": self.status.value,
             "children": self.children,
+        }
+
+
+@register_schema_to_swagger
+class LearnOutlineItemsWithBannerInfoDTO(BaseModel):
+    banner_info: LearnBannerInfoDTO | None = Field(
+        ..., description="banner info", required=False
+    )
+    outline_items: list[LearnOutlineItemInfoDTO] = Field(
+        ..., description="outline items", required=True
+    )
+
+    def __init__(
+        self,
+        banner_info: LearnBannerInfoDTO | None,
+        outline_items: list[LearnOutlineItemInfoDTO],
+    ):
+        super().__init__(
+            banner_info=banner_info,
+            outline_items=outline_items,
+        )
+
+    def __json__(self):
+        return {
+            "banner_info": None
+            if self.banner_info is None
+            else self.banner_info.__json__(),
+            "outline_items": self.outline_items,
         }
 
 
