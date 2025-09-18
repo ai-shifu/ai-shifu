@@ -4,6 +4,9 @@ from flaskr.service.learn.learn_dtos import (
     LearnOutlineItemInfoDTO,
     LearnRecordDTO,
     LearnStatus,
+    GeneratedBlockDTO,
+    BlockType,
+    LikeStatus,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -29,6 +32,10 @@ from flaskr.service.order.consts import (
 import queue
 from flaskr.dao import db
 from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
+from flaskr.service.shifu.consts import (
+    BLOCK_TYPE_MDCONTENT_VALUE,
+    BLOCK_TYPE_MDINTERACTION_VALUE,
+)
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -170,10 +177,58 @@ def get_outline_item_tree(
 
 
 def get_learn_record(
-    app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
+    app: Flask, shifu_bid: str, outline_bid: str, user_bid: str
 ) -> list[LearnRecordDTO]:
     with app.app_context():
-        pass
+        progress_record = LearnProgressRecord.query.filter(
+            LearnProgressRecord.user_bid == user_bid,
+            LearnProgressRecord.shifu_bid == shifu_bid,
+            LearnProgressRecord.outline_item_bid == outline_bid,
+            LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
+        ).first()
+        if not progress_record:
+            raise_error("LEARN.PROGRESS_RECORD_NOT_FOUND")
+        generated_blocks = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.user_bid == user_bid,
+                LearnGeneratedBlock.shifu_bid == shifu_bid,
+                LearnGeneratedBlock.outline_item_bid == outline_bid,
+                LearnGeneratedBlock.deleted == 0,
+            )
+            .order_by(LearnGeneratedBlock.id.asc())
+            .all()
+        )
+        records = []
+        interaction = ""
+        BLOCK_TYPE_MAP = {
+            BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
+            BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
+        }
+        LIKE_STATUS_MAP = {
+            1: LikeStatus.LIKE,
+            -1: LikeStatus.DISLIKE,
+            0: LikeStatus.NONE,
+        }
+        for generated_block in generated_blocks:
+            block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
+            records.append(
+                GeneratedBlockDTO(
+                    generated_block.generated_block_bid,
+                    generated_block.generated_content
+                    if block_type == BlockType.CONTENT
+                    else generated_block.block_content_conf,
+                    LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
+                    block_type,
+                    generated_block.generated_content
+                    if block_type == BlockType.INTERACTION
+                    else "",
+                )
+            )
+        return LearnRecordDTO(
+            records=records,
+            interaction=interaction,
+        )
 
 
 def reset_learn_record(
@@ -202,6 +257,7 @@ def handle_reaction(
         ).first()
         if not generated_block:
             raise_error("LEARN.GENERATED_BLOCK_NOT_FOUND")
+
         if action == "like":
             generated_block.liked = 1
         if action == "dislike":

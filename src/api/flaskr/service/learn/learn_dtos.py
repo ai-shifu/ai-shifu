@@ -217,6 +217,7 @@ class GeneratedBlockDTO(BaseModel):
     content: str = Field(..., description="generated content", required=False)
     like_status: LikeStatus = Field(..., description="like status", required=False)
     block_type: BlockType = Field(..., description="block type", required=False)
+    user_input: str = Field(..., description="user input", required=False)
 
     def __init__(
         self,
@@ -224,12 +225,14 @@ class GeneratedBlockDTO(BaseModel):
         content: str,
         like_status: LikeStatus,
         block_type: BlockType,
+        user_input: str,
     ):
         super().__init__(
             generated_block_bid=generated_block_bid,
             content=content,
             like_status=like_status,
             block_type=block_type,
+            user_input=user_input,
         )
 
     def __json__(self):
@@ -238,6 +241,7 @@ class GeneratedBlockDTO(BaseModel):
             "content": self.content,
             "like_status": self.like_status.value,
             "block_type": self.block_type.value,
+            "user_input": self.user_input,
         }
 
 
