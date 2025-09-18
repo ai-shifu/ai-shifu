@@ -1,5 +1,8 @@
 from decimal import Decimal
-from flask import Flask
+from markdown_flow import (
+    InteractionParser,
+)
+from flask import Flask, request
 from flaskr.service.learn.learn_dtos import (
     LearnShifuInfoDTO,
     LearnOutlineItemInfoDTO,
@@ -245,7 +248,7 @@ def get_learn_record(
             .order_by(LearnGeneratedBlock.id.asc())
             .all()
         )
-        records = []
+        records: list[GeneratedBlockDTO] = []
         interaction = ""
         BLOCK_TYPE_MAP = {
             BLOCK_TYPE_MDCONTENT_VALUE: BlockType.CONTENT,
@@ -271,6 +274,21 @@ def get_learn_record(
                 else "",
             )
             records.append(record)
+        if len(records) > 0:
+            last_record = records[-1]
+            if last_record.block_type == BlockType.INTERACTION:
+                interaction_parser = InteractionParser()
+                parsed_interaction = interaction_parser.parse(last_record.content)
+                if (
+                    parsed_interaction.get("buttons")
+                    and len(parsed_interaction.get("buttons")) > 0
+                ):
+                    for button in parsed_interaction.get("buttons"):
+                        if button.get("value") == "_sys_pay":
+                            pass
+                        if button.get("value") == "_sys_login":
+                            if bool(request.user.mobile):
+                                records.remove(last_record)
         return LearnRecordDTO(
             records=records,
             interaction=interaction,
