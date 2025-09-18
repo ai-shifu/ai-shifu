@@ -38,10 +38,13 @@ export const useLessonTree = () => {
   }, [selectedLessonId, tree]);
 
   const initialSelectedChapter = useCallback(tree => {
+    console.log('调用0 tree', tree)
     let catalog = tree.catalogs.find(
       v => v.status_value === LESSON_STATUS_VALUE.LEARNING,
     );
+    console.log('调用1 catalog', catalog)
     if (catalog) {
+      console.log('调用2 catalog', catalog)
       const lesson = catalog.lessons.find(
         v =>
           v.status_value === LESSON_STATUS_VALUE.LEARNING ||
@@ -49,9 +52,11 @@ export const useLessonTree = () => {
       );
       // lesson && setSelectedLessonId(lesson.id);
       if (lesson) {
+        console.log('调用3 lesson', lesson)
         setSelectedLessonId(lesson.id);
       }
     } else {
+      console.log('调用3 catalog', catalog)
       catalog = tree.catalogs.find(
         v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
       );
@@ -63,6 +68,7 @@ export const useLessonTree = () => {
         );
         // lesson && setSelectedLessonId(lesson.id);
         if (lesson) {
+          console.log('调用4 lesson', lesson)
           setSelectedLessonId(lesson.id);
         }
       }

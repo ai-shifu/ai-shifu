@@ -82,7 +82,6 @@ export const NewChatComponents = (
     );
 
     const outline_bid = lessonId;
-    console.log('=========lessonid======', lessonId)
  
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
@@ -319,7 +318,6 @@ export const NewChatComponents = (
         return [];
       });
       setIsLoading(true);
-      console.log('refreshData=====', lessonId,outline_bid);
       const recordResp = await getLessonStudyRecord({ 
         shifu_bid,
         outline_bid,
@@ -343,9 +341,6 @@ export const NewChatComponents = (
     }, [chapterId, outline_bid, reduceRecordsToContent,lessonId, shifu_bid]);
 
 
-    useEffect(() => {
-      console.log('=========contentList======', contentList)
-    }, [contentList])
     // user choose chapter should refresh data
     useEffect(() => {
       if (!chapterId) {
@@ -356,7 +351,6 @@ export const NewChatComponents = (
       }
 
       setLoadedChapterId(chapterId);
-      console.log('调用1')
       // refreshData();
     }, [chapterId, loadedChapterId, refreshData]);
 
@@ -370,7 +364,6 @@ export const NewChatComponents = (
           }
 
           if (curr === loadedChapterId) {
-            console.log('调用2')
             refreshData();
             // @ts-expect-error EXPECT
             updateResetedChapterId(null);
@@ -391,7 +384,6 @@ export const NewChatComponents = (
           if (!chapterId) {
             return;
           }
-          console.log('调用3')
           setLoadedChapterId(chapterId);
           refreshData();
         },
@@ -407,9 +399,7 @@ export const NewChatComponents = (
       params: OnSendContentParams,
     ): { newList: ContentItem[], needChangeItemIndex: number } => {
       const newList = [...contentList]
-      console.log("当前的 list",contentList,'要找到list中含有',params.variableName,'的')
       const needChangeItemIndex = newList.findIndex(item => item.content.includes(params.variableName || ''))
-      console.log('找到的needChangeItemIndex', newList[needChangeItemIndex])
       if(needChangeItemIndex !== -1) {
         newList[needChangeItemIndex] = {
           ...newList[needChangeItemIndex],
@@ -420,7 +410,6 @@ export const NewChatComponents = (
       }
       // remove the item after the needChangeItemIndex
       newList.length = needChangeItemIndex + 1
-      console.log('修改指定内容后的newList',newList[needChangeItemIndex])
       
       setContentList(() => {
         contentListRef.current = newList;
@@ -452,7 +441,7 @@ export const NewChatComponents = (
 
     // user choose interaction in chat
     const onSend = useCallback((content: OnSendContentParams) => {
-      console.log('onSend', content);
+      // console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(content)
       if(buttonText === SYS_INTERACTION_TYPE.PAY){
@@ -531,10 +520,8 @@ export const NewChatComponents = (
    
     // when typewriter finished, add interaction block
     const onTypeFinished = () => {
-      console.log('====打字完毕');
       if(lastInteractionBlock){
         const gid = contentList[contentList.length - 1].generated_block_bid
-        console.log('====添加互动块', currentBlockIdRef.current, currentContentRef.current);
         const newInteractionBlock = [{
           generated_block_bid: gid,
           content: '',
@@ -551,7 +538,7 @@ export const NewChatComponents = (
 
     
     return (
-      <div id='chat-box'
+      <div
         className={cn(
           styles.chatComponents,
           className,
