@@ -78,6 +78,7 @@ def _init_generated_block(
     user_bid: str,
     block_type: int,
     mdflow: str,
+    block_index: int,
 ) -> LearnGeneratedBlock:
     generated_block: LearnGeneratedBlock = LearnGeneratedBlock()
     generated_block.progress_record_bid = progress_record_bid
@@ -90,6 +91,7 @@ def _init_generated_block(
     generated_block.generated_content = ""
     generated_block.status = 1
     generated_block.block_content_conf = mdflow
+    generated_block.position = block_index
     return generated_block
 
 
@@ -848,7 +850,12 @@ class RunScriptContextV2:
                     user_bid=self._user_info.user_id,
                     block_type=BLOCK_TYPE_MDERRORMESSAGE_VALUE,
                     mdflow=block.content,
+                    block_index=block.index,
                 )
+                generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
+                generated_block.block_content_conf = block.content
+                db.session.add(generated_block)
+                db.session.flush()
                 content = ""
                 for i in validate_result.content:
                     content += i
@@ -877,6 +884,7 @@ class RunScriptContextV2:
                     user_bid=self._user_info.user_id,
                     block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
                     mdflow=block.content,
+                    block_index=block.index,
                 )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
@@ -897,6 +905,7 @@ class RunScriptContextV2:
                 user_bid=self._user_info.user_id,
                 block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
                 mdflow=block.content,
+                block_index=block.index,
             )
             if block.block_type == BlockType.INTERACTION:
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE

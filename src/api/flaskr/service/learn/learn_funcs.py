@@ -243,6 +243,7 @@ def reset_learn_record(
             LearnProgressRecord.shifu_bid == shifu_bid,
             LearnProgressRecord.outline_item_bid == outline_bid,
             LearnProgressRecord.deleted == 0,
+            LearnProgressRecord.status != LEARN_STATUS_RESET,
         ).update({"status": LEARN_STATUS_RESET})
         db.session.commit()
         return True
@@ -257,6 +258,7 @@ def handle_reaction(
             LearnGeneratedBlock.shifu_bid == shifu_bid,
             LearnGeneratedBlock.generated_block_bid == generated_block_bid,
             LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
         ).first()
         if not generated_block:
             raise_error("LEARN.GENERATED_BLOCK_NOT_FOUND")
