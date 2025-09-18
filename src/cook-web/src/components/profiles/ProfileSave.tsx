@@ -79,12 +79,14 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
       });
       if (res) {
         onSaveSuccess?.(profileToSave);
+        resetForm();
         onOpenChange?.(false);
       }
     }
   };
 
   const handleCancelSaveProfile = async () => {
+    resetForm();
     onOpenChange?.(false);
   };
 
@@ -152,8 +154,11 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
     <>
       <Dialog
         open={open}
-        onOpenChange={() => {
-          onOpenChange?.(!open);
+        onOpenChange={(isOpen) => {
+          if (!isOpen) {
+            resetForm();
+          }
+          onOpenChange?.(isOpen);
         }}
       >
         <DialogOverlay
