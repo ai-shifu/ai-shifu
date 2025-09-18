@@ -16,7 +16,7 @@ const ShortcutModal = ({ open, onClose }) => {
   const { inMacOs } = useUiLayoutStore(
     useShallow(state => ({ inMacOs: state.inMacOs })),
   );
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const shortcutKeysOptions = shortcutKeys.map(v => ({
     id: v.id,

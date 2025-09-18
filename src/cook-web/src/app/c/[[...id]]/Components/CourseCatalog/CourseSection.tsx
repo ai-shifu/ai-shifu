@@ -38,7 +38,6 @@ export const CourseSection = ({
     onTrySelect?.({ id });
     if (
       // @ts-expect-error EXPECT
-      status_value === LESSON_STATUS_VALUE.NOT_START ||
       status_value === LESSON_STATUS_VALUE.LOCKED
     ) {
       return;

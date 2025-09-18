@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/Button';
 import LogoWithText from '@/c-components/logo/LogoWithText';
 
 export const NavBody = ({ onLoginClick = () => {} }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   return (
     <div className={styles.navBody}>
       <LogoWithText

@@ -39,7 +39,7 @@ export const ChatInputText = ({
   disabled = false,
   props = {},
 }: ChatInputProps) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   const [input, setInput] = useState(initialValue || '');
 
   useEffect(() => {

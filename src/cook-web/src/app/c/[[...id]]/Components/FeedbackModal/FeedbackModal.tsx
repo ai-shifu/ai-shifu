@@ -34,7 +34,7 @@ import { toast } from '@/hooks/useToast';
 const FEEDBACK_MAX_LENGTH = 300;
 
 export const FeedbackModal = ({ open, onClose }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const formSchema = z.object({
     feedback: z.string().min(5, {
