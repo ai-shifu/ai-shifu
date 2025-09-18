@@ -81,7 +81,8 @@ export const NewChatComponents = (
       })),
     );
 
-    const outline_bid = lessonId || chapterId;
+    const outline_bid = lessonId;
+    console.log('=========lessonid======', lessonId)
  
     const [loadedChapterId, setLoadedChapterId] = useState('');
     const [loadedData, setLoadedData] = useState(false);
@@ -318,7 +319,7 @@ export const NewChatComponents = (
         return [];
       });
       setIsLoading(true);
-      console.log('refreshData=====', outline_bid);
+      console.log('refreshData=====', lessonId,outline_bid);
       const recordResp = await getLessonStudyRecord({ 
         shifu_bid,
         outline_bid,
@@ -339,7 +340,7 @@ export const NewChatComponents = (
         });
       }
       setIsLoading(false);
-    }, [chapterId, outline_bid, reduceRecordsToContent, shifu_bid]);
+    }, [chapterId, outline_bid, reduceRecordsToContent,lessonId, shifu_bid]);
 
 
     useEffect(() => {
@@ -355,7 +356,8 @@ export const NewChatComponents = (
       }
 
       setLoadedChapterId(chapterId);
-      refreshData();
+      console.log('调用1')
+      // refreshData();
     }, [chapterId, loadedChapterId, refreshData]);
 
     // user reset chapter
@@ -368,6 +370,7 @@ export const NewChatComponents = (
           }
 
           if (curr === loadedChapterId) {
+            console.log('调用2')
             refreshData();
             // @ts-expect-error EXPECT
             updateResetedChapterId(null);
@@ -388,7 +391,7 @@ export const NewChatComponents = (
           if (!chapterId) {
             return;
           }
-
+          console.log('调用3')
           setLoadedChapterId(chapterId);
           refreshData();
         },
@@ -480,16 +483,25 @@ export const NewChatComponents = (
       })
     }, [updateContentListWithUserOperate, trackEvent, onPayModalOpen, scrollToBottom, run]);
 
+
+    // lessonId 在上层有两种，分别用到useCourseStore和useLessonTree...在点击侧边栏时，会有问题，临时FIX
+    useEffect(() => {
+      if(!lessonId){
+        return;
+      }
+      refreshData()
+    }, [lessonId])
+    
     // event listener: select lesson in course catalog
     useEffect(() => {
       const onGoToNavigationNode = e => {
-        const { chapterId, lessonId } = e.detail;
+        const { chapterId, lessonId: newLessonId } = e.detail;
         if (chapterId !== loadedChapterId) {
           return;
         }
-        scrollToLesson(lessonId);
-        updateSelectedLesson(lessonId);
-        refreshData()
+        scrollToLesson(newLessonId);
+        updateSelectedLesson(newLessonId);
+        // refreshData()
       };
 
       events.addEventListener(
