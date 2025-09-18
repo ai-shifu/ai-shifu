@@ -47,8 +47,7 @@ export const ChatMobileHeader = ({
         >
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
-            onOpen={onIconPopoverOpen}
-          />
+            onOpen={onIconPopoverOpen} onClose={onIconPopoverClose}          />
         </div>
       )}
       <LogoWithText
@@ -56,11 +55,14 @@ export const ChatMobileHeader = ({
         size={30}
       />
       <Popover
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
         content={
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
-            onClose={onIconPopoverClose}
-          />
+            onClose={onIconPopoverClose} 
+            onOpen={onIconPopoverOpen}         
+            />
         }
         className={styles.iconButtonPopover}
         visible={iconPopoverOpen && hasPopoverContentControl}

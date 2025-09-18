@@ -42,10 +42,10 @@ export const IconButton = ({
     // }
 
     return () => {
-      elem.removeEventListener('mouseenter', onMouseEnter);
-      elem.removeEventListener('mouseleave', onMouseLeave);
-      elem.removeEventListener('mousedown', onMouseDown);
-      elem.removeEventListener('mouseup', onMouseUp);
+      elem?.removeEventListener('mouseenter', onMouseEnter);
+      elem?.removeEventListener('mouseleave', onMouseLeave);
+      elem?.removeEventListener('mousedown', onMouseDown);
+      elem?.removeEventListener('mouseup', onMouseUp);
     };
   }, []);
 
