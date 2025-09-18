@@ -1,4 +1,4 @@
-import { useCallback, memo } from 'react';
+import { useCallback, memo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -39,6 +39,7 @@ export const PermissionRequestModal = ({
   onClose,
 }: PermissionRequestModalProps) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formSchema = z.object({
     request: z.string().min(5, {
@@ -55,10 +56,14 @@ export const PermissionRequestModal = ({
 
   const onSubmitRequest = useCallback(
     async (values: z.infer<typeof formSchema>) => {
+      if (isSubmitting) return;
+
+      setIsSubmitting(true);
       try {
         const { request } = values;
-        // Submit permission request directly (user info is automatically handled by submitFeedback)
-        const requestContent = `[权限申请] ${request}`;
+        // Trim the input before processing
+        const trimmedRequest = request.trim();
+        const requestContent = `[权限申请] ${trimmedRequest}`;
 
         await submitFeedback(requestContent);
 
@@ -68,13 +73,16 @@ export const PermissionRequestModal = ({
         form.reset();
         onClose();
       } catch (error) {
+        console.error('Permission request submission failed:', error);
         toast({
           title: t('permission.requestError'),
           variant: 'destructive',
         });
+      } finally {
+        setIsSubmitting(false);
       }
     },
-    [onClose, t, form],
+    [onClose, t, form, isSubmitting],
   );
 
   function handleOpenChange(open: boolean) {
@@ -134,9 +142,10 @@ export const PermissionRequestModal = ({
               </Button>
               <Button
                 type='submit'
+                disabled={isSubmitting}
                 className='min-w-[120px]'
               >
-                {t('permission.requestSubmit')}
+                {isSubmitting ? t('common.submitting') : t('permission.requestSubmit')}
               </Button>
             </DialogFooter>
           </form>
