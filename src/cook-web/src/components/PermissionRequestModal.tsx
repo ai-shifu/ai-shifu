@@ -1,4 +1,4 @@
-import { useCallback, memo } from 'react';
+import { useCallback, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -40,11 +40,11 @@ export const PermissionRequestModal = ({
 }: PermissionRequestModalProps) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
-  const formSchema = z.object({
+  const formSchema = useMemo(() => z.object({
     request: z.string().min(5, {
       message: t('permission.requestPlaceholder'),
     }),
-  });
+  }), [t]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),

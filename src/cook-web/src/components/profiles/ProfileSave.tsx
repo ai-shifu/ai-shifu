@@ -120,13 +120,10 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
             parent_id: value.profile_id,
           });
           if (res) {
-            const enumItems: EnumItem[] = [];
-            for (const item of res) {
-              enumItems.push({
-                value: item.value,
-                name: item.name,
-              });
-            }
+            const enumItems: EnumItem[] = res.map((item: { value: string; name: string }) => ({
+              value: item.value,
+              name: item.name,
+            }));
             setProfile({
               ...value,
               profile_items: enumItems,

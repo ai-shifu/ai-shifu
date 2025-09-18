@@ -7,6 +7,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
+import { ERROR_CODES } from '@/constants/error-codes';
 
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
@@ -123,7 +124,7 @@ export const useUserStore = create<
         } catch (err) {
           // @ts-expect-error EXPECT
           // Only reset to guest if it's a clear authentication error (not network or server issues)
-          if (err.status === 403 || err.code === 1005 || err.code === 1001) {
+          if (err.status === 403 || err.code === ERROR_CODES.INVALID_TOKEN || err.code === ERROR_CODES.UNAUTHORIZED) {
             await registerAsGuest();
             set(() => ({
               userInfo: null,

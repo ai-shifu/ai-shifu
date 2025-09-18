@@ -29,6 +29,9 @@ import {
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
+// Constants for magic strings
+const NEW_CHAPTER_ID = 'new_chapter';
+
 const buildBlockListWithAllInfo = (
   blocks: Block[],
   blockTypes: Record<string, any>,
@@ -136,8 +139,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setCataData(treeData);
     return treeData;
   };
-  const findNode = (id: string) => {
-    const find = (nodes: Outline[]): any => {
+  const findNode = (id: string): Outline | null => {
+    const find = (nodes: Outline[]): Outline | null => {
       for (const node of nodes) {
         if (node.id === id) {
           return node;
@@ -245,14 +248,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
     // Always clean up the global 'new_chapter' state if it exists
     // This ensures that pending new nodes don't block future additions
-    delete cataData['new_chapter'];
+    delete cataData[NEW_CHAPTER_ID];
 
     setCataData({ ...cataData });
   };
 
   // Helper function to handle API deletion
   const deleteOutlineAPI = async (outline: Outline) => {
-    if (outline.id === 'new_chapter') {
+    if (outline.id === NEW_CHAPTER_ID) {
       return;
     }
     await api.deleteOutline({
@@ -500,14 +503,14 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const addSubOutline = async (parent: Outline, name = '') => {
-    if (cataData['new_chapter']) {
+    if (cataData[NEW_CHAPTER_ID]) {
       return;
     }
-    if (parent.children?.find((child: any) => child.id === 'new_chapter')) {
+    if (parent.children?.find((child: any) => child.id === NEW_CHAPTER_ID)) {
       return;
     }
 
-    const id = 'new_chapter';
+    const id = NEW_CHAPTER_ID;
 
     // Ensure parent.children exists
     if (!parent.children) {
@@ -627,7 +630,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   ) => Promise<ApiResponse<SaveBlockListResult> | null>;
 
   const addSiblingOutline = async (item: Outline, name = '') => {
-    const id = 'new_chapter';
+    const id = NEW_CHAPTER_ID;
     const parent = findNode(item.parent_bid || '');
     const index = parent?.children?.findIndex(
       (child: any) => child.id === item.id,
@@ -664,7 +667,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     const index = chapters.findIndex(child => child.id === data.id);
 
     try {
-      if (data.id === 'new_chapter') {
+      if (data.id === NEW_CHAPTER_ID) {
         const newChapter = await api.createOutline({
           parent_bid: '',
           index: index,
@@ -675,7 +678,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           is_hidden: false,
           shifu_id: currentShifu?.bid || '',
         });
-        replaceOutline('new_chapter', {
+        replaceOutline(NEW_CHAPTER_ID, {
           id: newChapter.bid,
           bid: newChapter.bid,
           name: newChapter.name,
@@ -708,7 +711,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     } catch (error) {
       console.error(error);
       setError(
-        data.id === 'new_chapter'
+        data.id === NEW_CHAPTER_ID
           ? 'Failed to create chapter'
           : 'Failed to modify chapter',
       );
@@ -731,7 +734,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       0;
 
     try {
-      if (data.bid === 'new_chapter') {
+      if (data.bid === NEW_CHAPTER_ID) {
         const newUnit = await api.createOutline({
           parent_bid: data.parent_bid,
           index: index,
@@ -743,7 +746,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           shifu_bid: currentShifu?.bid || '',
         });
 
-        replaceOutline('new_chapter', {
+        replaceOutline(NEW_CHAPTER_ID, {
           id: newUnit.bid,
           bid: newUnit.bid,
           name: newUnit.name,
@@ -772,7 +775,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     } catch (error) {
       console.error(error);
       setError(
-        data.id === 'new_chapter'
+        data.id === NEW_CHAPTER_ID
           ? 'Failed to create unit'
           : 'Failed to modify unit',
       );
@@ -846,10 +849,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const addChapter = async (chapter: Outline) => {
-    if (cataData['new_chapter']) {
+    if (cataData[NEW_CHAPTER_ID]) {
       return;
     }
-    if (chapters?.find((child: any) => child.id === 'new_chapter')) {
+    if (chapters?.find((child: any) => child.id === NEW_CHAPTER_ID)) {
       return;
     }
     setChapters([...chapters, chapter]);
