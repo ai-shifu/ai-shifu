@@ -5,6 +5,7 @@
   flex: 1 1 auto;
   justify-content: center;
   position: relative;
+  overflow-y: auto;
 
   &.mobile {
     width: 100%;

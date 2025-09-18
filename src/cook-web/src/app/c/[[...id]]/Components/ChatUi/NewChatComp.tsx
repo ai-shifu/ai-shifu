@@ -87,7 +87,7 @@ export const NewChatComponents = (
     const [loadedData, setLoadedData] = useState(false);
     const [contentList, setContentList] = useState<ContentItem[]>([]);
     const { mobileStyle } = useContext(AppContext);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const currentContentRef = useRef<string>('');
     const currentBlockIdRef = useRef<string | null>(null);
     const runRef = useRef<((params: SSEParams) => void) | null>(null);
@@ -171,8 +171,7 @@ export const NewChatComponents = (
         sseParams,
         async response => {
           try {
-            // TODO: MOCK 
-            const nid = response.script_id || response.generated_block_bid;
+            const nid = response.generated_block_bid;
             // Stream typing effect
             if (
               [
@@ -302,9 +301,11 @@ export const NewChatComponents = (
       return result;
     }, []);
 
+
     // page init or chapter/lesson change 
     const refreshData = useCallback(async () => {
       setContentList([]);
+      setIsLoading(true);
       console.log('refreshData=====', outline_bid);
       const recordResp = await getLessonStudyRecord({ 
         shifu_bid,
@@ -315,12 +316,14 @@ export const NewChatComponents = (
         setLoadedChapterId(chapterId);
         const contentRecords: ContentItem[] = reduceRecordsToContent(recordResp.records);
         setContentList(contentRecords);
+        
       }else{
         runRef.current?.({
           input: '',
           input_type: 'normal',
         });
       }
+      setIsLoading(false);
     }, [chapterId, outline_bid, reduceRecordsToContent, shifu_bid]);
 
     // user choose chapter should refresh data
@@ -378,10 +381,34 @@ export const NewChatComponents = (
     }, [chapterId, refreshData]);
 
 
+    const updateContentListWithUserOperate = (
+      params: OnSendContentParams,
+    ): ContentItem[] => {
+      const newList = [...contentList]
+      const needChangeItemIndex = newList.findIndex(item => item.content.includes(params.variableName))
+      if(needChangeItemIndex !== -1) {
+        newList[needChangeItemIndex] = {
+          ...newList[needChangeItemIndex],
+          readonly: false, // anytime can click or input
+          defaultButtonText: params.buttonText || '',
+          defaultInputText: params.inputText || '',
+        }
+      }
+      // remove the item after the needChangeItemIndex
+      newList.length = needChangeItemIndex + 1
+      console.log('修改指定内容后的newList',newList[needChangeItemIndex])
+      return {
+        newList,
+        needChangeItemIndex
+      }
+    }
+
     // user choose interaction in chat
     const onSend = (content: OnSendContentParams) => {
       console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
+      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(content)
+      setContentList(newList)
       if(buttonText === SYS_INTERACTION_TYPE.PAY){
         trackEvent(EVENT_NAMES.POP_PAY, { from: 'show-btn' });
         onPayModalOpen();
@@ -399,12 +426,14 @@ export const NewChatComponents = (
         }
         return;
       }
+
       scrollToBottom();
       run({
         input: {
           [variableName as string]: buttonText || inputText
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
+        reload_generated_block_bid: needChangeItemIndex !== -1 ? newList[needChangeItemIndex].generated_block_bid : undefined, // for reload
       })
     };
 
@@ -435,7 +464,7 @@ export const NewChatComponents = (
 
 
     return (
-      <div
+      <div id='chat-box'
         className={cn(
           styles.chatComponents,
           className,
@@ -443,7 +472,7 @@ export const NewChatComponents = (
         )}
         ref={chatRef}
       >
-        {contentList.map((item) => (item.like_status ? 
+        {isLoading ? <></> : contentList.map((item,idx) => (item.like_status ? 
             <InteractionBlock
               key={`${item.generated_block_bid}-interaction`}
               shifu_bid={shifu_bid}
@@ -452,17 +481,18 @@ export const NewChatComponents = (
               readonly={item.readonly}
             />
             :
-            <ContentRender
-              key={item.generated_block_bid}
-              content={item.content}
-              customRenderBar={item.customRenderBar}
-              defaultButtonText={item.defaultButtonText}
-              defaultInputText={item.defaultInputText}
-              readonly={item.readonly}
-              onSend={onSend}
-            />
+              <ContentRender
+                key={idx}
+                content={item.content}
+                customRenderBar={item.customRenderBar}
+                defaultButtonText={item.defaultButtonText}
+                defaultInputText={item.defaultInputText}
+                readonly={item.readonly}
+                onSend={onSend}
+              />
+          
         ))}
-        
+        <div id='chat-box-bottom'></div>
         {payModalOpen &&
           (mobileStyle ? (
             <PayModalM

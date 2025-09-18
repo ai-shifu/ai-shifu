@@ -3,10 +3,17 @@
   height: 100%;
   position: relative;
   box-sizing: border-box;
-  overflow-y: auto;
 
   :global(.content-render){
     margin: 16px 0;
+  }
+  :global(.lucide-send){
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+  :global(#chat-box-bottom){
+    height: 40px;
+    width: 100%;
   }
   :global(.MessageContainer) {
     background-color: var(--color-4);

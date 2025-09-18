@@ -94,7 +94,6 @@ export const getRunMessage = (
   body,
   onFinish,
 ) => {
-  console.log('getRunMessage', shifu_bid, outline_bid, preview_mode, body)
   const token = useUserStore.getState().getToken();
 
   let baseURL = getStringEnv('baseURL');
@@ -173,7 +172,12 @@ export const getLessonStudyRecord = async ({
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
   return request.get(
     `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
-  );
+  ).catch(error => {
+    // when error, return empty records, go run api
+    return {
+      records: [],
+    };
+  });
 
   // return {
   //   mdflow: 'string',
