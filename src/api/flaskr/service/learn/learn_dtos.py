@@ -240,13 +240,15 @@ class GeneratedBlockDTO(BaseModel):
         )
 
     def __json__(self):
-        return {
+        ret = {
             "generated_block_bid": self.generated_block_bid,
             "content": self.content,
-            "like_status": self.like_status.value,
             "block_type": self.block_type.value,
             "user_input": self.user_input,
         }
+        if self.block_type == BlockType.CONTENT:
+            ret["like_status"] = self.like_status.value
+        return ret
 
 
 @register_schema_to_swagger
