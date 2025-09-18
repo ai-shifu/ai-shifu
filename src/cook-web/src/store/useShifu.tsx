@@ -282,7 +282,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setError(null);
 
     const isCurrentNodeDeleted = currentNode?.id === outline.id;
-    const nextNode = isCurrentNodeDeleted ? findBestNodeAfterDeletion(outline) : null;
+    const nextNode = isCurrentNodeDeleted
+      ? findBestNodeAfterDeletion(outline)
+      : null;
 
     try {
       console.log('removeOutline', outline);
