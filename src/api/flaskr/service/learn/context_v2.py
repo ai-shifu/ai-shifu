@@ -4,6 +4,7 @@ import asyncio
 import inspect
 from typing import Generator, Union, AsyncGenerator
 from enum import Enum
+from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -766,7 +767,7 @@ class RunScriptContextV2:
                 and len(parsed_interaction.get("buttons")) > 0
             ):
                 for button in parsed_interaction.get("buttons"):
-                    if button.get("value") == "__sys_pay":
+                    if button.get("value") == "_sys_pay":
                         if not self._is_paid:
                             yield RunMarkdownFlowDTO(
                                 outline_bid=run_script_info.outline_bid,
@@ -783,7 +784,7 @@ class RunScriptContextV2:
                             self._run_type = RunType.OUTPUT
                             db.session.flush()
                             return
-                    if button.get("value") == "__sys_login":
+                    if button.get("value") == "_sys_login":
                         if bool(self._user_info.mobile):
                             self._can_continue = True
                             self._current_attend.block_position += 1
@@ -802,6 +803,7 @@ class RunScriptContextV2:
                             return
 
             generated_block.generated_content = self._input
+            generated_block.role = ROLE_STUDENT
             db.session.flush()
             if not parsed_interaction.get("variable"):
                 self._can_continue = True
@@ -865,6 +867,7 @@ class RunScriptContextV2:
                 )
                 generated_block.type = BLOCK_TYPE_MDERRORMESSAGE_VALUE
                 generated_block.block_content_conf = block.content
+                generated_block.role = ROLE_TEACHER
                 db.session.add(generated_block)
                 db.session.flush()
                 content = ""
@@ -897,6 +900,9 @@ class RunScriptContextV2:
                     mdflow=block.content,
                     block_index=block.index,
                 )
+                generated_block.role = ROLE_TEACHER
+                db.session.add(generated_block)
+                db.session.flush()
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,
@@ -919,6 +925,30 @@ class RunScriptContextV2:
                 block_index=block.index,
             )
             if block.block_type == BlockType.INTERACTION:
+                interaction_parser: InteractionParser = InteractionParser()
+                parsed_interaction = interaction_parser.parse(block.content)
+                if (
+                    parsed_interaction.get("buttons")
+                    and len(parsed_interaction.get("buttons")) > 0
+                ):
+                    for button in parsed_interaction.get("buttons"):
+                        if button.get("value") == "_sys_pay":
+                            if self._is_paid:
+                                self._can_continue = True
+                                self._current_attend.block_position += 1
+                                self._run_type = RunType.OUTPUT
+                                db.session.flush()
+                                return
+                        if button.get("value") == "_sys_login":
+                            self.app.logger.warning(
+                                f"_sys_login :{self._user_info.mobile}"
+                            )
+                            if bool(self._user_info.mobile):
+                                self._can_continue = True
+                                self._current_attend.block_position += 1
+                                self._run_type = RunType.OUTPUT
+                                db.session.flush()
+                                return
                 generated_block.type = BLOCK_TYPE_MDINTERACTION_VALUE
                 generated_block.generated_content = ""
                 yield RunMarkdownFlowDTO(
