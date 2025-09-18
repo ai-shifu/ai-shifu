@@ -25,7 +25,6 @@ from flaskr.service.shifu.shifu_struct_manager import (
     OutlineItemDtoWithMdflow,
     get_outline_item_dto_with_mdflow,
 )
-from flaskr.service.learn.utils import make_script_dto
 from flaskr.service.shifu.models import (
     DraftBlock,
     PublishedBlock,
@@ -52,7 +51,6 @@ from flaskr.service.user.models import User
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.profile.funcs import get_user_profiles
-from flaskr.service.learn.const import ROLE_TEACHER
 from flaskr.service.learn.learn_dtos import (
     RunMarkdownFlowDTO,
     GeneratedType,
@@ -1068,21 +1066,25 @@ class RunScriptContextV2:
             )
         return self._get_default_llm_settings()
 
-    def reload(self, app: Flask, script_id: str):
-        yield make_script_dto("teacher_avatar", self._shifu_info.avatar, "")
-        run_script_info: RunScriptInfo = self._get_run_script_info_by_block_id(
-            script_id
-        )
+    def reload(self, app: Flask, reload_generated_block_bid: str):
+        generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
+        ).first()
+
         LearnGeneratedBlock.query.filter(
             LearnGeneratedBlock.progress_record_bid
-            == run_script_info.attend.progress_record_bid,
-            LearnGeneratedBlock.block_bid == script_id,
-            LearnGeneratedBlock.role == ROLE_TEACHER,
-            LearnGeneratedBlock.status == 1,
+            == generated_block.progress_record_bid,
+            LearnGeneratedBlock.outline_item_bid == generated_block.outline_item_bid,
+            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+            LearnGeneratedBlock.id > generated_block.id,
         ).update(
             {
                 LearnGeneratedBlock.status: 0,
             }
         )
         self._can_continue = False
+        self._current_attend.block_position = generated_block.position
+        self._current_attend.status = LEARN_STATUS_IN_PROGRESS
         db.session.flush()
+        yield from self.run(app)
+        return

@@ -108,7 +108,6 @@ def run_script_inner(
             if reload_generated_block_bid:
                 yield from run_script_context.reload(app, reload_generated_block_bid)
                 db.session.commit()
-                return
             while run_script_context.has_next():
                 yield from run_script_context.run(app)
             db.session.commit()

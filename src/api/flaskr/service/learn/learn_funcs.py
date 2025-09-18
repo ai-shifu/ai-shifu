@@ -198,6 +198,7 @@ def get_learn_record(
                 == progress_record.progress_record_bid,
                 LearnGeneratedBlock.outline_item_bid == outline_bid,
                 LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.status == 1,
             )
             .order_by(LearnGeneratedBlock.id.asc())
             .all()
