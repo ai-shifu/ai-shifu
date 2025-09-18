@@ -23,7 +23,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import MainMenuModal from './MainMenuModal';
 
 import { useUserStore } from '@/store';
-
+import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 /**
  * 导航栏展示形式
  * 0: 默认，在 dom 流中展示
@@ -76,7 +76,9 @@ const NavDrawer = ({
 
   const [bodyScrollTop, setBodyScrollTop] = useState(0);
   const { trackEvent } = useTracking();
-  const { frameLayout, mobileStyle } = useContext(AppContext);
+  const { frameLayout } = useUiLayoutStore(state => state);
+
+  const { mobileStyle } = useContext(AppContext);
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');

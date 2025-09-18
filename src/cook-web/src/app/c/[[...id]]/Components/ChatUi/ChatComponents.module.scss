@@ -3,6 +3,7 @@
   height: 100%;
   position: relative;
   box-sizing: border-box;
+  overflow-y: auto;
 
   :global(.content-render){
     margin: 16px 0;

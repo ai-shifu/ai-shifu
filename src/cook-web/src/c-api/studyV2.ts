@@ -101,6 +101,9 @@ export const getRunMessage = (
   if (baseURL === '' || baseURL === '/') {
     baseURL = window.location.origin;
   }
+
+  // TODO: MOCK
+  body.input = Object.values(body.input).join('');
   const source = new SSE(
     `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
     {
