@@ -3,6 +3,7 @@ import { useUserStore } from '@/store';
 import apiService from '@/api';
 import { useTranslation } from 'react-i18next';
 import type { UserInfo } from '@/c-types';
+import { ERROR_CODES } from '@/constants/error-codes';
 
 interface ApiResponse {
   code: number;
@@ -35,7 +36,7 @@ export function useAuth(options: UseAuthOptions = {}) {
     const response = await apiCall();
 
     // Handle token expiration
-    if (response.code === 1005) {
+    if (response.code === ERROR_CODES.INVALID_TOKEN) {
       // Refresh token
       await logout(false);
       // Retry the API call
@@ -52,13 +53,13 @@ export function useAuth(options: UseAuthOptions = {}) {
     context?: 'email' | 'sms',
   ) => {
     // Skip token expiration as it's handled by retry logic
-    if (code === 1005) return;
+    if (code === ERROR_CODES.INVALID_TOKEN) return;
 
     const title = t('auth.failed');
     let description: string;
 
     switch (code) {
-      case 1001:
+      case ERROR_CODES.UNAUTHORIZED:
         description = t('auth.credentialError');
         break;
       case 1003:
@@ -79,7 +80,7 @@ export function useAuth(options: UseAuthOptions = {}) {
 
   // Process login response
   const processLoginResponse = async (response: LoginResponse) => {
-    if (response.code === 0 && response.data) {
+    if (response.code === ERROR_CODES.SUCCESS && response.data) {
       toast({
         title: t('auth.success'),
       });
@@ -129,7 +130,7 @@ export function useAuth(options: UseAuthOptions = {}) {
         apiService.sendSmsCode({ mobile, language }),
       );
 
-      if (response.code !== 0) {
+      if (response.code !== ERROR_CODES.SUCCESS) {
         throw new Error(
           response.message || response.msg || t('common.networkError'),
         );
