@@ -130,6 +130,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
             outline_item.prerequisite_item_bids = (
                 draft_outline_item.prerequisite_item_bids
             )
+            outline_item.content = draft_outline_item.content
             db.session.add(outline_item)
             db.session.flush()
             outline_item_history_item = HistoryItem(

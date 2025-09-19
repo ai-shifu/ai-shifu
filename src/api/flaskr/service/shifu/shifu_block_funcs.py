@@ -30,6 +30,7 @@ from .shifu_history_manager import (
     HistoryInfo,
 )
 from datetime import datetime
+from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 
 
 def __get_block_list_internal(outline_id: str) -> list[DraftBlock]:
@@ -153,14 +154,25 @@ def save_shifu_block_list(
             raise_error("SHIFU.OUTLINE_NOT_FOUND")
         blocks = __get_block_list_internal(outline_id)
         variable_definitions = get_profile_item_definition_list(app, outline.shifu_bid)
+        variable_map = {
+            variable_definition.profile_id: variable_definition.profile_key
+            for variable_definition in variable_definitions
+        }
         position = 1
         error_messages = {}
         save_block_ids = []
         save_block_models = []
         blocks_history = []
         is_changed = False
+        markdown_flow_content = ""
         for block in block_list:
             block_dto = convert_to_blockDTO(block)
+            try:
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    block_dto, variable_map
+                )
+            except Exception as e:
+                app.logger.error(f"Failed to convert block to mdflow: {e}")
             block_model = next(
                 (b for b in blocks if b.block_bid == block_dto.bid), None
             )
@@ -244,6 +256,7 @@ def save_shifu_block_list(
             save_blocks_history(
                 app, user_id, outline.shifu_bid, outline_id, blocks_history
             )
+        outline.content = markdown_flow_content
         db.session.commit()
         return SaveBlockListResultDto(
             [
@@ -303,8 +316,13 @@ def add_block(
         blocks_history = []
         db.session.add(block_model)
         db.session.flush()
+        markdown_flow_content = ""
+        is_add_to_content = False
         for block in existing_blocks:
             if block.position < block_index:
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    generate_block_dto_from_model_internal(block, False), {}
+                )
                 blocks_history.append(HistoryInfo(bid=block.block_bid, id=block.id))
                 continue
 
@@ -312,9 +330,16 @@ def add_block(
                 blocks_history.append(
                     HistoryInfo(bid=block_model.block_bid, id=block_model.id)
                 )
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    generate_block_dto_from_model_internal(block_model, False), {}
+                )
+                is_add_to_content = True
                 continue
 
             if block.position >= block_index:
+                markdown_flow_content += "\n" + convert_block_to_mdflow(
+                    generate_block_dto_from_model_internal(block, False), {}
+                )
                 new_block = block.clone()
                 new_block.position = block.position + 1
                 new_block.updated_at = now_time
@@ -325,7 +350,11 @@ def add_block(
                 blocks_history.append(
                     HistoryInfo(bid=new_block.block_bid, id=new_block.id)
                 )
-
+        if not is_add_to_content:
+            markdown_flow_content += "\n" + convert_block_to_mdflow(
+                generate_block_dto_from_model_internal(block_model, False), {}
+            )
+        outline.content = markdown_flow_content
         save_blocks_history(app, user_id, outline.shifu_bid, outline_id, blocks_history)
         db.session.commit()
         return generate_block_dto_from_model_internal(block_model)

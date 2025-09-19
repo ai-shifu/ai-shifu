@@ -76,7 +76,9 @@ from .consts import (
 from typing import Union
 
 
-def html_2_markdown(content: str, variables_in_prompt: list[str]) -> str:
+def html_2_markdown(
+    content: str, variables_in_prompt: list[str], convert_image_to_html: bool = True
+) -> str:
     """
     convert html to markdown
     Args:
@@ -106,7 +108,10 @@ def html_2_markdown(content: str, variables_in_prompt: list[str]) -> str:
         title = match.group("title")
         url = match.group("url")
         scale = match.group("scale")
-        return f"<img src='{url}' alt='{title}' style='width: {scale}%;' />"
+        if convert_image_to_html:
+            return f"<img src='{url}' alt='{title}' style='width: {scale}%;' />"
+        else:
+            return f"![{title}]({url})"
 
     content = re.sub(
         r'<span\s+data-tag="video"[^>]*data-url="(?P<url>[^"]+)"[^>]*data-title="(?P<title>[^"]+)"[^>]*>[^<]*</span>',
