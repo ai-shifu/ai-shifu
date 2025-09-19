@@ -124,7 +124,11 @@ export const useUserStore = create<
         } catch (err) {
           // @ts-expect-error EXPECT
           // Only reset to guest if it's a clear authentication error (not network or server issues)
-          if (err.status === 403 || err.code === ERROR_CODES.INVALID_TOKEN || err.code === ERROR_CODES.UNAUTHORIZED) {
+          if (
+            err.status === 403 ||
+            err.code === ERROR_CODES.INVALID_TOKEN ||
+            err.code === ERROR_CODES.UNAUTHORIZED
+          ) {
             await registerAsGuest();
             set(() => ({
               userInfo: null,

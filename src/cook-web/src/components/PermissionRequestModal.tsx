@@ -40,11 +40,15 @@ export const PermissionRequestModal = ({
 }: PermissionRequestModalProps) => {
   const { t } = useTranslation('translation', { keyPrefix: 'c' });
 
-  const formSchema = useMemo(() => z.object({
-    request: z.string().min(5, {
-      message: t('permission.requestPlaceholder'),
-    }),
-  }), [t]);
+  const formSchema = useMemo(
+    () =>
+      z.object({
+        request: z.string().min(5, {
+          message: t('permission.requestPlaceholder'),
+        }),
+      }),
+    [t],
+  );
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
