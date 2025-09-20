@@ -95,7 +95,8 @@ export default function InteractionBlock({
   const onLike = () => {
     if (disabled || readonly) return;
     setStatus(prev => {
-      const next: LikeStatus = prev === LIKE_STATUS.LIKE ? LIKE_STATUS.NONE : LIKE_STATUS.LIKE;
+      const next: LikeStatus =
+        prev === LIKE_STATUS.LIKE ? LIKE_STATUS.NONE : LIKE_STATUS.LIKE;
       send(next);
       return next;
     });
@@ -103,7 +104,8 @@ export default function InteractionBlock({
   const onDislike = () => {
     if (disabled || readonly) return;
     setStatus(prev => {
-      const next: LikeStatus = prev === LIKE_STATUS.DISLIKE ? LIKE_STATUS.NONE : LIKE_STATUS.DISLIKE;
+      const next: LikeStatus =
+        prev === LIKE_STATUS.DISLIKE ? LIKE_STATUS.NONE : LIKE_STATUS.DISLIKE;
       send(next);
       return next;
     });
@@ -115,43 +117,54 @@ export default function InteractionBlock({
       style={{ display: 'flex', alignItems: 'center', paddingLeft: 20 }}
     >
       <button
-        type="button"
-        aria-label="Like"
+        type='button'
+        aria-label='Like'
         aria-pressed={isLike}
         disabled={disabled || readonly}
         onClick={onLike}
-        title="Like"
+        title='Like'
         style={likeBtnStyle}
       >
         <ThumbsUp
           size={14}
-          className={cn(isLike ? 'text-blue-500' : 'text-gray-400', 'w-5', 'h-5')}
+          className={cn(
+            isLike ? 'text-blue-500' : 'text-gray-400',
+            'w-5',
+            'h-5',
+          )}
         />
       </button>
 
       <button
-        type="button"
-        aria-label="Dislike"
+        type='button'
+        aria-label='Dislike'
         aria-pressed={isDislike}
         disabled={disabled || readonly}
         onClick={onDislike}
-        title="Dislike"
+        title='Dislike'
         style={dislikeBtnStyle}
       >
         <ThumbsDown
           size={14}
-          className={cn(isDislike ? 'text-blue-500' : 'text-gray-400', 'w-5', 'h-5')}
+          className={cn(
+            isDislike ? 'text-blue-500' : 'text-gray-400',
+            'w-5',
+            'h-5',
+          )}
         />
       </button>
       <button
-        type="button"
-        aria-label="Refresh"
+        type='button'
+        aria-label='Refresh'
         aria-pressed={false}
         style={refreshBtnStyle}
         disabled={disabled || readonly}
         onClick={() => onRefresh?.(generated_block_bid)}
       >
-        <RefreshCcw size={14} className={cn('text-gray-400', 'w-5', 'h-5')} />
+        <RefreshCcw
+          size={14}
+          className={cn('text-gray-400', 'w-5', 'h-5')}
+        />
       </button>
     </div>
   );

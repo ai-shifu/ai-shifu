@@ -168,7 +168,22 @@
     "useResource": "使用资源",
     "videoTitle": "视频名称",
     "videoTitlePlaceholder": "请输入视频名称",
-    "waitingForCompletion": "敬请期待"
+    "waitingForCompletion": "敬请期待",
+    "shortcut": {
+      "key": {
+        "/": "/",
+        "a": "A",
+        "cmd": "⌘",
+        "ctrl": "Ctrl",
+        "shift": "⇧",
+        "space": "空格"
+      },
+      "title": {
+        "ask": "追问",
+        "continue": "继续（无需用户输入或选择时）",
+        "shortcut": "显示快捷方式"
+      }
+    }
   },
   "createShifuDialog": {
     "create": "创建",

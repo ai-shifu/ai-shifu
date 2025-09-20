@@ -125,6 +125,13 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
     }
   };
 
+  const handleOtpKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && showOtpInput && phoneOtp && !isLoading) {
+      e.preventDefault();
+      handleVerifyOtp();
+    }
+  };
+
   return (
     <div className='space-y-4'>
       <div className='space-y-2'>
@@ -141,7 +148,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
           onChange={handlePhoneChange}
           disabled={isLoading}
           className={
-            phoneError ? 'border-red-500 focus-visible:ring-red-500' : ''
+            phoneError ? 'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground' : ''
           }
         />
         {phoneError && <p className='text-xs text-red-500'>{phoneError}</p>}
@@ -154,6 +161,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
             placeholder={t('auth.otpPlaceholder')}
             value={phoneOtp}
             onChange={e => setPhoneOtp(e.target.value)}
+            onKeyDown={handleOtpKeyDown}
             disabled={isLoading || !showOtpInput}
           />
         </div>

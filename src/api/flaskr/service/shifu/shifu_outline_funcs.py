@@ -23,6 +23,7 @@ from .consts import (
 from .models import DraftOutlineItem
 from ...dao import db
 from ...util import generate_id
+from .adapter import html_2_markdown, markdown_2_html
 from ..common.models import raise_error
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
@@ -505,7 +506,9 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
             description=unit.title,
             index=unit.position,
             type=unit_type,
-            system_prompt=unit.llm_system_prompt,
+            system_prompt=markdown_2_html(
+                unit.llm_system_prompt if unit.llm_system_prompt is not None else "", []
+            ),
             is_hidden=is_hidden,
         )
 
@@ -565,7 +568,7 @@ def modify_unit(
         if unit_name:
             new_unit.title = unit_name
         if unit_system_prompt:
-            new_unit.llm_system_prompt = unit_system_prompt
+            new_unit.llm_system_prompt = html_2_markdown(unit_system_prompt, [])
         if unit_is_hidden is True:
             new_unit.hidden = 1
         elif unit_is_hidden is False:
@@ -597,7 +600,7 @@ def modify_unit(
             description=unit_description or "",
             type=unit_type,
             index=int(existing_unit.position),
-            system_prompt=existing_unit.llm_system_prompt,
+            system_prompt=markdown_2_html(existing_unit.llm_system_prompt or "", []),
             is_hidden=unit_is_hidden,
         )
 

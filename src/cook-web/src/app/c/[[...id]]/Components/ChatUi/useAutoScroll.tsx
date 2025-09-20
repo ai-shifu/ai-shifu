@@ -1,9 +1,12 @@
 import { useEffect, useRef, useCallback } from 'react';
 
-function useAutoScroll(containerRef: React.RefObject<HTMLElement>, opts?: {
-  bottomSelector?: string,
-  threshold?: number // px from bottom considered "at bottom"
-}) {
+function useAutoScroll(
+  containerRef: React.RefObject<HTMLElement>,
+  opts?: {
+    bottomSelector?: string;
+    threshold?: number; // px from bottom considered "at bottom"
+  },
+) {
   const bottomSelector = opts?.bottomSelector ?? '#chat-box-bottom';
   const threshold = opts?.threshold ?? 120;
   const autoScrollRef = useRef(true);
@@ -25,21 +28,26 @@ function useAutoScroll(containerRef: React.RefObject<HTMLElement>, opts?: {
     return () => el.removeEventListener('scroll', onScroll);
   }, [containerRef, threshold]);
 
-  const scrollToBottom = useCallback((behavior: 'auto' | 'smooth' = 'auto') => {
-    const el = containerRef.current;
-    if (!el) return;
-    const bottomEl = el.querySelector(bottomSelector) as HTMLElement | null || el.lastElementChild as HTMLElement | null;
-    const doScroll = () => {
-      if (bottomEl && bottomEl.scrollIntoView) {
-        bottomEl.scrollIntoView({ behavior, block: 'end' });
-      } else {
-        el.scrollTop = el.scrollHeight;
-      }
-    };
-    doScroll();
-    requestAnimationFrame(doScroll);
-    setTimeout(doScroll, 40);
-  }, [containerRef, bottomSelector]);
+  const scrollToBottom = useCallback(
+    (behavior: 'auto' | 'smooth' = 'auto') => {
+      const el = containerRef.current;
+      if (!el) return;
+      const bottomEl =
+        (el.querySelector(bottomSelector) as HTMLElement | null) ||
+        (el.lastElementChild as HTMLElement | null);
+      const doScroll = () => {
+        if (bottomEl && bottomEl.scrollIntoView) {
+          bottomEl.scrollIntoView({ behavior, block: 'end' });
+        } else {
+          el.scrollTop = el.scrollHeight;
+        }
+      };
+      doScroll();
+      requestAnimationFrame(doScroll);
+      setTimeout(doScroll, 40);
+    },
+    [containerRef, bottomSelector],
+  );
 
   // auto scroll when DOM changes (but only if user hasn't scrolled away)
   useEffect(() => {
@@ -53,12 +61,17 @@ function useAutoScroll(containerRef: React.RefObject<HTMLElement>, opts?: {
       }
     });
 
-    moRef.current.observe(el, { childList: true, subtree: true, characterData: true });
+    moRef.current.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
 
     // optional: also observe last child size changes
     if (typeof ResizeObserver !== 'undefined') {
       roRef.current = new ResizeObserver(() => {
-        if (autoScrollRef.current) requestAnimationFrame(() => scrollToBottom('auto'));
+        if (autoScrollRef.current)
+          requestAnimationFrame(() => scrollToBottom('auto'));
       });
       if (el.lastElementChild) roRef.current.observe(el.lastElementChild);
     }
@@ -71,8 +84,15 @@ function useAutoScroll(containerRef: React.RefObject<HTMLElement>, opts?: {
     };
   }, [containerRef, scrollToBottom]);
 
-  return { scrollToBottom, enableAutoScroll: () => { autoScrollRef.current = true }, disableAutoScroll: () => { autoScrollRef.current = false } };
+  return {
+    scrollToBottom,
+    enableAutoScroll: () => {
+      autoScrollRef.current = true;
+    },
+    disableAutoScroll: () => {
+      autoScrollRef.current = false;
+    },
+  };
 }
-
 
 export default useAutoScroll;

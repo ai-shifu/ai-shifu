@@ -130,7 +130,7 @@ export const PayModal = ({
   const refreshOrderQrcode = useCallback(
     async orderId => {
       if (orderId) {
-        const qrcodeResp= await getPayUrl({
+        const qrcodeResp = await getPayUrl({
           channel: payChannel,
           orderId,
         });

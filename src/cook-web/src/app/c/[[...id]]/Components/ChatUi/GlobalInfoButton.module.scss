@@ -5,10 +5,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #999;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   background: transparent;
-  color: var(--color-8);
-  font-size: var(--font-size-2);
-  border: 0;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: #666;
+    border-color: #bbb;
+  }
 }
 
 .rowIcon {
@@ -25,6 +38,11 @@
 
   .policyInfoRow {
     margin-top: 0.5em;
+  }
+
+  .miitLink, .miitLink:visited {
+    text-decoration: none;
+    color: #1890ff;
   }
 
   .gonganRow {

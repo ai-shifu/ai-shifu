@@ -75,7 +75,11 @@ export const IconButton = ({
       }}
       onClick={onClick}
     >
-      <img src={genImageSrc()} alt="" className={styles.innerIcon} />
+      <img
+        src={genImageSrc()}
+        alt=''
+        className={styles.innerIcon}
+      />
     </div>
   );
 };
