@@ -168,7 +168,22 @@
     "useResource": "Use Resource",
     "videoTitle": "Video Title",
     "videoTitlePlaceholder": "Please enter video title",
-    "waitingForCompletion": "Coming Soon"
+    "waitingForCompletion": "Coming Soon",
+    "shortcut": {
+      "key": {
+        "/": "/",
+        "a": "A",
+        "cmd": "⌘",
+        "ctrl": "Ctrl",
+        "shift": "⇧",
+        "space": "Space"
+      },
+      "title": {
+        "ask": "Ask follow-up questions",
+        "continue": "Continue (when no input or selection required)",
+        "shortcut": "Display Shortcuts"
+      }
+    }
   },
   "createShifuDialog": {
     "create": "Create",

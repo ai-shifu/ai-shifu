@@ -15,4 +15,11 @@
       margin-top: 30px;
     }
   }
+
+  /* Remove focus outline for textarea and buttons */
+  textarea:focus,
+  button:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
 }

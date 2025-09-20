@@ -8,7 +8,7 @@ import { calModalWidth } from '@/c-utils/common';
 import { AppContext } from '@/c-components/AppContext';
 
 import { Button } from '@/components/ui/Button';
-import { Dialog, DialogContent } from '@/components/ui/Dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/Dialog';
 
 export const SettingBaseModal = ({
   open,
@@ -35,6 +35,9 @@ export const SettingBaseModal = ({
       onOpenChange={handleOpenChange}
     >
       <DialogContent className={cn(styles.SettingBaseModal)}>
+        <DialogHeader>
+          <DialogTitle>{title || t('common.settings')}</DialogTitle>
+        </DialogHeader>
         <div
           style={{
             width: calModalWidth({

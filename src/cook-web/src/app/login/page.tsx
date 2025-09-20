@@ -24,6 +24,7 @@ import { environment } from '@/config/environment';
 export default function AuthPage() {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
+  const [isI18nReady, setIsI18nReady] = useState(false);
 
   // Get login methods from environment configuration
   const enabledMethods = environment.loginMethodsEnabled;
@@ -56,11 +57,43 @@ export default function AuthPage() {
     setAuthMode('login');
   };
 
-  const { t } = useTranslation();
+  const { t, ready } = useTranslation();
 
   useEffect(() => {
     i18n.changeLanguage(language);
   }, [language]);
+
+  // Monitor i18n ready state to prevent language flash
+  useEffect(() => {
+    if (ready && i18n.hasResourceBundle(language, 'translation')) {
+      setIsI18nReady(true);
+    }
+  }, [ready, language]);
+
+  // Show loading state until translations are ready
+  if (!isI18nReady) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
+        <div className='w-full max-w-md space-y-2'>
+          <div className='flex flex-col items-center'>
+            <Image
+              className='dark:invert'
+              src={logoHorizontal}
+              alt='AI-Shifu'
+              width={180}
+              height={40}
+              priority
+            />
+          </div>
+          <Card>
+            <CardContent className='flex items-center justify-center py-8'>
+              <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary'></div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
       <div className='w-full max-w-md space-y-2'>

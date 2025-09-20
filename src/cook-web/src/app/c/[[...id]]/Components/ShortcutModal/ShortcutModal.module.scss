@@ -36,4 +36,11 @@
       }
     }
   }
+
+  /* Remove focus outline for all focusable elements */
+  button:focus,
+  [role="dialog"]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
 }

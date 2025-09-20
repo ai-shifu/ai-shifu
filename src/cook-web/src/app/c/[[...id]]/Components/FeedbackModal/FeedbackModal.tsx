@@ -58,24 +58,29 @@ export const FeedbackModal = ({ open, onClose }) => {
         toast({
           title: t('feedback.feedbackSuccess'),
         });
+        form.reset();
         onClose();
-      } catch {}
+      } catch (error) {
+        toast({
+          title: t('feedback.feedbackError') || 'Submission failed',
+          variant: 'destructive',
+        });
+      }
     },
-    [onClose, t],
+    [onClose, t, form],
   );
 
-  function handleOpenChange(open) {
+  function handleOpenChange(open: boolean) {
     if (!open) {
       onClose();
     }
   }
 
   return (
-    <>
-      <Dialog
-        open={open}
-        onOpenChange={handleOpenChange}
-      >
+    <Dialog
+      open={open}
+      onOpenChange={handleOpenChange}
+    >
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmitFeedback)}
@@ -111,6 +116,10 @@ export const FeedbackModal = ({ open, onClose }) => {
                 <Button
                   type='submit'
                   className={cn('w-full', styles.okBtn)}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    form.handleSubmit(onSubmitFeedback)();
+                  }}
                 >
                   {t('feedback.feedbackSubmit')}
                 </Button>
@@ -118,8 +127,7 @@ export const FeedbackModal = ({ open, onClose }) => {
             </DialogContent>
           </form>
         </Form>
-      </Dialog>
-    </>
+    </Dialog>
   );
 };
 

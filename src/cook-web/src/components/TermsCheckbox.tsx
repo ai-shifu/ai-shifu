@@ -1,6 +1,5 @@
 import { Checkbox } from '@/components/ui/Checkbox';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'next/navigation';
 
 interface TermsCheckboxProps {
   checked: boolean;
@@ -14,7 +13,6 @@ export function TermsCheckbox({
   disabled = false,
 }: TermsCheckboxProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   return (
     <div className='flex items-center space-x-2'>
       <Checkbox
@@ -29,18 +27,18 @@ export function TermsCheckbox({
       >
         {t('auth.readAndAgree')}
         <a
-          onClick={() => {
-            router.push('/agreement');
-          }}
+          href='/agreement'
+          target='_blank'
+          rel='noopener noreferrer'
           className='text-primary hover:underline mx-1'
         >
           {t('auth.serviceAgreement')}
         </a>
         &
         <a
-          onClick={() => {
-            router.push('/privacy');
-          }}
+          href='/privacy'
+          target='_blank'
+          rel='noopener noreferrer'
           className='text-primary hover:underline mx-1'
         >
           {t('auth.privacyPolicy')}

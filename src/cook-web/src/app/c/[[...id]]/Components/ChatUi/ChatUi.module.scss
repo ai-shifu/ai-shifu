@@ -24,9 +24,10 @@
   }
 
   .globalInfoButton {
-    position: absolute;
-    right: 15px;
-    bottom: 15px;
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 1000;
   }
 }
 
