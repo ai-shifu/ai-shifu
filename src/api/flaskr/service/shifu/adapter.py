@@ -602,12 +602,7 @@ def check_login_block_dto(
     Returns:
         BlockUpdateResultDto: Result with error message if validation fails
     """
-    if (
-        not block_dto.block_content.label
-        or not block_dto.block_content.label.lang
-        or not "".join(list(block_dto.block_content.label.lang.values()))
-    ):
-        return BlockUpdateResultDto(None, _("SHIFU.LOGIN_LABEL_REQUIRED"))
+    # Login blocks can rely on default copy when no label is specified.
     return BlockUpdateResultDto(None, None)
 
 
