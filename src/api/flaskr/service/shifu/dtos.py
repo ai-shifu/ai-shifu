@@ -656,7 +656,7 @@ class PaymentDTO(BaseModel):
     Payment dto
     """
 
-    label: LabelDTO = Field(
+    label: LabelDTO | None = Field(
         default=None, description="label", type=LabelDTO, required=False
     )
 
