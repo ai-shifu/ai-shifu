@@ -39,7 +39,7 @@ const AskButtonInner = ({
 }) => {
   const [endPoint, setEndPoint] = useState({ x: 0, y: 0 });
   const [largeArcFlag, setLargeArcFlag] = useState(1);
-  const { t, i18n } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t, i18n } = useTranslation();
   const [oldPercent, setOldPercent] = useState(null);
 
   const onButtonClick = useCallback(() => {

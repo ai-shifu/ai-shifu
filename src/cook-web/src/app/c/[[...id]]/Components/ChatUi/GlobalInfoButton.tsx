@@ -39,7 +39,7 @@ import {
 import beianIcon from '@/c-assets/newchat/light/beian.png';
 
 const GlobalInfoButton = ({ className }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const {
     open: feedbackModalOpen,
@@ -90,7 +90,7 @@ const GlobalInfoButton = ({ className }) => {
       icon: <SquareArrowOutUpRightIcon />,
       onClick: () => {
         onPopoverClose();
-        window.open('/useragreement');
+        window.open('/agreement', '_blank', 'noopener,noreferrer');
       },
     },
     {
@@ -99,7 +99,7 @@ const GlobalInfoButton = ({ className }) => {
       icon: <SquareArrowOutUpRightIcon />,
       onClick: () => {
         onPopoverClose();
-        window.open('/privacypolicy');
+        window.open('/privacy', '_blank', 'noopener,noreferrer');
       },
     },
     {
@@ -138,7 +138,6 @@ const GlobalInfoButton = ({ className }) => {
       >
         <PopoverContent side='right'>
           <div className={styles.popoverContent}>
-            {/* <Menu items={menuItems} selectable={false} /> */}
             <NavigationMenu orientation='vertical'>
               <NavigationMenuList>
                 <NavigationMenuItem>

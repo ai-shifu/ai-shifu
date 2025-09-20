@@ -12,7 +12,7 @@ export const BirthdaySettingModal = ({
   onOk,
   currentBirthday,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const [value] = useState(currentBirthday || new Date('2000-01-01'));
   const onOkClick = () => {

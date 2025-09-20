@@ -117,7 +117,6 @@ export const useUserStore = create<
           set(() => ({
             userInfo,
           }));
-
           // Let i18next handle the language and its fallback mechanism
           i18n.changeLanguage(userInfo.language);
         } catch (err) {

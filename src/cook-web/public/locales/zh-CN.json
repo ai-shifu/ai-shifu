@@ -122,7 +122,8 @@
     "copyText": "复制",
     "loginSuccess": "已经登录成功了",
     "startAutoSkip": "开启自动跳过",
-    "stopAutoSkip": "停止自动跳过"
+    "stopAutoSkip": "停止自动跳过",
+    "thinking": "思考中..."
   },
   "cmEditor": {
     "image": "图片",
@@ -161,6 +162,21 @@
     "selectModel": "选择模型",
     "settings": "设置",
     "shifu": "师傅",
+    "shortcut": {
+      "key": {
+        "/": "/",
+        "a": "A",
+        "cmd": "⌘",
+        "ctrl": "Ctrl",
+        "shift": "⇧",
+        "space": "空格"
+      },
+      "title": {
+        "ask": "追问",
+        "continue": "继续（无需用户输入或选择时）",
+        "shortcut": "显示快捷方式"
+      }
+    },
     "submitFailed": "提交失败",
     "unknownError": "未知错误",
     "useImage": "使用图片",
