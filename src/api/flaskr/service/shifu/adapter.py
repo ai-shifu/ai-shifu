@@ -625,12 +625,7 @@ def check_payment_block_dto(
     Returns:
         BlockUpdateResultDto: Result with error message if validation fails
     """
-    if (
-        not block_dto.block_content.label
-        or not block_dto.block_content.label.lang
-        or not "".join(list(block_dto.block_content.label.lang.values()))
-    ):
-        return BlockUpdateResultDto(None, _("SHIFU.PAYMENT_LABEL_REQUIRED"))
+    # Payment blocks can fall back to default copy, so skip label validation.
     return BlockUpdateResultDto(None, None)
 
 
