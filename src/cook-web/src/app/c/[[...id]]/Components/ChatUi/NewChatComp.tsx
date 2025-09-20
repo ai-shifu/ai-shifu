@@ -288,12 +288,11 @@ export const NewChatComponents = (
           generated_block_bid: item.generated_block_bid,
           content: item.content,
           customRenderBar: () => null,
-          defaultButtonText: '',
-          defaultInputText: '',
+          defaultButtonText: item.user_input || '',
+          defaultInputText: item.user_input || '',
           readonly: false,
           isHistory: true,
         } as ContentItem);
-
         // if like_status is exist, add interaction block
         if(item.like_status){
          result.push({
