@@ -265,13 +265,7 @@ export default function ChatLayout({
 
     i18n.changeLanguage(language);
     updateLanguage(language);
-  }, [
-    envDataInitialized,
-    i18n,
-    language,
-    updateLanguage,
-    userLanguage,
-  ]);
+  }, [envDataInitialized, i18n, language, updateLanguage, userLanguage]);
 
   useEffect(() => {
     if (!envDataInitialized) return;

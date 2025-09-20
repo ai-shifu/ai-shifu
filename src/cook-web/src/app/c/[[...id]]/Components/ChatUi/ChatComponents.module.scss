@@ -4,14 +4,14 @@
   position: relative;
   box-sizing: border-box;
 
-  :global(.content-render){
+  :global(.content-render) {
     margin: 16px 0;
   }
-  :global(.lucide-send){
+  :global(.lucide-send) {
     width: 1.2rem;
     height: 1.2rem;
   }
-  :global(#chat-box-bottom){
+  :global(#chat-box-bottom) {
     height: 40px;
     width: 100%;
   }

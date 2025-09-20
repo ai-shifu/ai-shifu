@@ -95,15 +95,15 @@ export const useLessonTree = () => {
           name: c.title,
           status: c.status,
           status_value: c.status, // TODO: DELETE status_value
-          canLearning: checkChapterCanLearning({status_value: c.status}),
+          canLearning: checkChapterCanLearning({ status_value: c.status }),
         };
       });
 
       return {
         id: l.bid,
         name: l.title,
-        status: l.status , 
-        status_value: l.status ,
+        status: l.status,
+        status_value: l.status,
         lessons,
         collapse: false,
       };
@@ -113,7 +113,7 @@ export const useLessonTree = () => {
       catalogCount: catalogs.length,
       catalogs,
       lessonCount,
-      bannerInfo: treeData.banner_info, 
+      bannerInfo: treeData.banner_info,
     };
 
     return newTree;
@@ -179,7 +179,7 @@ export const useLessonTree = () => {
       } else {
         newTree = tree;
       }
-      
+
       const selected = setSelectedState(newTree, chapterId, lessonId);
       if (!selected) {
         initialSelectedChapter(newTree);

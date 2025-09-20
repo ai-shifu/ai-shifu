@@ -24,7 +24,8 @@ export const SSE_INPUT_TYPE = {
   NORMAL: 'normal',
   ASK: 'ask',
 } as const;
-export type SSE_INPUT_TYPE = (typeof SSE_INPUT_TYPE)[keyof typeof SSE_INPUT_TYPE];
+export type SSE_INPUT_TYPE =
+  (typeof SSE_INPUT_TYPE)[keyof typeof SSE_INPUT_TYPE];
 
 export const PREVIEW_MODE = {
   COOK: 'cook',
@@ -34,21 +35,22 @@ export const PREVIEW_MODE = {
 export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
 
 export const SSE_OUTPUT_TYPE = {
-    CONTENT: 'content',
-    BREAK: 'break',
-    INTERACTION: 'interaction',
-    OUTLINE_ITEM_UPDATE: 'outline_item_update',
-    PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
+  CONTENT: 'content',
+  BREAK: 'break',
+  INTERACTION: 'interaction',
+  OUTLINE_ITEM_UPDATE: 'outline_item_update',
+  PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
 } as const;
-export type SSE_OUTPUT_TYPE = (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
+export type SSE_OUTPUT_TYPE =
+  (typeof SSE_OUTPUT_TYPE)[keyof typeof SSE_OUTPUT_TYPE];
 
 export const SYS_INTERACTION_TYPE = {
   PAY: '_sys_pay',
   LOGIN: '_sys_login',
   NEXT_CHAPTER: '_sys_next_chapter', // TODO: wait for backend to support
 } as const;
-export type SysInteractionType = (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
-
+export type SysInteractionType =
+  (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
 
 export interface StudyRecordItem {
   block_type: BlockType;
@@ -153,14 +155,16 @@ export const getLessonStudyRecord = async ({
   outline_bid,
   preview_mode,
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
-  return request.get(
-    `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
-  ).catch(error => {
-    // when error, return empty records, go run api
-    return {
-      records: [],
-    };
-  });
+  return request
+    .get(
+      `/api/learn/shifu/${shifu_bid}/records/${outline_bid}?preview_mode=${preview_mode}`,
+    )
+    .catch(error => {
+      // when error, return empty records, go run api
+      return {
+        records: [],
+      };
+    });
 };
 
 /**
@@ -168,8 +172,8 @@ export const getLessonStudyRecord = async ({
  * shifu_bid: shifu_bid
  * generated_block_bid: 生成内容bid
  * action: 动作 like|dislike|none
- * @param params 
- * @returns 
+ * @param params
+ * @returns
  */
 export async function postGeneratedContentAction(
   params: PostGeneratedContentActionParams,

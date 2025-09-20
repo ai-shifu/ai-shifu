@@ -47,7 +47,9 @@ export const ChatMobileHeader = ({
         >
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
-            onOpen={onIconPopoverOpen} onClose={onIconPopoverClose}          />
+            onOpen={onIconPopoverOpen}
+            onClose={onIconPopoverClose}
+          />
         </div>
       )}
       <LogoWithText
@@ -60,13 +62,13 @@ export const ChatMobileHeader = ({
         content={
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
-            onClose={onIconPopoverClose} 
-            onOpen={onIconPopoverOpen}         
-            />
+            onClose={onIconPopoverClose}
+            onOpen={onIconPopoverOpen}
+          />
         }
         className={styles.iconButtonPopover}
         visible={iconPopoverOpen && hasPopoverContentControl}
-        placement="bottom-end"
+        placement='bottom-end'
       >
         <IconButton
           icon={navOpen ? closeIcon.src : moeIcon.src}

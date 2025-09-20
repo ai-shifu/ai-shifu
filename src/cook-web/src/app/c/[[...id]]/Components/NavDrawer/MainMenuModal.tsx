@@ -124,7 +124,6 @@ const MainMenuModal = ({
     setLogoutConfirmOpen(false);
   };
 
-
   const normalizeLanguage = (lang: string): string => {
     const supportedLanguages = Object.values(
       i18n.options.fallbackLng || {},
@@ -135,7 +134,6 @@ const MainMenuModal = ({
     }
     return 'en-US';
   };
-
 
   const updateLanguage = (language: string) => {
     const normalizedLang = normalizeLanguage(language);
@@ -232,7 +230,10 @@ const MainMenuModal = ({
                 </div>
               </div>
               <div className={styles.languageRowRight}>
-                <LanguageSelect  onSetLanguage={updateLanguage} contentClassName='z-[1001]' />
+                <LanguageSelect
+                  onSetLanguage={updateLanguage}
+                  contentClassName='z-[1001]'
+                />
               </div>
             </div>
           </div>

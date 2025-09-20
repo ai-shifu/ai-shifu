@@ -177,7 +177,7 @@ const NavDrawer = ({
           // @ts-expect-error EXPECT
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
-          mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE }
+          mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
           onBasicInfoClick={onBasicInfoClick}
           onPersonalInfoClick={onPersonalInfoClick}
         />
