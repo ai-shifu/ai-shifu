@@ -443,7 +443,6 @@ export const NewChatComponents = (
     const onSend = useCallback((content: OnSendContentParams) => {
       // console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
-      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(content)
       if(buttonText === SYS_INTERACTION_TYPE.PAY){
         trackEvent(EVENT_NAMES.POP_PAY, { from: 'show-btn' });
         onPayModalOpen();
@@ -454,6 +453,9 @@ export const NewChatComponents = (
         window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
         return;
       }
+      
+      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(content)
+
       // if(buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER){
       //   const nextOutlineBid = (variableName || inputText || '').trim();
       //   if(nextOutlineBid && nextOutlineBid !== outline_bid){

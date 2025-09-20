@@ -122,6 +122,7 @@ export const getRunMessage = (
   source.onmessage = event => {
     try {
       const response = JSON.parse(event.data);
+      console.log('====sse response====', response);
       if (onMessage) {
         onMessage(response);
       }
