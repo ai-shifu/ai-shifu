@@ -656,14 +656,19 @@ class PaymentDTO(BaseModel):
     Payment dto
     """
 
-    label: LabelDTO = Field(..., description="label", type=LabelDTO, required=True)
+    label: LabelDTO = Field(
+        default=None, description="label", type=LabelDTO, required=False
+    )
 
-    def __init__(self, label: dict[str, str], **kwargs):
-        super().__init__(label=LabelDTO(lang=label.get("lang", label)))
+    def __init__(self, label: dict[str, str] = None, **kwargs):
+        if label:
+            super().__init__(label=LabelDTO(lang=label.get("lang", label)))
+        else:
+            super().__init__(label=None)
 
     def __json__(self):
         return {
-            "label": self.label.__json__(),
+            "label": self.label.__json__() if self.label else None,
         }
 
 
