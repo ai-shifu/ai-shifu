@@ -18,8 +18,7 @@ import Image from 'next/image';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
-import { browserLanguage } from '@/i18n';
+import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 
 export default function AuthPage() {
@@ -79,7 +78,7 @@ export default function AuthPage() {
             <div className='absolute top-0 right-0'>
               <LanguageSelect
                 language={language}
-                onSetLanguage={setLanguage}
+                onSetLanguage={value => setLanguage(normalizeLanguage(value))}
                 variant='login'
               />
             </div>

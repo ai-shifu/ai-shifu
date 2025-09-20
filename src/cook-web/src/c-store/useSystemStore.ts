@@ -1,8 +1,9 @@
 import { create } from 'zustand';
 import { SystemStoreState } from '@/c-types/store';
+import { browserLanguage } from '@/i18n';
 
 export const useSystemStore = create<SystemStoreState>(set => ({
-  language: 'en',
+  language: browserLanguage,
   channel: '',
   wechatCode: '',
   showVip: true,

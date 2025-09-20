@@ -1,0 +1,464 @@
+name: Prepare Release Draft
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (must start with v, e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.changelog_content }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Set up Git user
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Python for commitizen
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'  # Stable version for commitizen
+
+      - name: Install commitizen
+        run: |
+          python -m pip install --upgrade pip
+          pip install commitizen
+
+      - name: Verify project setup
+        run: |
+          echo "🔍 Detecting project structure..."
+
+          # Check for different project types
+          PROJECT_TYPES=()
+
+          if find . -name "package.json" -not -path "./node_modules/*" | grep -q .; then
+            PROJECT_TYPES+=("Node.js/npm")
+          fi
+
+          if find . -name "pyproject.toml" | grep -q .; then
+            PROJECT_TYPES+=("Python/pyproject.toml")
+          fi
+
+          if [ -f "setup.py" ]; then
+            PROJECT_TYPES+=("Python/setup.py")
+          fi
+
+          if find . -name "Cargo.toml" | grep -q .; then
+            PROJECT_TYPES+=("Rust/Cargo")
+          fi
+
+          if find . -name "composer.json" | grep -q .; then
+            PROJECT_TYPES+=("PHP/Composer")
+          fi
+
+          if [ ${#PROJECT_TYPES[@]} -eq 0 ]; then
+            echo "⚠️  No standard project files detected - will use generic version file handling"
+          else
+            echo "✅ Detected project types:"
+            printf "   - %s\n" "${PROJECT_TYPES[@]}"
+          fi
+
+          # Check for commitizen config
+          if [ -f "cz.json" ] || [ -f ".cz.json" ] || [ -f "pyproject.toml" ] || [ -f ".cz.toml" ]; then
+            echo "✅ Commitizen configuration found"
+          else
+            echo "⚠️  No commitizen config found - will use default conventional commits"
+          fi
+
+      - name: Validate and set version
+        id: version
+        run: |
+          VERSION_INPUT="${{ github.event.inputs.version }}"
+
+          # Validate version format (must start with v)
+          if [[ ! $VERSION_INPUT =~ ^v[0-9]+\.[0-9]+\.[0-9]+.*$ ]]; then
+            echo "❌ Error: Version must start with 'v' and follow semantic versioning (e.g., v1.0.0)"
+            exit 1
+          fi
+
+          # Check if tag already exists
+          if git tag -l | grep -q "^${VERSION_INPUT}$"; then
+            echo "❌ Error: Tag ${VERSION_INPUT} already exists"
+            exit 1
+          fi
+
+          TAG_NAME="$VERSION_INPUT"
+          VERSION="${VERSION_INPUT#v}"  # Remove 'v' prefix
+          echo "tag=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📋 Preparing release version: $VERSION (tag: $TAG_NAME)"
+
+      - name: Update project version files
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG_NAME="${{ steps.version.outputs.tag }}"
+
+          echo "📝 Auto-detecting project type and updating version files to $VERSION..."
+
+          # Function to update JSON version field
+          update_json_version() {
+            local file="$1"
+            echo "  → Updating $file..."
+            sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" "$file"
+            rm -f "$file.bak"
+          }
+
+          # Function to update TOML version field
+          update_toml_version() {
+            local file="$1"
+            echo "  → Updating $file..."
+            sed -i.bak "s/^version = \"[^\"]*\"/version = \"$VERSION\"/" "$file"
+            rm -f "$file.bak"
+          }
+
+          # Function to update Python __version__ or VERSION
+          update_python_version() {
+            local file="$1"
+            echo "  → Updating $file..."
+            sed -i.bak -E "s/__version__ = ['\"]([^'\"]*)['\"]/__version__ = '$VERSION'/" "$file"
+            sed -i.bak -E "s/VERSION = ['\"]([^'\"]*)['\"]//VERSION = '$VERSION'/" "$file"
+            rm -f "$file.bak"
+          }
+
+          UPDATED_FILES=()
+
+          # 1. Node.js/npm projects - Look for package.json files
+          echo "🔍 Scanning for Node.js/npm projects..."
+          find . -name "package.json" -not -path "./node_modules/*" -not -path "./.git/*" | while read -r file; do
+            if [ -f "$file" ]; then
+              update_json_version "$file"
+              UPDATED_FILES+=("$file")
+            fi
+          done
+
+          # 2. Python pyproject.toml projects
+          echo "🔍 Scanning for Python pyproject.toml projects..."
+          find . -name "pyproject.toml" -not -path "./.git/*" | while read -r file; do
+            if [ -f "$file" ] && grep -q "version.*=" "$file"; then
+              update_toml_version "$file"
+              UPDATED_FILES+=("$file")
+            fi
+          done
+
+          # 3. Python setup.py projects
+          echo "🔍 Scanning for Python setup.py projects..."
+          if [ -f "setup.py" ]; then
+            # Update version in setup.py (common patterns)
+            echo "  → Updating setup.py..."
+            sed -i.bak -E "s/version=['\"]([^'\"]*)['\"],/version='$VERSION',/" setup.py
+            sed -i.bak -E "s/version = ['\"]([^'\"]*)['\"],/version = '$VERSION',/" setup.py
+            rm -f setup.py.bak
+            UPDATED_FILES+=("setup.py")
+          fi
+
+          # 4. Python __init__.py version files
+          echo "🔍 Scanning for Python __init__.py version files..."
+          find . -name "__init__.py" -not -path "./.git/*" | while read -r file; do
+            if grep -q "__version__\|VERSION" "$file" 2>/dev/null; then
+              update_python_version "$file"
+              UPDATED_FILES+=("$file")
+            fi
+          done
+
+          # 5. Cargo.toml for Rust projects
+          echo "🔍 Scanning for Rust Cargo.toml projects..."
+          find . -name "Cargo.toml" -not -path "./.git/*" | while read -r file; do
+            if [ -f "$file" ]; then
+              update_toml_version "$file"
+              UPDATED_FILES+=("$file")
+            fi
+          done
+
+          # 6. Docker Compose files (project-specific, should be customized)
+          echo "🔍 Scanning for Docker Compose files..."
+          find . -name "docker-compose*.yml" -o -name "docker-compose*.yaml" | while read -r file; do
+            if [ -f "$file" ]; then
+              echo "  → Updating Docker image tags in $file..."
+              # Generic pattern - update any image tags that look like versions
+              sed -i.bak -E "s|image: ([^:]+):v[0-9]+\.[0-9]+\.[0-9]+[^[:space:]]*|image: \1:$TAG_NAME|g" "$file"
+              rm -f "$file.bak"
+              UPDATED_FILES+=("$file")
+            fi
+          done
+
+          # 7. Version files (VERSION, version.txt, etc.)
+          echo "🔍 Scanning for version files..."
+          for version_file in VERSION version.txt .version; do
+            if [ -f "$version_file" ]; then
+              echo "  → Updating $version_file..."
+              echo "$VERSION" > "$version_file"
+              UPDATED_FILES+=("$version_file")
+            fi
+          done
+
+          # Summary
+          if [ ${#UPDATED_FILES[@]} -eq 0 ]; then
+            echo "⚠️ No version files found to update. This might be expected for some project types."
+          else
+            echo "✅ Updated version files:"
+            printf "   - %s\n" "${UPDATED_FILES[@]}"
+          fi
+
+      - name: Get previous tag for changelog
+        id: prev_tag
+        run: |
+          echo "📝 Getting previous tag for changelog generation..."
+
+          # Ensure all tags are fetched
+          git fetch --tags --force
+
+          # List all tags for debugging
+          echo "📋 All available tags:"
+          git tag -l --sort=-version:refname | head -10
+
+          # Get the latest existing tag before we create the new one
+          PREV_TAG=$(git tag -l --sort=-version:refname | grep -E "^v[0-9]+\.[0-9]+\.[0-9]+$" | head -1 || echo "")
+
+          echo "prev_tag=$PREV_TAG" >> $GITHUB_OUTPUT
+          if [ -n "$PREV_TAG" ]; then
+            echo "📋 Previous tag found: $PREV_TAG"
+            echo "📋 Will generate changelog from $PREV_TAG to ${{ steps.version.outputs.tag }}"
+          else
+            echo "📋 No previous tag found - this will be the initial release"
+          fi
+
+      - name: Generate changelog using cz
+        id: changelog
+        run: |
+          echo "📝 Generating changelog using commitizen for version ${{ steps.version.outputs.version }}..."
+
+          # Use the previous tag we got before creating the new tag
+          PREV_TAG="${{ steps.prev_tag.outputs.prev_tag }}"
+          CURRENT_TAG="${{ steps.version.outputs.tag }}"
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "📋 Generating changelog from $PREV_TAG to HEAD using commitizen"
+
+            # Try using commitizen first
+            if cz changelog --dry-run --start-rev "$PREV_TAG" > /tmp/cz_changelog.md 2>/dev/null && [ -s /tmp/cz_changelog.md ]; then
+              echo "✅ Successfully generated changelog using commitizen"
+              CHANGELOG_CONTENT=$(cat /tmp/cz_changelog.md)
+            else
+              echo "⚠️ Commitizen failed, falling back to manual git log parsing"
+
+              # Fallback to manual parsing (original logic)
+              echo "## Changes since $PREV_TAG" > /tmp/changelog.md
+              echo "" >> /tmp/changelog.md
+
+              # Get conventional commits and categorize them
+              FEAT_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -E "^- feat[:\(]" | sed 's/^- feat[:\(][^)]*[)]*: */- /' || echo "")
+              FIX_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -E "^- fix[:\(]" | sed 's/^- fix[:\(][^)]*[)]*: */- /' || echo "")
+              CHORE_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -E "^- chore[:\(]" | sed 's/^- chore[:\(][^)]*[)]*: */- /' || echo "")
+              DOCS_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -E "^- docs[:\(]" | sed 's/^- docs[:\(][^)]*[)]*: */- /' || echo "")
+              REFACTOR_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -E "^- refactor[:\(]" | sed 's/^- refactor[:\(][^)]*[)]*: */- /' || echo "")
+
+              # Add sections with emoji headers (abbreviated for space)
+              if [ -n "$FEAT_COMMITS" ]; then
+                echo "### ✨ Features" >> /tmp/changelog.md
+                echo "$FEAT_COMMITS" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+              fi
+
+              if [ -n "$FIX_COMMITS" ]; then
+                echo "### 🐛 Bug Fixes" >> /tmp/changelog.md
+                echo "$FIX_COMMITS" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+              fi
+
+              if [ -n "$REFACTOR_COMMITS" ]; then
+                echo "### ♻️ Code Refactoring" >> /tmp/changelog.md
+                echo "$REFACTOR_COMMITS" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+              fi
+
+              if [ -n "$DOCS_COMMITS" ]; then
+                echo "### 📚 Documentation" >> /tmp/changelog.md
+                echo "$DOCS_COMMITS" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+              fi
+
+              if [ -n "$CHORE_COMMITS" ]; then
+                echo "### 🔧 Chores" >> /tmp/changelog.md
+                echo "$CHORE_COMMITS" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+              fi
+
+              # If no categorized commits found, add a note
+              if [ -z "$FEAT_COMMITS" ] && [ -z "$FIX_COMMITS" ] && [ -z "$REFACTOR_COMMITS" ] && [ -z "$DOCS_COMMITS" ] && [ -z "$CHORE_COMMITS" ]; then
+                echo "### 📝 Other Changes" >> /tmp/changelog.md
+                OTHER_COMMITS=$(git log --pretty=format:"- %s" "$PREV_TAG"..HEAD | grep -v -E "^- (feat|fix|docs|style|refactor|perf|test|build|ci|chore)[:\(]" || echo "")
+                if [ -n "$OTHER_COMMITS" ]; then
+                  echo "$OTHER_COMMITS" >> /tmp/changelog.md
+                else
+                  echo "- Minor updates and improvements" >> /tmp/changelog.md
+                fi
+                echo "" >> /tmp/changelog.md
+              fi
+
+              CHANGELOG_CONTENT=$(cat /tmp/changelog.md)
+            fi
+          else
+            echo "📋 No previous tag found, generating initial changelog"
+            echo "## 🎉 Initial Release" > /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+
+            # Get repository name for personalized message
+            REPO_NAME="${{ github.event.repository.name }}"
+            echo "This is the first tagged release of **${REPO_NAME}**. Thank you for your interest in this project!" >> /tmp/changelog.md
+            echo "" >> /tmp/changelog.md
+
+            # Try to extract key information from README.md
+            if [ -f "README.md" ]; then
+              echo "📋 Extracting project information from README.md"
+
+              # Try to extract description (first paragraph after title)
+              DESCRIPTION=$(sed -n '2,10p' README.md | grep -v "^#" | grep -v "^\s*$" | head -3 | tr '\n' ' ')
+              if [ -n "$DESCRIPTION" ]; then
+                echo "## About" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+                echo "$DESCRIPTION" >> /tmp/changelog.md
+                echo "" >> /tmp/changelog.md
+              fi
+
+              # Try to extract Features/Installation/Usage sections
+              for section in "Features" "Installation" "Usage" "Getting Started" "Quick Start"; do
+                if grep -q "^# $section" README.md; then
+                  sed -n "/^# $section/,/^# /p" README.md | sed '$ d' >> /tmp/changelog.md
+                  echo "" >> /tmp/changelog.md
+                  break
+                fi
+              done
+            else
+              # Generic fallback
+              echo "## About" >> /tmp/changelog.md
+              echo "" >> /tmp/changelog.md
+              echo "This project follows semantic versioning and conventional commits for reliable releases." >> /tmp/changelog.md
+              echo "" >> /tmp/changelog.md
+              echo "## Getting Started" >> /tmp/changelog.md
+              echo "" >> /tmp/changelog.md
+              echo "Please check the README.md file for installation and usage instructions." >> /tmp/changelog.md
+              echo "" >> /tmp/changelog.md
+            fi
+
+            CHANGELOG_CONTENT=$(cat /tmp/changelog.md)
+          fi
+
+          # Store changelog content
+          echo "changelog_content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "✅ Changelog generated successfully"
+
+      - name: Create GitHub Release Draft
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            # Release ${{ steps.version.outputs.tag }}
+
+            ${{ steps.changelog.outputs.changelog_content }}
+
+            ## 📦 Installation
+
+            **Package Managers:**
+            ```bash
+            # npm (if Node.js project)
+            npm install ${{ github.repository }}@${{ steps.version.outputs.tag }}
+
+            # pip (if Python project)
+            pip install ${{ github.event.repository.name }}==${{ steps.version.outputs.version }}
+
+            # From source
+            git clone ${{ github.event.repository.clone_url }}
+            cd ${{ github.event.repository.name }}
+            git checkout ${{ steps.version.outputs.tag }}
+            ```
+
+            ## 📖 Documentation
+
+            - 📚 [README](README.md)
+            - 🔧 [Contributing Guidelines](CONTRIBUTING.md)
+            - 📋 [Changelog](CHANGELOG.md)
+
+            ## 🆘 Support
+
+            - 🐛 [Report Issues](${{ github.event.repository.html_url }}/issues)
+            - 💬 [Discussions](${{ github.event.repository.html_url }}/discussions)
+            - ⭐ [Give us a star](${{ github.event.repository.html_url }}) if this project helped you!
+
+          draft: true
+          prerelease: false
+          make_latest: false
+
+      - name: Create PR with version changes
+        id: cpr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          commit-message: "chore: flow version to ${{ steps.version.outputs.tag }}"
+          committer: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          branch: release/version-bump-${{ steps.version.outputs.tag }}
+          base: ${{ github.ref_name }}
+          title: "chore: flow version to ${{ steps.version.outputs.tag }}"
+          body: |
+            This PR prepares the repository for release ${{ steps.version.outputs.tag }}.
+
+            - Updates detected version files to `${{ steps.version.outputs.version }}`
+            - Keeps release tag creation separate (draft already created)
+
+            Changelog preview:
+
+            ${{ steps.changelog.outputs.changelog_content }}
+
+          labels: |
+            release
+            automated
+          draft: false
+
+      - name: Output PR info
+        if: steps.cpr.outputs.pull-request-number
+        run: |
+          echo "✅ Created PR #${{ steps.cpr.outputs.pull-request-number }}: ${{ steps.cpr.outputs.pull-request-url }}"
+          echo "Pull Request URL: ${{ steps.cpr.outputs.pull-request-url }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Summary
+        run: |
+          echo "## 📋 Release Preparation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Draft Release Created**: ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Review the draft release and changelog" >> $GITHUB_STEP_SUMMARY
+          echo "2. Run the **Publish Release** workflow to complete the release" >> $GITHUB_STEP_SUMMARY
+          echo "3. Docker images and deployment will happen automatically after publishing" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag**: ${{ steps.version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version**: ${{ steps.version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Previous Tag**: ${{ steps.prev_tag.outputs.prev_tag || 'None (Initial Release)' }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Draft Release](https://github.com/${{ github.repository }}/releases/tag/${{ steps.version.outputs.tag }})" >> $GITHUB_STEP_SUMMARY

@@ -1,11 +1,11 @@
 from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
-from flaskr.service.study.utils import get_model_setting
-from flaskr.service.study.utils import extract_variables
+from flaskr.service.learn.utils import get_model_setting
+from flaskr.service.learn.utils import extract_variables
 from langchain.prompts import PromptTemplate
 from flaskr.service.common import raise_error
-from flaskr.service.study.dtos import ScriptDTO
-from flaskr.service.study.utils import make_script_dto_to_stream
+from flaskr.service.learn.dtos import ScriptDTO
+from flaskr.service.learn.utils import make_script_dto_to_stream
 from flaskr.service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 
 from flaskr.service.shifu.models import DraftBlock
