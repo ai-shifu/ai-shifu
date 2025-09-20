@@ -81,52 +81,52 @@ export const FeedbackModal = ({ open, onClose }) => {
       open={open}
       onOpenChange={handleOpenChange}
     >
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmitFeedback)}
-            className={styles.formWrapper}
-          >
-            <DialogContent className={styles.feedbackModal}>
-              <DialogHeader>
-                <DialogTitle className={cn(styles.title)}>
-                  {t('feedback.feedbackTitle')}
-                </DialogTitle>
-              </DialogHeader>
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmitFeedback)}
+          className={styles.formWrapper}
+        >
+          <DialogContent className={styles.feedbackModal}>
+            <DialogHeader>
+              <DialogTitle className={cn(styles.title)}>
+                {t('feedback.feedbackTitle')}
+              </DialogTitle>
+            </DialogHeader>
 
-              <FormField
-                control={form.control}
-                name='feedback'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        maxLength={FEEDBACK_MAX_LENGTH}
-                        minLength={5}
-                        placeholder={t('feedback.feedbackPlaceholder')}
-                        className='resize-none h-24'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name='feedback'
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      maxLength={FEEDBACK_MAX_LENGTH}
+                      minLength={5}
+                      placeholder={t('feedback.feedbackPlaceholder')}
+                      className='resize-none h-24'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <DialogFooter>
-                <Button
-                  type='submit'
-                  className={cn('w-full', styles.okBtn)}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    form.handleSubmit(onSubmitFeedback)();
-                  }}
-                >
-                  {t('feedback.feedbackSubmit')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </form>
-        </Form>
+            <DialogFooter>
+              <Button
+                type='submit'
+                className={cn('w-full', styles.okBtn)}
+                onClick={e => {
+                  e.preventDefault();
+                  form.handleSubmit(onSubmitFeedback)();
+                }}
+              >
+                {t('feedback.feedbackSubmit')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </form>
+      </Form>
     </Dialog>
   );
 };

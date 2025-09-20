@@ -162,13 +162,6 @@
     "selectModel": "选择模型",
     "settings": "设置",
     "shifu": "师傅",
-    "submitFailed": "提交失败",
-    "unknownError": "未知错误",
-    "useImage": "使用图片",
-    "useResource": "使用资源",
-    "videoTitle": "视频名称",
-    "videoTitlePlaceholder": "请输入视频名称",
-    "waitingForCompletion": "敬请期待",
     "shortcut": {
       "key": {
         "/": "/",
@@ -183,7 +176,14 @@
         "continue": "继续（无需用户输入或选择时）",
         "shortcut": "显示快捷方式"
       }
-    }
+    },
+    "submitFailed": "提交失败",
+    "unknownError": "未知错误",
+    "useImage": "使用图片",
+    "useResource": "使用资源",
+    "videoTitle": "视频名称",
+    "videoTitlePlaceholder": "请输入视频名称",
+    "waitingForCompletion": "敬请期待"
   },
   "createShifuDialog": {
     "create": "创建",

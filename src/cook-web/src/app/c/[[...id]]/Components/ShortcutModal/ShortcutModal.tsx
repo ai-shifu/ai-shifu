@@ -21,18 +21,18 @@ const ShortcutModal = ({ open, onClose }) => {
     {
       id: 'continue',
       title: '继续（无需用户输入或选择时）',
-      keys: ['空格']
+      keys: ['空格'],
     },
     {
       id: 'ask',
       title: '追问',
-      keys: inMacOs ? ['⌘', '⇧', 'A'] : ['Ctrl', '⇧', 'A']
+      keys: inMacOs ? ['⌘', '⇧', 'A'] : ['Ctrl', '⇧', 'A'],
     },
     {
       id: 'shortcut',
       title: '显示快捷方式',
-      keys: inMacOs ? ['⌘', '/'] : ['Ctrl', '/']
-    }
+      keys: inMacOs ? ['⌘', '/'] : ['Ctrl', '/'],
+    },
   ];
 
   const getShortcutKey = (keyText: string, index: number) => {
@@ -62,9 +62,7 @@ const ShortcutModal = ({ open, onClose }) => {
     >
       <DialogContent className={styles.shortcutModal}>
         <DialogHeader>
-          <DialogTitle className={styles.shortcutTitle}>
-            快捷键
-          </DialogTitle>
+          <DialogTitle className={styles.shortcutTitle}>快捷键</DialogTitle>
         </DialogHeader>
         <div className={styles.shortcutContent}>
           {shortcutKeysOptions.map(option => {

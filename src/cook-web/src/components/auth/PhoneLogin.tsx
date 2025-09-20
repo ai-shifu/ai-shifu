@@ -148,7 +148,9 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
           onChange={handlePhoneChange}
           disabled={isLoading}
           className={
-            phoneError ? 'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground' : ''
+            phoneError
+              ? 'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground'
+              : ''
           }
         />
         {phoneError && <p className='text-xs text-red-500'>{phoneError}</p>}

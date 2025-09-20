@@ -162,13 +162,6 @@
     "selectModel": "Select Model",
     "settings": "Settings",
     "shifu": "Shifu",
-    "submitFailed": "Submit failed",
-    "unknownError": "Unknown error",
-    "useImage": "Use Image",
-    "useResource": "Use Resource",
-    "videoTitle": "Video Title",
-    "videoTitlePlaceholder": "Please enter video title",
-    "waitingForCompletion": "Coming Soon",
     "shortcut": {
       "key": {
         "/": "/",
@@ -183,7 +176,14 @@
         "continue": "Continue (when no input or selection required)",
         "shortcut": "Display Shortcuts"
       }
-    }
+    },
+    "submitFailed": "Submit failed",
+    "unknownError": "Unknown error",
+    "useImage": "Use Image",
+    "useResource": "Use Resource",
+    "videoTitle": "Video Title",
+    "videoTitlePlaceholder": "Please enter video title",
+    "waitingForCompletion": "Coming Soon"
   },
   "createShifuDialog": {
     "create": "Create",
