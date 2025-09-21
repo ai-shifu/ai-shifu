@@ -35,7 +35,8 @@ export const ChatInteractionArea = ({
 
   // 创建localStorage的key，基于当前会话和输入类型
   const getStorageKey = () => {
-    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const pathname =
+      typeof window !== 'undefined' ? window.location.pathname : '';
     return `chat_input_${pathname}_${type || 'default'}`;
   };
 
