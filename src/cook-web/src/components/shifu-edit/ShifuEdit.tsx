@@ -20,6 +20,7 @@ import '@mdxeditor/editor/style.css';
 import Header from '../header';
 import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu';
 import RenderBlockUI from '../render-ui';
+import { MarkdownFlowEditor } from 'markdown-flow-ui'
 import AIDebugDialog from '@/components/ai-debug';
 
 import {
@@ -443,69 +444,72 @@ const ScriptEditor = ({ id }: { id: string }) => {
               </div>
             ) : (
               <>
-                <DndProvider backend={HTML5Backend}>
-                  {blocks.map((block, index) => (
-                    <DraggableBlock
-                      key={block.bid}
-                      id={block.bid}
-                      block={block}
-                      type={block.type as BlockType}
-                      index={index}
-                      moveBlock={(dragIndex: number, hoverIndex: number) => {
-                        const dragBlock = blocks[dragIndex];
-                        const newBlocks = [...blocks];
-                        newBlocks.splice(dragIndex, 1);
-                        newBlocks.splice(hoverIndex, 0, dragBlock);
-                        actions.setBlocks(newBlocks);
-                        actions.autoSaveBlocks(
-                          currentNode!.bid,
-                          newBlocks,
-                          blockContentTypes,
-                          blockProperties,
-                          currentShifu?.bid || '',
-                        );
-                      }}
-                      onClickChangeType={onChangeBlockType}
-                      onClickDebug={onDebugBlock}
-                      onClickRemove={onRemove}
-                      disabled={expandedBlocks[block.bid]}
-                      error={blockErrors[block.bid]}
-                    >
-                      <div
-                        id={block.bid}
-                        className='relative flex flex-col gap-2 '
-                      >
-                        <RenderBlockUI
-                          block={block}
-                          onExpandChange={expanded => {
-                            setExpandedBlocks(prev => ({
-                              ...prev,
-                              [block.bid]: expanded,
-                            }));
-                          }}
-                          expanded={expandedBlocks[block.bid]}
-                        />
-                        <div>
-                          <AddBlock
-                            onAdd={(type: BlockType) => {
-                              onAddBlock(index + 1, type, id);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </DraggableBlock>
-                  ))}
-                </DndProvider>
-                {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
-                  <div className='flex flex-row items-center justify-start h-6'>
-                    <AddBlock
-                      onAdd={(type: BlockType) => {
-                        onAddBlock(1, type, id);
-                      }}
-                    />
-                  </div>
-                )}
+                <MarkdownFlowEditor value='test' />
               </>
+              // <>
+              //   <DndProvider backend={HTML5Backend}>
+              //     {blocks.map((block, index) => (
+              //       <DraggableBlock
+              //         key={block.bid}
+              //         id={block.bid}
+              //         block={block}
+              //         type={block.type as BlockType}
+              //         index={index}
+              //         moveBlock={(dragIndex: number, hoverIndex: number) => {
+              //           const dragBlock = blocks[dragIndex];
+              //           const newBlocks = [...blocks];
+              //           newBlocks.splice(dragIndex, 1);
+              //           newBlocks.splice(hoverIndex, 0, dragBlock);
+              //           actions.setBlocks(newBlocks);
+              //           actions.autoSaveBlocks(
+              //             currentNode!.bid,
+              //             newBlocks,
+              //             blockContentTypes,
+              //             blockProperties,
+              //             currentShifu?.bid || '',
+              //           );
+              //         }}
+              //         onClickChangeType={onChangeBlockType}
+              //         onClickDebug={onDebugBlock}
+              //         onClickRemove={onRemove}
+              //         disabled={expandedBlocks[block.bid]}
+              //         error={blockErrors[block.bid]}
+              //       >
+              //         <div
+              //           id={block.bid}
+              //           className='relative flex flex-col gap-2 '
+              //         >
+              //           <RenderBlockUI
+              //             block={block}
+              //             onExpandChange={expanded => {
+              //               setExpandedBlocks(prev => ({
+              //                 ...prev,
+              //                 [block.bid]: expanded,
+              //               }));
+              //             }}
+              //             expanded={expandedBlocks[block.bid]}
+              //           />
+              //           <div>
+              //             <AddBlock
+              //               onAdd={(type: BlockType) => {
+              //                 onAddBlock(index + 1, type, id);
+              //               }}
+              //             />
+              //           </div>
+              //         </div>
+              //       </DraggableBlock>
+              //     ))}
+              //   </DndProvider>
+              //   {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
+              //     <div className='flex flex-row items-center justify-start h-6'>
+              //       <AddBlock
+              //         onAdd={(type: BlockType) => {
+              //           onAddBlock(1, type, id);
+              //         }}
+              //       />
+              //     </div>
+              //   )}
+              // </>
             )}
           </div>
         </div>
