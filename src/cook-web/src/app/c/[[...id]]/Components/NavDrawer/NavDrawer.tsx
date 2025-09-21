@@ -2,7 +2,7 @@
  * 左侧导航控件容器
  */
 import styles from './NavDrawer.module.scss';
-import { useContext, useState, useRef, memo, useCallback } from 'react';
+import { useContext, useState, useRef, memo, useCallback, useEffect } from 'react';
 import clsx from 'clsx';
 
 import { AppContext } from '@/c-components/AppContext';
@@ -71,6 +71,7 @@ const NavDrawer = ({
   onPersonalInfoClick,
 }) => {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const [delayedIsLoggedIn, setDelayedIsLoggedIn] = useState(isLoggedIn);
 
   const [isCollapse, setIsCollapse] = useState(false);
 
@@ -115,6 +116,19 @@ const NavDrawer = ({
     [onMainModalClose],
   );
 
+  // BUGFIX: 登录状态切换时的视觉闪现优化
+  // 问题：用户登录/退出时，导航栏组件在登录状态和未登录状态之间切换会产生明显闪现
+  // 解决：增加100ms延迟更新机制，让状态变化更平滑，减少视觉跳跃
+  // 场景：特别是退出登录时，避免登录按钮和课程列表之间的快速切换造成的闪现
+  useEffect(() => {
+    if (isLoggedIn !== delayedIsLoggedIn) {
+      const timer = setTimeout(() => {
+        setDelayedIsLoggedIn(isLoggedIn);
+      }, 100); // 100ms延迟
+      return () => clearTimeout(timer);
+    }
+  }, [isLoggedIn, delayedIsLoggedIn]);
+
   const onFooterClick = useCallback(() => {
     onMainModalToggle();
     trackEvent(EVENT_NAMES.USER_MENU, {
@@ -145,7 +159,7 @@ const NavDrawer = ({
             ref={bodyRef}
           >
             {!isCollapse &&
-              (isLoggedIn || alwaysShowLessonTree ? (
+              (delayedIsLoggedIn || alwaysShowLessonTree ? (
                 <CourseCatalogList
                   courseName={courseName}
                   selectedLessonId={selectedLessonId}
