@@ -27,7 +27,40 @@ export const ChatInteractionArea = ({
   const { t } = useTranslation();
   const [isInputVisible, setInputVisible] = useState(false);
   const [askContent, setAskContent] = useState('');
-  const [inputValue, setInputValue] = useState('');
+
+  // BUGFIX: 聊天输入框持久化存储优化
+  // 问题：用户输入内容后刷新页面，输入框内容丢失，用户体验不佳
+  // 解决：使用localStorage在父组件层面管理输入状态，确保页面刷新后内容保留
+  // 架构：遵循React最佳实践，将状态提升到父组件，避免子组件直接操作localStorage
+
+  // 创建localStorage的key，基于当前会话和输入类型
+  const getStorageKey = () => {
+    const pathname =
+      typeof window !== 'undefined' ? window.location.pathname : '';
+    return `chat_input_${pathname}_${type || 'default'}`;
+  };
+
+  // 从localStorage加载保存的输入值
+  const getStoredValue = () => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem(getStorageKey());
+      return stored || '';
+    }
+    return '';
+  };
+
+  const [inputValue, setInputValue] = useState(() => getStoredValue());
+
+  // 自动保存输入内容到localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (inputValue.trim()) {
+        localStorage.setItem(getStorageKey(), inputValue);
+      } else {
+        localStorage.removeItem(getStorageKey());
+      }
+    }
+  }, [inputValue]);
 
   const onSendFunc = (type, display, val) => {
     if (disabled) {

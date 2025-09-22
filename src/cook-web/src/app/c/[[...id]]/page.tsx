@@ -43,9 +43,7 @@ import PayModal from './Components/Pay/PayModal';
 
 // the main page of course learning
 export default function ChatPage() {
-  const { i18n } = useTranslation('translation', {
-    keyPrefix: 'c',
-  });
+  const { i18n } = useTranslation();
 
   /**
    * User info and init part
@@ -74,7 +72,7 @@ export default function ChatPage() {
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent('/c')}`;
+    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -182,16 +180,16 @@ export default function ChatPage() {
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
   // TODO: REMOVE
-  console.log(
-    'chapterId: ',
-    chapterId,
-    'lessonId: ',
-    lessonId,
-    'initialized: ',
-    initialized,
-    'loadedChapterId: ',
-    loadedChapterId,
-  );
+  // console.log(
+  //   'chapterId: ',
+  //   chapterId,
+  //   'lessonId: ',
+  //   lessonId,
+  //   'initialized: ',
+  //   initialized,
+  //   'loadedChapterId: ',
+  //   loadedChapterId,
+  // );
 
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
@@ -202,11 +200,9 @@ export default function ChatPage() {
     if (chapter.id !== chapterId) {
       updateChapterId(chapter.id);
     }
-
     if (lessonId === id) {
       return;
     }
-
     events.dispatchEvent(
       new CustomEvent(EVENT_NAMES.GO_TO_NAVIGATION_NODE, {
         detail: {

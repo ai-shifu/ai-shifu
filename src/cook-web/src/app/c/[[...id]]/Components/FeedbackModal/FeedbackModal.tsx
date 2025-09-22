@@ -34,7 +34,7 @@ import { toast } from '@/hooks/useToast';
 const FEEDBACK_MAX_LENGTH = 300;
 
 export const FeedbackModal = ({ open, onClose }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const formSchema = z.object({
     feedback: z.string().min(5, {
@@ -58,68 +58,76 @@ export const FeedbackModal = ({ open, onClose }) => {
         toast({
           title: t('feedback.feedbackSuccess'),
         });
+        form.reset();
         onClose();
-      } catch {}
+      } catch (error) {
+        toast({
+          title: t('feedback.feedbackError') || 'Submission failed',
+          variant: 'destructive',
+        });
+      }
     },
-    [onClose, t],
+    [onClose, t, form],
   );
 
-  function handleOpenChange(open) {
+  function handleOpenChange(open: boolean) {
     if (!open) {
       onClose();
     }
   }
 
   return (
-    <>
-      <Dialog
-        open={open}
-        onOpenChange={handleOpenChange}
-      >
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmitFeedback)}
-            className={styles.formWrapper}
-          >
-            <DialogContent className={styles.feedbackModal}>
-              <DialogHeader>
-                <DialogTitle className={cn(styles.title)}>
-                  {t('feedback.feedbackTitle')}
-                </DialogTitle>
-              </DialogHeader>
+    <Dialog
+      open={open}
+      onOpenChange={handleOpenChange}
+    >
+      <Form {...form}>
+        <form
+          onSubmit={form.handleSubmit(onSubmitFeedback)}
+          className={styles.formWrapper}
+        >
+          <DialogContent className={styles.feedbackModal}>
+            <DialogHeader>
+              <DialogTitle className={cn(styles.title)}>
+                {t('feedback.feedbackTitle')}
+              </DialogTitle>
+            </DialogHeader>
 
-              <FormField
-                control={form.control}
-                name='feedback'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <Textarea
-                        maxLength={FEEDBACK_MAX_LENGTH}
-                        minLength={5}
-                        placeholder={t('feedback.feedbackPlaceholder')}
-                        className='resize-none h-24'
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <FormField
+              control={form.control}
+              name='feedback'
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Textarea
+                      maxLength={FEEDBACK_MAX_LENGTH}
+                      minLength={5}
+                      placeholder={t('feedback.feedbackPlaceholder')}
+                      className='resize-none h-24'
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <DialogFooter>
-                <Button
-                  type='submit'
-                  className={cn('w-full', styles.okBtn)}
-                >
-                  {t('feedback.feedbackSubmit')}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </form>
-        </Form>
-      </Dialog>
-    </>
+            <DialogFooter>
+              <Button
+                type='submit'
+                className={cn('w-full', styles.okBtn)}
+                onClick={e => {
+                  e.preventDefault();
+                  form.handleSubmit(onSubmitFeedback)();
+                }}
+              >
+                {t('feedback.feedbackSubmit')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </form>
+      </Form>
+    </Dialog>
   );
 };
 

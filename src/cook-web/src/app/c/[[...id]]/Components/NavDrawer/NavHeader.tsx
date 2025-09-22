@@ -19,7 +19,7 @@ export const NavHeader = ({
   onClose = () => {},
   mobileStyle = false,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const { trackEvent } = useTracking();
   const onLogoAreaClick = useCallback(() => {

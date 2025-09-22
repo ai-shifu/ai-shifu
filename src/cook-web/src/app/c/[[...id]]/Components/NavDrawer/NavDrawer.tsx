@@ -2,7 +2,14 @@
  * 左侧导航控件容器
  */
 import styles from './NavDrawer.module.scss';
-import { useContext, useState, useRef, memo, useCallback } from 'react';
+import {
+  useContext,
+  useState,
+  useRef,
+  memo,
+  useCallback,
+  useEffect,
+} from 'react';
 import clsx from 'clsx';
 
 import { AppContext } from '@/c-components/AppContext';
@@ -23,7 +30,7 @@ import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import MainMenuModal from './MainMenuModal';
 
 import { useUserStore } from '@/store';
-
+import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
 /**
  * 导航栏展示形式
  * 0: 默认，在 dom 流中展示
@@ -71,12 +78,15 @@ const NavDrawer = ({
   onPersonalInfoClick,
 }) => {
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const [delayedIsLoggedIn, setDelayedIsLoggedIn] = useState(isLoggedIn);
 
   const [isCollapse, setIsCollapse] = useState(false);
 
   const [bodyScrollTop, setBodyScrollTop] = useState(0);
   const { trackEvent } = useTracking();
-  const { frameLayout, mobileStyle } = useContext(AppContext);
+  const { frameLayout } = useUiLayoutStore(state => state);
+
+  const { mobileStyle } = useContext(AppContext);
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
   const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
@@ -113,6 +123,19 @@ const NavDrawer = ({
     [onMainModalClose],
   );
 
+  // BUGFIX: 登录状态切换时的视觉闪现优化
+  // 问题：用户登录/退出时，导航栏组件在登录状态和未登录状态之间切换会产生明显闪现
+  // 解决：增加100ms延迟更新机制，让状态变化更平滑，减少视觉跳跃
+  // 场景：特别是退出登录时，避免登录按钮和课程列表之间的快速切换造成的闪现
+  useEffect(() => {
+    if (isLoggedIn !== delayedIsLoggedIn) {
+      const timer = setTimeout(() => {
+        setDelayedIsLoggedIn(isLoggedIn);
+      }, 100); // 100ms延迟
+      return () => clearTimeout(timer);
+    }
+  }, [isLoggedIn, delayedIsLoggedIn]);
+
   const onFooterClick = useCallback(() => {
     onMainModalToggle();
     trackEvent(EVENT_NAMES.USER_MENU, {
@@ -124,7 +147,7 @@ const NavDrawer = ({
     <div
       className={clsx(
         styles.navDrawerWrapper,
-        mobileStyle ? styles.mobile : '',
+        frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
       )}
       style={{ width: isCollapse ? COLLAPSE_WIDTH : calcNavWidth(frameLayout) }}
     >
@@ -143,7 +166,7 @@ const NavDrawer = ({
             ref={bodyRef}
           >
             {!isCollapse &&
-              (isLoggedIn || alwaysShowLessonTree ? (
+              (delayedIsLoggedIn || alwaysShowLessonTree ? (
                 <CourseCatalogList
                   courseName={courseName}
                   selectedLessonId={selectedLessonId}
@@ -175,7 +198,7 @@ const NavDrawer = ({
           // @ts-expect-error EXPECT
           onClose={mainModalCloseHandler}
           className={popupWindowClassname()}
-          mobileStyle={mobileStyle}
+          mobileStyle={frameLayout === FRAME_LAYOUT_MOBILE}
           onBasicInfoClick={onBasicInfoClick}
           onPersonalInfoClick={onPersonalInfoClick}
         />

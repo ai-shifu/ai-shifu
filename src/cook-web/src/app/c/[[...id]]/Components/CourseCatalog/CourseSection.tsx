@@ -36,11 +36,7 @@ export const CourseSection = ({
 
   const onSectionClick = useCallback(() => {
     onTrySelect?.({ id });
-    if (
-      // @ts-expect-error EXPECT
-      status_value === LESSON_STATUS_VALUE.NOT_START ||
-      status_value === LESSON_STATUS_VALUE.LOCKED
-    ) {
+    if (status_value === LESSON_STATUS_VALUE.LOCKED) {
       return;
     }
 

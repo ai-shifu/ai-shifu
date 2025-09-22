@@ -122,7 +122,8 @@
     "copyText": "Copy",
     "loginSuccess": "Login successful",
     "startAutoSkip": "Start Auto-skip",
-    "stopAutoSkip": "Stop Auto-skip"
+    "stopAutoSkip": "Stop Auto-skip",
+    "thinking": "Thinking..."
   },
   "cmEditor": {
     "image": "Image",
@@ -161,6 +162,21 @@
     "selectModel": "Select Model",
     "settings": "Settings",
     "shifu": "Shifu",
+    "shortcut": {
+      "key": {
+        "/": "/",
+        "a": "A",
+        "cmd": "⌘",
+        "ctrl": "Ctrl",
+        "shift": "⇧",
+        "space": "Space"
+      },
+      "title": {
+        "ask": "Ask follow-up questions",
+        "continue": "Continue (when no input or selection required)",
+        "shortcut": "Display Shortcuts"
+      }
+    },
     "submitFailed": "Submit failed",
     "unknownError": "Unknown error",
     "useImage": "Use Image",

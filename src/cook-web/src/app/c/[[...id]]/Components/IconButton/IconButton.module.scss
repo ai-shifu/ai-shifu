@@ -1,0 +1,23 @@
+.IconButton {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: transparent;
+
+  &:active {
+    background-color: var(--color-9);
+  }
+
+  &:hover {
+    background-color: var(--color-4);
+  }
+
+  &.selected {
+    background-color: var(--color-2);
+  }
+
+  .innerIcon {
+    display: block;
+    width: 46%;
+  }
+}

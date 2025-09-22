@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import { useTranslation } from 'react-i18next';
 
 export const PayModalFooter = ({ className = '' }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const renderVirtualProductPoint1 = () => {
     const point1Text = t('pay.virtualProductPoint1');
