@@ -18,7 +18,7 @@ repos:
         files: ^(src/web/public/locales/.*\.json|src/cook-web/public/locales/.*\.json)$
     -   id: requirements-txt-fixer
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.13.0
+    rev: v0.13.1
     hooks:
     -   id: ruff-check
         args: [ --fix ]
@@ -46,7 +46,7 @@ repos:
         language: system
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
 -   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.35.0
+    rev: v9.36.0
     hooks:
     -   id: eslint
         name: ESLint web files (errors only)
