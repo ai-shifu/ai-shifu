@@ -44,7 +44,10 @@ export const BirthdaySettingModal = ({
 
     return {
       formatMonthCaption: (date: Date) => {
-        return date.toLocaleDateString(locale, { year: 'numeric', month: 'long' });
+        return date.toLocaleDateString(locale, {
+          year: 'numeric',
+          month: 'long',
+        });
       },
       formatWeekdayName: (date: Date) => {
         if (isZh) {
