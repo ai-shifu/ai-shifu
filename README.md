@@ -1,27 +1,27 @@
 <div align="center">
   <img src="assets/logo_en.png" width=256></img>
-<p><strong>Everything you see is tailored just for you</strong></p>
+<p><strong>Create Once,Teach Personally.</strong></p>
 
 English | [简体中文](README_ZH-CN.md)
 
 </div>
+AI-Shifu is designed for creators, instructors, and training/education teams, offering a scalable one-on-one teaching agent. Provide your expertise and teaching intent once，AI-Shifu will expand it into complete, personalized learning experiences. It adapts in real time to each learner’s profile with tailored explanations, interactive probing, assessments, and a full feedback loop—amplifying both your efficiency and the learner’s experience.
 
-AI-Shifu serves as a teacher, broadcaster, storyteller, and guide... As an AI-driven narrator, AI-Shifu can present any textual content to each user in a fully personalized way, creating an unprecedented reading experience.
+# Core Capabilities
+- **Personalized explanation engine** — Generates learning paths and tone based on learner background, goals, and level.
+- **Interactive Q&A & probing** — Decomposes questions, asks clarifiers, and suggests next actions during sessions.
+- **Rapid course assembly** — Author with high-level frameworks and intent; AI-Shifu elaborates into lessons, activities, and assessments.
+- **Reduced production & delivery overhead** — Minimizes repetitive prep and support; every learner gets a dedicated “AI tutor.”
+- **Multi-channel integration** — Embeddable in websites, course platforms, and enterprise training portals.
 
-![Architecture](assets/architecture.png)
+# Use Cases
+- **Course creators** — Hand a single lesson framework to AI-Shifu; learners receive personalized explanations and real-time interaction.
+- **Enterprise training** — Input training content once; employees get role- and background-specific learning paths.
+- **Educators** — Provide a syllabus to generate personalized coaching content plus a Q&A assistant.
 
-# Features
-
-1. **Personalized Output**: Fully personalized content output based on user's identity, background, interests and preferences, comparable to one-on-one human interaction.
-2. **Rich Media**: Supports multiple content formats including Markdown, HTML, Mermaid diagrams, as well as embedded images and videos.
-3. **Content Safety**: Master scripts control all output to reduce hallucinations and ensure content quality.
-4. **Q & A**: Users can ask questions at any time to get contextually relevant intelligent answers.
-5. **Interactive**: Ask questions to users at any time, driving subsequent processes based on user responses.
-6. **Script Editor**: Easily edit scripts and preview effects.
 
 # Roadmap
 
-- [ ] Overall refactoring
 - [ ] Writing AI agent for rapid script generation and maintenance
 - [ ] Knowledge base
 - [ ] Speech input and output
