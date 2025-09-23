@@ -99,6 +99,14 @@
       "serverError": "Server error, please try again later",
       "serverErrorTitle": "Server Error"
     },
+    "permission": {
+      "requestDescription": "Please briefly explain why you need access, and we will process your request as soon as possible.",
+      "requestError": "Failed to submit request, please try again later",
+      "requestPlaceholder": "Please enter your reason (e.g., work requirements, learning purposes, etc.)",
+      "requestSubmit": "Submit Request",
+      "requestSuccess": "Permission request submitted successfully, we will process it soon",
+      "requestTitle": "Request Access Permission"
+    },
     "user": {
       "login": "Login"
     }
