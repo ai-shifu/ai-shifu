@@ -68,6 +68,11 @@ from flaskr.service.shifu.shifu_block_funcs import (
     save_shifu_block_list,
     add_block,
 )
+from flaskr.service.shifu.shifu_mdflow_funcs import (
+    get_shifu_mdflow,
+    save_shifu_mdflow,
+    parse_shifu_mdflow,
+)
 
 
 class ShifuPermission(Enum):
@@ -767,6 +772,144 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         return make_common_response(delete_unit(app, user_id, outline_bid))
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
+        methods=["GET"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def get_mdflow_api(shifu_bid: str, outline_bid: str):
+        """
+        get mdflow
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: outline_bid
+              type: string
+              required: true
+            - name: shifu_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: get mdflow success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: mdflow
+        """
+        user_id = request.user.user_id
+        return make_common_response(get_shifu_mdflow(app, user_id, outline_bid))
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.EDIT)
+    def save_mdflow_api(shifu_bid: str, outline_bid: str):
+        """
+        save mdflow
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: outline_bid
+              type: string
+              required: true
+            - name: shifu_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    data:
+                        type: string
+                        description: mdflow
+        responses:
+            200:
+                description: save mdflow success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: string
+                                    description: mdflow
+        """
+        user_id = request.user.user_id
+        content = request.get_json().get("data")
+        return make_common_response(
+            save_shifu_mdflow(app, user_id, shifu_bid, outline_bid, content)
+        )
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/parse",
+        methods=["GET"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def parse_mdflow_api(shifu_bid: str, outline_bid: str):
+        """
+        parse mdflow
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: outline_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: parse mdflow success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/MdflowDTOParseResult"
+        """
+        user_id = request.user.user_id
+
+        return make_common_response(
+            parse_shifu_mdflow(app, user_id, shifu_bid, outline_bid)
+        )
+
+    @app.route(
+        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/run",
+        methods=["POST"],
+    )
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def run_mdflow_api(shifu_bid: str, outline_bid: str):
+        """
+        run mdflow
+        """
+        user_id = request.user.user_id
+        return make_common_response(get_shifu_mdflow(app, user_id, outline_bid))
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines", methods=["GET"])
     @ShifuTokenValidation(ShifuPermission.VIEW)

@@ -427,12 +427,9 @@ def get_script_info(
     Get the script info
     """
     with app.app_context():
-        block_model: Union[DraftBlock, PublishedBlock] = (
-            DraftBlock if preview_mode else PublishedBlock
-        )
-        block_info = block_model.query.filter(
-            block_model.block_bid == script_id,
-            block_model.deleted == 0,
+        block_info = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.generated_block_bid == script_id,
+            LearnGeneratedBlock.user_bid == user_id,
         ).first()
         if not block_info:
             return None
@@ -442,7 +439,7 @@ def get_script_info(
         if not outline_item:
             return None
         return ScriptInfoDTO(
-            block_info.position - 1,
+            block_info.position,
             outline_item.title,
             outline_item.type == LESSON_TYPE_TRIAL,
         )

@@ -795,3 +795,18 @@ class BlockDTO(BaseModel):
             "variable_bids": self.variable_bids,
             "resource_bids": self.resource_bids,
         }
+
+
+@register_schema_to_swagger
+class MdflowDTOParseResult(BaseModel):
+    variables: list[str] = Field(..., description="variables", required=True)
+    blocks_count: int = Field(..., description="blocks count", required=True)
+
+    def __init__(self, variables: list[str], blocks_count: int):
+        super().__init__(variables=variables, blocks_count=blocks_count)
+
+    def __json__(self):
+        return {
+            "variables": self.variables,
+            "blocks_count": self.blocks_count,
+        }

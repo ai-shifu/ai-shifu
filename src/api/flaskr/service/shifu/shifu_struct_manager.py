@@ -256,6 +256,8 @@ def get_outline_item_dto(
     Returns:
         ShifuOutlineItemDto: Outline item dto
     """
+    app.logger.info(f"get_outline_item_dto: {outline_item_bid},{is_preview}")
+
     if is_preview:
         outline_item_model = DraftOutlineItem
     else:
@@ -279,4 +281,44 @@ def get_outline_item_dto(
         type=outline_item.type,
         shifu_bid=outline_item.shifu_bid,
         children=[],
+    )
+
+
+class OutlineItemDtoWithMdflow(BaseModel):
+    """
+    Outline item dto with mdflow
+    """
+
+    mdflow: str
+    outline_bid: str
+    title: str
+
+
+def get_outline_item_dto_with_mdflow(
+    app: Flask, outline_item_bid: str, is_preview: bool = False
+) -> OutlineItemDtoWithMdflow:
+    """
+    Get outline item dto with mdflow
+    """
+    if is_preview:
+        outline_item_model = DraftOutlineItem
+    else:
+        outline_item_model = PublishedOutlineItem
+    outline_item: Union[DraftOutlineItem, PublishedOutlineItem] = (
+        outline_item_model.query.filter(
+            outline_item_model.outline_item_bid == outline_item_bid,
+            outline_item_model.deleted == 0,
+        )
+        .order_by(
+            outline_item_model.id.desc(),
+        )
+        .first()
+    )
+    if not outline_item:
+        raise_error("SHIFU.OUTLINE_ITEM_NOT_FOUND")
+
+    return OutlineItemDtoWithMdflow(
+        mdflow=outline_item.content,
+        outline_bid=outline_item.outline_item_bid,
+        title=outline_item.title,
     )
