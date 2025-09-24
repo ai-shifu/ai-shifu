@@ -61,10 +61,15 @@ const handleBusinessCode = (response: any) => {
     }
 
     // Authentication related errors, redirect to login (only on client side)
+    // BUGFIX: 防止退出登录时的双重页面跳转
+    // 问题：用户logout时，页面刷新后某些API请求仍可能返回认证错误，导致再次跳转
+    // 解决：检查全局标志__IS_LOGGING_OUT__，在logout过程中跳过自动跳转
+    // 相关文件：src/store/useUserStore.ts
     if (
       typeof window !== 'undefined' &&
       location.pathname !== '/login' &&
-      [1001, 1004, 1005].includes(response.code)
+      [1001, 1004, 1005].includes(response.code) &&
+      !window.__IS_LOGGING_OUT__ // 新增：logout过程中跳过跳转
     ) {
       const currentPath = encodeURIComponent(
         location.pathname + location.search,

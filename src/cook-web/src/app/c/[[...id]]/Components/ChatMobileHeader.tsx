@@ -8,12 +8,12 @@ import {
   PopoverTrigger,
   PopoverContent,
 } from '@/components/ui/Popover';
+import IconButton from './IconButton/IconButton';
+import moeIcon from './IconButton/icon16-more2x.png';
+import closeIcon from './IconButton/close-2x.png';
 
 import { Button } from '@/components/ui/Button';
-import {
-  CircleEllipsisIcon as MoreIcon,
-  CircleX as CloseIcon,
-} from 'lucide-react';
+import { MoreHorizontal as MoreIcon, X as CloseIcon } from 'lucide-react';
 
 import MobileHeaderIconPopover from './MobileHeaderIconPopover';
 import LogoWithText from '@/c-components/logo/LogoWithText';
@@ -36,6 +36,8 @@ export const ChatMobileHeader = ({
     shifu.ControlTypes.MOBILE_HEADER_ICON_POPOVER,
   );
 
+  const popoverVisible = iconPopoverOpen && hasPopoverContentControl;
+
   return (
     <div className={cn(styles.ChatMobileHeader, className)}>
       {iconPopoverPayload && (
@@ -54,19 +56,24 @@ export const ChatMobileHeader = ({
         direction='row'
         size={30}
       />
-      <Popover open={iconPopoverOpen && hasPopoverContentControl}>
-        <PopoverTrigger asChild>
-          <Button onClick={onSettingClick}>
-            {navOpen ? <CloseIcon /> : <MoreIcon />}
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className={styles.iconButtonPopover}>
+      <Popover
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        content={
           <MobileHeaderIconPopover
             payload={iconPopoverPayload}
-            onOpen={onIconPopoverOpen}
             onClose={onIconPopoverClose}
+            onOpen={onIconPopoverOpen}
           />
-        </PopoverContent>
+        }
+        className={styles.iconButtonPopover}
+        visible={iconPopoverOpen && hasPopoverContentControl}
+        placement='bottom-end'
+      >
+        <IconButton
+          icon={navOpen ? closeIcon.src : moeIcon.src}
+          onClick={onSettingClick}
+        />
       </Popover>
     </div>
   );

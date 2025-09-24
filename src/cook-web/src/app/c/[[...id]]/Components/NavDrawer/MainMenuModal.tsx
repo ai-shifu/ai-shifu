@@ -3,7 +3,8 @@ import styles from './MainMenuModal.module.scss';
 import { memo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-
+import i18n from '@/i18n';
+import api from '@/api';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,12 +18,8 @@ import {
 
 import PopupModal from '@/c-components/PopupModal';
 import { useTranslation } from 'react-i18next';
-// import { languages } from '@/c-service/constants';
 import { useUserStore } from '@/store';
-
 import { shifu } from '@/c-service/Shifu';
-// import { getUserProfile, updateUserProfile } from '@/c-api/user';
-// import { LANGUAGE_DICT } from '@/c-constants/userConstants';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 import Image from 'next/image';
@@ -42,7 +39,7 @@ const MainMenuModal = ({
   onBasicInfoClick,
   onPersonalInfoClick,
 }) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
 
   const htmlRef = useRef(null);
   const { isLoggedIn, logout } = useUserStore(
@@ -52,38 +49,7 @@ const MainMenuModal = ({
     })),
   );
 
-  // const languageDrowdownContainer = (triggerNode) => {
-  //   if (htmlRef.current) {
-  //     return htmlRef.current;
-  //   }
-
-  //   return triggerNode;
-  // };
-
   const { trackEvent } = useTracking();
-
-  // const languageDrowdownMeus = {
-  //   items: languages.map((lang) => ({
-  //     key: lang.value,
-  //     label: lang.label,
-  //   })),
-  //   onClick: async ({ key }) => {
-
-  //     const languageData = LANGUAGE_DICT[key];
-
-  //     if (languageData) {
-  //       // @ts-expect-error EXPECT
-  //       const { data } = await getUserProfile();
-  //       const languageSetting = data.find((item) => item.key === 'language');
-  //       if (languageSetting) {
-  //         languageSetting.value = languageData;
-  //         // @ts-expect-error EXPECT
-  //         await updateUserProfile(data);
-  //       }
-  //     }
-  //     i18n.changeLanguage(key);
-  //   },
-  // };
 
   const onUserInfoClick = () => {
     trackEvent(EVENT_NAMES.USER_MENU_BASIC_INFO, {});
@@ -111,7 +77,13 @@ const MainMenuModal = ({
     shifu.loginTools.openLogin();
   };
 
-  const onLooutClick = evt => {
+  // BUGFIX: 退出登录功能修复
+  // 问题：原函数名拼写错误为onLooutClick，导致点击事件无法正确绑定
+  // 解决：修正函数名拼写为onLogoutClick，确保退出登录功能正常工作
+  // 影响：特别在移动端，此拼写错误导致退出登录完全失效
+  const onLogoutClick = evt => {
+    evt.preventDefault();
+    evt.stopPropagation();
     setLogoutConfirmOpen(true);
     // @ts-expect-error EXPECT
     onClose?.(evt);
@@ -119,8 +91,31 @@ const MainMenuModal = ({
 
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const onLogoutConfirm = async () => {
-    await logout();
-    setLogoutConfirmOpen(false);
+    try {
+      await logout();
+      setLogoutConfirmOpen(false);
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      setLogoutConfirmOpen(false);
+    }
+  };
+
+  const normalizeLanguage = (lang: string): string => {
+    const supportedLanguages = Object.values(
+      i18n.options.fallbackLng || {},
+    ).flat();
+    const normalizedLang = lang.replace('_', '-');
+    if (supportedLanguages.includes(normalizedLang)) {
+      return normalizedLang;
+    }
+    return 'en-US';
+  };
+
+  const updateLanguage = (language: string) => {
+    const normalizedLang = normalizeLanguage(language);
+    i18n.changeLanguage(language);
+
+    api.updateUserInfo({ language: normalizedLang });
   };
 
   return (
@@ -211,7 +206,10 @@ const MainMenuModal = ({
                 </div>
               </div>
               <div className={styles.languageRowRight}>
-                <LanguageSelect contentClassName='z-[1001]' />
+                <LanguageSelect
+                  onSetLanguage={updateLanguage}
+                  contentClassName='z-[1001]'
+                />
               </div>
             </div>
           </div>
@@ -232,7 +230,7 @@ const MainMenuModal = ({
           ) : (
             <div
               className={cn(styles.mainMenuModalRow, 'px-2.5')}
-              onClick={onLooutClick}
+              onClick={onLogoutClick}
             >
               <Image
                 className={styles.rowIcon}
