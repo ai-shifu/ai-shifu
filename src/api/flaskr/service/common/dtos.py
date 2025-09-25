@@ -93,6 +93,22 @@ class UserToken:
 
 
 @register_schema_to_swagger
+class OAuthStartDTO:
+    authorization_url: str
+    state: str
+
+    def __init__(self, authorization_url: str, state: str):
+        self.authorization_url = authorization_url
+        self.state = state
+
+    def __json__(self):
+        return {
+            "authorization_url": self.authorization_url,
+            "state": self.state,
+        }
+
+
+@register_schema_to_swagger
 class PageNationDTO(BaseModel):
     page: int = Field(..., description="page")
     page_size: int = Field(..., description="page_size")

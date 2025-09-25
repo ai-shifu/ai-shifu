@@ -22,6 +22,7 @@ from ..service.user import (
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest
+from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
 from flaskr.i18n import set_language
@@ -715,7 +716,11 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         if redirect_uri:
             metadata["redirect_uri"] = redirect_uri
         result = provider.begin_oauth(app, metadata)
-        return make_common_response(result)
+        dto = OAuthStartDTO(
+            authorization_url=result["authorization_url"],
+            state=result["state"],
+        )
+        return make_common_response(dto)
 
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation
