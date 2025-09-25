@@ -19,6 +19,7 @@ from .factory import (
 # Ensure built-in providers are registered on import.
 from .providers import phone as _phone_provider  # noqa: F401
 from .providers import email as _email_provider  # noqa: F401
+from .providers import google as _google_provider  # noqa: F401
 
 __all__ = [
     "AuthProvider",
