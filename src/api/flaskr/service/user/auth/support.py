@@ -78,6 +78,19 @@ def ensure_user_entity(app: Flask, legacy_user: User) -> Tuple[UserEntity, bool]
     return entity, True
 
 
+def sync_user_entity_from_legacy(entity: UserEntity, legacy_user: User) -> UserEntity:
+    entity.nickname = _pick_nickname(legacy_user)
+    entity.avatar = legacy_user.user_avatar or entity.avatar or ""
+    entity.language = get_user_language(legacy_user)
+    entity.state = STATE_MAPPING.get(legacy_user.user_state, USER_STATE_REGISTERED)
+    entity.deleted = 0
+    if getattr(legacy_user, "user_birth", None):
+        entity.birthday = _normalize_birthday(getattr(legacy_user, "user_birth", None))
+    if getattr(legacy_user, "updated", None):
+        entity.updated_at = legacy_user.updated
+    return entity
+
+
 def upsert_credential(
     app: Flask,
     *,

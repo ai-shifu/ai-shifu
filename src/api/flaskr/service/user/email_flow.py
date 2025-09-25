@@ -9,7 +9,7 @@ from flask import Flask
 
 from flaskr.dao import db
 from flaskr.dao import redis_client as redis
-from flaskr.service.common.dtos import UserInfo, UserToken
+from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.profile.funcs import (
     get_user_profile_labels,
@@ -21,10 +21,10 @@ from flaskr.service.user.consts import (
     USER_STATE_UNREGISTERED,
 )
 from flaskr.service.user.models import User
-from flaskr.service.user.utils import (
-    generate_token,
-    get_user_language,
-    get_user_openid,
+from flaskr.service.user.utils import generate_token
+from flaskr.service.user.repository import (
+    build_user_info_dto,
+    sync_user_entity_for_legacy,
 )
 
 FIX_CHECK_CODE = None
@@ -114,19 +114,8 @@ def verify_email_code(
     token = generate_token(app, user_id=user_info.user_id)
     db.session.flush()
 
-    user_dto = UserInfo(
-        user_id=user_info.user_id,
-        username=user_info.username,
-        name=user_info.name,
-        email=user_info.email,
-        mobile=user_info.mobile,
-        user_state=user_info.user_state,
-        wx_openid=get_user_openid(user_info),
-        language=get_user_language(user_info),
-        user_avatar=user_info.user_avatar,
-        is_admin=user_info.is_admin,
-        is_creator=user_info.is_creator,
-    )
+    sync_user_entity_for_legacy(app, user_info)
+    user_dto = build_user_info_dto(user_info)
 
     return (
         UserToken(userInfo=user_dto, token=token),

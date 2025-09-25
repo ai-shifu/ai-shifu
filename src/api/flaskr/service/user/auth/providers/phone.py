@@ -15,7 +15,11 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
-from flaskr.service.user.auth.support import ensure_user_entity, upsert_credential
+from flaskr.service.user.auth.support import (
+    ensure_user_entity,
+    sync_user_entity_from_legacy,
+    upsert_credential,
+)
 from flaskr.service.user.phone_flow import verify_phone_code
 from flaskr.service.user.utils import send_sms_code
 from flaskr.service.user.models import User
@@ -51,6 +55,7 @@ class PhoneAuthProvider(AuthProvider):
             raise RuntimeError("Legacy user record missing after phone verification")
 
         user_entity, created_entity = ensure_user_entity(app, legacy_user)
+        sync_user_entity_from_legacy(user_entity, legacy_user)
         credential = upsert_credential(
             app,
             user_bid=user_entity.user_bid,

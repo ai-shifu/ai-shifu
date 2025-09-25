@@ -9,16 +9,22 @@ import jwt
 
 from flaskr.service.user.models import User
 from flaskr.api.sms.aliyun import send_sms_code_ali
-from ..common.dtos import (
-    UserInfo,
-    UserToken,
-)
+from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
-from .utils import get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
 from flaskr.i18n import get_i18n_list
 from ..auth import get_provider
 from ..auth.base import VerificationRequest
+from .repository import (
+    build_user_info_dto,
+    load_user_with_entity,
+    sync_user_entity_for_legacy,
+)
+
+
+def _user_info_from_legacy(app: Flask, legacy_user: User) -> UserInfo:
+    sync_user_entity_for_legacy(app, legacy_user)
+    return build_user_info_dto(legacy_user)
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
@@ -31,19 +37,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 user = User.query.filter_by(user_id=user_id).first()
 
                 if user:
-                    return UserInfo(
-                        user_id=user.user_id,
-                        username=user.username,
-                        name=user.name,
-                        email=user.email,
-                        mobile=user.mobile,
-                        user_state=user.user_state,
-                        wx_openid=get_user_openid(user),
-                        language=get_user_language(user),
-                        user_avatar=user.user_avatar,
-                        is_admin=user.is_admin,
-                        is_creator=user.is_creator,
-                    )
+                    return _user_info_from_legacy(app, user)
             else:
                 user_id = jwt.decode(
                     token, app.config["SECRET_KEY"], algorithms=["HS256"]
@@ -59,21 +53,9 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 encoding="utf-8",
             )
             if set_user_id == user_id:
-                user = User.query.filter_by(user_id=user_id).first()
-                if user:
-                    return UserInfo(
-                        user_id=user.user_id,
-                        username=user.username,
-                        name=user.name,
-                        email=user.email,
-                        mobile=user.mobile,
-                        user_state=user.user_state,
-                        wx_openid=get_user_openid(user),
-                        language=get_user_language(user),
-                        user_avatar=user.user_avatar,
-                        is_admin=user.is_admin,
-                        is_creator=user.is_creator,
-                    )
+                legacy_user, _ = load_user_with_entity(app, user_id)
+                if legacy_user:
+                    return _user_info_from_legacy(app, legacy_user)
                 else:
                     raise_error("USER.USER_TOKEN_EXPIRED")
             else:
@@ -94,63 +76,36 @@ def update_user_info(
     avatar=None,
 ) -> UserInfo:
     with app.app_context():
-        if user:
-            app.logger.info(
-                "update_user_info {} {} {} {} {}".format(
-                    name, email, mobile, language, avatar
-                )
-            )
-            dbuser = User.query.filter_by(user_id=user.user_id).first()
-            if name is not None:
-                dbuser.name = name
-            if email is not None:
-                dbuser.email = email
-            if mobile is not None:
-                dbuser.mobile = mobile
-            if language is not None:
-                if language in get_i18n_list(app):
-                    dbuser.user_language = language
-                else:
-                    raise_error("USER.LANGUAGE_NOT_FOUND")
-            if avatar is not None:
-                dbuser.user_avatar = avatar
-            db.session.commit()
-            return UserInfo(
-                user_id=user.user_id,
-                username=user.username,
-                name=user.name,
-                email=user.email,
-                mobile=user.mobile,
-                user_state=dbuser.user_state,
-                wx_openid=get_user_openid(user),
-                language=dbuser.user_language,
-                user_avatar=dbuser.user_avatar,
-                is_admin=dbuser.is_admin,
-                is_creator=dbuser.is_creator,
-            )
-        else:
+        if not user:
             raise_error("USER.USER_NOT_FOUND")
+
+        app.logger.info("update_user_info %s %s %s %s", name, email, mobile, language)
+        legacy_user = User.query.filter_by(user_id=user.user_id).first()
+        if not legacy_user:
+            raise_error("USER.USER_NOT_FOUND")
+
+        legacy_user.name = name
+        if email is not None:
+            legacy_user.email = email
+        if mobile is not None:
+            legacy_user.mobile = mobile
+        if language is not None:
+            if language in get_i18n_list(app):
+                legacy_user.user_language = language
+            else:
+                raise_error("USER.LANGUAGE_NOT_FOUND")
+
+        sync_user_entity_for_legacy(app, legacy_user)
+        db.session.commit()
+        return build_user_info_dto(legacy_user)
 
 
 def get_user_info(app: Flask, user_id: str) -> UserInfo:
     with app.app_context():
-        user = User.query.filter_by(user_id=user_id).first()
-        if user:
-            return UserInfo(
-                user_id=user.user_id,
-                username=user.username,
-                name=user.name,
-                email=user.email,
-                mobile=user.mobile,
-                user_state=user.user_state,
-                wx_openid=get_user_openid(user),
-                language=get_user_language(user),
-                user_avatar=user.user_avatar,
-                is_admin=user.is_admin,
-                is_creator=user.is_creator,
-            )
-        else:
+        legacy_user, _ = load_user_with_entity(app, user_id)
+        if not legacy_user:
             raise_error("USER.USER_NOT_FOUND")
+        return build_user_info_dto(legacy_user)
 
 
 def get_sms_code_info(app: Flask, user_id: str, resend: bool):

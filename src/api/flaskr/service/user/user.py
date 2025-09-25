@@ -10,11 +10,12 @@ from ...common.config import get_config
 from ..common.models import raise_error, raise_error_with_args
 
 from .utils import generate_token
-from ...service.common.dtos import USER_STATE_UNREGISTERED, UserInfo, UserToken
+from ...service.common.dtos import USER_STATE_UNREGISTERED, UserToken
 from ...service.user.models import User, UserConversion
 from ...dao import db
 from ...api.wechat import get_wechat_access_token
 import oss2
+from .repository import build_user_info_dto, sync_user_entity_for_legacy
 
 
 endpoint = get_config("ALIBABA_CLOUD_OSS_ENDPOINT")
@@ -57,17 +58,9 @@ def generate_temp_user(
                     .first()
                 )
                 if user_info:
+                    sync_user_entity_for_legacy(app, user_info)
                     return UserToken(
-                        UserInfo(
-                            user_id=user_info.user_id,
-                            username=user_info.username,
-                            name=user_info.name,
-                            email=user_info.email,
-                            mobile=user_info.mobile,
-                            user_state=user_info.user_state,
-                            wx_openid=user_info.user_open_id,
-                            language=user_info.user_language,
-                        ),
+                        build_user_info_dto(user_info),
                         token=generate_token(app, user_id=user_info.user_id),
                     )
             user_id = str(uuid.uuid4()).replace("-", "")
@@ -84,20 +77,9 @@ def generate_temp_user(
             db.session.add(new_convert_user)
             db.session.add(new_user)
             db.session.commit()
+            sync_user_entity_for_legacy(app, new_user)
             token = generate_token(app, user_id=user_id)
-            return UserToken(
-                UserInfo(
-                    user_id=user_id,
-                    username="",
-                    name="",
-                    email="",
-                    mobile="",
-                    user_state=new_user.user_state,
-                    wx_openid=new_user.user_open_id,
-                    language=new_user.user_language,
-                ),
-                token=token,
-            )
+            return UserToken(build_user_info_dto(new_user), token=token)
         else:
             if wx_openid != "":
                 user = (
@@ -106,36 +88,17 @@ def generate_temp_user(
                     .first()
                 )
                 if user:
+                    sync_user_entity_for_legacy(app, user)
                     return UserToken(
-                        UserInfo(
-                            user_id=user.user_id,
-                            username=user.username,
-                            name=user.name,
-                            email=user.email,
-                            mobile=user.mobile,
-                            user_state=user.user_state,
-                            wx_openid=user.user_open_id,
-                            language=user.user_language,
-                        ),
+                        build_user_info_dto(user),
                         token=generate_token(app, user_id=user.user_id),
                     )
             user = User.query.filter_by(user_id=convert_user.user_id).first()
-            user.wx_openid = wx_openid
+            user.user_open_id = wx_openid
             db.session.commit()
+            sync_user_entity_for_legacy(app, user)
             token = generate_token(app, user_id=user.user_id)
-            return UserToken(
-                UserInfo(
-                    user_id=user.user_id,
-                    username=user.username,
-                    name=user.name,
-                    email=user.email,
-                    mobile=user.mobile,
-                    user_state=user.user_state,
-                    wx_openid=user.user_open_id,
-                    language=user.user_language,
-                ),
-                token=token,
-            )
+            return UserToken(build_user_info_dto(user), token=token)
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:
@@ -192,6 +155,7 @@ def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
             url = IMAGE_BASE_URL + "/" + file_id
             user.user_avatar = url
             db.session.commit()
+            sync_user_entity_for_legacy(app, user)
 
             from ..shifu.funcs import _warm_up_cdn
 
