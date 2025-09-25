@@ -53,6 +53,13 @@
 
 
 ## Target Model Snapshot
+- `user_users` (Model `UserInfo`, `src/api/flaskr/service/user/models.py:165`)
+  - Business-keyed user record with `user_bid` (indexed), soft-delete flag, state enum (1101-1104), created/updated timestamps.
+  - Lacks explicit SQLAlchemy relationships; future services must manage joins manually.
+- `user_auth_credentials` (Model `AuthCredential`, `src/api/flaskr/service/user/models.py:188`)
+  - Credential store keyed by `credential_bid` and `user_bid` (indexed) with provider metadata (`provider_name`, `subject_id`, `subject_format`, `identifier`).
+  - Includes soft-delete, state flag (1201/1202), and `raw_profile` text column for provider payload storage.
+  - No foreign key constraints; relies on application logic for referential integrity.
 
 ## Legacy Credential Mapping Plan
 | Legacy Source | New `provider_name` | `subject_id` | `subject_format` | `identifier` | Additional Notes |
@@ -62,13 +69,23 @@
 | `User.user_open_id` (WeChat/OpenID) | `wechat` (legacy) | stored open id | `wechat_openid` | fallback to linked email/mobile if present | preserve `wx` payload in `raw_profile`; treat as third-party credential pending factory support. |
 | Future Google OAuth payload | `google` | Google subject (`sub`) | `google` | primary email from Google profile | persist full Google profile JSON in `raw_profile`; link to existing user via email/phone before new user creation. |
 | Placeholder for other providers (Apple/Facebook) | `apple` / `facebook` | provider-specific subject | format per provider | email or unique account id | follow same data contract as Google once implemented; may require additional metadata columns later. |
-- `user_users` (Model `UserInfo`, `src/api/flaskr/service/user/models.py:165`)
-  - Business-keyed user record with `user_bid` (indexed), soft-delete flag, state enum (1101-1104), created/updated timestamps.
-  - Lacks explicit SQLAlchemy relationships; future services must manage joins manually.
-- `user_auth_credentials` (Model `AuthCredential`, `src/api/flaskr/service/user/models.py:188`)
-  - Credential store keyed by `credential_bid` and `user_bid` (indexed) with provider metadata (`provider_name`, `subject_id`, `subject_format`, `identifier`).
-  - Includes soft-delete, state flag (1201/1202), and `raw_profile` text column for provider payload storage.
-  - No foreign key constraints; relies on application logic for referential integrity.
+
+## DTO & Response Contract Review
+- `UserInfo` DTO (`src/api/flaskr/service/common/dtos.py:15`)
+  - Encapsulates legacy `user_id` alongside login/state fields. Stringifies state labels (Chinese) and exposes `wx_openid` key in JSON output.
+  - Refactor impact: introduce `user_bid` as primary id, preserve backwards-compatible `user_id` only during migration, and externalize state localization from DTO to i18n layer.
+- `UserToken` DTO (`src/api/flaskr/service/common/dtos.py:43`)
+  - Wrapper returning `{ userInfo, token }` payload after login/verification flows.
+  - Refactor impact: ensure factory-generated credentials populate both `token` and normalized `UserInfo` plus issued credential metadata when applicable.
+- `UserItemDTO` (`src/api/flaskr/service/user/admin.py:11`)
+  - Admin list item view built on legacy `user_id`/`mobile`/`username` fields.
+  - Refactor impact: rework to consume `user_bid`, surface display name from `user_users.nickname`, and drop direct `mobile` exposure in favor of credential lookup utilities.
+- Responses via `make_common_response` (`src/api/flaskr/route/common.py:70`)
+  - Wrap all user endpoints with `{"code": 0, "message": "success", "data": ...}` schema.
+  - Refactor impact: continue using shared envelope but define explicit DTOs for new endpoints (e.g., credential lists) and update swagger registration accordingly.
+- Admin plugin services (`src/api/flaskr/plugins/ai_shifu_admin_api/src/service/user/funcs.py`)
+  - Reuse `UserInfo` for admin auth and profile management.
+  - Refactor impact: provide adapter translating `UserInfo` to admin-specific view while sourcing data from `user_users` and aggregated credentials.
 
 ## Observations
 - No dedicated repository abstraction; services query SQLAlchemy models directly.

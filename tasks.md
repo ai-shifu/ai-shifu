@@ -6,7 +6,7 @@
 - [x] Inventory legacy user tables, repository classes, and service entry points touching user data; document findings in `docs/user-refactor-notes.md`.
 - [x] Confirm new SQLAlchemy models `User` and `UserAuthCredential` structure, indexes, and relationships in `src/api/flaskr/service/user/models.py`.
 - [x] Map legacy authentication providers to the new provider schema (phone, email, google, facebook, apple) and note required data transformations.
-- [ ] Review existing DTOs and response envelopes for user endpoints to identify required updates or additions.
+- [x] Review existing DTOs and response envelopes for user endpoints to identify required updates or additions.
 
 ## Data Migration Strategy
 - [ ] Locate current Alembic migration history and plan a migration script to move legacy user rows into `user_users`.
