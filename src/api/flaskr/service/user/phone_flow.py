@@ -29,6 +29,7 @@ from flaskr.service.user.repository import (
     build_user_profile_snapshot,
     list_credentials,
     sync_user_entity_for_legacy,
+    transactional_session,
 )
 
 FIX_CHECK_CODE = None
@@ -148,60 +149,68 @@ def verify_phone_code(
 
     created_new_user = False
 
-    if not user_info and user_id:
-        user_info = (
-            User.query.filter(User.user_id == user_id).order_by(User.id.asc()).first()
-        )
+    with transactional_session():
+        if not user_info and user_id:
+            user_info = (
+                User.query.filter(User.user_id == user_id)
+                .order_by(User.id.asc())
+                .first()
+            )
 
-    if user_info and user_id and user_id != user_info.user_id and course_id is not None:
-        new_profiles = get_user_profile_labels(app, user_id, course_id)
-        update_user_profile_with_lable(
-            app, user_info.user_id, new_profiles, False, course_id
-        )
-        origin_user = User.query.filter(User.user_id == user_id).first()
-        migrate_user_study_record(
-            app,
-            origin_user.user_id if origin_user else user_id,
-            user_info.user_id,
-            course_id,
-        )
         if (
-            origin_user
-            and origin_user.user_open_id != user_info.user_open_id
-            and (not user_info.user_open_id)
+            user_info
+            and user_id
+            and user_id != user_info.user_id
+            and course_id is not None
         ):
-            user_info.user_open_id = origin_user.user_open_id
+            new_profiles = get_user_profile_labels(app, user_id, course_id)
+            update_user_profile_with_lable(
+                app, user_info.user_id, new_profiles, False, course_id
+            )
+            origin_user = User.query.filter(User.user_id == user_id).first()
+            migrate_user_study_record(
+                app,
+                origin_user.user_id if origin_user else user_id,
+                user_info.user_id,
+                course_id,
+            )
+            if (
+                origin_user
+                and origin_user.user_open_id != user_info.user_open_id
+                and (not user_info.user_open_id)
+            ):
+                user_info.user_open_id = origin_user.user_open_id
 
-    if user_info is None:
-        generated_user_id = uuid.uuid4().hex
-        user_info = User(
-            user_id=generated_user_id,
-            username="",
-            name="",
-            email="",
-            mobile=phone,
-        )
-        user_info.user_state = USER_STATE_REGISTERED
-        if language:
-            user_info.user_language = language
-        db.session.add(user_info)
-        init_first_course(app, user_info.user_id)
-        created_new_user = True
-    else:
-        if user_info.user_state == USER_STATE_UNREGISTERED:
+        if user_info is None:
+            generated_user_id = uuid.uuid4().hex
+            user_info = User(
+                user_id=generated_user_id,
+                username="",
+                name="",
+                email="",
+                mobile=phone,
+            )
             user_info.user_state = USER_STATE_REGISTERED
-        user_info.mobile = phone
-        if language:
-            user_info.user_language = language
+            if language:
+                user_info.user_language = language
+            db.session.add(user_info)
+            init_first_course(app, user_info.user_id)
+            created_new_user = True
+        else:
+            if user_info.user_state == USER_STATE_UNREGISTERED:
+                user_info.user_state = USER_STATE_REGISTERED
+            user_info.mobile = phone
+            if language:
+                user_info.user_language = language
 
-    token = generate_token(app, user_id=user_info.user_id)
-    db.session.flush()
+        token = generate_token(app, user_id=user_info.user_id)
+        db.session.flush()
 
-    sync_user_entity_for_legacy(app, user_info)
-    user_dto = build_user_info_dto(user_info)
-    snapshot = build_user_profile_snapshot(
-        user_info, credentials=list_credentials(user_bid=user_info.user_id)
-    )
+        sync_user_entity_for_legacy(app, user_info)
+        user_dto = build_user_info_dto(user_info)
+        snapshot = build_user_profile_snapshot(
+            user_info, credentials=list_credentials(user_bid=user_info.user_id)
+        )
 
     return (
         UserToken(userInfo=user_dto, token=token),

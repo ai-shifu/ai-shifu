@@ -24,6 +24,7 @@ from flaskr.service.user.repository import (
     find_credential,
     list_credentials,
     sync_user_entity_for_legacy,
+    transactional_session,
     upsert_credential,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
@@ -107,53 +108,55 @@ class GoogleAuthProvider(AuthProvider):
 
         legacy_user = None
         created_user = False
+        created_entity = False
 
-        if credential:
-            legacy_user = fetch_legacy_user(credential.user_bid)
+        with transactional_session():
+            if credential:
+                legacy_user = fetch_legacy_user(credential.user_bid)
 
-        if not legacy_user:
-            legacy_user = User.query.filter_by(email=email).first()
+            if not legacy_user:
+                legacy_user = User.query.filter_by(email=email).first()
 
-        if not legacy_user:
-            user_id = secrets.token_hex(16)
-            legacy_user = User(
-                user_id=user_id,
-                username=email,
-                name=profile.get("name", ""),
-                email=email,
-                mobile="",
-                user_state=USER_STATE_REGISTERED,
+            if not legacy_user:
+                user_id = secrets.token_hex(16)
+                legacy_user = User(
+                    user_id=user_id,
+                    username=email,
+                    name=profile.get("name", ""),
+                    email=email,
+                    mobile="",
+                    user_state=USER_STATE_REGISTERED,
+                )
+                db.session.add(legacy_user)
+                created_user = True
+
+            if profile.get("picture") and not legacy_user.user_avatar:
+                legacy_user.user_avatar = profile["picture"]
+
+            db.session.flush()
+
+            user_entity, created_entity = ensure_user_entity(app, legacy_user)
+
+            upsert_credential(
+                app,
+                user_bid=user_entity.user_bid,
+                provider_name=self.provider_name,
+                subject_id=subject_id,
+                subject_format="google",
+                identifier=email,
+                metadata=profile,
+                verified=profile.get("email_verified", False),
             )
-            db.session.add(legacy_user)
-            created_user = True
 
-        if profile.get("picture") and not legacy_user.user_avatar:
-            legacy_user.user_avatar = profile["picture"]
+            sync_user_entity_for_legacy(app, legacy_user)
 
-        db.session.flush()
-
-        user_entity, created_entity = ensure_user_entity(app, legacy_user)
-
-        upsert_credential(
-            app,
-            user_bid=user_entity.user_bid,
-            provider_name=self.provider_name,
-            subject_id=subject_id,
-            subject_format="google",
-            identifier=email,
-            metadata=profile,
-            verified=profile.get("email_verified", False),
-        )
-
-        sync_user_entity_for_legacy(app, legacy_user)
-
-        user_dto = build_user_info_dto(legacy_user)
-        token_value = generate_token(app, legacy_user.user_id)
-        user_token = UserToken(userInfo=user_dto, token=token_value)
-        snapshot = build_user_profile_snapshot(
-            legacy_user,
-            credentials=list_credentials(user_bid=legacy_user.user_id),
-        )
+            user_dto = build_user_info_dto(legacy_user)
+            token_value = generate_token(app, legacy_user.user_id)
+            user_token = UserToken(userInfo=user_dto, token=token_value)
+            snapshot = build_user_profile_snapshot(
+                legacy_user,
+                credentials=list_credentials(user_bid=legacy_user.user_id),
+            )
 
         return AuthResult(
             user=user_dto,

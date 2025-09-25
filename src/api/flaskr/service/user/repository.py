@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -365,3 +366,13 @@ def upsert_wechat_credentials(
         )
 
     return credentials
+
+
+@contextmanager
+def transactional_session():
+    try:
+        with db.session.begin_nested():
+            yield
+    except Exception:
+        db.session.rollback()
+        raise
