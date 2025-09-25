@@ -123,3 +123,11 @@
 3. Write rows into `user_users` using bulk INSERT or SQLAlchemy bulk_save_objects with periodic flush/commit (e.g., every 500 users) to control transaction size.
 4. Maintain audit log table or CSV exporting old `id` to new `user_bid` mapping for rollback and debugging.
 5. After migration, update services to reference `user_users` via `user_bid`; keep compatibility layer translating legacy `user_id` where required until code refactor completes.
+
+## Migration Rollback Considerations
+1. Schema rollback uses Alembic downgrade for revision introducing `user_users`/`user_auth_credentials` (currently handled by `6abcf5af2758`). Data migration scripts must be implemented as separate revisions to allow `downgrade` to delete newly inserted rows safely.
+2. Prior to data migration, snapshot legacy tables (`user_info`, related join tables) into backup tables or export CSV with primary keys and timestamps to allow point-in-time restoration.
+3. During data migration, maintain sidecar audit table (e.g., `user_migration_audit`) capturing `legacy_user_id`, `user_bid`, inserted credential IDs, and timestamps. On rollback, use this table to delete corresponding rows from `user_users` and `user_auth_credentials` in reverse dependency order (credentials first, users second).
+4. Ensure rollback script reinserts critical columns (`mobile`, `email`, `user_open_id`, `user_unicon_id`) into legacy tables if forward migration removed or altered them. Ideally keep legacy data untouched until cutover confirmed.
+5. Guard rollback operations with foreign key checks disabled/enabled appropriately and wrap deletions in manageable batches to avoid long locks.
+6. Communicate rollback steps in deployment runbook, including Redis/session invalidation and cache warming considerations for user tokens.
