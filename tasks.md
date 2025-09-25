@@ -30,8 +30,8 @@
 - [ ] Ensure callback handler persists or updates `user_auth_credentials` using the Google provider implementation and links to the corresponding `User` record.
 
 ## Repository & Persistence Updates
-- [ ] Implement repository helpers for `User` and `UserAuthCredential` to encapsulate CRUD operations and credential lookups by provider/identifier.
-- [ ] Add raw profile JSON serialization/deserialization utilities consistent with current project patterns.
+- [x] Implement repository helpers for `User` and `UserAuthCredential` to encapsulate CRUD operations and credential lookups by provider/identifier.
+- [x] Add raw profile JSON serialization/deserialization utilities consistent with current project patterns.
 - [ ] Update transaction management to guarantee atomic writes when creating users with multiple credentials.
 
 ## API & DTO Adjustments
