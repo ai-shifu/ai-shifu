@@ -13,8 +13,8 @@ from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
 from ...dao import redis_client as redis, db
 from flaskr.i18n import get_i18n_list
-from ..auth import get_provider
-from ..auth.base import VerificationRequest
+from .auth import get_provider
+from .auth.base import VerificationRequest
 from .repository import (
     build_user_info_dto,
     load_user_with_entity,
