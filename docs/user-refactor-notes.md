@@ -66,7 +66,7 @@
 | --- | --- | --- | --- | --- | --- |
 | `User.mobile` (phone login) | `phone` | existing mobile number | `phone` | same as `subject_id` | mark verified users (`user_state >= USER_STATE_REGISTERED`) as `state=1202`; capture SMS verification history in `raw_profile` if available. |
 | `User.email` (email login) | `email` | normalized email | `email` | same as `subject_id` | enforce lowercase normalization prior to insert; consider historic verification status from email flow. |
-| `User.user_open_id` (WeChat/OpenID) | `wechat` (legacy) | stored open id | `wechat_openid` | fallback to linked email/mobile if present | preserve `wx` payload in `raw_profile`; treat as third-party credential pending factory support. |
+| `User.user_open_id`/`User.user_unicon_id` (WeChat) | `wechat` | respective value | `open_id` / `unicon_id` | fallback identifier (email/phone) | create two credential records per user when both exist; persist original payload in `raw_profile`. |
 | Future Google OAuth payload | `google` | Google subject (`sub`) | `google` | primary email from Google profile | persist full Google profile JSON in `raw_profile`; link to existing user via email/phone before new user creation. |
 | Placeholder for other providers (Apple/Facebook) | `apple` / `facebook` | provider-specific subject | format per provider | email or unique account id | follow same data contract as Google once implemented; may require additional metadata columns later. |
 
@@ -92,3 +92,17 @@
 - Redis is used alongside SQL tables for token and verification workflows (key prefixes defined in app config).
 - New models `UserInfo` (`user_users`) and `AuthCredential` (`user_auth_credentials`) already exist but are not yet wired into business logic.
 - Migration effort must cover both application services and auxiliary tooling (CLI commands, admin plugin, tests).
+
+## Migration Strategy: user_auth_credentials
+1. Generate `credential_bid` per record using `generate_id` utility (per provider instance).
+2. Derive `user_bid` lookup from migrated `user_users` row (fallback to deterministic hash of legacy `user_id` during migration if needed).
+3. Provider-specific handling:
+   - **Phone (`phone`)**: include entries for non-empty `User.mobile`; normalize to E.164 if possible, `subject_id`/`identifier` identical; `subject_format=phone`; set `state=1202` when legacy `user_state >= USER_STATE_REGISTERED`.
+   - **Email (`email`)**: lowercase before insert, `subject_format=email`; flag verified state using existing email verification flows; capture historical verification metadata in `raw_profile` (`{"verified_on": ..., "source": ...}` when available).
+   - **WeChat (`wechat`)**: create up to two records per user: one for `user_open_id` with `subject_format=open_id`, another for `user_unicon_id` with `subject_format=unicon_id`; choose `identifier` as associated email/phone when present, otherwise reuse `subject_id`; embed original OAuth payload (`wx_openid`, `wx_unionid`, timestamps) in `raw_profile`.
+   - **Google (`google`)**: migration placeholder—no historical data yet; ensure schema supports future inserts by keeping provider_name unique per subject.
+   - **Other third-party providers**: skip during initial migration; design repo utilities to allow future replays without duplicating credentials.
+4. Default `state` to `1202` for credentials that have passed verification flows, otherwise `1201`; `deleted=0`.
+5. Wrap inserts in manageable batches (e.g., 500 users) to avoid long transactions; use SQLAlchemy bulk operations with explicit flush to monitor memory.
+6. Guard against duplicates by checking existing `provider_name` + `identifier` before insert; log collisions for manual review.
+7. Include `created_at`/`updated_at` timestamps mirroring source `user_info.created`/`updated` when available; fallback to `func.now()` otherwise.
