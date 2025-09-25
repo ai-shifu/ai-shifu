@@ -10,7 +10,6 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
 )
-from pydantic import BaseModel
 from markdown_flow import (
     MarkdownFlow,
     ProcessMode,
@@ -67,52 +66,15 @@ from flaskr.service.profile.profile_manage import (
 )
 from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
+from flaskr.service.learn.llmsetting import LLMSettings
+from flaskr.service.learn.utils_v2 import init_generated_block
 
 context_local = threading.local()
-
-
-def _init_generated_block(
-    app: Flask,
-    shifu_bid: str,
-    outline_item_bid: str,
-    progress_record_bid: str,
-    user_bid: str,
-    block_type: int,
-    mdflow: str,
-    block_index: int,
-) -> LearnGeneratedBlock:
-    generated_block: LearnGeneratedBlock = LearnGeneratedBlock()
-    generated_block.progress_record_bid = progress_record_bid
-    generated_block.user_bid = user_bid
-    generated_block.outline_item_bid = outline_item_bid
-    generated_block.shifu_bid = shifu_bid
-    generated_block.block_bid = ""
-    generated_block.type = block_type
-    generated_block.generated_block_bid = generate_id(app)
-    generated_block.generated_content = ""
-    generated_block.status = 1
-    generated_block.block_content_conf = mdflow
-    generated_block.position = block_index
-    return generated_block
 
 
 class RunType(Enum):
     INPUT = "input"
     OUTPUT = "output"
-
-
-class LLMSettings(BaseModel):
-    model: str
-    temperature: float
-
-    def __str__(self):
-        return f"model: {self.model}, temperature: {self.temperature}"
-
-    def __repr__(self):
-        return self.__str__()
-
-    def __json__(self):
-        return {"model": self.model, "temperature": self.temperature}
 
 
 class RunScriptInfo:
@@ -804,14 +766,18 @@ class RunScriptContextV2:
                 generated_block,
                 self._input,
                 self._trace,
-                self._outline_item_info,
+                self._outline_item_info.bid,
+                self._outline_item_info.position,
+                self._outline_item_info.shifu_bid,
+                llm_settings,
                 self._current_attend.progress_record_bid,
                 "",
             )
             # Check if the generator yields any content (not None)
             has_content = False
             for i in res:
-                if i is not None:
+                if i is not None and i != "":
+                    self.app.logger.info(f"check_text_with_llm_response: {i}")
                     has_content = True
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
@@ -822,6 +788,19 @@ class RunScriptContextV2:
 
             if has_content:
                 self._can_continue = False
+                yield RunMarkdownFlowDTO(
+                    outline_bid=run_script_info.outline_bid,
+                    generated_block_bid=generated_block.generated_block_bid,
+                    type=GeneratedType.BREAK,
+                    content="",
+                )
+                yield RunMarkdownFlowDTO(
+                    outline_bid=run_script_info.outline_bid,
+                    generated_block_bid=generated_block.generated_block_bid,
+                    type=GeneratedType.INTERACTION,
+                    content=block.content,
+                )
+
                 db.session.flush()
                 return
             if not parsed_interaction.get("variable"):
@@ -874,7 +853,7 @@ class RunScriptContextV2:
                 db.session.flush()
                 return
             else:
-                generated_block: LearnGeneratedBlock = _init_generated_block(
+                generated_block: LearnGeneratedBlock = init_generated_block(
                     app,
                     shifu_bid=run_script_info.attend.shifu_bid,
                     outline_item_bid=run_script_info.outline_bid,
@@ -909,7 +888,7 @@ class RunScriptContextV2:
                 generated_block.block_content_conf = block.content
                 db.session.add(generated_block)
                 db.session.flush()
-                generated_block: LearnGeneratedBlock = _init_generated_block(
+                generated_block: LearnGeneratedBlock = init_generated_block(
                     app,
                     shifu_bid=run_script_info.attend.shifu_bid,
                     outline_item_bid=run_script_info.outline_bid,
@@ -933,7 +912,7 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
         if self._run_type == RunType.OUTPUT:
-            generated_block: LearnGeneratedBlock = _init_generated_block(
+            generated_block: LearnGeneratedBlock = init_generated_block(
                 app,
                 shifu_bid=run_script_info.attend.shifu_bid,
                 outline_item_bid=run_script_info.outline_bid,
