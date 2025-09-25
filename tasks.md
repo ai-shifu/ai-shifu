@@ -9,7 +9,7 @@
 - [x] Review existing DTOs and response envelopes for user endpoints to identify required updates or additions.
 
 ## Data Migration Strategy
-- [ ] Locate current Alembic migration history and plan a migration script to move legacy user rows into `user_users`.
+- [x] Locate current Alembic migration history and plan a migration script to move legacy user rows into `user_users`.
 - [x] Design migration logic to populate `user_auth_credentials` with provider-specific fields and raw profile persistence.
 - [ ] Ensure WeChat credentials migrate as two records (subject_format `open_id` and `unicon_id`, subject_id matching each value).
 - [ ] Draft a rollback plan for the migration to ensure safe deployment (document assumptions and limitations).

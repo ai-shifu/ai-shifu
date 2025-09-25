@@ -106,3 +106,20 @@
 5. Wrap inserts in manageable batches (e.g., 500 users) to avoid long transactions; use SQLAlchemy bulk operations with explicit flush to monitor memory.
 6. Guard against duplicates by checking existing `provider_name` + `identifier` before insert; log collisions for manual review.
 7. Include `created_at`/`updated_at` timestamps mirroring source `user_info.created`/`updated` when available; fallback to `func.now()` otherwise.
+
+## Migration Strategy: user_users
+0. Base revision: leverage Alembic migration `6abcf5af2758_add_new_user_models` (down_revision `63a0479d46e3`) which creates `user_users` and `user_auth_credentials`; subsequent data migration will be issued as a new revision after schema deployment.
+1. Source data from legacy `user_info` rows, iterating in deterministic batches (e.g., primary key asc).
+2. For each record:
+   - Derive `user_bid` from existing `user_id` (preserve UUID for continuity); maintain secondary map for quick lookup during credential migration.
+   - Populate `nickname` from `username` when present, otherwise fallback to `name` or empty string.
+   - Copy `avatar` from `user_avatar`; if missing, leave empty string.
+   - Set `birthday` using `user_birth` when valid; fallback to `NULL` to avoid invalid default date values.
+   - Normalize `language` via current helper (`get_user_language`) to enforce casing conventions.
+   - Translate legacy `user_state` (0/1/2/3) to new constants (1101/1102/1103/1104) using mapping defined in `service.user.consts`.
+   - Capture admin flags (`is_admin`, `is_creator`) for follow-up migration (e.g., dedicated admin table or profile entries); retain extract in migration audit logs so privilege data is not lost.
+   - Set `deleted=0` for active users; evaluate legacy soft-deletion once policies are defined (currently none).
+   - Copy `created_at`/`updated_at` from legacy `created`/`updated` timestamps; fallback to `func.now()` if null.
+3. Write rows into `user_users` using bulk INSERT or SQLAlchemy bulk_save_objects with periodic flush/commit (e.g., every 500 users) to control transaction size.
+4. Maintain audit log table or CSV exporting old `id` to new `user_bid` mapping for rollback and debugging.
+5. After migration, update services to reference `user_users` via `user_bid`; keep compatibility layer translating legacy `user_id` where required until code refactor completes.
