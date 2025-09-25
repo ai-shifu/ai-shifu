@@ -19,7 +19,7 @@
 - [x] Refactor phone authentication service to implement the factory contract and persist credentials via `user_auth_credentials` repository functions.
 - [x] Refactor email authentication service to use the factory contract, enforcing identifier uniqueness and proper DTO usage.
 - [x] Update user creation/update flows to interact with the new `User` repository and detach from legacy table abstractions.
-- [ ] Adjust service-level DTOs and domain objects to align with the refactored persistence layer.
+- [x] Adjust service-level DTOs and domain objects to align with the refactored persistence layer.
 
 ## Google OAuth Implementation
 - [x] Add Google OAuth configuration entries to `src/api/flaskr/common/config.py`, including client ID, client secret, redirect URI, and scopes metadata.
