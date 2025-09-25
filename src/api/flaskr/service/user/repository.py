@@ -37,6 +37,10 @@ STATE_MAPPING = {
     1102: USER_STATE_REGISTERED,
     1103: USER_STATE_TRAIL,
     1104: USER_STATE_PAID,
+    "1101": USER_STATE_UNREGISTERED,
+    "1102": USER_STATE_REGISTERED,
+    "1103": USER_STATE_TRAIL,
+    "1104": USER_STATE_PAID,
 }
 
 
@@ -122,9 +126,14 @@ def build_user_info_dto(legacy_user: User) -> UserInfo:
     if not legacy_user:
         raise ValueError("Cannot build UserInfo DTO without a legacy user record")
 
-    normalized_state = STATE_MAPPING.get(
-        legacy_user.user_state, USER_STATE_UNREGISTERED
-    )
+    raw_state = legacy_user.user_state
+    try:
+        normalized_state = STATE_MAPPING.get(
+            int(raw_state) if raw_state is not None else USER_STATE_UNREGISTERED,
+            USER_STATE_UNREGISTERED,
+        )
+    except (TypeError, ValueError):
+        normalized_state = STATE_MAPPING.get(raw_state, USER_STATE_UNREGISTERED)
 
     return UserInfo(
         user_id=legacy_user.user_id,
