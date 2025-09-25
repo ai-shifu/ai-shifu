@@ -15,7 +15,7 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
-from flaskr.service.user.auth.support import (
+from flaskr.service.user.repository import (
     ensure_user_entity,
     sync_user_entity_from_legacy,
     upsert_credential,
@@ -72,7 +72,7 @@ class EmailAuthProvider(AuthProvider):
             subject_id=identifier,
             subject_format="email",
             identifier=identifier,
-            raw_metadata={
+            metadata={
                 "course_id": context.get("course_id"),
                 "language": context.get("language"),
             },
