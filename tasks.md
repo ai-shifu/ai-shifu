@@ -35,7 +35,7 @@
 - [ ] Update transaction management to guarantee atomic writes when creating users with multiple credentials.
 
 ## API & DTO Adjustments
-- [ ] Define request/response DTOs for Google OAuth endpoints and revised email/phone flows following existing API standards.
+- [x] Define request/response DTOs for Google OAuth endpoints and revised email/phone flows following existing API standards.
 - [ ] Update schema validation and marshmallow (or pydantic) definitions used by affected endpoints.
 - [ ] Document response examples and error codes for new/updated endpoints in API docs or inline comments where appropriate.
 
