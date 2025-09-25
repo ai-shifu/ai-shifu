@@ -18,11 +18,13 @@ from flaskr.service.user.auth.base import (
 from flaskr.service.user.auth.factory import has_provider, register_provider
 from flaskr.service.user.repository import (
     build_user_info_dto,
+    build_user_profile_snapshot,
     ensure_user_entity,
+    fetch_legacy_user,
     find_credential,
+    list_credentials,
     sync_user_entity_for_legacy,
     upsert_credential,
-    fetch_legacy_user,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
 from flaskr.service.user.models import User
@@ -148,13 +150,21 @@ class GoogleAuthProvider(AuthProvider):
         user_dto = build_user_info_dto(legacy_user)
         token_value = generate_token(app, legacy_user.user_id)
         user_token = UserToken(userInfo=user_dto, token=token_value)
+        snapshot = build_user_profile_snapshot(
+            legacy_user,
+            credentials=list_credentials(user_bid=legacy_user.user_id),
+        )
 
         return AuthResult(
             user=user_dto,
             token=user_token,
             credential=None,
             is_new_user=created_user or created_entity,
-            metadata={"token": token, "profile": profile},
+            metadata={
+                "token_response": token,
+                "profile": profile,
+                "snapshot": snapshot.to_dict(),
+            },
         )
 
 

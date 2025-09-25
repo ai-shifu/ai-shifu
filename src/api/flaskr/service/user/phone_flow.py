@@ -26,6 +26,8 @@ from flaskr.service.user.models import User
 from flaskr.service.user.utils import generate_token
 from flaskr.service.user.repository import (
     build_user_info_dto,
+    build_user_profile_snapshot,
+    list_credentials,
     sync_user_entity_for_legacy,
 )
 
@@ -197,9 +199,16 @@ def verify_phone_code(
 
     sync_user_entity_for_legacy(app, user_info)
     user_dto = build_user_info_dto(user_info)
+    snapshot = build_user_profile_snapshot(
+        user_info, credentials=list_credentials(user_bid=user_info.user_id)
+    )
 
     return (
         UserToken(userInfo=user_dto, token=token),
         created_new_user,
-        {"course_id": course_id, "language": language},
+        {
+            "course_id": course_id,
+            "language": language,
+            "snapshot": snapshot.to_dict(),
+        },
     )
