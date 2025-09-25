@@ -215,3 +215,48 @@ def list_credentials(
     if provider_name:
         query = query.filter_by(provider_name=provider_name)
     return query.all()
+
+
+def upsert_wechat_credentials(
+    app: Flask,
+    *,
+    user_bid: str,
+    open_id: Optional[str],
+    union_id: Optional[str],
+    open_identifier: Optional[str] = None,
+    union_identifier: Optional[str] = None,
+    metadata: Optional[Dict[str, Optional[str]]] = None,
+    verified: bool = True,
+) -> List[AuthCredential]:
+    metadata = metadata or {}
+    credentials: List[AuthCredential] = []
+
+    if open_id:
+        credentials.append(
+            upsert_credential(
+                app,
+                user_bid=user_bid,
+                provider_name="wechat",
+                subject_id=open_id,
+                subject_format="open_id",
+                identifier=open_identifier or open_id,
+                metadata={**metadata, "type": "open_id"},
+                verified=verified,
+            )
+        )
+
+    if union_id:
+        credentials.append(
+            upsert_credential(
+                app,
+                user_bid=user_bid,
+                provider_name="wechat",
+                subject_id=union_id,
+                subject_format="unicon_id",
+                identifier=union_identifier or union_id,
+                metadata={**metadata, "type": "unicon_id"},
+                verified=verified,
+            )
+        )
+
+    return credentials
