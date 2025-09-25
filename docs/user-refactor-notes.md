@@ -53,6 +53,15 @@
 
 
 ## Target Model Snapshot
+
+## Legacy Credential Mapping Plan
+| Legacy Source | New `provider_name` | `subject_id` | `subject_format` | `identifier` | Additional Notes |
+| --- | --- | --- | --- | --- | --- |
+| `User.mobile` (phone login) | `phone` | existing mobile number | `phone` | same as `subject_id` | mark verified users (`user_state >= USER_STATE_REGISTERED`) as `state=1202`; capture SMS verification history in `raw_profile` if available. |
+| `User.email` (email login) | `email` | normalized email | `email` | same as `subject_id` | enforce lowercase normalization prior to insert; consider historic verification status from email flow. |
+| `User.user_open_id` (WeChat/OpenID) | `wechat` (legacy) | stored open id | `wechat_openid` | fallback to linked email/mobile if present | preserve `wx` payload in `raw_profile`; treat as third-party credential pending factory support. |
+| Future Google OAuth payload | `google` | Google subject (`sub`) | `google` | primary email from Google profile | persist full Google profile JSON in `raw_profile`; link to existing user via email/phone before new user creation. |
+| Placeholder for other providers (Apple/Facebook) | `apple` / `facebook` | provider-specific subject | format per provider | email or unique account id | follow same data contract as Google once implemented; may require additional metadata columns later. |
 - `user_users` (Model `UserInfo`, `src/api/flaskr/service/user/models.py:165`)
   - Business-keyed user record with `user_bid` (indexed), soft-delete flag, state enum (1101-1104), created/updated timestamps.
   - Lacks explicit SQLAlchemy relationships; future services must manage joins manually.
