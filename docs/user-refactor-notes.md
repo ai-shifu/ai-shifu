@@ -51,6 +51,16 @@
 - Feedback service (`src/api/flaskr/service/feedback/funs.py`) links submissions to `User`.
 - Test suites reference legacy models (e.g., `src/api/tests/test_order.py`, `test_discount.py`, `test_wx_pub_order.py`).
 
+
+## Target Model Snapshot
+- `user_users` (Model `UserInfo`, `src/api/flaskr/service/user/models.py:165`)
+  - Business-keyed user record with `user_bid` (indexed), soft-delete flag, state enum (1101-1104), created/updated timestamps.
+  - Lacks explicit SQLAlchemy relationships; future services must manage joins manually.
+- `user_auth_credentials` (Model `AuthCredential`, `src/api/flaskr/service/user/models.py:188`)
+  - Credential store keyed by `credential_bid` and `user_bid` (indexed) with provider metadata (`provider_name`, `subject_id`, `subject_format`, `identifier`).
+  - Includes soft-delete, state flag (1201/1202), and `raw_profile` text column for provider payload storage.
+  - No foreign key constraints; relies on application logic for referential integrity.
+
 ## Observations
 - No dedicated repository abstraction; services query SQLAlchemy models directly.
 - Redis is used alongside SQL tables for token and verification workflows (key prefixes defined in app config).
