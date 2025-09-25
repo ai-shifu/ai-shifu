@@ -808,14 +808,19 @@ class RunScriptContextV2:
                 self._current_attend.progress_record_bid,
                 "",
             )
-            if res is not None:
-                for i in res:
+            # Check if the generator yields any content (not None)
+            has_content = False
+            for i in res:
+                if i is not None:
+                    has_content = True
                     yield RunMarkdownFlowDTO(
                         outline_bid=run_script_info.outline_bid,
                         generated_block_bid=generated_block.generated_block_bid,
                         type=GeneratedType.CONTENT,
                         content=i,
                     )
+
+            if has_content:
                 self._can_continue = False
                 db.session.flush()
                 return
