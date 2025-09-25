@@ -61,12 +61,15 @@ def generation_attend(
     generated_block.user_bid = user_info.user_id
     generated_block.outline_item_bid = outline_item_info.bid
     generated_block.shifu_bid = outline_item_info.shifu_bid
-    generated_block.block_bid = block_dto.bid
+    if block_dto:
+        generated_block.block_bid = block_dto.bid
+    else:
+        generated_block.block_bid = ""
     generated_block.type = block_type
     generated_block.generated_block_bid = generate_id(app)
     generated_block.generated_content = ""
     generated_block.status = 1
-    if with_ui_conf:
+    if with_ui_conf and block_dto:
         generated_block.block_content_conf = json.dumps(
             block_dto.block_content.__json__(), ensure_ascii=False
         )

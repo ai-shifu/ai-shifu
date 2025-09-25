@@ -14,7 +14,6 @@ from flaskr.service.learn.const import (
 )
 from flaskr.dao import db
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
-from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.learn.context import RunScriptContext
 from flaskr.service.user.models import User
 
@@ -30,7 +29,6 @@ def check_text_with_llm_response(
     input: str,
     span,
     outline_item_info: ShifuOutlineItemDto,
-    block_dto: BlockDTO,
     attend_id: str,
     fmt_prompt: str,
 ):
@@ -78,7 +76,6 @@ def check_text_with_llm_response(
             generation_name="check_text_reject_"
             + outline_item_info.position
             + "_"
-            + str(block_dto.bid)
             + "_"
             + str(outline_item_info.bid),
             **{"temperature": model_setting.temperature},
@@ -88,9 +85,7 @@ def check_text_with_llm_response(
         for i in res:
             yield i
             response_text += i.result
-        log_script = generation_attend(
-            app, user_info, attend_id, outline_item_info, block_dto
-        )
+        log_script = generation_attend(app, user_info, attend_id, outline_item_info, "")
         log_script.generated_content = response_text
         log_script.role = ROLE_TEACHER
         db.session.add(log_script)

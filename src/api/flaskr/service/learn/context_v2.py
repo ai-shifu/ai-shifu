@@ -742,10 +742,8 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 db.session.flush()
                 return
-            self.app.logger.info(f"block.content: {block}")
             interaction_parser: InteractionParser = InteractionParser()
             parsed_interaction = interaction_parser.parse(block.content)
-            self.app.logger.info(f"parsed_interaction: {parsed_interaction}")
             generated_block: LearnGeneratedBlock = (
                 LearnGeneratedBlock.query.filter(
                     LearnGeneratedBlock.progress_record_bid
@@ -806,6 +804,9 @@ class RunScriptContextV2:
                 generated_block,
                 self._input,
                 self._trace,
+                self._outline_item_info,
+                self._current_attend.progress_record_bid,
+                "",
             )
             if res is not None:
                 for i in res:
