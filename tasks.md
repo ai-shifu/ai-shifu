@@ -18,7 +18,7 @@
 - [x] Extract a shared authentication provider interface (factory contract) describing required methods (e.g., `authenticate`, `link`, `to_credential_payload`).
 - [x] Refactor phone authentication service to implement the factory contract and persist credentials via `user_auth_credentials` repository functions.
 - [x] Refactor email authentication service to use the factory contract, enforcing identifier uniqueness and proper DTO usage.
-- [ ] Update user creation/update flows to interact with the new `User` repository and detach from legacy table abstractions.
+- [x] Update user creation/update flows to interact with the new `User` repository and detach from legacy table abstractions.
 - [ ] Adjust service-level DTOs and domain objects to align with the refactored persistence layer.
 
 ## Google OAuth Implementation
