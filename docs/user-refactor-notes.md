@@ -141,3 +141,4 @@
 - Email provider (`auth/providers/email.py`) reuses shared helpers (`user/repository.py`, `email_flow.py`) to validate codes, migrate study data, and normalize identifiers before storing credentials.
 - Repository helper `upsert_wechat_credentials` creates two credential rows when both WeChat `open_id` and `union_id` exist, aligning with the migration requirements.
 - Repository now provides `UserProfileSnapshot` for internal projections while keeping external `UserInfo` responses unchanged.
+- Google provider (`auth/providers/google.py`) uses Authlib to drive the OAuth flow, persists Google profile JSON into `user_auth_credentials.raw_profile`, and exposes `/api/user/oauth/google` + `/api/user/oauth/google/callback` endpoints.
