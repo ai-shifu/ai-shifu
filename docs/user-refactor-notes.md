@@ -72,8 +72,8 @@
 
 ## DTO & Response Contract Review
 - `UserInfo` DTO (`src/api/flaskr/service/common/dtos.py:15`)
-  - Encapsulates legacy `user_id` alongside login/state fields. Stringifies state labels (Chinese) and exposes `wx_openid` key in JSON output.
-  - Refactor impact: introduce `user_bid` as primary id, preserve backwards-compatible `user_id` only during migration, and externalize state localization from DTO to i18n layer.
+  - External responses still expose legacy `user_id` plus login/state fields (state localized in Chinese) and `wx_openid`.
+  - Refactor impact: keep API payload stable while internal repository snapshots expose `user_bid` and credential metadata for future endpoints.
 - `UserToken` DTO (`src/api/flaskr/service/common/dtos.py:43`)
   - Wrapper returning `{ userInfo, token }` payload after login/verification flows.
   - Refactor impact: ensure factory-generated credentials populate both `token` and normalized `UserInfo` plus issued credential metadata when applicable.
@@ -140,3 +140,4 @@
 - Phone provider (`auth/providers/phone.py`) wraps legacy verification logic (refactored into `phone_flow.py`) and persists credentials into `user_auth_credentials`, ensuring new `user_users` rows are created on demand.
 - Email provider (`auth/providers/email.py`) reuses shared helpers (`user/repository.py`, `email_flow.py`) to validate codes, migrate study data, and normalize identifiers before storing credentials.
 - Repository helper `upsert_wechat_credentials` creates two credential rows when both WeChat `open_id` and `union_id` exist, aligning with the migration requirements.
+- Repository now provides `UserProfileSnapshot` for internal projections while keeping external `UserInfo` responses unchanged.

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime
-from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Tuple
 
 from flask import Flask
 
@@ -129,6 +130,67 @@ def build_user_info_dto(legacy_user: User) -> UserInfo:
         user_avatar=legacy_user.user_avatar,
         is_admin=legacy_user.is_admin,
         is_creator=legacy_user.is_creator,
+    )
+
+
+@dataclass
+class UserProfileSnapshot:
+    user_bid: str
+    legacy: Dict[str, Any] = field(default_factory=dict)
+    credentials: List[Dict[str, Optional[str]]] = field(default_factory=list)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "user_bid": self.user_bid,
+            "legacy": self.legacy,
+            "credentials": self.credentials,
+        }
+
+
+def _serialize_credentials(
+    credentials: List[AuthCredential],
+) -> List[Dict[str, Optional[str]]]:
+    payload = []
+    for credential in credentials:
+        payload.append(
+            {
+                "credential_bid": credential.credential_bid,
+                "provider": credential.provider_name,
+                "identifier": credential.identifier,
+                "subject_id": credential.subject_id,
+                "subject_format": credential.subject_format,
+                "state": credential.state,
+                "metadata": deserialize_raw_profile(credential),
+            }
+        )
+    return payload
+
+
+def build_user_profile_snapshot(
+    legacy_user: User,
+    *,
+    credentials: Optional[List[AuthCredential]] = None,
+) -> UserProfileSnapshot:
+    if not legacy_user:
+        raise ValueError("Cannot build snapshot without a legacy user record")
+
+    legacy_summary = {
+        "user_id": legacy_user.user_id,
+        "username": legacy_user.username,
+        "name": legacy_user.name,
+        "email": legacy_user.email,
+        "mobile": legacy_user.mobile,
+        "user_state": legacy_user.user_state or USER_STATE_UNREGISTERED,
+        "language": get_user_language(legacy_user),
+        "avatar": legacy_user.user_avatar,
+        "is_admin": legacy_user.is_admin,
+        "is_creator": legacy_user.is_creator,
+    }
+
+    return UserProfileSnapshot(
+        user_bid=legacy_user.user_id,
+        legacy=legacy_summary,
+        credentials=_serialize_credentials(credentials or []),
     )
 
 
