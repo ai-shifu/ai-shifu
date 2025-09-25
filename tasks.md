@@ -40,7 +40,7 @@
 - [ ] Document response examples and error codes for new/updated endpoints in API docs or inline comments where appropriate.
 
 ## Testing & Validation
-- [ ] Add unit tests for the authentication provider factory and each provider implementation (phone, email, google).
+- [x] Add unit tests for the authentication provider factory and each provider implementation (phone, email, google).
 - [ ] Write integration tests covering the Google OAuth callback handler, including raw profile persistence and user linkage.
 - [ ] Add migration tests or smoke scripts verifying data transfer correctness for representative legacy rows.
 - [ ] Update or create test fixtures for new configuration values and provider metadata.
