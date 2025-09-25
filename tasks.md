@@ -15,7 +15,7 @@
 - [x] Draft a rollback plan for the migration to ensure safe deployment (document assumptions and limitations).
 
 ## Service Layer Refactor
-- [ ] Extract a shared authentication provider interface (factory contract) describing required methods (e.g., `authenticate`, `link`, `to_credential_payload`).
+- [x] Extract a shared authentication provider interface (factory contract) describing required methods (e.g., `authenticate`, `link`, `to_credential_payload`).
 - [ ] Refactor phone authentication service to implement the factory contract and persist credentials via `user_auth_credentials` repository functions.
 - [ ] Refactor email authentication service to use the factory contract, enforcing identifier uniqueness and proper DTO usage.
 - [ ] Update user creation/update flows to interact with the new `User` repository and detach from legacy table abstractions.

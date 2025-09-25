@@ -131,3 +131,9 @@
 4. Ensure rollback script reinserts critical columns (`mobile`, `email`, `user_open_id`, `user_unicon_id`) into legacy tables if forward migration removed or altered them. Ideally keep legacy data untouched until cutover confirmed.
 5. Guard rollback operations with foreign key checks disabled/enabled appropriately and wrap deletions in manageable batches to avoid long locks.
 6. Communicate rollback steps in deployment runbook, including Redis/session invalidation and cache warming considerations for user tokens.
+
+## Auth Provider Factory Blueprint
+- Core abstractions live in `src/api/flaskr/service/user/auth/base.py` and use Pydantic-style DTOs (matching existing project patterns with `Field` metadata) for challenge/verification payloads and unified `AuthResult` responses.
+- Provider registry implemented in `auth/factory.py` exposes `register_provider`, `get_provider`, and helpers (`has_provider`, `registered_providers`, `clear_providers`) to support dependency injection and test isolation.
+- Each concrete provider implements `AuthProvider.verify` (and optionally `send_challenge`, OAuth helpers) while declaring `provider_name`, enabling consistent persistence into `user_auth_credentials`.
+- Upcoming implementations (phone/email/google) will register during module import to keep startup configuration centralized.
