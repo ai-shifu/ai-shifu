@@ -3,8 +3,6 @@
 
 import random
 import string
-import uuid
-from flaskr.common.config import get_config
 from flask import Flask
 
 import jwt
@@ -12,20 +10,15 @@ import jwt
 from flaskr.service.user.models import User
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from ..common.dtos import (
-    USER_STATE_REGISTERED,
-    USER_STATE_UNREGISTERED,
     UserInfo,
     UserToken,
 )
 from ..common.models import raise_error
-from .utils import generate_token, get_user_language, get_user_openid
+from .utils import get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
 from flaskr.i18n import get_i18n_list
-from .phone_flow import init_first_course, migrate_user_study_record
 from ..auth import get_provider
 from ..auth.base import VerificationRequest
-
-FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
@@ -250,96 +243,15 @@ def verify_mail_code(
     course_id: str = None,
     language: str = None,
 ) -> UserToken:
-    from flaskr.service.profile.funcs import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
+    provider = get_provider("email")
+    request = VerificationRequest(
+        identifier=mail.lower(),
+        code=chekcode,
+        metadata={
+            "user_id": user_id,
+            "course_id": course_id,
+            "language": language,
+        },
     )
-
-    check_save = redis.get(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + mail)
-    if check_save is None and chekcode != FIX_CHECK_CODE:
-        raise_error("USER.MAIL_SEND_EXPIRED")
-    check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-    if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
-        raise_error("USER.MAIL_CHECK_ERROR")
-    else:
-        redis.delete(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + mail)
-        user_info = (
-            User.query.filter(User.email == mail)
-            .order_by(User.user_state.desc())
-            .order_by(User.id.asc())
-            .first()
-        )
-        if not user_info:
-            user_info = (
-                User.query.filter(User.user_id == user_id)
-                .order_by(User.id.asc())
-                .first()
-            )
-        elif user_id != user_info.user_id and course_id is not None:
-            new_profiles_dto = get_user_profile_labels(app, user_id, course_id)
-            new_profiles = [
-                {
-                    "key": profile.key,
-                    "value": profile.value,
-                    "label": profile.label,
-                    "type": profile.type,
-                    "items": profile.items,
-                }
-                for profile in new_profiles_dto.profiles
-            ]
-            update_user_profile_with_lable(
-                app, user_info.user_id, new_profiles, False, course_id
-            )
-            origin_user = User.query.filter(User.user_id == user_id).first()
-            migrate_user_study_record(
-                app, origin_user.user_id, user_info.user_id, course_id
-            )
-            if (
-                origin_user
-                and origin_user.user_open_id != user_info.user_open_id  # noqa W503
-                and (
-                    user_info.user_open_id is None  # noqa W503
-                    or user_info.user_open_id == ""
-                )
-            ):
-                user_info.user_open_id = origin_user.user_open_id
-        if user_info is None:
-            user_id = str(uuid.uuid4()).replace("-", "")
-            user_info = User(
-                user_id=user_id, username="", name="", email=mail, mobile=""
-            )
-            if (
-                user_info.user_state is None
-                or user_info.user_state == USER_STATE_UNREGISTERED  # noqa W503
-            ):
-                user_info.user_state = USER_STATE_REGISTERED
-            user_info.email = mail
-            user_info.user_language = language
-            db.session.add(user_info)
-            # New user registration requires course association detection
-            # When there is an install ui, the logic here should be removed
-            init_first_course(app, user_info.user_id)
-
-        if user_info.user_state == USER_STATE_UNREGISTERED:
-            user_info.email = mail
-            user_info.user_state = USER_STATE_REGISTERED
-            user_info.user_language = language
-        user_id = user_info.user_id
-        token = generate_token(app, user_id=user_id)
-        db.session.flush()
-        return UserToken(
-            UserInfo(
-                user_id=user_info.user_id,
-                username=user_info.username,
-                name=user_info.name,
-                email=user_info.email,
-                mobile=user_info.mobile,
-                user_state=user_info.user_state,
-                wx_openid=get_user_openid(user_info),
-                language=get_user_language(user_info),
-                user_avatar=user_info.user_avatar,
-                is_admin=user_info.is_admin,
-                is_creator=user_info.is_creator,
-            ),
-            token,
-        )
+    auth_result = provider.verify(app, request)
+    return auth_result.token

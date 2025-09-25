@@ -1,4 +1,4 @@
-"""Phone authentication provider implementation."""
+"""Email authentication provider implementation."""
 
 from __future__ import annotations
 
@@ -16,20 +16,28 @@ from flaskr.service.user.auth.factory import (
     register_provider,
 )
 from flaskr.service.user.auth.support import ensure_user_entity, upsert_credential
-from flaskr.service.user.phone_flow import verify_phone_code
-from flaskr.service.user.utils import send_sms_code
+from flaskr.service.user.email_flow import verify_email_code
+from flaskr.service.user.utils import send_email_code
 from flaskr.service.user.models import User
 
 
-class PhoneAuthProvider(AuthProvider):
-    provider_name = "phone"
+class EmailAuthProvider(AuthProvider):
+    provider_name = "email"
     supports_challenge = True
 
     def send_challenge(
         self, app: Flask, request: ChallengeRequest
     ) -> ChallengeResponse:
-        response = send_sms_code(app, request.identifier, request.metadata.get("ip"))
-        metadata = {"ip": request.metadata.get("ip")}
+        response = send_email_code(
+            app,
+            request.identifier,
+            ip=request.metadata.get("ip"),
+            language=request.metadata.get("language"),
+        )
+        metadata = {
+            "ip": request.metadata.get("ip"),
+            "language": request.metadata.get("language"),
+        }
         return ChallengeResponse(
             identifier=request.identifier,
             expire_in=response.get("expire_in", 0),
@@ -37,10 +45,10 @@ class PhoneAuthProvider(AuthProvider):
         )
 
     def verify(self, app: Flask, request: VerificationRequest) -> AuthResult:
-        user_token, created_user, context = verify_phone_code(
+        user_token, created_user, context = verify_email_code(
             app,
             request.metadata.get("user_id"),
-            request.identifier,
+            request.identifier.lower(),
             request.code,
             course_id=request.metadata.get("course_id"),
             language=request.metadata.get("language"),
@@ -48,20 +56,20 @@ class PhoneAuthProvider(AuthProvider):
 
         legacy_user = User.query.filter_by(user_id=user_token.userInfo.user_id).first()
         if not legacy_user:
-            raise RuntimeError("Legacy user record missing after phone verification")
+            raise RuntimeError("Legacy user record missing after email verification")
 
         user_entity, created_entity = ensure_user_entity(app, legacy_user)
+        identifier = request.identifier.lower()
         credential = upsert_credential(
             app,
             user_bid=user_entity.user_bid,
-            provider_name="phone",
-            subject_id=request.identifier,
-            subject_format="phone",
-            identifier=request.identifier,
+            provider_name="email",
+            subject_id=identifier,
+            subject_format="email",
+            identifier=identifier,
             raw_metadata={
                 "course_id": context.get("course_id"),
                 "language": context.get("language"),
-                "ip": request.metadata.get("ip"),
             },
             verified=True,
         )
@@ -75,5 +83,5 @@ class PhoneAuthProvider(AuthProvider):
         )
 
 
-if not has_provider(PhoneAuthProvider.provider_name):
-    register_provider(PhoneAuthProvider)
+if not has_provider(EmailAuthProvider.provider_name):
+    register_provider(EmailAuthProvider)

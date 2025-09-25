@@ -138,3 +138,4 @@
 - Each concrete provider implements `AuthProvider.verify` (and optionally `send_challenge`, OAuth helpers) while declaring `provider_name`, enabling consistent persistence into `user_auth_credentials`.
 - Upcoming implementations (phone/email/google) will register during module import to keep startup configuration centralized.
 - Phone provider (`auth/providers/phone.py`) wraps legacy verification logic (refactored into `phone_flow.py`) and persists credentials into `user_auth_credentials`, ensuring new `user_users` rows are created on demand.
+- Email provider (`auth/providers/email.py`) reuses shared helpers (`auth/support.py`, `email_flow.py`) to validate codes, migrate study data, and normalize identifiers before storing credentials.
