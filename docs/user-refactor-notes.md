@@ -137,3 +137,4 @@
 - Provider registry implemented in `auth/factory.py` exposes `register_provider`, `get_provider`, and helpers (`has_provider`, `registered_providers`, `clear_providers`) to support dependency injection and test isolation.
 - Each concrete provider implements `AuthProvider.verify` (and optionally `send_challenge`, OAuth helpers) while declaring `provider_name`, enabling consistent persistence into `user_auth_credentials`.
 - Upcoming implementations (phone/email/google) will register during module import to keep startup configuration centralized.
+- Phone provider (`auth/providers/phone.py`) wraps legacy verification logic (refactored into `phone_flow.py`) and persists credentials into `user_auth_credentials`, ensuring new `user_users` rows are created on demand.

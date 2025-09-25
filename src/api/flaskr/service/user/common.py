@@ -9,11 +9,8 @@ from flask import Flask
 
 import jwt
 
-from flaskr.service.order.consts import LEARN_STATUS_RESET
 from flaskr.service.user.models import User
-from sqlalchemy import text
 from flaskr.api.sms.aliyun import send_sms_code_ali
-from flaskr.service.learn.models import LearnProgressRecord
 from ..common.dtos import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
@@ -23,8 +20,10 @@ from ..common.dtos import (
 from ..common.models import raise_error
 from .utils import generate_token, get_user_language, get_user_openid
 from ...dao import redis_client as redis, db
-from flaskr.service.shifu.models import PublishedShifu
 from flaskr.i18n import get_i18n_list
+from .phone_flow import init_first_course, migrate_user_study_record
+from ..auth import get_provider
+from ..auth.base import VerificationRequest
 
 FIX_CHECK_CODE = get_config("UNIVERSAL_VERIFICATION_CODE")
 
@@ -220,62 +219,6 @@ def verify_sms_code_without_phone(
         return ret
 
 
-def migrate_user_study_record(
-    app: Flask, from_user_id: str, to_user_id: str, course_id: str = None
-):
-    app.logger.info(
-        "migrate_user_study_record from_user_id:"
-        + from_user_id
-        + " to_user_id:"
-        + to_user_id
-    )
-    from_attends = LearnProgressRecord.query.filter(
-        LearnProgressRecord.user_bid == from_user_id,
-        LearnProgressRecord.status != LEARN_STATUS_RESET,
-        LearnProgressRecord.shifu_bid == course_id,
-    ).all()
-    to_attends = LearnProgressRecord.query.filter(
-        LearnProgressRecord.user_bid == to_user_id,
-        LearnProgressRecord.status != LEARN_STATUS_RESET,
-        LearnProgressRecord.shifu_bid == course_id,
-    ).all()
-    migrate_attends = []
-    for from_attend in from_attends:
-        to_attend = [
-            to_attend
-            for to_attend in to_attends
-            if to_attend.outline_item_bid == from_attend.outline_item_bid
-        ]
-        if len(to_attend) > 0:
-            continue
-        else:
-            migrate_attends.append(from_attend)
-    if len(migrate_attends) > 0:
-        db.session.execute(
-            text(
-                "update learn_progress_records set user_bid = '%s' where id in (%s)"
-                % (to_user_id, ",".join([str(attend.id) for attend in migrate_attends]))
-            )
-        )
-        db.session.execute(
-            text(
-                "update learn_generated_blocks set user_bid = '%s' where progress_record_bid in (%s)"
-                % (
-                    to_user_id,
-                    ",".join(
-                        [
-                            "'" + str(attend.progress_record_bid) + "'"
-                            for attend in migrate_attends
-                        ]
-                    ),
-                )
-            )
-        )
-
-        db.session.flush()
-
-
-# verify sms code
 def verify_sms_code(
     app: Flask,
     user_id,
@@ -284,101 +227,18 @@ def verify_sms_code(
     course_id: str = None,
     language: str = None,
 ) -> UserToken:
-    from flaskr.service.profile.funcs import (
-        get_user_profile_labels,
-        update_user_profile_with_lable,
+    provider = get_provider("phone")
+    request = VerificationRequest(
+        identifier=phone,
+        code=chekcode,
+        metadata={
+            "user_id": user_id,
+            "course_id": course_id,
+            "language": language,
+        },
     )
-
-    check_save = redis.get(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
-    if check_save is None and chekcode != FIX_CHECK_CODE:
-        raise_error("USER.SMS_SEND_EXPIRED")
-    check_save_str = str(check_save, encoding="utf-8") if check_save else ""
-    if chekcode != check_save_str and chekcode != FIX_CHECK_CODE:
-        raise_error("USER.SMS_CHECK_ERROR")
-    else:
-        redis.delete(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
-        user_info = (
-            User.query.filter(User.mobile == phone)
-            .order_by(User.user_state.desc())
-            .order_by(User.id.asc())
-            .first()
-        )
-        if not user_info:
-            user_info = (
-                User.query.filter(User.user_id == user_id)
-                .order_by(User.id.asc())
-                .first()
-            )
-        elif user_id != user_info.user_id and course_id is not None:
-            new_profiles_dto = get_user_profile_labels(app, user_id, course_id)
-            new_profiles = [
-                {
-                    "key": profile.key,
-                    "value": profile.value,
-                    "label": profile.label,
-                    "type": profile.type,
-                    "items": profile.items,
-                }
-                for profile in new_profiles_dto.profiles
-            ]
-            update_user_profile_with_lable(
-                app, user_info.user_id, new_profiles, False, course_id
-            )
-            origin_user = User.query.filter(User.user_id == user_id).first()
-            migrate_user_study_record(
-                app, origin_user.user_id, user_info.user_id, course_id
-            )
-            if (
-                origin_user
-                and origin_user.user_open_id != user_info.user_open_id  # noqa W503
-                and (
-                    user_info.user_open_id is None  # noqa W503
-                    or user_info.user_open_id == ""
-                )
-            ):
-                user_info.user_open_id = origin_user.user_open_id
-        if user_info is None:
-            user_id = str(uuid.uuid4()).replace("-", "")
-            user_info = User(
-                user_id=user_id, username="", name="", email="", mobile=phone
-            )
-            if (
-                user_info.user_state is None
-                or user_info.user_state == USER_STATE_UNREGISTERED  # noqa W503
-            ):
-                user_info.user_state = USER_STATE_REGISTERED
-            user_info.mobile = phone
-            if language:
-                user_info.user_language = language
-            db.session.add(user_info)
-            # New user registration requires course association detection
-            # When there is an install ui, the logic here should be removed
-            init_first_course(app, user_info.user_id)
-
-        if user_info.user_state == USER_STATE_UNREGISTERED:
-            user_info.mobile = phone
-            user_info.user_state = USER_STATE_REGISTERED
-            if language:
-                user_info.user_language = language
-        user_id = user_info.user_id
-        token = generate_token(app, user_id=user_id)
-        db.session.flush()
-        return UserToken(
-            UserInfo(
-                user_id=user_info.user_id,
-                username=user_info.username,
-                name=user_info.name,
-                email=user_info.email,
-                mobile=user_info.mobile,
-                user_state=user_info.user_state,
-                wx_openid=get_user_openid(user_info),
-                language=get_user_language(user_info),
-                user_avatar=user_info.user_avatar,
-                is_admin=user_info.is_admin,
-                is_creator=user_info.is_creator,
-            ),
-            token,
-        )
+    auth_result = provider.verify(app, request)
+    return auth_result.token
 
 
 # verify mail code
@@ -483,35 +343,3 @@ def verify_mail_code(
             ),
             token,
         )
-
-
-def init_first_course(app: Flask, user_id: str):
-    """
-    Check if there is only one user and one course. If so, update the creator of the course
-    and set the first user as admin and creator
-    """
-    # Check the number of users
-    user_count = User.query.filter(User.user_state != USER_STATE_UNREGISTERED).count()
-    if user_count != 1:
-        return
-
-    # Check the number of courses
-    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-    if course_count != 1:
-        return
-
-    # Set the first user as admin and creator
-    first_user = User.query.filter(User.user_id == user_id).first()
-    if first_user:
-        first_user.is_admin = True
-        first_user.is_creator = True
-
-    # Get the only course
-    course = (
-        PublishedShifu.query.filter(PublishedShifu.deleted == 0)
-        .order_by(PublishedShifu.id.asc())
-        .first()
-    )
-    # The creator of the updated course
-    course.created_user_id = user_id
-    db.session.flush()
