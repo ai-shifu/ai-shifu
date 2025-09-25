@@ -43,6 +43,39 @@ STATE_MAPPING = {
     "1104": USER_STATE_PAID,
 }
 
+VALID_USER_STATES = {
+    USER_STATE_UNREGISTERED,
+    USER_STATE_REGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_PAID,
+}
+
+
+def _normalize_user_state(raw_state) -> int:
+    if raw_state is None:
+        return USER_STATE_UNREGISTERED
+
+    # direct mapping (covers 0-3 and string variations we added)
+    if raw_state in STATE_MAPPING:
+        return STATE_MAPPING[raw_state]
+
+    # attempt numeric normalization
+    try:
+        numeric = int(float(str(raw_state).strip()))
+        if numeric in STATE_MAPPING:
+            return STATE_MAPPING[numeric]
+        if numeric in VALID_USER_STATES:
+            return numeric
+    except (TypeError, ValueError):
+        pass
+
+    # final attempt: string key
+    string_key = str(raw_state).strip()
+    if string_key in STATE_MAPPING:
+        return STATE_MAPPING[string_key]
+
+    return USER_STATE_UNREGISTERED
+
 
 def _normalize_birthday(value: Optional[datetime]) -> date:
     if isinstance(value, date):
@@ -78,7 +111,7 @@ def ensure_user_entity(app: Flask, legacy_user: User) -> Tuple[UserEntity, bool]
         avatar=legacy_user.user_avatar or "",
         birthday=_normalize_birthday(getattr(legacy_user, "user_birth", None)),
         language=get_user_language(legacy_user),
-        state=STATE_MAPPING.get(legacy_user.user_state, USER_STATE_REGISTERED),
+        state=_normalize_user_state(legacy_user.user_state),
         deleted=0,
     )
     if getattr(legacy_user, "created", None):
@@ -94,7 +127,7 @@ def sync_user_entity_from_legacy(entity: UserEntity, legacy_user: User) -> UserE
     entity.nickname = _pick_nickname(legacy_user)
     entity.avatar = legacy_user.user_avatar or entity.avatar or ""
     entity.language = get_user_language(legacy_user)
-    entity.state = STATE_MAPPING.get(legacy_user.user_state, USER_STATE_REGISTERED)
+    entity.state = _normalize_user_state(legacy_user.user_state)
     entity.deleted = 0
     if getattr(legacy_user, "user_birth", None):
         entity.birthday = _normalize_birthday(getattr(legacy_user, "user_birth", None))
@@ -126,14 +159,7 @@ def build_user_info_dto(legacy_user: User) -> UserInfo:
     if not legacy_user:
         raise ValueError("Cannot build UserInfo DTO without a legacy user record")
 
-    raw_state = legacy_user.user_state
-    try:
-        normalized_state = STATE_MAPPING.get(
-            int(raw_state) if raw_state is not None else USER_STATE_UNREGISTERED,
-            USER_STATE_UNREGISTERED,
-        )
-    except (TypeError, ValueError):
-        normalized_state = STATE_MAPPING.get(raw_state, USER_STATE_UNREGISTERED)
+    normalized_state = _normalize_user_state(legacy_user.user_state)
 
     return UserInfo(
         user_id=legacy_user.user_id,

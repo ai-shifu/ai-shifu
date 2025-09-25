@@ -48,7 +48,9 @@ class UserInfo:
         self.name = name
         self.email = email
         self.mobile = mobile
-        self.user_state = USE_STATE_VALUES[user_state]
+        self.user_state = USE_STATE_VALUES.get(
+            user_state, USE_STATE_VALUES[USER_STATE_UNREGISTERED]
+        )
         self.wx_openid = wx_openid
         self.language = language
         self.user_avatar = user_avatar
