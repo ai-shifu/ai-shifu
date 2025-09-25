@@ -1,4 +1,14 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text, Boolean
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    TIMESTAMP,
+    Date,
+    Text,
+    Boolean,
+    SmallInteger,
+    DateTime,
+)
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
@@ -164,4 +174,102 @@ class UserVerifyCode(db.Model):
         default=func.now(),
         onupdate=func.now(),
         comment="Update time",
+    )
+
+
+class UserInfo(db.Model):
+    __tablename__ = "user_users"
+
+    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
+    )
+    nickname = Column(String(255), nullable=False, default="", comment="User nickname")
+    avatar = Column(String(255), nullable=False, default="", comment="User avatar")
+    birthday = Column(Date, nullable=False, default="", comment="User birthday")
+    language = Column(String(30), nullable=False, default="", comment="User language")
+    state = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="User state: 1101=unregistered, 1102=registered, 1103=trail, 1104=paid",
+        index=True,
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
+    )
+
+
+class AuthCredential(db.Model):
+    __tablename__ = "user_auth_credentials"
+    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
+    credential_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="Credential business identifier",
+        index=True,
+    )
+    user_bid = Column(
+        String(32),
+        nullable=False,
+        default="",
+        comment="User business identifier",
+        index=True,
+    )
+    provider_name = Column(
+        String(255), nullable=False, default="", comment="Provider name", index=True
+    )
+    subject_id = Column(
+        String(255), nullable=False, default="", comment="Subject id", index=True
+    )
+    subject_format = Column(
+        String(255), nullable=False, default="", comment="Subject format", index=True
+    )
+    identifier = Column(
+        String(255), nullable=False, default="", comment="Identifier", index=True
+    )
+    raw_profile = Column(Text, nullable=False, default="", comment="Raw profile")
+    state = Column(
+        Integer,
+        nullable=False,
+        default=0,
+        comment="Credential state: 1201=unverified, 1202=verified",
+        index=True,
+    )
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+        index=True,
+    )
+    created_at = Column(
+        DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
+    )
+
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Last update timestamp",
+        onupdate=func.now(),
     )
