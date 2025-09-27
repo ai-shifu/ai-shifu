@@ -445,7 +445,7 @@ def invoke_llm(
         metadata=kwargs,
         completion_start_time=start_completion_time,
     )
-    span.end(output=response_text)
+    span.update(output=response_text)
 
 
 def chat_llm(
