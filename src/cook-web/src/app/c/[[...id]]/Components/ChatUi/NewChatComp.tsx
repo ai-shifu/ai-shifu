@@ -24,7 +24,8 @@ import PayModal from '../Pay/PayModal';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import PayModalM from '../Pay/PayModalM';
-// import { useTranslation } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
+import { toast } from '@/hooks/useToast';
 import { useEnvStore } from '@/c-store/envStore';
 import {
   events,
@@ -72,8 +73,13 @@ export const NewChatComponents = ({
   updateSelectedLesson,
   preview_mode = PREVIEW_MODE.NORMAL,
 }) => {
-  // const { t } = useTranslation();
   const { trackEvent, trackTrailProgress } = useTracking();
+  const { t } = useTranslation();
+  const showOutputInProgressToast = useCallback(() => {
+    toast({
+      title: t('chat.outputInProgress'),
+    });
+  }, [t]);
   const { courseId: shifu_bid } = useEnvStore.getState();
   const { updateUserInfo, refreshUserInfo } = useUserStore(
     useShallow(state => ({
@@ -88,6 +94,7 @@ export const NewChatComponents = ({
   );
 
   const outline_bid = lessonId;
+  const [isTypeFinished, setIsTypeFinished] = useState(false);
 
   const [loadedChapterId, setLoadedChapterId] = useState('');
   const [loadedData, setLoadedData] = useState(false);
@@ -157,6 +164,7 @@ export const NewChatComponents = ({
   // get sse message
   const run = useCallback(
     (sseParams: SSEParams) => {
+      setIsTypeFinished(false);
       // Create a placeholder block immediately with a loading bar
       const id = genUuid();
       currentBlockIdRef.current = id;
@@ -339,6 +347,7 @@ export const NewChatComponents = ({
         contentListRef.current = contentRecords;
         return contentRecords;
       });
+      setIsTypeFinished(true);
       scrollToBottom('smooth');
     } else {
       runRef.current?.({
@@ -347,7 +356,14 @@ export const NewChatComponents = ({
       });
     }
     setIsLoading(false);
-  }, [chapterId, outline_bid, reduceRecordsToContent, lessonId, shifu_bid]);
+  }, [
+    chapterId,
+    outline_bid,
+    reduceRecordsToContent,
+    lessonId,
+    shifu_bid,
+    scrollToBottom,
+  ]);
 
   // user choose chapter should refresh data
   useEffect(() => {
@@ -433,6 +449,11 @@ export const NewChatComponents = ({
 
   const onRefresh = useCallback(
     (generated_block_bid: string) => {
+      if (!isTypeFinished) {
+        showOutputInProgressToast();
+        return;
+      }
+
       const currentList = contentListRef.current;
       const newList = [...currentList];
       const needChangeItemIndex = newList.findIndex(
@@ -446,6 +467,7 @@ export const NewChatComponents = ({
         return newList;
       });
 
+      setIsTypeFinished(false);
       // refresh the item
       run({
         input: '',
@@ -453,12 +475,16 @@ export const NewChatComponents = ({
         reload_generated_block_bid: generated_block_bid,
       });
     },
-    [run],
+    [isTypeFinished, run, showOutputInProgressToast],
   );
 
   // user choose interaction in chat
   const onSend = useCallback(
     (content: OnSendContentParams) => {
+      if (!isTypeFinished) {
+        showOutputInProgressToast();
+        return;
+      }
       // console.log('onSend', content);
       const { variableName, buttonText, inputText } = content;
       if (buttonText === SYS_INTERACTION_TYPE.PAY) {
@@ -483,6 +509,7 @@ export const NewChatComponents = ({
       //   return;
       // }
 
+      setIsTypeFinished(false);
       scrollToBottom();
       run({
         input: {
@@ -501,6 +528,8 @@ export const NewChatComponents = ({
       onPayModalOpen,
       scrollToBottom,
       run,
+      isTypeFinished,
+      showOutputInProgressToast,
     ],
   );
 
@@ -567,6 +596,7 @@ export const NewChatComponents = ({
       setContentList(p => [...p, ...newInteractionBlock] as ContentItem[]);
       setLastInteractionBlock(null);
     }
+    setIsTypeFinished(true);
   };
 
   return (

@@ -123,7 +123,8 @@
     "loginSuccess": "已经登录成功了",
     "startAutoSkip": "开启自动跳过",
     "stopAutoSkip": "停止自动跳过",
-    "thinking": "思考中..."
+    "thinking": "思考中...",
+    "outputInProgress": "正在有内容输出中，请等待输出结束后再重试"
   },
   "cmEditor": {
     "image": "图片",
