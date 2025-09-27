@@ -1,7 +1,7 @@
 """
 Unit tests for block_to_mdflow_adapter.py
 
-This module contains unit tests for the convert_block_to_markdown_flow
+This module contains unit tests for the convert_block_to_mdflow
 function, testing various block type conversion scenarios.
 
 Author: AI Assistant

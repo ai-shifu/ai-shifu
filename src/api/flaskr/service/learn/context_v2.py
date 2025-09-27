@@ -683,7 +683,7 @@ class RunScriptContextV2:
                 app, self._user_info.user_id, self._outline_item_info.shifu_bid
             )
         )
-        variable_definition_key_id_map: dict[str:str] = {
+        variable_definition_key_id_map: dict[str, str] = {
             p.profile_key: p.profile_id for p in variable_definition
         }
 
