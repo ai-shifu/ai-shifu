@@ -52,10 +52,10 @@ def check_text_with_llm_response(
     if res.check_result == CHECK_RESULT_REJECT:
         labels = res.risk_labels
         prompt = f"""# 角色
-你是一名在线老师，正在和学生对话
+你是一名在线老师,正在和学生对话
 
 # 任务
-学生的发言有不合法不合规的地方，请指出问题，并把教学拉回到正常轨道
+学生的发言有不合法不合规的地方,请指出问题,并把教学拉回到正常轨道
 
 # 当前教学内容
 {fmt_prompt}
