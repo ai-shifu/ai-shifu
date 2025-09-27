@@ -56,7 +56,10 @@ export const ChatUi = ({
           lessonId={lessonId}
           lessonUpdate={lessonUpdate}
           onGoChapter={onGoChapter}
-          className={styles.chatComponents}
+          className={cn(
+            styles.chatComponents,
+            showUserSettings ? styles.chatComponentsHidden : '',
+          )}
           onPurchased={onPurchased}
           chapterUpdate={chapterUpdate}
           updateSelectedLesson={updateSelectedLesson}
