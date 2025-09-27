@@ -548,6 +548,9 @@ export const NewChatComponents = ({
       if (chapterId !== loadedChapterId) {
         return;
       }
+      // FIX: when go to navigation node, set isTypeFinished to true to avoid repeated generation of interaction block
+      setIsTypeFinished(true);
+      setLastInteractionBlock(null);
       scrollToLesson(newLessonId);
       updateSelectedLesson(newLessonId);
       // refreshData()
