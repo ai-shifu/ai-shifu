@@ -70,11 +70,17 @@ def get_field_schema(typ, description: str = ""):
     args = typing.get_args(typ)
 
     if isinstance(typ, type) and issubclass(typ, Enum):
-        field_schema["type"] = "string"
-        field_schema["enum"] = [member.value for member in typ]
-        field_schema["description"] = (
-            f"Enum values: {', '.join([member.value for member in typ])}"
-        )
+        values = [member.value for member in typ]
+        py_type = type(values[0]) if values else str
+        json_type = {
+            str: "string",
+            int: "integer",
+            float: "number",
+            bool: "boolean",
+        }.get(py_type, "string")
+        field_schema["type"] = json_type
+        field_schema["enum"] = values
+        field_schema["description"] = f"Enum values: {', '.join(map(str, values))}"
     elif typ in (str, int, float, bool):
         field_schema["type"] = typ.__name__
         if typ is str:
@@ -83,7 +89,7 @@ def get_field_schema(typ, description: str = ""):
             field_schema["type"] = "integer"
         elif typ is float:
             field_schema["type"] = "number"
-    elif origin is typing.Union or (hasattr(typ, "__args__") and "|" in str(typ)):
+    elif origin in (typing.Union, getattr(__import__("types"), "UnionType", ())):
         if hasattr(typ, "__args__"):
             union_types = typ.__args__
         else:

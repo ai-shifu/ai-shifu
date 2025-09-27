@@ -122,17 +122,18 @@ def get_outline_item_tree(
         if not struct:
             raise_error("SHIFU.SHIFU_STRUCT_NOT_FOUND")
         struct = HistoryItem.from_json(struct.struct)
-        outline_items = []
+        outline_items: list[HistoryItem] = []
         q = queue.Queue()
         q.put(struct)
         while not q.empty():
-            item = q.get()
+            item: HistoryItem = q.get()
             if item.type == "outline":
                 outline_items.append(item)
             if item.children:
                 for child in item.children:
                     q.put(child)
         outline_items_ids = [i.id for i in outline_items]
+        outline_items_bids = [i.bid for i in outline_items]
         outline_items_dbs = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_items_ids),
             outline_item_model.deleted == 0,
@@ -140,7 +141,7 @@ def get_outline_item_tree(
         progress_records = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
-            LearnProgressRecord.outline_item_bid.in_(outline_items_ids),
+            LearnProgressRecord.outline_item_bid.in_(outline_items_bids),
             LearnProgressRecord.status != LEARN_STATUS_RESET,
             LearnProgressRecord.deleted == 0,
         ).all()
