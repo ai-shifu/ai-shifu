@@ -131,7 +131,8 @@
     "loginSuccess": "Login successful",
     "startAutoSkip": "Start Auto-skip",
     "stopAutoSkip": "Stop Auto-skip",
-    "thinking": "Thinking..."
+    "thinking": "Thinking...",
+    "outputInProgress": "Content is still generating. Please wait before retrying."
   },
   "cmEditor": {
     "image": "Image",
@@ -315,6 +316,7 @@
     "setting": "Settings"
   },
   "pay": {
+    "dialogTitle": "Payment dialog",
     "modelServiceAgreement": "Model Service Agreement",
     "payChannelAlipay": "Alipay",
     "payChannelWechat": "WeChat",

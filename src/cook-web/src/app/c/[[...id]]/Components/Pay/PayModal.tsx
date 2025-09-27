@@ -9,7 +9,7 @@ import Image from 'next/image';
 import { LoaderIcon, LoaderCircleIcon } from 'lucide-react';
 
 import { QRCodeSVG } from 'qrcode.react';
-import { Dialog, DialogContent } from '@/components/ui/Dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/Dialog';
 
 import { Button } from '@/components/ui/Button';
 
@@ -48,7 +48,7 @@ const CompletedSection = memo(() => {
       <div className={styles.completeWrapper}>
         <Image
           className={styles.paySuccessBg}
-          src={paySucessBg.src}
+          src={paySucessBg}
           alt=''
         />
       </div>
@@ -264,9 +264,12 @@ export const PayModal = ({
         onOpenChange={handleOpenChange}
       >
         <DialogContent
-          className={cn(styles.payModal, 'w-[700px] h-[588px]')}
+          className={cn(styles.payModal, 'max-w-none')}
           onPointerDownOutside={evt => evt.preventDefault()}
         >
+          <DialogTitle className='sr-only'>
+            {t('pay.dialogTitle')}
+          </DialogTitle>
           {!initLoading && (
             <div className={styles.payModalContent}>
               <div

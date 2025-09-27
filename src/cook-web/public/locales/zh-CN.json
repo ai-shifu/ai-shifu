@@ -131,7 +131,8 @@
     "loginSuccess": "已经登录成功了",
     "startAutoSkip": "开启自动跳过",
     "stopAutoSkip": "停止自动跳过",
-    "thinking": "思考中..."
+    "thinking": "思考中...",
+    "outputInProgress": "正在有内容输出中，请等待输出结束后再重试"
   },
   "cmEditor": {
     "image": "图片",
@@ -315,6 +316,7 @@
     "setting": "设置"
   },
   "pay": {
+    "dialogTitle": "支付弹窗",
     "modelServiceAgreement": "模型服务协议",
     "payChannelAlipay": "支付宝",
     "payChannelWechat": "微信",
