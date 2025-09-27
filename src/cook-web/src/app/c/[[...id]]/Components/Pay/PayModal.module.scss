@@ -1,4 +1,10 @@
 .payModal {
+  width: 700px;
+  max-width: 700px;
+  height: 588px;
+  padding: 0;
+  border-radius: 20px;
+
   :global(.ant-modal-content) {
     padding: 0;
     border-radius: 20px;

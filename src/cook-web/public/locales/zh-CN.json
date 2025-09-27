@@ -306,6 +306,7 @@
     "setting": "设置"
   },
   "pay": {
+    "dialogTitle": "支付弹窗",
     "modelServiceAgreement": "模型服务协议",
     "payChannelAlipay": "支付宝",
     "payChannelWechat": "微信",

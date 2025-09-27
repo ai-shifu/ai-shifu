@@ -306,6 +306,7 @@
     "setting": "Settings"
   },
   "pay": {
+    "dialogTitle": "Payment dialog",
     "modelServiceAgreement": "Model Service Agreement",
     "payChannelAlipay": "Alipay",
     "payChannelWechat": "WeChat",
