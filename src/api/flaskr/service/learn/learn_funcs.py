@@ -153,7 +153,7 @@ def get_outline_item_tree(
             outline_item: DraftOutlineItem | PublishedOutlineItem = next(
                 (i for i in outline_items_dbs if i.id == item.id), None
             )
-            if not outline_item:
+            if not outline_item or outline_item.hidden == 1:
                 return None
             progress_record = progress_records_map.get(
                 outline_item.outline_item_bid, None
