@@ -99,7 +99,6 @@ class GoogleAuthProvider(AuthProvider):
         token = session.fetch_token(
             TOKEN_ENDPOINT,
             code=request.code,
-            client_secret=app.config.get("GOOGLE_OAUTH_CLIENT_SECRET"),
         )
 
         resp = session.get(USERINFO_ENDPOINT)
