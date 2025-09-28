@@ -74,6 +74,7 @@ class GoogleAuthProvider(AuthProvider):
             prompt="consent",
             access_type="offline",
         )
+        current_app.logger.info("Google OAuth begin state=%s", state)
         redis.set(_state_storage_key(state), "1", ex=STATE_TTL)
         return {"authorization_url": authorization_url, "state": state}
 
@@ -84,7 +85,11 @@ class GoogleAuthProvider(AuthProvider):
             raise RuntimeError("Missing state")
 
         storage_key = _state_storage_key(request.state)
+        current_app.logger.info("Google OAuth callback state=%s", request.state)
         if not redis.get(storage_key):
+            current_app.logger.warning(
+                "Google OAuth state missing for key %s", storage_key
+            )
             raise RuntimeError("Invalid or expired OAuth state")
         redis.delete(storage_key)
 
