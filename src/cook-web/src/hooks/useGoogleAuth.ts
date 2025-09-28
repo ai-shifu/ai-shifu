@@ -62,7 +62,7 @@ function extractData<T>(response: T | ApiEnvelope<T>): T {
   return response as T;
 }
 
-function buildRedirectUri(baseRedirect?: string, override?: string): string {
+function buildRedirectUri(override?: string): string {
   const origin =
     typeof window !== 'undefined' && window.location
       ? window.location.origin
@@ -74,9 +74,6 @@ function buildRedirectUri(baseRedirect?: string, override?: string): string {
 
   try {
     const url = new URL(target, origin);
-    if (baseRedirect) {
-      url.searchParams.set('redirect', baseRedirect);
-    }
     return url.toString();
   } catch (error) {
     console.warn(
@@ -111,10 +108,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         const redirectTarget = redirectPath || '/main';
         setGoogleOAuthRedirect(redirectTarget);
 
-        const redirectUri = buildRedirectUri(
-          redirectTarget,
-          redirectUriOverride,
-        );
+        const redirectUri = buildRedirectUri(redirectUriOverride);
 
         await ensureGuestToken();
 
