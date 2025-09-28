@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
@@ -17,8 +17,14 @@ export default function GoogleCallbackPage() {
   const { t } = useTranslation();
 
   const [error, setError] = useState<string | null>(null);
+  const hasHandledRef = useRef(false);
 
   useEffect(() => {
+    if (hasHandledRef.current) {
+      return;
+    }
+
+    hasHandledRef.current = true;
     let cancelled = false;
 
     const run = async () => {
