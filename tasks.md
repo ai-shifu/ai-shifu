@@ -8,12 +8,12 @@ Backend work landed in commits `c074c961`, `67d17a21`, and `073eadf0`, exposing 
 - [x] Update sample env files (`src/cook-web/.env.example`, if present) to show how to enable Google login locally.
 
 ## API layer & auth utilities
-- [ ] Add `googleOauthStart` and `googleOauthCallback` entries to `src/cook-web/src/api/api.ts` and regenerate typed wrappers via `src/cook-web/src/api/index.ts`.
-- [ ] Create a focused helper in `src/cook-web/src/hooks` (e.g., `useGoogleAuth.ts`) that:
+- [x] Add `googleOauthStart` and `googleOauthCallback` entries to `src/cook-web/src/api/api.ts` and regenerate typed wrappers via `src/cook-web/src/api/index.ts`.
+- [x] Create a focused helper in `src/cook-web/src/hooks` (e.g., `useGoogleAuth.ts`) that:
   - calls `googleOauthStart` with the computed redirect URI and optional state persistence,
   - exchanges `code`/`state` via `googleOauthCallback`,
   - funnels successful responses through `useUserStore.login`.
-- [ ] Ensure the helper reuses `useAuth.callWithTokenRefresh` semantics or equivalent error handling/toasts for consistency.
+- [x] Ensure the helper reuses `useAuth.callWithTokenRefresh` semantics or equivalent error handling/toasts for consistency.
 
 ## UI flows
 - [ ] Add a dedicated Google sign-in button component under `src/cook-web/src/components/auth` (icon, copy, loading state) with translations (`auth.googleLogin`, `auth.googleLoginError`, etc.).
