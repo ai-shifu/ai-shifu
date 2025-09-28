@@ -37,16 +37,21 @@ export default function GoogleCallbackPage() {
           fallbackRedirect,
         });
         if (!cancelled) {
-          router.replace(result.redirect);
-          // Fallback to full navigation to avoid being stuck on the callback page
-          window.location.assign(result.redirect);
+          const targetUrl = `${window.location.origin}${result.redirect}`;
+          console.info('[Google OAuth] redirecting to', targetUrl);
+          window.location.assign(targetUrl);
         }
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message || t('auth.googleLoginError'));
           setTimeout(() => {
-            const fallbackLoginUrl = `/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
-            router.replace(fallbackLoginUrl);
+            const fallbackLoginUrl = `${window.location.origin}/login${
+              redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''
+            }`;
+            console.warn(
+              '[Google OAuth] redirecting back to login',
+              fallbackLoginUrl,
+            );
             window.location.assign(fallbackLoginUrl);
           }, 2500);
         }
