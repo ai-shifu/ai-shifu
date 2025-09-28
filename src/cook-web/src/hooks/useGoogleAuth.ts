@@ -8,9 +8,13 @@ import { useToast } from '@/hooks/useToast';
 import { useUserStore } from '@/store';
 import { useTranslation } from 'react-i18next';
 import type { UserInfo } from '@/c-types';
-
-const GOOGLE_OAUTH_STATE_KEY = 'google_oauth_state';
-const GOOGLE_OAUTH_REDIRECT_KEY = 'google_oauth_redirect';
+import {
+  clearGoogleOAuthSession,
+  getGoogleOAuthRedirect,
+  getGoogleOAuthState,
+  setGoogleOAuthRedirect,
+  setGoogleOAuthState,
+} from '@/lib/google-oauth-session';
 
 interface OAuthStartPayload {
   authorization_url: string;
@@ -86,13 +90,12 @@ function buildRedirectUri(baseRedirect?: string, override?: string): string {
 export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
   const { toast } = useToast();
   const { t } = useTranslation();
-  const { login } = useUserStore();
+  const login = useUserStore(state => state.login);
+  const ensureGuestToken = useUserStore(state => state.ensureGuestToken);
   const { callWithTokenRefresh } = useAuth();
 
   const clearGoogleSession = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    sessionStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
-    sessionStorage.removeItem(GOOGLE_OAUTH_REDIRECT_KEY);
+    clearGoogleOAuthSession();
   }, []);
 
   const startGoogleLogin = useCallback(
@@ -106,12 +109,14 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         }
 
         const redirectTarget = redirectPath || '/main';
-        sessionStorage.setItem(GOOGLE_OAUTH_REDIRECT_KEY, redirectTarget);
+        setGoogleOAuthRedirect(redirectTarget);
 
         const redirectUri = buildRedirectUri(
           redirectTarget,
           redirectUriOverride,
         );
+
+        await ensureGuestToken();
 
         const response = await callWithTokenRefresh(() =>
           apiService.googleOauthStart({ redirect_uri: redirectUri }),
@@ -122,7 +127,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           throw new Error('Missing Google authorization URL');
         }
 
-        sessionStorage.setItem(GOOGLE_OAUTH_STATE_KEY, payload.state);
+        setGoogleOAuthState(payload.state);
         window.location.href = payload.authorization_url;
       } catch (error: any) {
         clearGoogleSession();
@@ -136,7 +141,14 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         throw error;
       }
     },
-    [callWithTokenRefresh, clearGoogleSession, options, t, toast],
+    [
+      callWithTokenRefresh,
+      clearGoogleSession,
+      ensureGuestToken,
+      options,
+      t,
+      toast,
+    ],
   );
 
   const finalizeGoogleLogin = useCallback(
@@ -148,11 +160,9 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
       }
 
       try {
-        if (typeof window !== 'undefined') {
-          const expectedState = sessionStorage.getItem(GOOGLE_OAUTH_STATE_KEY);
-          if (expectedState && state && expectedState !== state) {
-            throw new Error(t('auth.googleStateMismatch'));
-          }
+        const expectedState = getGoogleOAuthState();
+        if (expectedState && state && expectedState !== state) {
+          throw new Error(t('auth.googleStateMismatch'));
         }
 
         const response = await callWithTokenRefresh(() =>
@@ -167,27 +177,19 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         await login(payload.userInfo, payload.token);
 
         const redirectTarget =
-          fallbackRedirect ||
-          (typeof window !== 'undefined'
-            ? sessionStorage.getItem(GOOGLE_OAUTH_REDIRECT_KEY)
-            : null) ||
-          '/main';
+          fallbackRedirect || getGoogleOAuthRedirect() || '/main';
 
         options.onSuccess?.(payload.userInfo, redirectTarget);
         toast({ title: t('auth.success') });
 
-        if (typeof window !== 'undefined') {
-          clearGoogleSession();
-        }
+        clearGoogleSession();
 
         return {
           redirect: redirectTarget,
           userInfo: payload.userInfo,
         };
       } catch (error: any) {
-        if (typeof window !== 'undefined') {
-          clearGoogleSession();
-        }
+        clearGoogleSession();
         const message = error?.message || t('auth.googleLoginError');
         toast({
           title: t('auth.failed'),
@@ -202,8 +204,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
   );
 
   const getPendingRedirect = useCallback(() => {
-    if (typeof window === 'undefined') return null;
-    return sessionStorage.getItem(GOOGLE_OAUTH_REDIRECT_KEY);
+    return getGoogleOAuthRedirect();
   }, []);
 
   return {

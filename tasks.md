@@ -16,18 +16,18 @@ Backend work landed in commits `c074c961`, `67d17a21`, and `073eadf0`, exposing 
 - [x] Ensure the helper reuses `useAuth.callWithTokenRefresh` semantics or equivalent error handling/toasts for consistency.
 
 ## UI flows
-- [ ] Add a dedicated Google sign-in button component under `src/cook-web/src/components/auth` (icon, copy, loading state) with translations (`auth.googleLogin`, `auth.googleLoginError`, etc.).
-- [ ] Update `src/cook-web/src/app/login/page.tsx` to:
+- [x] Add a dedicated Google sign-in button component under `src/cook-web/src/components/auth` (icon, copy, loading state) with translations (`auth.googleLogin`, `auth.googleLoginError`, etc.).
+- [x] Update `src/cook-web/src/app/login/page.tsx` to:
   - surface the Google option when `'google'` is enabled in `environment.loginMethodsEnabled`,
   - trigger the helper on click (popup vs. full redirect decision documented),
   - gracefully fall back when the feature flag is off.
-- [ ] Create a callback handler route (e.g., `src/cook-web/src/app/login/google-callback/page.tsx`) that reads `code`, `state`, and optional `redirect` params, invokes the helper, drives loading/error UI, and then redirects to the intended page while stripping OAuth params from the URL.
-- [ ] Update terms acceptance UX if Google login must also require acknowledging the policies (align with `TermsCheckbox`).
+- [x] Create a callback handler route (e.g., `src/cook-web/src/app/login/google-callback/page.tsx`) that reads `code`, `state`, and optional `redirect` params, invokes the helper, drives loading/error UI, and then redirects to the intended page while stripping OAuth params from the URL.
+- [x] Update terms acceptance UX if Google login must also require acknowledging the policies (align with `TermsCheckbox`).
 
 ## State management & persistence
-- [ ] Extend `src/cook-web/src/store/useUserStore.ts` to clear OAuth query parameters after login (`removeParamFromUrl`) and to handle Google-provided avatar/name defaults.
-- [ ] Ensure guest token bootstrap (`registerTmp`) still runs before starting the OAuth flow so outbound requests include a temporary token if required by the backend start endpoint.
-- [ ] Verify logout clears any Google-specific session storage (state cache) to avoid stale OAuth runs.
+- [x] Extend `src/cook-web/src/store/useUserStore.ts` to clear OAuth query parameters after login (`removeParamFromUrl`) and to handle Google-provided avatar/name defaults.
+- [x] Ensure guest token bootstrap (`registerTmp`) still runs before starting the OAuth flow so outbound requests include a temporary token if required by the backend start endpoint.
+- [x] Verify logout clears any Google-specific session storage (state cache) to avoid stale OAuth runs.
 
 ## Internationalization & assets
 - [ ] Add English/Chinese translations for the new Google login strings in `src/cook-web/public/locales/en-US.json` and `zh-CN.json`.

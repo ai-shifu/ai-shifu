@@ -72,6 +72,7 @@ export interface UserStoreState {
   logout: (reload?: boolean) => Promise<void>;
   updateUserInfo: (info: Partial<UserInfo>) => void;
   refreshUserInfo: () => Promise<void>;
+  ensureGuestToken: () => Promise<void>;
 }
 
 export interface UiLayoutStoreState {
