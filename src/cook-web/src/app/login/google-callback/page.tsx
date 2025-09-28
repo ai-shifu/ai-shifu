@@ -38,14 +38,16 @@ export default function GoogleCallbackPage() {
         });
         if (!cancelled) {
           router.replace(result.redirect);
+          // Fallback to full navigation to avoid being stuck on the callback page
+          window.location.assign(result.redirect);
         }
       } catch (err: any) {
         if (!cancelled) {
           setError(err?.message || t('auth.googleLoginError'));
           setTimeout(() => {
-            router.replace(
-              `/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`,
-            );
+            const fallbackLoginUrl = `/login${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`;
+            router.replace(fallbackLoginUrl);
+            window.location.assign(fallbackLoginUrl);
           }, 2500);
         }
       }
