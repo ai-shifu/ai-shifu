@@ -33,6 +33,7 @@ interface EnvironmentConfig {
   // Authentication Configuration
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
+  googleOauthRedirect: string;
 }
 
 /**
@@ -251,6 +252,27 @@ function getDefaultLoginMethod(): string {
 }
 
 /**
+ * Resolve Google OAuth redirect URI.
+ * Prefers explicit environment configuration, then falls back to the current site origin.
+ */
+function getGoogleOauthRedirect(): string {
+  const runtimeRedirect = getRuntimeEnv('NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT');
+  if (runtimeRedirect) {
+    return runtimeRedirect;
+  }
+
+  if (process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT) {
+    return process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT;
+  }
+
+  if (typeof window !== 'undefined' && window.location) {
+    return `${window.location.origin}/login/google-callback`;
+  }
+
+  return 'http://localhost:3001/login/google-callback';
+}
+
+/**
  * Converts string boolean values to actual booleans
  */
 function getBooleanValue(
@@ -290,6 +312,7 @@ export const environment: EnvironmentConfig = {
   // Authentication Configuration
   loginMethodsEnabled: getLoginMethodsEnabled(),
   defaultLoginMethod: getDefaultLoginMethod(),
+  googleOauthRedirect: getGoogleOauthRedirect(),
 };
 
 export default environment;

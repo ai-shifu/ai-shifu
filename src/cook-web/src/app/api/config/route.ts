@@ -24,6 +24,11 @@ export async function GET() {
 
     // ===== Development Tools =====
     enableEruda: environment.enableEruda,
+
+    // ===== Authentication =====
+    loginMethodsEnabled: environment.loginMethodsEnabled,
+    defaultLoginMethod: environment.defaultLoginMethod,
+    googleOauthRedirect: environment.googleOauthRedirect,
   };
 
   return NextResponse.json(config);
