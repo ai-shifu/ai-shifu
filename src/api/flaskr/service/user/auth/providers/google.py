@@ -48,6 +48,9 @@ class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
 
+    def verify(self, app, request):
+        raise NotImplementedError("GoogleAuthProvider only supports OAuth flows")
+
     def _create_session(self, app, redirect_uri: str) -> OAuth2Session:
         client_id = app.config.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = app.config.get("GOOGLE_OAUTH_CLIENT_SECRET")
