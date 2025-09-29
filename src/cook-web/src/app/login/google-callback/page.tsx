@@ -23,45 +23,40 @@ export default function GoogleCallbackPage() {
     if (hasHandledRef.current) {
       return;
     }
-
     hasHandledRef.current = true;
-    let cancelled = false;
 
     const run = async () => {
+      console.info('[Google OAuth] running');
       try {
         const fallbackRedirect =
           redirect && redirect.startsWith('/') ? redirect : '/main';
+        console.info('[Google OAuth] exchanging token');
         const result = await finalizeGoogleLogin({
           code,
           state,
           fallbackRedirect,
         });
-        if (!cancelled) {
-          const targetUrl = `${window.location.origin}${result.redirect}`;
-          console.info('[Google OAuth] redirecting to', targetUrl);
-          window.location.assign(targetUrl);
-        }
+        console.info('[Google OAuth] result', result);
+        const targetUrl = `${window.location.origin}${result.redirect}`;
+        console.info('[Google OAuth] redirecting to', targetUrl);
+        window.location.assign(targetUrl);
       } catch (err: any) {
-        if (!cancelled) {
-          setError(err?.message || t('auth.googleLoginError'));
-          setTimeout(() => {
-            const fallbackLoginUrl = `${window.location.origin}/login${
-              redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''
-            }`;
-            console.warn(
-              '[Google OAuth] redirecting back to login',
-              fallbackLoginUrl,
-            );
-            window.location.assign(fallbackLoginUrl);
-          }, 2500);
-        }
+        console.error('[Google OAuth] finalize error', err);
+        setError(err?.message || t('auth.googleLoginError'));
+        setTimeout(() => {
+          const fallbackLoginUrl = `${window.location.origin}/login${
+            redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''
+          }`;
+          console.warn(
+            '[Google OAuth] redirecting back to login',
+            fallbackLoginUrl,
+          );
+          window.location.assign(fallbackLoginUrl);
+        }, 2500);
       }
     };
 
     void run();
-    return () => {
-      cancelled = true;
-    };
   }, [code, finalizeGoogleLogin, redirect, router, state, t]);
 
   return (
