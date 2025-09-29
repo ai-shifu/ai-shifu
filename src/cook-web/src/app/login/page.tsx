@@ -1,10 +1,6 @@
 'use client';
 
-<<<<<<< HEAD
-import { useEffect, useRef, useState, useCallback } from 'react';
-=======
 import { useCallback, useEffect, useMemo, useState } from 'react';
->>>>>>> 038b502f (feat: integrate cook web google login flow)
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
@@ -32,7 +28,11 @@ import { Separator } from '@/components/ui/Separator';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
+<<<<<<< HEAD
 >>>>>>> 038b502f (feat: integrate cook web google login flow)
+=======
+import { useUserStore } from '@/store';
+>>>>>>> 43896210 (fix: auto redirect login page after google auth)
 
 export default function AuthPage() {
   const router = useRouter();
@@ -73,6 +73,8 @@ export default function AuthPage() {
 
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const resolveRedirectPath = useCallback(() => {
     let redirect = searchParams.get('redirect');
@@ -207,6 +209,17 @@ export default function AuthPage() {
 =======
     i18n.changeLanguage(language);
   }, [language]);
+
+  useEffect(() => {
+    if (!isInitialized || !isLoggedIn) {
+      return;
+    }
+
+    const target = resolveRedirectPath();
+    if (window.location.pathname !== target) {
+      router.replace(target);
+    }
+  }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
 
   const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
