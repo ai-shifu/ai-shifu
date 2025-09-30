@@ -1,6 +1,6 @@
 {
   "name": "ai-shifu-web",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": true,
   "dependencies": {
     "@ai-shifu/chatui": "https://github.com/ai-shifu/chatui.git#no-scroll",
