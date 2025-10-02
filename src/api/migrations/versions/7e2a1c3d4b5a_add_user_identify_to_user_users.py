@@ -76,7 +76,9 @@ def upgrade():
             for row in rows:
                 email = (row.get("email") or "").strip()
                 mobile = (row.get("mobile") or "").strip()
-                identify = email.lower() if email else mobile
+                user_bid = (row.get("user_bid") or "").strip()
+                # Backfill preference: email (lowercase) -> mobile -> user_bid (UUID)
+                identify = email.lower() if email else (mobile if mobile else user_bid)
                 write_conn.execute(
                     user_users.update()
                     .where(user_users.c.id == row["id"])
