@@ -155,6 +155,11 @@ class GoogleAuthProvider(AuthProvider):
                 verified=profile.get("email_verified", False),
             )
 
+            # Persist email as the user's identifier for Google OAuth
+            if user_entity:
+                user_entity.user_identify = email
+            db.session.flush()
+
             sync_user_entity_for_legacy(app, legacy_user)
 
             user_dto = build_user_info_dto(legacy_user)

@@ -206,7 +206,11 @@ def verify_phone_code(
         token = generate_token(app, user_id=user_info.user_id)
         db.session.flush()
 
-        sync_user_entity_for_legacy(app, user_info)
+        user_entity = sync_user_entity_for_legacy(app, user_info)
+        if user_entity:
+            # On phone verification, persist the phone as the user's identifier
+            user_entity.user_identify = phone
+        db.session.flush()
         user_dto = build_user_info_dto(user_info)
         snapshot = build_user_profile_snapshot(
             user_info, credentials=list_credentials(user_bid=user_info.user_id)
