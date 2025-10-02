@@ -22,7 +22,7 @@ Implementation plan
 - Ensure migration adds the column with an index (non-unique).
 - Data backfill (online-safe):
   - For existing rows: join legacy `user_info` on `user_users.user_bid = user_info.user_id`.
-  - Set `user_identify = lower(email)` if email is present; otherwise set to `mobile` (if present); otherwise `''`.
+  - Set `user_identify = lower(email)` if email is present; otherwise set to `mobile` (if present); otherwise fallback to `user_bid` (UUID).
 - Downgrade path: drop index, then drop column.
 
 3) Business logic updates
@@ -51,7 +51,7 @@ Acceptance criteria
 - Column exists with index and no unique constraint.
 - Phone verification sets `user_identify` to the phone used.
 - Email/Google verification sets `user_identify` to the email used.
-- Existing records have sensible backfilled values (email preferred over phone, lowercase email).
+- Existing records have sensible backfilled values (email preferred over phone, lowercase email; fallback to user_bid/UUID).
 - All tests pass and pre-commit hooks are clean.
 
 Notes
