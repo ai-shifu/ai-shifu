@@ -77,7 +77,7 @@ const ScriptManagementPage = () => {
   const { toast } = useToast();
   const { t } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const isGuest = useUserStore(state => state.isGuest);
   const [activeTab, setActiveTab] = useState('all');
   const [shifus, setShifus] = useState<Shifu[]>([]);
   const [loading, setLoading] = useState(false);
@@ -182,14 +182,14 @@ const ScriptManagementPage = () => {
 
   // Centralized login check - redirect if not logged in after initialization
   useEffect(() => {
-    if (isInitialized && !isLoggedIn) {
+    if (isInitialized && isGuest) {
       const currentPath = encodeURIComponent(
         window.location.pathname + window.location.search,
       );
       window.location.href = `/login?redirect=${currentPath}`;
       return;
     }
-  }, [isInitialized, isLoggedIn]);
+  }, [isInitialized, isGuest]);
 
   // Fetch data when user is initialized
   useEffect(() => {
