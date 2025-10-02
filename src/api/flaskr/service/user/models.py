@@ -188,6 +188,14 @@ class UserInfo(db.Model):
         comment="User business identifier",
         index=True,
     )
+    # Store either phone (SMS verification) or email (email/Google verification)
+    user_identify = Column(
+        String(255),
+        nullable=False,
+        default="",
+        index=True,
+        comment="User identifier: phone or email",
+    )
     nickname = Column(String(255), nullable=False, default="", comment="User nickname")
     avatar = Column(String(255), nullable=False, default="", comment="User avatar")
     birthday = Column(Date, nullable=False, default="", comment="User birthday")

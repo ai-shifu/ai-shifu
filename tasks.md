@@ -1,3 +1,65 @@
+# Backend: Add `user_identify` to `user_users`
+
+Goal: Add a new column `user_identify` to table `user_users` (model: `UserInfo` in `src/api/flaskr/service/user/models.py`) to store either phone (for SMS verification) or email (for email/Google verification). The column must be indexed but NOT unique (business layer guarantees uniqueness).
+
+Referenced flows (for setting value):
+- Phone SMS verification: `src/api/flaskr/service/user/phone_flow.py::verify_phone_code`
+- Email verification: `src/api/flaskr/service/user/email_flow.py::verify_email_code`
+- Google OAuth: `src/api/flaskr/service/user/auth/providers/google.py::GoogleAuthProvider.handle_oauth_callback`
+
+Current PR context:
+- New user entity `user_users` already exists as `UserInfo` with `user_bid`, `nickname`, `avatar`, `birthday`, `language`, `state`, `deleted`, `created_at`, `updated_at`.
+- Legacy `User` is still the primary source for auth, then synchronized to `UserInfo` via repository helpers.
+
+Implementation plan
+
+1) Model change
+- Add `user_identify = Column(String(255), nullable=False, default="", index=True, comment="User identifier: phone or email")` to `UserInfo` in `src/api/flaskr/service/user/models.py`.
+- Keep DB free of uniqueness constraints; enforce via business logic only.
+
+2) Alembic migration
+- Generate migration: `cd src/api && FLASK_APP=app.py flask db migrate -m "add user_identify to user_users"`.
+- Ensure migration adds the column with an index (non-unique).
+- Data backfill (online-safe):
+  - For existing rows: join legacy `user_info` on `user_users.user_bid = user_info.user_id`.
+  - Set `user_identify = lower(email)` if email is present; otherwise set to `mobile` (if present); otherwise `''`.
+- Downgrade path: drop index, then drop column.
+
+3) Business logic updates
+- Add a small repository helper (optional) `set_user_identify(user_bid: str, value: str)` to set/normalize and flush.
+- Update phone flow to explicitly set phone:
+  - In `verify_phone_code`, after syncing entity, set `user_entity.user_identify = phone` and flush.
+- Update email flow to explicitly set email:
+  - In `verify_email_code`, after syncing entity, set `user_entity.user_identify = normalized_email` and flush.
+- Update Google OAuth to explicitly set email:
+  - In `GoogleAuthProvider.handle_oauth_callback`, after syncing entity, set `user_entity.user_identify = email` and flush.
+- Ensure no code path sets DB-level uniqueness; any cross-user dedupe remains in service layer.
+
+4) Tests
+- Add tests under `src/api/tests/service/user/`:
+  - `test_phone_flow_sets_user_identify.py`: verify SMS flow sets `user_identify` to phone.
+  - `test_email_flow_sets_user_identify.py`: verify email flow sets to normalized email.
+  - `test_google_oauth_sets_user_identify.py`: mock Google profile and ensure value set to email.
+- Include backfill verification (optional): create pre-existing users and run a short script or assert migration effects via an integration test if feasible.
+
+5) Operational checklist
+- Run: `cd src/api && pytest` and `pre-commit run -a`.
+- Apply migrations locally: `FLASK_APP=app.py flask db upgrade`.
+- Validate end-to-end by performing each login flow once and checking `user_users.user_identify`.
+
+Acceptance criteria
+- Column exists with index and no unique constraint.
+- Phone verification sets `user_identify` to the phone used.
+- Email/Google verification sets `user_identify` to the email used.
+- Existing records have sensible backfilled values (email preferred over phone, lowercase email).
+- All tests pass and pre-commit hooks are clean.
+
+Notes
+- The service currently syncs legacy `User` → `UserInfo`. We set `user_identify` in the flow handlers to reflect the verification method used for that session.
+- No API schema change is required unless consumers need to read `user_identify`. If needed, extend the relevant DTO/endpoint in a follow-up.
+
+---
+
 # Frontend Google OAuth integration (Cook Web)
 
 Backend work landed in commits `c074c961`, `67d17a21`, and `073eadf0`, exposing `/api/user/oauth/google` and `/api/user/oauth/google/callback`. The next milestone is wiring the Cook Web frontend to the new provider.
