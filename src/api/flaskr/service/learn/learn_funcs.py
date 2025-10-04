@@ -182,7 +182,11 @@ def get_outline_item_tree(
                         outline_item_info.children.append(child_info)
             return outline_item_info
 
-        outline_items = [build_outline_item_tree(i) for i in struct.children]
+        outline_items = []
+        for i in struct.children:
+            outline_item_info = build_outline_item_tree(i)
+            if outline_item_info:
+                outline_items.append(outline_item_info)
         banner_info_dto = None
 
         banner_info = BannerInfo.query.filter(

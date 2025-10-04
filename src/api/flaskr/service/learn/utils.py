@@ -475,3 +475,84 @@ def get_script_ui_label(app, text):
                 return list(label_dto.lang.values())[0]
         return label
     return text
+
+
+def get_follow_up_info_v2(
+    app: Flask,
+    shifu_bid: str,
+    outline_item_bid: str,
+    attend_id: str,
+    is_preview: bool = False,
+) -> FollowUpInfo:
+    """
+    Get follow up info.
+
+    Args:
+        app (Flask): The Flask application instance.
+        shifu_bid (str): The shifu business ID.
+        outline_item_bid (str): The outline item business ID.
+        attend_id (str): The attendance ID.
+        is_preview (bool, optional): Whether to retrieve the follow up info in preview mode.
+            If True, retrieves data as it would appear in preview (unpublished) state; if False,
+            retrieves data as it appears in the published state. Defaults to False.
+
+    Returns:
+        FollowUpInfo: The follow up information for the given parameters.
+    """
+    struct_info = get_shifu_struct(app, shifu_bid, is_preview)
+    path = find_node_with_parents(struct_info, outline_item_bid)
+    if not path:
+        return FollowUpInfo(
+            ask_model="",
+            ask_prompt="",
+            ask_history_count=10,
+            ask_limit_count=10,
+            model_args={"temperature": 0.0},
+            ask_mode=ASK_MODE_DISABLE,
+        )
+    path = list(reversed(path))
+    path: list[HistoryItem] = [p for p in path if p.type == "outline"]
+    outline_ids = [p.id for p in path]
+    outline_model = PublishedOutlineItem if not is_preview else DraftOutlineItem
+    shifu_model = PublishedShifu if not is_preview else DraftShifu
+    outline_infos: list[Union[PublishedOutlineItem, DraftOutlineItem]] = (
+        outline_model.query.filter(
+            outline_model.id.in_(outline_ids),
+        ).all()
+    )
+    outline_infos_map: dict[str, Union[PublishedOutlineItem, DraftOutlineItem]] = {
+        o.outline_item_bid: o for o in outline_infos
+    }
+
+    for p in path:
+        if p.type == "outline":
+            outline_info = outline_infos_map.get(p.bid, None)
+            if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
+                return FollowUpInfo(
+                    ask_model=outline_info.ask_llm,
+                    ask_prompt=outline_info.ask_llm_system_prompt,
+                    ask_history_count=10,
+                    ask_limit_count=10,
+                    model_args={"temperature": outline_info.ask_llm_temperature},
+                    ask_mode=outline_info.ask_enabled_status,
+                )
+    shifu_info: Union[PublishedShifu, DraftShifu] = (
+        shifu_model.query.filter(
+            shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
+        )
+        .order_by(shifu_model.id.desc())
+        .first()
+    )
+    ask_model = shifu_info.ask_llm
+    ask_prompt = shifu_info.ask_llm_system_prompt
+    ask_history_count = 10
+    ask_limit_count = 10
+    model_args = {"temperature": shifu_info.ask_llm_temperature}
+    return FollowUpInfo(
+        ask_model,
+        ask_prompt,
+        ask_history_count,
+        ask_limit_count,
+        model_args,
+        shifu_info.ask_enabled_status,
+    )

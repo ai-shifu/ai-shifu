@@ -58,7 +58,7 @@ from flaskr.service.learn.learn_dtos import (
     LearnStatus,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.service.learn.input.handle_input_ask import _handle_input_ask
+from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
@@ -656,29 +656,21 @@ class RunScriptContextV2:
         if self._input_type == "ask":
             if self._last_position == -1:
                 self._last_position = run_script_info.block_position
-
-            res = _handle_input_ask(
+            res = handle_input_ask(
                 app,
+                self,
                 self._user_info,
                 self._current_attend.progress_record_bid,
                 self._input,
                 self._outline_item_info,
-                run_script_info.block_dto,
                 self._trace_args,
                 self._trace,
                 self._preview_mode,
                 self._last_position,
             )
-            if res:
-                for i in res:
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid="",
-                        type=GeneratedType.CONTENT,
-                        content=i,
-                    )
-                self._can_continue = False
-                db.session.flush()
+            yield from res
+            self._can_continue = False
+            db.session.flush()
             return
 
         user_profile = get_user_profiles(
