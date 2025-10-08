@@ -226,14 +226,14 @@ export default function InteractionBlock({
             <button
               type="button"
               onClick={() => setShowRegenerateDialog(false)}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
             >
               {t('common.cancel')}
             </button>
             <button
               type="button"
               onClick={handleConfirmRegenerate}
-              className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
+              className="px-4 py-2 text-sm font-medium text-white bg-black rounded-md hover:bg-gray-800"
             >
               {t('common.ok')}
             </button>

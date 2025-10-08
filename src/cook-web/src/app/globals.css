@@ -87,6 +87,12 @@ html {
   body {
     @apply bg-background text-foreground;
   }
+  button {
+    outline: none;
+  }
+  button:focus {
+    outline: none;
+  }
 }
 
 .dnd-sortable-tree_simple_tree-item {
