@@ -7,9 +7,13 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUserStore } from '@/store/useUserStore';
 
 // ===== Constants  Types for shared literals =====
+// record history block type
 export const BLOCK_TYPE = {
   CONTENT: 'content',
   INTERACTION: 'interaction',
+  ASK: 'ask',
+  ANSWER: 'answer',
+  ERROR: 'error_message'
 } as const;
 export type BlockType = (typeof BLOCK_TYPE)[keyof typeof BLOCK_TYPE];
 
@@ -34,12 +38,15 @@ export const PREVIEW_MODE = {
 } as const;
 export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
 
+// run sse output type
 export const SSE_OUTPUT_TYPE = {
   CONTENT: 'content',
   BREAK: 'break',
+  ASK: 'ask',
   TEXT_END: 'text_end',
   INTERACTION: 'interaction',
   OUTLINE_ITEM_UPDATE: 'outline_item_update',
+  VARIABLE_UPDATE: 'variable_update',
   PROFILE_UPDATE: 'update_user_info', // TODO: update user_info
 } as const;
 export type SSE_OUTPUT_TYPE =

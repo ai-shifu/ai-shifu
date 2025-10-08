@@ -109,7 +109,7 @@ export const PayModalM = ({
   );
 
   const handlePay = useCallback(async () => {
-    const { data: qrcodeResp } = await getPayUrl({
+    const qrcodeResp = await getPayUrl({
       channel: payChannel,
       orderId,
     });
@@ -118,14 +118,14 @@ export const PayModalM = ({
       try {
         await payByJsApi(qrcodeResp.qr_url);
         toast({
-          title: '支付成功',
+          title: t('pay.paySuccess'),
         });
         setIsCompleted(true);
         onOk();
       } catch (e) {
         console.log(e);
         toast({
-          title: '支付失败',
+          title: t('pay.payFailed'),
           variant: 'destructive',
         });
       }
@@ -168,7 +168,7 @@ export const PayModalM = ({
 
   useEffect(() => {
     (async () => {
-      const { data: resp } = await initOrderUniform(courseId);
+      const resp = await initOrderUniform(courseId);
       const orderId = resp.order_id;
       setOrderId(orderId);
       setOriginalPrice(resp.price);
@@ -195,6 +195,9 @@ export const PayModalM = ({
         onOpenChange={handleCancel}
       >
         <DialogContent className='w-full'>
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t('pay.title')}</DialogTitle>
+          </DialogHeader>
           <div className={styles.payModalContent}>
             {isCompleted ? (
               <CompletedSection />
@@ -202,7 +205,7 @@ export const PayModalM = ({
               <>
                 {!initLoading ? (
                   <>
-                    <div className={styles.payInfoTitle}>到手价格</div>
+                    <div className={styles.payInfoTitle}>{t('pay.finalPrice')}</div>
                     <div className={styles.priceWrapper}>
                       <div className={cn(styles.price)}>
                         <span className={styles.priceSign}>￥</span>
@@ -263,11 +266,11 @@ export const PayModalM = ({
                                 <div className={styles.payChannelBasic}>
                                   <Image
                                     className={styles.payChannelIcon}
-                                    src={weixinIcon.src}
-                                    alt='微信支付'
+                                    src={weixinIcon}
+                                    alt={t('pay.wechatPay')}
                                   />
                                   <span className={styles.payChannelTitle}>
-                                    微信支付
+                                    {t('pay.wechatPay')}
                                   </span>
                                 </div>
                                 <RadioGroupItem
@@ -288,11 +291,11 @@ export const PayModalM = ({
                                 <div className={styles.payChannelBasic}>
                                   <Image
                                     className={styles.payChannelIcon}
-                                    src={zhifuboIcon.src}
-                                    alt='支付宝支付'
+                                    src={zhifuboIcon}
+                                    alt={t('pay.alipay')}
                                   />
                                   <span className={styles.payChannelTitle}>
-                                    支付宝支付
+                                    {t('pay.alipay')}
                                   </span>
                                 </div>
                                 <RadioGroupItem
@@ -309,7 +312,7 @@ export const PayModalM = ({
                             className={styles.payButton}
                             onClick={handlePay}
                           >
-                            支付
+                            {t('pay.pay')}
                           </MainButtonM>
                         </div>
                         <div className={styles.couponCodeWrapper}>
@@ -330,7 +333,7 @@ export const PayModalM = ({
                       <div className={styles.loginButtonWrapper}>
                         {/* @ts-expect-error EXPECT */}
                         <MainButtonM onClick={onLoginButtonClick}>
-                          登录
+                          {t('auth.login')}
                         </MainButtonM>
                       </div>
                     )}
@@ -341,13 +344,15 @@ export const PayModalM = ({
               </>
             )}
 
-            <div className={styles.payInfoWrapper}>
+            {/* <div className={styles.payInfoWrapper}>
               <Image
                 className={styles.payInfo}
-                src={payInfoBg.src}
-                alt='产品说明'
+                src={payInfoBg}
+                alt={'productDescription'}
+                width={payInfoBg.width}
+                height={payInfoBg.height}
               />
-            </div>
+            </div> */}
           </div>
         </DialogContent>
       </Dialog>
@@ -356,12 +361,12 @@ export const PayModalM = ({
         <Dialog open={couponCodeModalOpen}>
           <DialogContent className={cn('w-5/6', styles.couponCodeModal)}>
             <DialogHeader>
-              <DialogTitle>兑换码</DialogTitle>
+              <DialogTitle>{t('groupon.title')}</DialogTitle>
             </DialogHeader>
             <div className={styles.couponCodeInputWrapper}>
               {/* @ts-expect-error EXPECT */}
               <SettingInputM
-                title='兑换码'
+                title={t('groupon.title')}
                 onChange={e => setCouponCode(e)}
               />
             </div>
@@ -371,7 +376,7 @@ export const PayModalM = ({
                 onClick={onCouponCodeOkClick}
                 className={styles.okButton}
               >
-                确定
+                {t('common.ok')}
               </MainButtonM>
             </div>
           </DialogContent>

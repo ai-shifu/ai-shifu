@@ -5,7 +5,22 @@
   box-sizing: border-box;
 
   :global(.content-render) {
-    margin: 16px 0;
+    margin: 12px 0;
+  }
+
+  :global(.content-render-theme) {
+    position: relative;
+  }
+
+  :global(.long-press-overlay) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(148, 163, 184, 0.12);
+    pointer-events: none;
+    z-index: 1;
   }
   :global(.lucide-send) {
     width: 1.2rem;
@@ -159,6 +174,9 @@
           margin-right: 0;
         }
       }
+    }
+    :global(.content-render) {
+      margin: 12px 0;
     }
   }
 
