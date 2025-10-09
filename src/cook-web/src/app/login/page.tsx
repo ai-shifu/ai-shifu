@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
@@ -20,25 +20,18 @@ import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
-<<<<<<< HEAD
-import { useUserStore } from '@/store';
-=======
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import { Separator } from '@/components/ui/Separator';
 import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
-<<<<<<< HEAD
->>>>>>> 038b502f (feat: integrate cook web google login flow)
-=======
 import { useUserStore } from '@/store';
->>>>>>> 43896210 (fix: auto redirect login page after google auth)
 
 export default function AuthPage() {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
   const [isI18nReady, setIsI18nReady] = useState(false);
-  const { userInfo, isInitialized } = useUserStore();
+  const userInfo = useUserStore(state => state.userInfo);
 
   const enabledMethods = environment.loginMethodsEnabled;
   const defaultMethod = environment.defaultLoginMethod;
@@ -99,7 +92,6 @@ export default function AuthPage() {
   const { t, ready } = useTranslation();
 
   useEffect(() => {
-<<<<<<< HEAD
     if (!isInitialized) {
       return;
     }
@@ -182,34 +174,6 @@ export default function AuthPage() {
     }
   }, [language, ready]);
 
-  // Show loading state until translations are ready
-  if (!isI18nReady || !language) {
-    return (
-      <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
-        <div className='w-full max-w-md space-y-2'>
-          <div className='flex flex-col items-center'>
-            <Image
-              className='dark:invert'
-              src={logoHorizontal}
-              alt='AI-Shifu'
-              width={180}
-              height={40}
-              priority
-            />
-          </div>
-          <Card>
-            <CardContent className='flex items-center justify-center py-8'>
-              <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary'></div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-=======
-    i18n.changeLanguage(language);
-  }, [language]);
-
   useEffect(() => {
     if (!isInitialized || !isLoggedIn) {
       return;
@@ -283,7 +247,30 @@ export default function AuthPage() {
     toast,
   ]);
 
->>>>>>> 038b502f (feat: integrate cook web google login flow)
+  // Show loading state until translations are ready
+  if (!isI18nReady || !language) {
+    return (
+      <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900'>
+        <div className='w-full max-w-md space-y-2'>
+          <div className='flex flex-col items-center'>
+            <Image
+              className='dark:invert'
+              src={logoHorizontal}
+              alt='AI-Shifu'
+              width={180}
+              height={40}
+              priority
+            />
+          </div>
+          <Card>
+            <CardContent className='flex items-center justify-center py-8'>
+              <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-primary'></div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className='min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4'>
       <div className='w-full max-w-md space-y-2'>
