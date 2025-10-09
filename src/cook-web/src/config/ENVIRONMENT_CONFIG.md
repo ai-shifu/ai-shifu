@@ -53,8 +53,6 @@
 | `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
 | `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`, `"google"`                                                            |
 
-> Google 登录回调地址会根据站点域名自动推导，不再需要显式配置。如果确实需要覆盖，可以手动设置 `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`。
-
 ## 使用方式
 
 ### 在组件中使用

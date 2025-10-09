@@ -23,8 +23,6 @@ The Cook Web login page reads authentication options from the backend `/api/conf
 - `NEXT_PUBLIC_LOGIN_METHODS_ENABLED`: comma-separated list such as `phone,google`.
 - `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`: default tab to show (for Google use `google`).
 
-The Google OAuth redirect URI is now derived automatically from the current site origin, so no additional environment variable is required. You can still override the value by setting `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`, but this is typically unnecessary.
-
 Ensure the backend has matching `GOOGLE_OAUTH_*` values so `/api/user/oauth/google` emits the correct authorization URL.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
