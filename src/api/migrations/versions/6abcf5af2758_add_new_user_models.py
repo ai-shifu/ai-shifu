@@ -95,6 +95,12 @@ def upgrade():
             comment="User business identifier",
         ),
         sa.Column(
+            "user_identify",
+            sa.String(length=255),
+            nullable=False,
+            comment="User identifier: phone or email",
+        ),
+        sa.Column(
             "nickname", sa.String(length=255), nullable=False, comment="User nickname"
         ),
         sa.Column(
@@ -129,6 +135,9 @@ def upgrade():
             batch_op.f("ix_user_users_user_bid"), ["user_bid"], unique=False
         )
         batch_op.create_index(
+            batch_op.f("ix_user_users_user_identify"), ["user_identify"], unique=False
+        )
+        batch_op.create_index(
             batch_op.f("ix_user_users_state"), ["state"], unique=False
         )
         batch_op.create_index(
@@ -156,6 +165,7 @@ def upgrade():
 def downgrade():
     with op.batch_alter_table("user_users", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_user_users_user_bid"))
+        batch_op.drop_index(batch_op.f("ix_user_users_user_identify"))
         batch_op.drop_index(batch_op.f("ix_user_users_state"))
         batch_op.drop_index(batch_op.f("ix_user_users_deleted"))
     with op.batch_alter_table("user_auth_credentials", schema=None) as batch_op:

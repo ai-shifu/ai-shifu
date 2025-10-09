@@ -189,6 +189,11 @@ def upgrade():
                 language = record.get("user_language") or ""
                 state = _normalize_state(record.get("user_state"))
 
+                raw_email = (record.get("email") or "").strip()
+                email = raw_email.lower()
+                mobile = (record.get("mobile") or "").strip()
+                identify = email or (mobile if mobile else user_bid)
+
                 created_at = record.get("created") or record.get("updated")
                 if not created_at:
                     created_at = sa.func.now()
@@ -198,6 +203,7 @@ def upgrade():
 
                 user_payload = {
                     "user_bid": user_bid,
+                    "user_identify": identify,
                     "nickname": nickname,
                     "avatar": record.get("user_avatar") or "",
                     "birthday": birthday,
@@ -231,12 +237,10 @@ def upgrade():
                         "updated_at": cred_updated_at,
                     }
 
-                phone = record.get("mobile")
-                if phone:
-                    payload = credential_payload(phone, "phone", {"type": "phone"})
-                    upsert_credential(write_conn, user_bid, "phone", phone, payload)
+                if mobile:
+                    payload = credential_payload(mobile, "phone", {"type": "phone"})
+                    upsert_credential(write_conn, user_bid, "phone", mobile, payload)
 
-                email = (record.get("email") or "").lower()
                 if email:
                     payload = credential_payload(email, "email", {"type": "email"})
                     upsert_credential(write_conn, user_bid, "email", email, payload)
