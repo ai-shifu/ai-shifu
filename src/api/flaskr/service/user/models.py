@@ -187,6 +187,7 @@ class UserInfo(db.Model):
         nullable=False,
         default="",
         comment="User business identifier",
+        unique=True,
         index=True,
     )
     # Store either phone (SMS verification) or email (email/Google verification)
