@@ -66,7 +66,7 @@ Backend work landed in commits `c074c961`, `67d17a21`, and `073eadf0`, exposing 
 
 ## Feature configuration & documentation
 - [x] Extend `src/cook-web/src/config/environment.ts` to recognize the `'google'` login method flag, surface a `googleOauthRedirect` fallback, and expose the values through `/api/config` so the backend remains the source of truth.
-- [x] Document the required environment variables (`NEXT_PUBLIC_LOGIN_METHODS_ENABLED`, `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`, optional `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`) in `src/cook-web/src/config/ENVIRONMENT_CONFIG.md` and `README.md`.
+- [x] Document the required environment variables (`NEXT_PUBLIC_LOGIN_METHODS_ENABLED`, `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`) in `src/cook-web/src/config/ENVIRONMENT_CONFIG.md` and `README.md`.
 - [x] Update sample env files (`src/cook-web/.env.example`, if present) to show how to enable Google login locally.
 
 ## API layer & auth utilities

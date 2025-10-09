@@ -48,11 +48,12 @@
 
 ### 7. 认证配置 (Authentication Configuration)
 
-| 变量名                              | 用途           | 默认值     | 可选值                                                                                      |
-| ----------------------------------- | -------------- | ---------- | ------------------------------------------------------------------------------------------- |
-| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"`  | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
-| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"`  | `"phone"`, `"email"`, `"google"`                                                            |
-| `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT` | Google回调地址 | (自动推导) | 任意合法HTTPS地址，例如 `https://cook.ai-shifu.com/login/google-callback`                   |
+| 变量名                              | 用途           | 默认值    | 可选值                                                                                      |
+| ----------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`, `"google"`                                                            |
+
+> Google 登录回调地址会根据站点域名自动推导，不再需要显式配置。如果确实需要覆盖，可以手动设置 `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`。
 
 ## 使用方式
 
@@ -77,7 +78,7 @@ const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email'
 const isPhoneEnabled = loginMethods.includes('phone');
 const isEmailEnabled = loginMethods.includes('email');
 const isGoogleEnabled = loginMethods.includes('google');
-const googleRedirect = environment.googleOauthRedirect; // 登录回调地址
+const googleRedirect = environment.googleOauthRedirect; // 登录回调地址（自动推导，可手动覆盖）
 ```
 
 ### 在API路由中使用
@@ -111,7 +112,8 @@ export async function GET() {
   "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
   "enableEruda": "false",
   "loginMethodsEnabled": ["phone"],
-  "defaultLoginMethod": "phone"
+  "defaultLoginMethod": "phone",
+  "googleOauthRedirect": "http://localhost:3001/login/google-callback"
 }
 ```
 

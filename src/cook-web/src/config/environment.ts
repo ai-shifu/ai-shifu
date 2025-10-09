@@ -253,16 +253,13 @@ function getDefaultLoginMethod(): string {
 
 /**
  * Resolve Google OAuth redirect URI.
- * Prefers explicit environment configuration, then falls back to the current site origin.
+ * The value is automatically derived from the current site origin, but
+ * `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT` can still be provided for edge cases.
  */
 function getGoogleOauthRedirect(): string {
-  const runtimeRedirect = getRuntimeEnv('NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT');
-  if (runtimeRedirect) {
-    return runtimeRedirect;
-  }
-
-  if (process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT) {
-    return process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT;
+  const envOverride = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT;
+  if (envOverride) {
+    return envOverride;
   }
 
   if (typeof window !== 'undefined' && window.location) {
