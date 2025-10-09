@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
+from .consts import USER_STATE_UNREGISTERED, CREDENTIAL_STATE_UNVERIFIED
 
 
 class User(db.Model):
@@ -198,12 +199,12 @@ class UserInfo(db.Model):
     )
     nickname = Column(String(255), nullable=False, default="", comment="User nickname")
     avatar = Column(String(255), nullable=False, default="", comment="User avatar")
-    birthday = Column(Date, nullable=False, default="", comment="User birthday")
+    birthday = Column(Date, nullable=True, comment="User birthday")
     language = Column(String(30), nullable=False, default="", comment="User language")
     state = Column(
         Integer,
         nullable=False,
-        default=0,
+        default=USER_STATE_UNREGISTERED,
         comment="User state: 1101=unregistered, 1102=registered, 1103=trail, 1104=paid",
         index=True,
     )
@@ -212,6 +213,7 @@ class UserInfo(db.Model):
         nullable=False,
         default=0,
         comment="Deletion flag: 0=active, 1=deleted",
+        index=True,
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
@@ -259,7 +261,7 @@ class AuthCredential(db.Model):
     state = Column(
         Integer,
         nullable=False,
-        default=0,
+        default=CREDENTIAL_STATE_UNVERIFIED,
         comment="Credential state: 1201=unverified, 1202=verified",
         index=True,
     )
