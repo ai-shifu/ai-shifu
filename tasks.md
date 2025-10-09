@@ -102,5 +102,5 @@ Backend work landed in commits `c074c961`, `67d17a21`, and `073eadf0`, exposing 
 - [ ] Run `npm run lint`, `npm run test`, and project `pre-commit` hooks before merging.
 
 ## Roll-out checklist
-- [ ] Coordinate with backend to set `GOOGLE_OAUTH_REDIRECT_URI` to the new Cook Web callback URL in each environment.
+- [x] Backend derives Google OAuth redirect automatically from the request host; overrides remain optional.
 - [ ] Update release notes / internal docs to announce Google login availability.

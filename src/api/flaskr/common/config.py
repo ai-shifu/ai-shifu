@@ -445,8 +445,11 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "GOOGLE_OAUTH_REDIRECT_URI": EnvVar(
         name="GOOGLE_OAUTH_REDIRECT_URI",
-        default="http://localhost:5000/api/user/oauth/google/callback",
-        description="Redirect URI registered in Google Cloud Console",
+        default="",
+        description=(
+            "Optional override for the Google OAuth redirect URI. "
+            "When unset, the callback is auto-derived from the incoming request host."
+        ),
         group="auth",
     ),
     "GOOGLE_OAUTH_SCOPES": EnvVar(

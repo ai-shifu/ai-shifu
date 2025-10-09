@@ -6,7 +6,11 @@ import secrets
 from typing import Any, Dict
 
 from authlib.integrations.requests_client import OAuth2Session
-from flask import current_app
+import json
+from typing import Optional
+from urllib.parse import urljoin
+
+from flask import current_app, request
 
 from flaskr.dao import db
 from flaskr.dao import redis_client as redis
@@ -44,6 +48,22 @@ def _state_storage_key(state: str) -> str:
     return f"{prefix}google_oauth_state:{state}"
 
 
+def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
+    if explicit_uri:
+        return explicit_uri
+
+    config_uri = app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
+    if config_uri:
+        return config_uri
+
+    forwarded_proto = request.headers.get("X-Forwarded-Proto")
+    scheme = forwarded_proto or request.scheme
+    forwarded_host = request.headers.get("X-Forwarded-Host")
+    host = forwarded_host or request.host
+    base_url = f"{scheme}://{host}"
+    return urljoin(f"{base_url}/", "login/google-callback")
+
+
 class GoogleAuthProvider(AuthProvider):
     provider_name = "google"
     supports_oauth = True
@@ -65,9 +85,7 @@ class GoogleAuthProvider(AuthProvider):
         )
 
     def begin_oauth(self, app, metadata: Dict[str, Any]) -> Dict[str, Any]:
-        redirect_uri = metadata.get(
-            "redirect_uri", app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
-        )
+        redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         session = self._create_session(app, redirect_uri)
         authorization_url, state = session.create_authorization_url(
             AUTHORIZATION_ENDPOINT,
@@ -75,7 +93,11 @@ class GoogleAuthProvider(AuthProvider):
             access_type="offline",
         )
         current_app.logger.info("Google OAuth begin state=%s", state)
-        redis.set(_state_storage_key(state), "1", ex=STATE_TTL)
+        redis.set(
+            _state_storage_key(state),
+            json.dumps({"redirect_uri": redirect_uri}),
+            ex=STATE_TTL,
+        )
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
@@ -86,14 +108,28 @@ class GoogleAuthProvider(AuthProvider):
 
         storage_key = _state_storage_key(request.state)
         current_app.logger.info("Google OAuth callback state=%s", request.state)
-        if not redis.get(storage_key):
+        stored_state_value = redis.get(storage_key)
+        if isinstance(stored_state_value, bytes):
+            stored_state_value = stored_state_value.decode("utf-8")
+        if not stored_state_value:
             current_app.logger.warning(
                 "Google OAuth state missing for key %s", storage_key
             )
             raise RuntimeError("Invalid or expired OAuth state")
         redis.delete(storage_key)
 
-        redirect_uri = app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
+        redirect_uri = None
+        try:
+            if stored_state_value:
+                state_payload = json.loads(stored_state_value)
+                if isinstance(state_payload, dict):
+                    redirect_uri = state_payload.get("redirect_uri")
+        except Exception:  # noqa: broad-except - defensive fallback
+            current_app.logger.warning(
+                "Failed to parse Google OAuth state payload for key %s", storage_key
+            )
+
+        redirect_uri = _resolve_redirect_uri(app, redirect_uri)
         session = self._create_session(app, redirect_uri)
 
         token = session.fetch_token(
