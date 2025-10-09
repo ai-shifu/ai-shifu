@@ -52,7 +52,7 @@ export default function InteractionBlockM({
 
   useEffect(() => {
     setStatus((like_status as LikeStatus) ?? LIKE_STATUS.NONE);
-  }, [like_status]);
+  }, [like_status, generated_block_bid]);
 
   const send = (action: LikeStatus) => {
     postGeneratedContentAction({
