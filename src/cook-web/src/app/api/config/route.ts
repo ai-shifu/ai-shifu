@@ -3,13 +3,19 @@ import { environment } from '@/config/environment';
 
 export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
-  const fallbackGoogleRedirect = `${origin.replace(/\/$/, '')}/login/google-callback`;
-  const configuredGoogleRedirect = environment.googleOauthRedirect;
-  const googleOauthRedirect =
-    configuredGoogleRedirect &&
-    configuredGoogleRedirect !== 'http://localhost:3001/login/google-callback'
-      ? configuredGoogleRedirect
-      : fallbackGoogleRedirect;
+  let googleOauthRedirect: string;
+  try {
+    googleOauthRedirect = new URL(
+      environment.googleOauthRedirect,
+      origin,
+    ).toString();
+  } catch (error) {
+    console.warn(
+      'Failed to resolve Google OAuth redirect URL, using default.',
+      error,
+    );
+    googleOauthRedirect = `${origin.replace(/\/$/, '')}/login/google-callback`;
+  }
 
   const config = {
     // ===== Core API Configuration =====

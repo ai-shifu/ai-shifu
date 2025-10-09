@@ -253,8 +253,9 @@ function getDefaultLoginMethod(): string {
 
 /**
  * Resolve Google OAuth redirect URI.
- * The value is automatically derived from the current site origin, but
- * `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT` can still be provided for edge cases.
+ * The value always falls back to the canonical callback path so the front end
+ * does not need to know the full deployment origin. When necessary, the value
+ * can still be overridden with an absolute URL via `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`.
  */
 function getGoogleOauthRedirect(): string {
   const envOverride = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT;
@@ -262,11 +263,7 @@ function getGoogleOauthRedirect(): string {
     return envOverride;
   }
 
-  if (typeof window !== 'undefined' && window.location) {
-    return `${window.location.origin}/login/google-callback`;
-  }
-
-  return 'http://localhost:3001/login/google-callback';
+  return '/login/google-callback';
 }
 
 /**
