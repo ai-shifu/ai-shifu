@@ -78,6 +78,14 @@ def upgrade():
             "updated_at", sa.DateTime(), nullable=False, comment="Last update timestamp"
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint(
+            "credential_bid", name="uq_user_auth_credentials_credential_bid"
+        ),
+        sa.UniqueConstraint(
+            "provider_name",
+            "subject_id",
+            name="uq_user_auth_credentials_provider_subject",
+        ),
     )
     op.create_table(
         "user_users",
@@ -106,7 +114,7 @@ def upgrade():
         sa.Column(
             "avatar", sa.String(length=255), nullable=False, comment="User avatar"
         ),
-        sa.Column("birthday", sa.Date(), nullable=False, comment="User birthday"),
+        sa.Column("birthday", sa.Date(), nullable=True, comment="User birthday"),
         sa.Column(
             "language", sa.String(length=30), nullable=False, comment="User language"
         ),
@@ -132,7 +140,7 @@ def upgrade():
     )
     with op.batch_alter_table("user_users", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_user_users_user_bid"), ["user_bid"], unique=False
+            batch_op.f("ix_user_users_user_bid"), ["user_bid"], unique=True
         )
         batch_op.create_index(
             batch_op.f("ix_user_users_user_identify"), ["user_identify"], unique=False
