@@ -17,9 +17,9 @@ from .factory import (
 )
 
 # Ensure built-in providers are registered on import.
-from .providers import phone as _phone_provider  # noqa: F401
-from .providers import email as _email_provider  # noqa: F401
-from .providers import google as _google_provider  # noqa: F401
+from .providers import phone as _phone_provider
+from .providers import email as _email_provider
+from .providers import google as _google_provider
 
 __all__ = [
     "AuthProvider",
@@ -33,4 +33,7 @@ __all__ = [
     "has_provider",
     "register_provider",
     "registered_providers",
+    "_phone_provider",
+    "_email_provider",
+    "_google_provider",
 ]
