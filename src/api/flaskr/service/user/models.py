@@ -187,7 +187,6 @@ class UserInfo(db.Model):
         nullable=False,
         default="",
         comment="User business identifier",
-        unique=True,
         index=True,
     )
     # Store either phone (SMS verification) or email (email/Google verification)
@@ -214,7 +213,6 @@ class UserInfo(db.Model):
         nullable=False,
         default=0,
         comment="Deletion flag: 0=active, 1=deleted",
-        index=True,
         index=True,
     )
     created_at = Column(

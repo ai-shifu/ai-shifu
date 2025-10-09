@@ -140,7 +140,7 @@ def upgrade():
     )
     with op.batch_alter_table("user_users", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_user_users_user_bid"), ["user_bid"], unique=True
+            batch_op.f("ix_user_users_user_bid"), ["user_bid"], unique=False
         )
         batch_op.create_index(
             batch_op.f("ix_user_users_user_identify"), ["user_identify"], unique=False
