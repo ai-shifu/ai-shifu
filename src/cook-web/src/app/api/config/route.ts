@@ -3,19 +3,6 @@ import { environment } from '@/config/environment';
 
 export async function GET(request: NextRequest) {
   const origin = request.nextUrl.origin;
-  let googleOauthRedirect: string;
-  try {
-    googleOauthRedirect = new URL(
-      environment.googleOauthRedirect,
-      origin,
-    ).toString();
-  } catch (error) {
-    console.warn(
-      'Failed to resolve Google OAuth redirect URL, using default.',
-      error,
-    );
-    googleOauthRedirect = `${origin.replace(/\/$/, '')}/login/google-callback`;
-  }
 
   const config = {
     // ===== Core API Configuration =====
@@ -43,7 +30,7 @@ export async function GET(request: NextRequest) {
     // ===== Authentication =====
     loginMethodsEnabled: environment.loginMethodsEnabled,
     defaultLoginMethod: environment.defaultLoginMethod,
-    googleOauthRedirect,
+    googleOauthRedirect: `${origin.replace(/\/$/, '')}/login/google-callback`,
   };
 
   return NextResponse.json(config);

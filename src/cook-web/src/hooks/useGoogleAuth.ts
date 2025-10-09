@@ -67,10 +67,7 @@ function buildRedirectUri(override?: string): string {
     typeof window !== 'undefined' && window.location
       ? window.location.origin
       : 'http://localhost:3001';
-  const target =
-    override ||
-    environment.googleOauthRedirect ||
-    `${origin}/login/google-callback`;
+  const target = override || `${origin}/login/google-callback`;
 
   try {
     const url = new URL(target, origin);

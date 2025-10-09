@@ -76,7 +76,7 @@ const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email'
 const isPhoneEnabled = loginMethods.includes('phone');
 const isEmailEnabled = loginMethods.includes('email');
 const isGoogleEnabled = loginMethods.includes('google');
-const googleRedirect = environment.googleOauthRedirect; // 登录回调地址（自动推导，可手动覆盖）
+const googleRedirect = '/login/google-callback';
 ```
 
 ### 在API路由中使用
@@ -110,8 +110,7 @@ export async function GET() {
   "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
   "enableEruda": "false",
   "loginMethodsEnabled": ["phone"],
-  "defaultLoginMethod": "phone",
-  "googleOauthRedirect": "http://localhost:3001/login/google-callback"
+  "defaultLoginMethod": "phone"
 }
 ```
 

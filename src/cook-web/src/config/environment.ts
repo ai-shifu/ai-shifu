@@ -33,7 +33,6 @@ interface EnvironmentConfig {
   // Authentication Configuration
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
-  googleOauthRedirect: string;
 }
 
 /**
@@ -257,15 +256,6 @@ function getDefaultLoginMethod(): string {
  * does not need to know the full deployment origin. When necessary, the value
  * can still be overridden with an absolute URL via `NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT`.
  */
-function getGoogleOauthRedirect(): string {
-  const envOverride = process.env.NEXT_PUBLIC_GOOGLE_OAUTH_REDIRECT;
-  if (envOverride) {
-    return envOverride;
-  }
-
-  return '/login/google-callback';
-}
-
 /**
  * Converts string boolean values to actual booleans
  */
@@ -306,7 +296,6 @@ export const environment: EnvironmentConfig = {
   // Authentication Configuration
   loginMethodsEnabled: getLoginMethodsEnabled(),
   defaultLoginMethod: getDefaultLoginMethod(),
-  googleOauthRedirect: getGoogleOauthRedirect(),
 };
 
 export default environment;
