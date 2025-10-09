@@ -215,6 +215,7 @@ class UserInfo(db.Model):
         default=0,
         comment="Deletion flag: 0=active, 1=deleted",
         index=True,
+        index=True,
     )
     created_at = Column(
         DateTime, nullable=False, default=func.now(), comment="Creation timestamp"
