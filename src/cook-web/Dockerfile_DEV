@@ -5,7 +5,7 @@ RUN corepack enable
 # set work directory
 WORKDIR /app
 
-# install project dependencies
+# install project dependencies 
 # copy package.json and package-lock.json files
 COPY package*.json ./
 
