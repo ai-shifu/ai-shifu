@@ -23,7 +23,7 @@ The Cook Web login page reads authentication options from the backend `/api/conf
 - `NEXT_PUBLIC_LOGIN_METHODS_ENABLED`: comma-separated list such as `phone,google`.
 - `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`: default tab to show (for Google use `google`).
 
-Ensure the backend has matching `GOOGLE_OAUTH_*` values so `/api/user/oauth/google` emits the correct authorization URL.
+Ensure the backend exposes `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` so `/api/user/oauth/google` emits the correct authorization URL.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

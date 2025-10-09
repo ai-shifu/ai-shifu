@@ -443,22 +443,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         secret=True,
         group="auth",
     ),
-    "GOOGLE_OAUTH_REDIRECT_URI": EnvVar(
-        name="GOOGLE_OAUTH_REDIRECT_URI",
-        default="",
-        description=(
-            "Optional override for the Google OAuth redirect URI. "
-            "When unset, the callback is auto-derived from the incoming request host."
-        ),
-        group="auth",
-    ),
-    "GOOGLE_OAUTH_SCOPES": EnvVar(
-        name="GOOGLE_OAUTH_SCOPES",
-        default="openid email profile",
-        type=list,
-        description="Space separated list of Google OAuth scopes",
-        group="auth",
-    ),
     "MAIL_CODE_EXPIRE_TIME": EnvVar(
         name="MAIL_CODE_EXPIRE_TIME",
         default=300,

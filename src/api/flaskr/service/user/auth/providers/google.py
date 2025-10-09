@@ -52,10 +52,6 @@ def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
     if explicit_uri:
         return explicit_uri
 
-    config_uri = app.config.get("GOOGLE_OAUTH_REDIRECT_URI")
-    if config_uri:
-        return config_uri
-
     forwarded_proto = request.headers.get("X-Forwarded-Proto")
     scheme = forwarded_proto or request.scheme
     forwarded_host = request.headers.get("X-Forwarded-Host")
@@ -74,9 +70,7 @@ class GoogleAuthProvider(AuthProvider):
     def _create_session(self, app, redirect_uri: str) -> OAuth2Session:
         client_id = app.config.get("GOOGLE_OAUTH_CLIENT_ID")
         client_secret = app.config.get("GOOGLE_OAUTH_CLIENT_SECRET")
-        scopes = app.config.get("GOOGLE_OAUTH_SCOPES", ["openid", "email", "profile"])
-        if isinstance(scopes, str):
-            scopes = scopes.split()
+        scopes = ["openid", "email", "profile"]
         return OAuth2Session(
             client_id=client_id,
             client_secret=client_secret,
