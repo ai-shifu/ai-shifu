@@ -16,6 +16,15 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Authentication configuration
+
+The Cook Web login page reads authentication options from the backend `/api/config` endpoint. Set the following environment variables (or configure them on the Flask backend) to enable Google OAuth locally:
+
+- `NEXT_PUBLIC_LOGIN_METHODS_ENABLED`: comma-separated list such as `phone,google`.
+- `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`: default tab to show (for Google use `google`).
+
+Ensure the backend exposes `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` so `/api/user/oauth/google` emits the correct authorization URL.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

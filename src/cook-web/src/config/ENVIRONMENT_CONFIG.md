@@ -48,10 +48,10 @@
 
 ### 7. 认证配置 (Authentication Configuration)
 
-| 变量名                              | 用途           | 默认值    | 可选值                                |
-| ----------------------------------- | -------------- | --------- | ------------------------------------- |
-| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"phone,email"` |
-| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`                  |
+| 变量名                              | 用途           | 默认值    | 可选值                                                                                      |
+| ----------------------------------- | -------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
+| `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`, `"google"`                                                            |
 
 ## 使用方式
 
@@ -75,6 +75,8 @@ const loginMethods = environment.loginMethodsEnabled; // ['phone', 'email']
 const defaultMethod = environment.defaultLoginMethod; // 'phone' | 'email'
 const isPhoneEnabled = loginMethods.includes('phone');
 const isEmailEnabled = loginMethods.includes('email');
+const isGoogleEnabled = loginMethods.includes('google');
+const googleRedirect = '/login/google-callback';
 ```
 
 ### 在API路由中使用
