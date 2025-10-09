@@ -2,6 +2,16 @@
   display: flex;
   flex-flow: row nowrap;
 
+  &.mobile {
+    .textArea {
+      .rightSection {
+        .resetButton {
+          display: flex;
+        }
+      }
+    }
+  }
+
   &:first-child {
     .iconWrapper {
       .topLine {
@@ -30,6 +40,12 @@
 
   &.available:hover {
     cursor: pointer;
+
+    .textArea {
+      .resetButton {
+        display: flex;
+      }
+    }
   }
 
   &.unavailable {
@@ -93,9 +109,29 @@
     padding: 8px 8px;
     border-radius: 8px;
     flex: 1 0 0;
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: center;
+    justify-content: space-between;
 
-    .courseTitle {
-      display: inline;
+    .leftSection {
+      flex: 1 1 0;
+
+      .courseTitle {
+        display: inline;
+      }
+    }
+
+    .rightSection {
+      flex: 0 0 auto;
+      display: flex;
+      flex-flow: row nowrap;
+      align-items: center;
+
+      .resetButton {
+        margin: 0 6px;
+        display: none;
+      }
     }
   }
 }

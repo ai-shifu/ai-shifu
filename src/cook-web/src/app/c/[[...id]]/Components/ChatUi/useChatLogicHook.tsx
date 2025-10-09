@@ -36,6 +36,7 @@ import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
+import { flushSync } from 'react-dom';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -122,9 +123,11 @@ function useChatLogicHook({
       updateUserInfo: state.updateUserInfo,
     })),
   );
-  const { updateResetedChapterId } = useCourseStore(
+  const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } = useCourseStore(
     useShallow(state => ({
+      resetedLessonId: state.resetedLessonId,
       updateResetedChapterId: state.updateResetedChapterId,
+      updateResetedLessonId: state.updateResetedLessonId,
     })),
   );
 
@@ -139,7 +142,7 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
-  const sseRef = useRef<EventSource | null>(null);
+  const sseRef = useRef<any>(null);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
 
@@ -195,7 +198,6 @@ function useChatLogicHook({
             ? (updater as (prev: ChatContentItem[]) => ChatContentItem[])(prev)
             : updater;
         contentListRef.current = next;
-        // console.log('通知contentListRef.current更新', next);
         return next;
       });
     },
@@ -332,7 +334,7 @@ function useChatLogicHook({
                 });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
-              if (response.content.have_children) {
+              if (response.content.has_children) {
                 const { status, outline_bid: chapterBid } = response.content;
                 chapterUpdate?.({
                   id: chapterBid,
@@ -343,6 +345,22 @@ function useChatLogicHook({
                   isEnd = true;
                 }
               } else {
+                // current lesson loading
+                if(lessonId === response.content.outline_bid) {
+                  currentBlockIdRef.current = 'loading';
+                  currentContentRef.current = '';
+                  // setLastInteractionBlock(null);
+                  lastInteractionBlockRef.current = null;
+                  setTrackedContentList(prev => {
+                    const placeholderItem: ChatContentItem = {
+                      generated_block_bid: currentBlockIdRef.current || '',
+                      content: '',
+                      customRenderBar: () => <LoadingBar />,
+                      type: ChatContentItemType.CONTENT,
+                    };
+                    return [...prev, placeholderItem];
+                  });            
+                }
                 lessonUpdateResp(response, isEnd);
               }
             } else if (
@@ -486,11 +504,14 @@ function useChatLogicHook({
    * Loads the persisted lesson records and primes the chat stream.
    */
   const refreshData = useCallback(async () => {
-    setTrackedContentList([]);
-    setIsLoading(true);
-    // Reset scroll flag when reloading data
-    hasScrolledToBottomRef.current = false;
 
+    setTrackedContentList(() => []);
+
+    setIsTypeFinished(true);
+    lastInteractionBlockRef.current = null;
+    setIsLoading(true);
+    hasScrolledToBottomRef.current = false;
+   
     try {
       const recordResp = await getLessonStudyRecord({
         shifu_bid: shifuBid,
@@ -531,9 +552,11 @@ function useChatLogicHook({
     chapterId,
     mapRecordsToContent,
     outlineBid,
-    scrollToBottom,
+    // scrollToBottom,
     setTrackedContentList,
     shifuBid,
+    lessonId,
+    effectivePreviewMode
   ]);
   
 
@@ -549,24 +572,27 @@ function useChatLogicHook({
 
   useEffect(() => {
     const unsubscribe = useCourseStore.subscribe(
-      state => state.resetedChapterId,
-      curr => {
+      state => state.resetedLessonId,
+      async curr => {
         if (!curr) {
           return;
         }
-
-        if (curr === loadedChapterId) {
-          refreshData();
-          // @ts-expect-error resetedChapterId can be null per store design
-          updateResetedChapterId(null);
+        setIsLoading(true);
+        if (curr === lessonId) {
+          sseRef.current?.close();
+          await refreshData();
+          // updateResetedChapterId(null);
+          // @ts-expect-error resetedLessonId can be null per store design
+          updateResetedLessonId(null);
         }
+        setIsLoading(false);
       },
     );
 
     return () => {
       unsubscribe();
     };
-  }, [loadedChapterId, refreshData, updateResetedChapterId]);
+  }, [loadedChapterId, refreshData, updateResetedLessonId, resetedLessonId, lessonId]);
 
   useEffect(() => {
     const unsubscribe = useUserStore.subscribe(
@@ -586,12 +612,15 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    if (!lessonId) {
+
+    sseRef.current?.close();
+
+    if (!lessonId || (resetedLessonId === lessonId)) {
       return;
     }
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId]);
+  }, [lessonId,resetedLessonId]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
@@ -753,7 +782,6 @@ function useChatLogicHook({
       return;
     }
 
-    // console.log('🟢 onTypeFinished真正执行');
     if (contentListRef.current.length > 0) {
       // Capture the interaction block value before async operations
       const interactionBlockToAdd = lastInteractionBlockRef.current;

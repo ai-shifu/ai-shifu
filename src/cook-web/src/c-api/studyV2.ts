@@ -141,12 +141,34 @@ export const getRunMessage = (
       console.log(e);
     }
   });
+
   source.addEventListener('error', e => {
     console.error('[SSE error]', e);
   });
+
   source.addEventListener('open', () => {
     console.log('[SSE connection opened]');
   });
+
+  // sse.js 可能不支持 'close' 事件，使用 readystatechange 代替
+  source.addEventListener('readystatechange', () => {
+    console.log('[SSE readystatechange]', source.readyState);
+    // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
+    if (source.readyState === 2) {
+      console.log('[SSE connection closed via readystatechange]');
+    }
+  });
+
+  // 尝试标准的 close 事件（可能不会触发）
+  source.addEventListener('close', () => {
+    console.log('[SSE connection closed via close event]');
+  });
+
+  // 添加 abort 事件监听（如果支持）
+  source.addEventListener('abort', () => {
+    console.log('[SSE connection aborted]');
+  });
+
   source.stream();
 
   return source;

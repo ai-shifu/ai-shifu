@@ -323,7 +323,7 @@ export default function AskBlock({
             }}
           >
             {message.type === BLOCK_TYPE.ASK ? (
-              <div className={cn(styles.userMessage)}>{message.content}</div>
+              <div className={cn(styles.userMessage, isExpanded && styles.isExpanded)}>{message.content}</div>
             ) : (
               <div className={cn(styles.assistantMessage)}>
                 <ContentRender

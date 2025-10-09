@@ -50,7 +50,9 @@ export interface CourseStoreState {
   purchased: boolean;
   changePurchased: (purchased: boolean) => void;
   resetedChapterId: string | null;
+  resetedLessonId: string;
   updateResetedChapterId: (id: string) => void;
+  updateResetedLessonId: (id: string) => void;
   resetChapter: (id: string) => Promise<void>;
 }
 

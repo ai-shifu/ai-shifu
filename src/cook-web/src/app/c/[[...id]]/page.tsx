@@ -225,7 +225,8 @@ export default function ChatPage() {
   );
 
   const onGoChapter = async id => {
-    updateChapterId(id);
+    // updateChapterId(id);
+    updateLessonId(id);
   };
 
   const onChapterUpdate = useCallback(
@@ -329,6 +330,7 @@ export default function ChatPage() {
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async e => {
+      console.log('resetChapterEventHandler', e.detail.chapter_id);
       await reloadTree(e.detail.chapter_id);
       onGoChapter(e.detail.chapter_id);
     };

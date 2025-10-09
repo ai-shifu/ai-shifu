@@ -1,8 +1,10 @@
 import classNames from 'classnames';
 import styles from './CourseSection.module.scss';
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 import { memo } from 'react';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
+import ResetChapterButton from './ResetChapterButton';
+import { AppContext } from '../AppContext';
 
 import Image from 'next/image';
 import imgLearningSelected from '@/c-assets/newchat/light/icon16-learning-selected.png';
@@ -16,9 +18,11 @@ export const CourseSection = ({
   status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
+  chapterId,
   onSelect,
   onTrySelect,
 }) => {
+  const { mobileStyle } = useContext(AppContext);
   const genIconClassName = () => {
     switch (status_value) {
       // @ts-expect-error EXPECT
@@ -43,12 +47,17 @@ export const CourseSection = ({
     onSelect?.({ id });
   }, [onTrySelect, id, status_value, onSelect]);
 
+  const onResetButtonClick = useCallback(e => {
+    e.stopPropagation();
+  }, []);
+
   return (
     <div
       className={classNames(
         styles.courseSection,
         selected && styles.selected,
         canLearning ? styles.available : styles.unavailable,
+        mobileStyle && styles.mobile,
       )}
       onClick={onSectionClick}
     >
@@ -101,7 +110,22 @@ export const CourseSection = ({
         <div className={styles.bottomLine}></div>
       </div>
       <div className={styles.textArea}>
-        <div className={styles.courseTitle}>{name}</div>
+        <div className={styles.leftSection}>
+          <div className={styles.courseTitle}>{name}</div>
+        </div>
+        <div className={styles.rightSection}>
+          {(status_value === LESSON_STATUS_VALUE.LEARNING ||
+            status_value === LESSON_STATUS_VALUE.COMPLETED) && (
+            // @ts-expect-error EXPECT
+            <ResetChapterButton
+              onClick={onResetButtonClick}
+              chapterId={id}
+              chapterName={name}
+              className={styles.resetButton}
+              lessonId={id}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

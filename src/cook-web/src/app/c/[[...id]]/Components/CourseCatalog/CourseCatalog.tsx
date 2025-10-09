@@ -53,7 +53,7 @@ export const CourseCatalog = ({
       >
         <div className={styles.leftSection}>{name}</div>
         <div className={styles.rightSection}>
-          {status === LESSON_STATUS_VALUE.LEARNING ||
+          {/* {status === LESSON_STATUS_VALUE.LEARNING ||
           status === LESSON_STATUS_VALUE.COMPLETED ? (
             // @ts-expect-error EXPECT
             <ResetChapterButton
@@ -63,7 +63,7 @@ export const CourseCatalog = ({
               // @ts-expect-error EXPECT
               lessonId={lessons?.[0]?.id}
             />
-          ) : null}
+          ) : null} */}
           <ChevronDownIcon className={styles.collapseBtn} />
         </div>
       </div>
@@ -85,6 +85,7 @@ export const CourseCatalog = ({
               selected={e.id === selectedLessonId}
               // @ts-expect-error EXPECT
               canLearning={e.canLearning}
+              chapterId={id}
               onSelect={onLessonSelect}
               onTrySelect={_onTrySelect}
             />

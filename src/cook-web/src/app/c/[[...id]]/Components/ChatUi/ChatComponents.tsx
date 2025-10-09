@@ -679,6 +679,7 @@ export const ChatComponents = forwardRef<any, any>(
       return useCourseStore.subscribe(
         state => state.resetedChapterId,
         curr => {
+          console.log('subscribe resetedChapterId', curr, loadedChapterId);
           if (!curr) {
             return;
           }

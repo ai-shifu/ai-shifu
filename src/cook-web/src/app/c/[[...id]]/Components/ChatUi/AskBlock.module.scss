@@ -20,11 +20,22 @@
     justify-content: flex-end;
     padding: 8px 12px;
     font-size: 14px;
-    line-height: 14px;
+    line-height: 20px;
     border-radius: 8px;
     background-color: #fff;
     color: #000;
     word-break: break-word;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+  .isExpanded {
+    white-space: normal;
+    -webkit-line-clamp: unset;
+    max-height: none;
   }
   .assistantMessage {
     display: flex;
@@ -95,6 +106,10 @@
         font-weight: var(--font-weight-normal, 400);
         line-height: 20px; /* 166.667% */
         padding: 3px 12px;
+      }
+      .userMessageExpanded{
+        white-space: normal;
+        -webkit-line-clamp: none;
       }
     }
   }
@@ -209,6 +224,8 @@
   line-height: 20px;
   background: #f4f5f5;
   color: #000;
+  white-space: normal;
+  -webkit-line-clamp: none;
 }
 
 .mobilePanel .assistantMessage {
