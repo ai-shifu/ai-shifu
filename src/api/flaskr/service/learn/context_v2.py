@@ -68,6 +68,8 @@ from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.learn.exceptions import PaidException
+from flaskr.i18n import _
 
 context_local = threading.local()
 
@@ -618,7 +620,7 @@ class RunScriptContextV2:
             mdflow=outline_item_info.mdflow,
         )
 
-    def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         app.logger.info(
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
@@ -1029,6 +1031,17 @@ class RunScriptContextV2:
             self._can_continue = False
             db.session.flush()
         self._trace.update(**self._trace_args)
+
+    def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        try:
+            yield from self.run_inner(app)
+        except PaidException:
+            yield RunMarkdownFlowDTO(
+                outline_bid=self._outline_item_info.bid,
+                generated_block_bid="",
+                type=GeneratedType.INTERACTION,
+                content=_("ORDER.CHECKOUT") + "//_sys_pay",
+            )
 
     def has_next(self) -> bool:
         return self._can_continue
