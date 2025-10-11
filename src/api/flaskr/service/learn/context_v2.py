@@ -759,6 +759,7 @@ class RunScriptContextV2:
 
             generated_block.generated_content = self._input
             generated_block.role = ROLE_STUDENT
+            generated_block.status = 1
             db.session.flush()
             res = check_text_with_llm_response(
                 app,
