@@ -46,6 +46,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
 )
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -298,6 +299,19 @@ def get_learn_record(
                         if button.get("value") == "_sys_login":
                             if bool(request.user.mobile):
                                 records.remove(last_record)
+        if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
+            interaction = (
+                "?[" + _("LEARN.NEXT_CHAPTER") + "//" + CONTEXT_INTERACTION_NEXT + "]"
+            )
+            records.append(
+                GeneratedBlockDTO(
+                    "next",
+                    interaction,
+                    LikeStatus.NONE,
+                    BlockType.INTERACTION,
+                    "",
+                )
+            )
         return LearnRecordDTO(
             records=records,
             interaction=interaction,
