@@ -81,8 +81,7 @@
     "tailwindcss-animate": "^1.0.7",
     "uuid": "^11.0.5",
     "zod": "^3.24.2",
-    "zustand": "^5.0.5",
-    "markdown-flow-ui": "^0.1.1"
+    "zustand": "^5.0.5"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
