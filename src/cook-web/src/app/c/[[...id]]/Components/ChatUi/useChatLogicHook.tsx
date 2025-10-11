@@ -78,12 +78,14 @@ export interface UseChatSessionParams {
   trackTrailProgress: (generatedBlockBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
-  updateSelectedLesson: (lessonId: string) => void;
+  updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
+  getNextLessonId: (lessonId?: string | null) => string | null;
   scrollToLesson: (lessonId: string) => void;
   scrollToBottom: (behavior?: ScrollBehavior) => void;
   showOutputInProgressToast: () => void;
   onPayModalOpen: () => void;
   chatBoxBottomRef: React.RefObject<HTMLDivElement | null>;
+  onGoChapter: (lessonId: string) => void;
 }
 
 export interface UseChatSessionResult {
@@ -100,6 +102,7 @@ export interface UseChatSessionResult {
  */
 function useChatLogicHook({
   shifuBid,
+  onGoChapter,
   outlineBid,
   lessonId,
   chapterId,
@@ -110,6 +113,7 @@ function useChatLogicHook({
   lessonUpdate,
   chapterUpdate,
   updateSelectedLesson,
+  getNextLessonId,
   scrollToLesson,
   scrollToBottom,
   showOutputInProgressToast,
@@ -733,6 +737,15 @@ function useChatLogicHook({
         }
         return;
       }
+      if (buttonText === SYS_INTERACTION_TYPE.NEXT_CHAPTER) {
+        const nextLessonId = getNextLessonId(lessonId);
+        if (nextLessonId) {
+          updateSelectedLesson(nextLessonId, true);
+          onGoChapter(nextLessonId);
+          scrollToLesson(nextLessonId);
+        }
+        return;
+      }
 
       const { newList, needChangeItemIndex } =
         updateContentListWithUserOperate(content);
@@ -755,12 +768,17 @@ function useChatLogicHook({
       });
     },
     [
+      getNextLessonId,
       isTypeFinished,
+      lessonId,
+      onGoChapter,
       onPayModalOpen,
+      scrollToLesson,
       setTrackedContentList,
       showOutputInProgressToast,
       trackEvent,
       updateContentListWithUserOperate,
+      updateSelectedLesson,
     ],
   );
 

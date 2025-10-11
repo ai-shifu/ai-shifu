@@ -300,6 +300,44 @@ export const useLessonTree = () => {
     return chapter;
   };
 
+  const getNextLessonId = useCallback(
+    (currentLessonId?: string | null) => {
+      if (!tree) {
+        return null;
+      }
+
+      const targetLessonId = currentLessonId ?? selectedLessonId;
+      if (!targetLessonId) {
+        return null;
+      }
+
+      for (let catalogIndex = 0; catalogIndex < tree.catalogs.length; catalogIndex += 1) {
+        const catalog = tree.catalogs[catalogIndex];
+        const lessonIndex = catalog.lessons.findIndex(ls => ls.id === targetLessonId);
+        if (lessonIndex === -1) {
+          continue;
+        }
+
+        for (
+          let nextCatalogIndex = catalogIndex + 1;
+          nextCatalogIndex < tree.catalogs.length;
+          nextCatalogIndex += 1
+        ) {
+          const nextCatalog = tree.catalogs[nextCatalogIndex];
+          if (!nextCatalog.lessons || nextCatalog.lessons.length === 0) {
+            continue;
+          }
+          return nextCatalog.lessons[0]?.id ?? null;
+        }
+
+        return null;
+      }
+
+      return null;
+    },
+    [selectedLessonId, tree],
+  );
+
   const onTryLessonSelect = ({ lessonId }) => {
     if (!tree) {
       return;
@@ -342,5 +380,6 @@ export const useLessonTree = () => {
     getCurrElement,
     getChapterByLesson,
     onTryLessonSelect,
+    getNextLessonId,
   };
 };

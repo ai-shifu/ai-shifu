@@ -27,6 +27,7 @@ export const ChatUi = ({
   onMobileSettingClick = () => {},
   chapterUpdate,
   updateSelectedLesson,
+  getNextLessonId,
 }) => {
   const { frameLayout } = useUiLayoutStore(state => state);
   const { skip, updateSkip, previewMode } = useSystemStore(
@@ -62,6 +63,7 @@ export const ChatUi = ({
           onPurchased={onPurchased}
           chapterUpdate={chapterUpdate}
           updateSelectedLesson={updateSelectedLesson}
+          getNextLessonId={getNextLessonId}
         />
       }
       {showUserSettings && (

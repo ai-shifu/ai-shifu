@@ -55,7 +55,7 @@ export type SSE_OUTPUT_TYPE =
 export const SYS_INTERACTION_TYPE = {
   PAY: '_sys_pay',
   LOGIN: '_sys_login',
-  NEXT_CHAPTER: '_sys_next_chapter', // TODO: wait for backend to support
+  NEXT_CHAPTER: '_sys_next_chatper',
 } as const;
 export type SysInteractionType =
   (typeof SYS_INTERACTION_TYPE)[keyof typeof SYS_INTERACTION_TYPE];
@@ -133,7 +133,7 @@ export const getRunMessage = (
   source.addEventListener('message', event => {
     try {
       const response = JSON.parse(event.data);
-      console.log('====sse response====', response);
+      console.log('[SSE response]', response);
       if (onMessage) {
         onMessage(response);
       }

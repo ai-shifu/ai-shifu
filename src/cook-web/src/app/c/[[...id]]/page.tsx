@@ -139,6 +139,7 @@ export default function ChatPage() {
     updateChapterStatus,
     getChapterByLesson,
     onTryLessonSelect,
+    getNextLessonId,
   } = useLessonTree();
 
   const [currentLanguage, setCurrentLanguage] = useState(i18n.language);
@@ -330,7 +331,7 @@ export default function ChatPage() {
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async e => {
-      console.log('resetChapterEventHandler', e.detail.chapter_id);
+      // console.log('resetChapterEventHandler', e.detail.chapter_id);
       await reloadTree(e.detail.chapter_id);
       onGoChapter(e.detail.chapter_id);
     };
@@ -427,6 +428,7 @@ export default function ChatPage() {
             chapterUpdate={onChapterUpdate}
             userSettingBasicInfo={userSettingBasicInfo}
             updateSelectedLesson={updateSelectedLesson}
+            getNextLessonId={getNextLessonId}
           />
         ) : null}
 

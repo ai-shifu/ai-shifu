@@ -31,6 +31,7 @@ export const NewChatComponents = ({
   onPurchased,
   chapterUpdate,
   updateSelectedLesson,
+  getNextLessonId,
   preview_mode = PREVIEW_MODE.NORMAL,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
@@ -83,6 +84,7 @@ export const NewChatComponents = ({
 
   const { items, isLoading, onSend, onRefresh, onTypeFinished, toggleAskExpanded } =
     useChatLogicHook({
+      onGoChapter,
       shifuBid,
       outlineBid: lessonId,
       lessonId,
@@ -94,6 +96,7 @@ export const NewChatComponents = ({
       lessonUpdate,
       chapterUpdate,
       updateSelectedLesson,
+      getNextLessonId,
       scrollToLesson,
       scrollToBottom,
       showOutputInProgressToast,
