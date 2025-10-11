@@ -232,7 +232,7 @@ def handle_input_ask(
         user_bid=user_info.user_id,
         block_type=BLOCK_TYPE_MDANSWER_VALUE,
         mdflow=response_text,
-        block_index=outline_item_info.position,
+        block_index=last_position,
     )
     log_script.generated_content = response_text
     log_script.role = ROLE_TEACHER  # Mark as teacher role
