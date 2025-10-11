@@ -58,7 +58,7 @@ from flaskr.service.learn.learn_dtos import (
     LearnStatus,
 )
 from flaskr.api.llm import invoke_llm
-from flaskr.service.learn.input.handle_input_ask import _handle_input_ask
+from flaskr.service.learn.handle_input_ask import handle_input_ask
 from flaskr.service.profile.funcs import save_user_profiles, ProfileToSave
 from flaskr.service.profile.profile_manage import (
     get_profile_item_definition_list,
@@ -68,6 +68,8 @@ from flaskr.service.learn.learn_dtos import VariableUpdateDTO
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.learn.exceptions import PaidException
+from flaskr.i18n import _
 
 context_local = threading.local()
 
@@ -618,7 +620,7 @@ class RunScriptContextV2:
             mdflow=outline_item_info.mdflow,
         )
 
-    def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+    def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
         app.logger.info(
             f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
         )
@@ -656,29 +658,21 @@ class RunScriptContextV2:
         if self._input_type == "ask":
             if self._last_position == -1:
                 self._last_position = run_script_info.block_position
-
-            res = _handle_input_ask(
+            res = handle_input_ask(
                 app,
+                self,
                 self._user_info,
                 self._current_attend.progress_record_bid,
                 self._input,
                 self._outline_item_info,
-                run_script_info.block_dto,
                 self._trace_args,
                 self._trace,
                 self._preview_mode,
                 self._last_position,
             )
-            if res:
-                for i in res:
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid="",
-                        type=GeneratedType.CONTENT,
-                        content=i,
-                    )
-                self._can_continue = False
-                db.session.flush()
+            yield from res
+            self._can_continue = False
+            db.session.flush()
             return
 
         user_profile = get_user_profiles(
@@ -765,6 +759,7 @@ class RunScriptContextV2:
 
             generated_block.generated_content = self._input
             generated_block.role = ROLE_STUDENT
+            generated_block.status = 1
             db.session.flush()
             res = check_text_with_llm_response(
                 app,
@@ -1038,6 +1033,17 @@ class RunScriptContextV2:
             db.session.flush()
         self._trace.update(**self._trace_args)
 
+    def run(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
+        try:
+            yield from self.run_inner(app)
+        except PaidException:
+            yield RunMarkdownFlowDTO(
+                outline_bid=self._outline_item_info.bid,
+                generated_block_bid="",
+                type=GeneratedType.INTERACTION,
+                content=_("ORDER.CHECKOUT") + "//_sys_pay",
+            )
+
     def has_next(self) -> bool:
         return self._can_continue
 
@@ -1114,6 +1120,7 @@ class RunScriptContextV2:
                     == generated_block.outline_item_bid,
                     LearnGeneratedBlock.user_bid == self._user_info.user_id,
                     LearnGeneratedBlock.id >= generated_block.id,
+                    LearnGeneratedBlock.position >= generated_block.position,
                 ).update(
                     {
                         LearnGeneratedBlock.status: 0,

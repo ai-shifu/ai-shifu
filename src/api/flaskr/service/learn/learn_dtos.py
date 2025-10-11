@@ -52,6 +52,7 @@ class BlockType(Enum):
     INTERACTION = "interaction"
     ERROR_MESSAGE = "error_message"
     ASK = "ask"
+    ANSWER = "answer"
 
     def __json__(self):
         return self.value

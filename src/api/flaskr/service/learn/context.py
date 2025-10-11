@@ -25,7 +25,7 @@ from flaskr.service.shifu.adapter import (
 )
 from langfuse.client import StatefulTraceClient
 from ...api.langfuse import langfuse_client as langfuse, MockClient
-from flaskr.service.common import raise_error, AppException, ERROR_CODE
+from flaskr.service.common import raise_error
 from flaskr.service.order.consts import (
     LEARN_STATUS_RESET,
     LEARN_STATUS_IN_PROGRESS,
@@ -47,16 +47,9 @@ from flaskr.util import generate_id
 from flaskr.service.shifu.dtos import GotoDTO, GotoConditionDTO
 from flaskr.service.profile.funcs import get_user_variable_by_variable_id
 from flaskr.service.learn.const import ROLE_TEACHER
+from flaskr.service.learn.exceptions import PaidException
 
 context_local = threading.local()
-
-
-class PaidException(AppException):
-    def __init__(self):
-        super().__init__(
-            "ORDER.COURSE_NOT_PAID",
-            ERROR_CODE.get("ORDER.COURSE_NOT_PAID", ERROR_CODE["COMMON.UNKNOWN_ERROR"]),
-        )
 
 
 class RunType(Enum):

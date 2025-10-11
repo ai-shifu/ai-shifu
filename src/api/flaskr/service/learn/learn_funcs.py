@@ -44,7 +44,9 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
+    BLOCK_TYPE_MDANSWER_VALUE,
 )
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -182,7 +184,11 @@ def get_outline_item_tree(
                         outline_item_info.children.append(child_info)
             return outline_item_info
 
-        outline_items = [build_outline_item_tree(i) for i in struct.children]
+        outline_items = []
+        for i in struct.children:
+            outline_item_info = build_outline_item_tree(i)
+            if outline_item_info:
+                outline_items.append(outline_item_info)
         banner_info_dto = None
 
         banner_info = BannerInfo.query.filter(
@@ -257,6 +263,7 @@ def get_learn_record(
             BLOCK_TYPE_MDINTERACTION_VALUE: BlockType.INTERACTION,
             BLOCK_TYPE_MDERRORMESSAGE_VALUE: BlockType.ERROR_MESSAGE,
             BLOCK_TYPE_MDASK_VALUE: BlockType.ASK,
+            BLOCK_TYPE_MDANSWER_VALUE: BlockType.ANSWER,
         }
         LIKE_STATUS_MAP = {
             1: LikeStatus.LIKE,
@@ -292,6 +299,19 @@ def get_learn_record(
                         if button.get("value") == "_sys_login":
                             if bool(request.user.mobile):
                                 records.remove(last_record)
+        if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
+            interaction = (
+                "?[" + _("LEARN.NEXT_CHAPTER") + "//" + CONTEXT_INTERACTION_NEXT + "]"
+            )
+            records.append(
+                GeneratedBlockDTO(
+                    "next",
+                    interaction,
+                    LikeStatus.NONE,
+                    BlockType.INTERACTION,
+                    "",
+                )
+            )
         return LearnRecordDTO(
             records=records,
             interaction=interaction,
