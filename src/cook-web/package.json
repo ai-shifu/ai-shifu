@@ -54,7 +54,7 @@
     "immer": "^10.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "markdown-flow-ui": "^0.1.12-beta.1",
+    "markdown-flow-ui": "^0.1.12-beta.2",
     "next": "^15.5.3",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
