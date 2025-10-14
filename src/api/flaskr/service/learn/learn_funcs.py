@@ -268,7 +268,7 @@ def get_mdflow(
 
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
-) -> list[LearnRecordDTO]:
+) -> LearnRecordDTO:
     with app.app_context():
         block_model: Union[DraftBlock, PublishedBlock] = (
             DraftBlock if preview_mode else PublishedBlock
