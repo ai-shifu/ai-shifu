@@ -13,6 +13,7 @@ from flaskr.service.learn.learn_dtos import (
     LikeStatus,
     LearnOutlineItemsWithBannerInfoDTO,
     LearnBannerInfoDTO,
+    OutlineType,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -38,12 +39,14 @@ from flaskr.service.order.consts import (
 )
 import queue
 from flaskr.dao import db
-from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
+    UNIT_TYPE_VALUE_GUEST,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_TRIAL,
 )
 
 STATUS_MAP = {
@@ -78,6 +81,11 @@ def get_outline_item_tree(
     app: Flask, shifu_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnOutlineItemsWithBannerInfoDTO:
     with app.app_context():
+        outline_type_map = {
+            UNIT_TYPE_VALUE_TRIAL: OutlineType.TRIAL,
+            UNIT_TYPE_VALUE_NORMAL: OutlineType.NORMAL,
+            UNIT_TYPE_VALUE_GUEST: OutlineType.GUEST,
+        }
         is_paid = preview_mode
         if preview_mode:
             outline_item_model = DraftOutlineItem
@@ -162,7 +170,7 @@ def get_outline_item_tree(
             if not progress_record:
                 if is_paid:
                     status = LEARN_STATUS_NOT_STARTED
-                elif outline_item.type == LESSON_TYPE_NORMAL:
+                elif outline_item.type == UNIT_TYPE_VALUE_NORMAL:
                     status = LEARN_STATUS_LOCKED
                 else:
                     status = LEARN_STATUS_NOT_STARTED
@@ -173,6 +181,7 @@ def get_outline_item_tree(
                 position=outline_item.position,
                 title=outline_item.title,
                 status=STATUS_MAP.get(status, LearnStatus.LOCKED),
+                type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 children=[],
             )
             if item.children:
