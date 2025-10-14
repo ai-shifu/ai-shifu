@@ -15,6 +15,16 @@ class LearnStatus(Enum):
 
 
 @register_schema_to_swagger
+class OutlineType(Enum):
+    NORMAL = "normal"
+    TRIAL = "trial"
+    GUEST = "guest"
+
+    def __json__(self):
+        return self.value
+
+
+@register_schema_to_swagger
 class GeneratedType(Enum):
     CONTENT = "content"
     BREAK = "break"
@@ -192,6 +202,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
     position: str = Field(..., description="outline position", required=False)
     title: str = Field(..., description="outline title", required=False)
     status: LearnStatus = Field(..., description="outline status", required=False)
+    type: OutlineType = Field(..., description="outline type", required=False)
     children: list["LearnOutlineItemInfoDTO"] = Field(
         ..., description="outline children", required=False
     )
@@ -202,10 +213,16 @@ class LearnOutlineItemInfoDTO(BaseModel):
         position: str,
         title: str,
         status: LearnStatus,
+        type: OutlineType,
         children: list["LearnOutlineItemInfoDTO"],
     ):
         super().__init__(
-            bid=bid, position=position, title=title, status=status, children=children
+            bid=bid,
+            position=position,
+            title=title,
+            status=status,
+            children=children,
+            type=type,
         )
 
     def __json__(self):
@@ -215,6 +232,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             "title": self.title,
             "status": self.status.value,
             "children": self.children,
+            "type": self.type.value,
         }
 
 
