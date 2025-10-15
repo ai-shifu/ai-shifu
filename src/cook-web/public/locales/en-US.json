@@ -43,6 +43,7 @@
     "googleLoginProcessing": "Finalizing Google login",
     "googleLoginRedirecting": "Please wait while we finalize your account. We will redirect you shortly.",
     "googleLoginSoon": "Google login coming soon",
+    "googleTab": "Google",
     "hasAccount": "Already have an account?",
     "login": "Login",
     "loginNow": "Login Now",

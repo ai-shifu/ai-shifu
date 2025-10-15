@@ -26,7 +26,7 @@ export function TermsCheckbox({
       <Checkbox
         id='terms'
         checked={checked}
-        onCheckedChange={onCheckedChange}
+        onCheckedChange={value => onCheckedChange(Boolean(value))}
         disabled={disabled}
       />
       <label
@@ -59,6 +59,44 @@ export function TermsCheckbox({
           }}
         />
       </label>
+    </div>
+  );
+}
+
+export function TermsLinks({ className }: { className?: string }) {
+  const { t } = useTranslation();
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center gap-2 text-center text-sm font-medium sm:flex-row sm:justify-center sm:gap-2 sm:text-left',
+        className,
+      )}
+    >
+      <Trans
+        i18nKey='auth.termsLinks'
+        components={{
+          serviceAgreement: (
+            <a
+              href='/agreement'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-primary hover:underline'
+            />
+          ),
+          privacyPolicy: (
+            <a
+              href='/privacy'
+              target='_blank'
+              rel='noopener noreferrer'
+              className='text-primary hover:underline'
+            />
+          ),
+        }}
+        values={{
+          serviceLabel: t('auth.serviceAgreement'),
+          privacyLabel: t('auth.privacyPolicy'),
+        }}
+      />
     </div>
   );
 }

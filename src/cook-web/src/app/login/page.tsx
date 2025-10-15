@@ -21,11 +21,12 @@ import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
-import { Separator } from '@/components/ui/Separator';
-import { TermsCheckbox } from '@/components/TermsCheckbox';
+import { TermsCheckbox, TermsLinks } from '@/components/TermsCheckbox';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
+
+type LoginMethod = 'phone' | 'email' | 'google';
 
 export default function AuthPage() {
   const router = useRouter();
@@ -40,34 +41,36 @@ export default function AuthPage() {
   const isEmailEnabled = enabledMethods.includes('email');
   const isGoogleEnabled = enabledMethods.includes('google');
 
-  const traditionalMethodCount = [isPhoneEnabled, isEmailEnabled].filter(
-    Boolean,
-  ).length;
-  const hasTraditionalLogin = traditionalMethodCount > 0;
-  const shouldShowTabs = traditionalMethodCount > 1;
+  const availableMethods = useMemo<LoginMethod[]>(() => {
+    const methods: LoginMethod[] = [];
+    if (isPhoneEnabled) methods.push('phone');
+    if (isEmailEnabled) methods.push('email');
+    if (isGoogleEnabled) methods.push('google');
+    return methods;
+  }, [isEmailEnabled, isGoogleEnabled, isPhoneEnabled]);
 
-  const preferredTraditionalMethod = useMemo(() => {
-    if (defaultMethod === 'phone' && isPhoneEnabled) return 'phone';
-    if (defaultMethod === 'email' && isEmailEnabled) return 'email';
-    if (isPhoneEnabled) return 'phone';
-    if (isEmailEnabled) return 'email';
-    return 'phone';
-  }, [defaultMethod, isEmailEnabled, isPhoneEnabled]);
+  const initialLoginMethod = useMemo<LoginMethod>(() => {
+    const normalizedDefault = defaultMethod as LoginMethod;
+    if (normalizedDefault && availableMethods.includes(normalizedDefault)) {
+      return normalizedDefault;
+    }
+    return availableMethods[0] ?? 'phone';
+  }, [availableMethods, defaultMethod]);
 
-  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>(
-    preferredTraditionalMethod,
-  );
+  const [loginMethod, setLoginMethod] =
+    useState<LoginMethod>(initialLoginMethod);
   const [language, setLanguage] = useState<string | null>(null);
   const manualLanguageRef = useRef(false);
 
   useEffect(() => {
-    setLoginMethod(preferredTraditionalMethod);
-  }, [preferredTraditionalMethod]);
+    setLoginMethod(initialLoginMethod);
+  }, [initialLoginMethod]);
 
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const requiresTermsAgreement = environment.requireTermsAgreement;
 
   const resolveRedirectPath = useCallback(() => {
     let redirect = searchParams.get('redirect');
@@ -185,7 +188,9 @@ export default function AuthPage() {
     }
   }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
 
-  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
+  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(
+    !requiresTermsAgreement,
+  );
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const { startGoogleLogin } = useGoogleAuth({
@@ -197,55 +202,75 @@ export default function AuthPage() {
     },
   });
 
-  const googleSection = useMemo(() => {
+  const handleGoogleSignIn = useCallback(async () => {
     if (!isGoogleEnabled) {
-      return null;
+      return;
     }
 
-    const handleGoogleSignIn = async () => {
-      if (!googleTermsAccepted) {
-        toast({
-          title: t('auth.termsError'),
-          variant: 'destructive',
-        });
-        return;
-      }
+    if (requiresTermsAgreement && !googleTermsAccepted) {
+      toast({
+        title: t('auth.termsError'),
+        variant: 'destructive',
+      });
+      return;
+    }
 
-      try {
-        setIsGoogleLoading(true);
-        await startGoogleLogin({ redirectPath: resolveRedirectPath() });
-      } catch (error) {
-        setIsGoogleLoading(false);
-      }
-    };
-
-    return (
-      <div className='space-y-4'>
-        {hasTraditionalLogin && <Separator />}
-        <div className='space-y-3'>
-          <GoogleLoginButton
-            onClick={handleGoogleSignIn}
-            loading={isGoogleLoading}
-            disabled={isGoogleLoading}
-          />
-          <TermsCheckbox
-            checked={googleTermsAccepted}
-            onCheckedChange={value => setGoogleTermsAccepted(Boolean(value))}
-            disabled={isGoogleLoading}
-          />
-        </div>
-      </div>
-    );
+    try {
+      setIsGoogleLoading(true);
+      await startGoogleLogin({ redirectPath: resolveRedirectPath() });
+    } catch (error) {
+      setIsGoogleLoading(false);
+    }
   }, [
     googleTermsAccepted,
-    hasTraditionalLogin,
     isGoogleEnabled,
-    isGoogleLoading,
+    requiresTermsAgreement,
     resolveRedirectPath,
     startGoogleLogin,
     t,
     toast,
   ]);
+
+  const renderLoginContent = useCallback(
+    (method: LoginMethod) => {
+      switch (method) {
+        case 'phone':
+          return <PhoneLogin onLoginSuccess={handleAuthSuccess} />;
+        case 'email':
+          return <EmailLogin onLoginSuccess={handleAuthSuccess} />;
+        case 'google':
+          return (
+            <div className='space-y-3'>
+              <GoogleLoginButton
+                onClick={handleGoogleSignIn}
+                loading={isGoogleLoading}
+                disabled={isGoogleLoading}
+              />
+              {requiresTermsAgreement ? (
+                <TermsCheckbox
+                  checked={googleTermsAccepted}
+                  onCheckedChange={setGoogleTermsAccepted}
+                  disabled={isGoogleLoading}
+                />
+              ) : (
+                <TermsLinks />
+              )}
+            </div>
+          );
+        default:
+          return null;
+      }
+    },
+    [
+      handleAuthSuccess,
+      handleGoogleSignIn,
+      googleTermsAccepted,
+      isGoogleLoading,
+      requiresTermsAgreement,
+    ],
+  );
+
+  const shouldShowTabs = availableMethods.length > 1;
 
   // Show loading state until translations are ready
   if (!isI18nReady || !language) {
@@ -316,57 +341,52 @@ export default function AuthPage() {
           <CardContent>
             {authMode === 'login' && (
               <div className='space-y-6'>
-                {hasTraditionalLogin && (
-                  <div className='w-full'>
-                    {shouldShowTabs ? (
-                      <Tabs
-                        value={loginMethod}
-                        onValueChange={value =>
-                          setLoginMethod(value as 'phone' | 'email')
-                        }
-                        className='w-full'
+                {availableMethods.length > 0 ? (
+                  shouldShowTabs ? (
+                    <Tabs
+                      value={loginMethod}
+                      onValueChange={value =>
+                        setLoginMethod(value as LoginMethod)
+                      }
+                      className='w-full'
+                    >
+                      <TabsList
+                        className='grid w-full'
+                        style={{
+                          gridTemplateColumns: `repeat(${availableMethods.length}, minmax(0, 1fr))`,
+                        }}
                       >
-                        <TabsList className={'grid w-full grid-cols-2'}>
-                          {isPhoneEnabled && (
-                            <TabsTrigger value='phone'>
-                              {t('auth.phone')}
-                            </TabsTrigger>
-                          )}
-                          {isEmailEnabled && (
-                            <TabsTrigger value='email'>
-                              {t('auth.email')}
-                            </TabsTrigger>
-                          )}
-                        </TabsList>
+                        {availableMethods.map(method => (
+                          <TabsTrigger
+                            key={method}
+                            value={method}
+                          >
+                            {method === 'phone'
+                              ? t('auth.phone')
+                              : method === 'email'
+                                ? t('auth.email')
+                                : t('auth.googleTab')}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
 
-                        {isPhoneEnabled && (
-                          <TabsContent value='phone'>
-                            <PhoneLogin onLoginSuccess={handleAuthSuccess} />
-                          </TabsContent>
-                        )}
-
-                        {isEmailEnabled && (
-                          <TabsContent value='email'>
-                            <EmailLogin onLoginSuccess={handleAuthSuccess} />
-                          </TabsContent>
-                        )}
-                      </Tabs>
-                    ) : (
-                      <div className='w-full'>
-                        {isPhoneEnabled && (
-                          <PhoneLogin onLoginSuccess={handleAuthSuccess} />
-                        )}
-                        {isEmailEnabled && (
-                          <EmailLogin onLoginSuccess={handleAuthSuccess} />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {googleSection}
-
-                {!hasTraditionalLogin && !isGoogleEnabled && (
+                      {availableMethods.map(method => (
+                        <TabsContent
+                          key={method}
+                          value={method}
+                        >
+                          {renderLoginContent(method)}
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  ) : (
+                    <div className='w-full'>
+                      {availableMethods[0]
+                        ? renderLoginContent(availableMethods[0])
+                        : null}
+                    </div>
+                  )
+                ) : (
                   <p className='text-sm text-muted-foreground text-center'>
                     {t('auth.noLoginMethods')}
                   </p>

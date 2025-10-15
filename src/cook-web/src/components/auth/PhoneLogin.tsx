@@ -8,11 +8,12 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { TermsCheckbox } from '@/components/TermsCheckbox';
+import { TermsCheckbox, TermsLinks } from '@/components/TermsCheckbox';
 import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
+import { environment } from '@/config/environment';
 
 import type { UserInfo } from '@/c-types';
 interface PhoneLoginProps {
@@ -25,7 +26,8 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneOtp, setPhoneOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const requiresTermsAgreement = environment.requireTermsAgreement;
+  const [termsAccepted, setTermsAccepted] = useState(!requiresTermsAgreement);
   const [countdown, setCountdown] = useState(0);
   const [phoneError, setPhoneError] = useState('');
   const { t } = useTranslation();
@@ -62,7 +64,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       return;
     }
 
-    if (!termsAccepted) {
+    if (requiresTermsAgreement && !termsAccepted) {
       toast({
         title: t('auth.termsError'),
         variant: 'destructive',
@@ -109,7 +111,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       return;
     }
 
-    if (!termsAccepted) {
+    if (requiresTermsAgreement && !termsAccepted) {
       toast({
         title: t('auth.termsError'),
         variant: 'destructive',
@@ -183,11 +185,15 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       </div>
 
       <div className='mt-2'>
-        <TermsCheckbox
-          checked={termsAccepted}
-          onCheckedChange={setTermsAccepted}
-          disabled={isLoading}
-        />
+        {requiresTermsAgreement ? (
+          <TermsCheckbox
+            checked={termsAccepted}
+            onCheckedChange={setTermsAccepted}
+            disabled={isLoading}
+          />
+        ) : (
+          <TermsLinks />
+        )}
       </div>
 
       {showOtpInput && (
