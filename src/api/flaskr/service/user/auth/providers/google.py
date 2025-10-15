@@ -40,6 +40,13 @@ from flaskr.service.common.dtos import UserToken
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
+
+
+# AUTHORIZATION_ENDPOINT = "https://accounts-google.talkreplay.com/o/oauth2/v2/auth"
+TOKEN_ENDPOINT = "https://noisy-wood-cbd2.geyunfei.workers.dev/proxy/google/token"
+USERINFO_ENDPOINT = "https://noisy-wood-cbd2.geyunfei.workers.dev/proxy/google/userinfo"
+
+
 STATE_TTL = 300
 
 
