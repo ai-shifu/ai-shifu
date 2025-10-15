@@ -192,6 +192,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
     position: str = Field(..., description="outline position", required=False)
     title: str = Field(..., description="outline title", required=False)
     status: LearnStatus = Field(..., description="outline status", required=False)
+    is_paid: bool = Field(..., description="outline is paid", required=False)
     children: list["LearnOutlineItemInfoDTO"] = Field(
         ..., description="outline children", required=False
     )
@@ -202,10 +203,16 @@ class LearnOutlineItemInfoDTO(BaseModel):
         position: str,
         title: str,
         status: LearnStatus,
+        is_paid: bool,
         children: list["LearnOutlineItemInfoDTO"],
     ):
         super().__init__(
-            bid=bid, position=position, title=title, status=status, children=children
+            bid=bid,
+            position=position,
+            title=title,
+            status=status,
+            is_paid=is_paid,
+            children=children,
         )
 
     def __json__(self):
@@ -214,6 +221,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             "position": self.position,
             "title": self.title,
             "status": self.status.value,
+            "is_paid": self.is_paid,
             "children": self.children,
         }
 
