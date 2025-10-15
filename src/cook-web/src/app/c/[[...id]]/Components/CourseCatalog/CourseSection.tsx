@@ -88,10 +88,6 @@ export const CourseSection = ({
     e.stopPropagation();
   }, []);
 
-  const onResetButtonClick = useCallback(e => {
-    e.stopPropagation();
-  }, []);
-
   return (
     <div
       className={classNames(
