@@ -34,7 +34,7 @@ export const LogoWithText = ({ direction, size = 64 }) => {
         ...commonStyles,
       }}
     >
-      <a href={siteUrl}>
+      <a href={'https://ai-shifu.cn/'}>
         {isRow ? (
           <Image
             src={logoHorizontal || imgLogoRow.src}

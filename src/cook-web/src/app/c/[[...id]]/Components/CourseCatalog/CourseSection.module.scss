@@ -4,7 +4,15 @@
 
   &.mobile {
     .textArea {
+      position: static;
+
       .rightSection {
+        position: static;
+        transform: none;
+        opacity: 1;
+        pointer-events: auto;
+        margin-left: 6px;
+
         .resetButton {
           display: flex;
         }
@@ -113,6 +121,7 @@
     flex-flow: row nowrap;
     align-items: center;
     justify-content: space-between;
+    position: relative;
 
     .leftSection {
       flex: 1 1 0;
@@ -127,10 +136,34 @@
       display: flex;
       flex-flow: row nowrap;
       align-items: center;
+      position: absolute;
+      top: 50%;
+      right: 8px;
+      transform: translateY(-50%);
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        opacity 0.2s ease,
+        transform 0.2s ease;
 
       .resetButton {
-        margin: 0 6px;
-        display: none;
+        margin: 0;
+        display: flex;
+        pointer-events: auto;
+        box-shadow: 0 4px 12px rgba(63, 118, 255, 0.22);
+      }
+    }
+  }
+
+  &.available:hover,
+  &.available:focus-within {
+    cursor: pointer;
+
+    .textArea {
+      .rightSection {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translate(-4px, -50%);
       }
     }
   }

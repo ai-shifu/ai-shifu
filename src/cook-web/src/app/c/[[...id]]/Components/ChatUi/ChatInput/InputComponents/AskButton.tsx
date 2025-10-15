@@ -1,8 +1,8 @@
 import { memo, useEffect, useState, useCallback } from 'react';
 import AskButtonInner from './AskButtonInner';
-import { shifu } from '@/c-service/Shifu';
 import { useShallow } from 'zustand/react/shallow';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
+import { useCourseStore } from '@/c-store/useCourseStore';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { SHORTCUT_IDS, genHotKeyIdentifier } from '@/c-service/shortcut';
 
@@ -14,13 +14,16 @@ const AskButton = ({
   onClick = () => {},
 }) => {
   const [percent, setPercent] = useState(0);
+  const { openPayModal } = useCourseStore(
+    useShallow(state => ({ openPayModal: state.openPayModal })),
+  );
   const isNoLimited = useCallback(() => {
     return used >= total;
   }, [total, used]);
 
   const buttonClick = useCallback(() => {
     if (isNoLimited()) {
-      shifu.payTools.openPay({});
+      openPayModal();
       return;
     }
 
@@ -29,7 +32,7 @@ const AskButton = ({
     }
 
     onClick?.();
-  }, [disabled, isNoLimited, onClick]);
+  }, [disabled, isNoLimited, onClick, openPayModal]);
 
   useEffect(() => {
     const all = total ? total : 1;

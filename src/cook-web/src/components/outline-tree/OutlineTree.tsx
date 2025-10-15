@@ -39,7 +39,9 @@ import {
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
 import { useAlert } from '@/components/ui/UseAlert';
-import ChapterSettingsDialog from '../chapter-setting';
+import ChapterSettingsDialog, {
+  ChapterPromptSetting,
+} from '../chapter-setting';
 
 interface ICataTreeProps {
   currentNode?: Outline;
@@ -101,6 +103,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [chapterSettingsOpen, setChapterSettingsOpen] = useState(false);
   const { t } = useTranslation();
   const alert = useAlert();
   const onNodeChange = async (value: string) => {
@@ -156,7 +159,8 @@ const MinimalTreeItemComponent = React.forwardRef<
     }
 
     await actions.setCurrentNode(props.item);
-    await actions.loadBlocks(props.item.bid || '', currentShifu?.bid || '');
+    await actions.loadMdflow(props.item.bid || '', currentShifu?.bid || '');
+    // await actions.loadBlocks(props.item.bid || '', currentShifu?.bid || '');
   };
 
   const handleConfirmDelete = async () => {
@@ -294,6 +298,15 @@ const MinimalTreeItemComponent = React.forwardRef<
                         <Edit className='mr-2 h-4 w-4' />
                         <span>{t('outlineTree.edit')}</span>
                       </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={e => {
+                          e.stopPropagation();
+                          setChapterSettingsOpen(true);
+                        }}
+                      >
+                        <SlidersHorizontal className='mr-2 h-4 w-4' />
+                        <span>{t('outlineTree.setting')}</span>
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={removeNode}
@@ -338,6 +351,13 @@ const MinimalTreeItemComponent = React.forwardRef<
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
       />
+      {(props.item?.depth ?? 0) <= 0 && props.item.id !== 'new_chapter' && (
+        <ChapterPromptSetting
+          outlineBid={props.item.bid}
+          open={chapterSettingsOpen}
+          onOpenChange={setChapterSettingsOpen}
+        />
+      )}
       <AlertDialog
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}

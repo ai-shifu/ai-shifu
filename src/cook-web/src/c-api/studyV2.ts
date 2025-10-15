@@ -38,6 +38,14 @@ export const PREVIEW_MODE = {
 } as const;
 export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
 
+export const LEARNING_PERMISSION = {
+  NORMAL: 'normal',
+  TRIAL: 'trial',
+  GUEST: 'guest',
+} as const;
+export type LearningPermission =
+  (typeof LEARNING_PERMISSION)[keyof typeof LEARNING_PERMISSION];
+
 // run sse output type
 export const SSE_OUTPUT_TYPE = {
   CONTENT: 'content',

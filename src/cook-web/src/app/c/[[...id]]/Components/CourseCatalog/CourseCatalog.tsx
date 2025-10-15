@@ -38,7 +38,6 @@ export const CourseCatalog = ({
   }, [id, onCollapse]);
 
   const { mobileStyle } = useContext(AppContext);
-
   return (
     <div
       className={cn(
@@ -84,10 +83,13 @@ export const CourseCatalog = ({
               // @ts-expect-error EXPECT
               selected={e.id === selectedLessonId}
               // @ts-expect-error EXPECT
+              type={e.type}
+              // @ts-expect-error EXPECT
               canLearning={e.canLearning}
               chapterId={id}
               onSelect={onLessonSelect}
               onTrySelect={_onTrySelect}
+             
             />
           );
         })}

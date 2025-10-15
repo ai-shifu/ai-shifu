@@ -85,6 +85,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     ProfileItem[]
   >([]);
   const [models, setModels] = useState<string[]>([]);
+  const [mdflow, setMdflow] = useState<string>('');
+  const currentMdflow = useRef<string>('');
 
   // Ensure UI types and content types are fetched only in the client environment
   // const UITypes = useUITypes()
@@ -247,7 +249,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     if (nextNode) {
       setCurrentNode(nextNode);
       if (nextNode.bid) {
-        await loadBlocks(nextNode.bid, currentShifu?.bid || '');
+        // await loadBlocks(nextNode.bid, currentShifu?.bid || '');
+        await loadMdflow(nextNode.bid, currentShifu?.bid || '');
       } else {
         setBlocks([]);
       }
@@ -307,6 +310,18 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
+  const loadMdflow = async (outlineId: string, shifuId: string) => {
+    setIsLoading(true);
+    setError(null);
+    const mdflow = await api.getMdflow({
+      shifu_bid: shifuId,
+      outline_bid: outlineId,
+    });
+    console.log('mdflow', mdflow);
+    setMdflow(mdflow);
+    setIsLoading(false);
+  };
+
   const loadChapters = async (shifuId: string) => {
     try {
       setIsLoading(true);
@@ -324,7 +339,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
             ...list[0].children[0],
             depth: 1,
           });
-          await loadBlocks(list[0].children[0].bid, shifuId);
+          await loadMdflow(list[0].children[0].bid, shifuId);
+          // await loadBlocks(list[0].children[0].bid, shifuId);
         }
       }
       setChapters(list);
@@ -574,31 +590,21 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const autoSaveBlocks = useCallback(
     debounce(
-      async (
-        outline: string,
-        blocks: Block[],
-        blockTypes: Record<string, any>,
-        blockContentProperties: Record<string, any>,
-        shifu_id: string,
-      ) => {
-        return await saveCurrentBlocks(
-          outline,
-          blocks,
-          blockTypes,
-          blockContentProperties,
-          shifu_id,
-        );
+      async () => {
+        console.log('自动保存...');
+        return await saveMdflow(currentMdflow.current);
+        // return await saveCurrentBlocks(
+        //   outline,
+        //   blocks,
+        //   blockTypes,
+        //   blockContentProperties,
+        //   shifu_id,
+        // );
       },
       3000,
     ),
-    [saveCurrentBlocks],
-  ) as (
-    outline: string,
-    blocks: Block[],
-    blockTypes: Record<string, any>,
-    blockProperties: Record<string, any>,
-    shifu_id: string,
-  ) => Promise<ApiResponse<SaveBlockListResult> | null>;
+    [currentShifu?.bid, currentNode?.bid],
+  ) as () => Promise<ApiResponse<SaveBlockListResult> | null>;
 
   const addSiblingOutline = async (item: Outline, name = '') => {
     const id = 'new_chapter';
@@ -981,6 +987,20 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
+  const saveMdflow = async (value: string) => {
+    console.log('saveMdflow', currentShifu?.bid, currentNode?.bid, value);
+    await api.saveMdflow({
+      shifu_bid: currentShifu?.bid || '',
+      outline_bid: currentNode?.bid || '',
+      data: value,
+    });
+  };
+  
+
+  const setCurrentMdflow = (value: string) => {
+    currentMdflow.current = value;
+  };
+
   const value: ShifuContextType = {
     currentShifu,
     chapters,
@@ -1002,6 +1022,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     blockProperties,
     blockUITypes,
     blockContentTypes,
+    mdflow,
     actions: {
       setFocusId,
       addChapter,
@@ -1036,6 +1057,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setBlockError,
       clearBlockErrors,
       reorderOutlineTree,
+      loadMdflow,
+      saveMdflow,
+      setCurrentMdflow,
     },
   };
 

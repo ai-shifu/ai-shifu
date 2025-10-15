@@ -123,13 +123,7 @@ export const BlockUI = memo(function BlockUI(p: UIBlockDTO) {
       [id]: data.type,
     };
     if (currentNode) {
-      actions.autoSaveBlocks(
-        currentNode.bid,
-        newBlocks,
-        newBlockTypes,
-        p,
-        currentShifu?.bid || '',
-      );
+      actions.autoSaveBlocks();
     }
   };
 
@@ -222,13 +216,7 @@ export const RenderBlockUI = memo(
         [block.bid]: type,
       };
       if (currentNode) {
-        await actions.autoSaveBlocks(
-          currentNode.bid,
-          newBlocks,
-          newBlockTypes,
-          p,
-          currentShifu?.bid || '',
-        );
+        await actions.autoSaveBlocks();
       }
     };
 

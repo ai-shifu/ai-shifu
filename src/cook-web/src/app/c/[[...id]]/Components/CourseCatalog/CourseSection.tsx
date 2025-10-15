@@ -5,16 +5,20 @@ import { memo } from 'react';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import ResetChapterButton from './ResetChapterButton';
 import { AppContext } from '../AppContext';
-
 import Image from 'next/image';
 import imgLearningSelected from '@/c-assets/newchat/light/icon16-learning-selected.png';
 import imgLearning from '@/c-assets/newchat/light/icon16-learning.png';
 import imgLearningCompletedSelected from '@/c-assets/newchat/light/icon16-learning-completed-selected.png';
 import imgLearningCompleted from '@/c-assets/newchat/light/icon16-learning-completed.png';
+import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { useUserStore } from '@/store';
+import { useCourseStore } from '@/c-store/useCourseStore';
+import { useShallow } from 'zustand/react/shallow';
 
 export const CourseSection = ({
   id,
   name = '',
+  type,
   status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
@@ -23,6 +27,13 @@ export const CourseSection = ({
   onTrySelect,
 }) => {
   const { mobileStyle } = useContext(AppContext);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const userInfo = useUserStore(state => state.userInfo);
+  const { openPayModal } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+    })),
+  );
   const genIconClassName = () => {
     switch (status_value) {
       // @ts-expect-error EXPECT
@@ -40,12 +51,42 @@ export const CourseSection = ({
 
   const onSectionClick = useCallback(() => {
     onTrySelect?.({ id });
+
     if (status_value === LESSON_STATUS_VALUE.LOCKED) {
       return;
     }
 
+    if (type === LEARNING_PERMISSION.TRIAL && !isLoggedIn) {
+      window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+      return;
+    }
+    if (type === LEARNING_PERMISSION.NORMAL && userInfo?.state !== '已付费') {
+      openPayModal({
+        type,
+        payload: {
+          chapterId,
+          lessonId: id,
+        },
+      });
+      return;
+    }
+
     onSelect?.({ id });
-  }, [onTrySelect, id, status_value, onSelect]);
+  }, [
+    onTrySelect,
+    id,
+    status_value,
+    onSelect,
+    type,
+    isLoggedIn,
+    userInfo,
+    openPayModal,
+    chapterId,
+  ]);
+
+  const onResetButtonClick = useCallback(e => {
+    e.stopPropagation();
+  }, []);
 
   const onResetButtonClick = useCallback(e => {
     e.stopPropagation();
@@ -119,7 +160,7 @@ export const CourseSection = ({
             // @ts-expect-error EXPECT
             <ResetChapterButton
               onClick={onResetButtonClick}
-              chapterId={chapterId}
+              chapterId={id}
               chapterName={name}
               className={styles.resetButton}
               lessonId={id}

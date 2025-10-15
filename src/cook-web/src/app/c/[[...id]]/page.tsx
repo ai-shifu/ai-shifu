@@ -259,25 +259,43 @@ export default function ChatPage() {
    * Pay part
    */
 
-  const [payModalOpen, setPayModalOpen] = useState(false);
-  const [payModalState, setPayModalState] = useState({
-    type: '',
-    payload: {},
-  });
+  const {
+    payModalOpen,
+    payModalState,
+    openPayModal,
+    closePayModal,
+    setPayModalResult,
+  } =
+    useCourseStore(
+      useShallow(state => ({
+        payModalOpen: state.payModalOpen,
+        payModalState: state.payModalState,
+        openPayModal: state.openPayModal,
+        closePayModal: state.closePayModal,
+        setPayModalResult: state.setPayModalResult,
+      })),
+    );
 
   const onPurchased = useCallback(() => {
     reloadTree();
   }, [reloadTree]);
 
-  const _onPayModalCancel = useCallback(e => {
-    setPayModalOpen(false);
-    shifu.payTools.emitPayModalCancel(e);
-  }, []);
+  const _onPayModalCancel = useCallback(
+    (_?: unknown) => {
+      closePayModal();
+      setPayModalResult('cancel');
+    },
+    [closePayModal, setPayModalResult],
+  );
 
-  const _onPayModalOk = useCallback(e => {
-    setPayModalOpen(false);
-    shifu.payTools.emitPayModalOk(e);
-  }, []);
+  const _onPayModalOk = useCallback(
+    (_?: unknown) => {
+      closePayModal();
+      setPayModalResult('ok');
+      onPurchased();
+    },
+    [closePayModal, onPurchased, setPayModalResult],
+  );
 
   /**
    * Misc part
@@ -339,21 +357,9 @@ export default function ChatPage() {
       gotoLogin();
     };
 
-    const payEventHandler = e => {
-      const { type = '', payload = {} } = e.detail;
-      setPayModalState({ type, payload });
-      setPayModalOpen(true);
-      // setLoginOkHandlerData({ type: 'pay', payload: {} });
-    };
-
     shifu.events.addEventListener(
       shifu.EventTypes.OPEN_LOGIN_MODAL,
       eventHandler,
-    );
-
-    shifu.events.addEventListener(
-      shifu.EventTypes.OPEN_PAY_MODAL,
-      payEventHandler,
     );
 
     shifu.events.addEventListener(
@@ -368,16 +374,11 @@ export default function ChatPage() {
       );
 
       shifu.events.removeEventListener(
-        shifu.EventTypes.OPEN_PAY_MODAL,
-        payEventHandler,
-      );
-
-      shifu.events.removeEventListener(
         shifu.EventTypes.RESET_CHAPTER,
         resetChapterEventHandler,
       );
     };
-  }, []);
+  }, [gotoLogin, onGoChapter, reloadTree]);
   return (
     <div className={clsx(styles.newChatPage)}>
       <AppContext.Provider

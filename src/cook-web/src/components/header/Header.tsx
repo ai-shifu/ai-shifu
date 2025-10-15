@@ -61,7 +61,7 @@ const Header = () => {
     });
   };
   return (
-    <div className='flex items-center w-full h-14 px-2 py-2 bg-white border-b border-gray-200'>
+    <div className='flex items-center w-full h-16 px-2 py-2 bg-white border-b border-gray-200'>
       <div className='flex items-center space-x-4'>
         <Button
           variant='ghost'

@@ -8,6 +8,7 @@ import { shifu } from '../config/config';
 import OrderPromotePopoverContent from './OrderPromotePopoverContent';
 import { useEffect } from 'react';
 import { useCallback } from 'react';
+import { useCourseStore } from '@/c-store/useCourseStore';
 
 const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
   const {
@@ -34,14 +35,20 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
     }
   }, [onClose, onOpen, orderPromotePopoverOpen]);
 
+  const { openPayModal, payModalResult } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+      payModalResult: state.payModalResult,
+    })),
+  );
+
   const onOkButtonClick = useCallback(() => {
     if (!hasPay) {
-      // @ts-expect-error EXPECT
-      shifu.payTools.openPay({});
+      openPayModal();
       trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
-  }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);
+  }, [EVENT_NAMES.POP_PAY, hasPay, openPayModal, trackEvent, updateOrderPromotePopoverOpen]);
 
   const onCancelButtonClick = useCallback(() => {
     updateOrderPromotePopoverOpen(false);
@@ -58,25 +65,19 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
       onEventHandler,
     );
 
-    const onModalOk = () => {
-      updateHasPay(true);
-    };
-    // @ts-expect-error EXPECT
-    shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
-
     return () => {
       customEvents.removeEventListener(
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
         onEventHandler,
       );
-      // @ts-expect-error EXPECT
-      shifu.events.removeEventListener(
-        // @ts-expect-error EXPECT
-        shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk,
-      );
     };
-  }, [onOpen, updateHasPay, updateOrderPromotePopoverOpen]);
+  }, [onOpen, updateOrderPromotePopoverOpen]);
+
+  useEffect(() => {
+    if (payModalResult === 'ok') {
+      updateHasPay(true);
+    }
+  }, [payModalResult, updateHasPay]);
 
   return (
     <>

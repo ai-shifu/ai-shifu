@@ -94,6 +94,7 @@ export const useLessonTree = () => {
           id: c.bid,
           name: c.title,
           status: c.status,
+          type: c.type,
           status_value: c.status, // TODO: DELETE status_value
           canLearning: checkChapterCanLearning({ status_value: c.status }),
         };
@@ -104,6 +105,7 @@ export const useLessonTree = () => {
         name: l.title,
         status: l.status,
         status_value: l.status,
+        type: l.type,
         lessons,
         collapse: false,
       };
@@ -369,7 +371,7 @@ export const useLessonTree = () => {
       from,
       to,
     };
-
+    console.log('eventData', eventData);
     trackEvent(EVENT_NAMES.NAV_SECTION_SWITCH, eventData);
   };
 

@@ -76,6 +76,7 @@ export interface ShifuState {
   profileItemDefinations: ProfileItem[];
   currentNode: Outline | null;
   models: string[];
+  mdflow: string;
 }
 
 export interface ApiResponse<T> {
@@ -135,13 +136,7 @@ export interface ShifuActions {
   setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
   setBlocks: (blocks: Block[]) => void;
   saveBlocks: (shifuId: string) => Promise<void>;
-  autoSaveBlocks: (
-    outline: string,
-    blocks: Block[],
-    blockTypes: Record<string, any>,
-    blockProperties: Record<string, any>,
-    shifuId: string,
-  ) => Promise<ApiResponse<SaveBlockListResult> | null>;
+  autoSaveBlocks: () => Promise<ApiResponse<SaveBlockListResult> | null>;
   saveCurrentBlocks: (
     outline: string,
     blocks: Block[],
@@ -156,6 +151,9 @@ export interface ShifuActions {
   clearBlockErrors: () => void;
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
+  loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
+  saveMdflow: (value: string) => Promise<void>;
+  setCurrentMdflow: (value: string) => void;
 }
 
 export interface ShifuContextType extends ShifuState {

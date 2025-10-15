@@ -20,6 +20,7 @@ import '@mdxeditor/editor/style.css';
 import Header from '../header';
 import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu';
 import RenderBlockUI from '../render-ui';
+import { MarkdownFlowEditor } from 'markdown-flow-ui'
 import AIDebugDialog from '@/components/ai-debug';
 
 import {
@@ -263,6 +264,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   }, [profile]);
   const {
     blocks,
+    mdflow,
     chapters,
     actions,
     blockContentTypes,
@@ -373,30 +375,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id]);
 
+
+  const onChangeMdflow = (value: string) => {
+    actions.setCurrentMdflow(value);
+    actions.autoSaveBlocks();
+  };
+
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
-      <div
-        className='flex-1 container mx-auto px-10'
-        style={{
-          height: 'calc(100vh - 50px)',
-          overflowY: 'auto',
-        }}
-      >
-        <div
-          className='my-2'
-          style={{
-            position: 'fixed',
-            borderRadius: '8px',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            top: 48,
-            bottom: 0,
-            zIndex: 1,
-          }}
-        >
-          <div className='px-3 flex items-center justify-between gap-3'>
+      <div className='flex-1 flex overflow-hidden scroll-y'>
+        <div className='p-4 bg-white'>
+          <div className='flex items-center justify-between gap-3'>
             <div
               onClick={() => setFoldOutlineTree(!foldOutlineTree)}
               className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
@@ -417,7 +407,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </div>
 
           {!foldOutlineTree && (
-            <div className='p-2 flex-1 h-full overflow-y-auto overflow-x-hidden pr-4 w-[240px]'>
+            <div className='flex-1 h-full overflow-y-auto overflow-x-hidden w-[256px]'>
               <ol className=' text-sm'>
                 <OutlineTree
                   items={chapters}
@@ -429,83 +419,88 @@ const ScriptEditor = ({ id }: { id: string }) => {
             </div>
           )}
         </div>
-
-        <div
-          className='flex-1 overflow-auto relative text-sm'
-          style={{
-            paddingLeft: foldOutlineTree ? 80 : 260,
-          }}
-        >
-          <div className='my-2 bg-white p-8 gap-4 flex flex-col rounded shadow-md'>
+        <div className='flex-1 overflow-auto relative text-sm'>
+          <div className='p-8 gap-4 flex flex-col max-w-[900px] mx-auto'>
             {isLoading ? (
               <div className='h-40 flex items-center justify-center'>
                 <Loading />
               </div>
             ) : (
               <>
-                <DndProvider backend={HTML5Backend}>
-                  {blocks.map((block, index) => (
-                    <DraggableBlock
-                      key={block.bid}
-                      id={block.bid}
-                      block={block}
-                      type={block.type as BlockType}
-                      index={index}
-                      moveBlock={(dragIndex: number, hoverIndex: number) => {
-                        const dragBlock = blocks[dragIndex];
-                        const newBlocks = [...blocks];
-                        newBlocks.splice(dragIndex, 1);
-                        newBlocks.splice(hoverIndex, 0, dragBlock);
-                        actions.setBlocks(newBlocks);
-                        actions.autoSaveBlocks(
-                          currentNode!.bid,
-                          newBlocks,
-                          blockContentTypes,
-                          blockProperties,
-                          currentShifu?.bid || '',
-                        );
-                      }}
-                      onClickChangeType={onChangeBlockType}
-                      onClickDebug={onDebugBlock}
-                      onClickRemove={onRemove}
-                      disabled={expandedBlocks[block.bid]}
-                      error={blockErrors[block.bid]}
-                    >
-                      <div
-                        id={block.bid}
-                        className='relative flex flex-col gap-2 '
-                      >
-                        <RenderBlockUI
-                          block={block}
-                          onExpandChange={expanded => {
-                            setExpandedBlocks(prev => ({
-                              ...prev,
-                              [block.bid]: expanded,
-                            }));
-                          }}
-                          expanded={expandedBlocks[block.bid]}
-                        />
-                        <div>
-                          <AddBlock
-                            onAdd={(type: BlockType) => {
-                              onAddBlock(index + 1, type, id);
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </DraggableBlock>
-                  ))}
-                </DndProvider>
-                {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
-                  <div className='flex flex-row items-center justify-start h-6'>
-                    <AddBlock
-                      onAdd={(type: BlockType) => {
-                        onAddBlock(1, type, id);
-                      }}
-                    />
-                  </div>
-                )}
+                <div className='flex items-center'>
+                    <h2 className='text-base font-semibold text-foreground'>
+                      {t('shifu.creationArea.title')}
+                    </h2>
+                    <p className='px-2 text-xs leading-3 text-[rgba(0,0,0,0.45)]'>
+                      {t('shifu.creationArea.description')}
+                    </p>
+                </div>
+                <MarkdownFlowEditor locale={profile?.language as "en-US" | "zh-CN"} content={mdflow} onChange={onChangeMdflow}/>
               </>
+              // <>
+              //   <DndProvider backend={HTML5Backend}>
+              //     {blocks.map((block, index) => (
+              //       <DraggableBlock
+              //         key={block.bid}
+              //         id={block.bid}
+              //         block={block}
+              //         type={block.type as BlockType}
+              //         index={index}
+              //         moveBlock={(dragIndex: number, hoverIndex: number) => {
+              //           const dragBlock = blocks[dragIndex];
+              //           const newBlocks = [...blocks];
+              //           newBlocks.splice(dragIndex, 1);
+              //           newBlocks.splice(hoverIndex, 0, dragBlock);
+              //           actions.setBlocks(newBlocks);
+              //           actions.autoSaveBlocks(
+              //             currentNode!.bid,
+              //             newBlocks,
+              //             blockContentTypes,
+              //             blockProperties,
+              //             currentShifu?.bid || '',
+              //           );
+              //         }}
+              //         onClickChangeType={onChangeBlockType}
+              //         onClickDebug={onDebugBlock}
+              //         onClickRemove={onRemove}
+              //         disabled={expandedBlocks[block.bid]}
+              //         error={blockErrors[block.bid]}
+              //       >
+              //         <div
+              //           id={block.bid}
+              //           className='relative flex flex-col gap-2 '
+              //         >
+              //           <RenderBlockUI
+              //             block={block}
+              //             onExpandChange={expanded => {
+              //               setExpandedBlocks(prev => ({
+              //                 ...prev,
+              //                 [block.bid]: expanded,
+              //               }));
+              //             }}
+              //             expanded={expandedBlocks[block.bid]}
+              //           />
+              //           <div>
+              //             <AddBlock
+              //               onAdd={(type: BlockType) => {
+              //                 onAddBlock(index + 1, type, id);
+              //               }}
+              //             />
+              //           </div>
+              //         </div>
+              //       </DraggableBlock>
+              //     ))}
+              //   </DndProvider>
+              //   {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
+              //     <div className='flex flex-row items-center justify-start h-6'>
+              //       <AddBlock
+              //         onAdd={(type: BlockType) => {
+              //           onAddBlock(1, type, id);
+              //         }}
+              //       />
+              //     </div>
+              //   )}
+              // </>
             )}
           </div>
         </div>

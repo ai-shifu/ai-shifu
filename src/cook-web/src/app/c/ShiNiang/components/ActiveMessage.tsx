@@ -3,6 +3,8 @@ import DOMPurify from 'dompurify';
 import styles from './ActiveMessage.module.scss';
 import { shifu } from '../config/config';
 import ToPayButton from './ToPayButton';
+import { useCourseStore } from '@/c-store/useCourseStore';
+import { useShallow } from 'zustand/react/shallow';
 
 const ActiveMessage = ({
   msg = '',
@@ -10,9 +12,11 @@ const ActiveMessage = ({
   recordId = '',
   button = '',
 }) => {
+  const { openPayModal } = useCourseStore(
+    useShallow(state => ({ openPayModal: state.openPayModal })),
+  );
   const _onButtonClick = () => {
-    // @ts-expect-error EXPECT
-    shifu.payTools.openPay({
+    openPayModal({
       type: 'active',
       payload: {
         action,

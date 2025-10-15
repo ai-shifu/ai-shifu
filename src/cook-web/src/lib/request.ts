@@ -91,7 +91,7 @@ const handleBusinessCode = (response: any) => {
 
     return Promise.reject(error);
   }
-  return response.data || response;
+  return response.data ?? response;
 };
 
 // ===== Utility Functions =====

@@ -54,6 +54,16 @@ export interface CourseStoreState {
   updateResetedChapterId: (id: string) => void;
   updateResetedLessonId: (id: string) => void;
   resetChapter: (id: string) => Promise<void>;
+  payModalOpen: boolean;
+  payModalState: {
+    type: string;
+    payload: Record<string, any>;
+  };
+  openPayModal: (options?: { type?: string; payload?: Record<string, any> }) => void;
+  closePayModal: () => void;
+  setPayModalState: (state?: { type?: string; payload?: Record<string, any> }) => void;
+  payModalResult: 'ok' | 'cancel' | null;
+  setPayModalResult: (result: 'ok' | 'cancel' | null) => void;
 }
 
 export interface UserStoreState {

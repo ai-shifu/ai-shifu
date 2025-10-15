@@ -230,7 +230,7 @@ export function SortableTree<
   return (
     <DndContext
       accessibility={{ announcements }}
-      sensors={disableSorting ? undefined : sensors}
+      sensors={sensors}
       modifiers={indicator ? modifiersArray : undefined}
       collisionDetection={closestCenter}
       onDragStart={disableSorting ? undefined : handleDragStart}

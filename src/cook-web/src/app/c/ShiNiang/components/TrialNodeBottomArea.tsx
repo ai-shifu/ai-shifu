@@ -6,6 +6,7 @@ import { usePayStore } from '../stores/usePayStore';
 import ToPayButton from './ToPayButton';
 import { useEffect } from 'react';
 import { useCallback } from 'react';
+import { useCourseStore } from '@/c-store/useCourseStore';
 
 const TrialNodeBottomArea = ({ payload }) => {
   const { hasPay, updateHasPay } = usePayStore(
@@ -15,31 +16,26 @@ const TrialNodeBottomArea = ({ payload }) => {
     })),
   );
 
+  const { openPayModal, payModalResult } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+      payModalResult: state.payModalResult,
+    })),
+  );
+
   // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
   const onClick = useCallback(() => {
-    // @ts-expect-error EXPECT
-    shifu.payTools.openPay({});
+    openPayModal();
     trackEvent(EVENT_NAMES.POP_PAY, { from: 'left-nav-banner' });
-  }, [EVENT_NAMES.POP_PAY, trackEvent]);
+  }, [EVENT_NAMES.POP_PAY, openPayModal, trackEvent]);
 
   useEffect(() => {
-    const onModalOk = () => {
+    if (payModalResult === 'ok') {
       updateHasPay(true);
-    };
-    // @ts-expect-error EXPECT
-    shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
-
-    return () => {
-      // @ts-expect-error EXPECT
-      shifu.events.removeEventListener(
-        // @ts-expect-error EXPECT
-        shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk,
-      );
-    };
-  }, [updateHasPay]);
+    }
+  }, [payModalResult, updateHasPay]);
 
   return hasPay ? (
     <></>

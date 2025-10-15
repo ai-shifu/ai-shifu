@@ -11,6 +11,7 @@ import { shifu } from '../config/config';
 import { usePayStore } from '../stores/usePayStore';
 import OrderPromotePopoverContent from './OrderPromotePopoverContent';
 import ToPayButton from './ToPayButton';
+import { useCourseStore } from '@/c-store/useCourseStore';
 export const ControlType = 'navigator_top_area';
 
 const NavigatorTitleRightArea = ({ payload }) => {
@@ -34,14 +35,20 @@ const NavigatorTitleRightArea = ({ payload }) => {
   // @ts-expect-error EXPECT
   const { trackEvent, EVENT_NAMES } = shifu.hooks.useTracking();
 
+  const { openPayModal, payModalResult } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+      payModalResult: state.payModalResult,
+    })),
+  );
+
   const onUnlockAllClick = useCallback(() => {
     if (!hasPay) {
-      // @ts-expect-error EXPECT
-      shifu.payTools.openPay({});
+      openPayModal();
       trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
-  }, [EVENT_NAMES.POP_PAY, hasPay, trackEvent, updateOrderPromotePopoverOpen]);
+  }, [EVENT_NAMES.POP_PAY, hasPay, openPayModal, trackEvent, updateOrderPromotePopoverOpen]);
 
   // const popoverLocation = shifu.utils.checkMobileStyle(frameLayout)
   //   ? 'bottom'
@@ -52,30 +59,24 @@ const NavigatorTitleRightArea = ({ payload }) => {
       updateOrderPromotePopoverOpen(true);
     };
 
-    const onModalOk = () => {
-      updateHasPay(true);
-    };
-
     customEvents.addEventListener(
       EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
       onEventHandler,
     );
-    // @ts-expect-error EXPECT
-    shifu.events.addEventListener(shifu.EventTypes.PAY_MODAL_OK, onModalOk);
 
     return () => {
       customEvents.removeEventListener(
         EVENT_TYPE.NON_BLOCK_PAY_MODAL_CLOSED,
         onEventHandler,
       );
-      // @ts-expect-error EXPECT
-      shifu.events.removeEventListener(
-        // @ts-expect-error EXPECT
-        shifu.EventTypes.PAY_MODAL_OK,
-        onModalOk,
-      );
     };
-  }, [updateHasPay, updateOrderPromotePopoverOpen]);
+  }, [updateOrderPromotePopoverOpen]);
+
+  useEffect(() => {
+    if (payModalResult === 'ok') {
+      updateHasPay(true);
+    }
+  }, [payModalResult, updateHasPay]);
 
   const onPayButtonClick = useCallback(() => {
     updateOrderPromotePopoverOpen(true);

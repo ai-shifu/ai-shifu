@@ -1,5 +1,6 @@
 import { useUserStore } from '@/store';
 import { useUiLayoutStore } from '@/c-store/useUiLayoutStore';
+import { useCourseStore } from '@/c-store/useCourseStore';
 import { tokenTool } from './storeUtil';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
 import { utils } from './shifuUtils';
@@ -89,22 +90,18 @@ const createShifu = () => {
   };
 
   const payTools = {
-    openPay: ({ type = '', payload = {} }) => {
-      eventHandlers.dispatchEvent(
-        new CustomEvent(EventTypes.OPEN_PAY_MODAL, {
-          detail: { type, payload },
-        }),
-      );
+    openPay: ({ type = '', payload = {} } = {}) => {
+      useCourseStore.getState().openPayModal({ type, payload });
     },
-    emitPayModalCancel: e => {
-      eventHandlers.dispatchEvent(
-        new CustomEvent(EventTypes.PAY_MODAL_CANCEL, { detail: e }),
-      );
+    emitPayModalCancel: () => {
+      const { closePayModal, setPayModalResult } = useCourseStore.getState();
+      closePayModal();
+      setPayModalResult('cancel');
     },
-    emitPayModalOk: e => {
-      eventHandlers.dispatchEvent(
-        new CustomEvent(EventTypes.PAY_MODAL_OK, { detail: e }),
-      );
+    emitPayModalOk: () => {
+      const { closePayModal, setPayModalResult } = useCourseStore.getState();
+      closePayModal();
+      setPayModalResult('ok');
     },
   };
 

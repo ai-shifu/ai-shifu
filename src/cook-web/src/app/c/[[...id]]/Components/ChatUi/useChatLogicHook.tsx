@@ -160,38 +160,38 @@ function useChatLogicHook({
    * Auto scroll to bottom when history records are loaded and rendered
    * Only scroll once, don't interfere with user scrolling
    */
-  useEffect(() => {
-    // Only scroll once after initial load
-    if (hasScrolledToBottomRef.current) {
-      return;
-    }
+  // useEffect(() => {
+  //   // Only scroll once after initial load
+  //   if (hasScrolledToBottomRef.current) {
+  //     return;
+  //   }
 
-    // Wait for: 1) loading complete, 2) has content, 3) chapter loaded
-    if (!isLoading && contentList.length > 0 && loadedChapterId) {
-      // Simple one-time scroll after a reasonable delay
-      const timer = setTimeout(() => {
-        if (!isMounted()) return;
+  //   // Wait for: 1) loading complete, 2) has content, 3) chapter loaded
+  //   if (!isLoading && contentList.length > 0 && loadedChapterId) {
+  //     // Simple one-time scroll after a reasonable delay
+  //     const timer = setTimeout(() => {
+  //       if (!isMounted()) return;
 
-        const bottomEl = chatBoxBottomRefLatest.current?.current;
-        if (bottomEl) {
-          // Use instant scroll to avoid blocking user interaction
-          bottomEl.scrollIntoView({
-            behavior: 'auto',
-            block: 'end',
-          });
-          hasScrolledToBottomRef.current = true;
-        }
-      }, 300);
+  //       const bottomEl = chatBoxBottomRefLatest.current?.current;
+  //       if (bottomEl) {
+  //         // Use instant scroll to avoid blocking user interaction
+  //         bottomEl.scrollIntoView({
+  //           behavior: 'auto',
+  //           block: 'end',
+  //         });
+  //         hasScrolledToBottomRef.current = true;
+  //       }
+  //     }, 300);
 
-      return () => clearTimeout(timer);
-    }
-  }, [
-    isLoading,
-    contentList.length,
-    loadedChapterId,
-    isMounted,
-    chatBoxBottomRefLatest,
-  ]);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [
+  //   isLoading,
+  //   contentList.length,
+  //   loadedChapterId,
+  //   isMounted,
+  //   chatBoxBottomRefLatest,
+  // ]);
 
   /**
    * Keeps the React state and mutable ref of the content list in sync.
