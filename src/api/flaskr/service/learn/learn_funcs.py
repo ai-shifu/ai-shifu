@@ -306,7 +306,7 @@ def get_learn_record(
 
         sorted_generated_blocks = sorted(
             generated_blocks,
-            key=lambda x: (0, x.position, x.id) if x.position > 0 else (1, 0, x.id),
+            key=lambda x: (0, x.position, x.id) if x.position >= 0 else (1, 0, x.id),
         )
         records: list[GeneratedBlockDTO] = []
         interaction = ""
