@@ -85,6 +85,8 @@ export const CourseCatalog = ({
               // @ts-expect-error EXPECT
               type={e.type}
               // @ts-expect-error EXPECT
+              is_paid={e.is_paid}
+              // @ts-expect-error EXPECT
               canLearning={e.canLearning}
               chapterId={id}
               onSelect={onLessonSelect}

@@ -95,6 +95,7 @@ export const useLessonTree = () => {
           name: c.title,
           status: c.status,
           type: c.type,
+          is_paid: c.is_paid,
           status_value: c.status, // TODO: DELETE status_value
           canLearning: checkChapterCanLearning({ status_value: c.status }),
         };
@@ -104,6 +105,7 @@ export const useLessonTree = () => {
         id: l.bid,
         name: l.title,
         status: l.status,
+        is_paid: l.is_paid,
         status_value: l.status,
         type: l.type,
         lessons,
@@ -371,7 +373,6 @@ export const useLessonTree = () => {
       from,
       to,
     };
-    console.log('eventData', eventData);
     trackEvent(EVENT_NAMES.NAV_SECTION_SWITCH, eventData);
   };
 

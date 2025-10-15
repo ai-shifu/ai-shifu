@@ -21,6 +21,7 @@ import Header from '../header';
 import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu';
 import RenderBlockUI from '../render-ui';
 import { MarkdownFlowEditor } from 'markdown-flow-ui'
+import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import AIDebugDialog from '@/components/ai-debug';
 
 import {
@@ -420,7 +421,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
           )}
         </div>
         <div className='flex-1 overflow-auto relative text-sm'>
-          <div className='p-8 gap-4 flex flex-col max-w-[900px] mx-auto'>
+          <div className='p-8 gap-4 flex flex-col max-w-[900px] mx-auto h-full w-full'>
             {isLoading ? (
               <div className='h-40 flex items-center justify-center'>
                 <Loading />

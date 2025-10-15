@@ -21,7 +21,6 @@ import { useEnvStore } from '@/c-store/envStore';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { toast } from '@/hooks/useToast';
-import { PREVIEW_MODE } from '@/c-api/studyV2';
 import InteractionBlock from './InteractionBlock';
 import useChatLogicHook, {
   ChatContentItem,
@@ -30,6 +29,7 @@ import useChatLogicHook, {
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
+import { OnSendContentParams } from 'markdown-flow-ui';
 
 export const NewChatComponents = ({
   className,
@@ -41,7 +41,7 @@ export const NewChatComponents = ({
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
-  preview_mode = PREVIEW_MODE.NORMAL,
+  previewMode = false,
 }) => {
   const { trackEvent, trackTrailProgress } = useTracking();
   const { t } = useTranslation();
@@ -111,7 +111,7 @@ export const NewChatComponents = ({
     outlineBid: lessonId,
     lessonId,
     chapterId,
-    previewMode: preview_mode,
+    previewMode,
     trackEvent,
     chatBoxBottomRef,
     trackTrailProgress,
@@ -227,7 +227,7 @@ export const NewChatComponents = ({
                 isExpanded={item.isAskExpanded}
                 shifu_bid={shifuBid}
                 outline_bid={lessonId}
-                preview_mode={preview_mode}
+                preview_mode={previewMode}
                 generated_block_bid={item.parent_block_bid || ''}
                 onToggleAskExpanded={toggleAskExpanded}
                 key={`${idx}-ask`}

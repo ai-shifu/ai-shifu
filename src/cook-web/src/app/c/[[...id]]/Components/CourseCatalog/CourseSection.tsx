@@ -19,6 +19,7 @@ export const CourseSection = ({
   id,
   name = '',
   type,
+  is_paid,
   status_value = LESSON_STATUS_VALUE.LEARNING,
   selected,
   canLearning = false,
@@ -60,7 +61,8 @@ export const CourseSection = ({
       window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
       return;
     }
-    if (type === LEARNING_PERMISSION.NORMAL && userInfo?.state !== '已付费') {
+    console.log('type', type, is_paid);
+    if (type === LEARNING_PERMISSION.NORMAL && !is_paid) {
       openPayModal({
         type,
         payload: {

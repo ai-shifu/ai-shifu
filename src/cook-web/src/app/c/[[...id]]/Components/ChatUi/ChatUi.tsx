@@ -60,6 +60,7 @@ export const ChatUi = ({
             styles.chatComponents,
             showUserSettings ? styles.chatComponentsHidden : '',
           )}
+          previewMode={previewMode}
           onPurchased={onPurchased}
           chapterUpdate={chapterUpdate}
           updateSelectedLesson={updateSelectedLesson}
@@ -76,7 +77,7 @@ export const ChatUi = ({
       )}
 
       <GlobalInfoButton className={styles.globalInfoButton} />
-      {previewMode && (
+      {/* {previewMode && (
         <div className={styles.previewMode}>
           <button
             className={cn(styles.previewModeButton, { [styles.active]: skip })}
@@ -85,7 +86,7 @@ export const ChatUi = ({
             {skip ? t('chat.stopAutoSkip') : t('chat.startAutoSkip')}
           </button>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

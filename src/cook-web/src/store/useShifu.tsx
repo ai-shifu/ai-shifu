@@ -26,6 +26,7 @@ import {
   useCallback,
   useRef,
 } from 'react';
+import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -650,7 +651,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           index: index,
           name: data.name,
           description: data.name,
-          type: 'trial',
+          type: LEARNING_PERMISSION.NORMAL,
           system_prompt: '',
           is_hidden: false,
           shifu_id: currentShifu?.bid || '',
@@ -717,7 +718,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
           index: index,
           name: data.name,
           description: data.name,
-          type: 'trial',
+          type: LEARNING_PERMISSION.NORMAL,
           system_prompt: '',
           is_hidden: false,
           shifu_bid: currentShifu?.bid || '',
@@ -780,7 +781,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         index: Math.max(0, index - 1),
         name: data.name,
         description: data.name,
-        type: 'trial',
+        type: LEARNING_PERMISSION.NORMAL,
         system_prompt: '',
         is_hidden: false,
         shifu_id: currentShifu?.bid || '',

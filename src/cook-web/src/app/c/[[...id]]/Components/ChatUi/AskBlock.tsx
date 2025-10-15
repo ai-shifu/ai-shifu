@@ -37,7 +37,7 @@ export interface AskBlockProps {
   isExpanded?: boolean;
   shifu_bid: string;
   outline_bid: string;
-  preview_mode?: PreviewMode;
+  preview_mode?: boolean;
   generated_block_bid: string;
   onToggleAskExpanded?: (generated_block_bid: string) => void;
 }
@@ -52,7 +52,7 @@ export default function AskBlock({
   isExpanded = false,
   shifu_bid,
   outline_bid,
-  preview_mode = PREVIEW_MODE.NORMAL,
+  preview_mode = false,
   generated_block_bid,
   onToggleAskExpanded,
 }: AskBlockProps) {

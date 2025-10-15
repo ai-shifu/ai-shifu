@@ -74,7 +74,7 @@ const PreviewSettingsModal = () => {
           </DialogTitle>
         </DialogHeader>
 
-        <div>
+        {/* <div>
           <div className='flex items-center justify-end space-x-2 mt-4'>
             <span className='text-sm'>{t('preview.autoSkip')}</span>
             <Switch
@@ -82,7 +82,7 @@ const PreviewSettingsModal = () => {
               onCheckedChange={setAutoSkipEmptyFields}
             />
           </div>
-        </div>
+        </div> */}
 
         <DialogFooter>
           <Button

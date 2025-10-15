@@ -31,12 +31,12 @@ export const SSE_INPUT_TYPE = {
 export type SSE_INPUT_TYPE =
   (typeof SSE_INPUT_TYPE)[keyof typeof SSE_INPUT_TYPE];
 
-export const PREVIEW_MODE = {
-  COOK: 'cook',
-  PREVIEW: 'preview',
-  NORMAL: 'normal',
-} as const;
-export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
+// export const PREVIEW_MODE = {
+//   COOK: 'cook',
+//   PREVIEW: 'preview',
+//   NORMAL: 'normal',
+// } as const;
+// export type PreviewMode = (typeof PREVIEW_MODE)[keyof typeof PREVIEW_MODE];
 
 export const LEARNING_PERMISSION = {
   NORMAL: 'normal',
@@ -86,7 +86,7 @@ export interface GetLessonStudyRecordParams {
   shifu_bid: string;
   outline_bid: string;
   // Optional preview mode flag
-  preview_mode?: PreviewMode;
+  preview_mode?: boolean;
 }
 
 export interface PostGeneratedContentActionParams {
@@ -110,7 +110,7 @@ export interface PostGeneratedContentActionData {
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
-  preview_mode: PreviewMode = PREVIEW_MODE.NORMAL,
+  preview_mode: boolean,
   body: { input: Record<string, any> | string; [key: string]: any },
   onMessage: (data: any) => void,
 ) => {
@@ -193,7 +193,7 @@ export const getRunMessage = (
 export const getLessonStudyRecord = async ({
   shifu_bid,
   outline_bid,
-  preview_mode = PREVIEW_MODE.NORMAL,
+  preview_mode = false,
 }: GetLessonStudyRecordParams): Promise<LessonStudyRecords> => {
   return request
     .get(

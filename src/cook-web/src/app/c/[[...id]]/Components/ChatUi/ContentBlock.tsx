@@ -9,7 +9,7 @@ interface ContentBlockProps {
   mobileStyle: boolean;
   blockBid: string;
   onClickCustomButtonAfterContent: (blockBid: string) => void;
-  onSend: (content: OnSendContentParams) => void;
+  onSend: (content: OnSendContentParams, blockBid: string) => void;
   onTypeFinished: () => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
 }
@@ -42,6 +42,10 @@ const ContentBlock = memo(
       delay: 600,
     });
 
+    const _onSend = useCallback((content: OnSendContentParams) => {
+      onSend(content, blockBid);
+    }, [onSend, blockBid]);
+
     return (
       <div
         className={cn('content-render-theme', mobileStyle ? 'mobile' : '')}
@@ -56,7 +60,7 @@ const ContentBlock = memo(
           defaultButtonText={item.defaultButtonText}
           defaultInputText={item.defaultInputText}
           readonly={item.readonly}
-          onSend={onSend}
+          onSend={_onSend}
           onTypeFinished={onTypeFinished}
         />
       </div>
