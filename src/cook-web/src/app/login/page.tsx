@@ -34,8 +34,62 @@ export default function AuthPage() {
   const [isI18nReady, setIsI18nReady] = useState(false);
   const userInfo = useUserStore(state => state.userInfo);
 
-  const enabledMethods = environment.loginMethodsEnabled;
-  const defaultMethod = environment.defaultLoginMethod;
+  const [loginConfig, setLoginConfig] = useState(() => ({
+    methods: environment.loginMethodsEnabled,
+    defaultMethod: environment.defaultLoginMethod,
+  }));
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLoginConfig = async () => {
+      try {
+        const response = await fetch('/api/config', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Failed to load config: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const rawMethods =
+          data?.loginMethodsEnabled ?? environment.loginMethodsEnabled;
+        const normalizedMethods = Array.isArray(rawMethods)
+          ? rawMethods
+          : typeof rawMethods === 'string'
+            ? rawMethods
+                .split(',')
+                .map(method => method.trim())
+                .filter(Boolean)
+            : environment.loginMethodsEnabled;
+
+        if (!isActive) {
+          return;
+        }
+
+        setLoginConfig({
+          methods:
+            normalizedMethods.length > 0
+              ? normalizedMethods
+              : environment.loginMethodsEnabled,
+          defaultMethod:
+            typeof data?.defaultLoginMethod === 'string' &&
+            data.defaultLoginMethod.trim() !== ''
+              ? data.defaultLoginMethod
+              : environment.defaultLoginMethod,
+        });
+      } catch (error) {
+        console.error('Failed to load login config', error);
+      }
+    };
+
+    void loadLoginConfig();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const enabledMethods = loginConfig.methods;
+  const defaultMethod = loginConfig.defaultMethod;
 
   const isPhoneEnabled = enabledMethods.includes('phone');
   const isEmailEnabled = enabledMethods.includes('email');
