@@ -70,7 +70,6 @@ export default function AuthPage() {
   const { toast } = useToast();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
-  const requiresTermsAgreement = environment.requireTermsAgreement;
 
   const resolveRedirectPath = useCallback(() => {
     let redirect = searchParams.get('redirect');
@@ -188,9 +187,7 @@ export default function AuthPage() {
     }
   }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
 
-  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(
-    !requiresTermsAgreement,
-  );
+  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   const { startGoogleLogin } = useGoogleAuth({
@@ -207,7 +204,7 @@ export default function AuthPage() {
       return;
     }
 
-    if (requiresTermsAgreement && !googleTermsAccepted) {
+    if (!googleTermsAccepted) {
       toast({
         title: t('auth.termsError'),
         variant: 'destructive',
@@ -224,7 +221,6 @@ export default function AuthPage() {
   }, [
     googleTermsAccepted,
     isGoogleEnabled,
-    requiresTermsAgreement,
     resolveRedirectPath,
     startGoogleLogin,
     t,
@@ -262,7 +258,6 @@ export default function AuthPage() {
       handleGoogleSignIn,
       googleTermsAccepted,
       isGoogleLoading,
-      requiresTermsAgreement,
     ],
   );
 

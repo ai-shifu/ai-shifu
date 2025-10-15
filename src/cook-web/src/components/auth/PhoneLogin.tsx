@@ -13,7 +13,6 @@ import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
-import { environment } from '@/config/environment';
 
 import type { UserInfo } from '@/c-types';
 interface PhoneLoginProps {
@@ -26,8 +25,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneOtp, setPhoneOtp] = useState('');
   const [showOtpInput, setShowOtpInput] = useState(false);
-  const requiresTermsAgreement = environment.requireTermsAgreement;
-  const [termsAccepted, setTermsAccepted] = useState(!requiresTermsAgreement);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [phoneError, setPhoneError] = useState('');
   const { t } = useTranslation();
@@ -64,7 +62,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       return;
     }
 
-    if (requiresTermsAgreement && !termsAccepted) {
+    if (!termsAccepted) {
       toast({
         title: t('auth.termsError'),
         variant: 'destructive',
@@ -111,7 +109,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       return;
     }
 
-    if (requiresTermsAgreement && !termsAccepted) {
+    if (!termsAccepted) {
       toast({
         title: t('auth.termsError'),
         variant: 'destructive',
