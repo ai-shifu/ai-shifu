@@ -21,7 +21,7 @@ import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
 import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
-import { TermsCheckbox, TermsLinks } from '@/components/TermsCheckbox';
+import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { useToast } from '@/hooks/useToast';
 import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
@@ -246,15 +246,11 @@ export default function AuthPage() {
                 loading={isGoogleLoading}
                 disabled={isGoogleLoading}
               />
-              {requiresTermsAgreement ? (
-                <TermsCheckbox
-                  checked={googleTermsAccepted}
-                  onCheckedChange={setGoogleTermsAccepted}
-                  disabled={isGoogleLoading}
-                />
-              ) : (
-                <TermsLinks />
-              )}
+              <TermsCheckbox
+                checked={googleTermsAccepted}
+                onCheckedChange={setGoogleTermsAccepted}
+                disabled={isGoogleLoading}
+              />
             </div>
           );
         default:

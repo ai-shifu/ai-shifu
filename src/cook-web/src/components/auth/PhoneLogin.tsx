@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/Input';
 import { Label } from '@/components/ui/Label';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/useToast';
-import { TermsCheckbox, TermsLinks } from '@/components/TermsCheckbox';
+import { TermsCheckbox } from '@/components/TermsCheckbox';
 import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
@@ -185,15 +185,11 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
       </div>
 
       <div className='mt-2'>
-        {requiresTermsAgreement ? (
-          <TermsCheckbox
-            checked={termsAccepted}
-            onCheckedChange={setTermsAccepted}
-            disabled={isLoading}
-          />
-        ) : (
-          <TermsLinks />
-        )}
+        <TermsCheckbox
+          checked={termsAccepted}
+          onCheckedChange={setTermsAccepted}
+          disabled={isLoading}
+        />
       </div>
 
       {showOtpInput && (
