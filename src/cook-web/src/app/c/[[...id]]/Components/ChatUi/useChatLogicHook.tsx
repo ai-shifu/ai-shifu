@@ -18,7 +18,6 @@ import {
   getRunMessage,
   SSE_INPUT_TYPE,
   getLessonStudyRecord,
-  PREVIEW_MODE,
   SSE_OUTPUT_TYPE,
   SYS_INTERACTION_TYPE,
   LIKE_STATUS,

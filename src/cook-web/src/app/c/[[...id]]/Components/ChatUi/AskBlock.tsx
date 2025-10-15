@@ -13,8 +13,6 @@ import {
   getRunMessage,
   SSE_INPUT_TYPE,
   SSE_OUTPUT_TYPE,
-  PREVIEW_MODE,
-  type PreviewMode,
 } from '@/c-api/studyV2';
 import { fixMarkdownStream } from '@/c-utils/markdownUtils';
 import LoadingBar from './LoadingBar';
