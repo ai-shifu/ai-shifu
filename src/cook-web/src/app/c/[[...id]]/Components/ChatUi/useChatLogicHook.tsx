@@ -35,7 +35,6 @@ import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
-import { flushSync } from 'react-dom';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -89,7 +88,7 @@ export interface UseChatSessionParams {
 export interface UseChatSessionResult {
   items: ChatContentItem[];
   isLoading: boolean;
-  onSend: (content: OnSendContentParams) => void;
+  onSend: (content: OnSendContentParams, blockBid: string) => void;
   onRefresh: (generatedBlockBid: string) => void;
   onTypeFinished: () => void;
   toggleAskExpanded: (parentBlockBid: string) => void;
