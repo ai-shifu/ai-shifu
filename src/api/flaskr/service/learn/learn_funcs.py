@@ -200,6 +200,7 @@ def get_outline_item_tree(
                 title=outline_item.title,
                 status=STATUS_MAP.get(status, LearnStatus.LOCKED),
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
+                is_paid=is_paid,
                 children=[],
             )
             if item.children:
