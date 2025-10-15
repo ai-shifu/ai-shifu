@@ -45,7 +45,6 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDERRORMESSAGE_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
-<<<<<<< HEAD
     BLOCK_TYPE_CONTENT_VALUE,
     BLOCK_TYPE_BUTTON_VALUE,
     BLOCK_TYPE_INPUT_VALUE,
@@ -64,10 +63,6 @@ from flaskr.service.profile.profile_manage import get_profile_item_definition_li
 from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.dtos import BlockDTO
 from flaskr.service.shifu.adapter import generate_block_dto_from_model_internal
-=======
-)
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
->>>>>>> xjl/cook_editor_from_qq
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -321,7 +316,6 @@ def get_learn_record(
             BLOCK_TYPE_MDERRORMESSAGE_VALUE: BlockType.ERROR_MESSAGE,
             BLOCK_TYPE_MDASK_VALUE: BlockType.ASK,
             BLOCK_TYPE_MDANSWER_VALUE: BlockType.ANSWER,
-<<<<<<< HEAD
             BLOCK_TYPE_CONTENT_VALUE: BlockType.CONTENT,
             BLOCK_TYPE_BUTTON_VALUE: BlockType.INTERACTION,
             BLOCK_TYPE_INPUT_VALUE: BlockType.INTERACTION,
@@ -332,8 +326,6 @@ def get_learn_record(
             BLOCK_TYPE_BREAK_VALUE: BlockType.INTERACTION,
             BLOCK_TYPE_PHONE_VALUE: BlockType.INTERACTION,
             BLOCK_TYPE_CHECKCODE_VALUE: BlockType.INTERACTION,
-=======
->>>>>>> xjl/cook_editor_from_qq
         }
         LIKE_STATUS_MAP = {
             1: LikeStatus.LIKE,
