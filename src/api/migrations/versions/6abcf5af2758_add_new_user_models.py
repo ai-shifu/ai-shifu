@@ -78,13 +78,11 @@ def upgrade():
             "updated_at", sa.DateTime(), nullable=False, comment="Last update timestamp"
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "credential_bid", name="uq_user_auth_credentials_credential_bid"
-        ),
-        sa.UniqueConstraint(
+        sa.Index("credential_bid", name="ix_user_auth_credentials_credential_bid"),
+        sa.Index(
             "provider_name",
             "subject_id",
-            name="uq_user_auth_credentials_provider_subject",
+            name="ix_user_auth_credentials_provider_subject",
         ),
     )
     op.create_table(

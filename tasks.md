@@ -1,3 +1,12 @@
+# Remove legacy `user_info` usage
+
+- Audit the backend for any remaining imports or queries against `flaskr.service.user.models.User` and map each usage to the new `user_users` / `user_auth_credentials` schema.
+- Extend the repository layer so callers can read/update user profiles, identifiers, and credential data without touching the legacy `user_info` table.
+- Refactor phone/email/Google auth flows, profile sync logic, and Learn/Order services to rely on the new entities; keep temporary compatibility shims where migration order requires it.
+- Ensure all new logic writes to `user_users` and `user_auth_credentials`, with read paths using the synced entities; legacy `user_info` writes should be removed but the table itself is left untouched for now (no `DROP` operations yet).
+- Update DTOs, routes, and tests to validate behavior with the new data sources; cover both newly created accounts and migrated legacy users.
+- Run targeted regression tests (user service, auth flows, profile integration, learn/order flows) to confirm the removal does not break existing features.
+
 # Backend: Add `user_identify` to `user_users`
 
 Goal: Add a new column `user_identify` to table `user_users` (model: `UserInfo` in `src/api/flaskr/service/user/models.py`) to store either phone (for SMS verification) or email (for email/Google verification). The column must be indexed but NOT unique (business layer guarantees uniqueness).
