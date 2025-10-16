@@ -61,7 +61,6 @@ def parse_shifu_mdflow(
         if not outline_item:
             raise_error("SHIFU.OUTLINE_ITEM_NOT_FOUND")
         markdown_flow = MarkdownFlow(outline_item.content)
-        markdown_flow.parse()
         varibales = markdown_flow.extract_variables()
         blocks = markdown_flow.get_all_blocks()
         return MdflowDTOParseResult(variables=varibales, blocks_count=len(blocks))
