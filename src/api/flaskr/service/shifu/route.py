@@ -863,7 +863,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/parse",
-        methods=["GET"],
+        methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     def parse_mdflow_api(shifu_bid: str, outline_bid: str):
