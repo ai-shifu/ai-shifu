@@ -48,7 +48,9 @@ class UserInfo:
         self.name = name
         self.email = email
         self.mobile = mobile
-        self.user_state = USE_STATE_VALUES[user_state]
+        self.user_state = USE_STATE_VALUES.get(
+            user_state, USE_STATE_VALUES[USER_STATE_UNREGISTERED]
+        )
         self.wx_openid = wx_openid
         self.language = language
         self.user_avatar = user_avatar
@@ -87,6 +89,22 @@ class UserToken:
         return {
             "userInfo": self.userInfo,
             "token": self.token,
+        }
+
+
+@register_schema_to_swagger
+class OAuthStartDTO:
+    authorization_url: str
+    state: str
+
+    def __init__(self, authorization_url: str, state: str):
+        self.authorization_url = authorization_url
+        self.state = state
+
+    def __json__(self):
+        return {
+            "authorization_url": self.authorization_url,
+            "state": self.state,
         }
 
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import {
@@ -20,36 +20,121 @@ import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
 import i18n, { browserLanguage, normalizeLanguage } from '@/i18n';
 import { environment } from '@/config/environment';
+import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
+import { TermsCheckbox } from '@/components/TermsCheckbox';
+import { useToast } from '@/hooks/useToast';
+import { useGoogleAuth } from '@/hooks/useGoogleAuth';
 import { useUserStore } from '@/store';
+
+type LoginMethod = 'phone' | 'email' | 'google';
 
 export default function AuthPage() {
   const router = useRouter();
   const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
   const [isI18nReady, setIsI18nReady] = useState(false);
-  const { userInfo, isInitialized } = useUserStore();
+  const userInfo = useUserStore(state => state.userInfo);
 
-  // Get login methods from environment configuration
-  const enabledMethods = environment.loginMethodsEnabled;
-  const defaultMethod = environment.defaultLoginMethod;
+  const [loginConfig, setLoginConfig] = useState(() => ({
+    methods: environment.loginMethodsEnabled,
+    defaultMethod: environment.defaultLoginMethod,
+  }));
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadLoginConfig = async () => {
+      try {
+        const response = await fetch('/api/config', { cache: 'no-store' });
+        if (!response.ok) {
+          throw new Error(`Failed to load config: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const rawMethods =
+          data?.loginMethodsEnabled ?? environment.loginMethodsEnabled;
+        const normalizedMethods = Array.isArray(rawMethods)
+          ? rawMethods
+          : typeof rawMethods === 'string'
+            ? rawMethods
+                .split(',')
+                .map(method => method.trim())
+                .filter(Boolean)
+            : environment.loginMethodsEnabled;
+
+        if (!isActive) {
+          return;
+        }
+
+        setLoginConfig({
+          methods:
+            normalizedMethods.length > 0
+              ? normalizedMethods
+              : environment.loginMethodsEnabled,
+          defaultMethod:
+            typeof data?.defaultLoginMethod === 'string' &&
+            data.defaultLoginMethod.trim() !== ''
+              ? data.defaultLoginMethod
+              : environment.defaultLoginMethod,
+        });
+      } catch (error) {
+        console.error('Failed to load login config', error);
+      }
+    };
+
+    void loadLoginConfig();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const enabledMethods = loginConfig.methods;
+  const defaultMethod = loginConfig.defaultMethod;
 
   const isPhoneEnabled = enabledMethods.includes('phone');
   const isEmailEnabled = enabledMethods.includes('email');
+  const isGoogleEnabled = enabledMethods.includes('google');
 
-  const [loginMethod, setLoginMethod] = useState<'phone' | 'email'>(
-    defaultMethod as 'phone' | 'email',
-  );
+  const availableMethods = useMemo<LoginMethod[]>(() => {
+    const methods: LoginMethod[] = [];
+    if (isPhoneEnabled) methods.push('phone');
+    if (isEmailEnabled) methods.push('email');
+    if (isGoogleEnabled) methods.push('google');
+    return methods;
+  }, [isEmailEnabled, isGoogleEnabled, isPhoneEnabled]);
+
+  const initialLoginMethod = useMemo<LoginMethod>(() => {
+    const normalizedDefault = defaultMethod as LoginMethod;
+    if (normalizedDefault && availableMethods.includes(normalizedDefault)) {
+      return normalizedDefault;
+    }
+    return availableMethods[0] ?? 'phone';
+  }, [availableMethods, defaultMethod]);
+
+  const [loginMethod, setLoginMethod] =
+    useState<LoginMethod>(initialLoginMethod);
   const [language, setLanguage] = useState<string | null>(null);
   const manualLanguageRef = useRef(false);
 
+  useEffect(() => {
+    setLoginMethod(initialLoginMethod);
+  }, [initialLoginMethod]);
+
   const searchParams = useSearchParams();
-  const handleAuthSuccess = () => {
+  const { toast } = useToast();
+  const isInitialized = useUserStore(state => state.isInitialized);
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+
+  const resolveRedirectPath = useCallback(() => {
     let redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
       redirect = '/main';
     }
-    // Using push for navigation keeps a history, so when users click the back button, they'll return to the login page.
-    // router.push('/main')
-    router.replace(redirect);
+    return redirect;
+  }, [searchParams]);
+
+  const handleAuthSuccess = () => {
+    router.replace(resolveRedirectPath());
   };
 
   const handleFeedback = () => {
@@ -145,6 +230,93 @@ export default function AuthPage() {
     }
   }, [language, ready]);
 
+  useEffect(() => {
+    if (!isInitialized || !isLoggedIn) {
+      return;
+    }
+
+    const target = resolveRedirectPath();
+    if (window.location.pathname !== target) {
+      router.replace(target);
+    }
+  }, [isInitialized, isLoggedIn, resolveRedirectPath, router]);
+
+  const [googleTermsAccepted, setGoogleTermsAccepted] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const { startGoogleLogin } = useGoogleAuth({
+    onSuccess: (_, redirectPath) => {
+      router.replace(redirectPath);
+    },
+    onError: () => {
+      setIsGoogleLoading(false);
+    },
+  });
+
+  const handleGoogleSignIn = useCallback(async () => {
+    if (!isGoogleEnabled) {
+      return;
+    }
+
+    if (!googleTermsAccepted) {
+      toast({
+        title: t('auth.termsError'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsGoogleLoading(true);
+      await startGoogleLogin({ redirectPath: resolveRedirectPath() });
+    } catch (error) {
+      setIsGoogleLoading(false);
+    }
+  }, [
+    googleTermsAccepted,
+    isGoogleEnabled,
+    resolveRedirectPath,
+    startGoogleLogin,
+    t,
+    toast,
+  ]);
+
+  const renderLoginContent = useCallback(
+    (method: LoginMethod) => {
+      switch (method) {
+        case 'phone':
+          return <PhoneLogin onLoginSuccess={handleAuthSuccess} />;
+        case 'email':
+          return <EmailLogin onLoginSuccess={handleAuthSuccess} />;
+        case 'google':
+          return (
+            <div className='space-y-3'>
+              <GoogleLoginButton
+                onClick={handleGoogleSignIn}
+                loading={isGoogleLoading}
+                disabled={isGoogleLoading}
+              />
+              <TermsCheckbox
+                checked={googleTermsAccepted}
+                onCheckedChange={setGoogleTermsAccepted}
+                disabled={isGoogleLoading}
+              />
+            </div>
+          );
+        default:
+          return null;
+      }
+    },
+    [
+      handleAuthSuccess,
+      handleGoogleSignIn,
+      googleTermsAccepted,
+      isGoogleLoading,
+    ],
+  );
+
+  const shouldShowTabs = availableMethods.length > 1;
+
   // Show loading state until translations are ready
   if (!isI18nReady || !language) {
     return (
@@ -195,11 +367,9 @@ export default function AuthPage() {
         <Card>
           <CardHeader>
             {authMode === 'login' && (
-              <>
-                <CardTitle className='text-xl text-center'>
-                  {t('auth.title')}
-                </CardTitle>
-              </>
+              <CardTitle className='text-xl text-center'>
+                {t('auth.title')}
+              </CardTitle>
             )}
             {authMode === 'feedback' && (
               <>
@@ -215,52 +385,58 @@ export default function AuthPage() {
 
           <CardContent>
             {authMode === 'login' && (
-              <>
-                {enabledMethods.length > 1 ? (
-                  <Tabs
-                    value={loginMethod}
-                    onValueChange={value =>
-                      setLoginMethod(value as 'phone' | 'email')
-                    }
-                    className='w-full'
-                  >
-                    <TabsList className={'grid w-full grid-cols-2'}>
-                      {isPhoneEnabled && (
-                        <TabsTrigger value='phone'>
-                          {t('auth.phone')}
-                        </TabsTrigger>
-                      )}
-                      {isEmailEnabled && (
-                        <TabsTrigger value='email'>
-                          {t('auth.email')}
-                        </TabsTrigger>
-                      )}
-                    </TabsList>
+              <div className='space-y-6'>
+                {availableMethods.length > 0 ? (
+                  shouldShowTabs ? (
+                    <Tabs
+                      value={loginMethod}
+                      onValueChange={value =>
+                        setLoginMethod(value as LoginMethod)
+                      }
+                      className='w-full'
+                    >
+                      <TabsList
+                        className='grid w-full'
+                        style={{
+                          gridTemplateColumns: `repeat(${availableMethods.length}, minmax(0, 1fr))`,
+                        }}
+                      >
+                        {availableMethods.map(method => (
+                          <TabsTrigger
+                            key={method}
+                            value={method}
+                          >
+                            {method === 'phone'
+                              ? t('auth.phone')
+                              : method === 'email'
+                                ? t('auth.email')
+                                : t('auth.googleTab')}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
 
-                    {isPhoneEnabled && (
-                      <TabsContent value='phone'>
-                        <PhoneLogin onLoginSuccess={handleAuthSuccess} />
-                      </TabsContent>
-                    )}
-
-                    {isEmailEnabled && (
-                      <TabsContent value='email'>
-                        <EmailLogin onLoginSuccess={handleAuthSuccess} />
-                      </TabsContent>
-                    )}
-                  </Tabs>
+                      {availableMethods.map(method => (
+                        <TabsContent
+                          key={method}
+                          value={method}
+                        >
+                          {renderLoginContent(method)}
+                        </TabsContent>
+                      ))}
+                    </Tabs>
+                  ) : (
+                    <div className='w-full'>
+                      {availableMethods[0]
+                        ? renderLoginContent(availableMethods[0])
+                        : null}
+                    </div>
+                  )
                 ) : (
-                  // Single method, no tabs needed
-                  <div className='w-full'>
-                    {isPhoneEnabled && (
-                      <PhoneLogin onLoginSuccess={handleAuthSuccess} />
-                    )}
-                    {isEmailEnabled && (
-                      <EmailLogin onLoginSuccess={handleAuthSuccess} />
-                    )}
-                  </div>
+                  <p className='text-sm text-muted-foreground text-center'>
+                    {t('auth.noLoginMethods')}
+                  </p>
                 )}
-              </>
+              </div>
             )}
 
             {authMode === 'feedback' && (

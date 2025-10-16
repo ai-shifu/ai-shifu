@@ -20,6 +20,9 @@ from ..service.user import (
     update_user_open_id,
 )
 from ..service.feedback.funs import submit_feedback
+from ..service.user.auth import get_provider
+from ..service.user.auth.base import OAuthCallbackRequest
+from ..service.common.dtos import OAuthStartDTO
 from .common import make_common_response, bypass_token_validation, by_pass_login_func
 from flaskr.dao import db
 from flaskr.i18n import set_language
@@ -703,6 +706,38 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp
+
+    @app.route(path_prefix + "/oauth/google", methods=["GET"])
+    @bypass_token_validation
+    def google_oauth_start():
+        provider = get_provider("google")
+        metadata = {}
+        redirect_uri = request.args.get("redirect_uri")
+        if redirect_uri:
+            metadata["redirect_uri"] = redirect_uri
+        result = provider.begin_oauth(app, metadata)
+        dto = OAuthStartDTO(
+            authorization_url=result["authorization_url"],
+            state=result["state"],
+        )
+        return make_common_response(dto)
+
+    @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
+    @bypass_token_validation
+    def google_oauth_callback():
+        provider = get_provider("google")
+        callback_request = OAuthCallbackRequest(
+            state=request.args.get("state"),
+            code=request.args.get("code"),
+            raw_request_args=request.args.to_dict(flat=True),
+        )
+        try:
+            auth_result = provider.handle_oauth_callback(app, callback_request)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            raise
+        return make_common_response(auth_result.token)
 
     # health check
     @app.route("/health", methods=["GET"])

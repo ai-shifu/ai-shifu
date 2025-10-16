@@ -1,7 +1,9 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { environment } from '@/config/environment';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const origin = request.nextUrl.origin;
+
   const config = {
     // ===== Core API Configuration =====
     apiBaseUrl: environment.apiBaseUrl,
@@ -24,6 +26,11 @@ export async function GET() {
 
     // ===== Development Tools =====
     enableEruda: environment.enableEruda,
+
+    // ===== Authentication =====
+    loginMethodsEnabled: environment.loginMethodsEnabled,
+    defaultLoginMethod: environment.defaultLoginMethod,
+    googleOauthRedirect: `${origin.replace(/\/$/, '')}/login/google-callback`,
   };
 
   return NextResponse.json(config);
