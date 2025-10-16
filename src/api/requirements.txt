@@ -13,7 +13,11 @@ aliyun-python-sdk-kms==2.16.3
 annotated-types==0.7.0
 anyio==4.4.0
 attrs==23.2.0
+<<<<<<< HEAD
 authlib==1.6.5
+=======
+authlib==1.6.4
+>>>>>>> 6ffc6949 (refactor:  migrate user to new db models and add google auth  (#804))
 backoff==2.2.1
 blinker==1.8.2
 captcha==0.6.0
