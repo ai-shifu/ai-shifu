@@ -78,11 +78,11 @@ def upgrade():
             "updated_at", sa.DateTime(), nullable=False, comment="Last update timestamp"
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.Index("credential_bid", name="ix_user_auth_credentials_credential_bid"),
+        sa.Index("ix_user_auth_credentials_credential_bid", "credential_bid"),
         sa.Index(
+            "ix_user_auth_credentials_provider_subject",
             "provider_name",
             "subject_id",
-            name="ix_user_auth_credentials_provider_subject",
         ),
     )
     op.create_table(
@@ -151,11 +151,6 @@ def upgrade():
         )
     with op.batch_alter_table("user_auth_credentials", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_user_auth_credentials_credential_bid"),
-            ["credential_bid"],
-            unique=False,
-        )
-        batch_op.create_index(
             batch_op.f("ix_user_auth_credentials_user_bid"), ["user_bid"], unique=False
         )
         batch_op.create_index(
@@ -175,7 +170,6 @@ def downgrade():
         batch_op.drop_index(batch_op.f("ix_user_users_state"))
         batch_op.drop_index(batch_op.f("ix_user_users_deleted"))
     with op.batch_alter_table("user_auth_credentials", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_user_auth_credentials_credential_bid"))
         batch_op.drop_index(batch_op.f("ix_user_auth_credentials_user_bid"))
         batch_op.drop_index(batch_op.f("ix_user_auth_credentials_state"))
         batch_op.drop_index(batch_op.f("ix_user_auth_credentials_deleted"))
