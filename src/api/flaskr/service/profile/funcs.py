@@ -430,6 +430,14 @@ def update_user_profile_with_lable(
 ):
     app.logger.info("update user profile with lable:{}".format(course_id))
     PROFILES_LABLES = get_profile_labels(course_id)
+    if isinstance(profiles, UserProfileLabelDTO):
+        profiles = profiles.profiles or []
+    elif isinstance(profiles, UserProfileLabelItemDTO):
+        profiles = [profiles]
+
+    if profiles and isinstance(profiles[0], UserProfileLabelItemDTO):
+        profiles = [item.__json__() for item in profiles]
+
     user_info = User.query.filter(User.user_id == user_id).first()
     profile_items = get_profile_item_definition_list(app, course_id)
     if user_info:
