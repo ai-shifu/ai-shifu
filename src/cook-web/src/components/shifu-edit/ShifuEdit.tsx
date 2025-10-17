@@ -427,7 +427,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 <Loading />
               </div>
             ) : (
-              currentNode?.depth > 0 ? <>
+              currentNode?.depth && currentNode.depth > 0 ? <>
                 <div className='flex items-center'>
                     <h2 className='text-base font-semibold text-foreground'>
                       {t('shifu.creationArea.title')}
