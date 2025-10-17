@@ -9,16 +9,16 @@ function testScrollType() {
   if (iOS) {
     if (uaIncludes('Safari/') || /OS 11_[0-3]\D/.test(ua)) {
       /**
-       * 不处理
+       * Do nothing for these cases:
        * - Safari
-       * - iOS 11.0-11.3（`scrollTop`/`scrolIntoView` 有 bug）
+       * - iOS 11.0-11.3 (there are bugs with `scrollTop`/`scrollIntoView`)
        */
       return 0;
     }
-    // 用 `scrollTop` 的方式
+    // Use the `scrollTop` approach
     return 1;
   }
-  // 其它的用 `scrollIntoView` 的方式
+  // All other cases use `scrollIntoView`
   return 2;
 }
 
@@ -47,10 +47,10 @@ export default function riseInput(input: HTMLElement, target: HTMLElement) {
   input.addEventListener('blur', () => {
     clearTimeout(scrollTimer);
 
-    // 某些情况下收起键盘后输入框不收回，页面下面空白
-    // 比如：闲鱼、大麦、乐动力、微信
+    // On some apps the input stays pushed up after the keyboard closes, leaving blank space
+    // For example: Xianyu, Damai, LeDongLi, WeChat
     if (scrollType && iOS) {
-      // 以免点击快捷短语无效
+      // Prevent quick phrase taps from failing
       setTimeout(() => {
         document.body.scrollIntoView();
       });

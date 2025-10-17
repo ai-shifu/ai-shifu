@@ -26,7 +26,7 @@ export const Item: React.FC<ScrollViewItemProps> = props => {
 
     const observer = new IntersectionObserver(([entry]) => {
       if (entry.intersectionRatio > 0) {
-        // 根据回调返回值判断是否继续监听
+        // Determine from the callback result whether to keep observing
         if (!onIntersect(item, entry)) {
           observer.unobserve(entry.target);
         }

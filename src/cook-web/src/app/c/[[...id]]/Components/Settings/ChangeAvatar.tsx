@@ -77,8 +77,8 @@ export const ChangeAvatar = ({ className, image, onChange }) => {
             onChange={onAvatarUploadChange}
             accept='.png,.jpg,.jpeg,.bmp,.webp'
           />
-          {/* BUGFIX: 修复编辑按钮尺寸以匹配设计要求 */}
-          {/* 原来是40x40，根据UI设计调整为16x16 */}
+          {/* BUGFIX: Adjust edit button size to match design specs */}
+          {/* Previously 40x40, now 16x16 per UI design */}
           <Image
             className={styles.editIcon}
             src={iconEditAvatar2x.src}

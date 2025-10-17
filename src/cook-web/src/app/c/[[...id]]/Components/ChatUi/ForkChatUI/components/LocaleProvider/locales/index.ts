@@ -4,10 +4,10 @@ import frFR from './fr_FR';
 import zhCN from './zh_CN';
 
 const locales = {
-  'ar-EG': arEG, // 阿拉伯
-  'fr-FR': frFR, // 法语
-  'en-US': enUS, // 英语（美式）
-  'zh-CN': zhCN, // 简体中文
+  'ar-EG': arEG, // Arabic
+  'fr-FR': frFR, // French
+  'en-US': enUS, // English (US)
+  'zh-CN': zhCN, // Simplified Chinese
 };
 
 export default locales;

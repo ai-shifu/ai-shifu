@@ -183,11 +183,11 @@ export const getRunMessage = (
 };
 
 /**
- * 获取课程学习记录
+ * Fetch course study records
  * @param {*} lessonId
- *  shifu_bid : shifu_bid
-    outline_bid: 大纲bid
-    preview_mode: 是否为预览模式，可选值：　cook|preview|nomal ，为空时为normal
+ *  shifu_bid : shifu bid
+    outline_bid: outline bid
+    preview_mode: whether preview mode is enabled; possible values: cook | preview | normal (default is normal)
  * @returns
  */
 export const getLessonStudyRecord = async ({
@@ -208,10 +208,10 @@ export const getLessonStudyRecord = async ({
 };
 
 /**
- * 点赞/点踩 生成内容
- * shifu_bid: shifu_bid
- * generated_block_bid: 生成内容bid
- * action: 动作 like|dislike|none
+ * Like or dislike generated content
+ * shifu_bid: shifu bid
+ * generated_block_bid: generated content bid
+ * action: action like | dislike | none
  * @param params
  * @returns
  */

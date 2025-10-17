@@ -14,7 +14,7 @@
 }
 
 .ChatApp {
-  /* 透明背景色 */
+  /* Transparent background color */
   background-color: rgba(0, 0, 0, 0);
 }
 
@@ -28,16 +28,16 @@
 }
 
 .ChatApp .MessageContainer {
-  /* 右下角和左下角圆角 */
+  /* Rounded corners on bottom left and bottom right */
   border-radius: 0 0 8px 8px;
 }
 
 .MessageContainer {
-  /* 透明背景色 */
+  /* Transparent background color */
   background-color: rgba(0, 0, 0, 0);
   border-radius: 8px;
   overflow: hidden;
-  /* 白色背景 */
+  /* White background */
   background-color: #fff;
 }
 
@@ -63,15 +63,15 @@
 }
 
 .typing {
-  /* 使用 flex 布局 让所有元素都在同一行 */
+  /* Use flex layout so everything stays on one line */
   display: flex;
 }
 .typing::before {
   content: '正在思考中';
   /* background-image: url("../../Assets/loading_chat.png"); */
-  /* 不平铺 */
+  /* Do not tile the background */
   background-repeat: no-repeat;
-  /* 设置背景图的位置 */
+  /* Position the background image */
   background-position: left;
   /* padding-left: 20px; */
 }

@@ -17,39 +17,39 @@ export type MessageId = string | number;
 
 export interface MessageProps {
   /**
-   * 唯一ID
+   * Unique ID
    */
   _id: MessageId;
   /**
-   * 消息类型
+   * Message type
    */
   type: string;
   /**
-   * 消息内容
+   * Message content
    */
   content?: any;
   /**
-   * 消息创建时间
+   * Message creation time
    */
   createdAt?: number;
   /**
-   * 消息发送者信息
+   * Message sender info
    */
   user?: User;
   /**
-   * 消息位置
+   * Message position
    */
   position?: 'left' | 'right' | 'center' | 'pop';
   /**
-   * 是否显示时间
+   * Whether to show the timestamp
    */
   hasTime?: boolean;
   /**
-   * 状态
+   * Status
    */
   status?: IMessageStatus;
   /**
-   * 消息内容渲染函数
+   * Renderer for message content
    */
   renderMessageContent?: (message: MessageProps) => React.ReactNode;
 }

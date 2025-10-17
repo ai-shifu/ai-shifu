@@ -137,7 +137,7 @@ export const Tabs: React.FC<TabsProps> = props => {
       currentNav as HTMLElement;
     const { width: textWidth } = text.getBoundingClientRect();
     const pointerWidth = Math.max(textWidth - 16, 26);
-    // 中心位的偏移量
+    // Offset for the center position
     const offsetLeftOfCenter = navOffsetLeft + navWidth / 2;
 
     setPointerStyles({

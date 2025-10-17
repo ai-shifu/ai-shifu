@@ -427,7 +427,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 <Loading />
               </div>
             ) : (
-              <>
+              currentNode?.depth > 0 ? <>
                 <div className='flex items-center'>
                     <h2 className='text-base font-semibold text-foreground'>
                       {t('shifu.creationArea.title')}
@@ -437,7 +437,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     </p>
                 </div>
                 <MarkdownFlowEditor locale={profile?.language as "en-US" | "zh-CN"} content={mdflow} onChange={onChangeMdflow}/>
-              </>
+              </> : <></>
+              )
               // <>
               //   <DndProvider backend={HTML5Backend}>
               //     {blocks.map((block, index) => (
@@ -502,7 +503,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
               //     </div>
               //   )}
               // </>
-            )}
+            }
           </div>
         </div>
       </div>

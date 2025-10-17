@@ -443,7 +443,7 @@ function useChatLogicHook({
   const mapRecordsToContent = useCallback(
     (records: StudyRecordItem[]) => {
       const result: ChatContentItem[] = [];
-      let buffer: StudyRecordItem[] = []; // 缓存连续 ask
+      let buffer: StudyRecordItem[] = []; // cache consecutive ask entries
       let lastContentId: string | null = null;
 
       const flushBuffer = () => {
@@ -457,7 +457,7 @@ function useChatLogicHook({
             ask_list: buffer.map(item => ({
               ...item,
               type: item.block_type,
-            })), // 保留原始 ask 列表
+            })), // keep the original ask list
             readonly: false,
             isHistory: true,
             customRenderBar: () => null,
@@ -470,7 +470,7 @@ function useChatLogicHook({
 
       records.forEach((item: StudyRecordItem) => {
         if (item.block_type === BLOCK_TYPE.CONTENT) {
-          // flush 之前缓存的 ask
+          // flush the previously cached ask entries
           flushBuffer();
           result.push({
             generated_block_bid: item.generated_block_bid,
@@ -500,10 +500,10 @@ function useChatLogicHook({
           item.block_type === BLOCK_TYPE.ASK ||
           item.block_type === BLOCK_TYPE.ANSWER
         ) {
-          // 累积 ask
+          // accumulate ask entries
           buffer.push(item);
         } else {
-          // flush 并处理其他类型
+          // flush and handle other types
           flushBuffer();
           result.push({
             generated_block_bid: item.generated_block_bid,
@@ -518,7 +518,7 @@ function useChatLogicHook({
         }
       });
 
-      // 最后 flush
+      // final flush
       flushBuffer();
       console.log('result:', result);
       return result;
@@ -828,7 +828,7 @@ function useChatLogicHook({
     // 1. There's a pending interaction block
     // 2. Currently in typing state (not already finished)
     if (!lastInteractionBlockRef.current || !isTypeFinished) {
-      // console.log('🟢 onTypeFinishe跳过 - no pending interaction or already finished');
+      // console.log('🟢 onTypeFinished skipped - no pending interaction or already finished');
       return;
     }
 

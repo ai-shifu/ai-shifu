@@ -56,7 +56,7 @@ export const runScript = (
 };
 
 /**
- * 获取课程学习记录
+ * Fetch course study records
  * @param {*} lessonId
  * @returns
  */

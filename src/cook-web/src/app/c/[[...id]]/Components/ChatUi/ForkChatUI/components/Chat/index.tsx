@@ -17,131 +17,131 @@ import isSafari from '../../utils/isSafari';
 export type ChatProps = Omit<ComposerProps, 'onFocus' | 'onChange' | 'onBlur'> &
   MessageContainerProps & {
     /**
-     * 宽版模式断点
+     * Breakpoint for wide layout mode
      */
     // wideBreakpoint?: string;
     /**
-     * 当前语言
+     * Current locale
      */
     locale?: string;
     /**
-     * 多语言
+     * Locale definitions
      */
     locales?: any; // FIXME
     /**
-     * 导航栏配置
+     * Navbar configuration
      */
     navbar?: NavbarProps;
     /**
-     * 导航栏渲染函数
+     * Custom navbar render function
      */
     renderNavbar?: () => React.ReactNode;
     /**
-     * 加载更多文案
+     * Copy for the "load more" section
      */
     // loadMoreText?: string;
     /**
-     * 在消息列表上面的渲染函数
+     * Renderer placed above the message list
      */
     // renderBeforeMessageList?: () => React.ReactNode;
     /**
-     * 消息列表 ref
+     * Ref to the message list
      */
     messagesRef?: React.RefObject<MessageContainerHandle>;
     /**
-     * 下拉加载回调
+     * Pull-to-refresh callback
      */
     // onRefresh?: () => Promise<any>;
     /**
-     * 滚动消息列表回调
+     * Scroll callback for the message list
      */
     // onScroll?: (event: React.UIEvent<HTMLDivElement, UIEvent>) => void;
     /**
-     * 消息列表
+     * Messages array
      */
     // messages: MessageProps[];
     /**
-     * 消息内容渲染函数
+     * Renderer for message content
      */
     // renderMessageContent: (message: MessageProps) => React.ReactNode;
     /**
-     * 快捷短语
+     * Quick reply items
      */
     quickReplies?: QuickReplyItemProps[];
     /**
-     * 快捷短语是否可见
+     * Whether quick replies are visible
      */
     quickRepliesVisible?: boolean;
     /**
-     * 快捷短语的点击回调
+     * Quick reply click handler
      */
     onQuickReplyClick?: (item: QuickReplyItemProps, index: number) => void;
     /**
-     * 快捷短语的滚动回调
+     * Quick reply scroll handler
      */
     onQuickReplyScroll?: () => void;
     /**
-     * 快捷短语渲染函数
+     * Renderer for quick replies
      */
     renderQuickReplies?: () => void;
     /**
-     * 输入区 ref
+     * Ref to the composer area
      */
     composerRef?: React.RefObject<ComposerHandle>;
     /**
-     * 输入框初始内容
+     * Initial composer text
      */
     // text?: string;
     /**
-     * 输入框占位符
+     * Composer placeholder
      */
     // placeholder?: string;
     /**
-     * 输入框聚焦回调
+     * Composer focus callback
      */
     onInputFocus?: ComposerProps['onFocus'];
     /**
-     * 输入框更新回调
+     * Composer change callback
      */
     onInputChange?: ComposerProps['onChange'];
     /**
-     * 输入框失去焦点回调
+     * Composer blur callback
      */
     onInputBlur?: ComposerProps['onBlur'];
     /**
-     * 发送消息回调
+     * Send message callback
      */
     // onSend: (type: string, content: string) => void;
     /**
-     * 发送图片回调
+     * Send image callback
      */
     // onImageSend?: (file: File) => Promise<any>;
     /**
-     * 输入方式
+     * Input type
      */
     // inputType?: InputType;
     /**
-     * 输入方式切换回调
+     * Input type switch callback
      */
     // onInputTypeChange?: () => void;
     /**
-     * 语音输入
+     * Voice input
      */
     // recorder?: RecorderProps;
     /**
-     * 工具栏
+     * Toolbar items
      */
     // toolbar?: ToolbarItemProps[];
     /**
-     * 点击工具栏回调
+     * Toolbar click callback
      */
     // onToolbarClick?: () => void;
     /**
-     * 点击附加内容回调
+     * Accessory toggle callback
      */
     // onAccessoryToggle?: () => void;
     /**
-     * 输入组件
+     * Custom composer component
      */
     Composer?: React.ElementType; // FIXME
   };

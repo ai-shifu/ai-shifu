@@ -13,7 +13,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUiLayoutStore } from '@/c-store';
 
 /**
- * 聊天区的整体画布
+ * Overall canvas for the chat area
  */
 export const ChatUi = ({
   chapterId,

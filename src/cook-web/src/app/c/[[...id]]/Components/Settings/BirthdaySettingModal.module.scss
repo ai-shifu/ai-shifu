@@ -1,7 +1,7 @@
 .scrollWrapper {
   background-image: linear-gradient(to bottom, #fff);
 
-  /* 应用遮罩图像，这里使用的是我们创建的背景渐变 */
+  /* Apply the mask image using the gradient we created */
   // -webkit-mask-image: linear-gradient(to bottom, black, transparent);
   mask-image: linear-gradient(to bottom, transparent, black, transparent);
   // mask-image: black;

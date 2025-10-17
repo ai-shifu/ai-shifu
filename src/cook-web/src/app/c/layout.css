@@ -35,7 +35,7 @@ body {
   --font-color-title: #000000;
   --font-color-2: #1f1f1f;
 
-  /* 主要颜色 */
+  /* Primary colors */
   --color-1: #0f63ee;
   --color-2: #0f63ee;
   --color-3: #eaf9fe;
@@ -51,7 +51,7 @@ body {
   --color-disabled-1: #6c6c6c;
   --color-1-rgb: 15, 99, 238;
 
-  /* 状态颜色 */
+  /* Status colors */
   --success-color: #00a27a;
   --warning-color: #fb8b05;
   --fail-color: #eb4157;
@@ -82,4 +82,4 @@ code {
   border-radius: 4px;
 }
 
-/* 字体定义 */
+/* Font definitions */
