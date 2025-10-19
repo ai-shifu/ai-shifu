@@ -28,6 +28,8 @@ class UnifiedI18nBackend {
 
   private cache = new Map<string, Record<string, unknown>>();
 
+  private pending = new Map<string, Promise<Record<string, unknown>>>();
+
   init(_services: unknown, options: BackendOptions = {}): void {
     this.options = {
       ...DEFAULT_OPTIONS,
@@ -82,36 +84,50 @@ class UnifiedI18nBackend {
       return cached;
     }
 
-    const baseUrl = this.options.loadPath ?? DEFAULT_OPTIONS.loadPath;
-    const url = new URL(baseUrl, window.location.origin);
-    url.searchParams.set('lng', language);
-
-    if (this.options.namespaces.length) {
-      url.searchParams.set('ns', this.options.namespaces.join(','));
+    const pending = this.pending.get(language);
+    if (pending) {
+      return pending;
     }
 
-    if (!this.options.includeMetadata) {
-      url.searchParams.set('meta', 'false');
-    }
+    const loader = (async () => {
+      const baseUrl = this.options.loadPath ?? DEFAULT_OPTIONS.loadPath;
+      const url = new URL(baseUrl, window.location.origin);
+      url.searchParams.set('lng', language);
 
-    const response = await fetch(url.toString(), {
-      ...this.options.requestOptions,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.options.requestOptions.headers ?? {}),
-      },
-    });
+      if (this.options.namespaces.length) {
+        url.searchParams.set('ns', this.options.namespaces.join(','));
+      }
 
-    if (!response.ok) {
-      throw new Error(`Failed to load i18n resources for ${language}`);
-    }
+      if (!this.options.includeMetadata) {
+        url.searchParams.set('meta', 'false');
+      }
 
-    const payload = await response.json();
-    const translations: Record<string, unknown> =
-      payload.translations ?? payload;
+      try {
+        const response = await fetch(url.toString(), {
+          ...this.options.requestOptions,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(this.options.requestOptions.headers ?? {}),
+          },
+        });
 
-    this.cache.set(language, translations);
-    return translations;
+        if (!response.ok) {
+          throw new Error(`Failed to load i18n resources for ${language}`);
+        }
+
+        const payload = await response.json();
+        const translations: Record<string, unknown> =
+          payload.translations ?? payload;
+
+        this.cache.set(language, translations);
+        return translations;
+      } finally {
+        this.pending.delete(language);
+      }
+    })();
+
+    this.pending.set(language, loader);
+    return loader;
   }
 }
 
