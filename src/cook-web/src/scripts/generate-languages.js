@@ -1,21 +1,47 @@
 const fs = require('fs'); // eslint-disable-line
 const path = require('path'); // eslint-disable-line
 
-const localesDir = path.join(__dirname, '../../public/locales');
-const files = fs.readdirSync(localesDir);
-const langMap = {};
+const localesRoot = path.join(__dirname, '../../i18n');
+const localesFile = path.join(localesRoot, 'locales.json');
 
-files.forEach(file => {
-  if (file.endsWith('.json')) {
-    const code = file.replace('.json', '');
-    const content = fs.readFileSync(path.join(localesDir, file), 'utf-8');
-    const json = JSON.parse(content);
+const localesMeta = fs.existsSync(localesFile)
+  ? JSON.parse(fs.readFileSync(localesFile, 'utf-8'))
+  : { default: 'en-US', locales: {} };
 
-    langMap[code] = json.langName;
+const directories = fs
+  .readdirSync(localesRoot)
+  .filter(
+    entry =>
+      !entry.startsWith('.') &&
+      fs.statSync(path.join(localesRoot, entry)).isDirectory(),
+  );
+
+directories.forEach(code => {
+  const langFile = path.join(localesRoot, code, 'langName.json');
+
+  if (!fs.existsSync(langFile)) {
+    return;
+  }
+
+  const label = JSON.parse(fs.readFileSync(langFile, 'utf-8'));
+
+  if (!localesMeta.locales[code]) {
+    localesMeta.locales[code] = { label, rtl: false };
+  } else {
+    localesMeta.locales[code].label = label;
   }
 });
 
-fs.writeFileSync(
-  path.join(localesDir, 'languages.json'),
-  JSON.stringify(langMap, null, 2),
-);
+const namespaces = new Set();
+
+directories.forEach(code => {
+  const langDir = path.join(localesRoot, code);
+
+  fs.readdirSync(langDir)
+    .filter(file => file.endsWith('.json') && file !== 'langName.json')
+    .forEach(file => namespaces.add(file.replace('.json', '')));
+});
+
+localesMeta.namespaces = Array.from(namespaces).sort();
+
+fs.writeFileSync(localesFile, `${JSON.stringify(localesMeta, null, 2)}\n`);

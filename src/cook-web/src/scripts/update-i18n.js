@@ -156,29 +156,62 @@ function pruneUnusedKeys(obj, validKeys, prefix = '') {
 }
 
 const ROOT_DIR = path.join(__dirname, '..'); // src/cook-web/src/
-const LOCALE_DIR = path.join(ROOT_DIR, '../public/locales');
+const LOCALES_ROOT = path.join(ROOT_DIR, '../i18n');
 
 const files = getAllFiles(ROOT_DIR);
 const allKeys = Array.from(new Set(files.flatMap(extractKeysFromFile)));
 
-fs.readdirSync(LOCALE_DIR).forEach(file => {
-  if (file.endsWith('.json') && file !== 'languages.json') {
-    const langFile = path.join(LOCALE_DIR, file);
-    const langMark = `@${file}`;
+const namespaceMap = new Map();
+
+allKeys.forEach(key => {
+  const parts = key.split('.');
+  if (parts.length < 2) return;
+  const [namespace, ...rest] = parts;
+  const subKey = rest.join('.');
+  if (!subKey) return;
+
+  if (!namespaceMap.has(namespace)) {
+    namespaceMap.set(namespace, new Set());
+  }
+
+  namespaceMap.get(namespace).add(subKey);
+});
+
+const locales = fs
+  .readdirSync(LOCALES_ROOT)
+  .filter(
+    entry =>
+      !entry.startsWith('.') &&
+      fs.statSync(path.join(LOCALES_ROOT, entry)).isDirectory(),
+  );
+
+locales.forEach(locale => {
+  const localeDir = path.join(LOCALES_ROOT, locale);
+
+  namespaceMap.forEach((keysSet, namespace) => {
+    const keys = Array.from(keysSet);
+    const filePath = path.join(localeDir, `${namespace}.json`);
+    const langMark = `@${locale}.${namespace}`;
     let baseJson = {};
 
     try {
-      if (fs.existsSync(langFile)) {
-        baseJson = JSON.parse(fs.readFileSync(langFile, 'utf8'));
+      if (fs.existsSync(filePath)) {
+        baseJson = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       }
-      const patchJson = buildNestedJson(allKeys, langMark);
-      const prunedBaseJson = pruneUnusedKeys(baseJson, allKeys);
+
+      const patchJson = buildNestedJson(keys, langMark);
+      const prunedBaseJson = pruneUnusedKeys(baseJson, keys);
       const merged = mergeJson(prunedBaseJson, patchJson);
       const sorted = sortObjectKeys(merged);
 
-      fs.writeFileSync(langFile, JSON.stringify(sorted, null, 2), 'utf8');
+      fs.mkdirSync(localeDir, { recursive: true });
+      fs.writeFileSync(
+        filePath,
+        `${JSON.stringify(sorted, null, 2)}\n`,
+        'utf8',
+      );
     } catch (error) {
-      console.error(`${file} update failed. ${error}`);
+      console.error(`${locale}/${namespace} update failed. ${error}`);
     }
-  }
+  });
 });

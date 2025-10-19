@@ -17,7 +17,7 @@
 ### Repository Structure
 - [x] Create `src/i18n/` with locale subfolders (`src/i18n/en-US`, `src/i18n/zh-CN`, ...)
 - [x] Split translations by business domain JSON (e.g. `order.json`, `common.json`)
-- [ ] Move Cook Web `public/locales/*.json` content and language metadata into the new structure
+- [x] Move Cook Web `public/locales/*.json` content and language metadata into the new structure
 - [ ] Convert API-side Python translation modules under `src/api/flaskr/i18n/<locale>/` into JSON and retire the old files once references are updated
 
 ### Backend (API)
