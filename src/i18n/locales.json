@@ -32,7 +32,7 @@
     "server.common",
     "module.backend.course",
     "server.discount",
-    "module.backend.file",
+    "server.file",
     "module.backend.learn",
     "module.backend.lesson",
     "server.llm",

@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.file",
+  "__namespace__": "server.file",
   "__flat__": {
     "fileUploadError": "文件上传失败",
     "fileTypeNotSupport": "不支持的文件类型",

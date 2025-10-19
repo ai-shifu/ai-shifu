@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.file",
+  "__namespace__": "server.file",
   "__flat__": {
     "fileUploadError": "File Upload Failed",
     "fileTypeNotSupport": "Unsupported File Type",
