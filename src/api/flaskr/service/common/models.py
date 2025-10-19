@@ -1,5 +1,7 @@
 # Desc: Common models for the application
 from flaskr.i18n import _
+import json
+from pathlib import Path
 
 
 class AppException(Exception):
@@ -22,68 +24,31 @@ class AppException(Exception):
         return self.__json__()
 
 
-ERROR_CODE = {
-    "module.backend.user.userNotFound": 1001,
-    "module.backend.user.userAlreadyExists": 1002,
-    "module.backend.user.userNotLogin": 1004,
-    "module.backend.user.userTokenExpired": 1005,
-    "module.backend.user.checkCodeError": 1009,
-    "module.backend.user.checkCodeExpired": 1010,
-    "module.backend.user.smsSendError": 1011,
-    "module.backend.user.smsSendFrequently": 1012,
-    "module.backend.user.smsSendExpired": 1013,
-    "module.backend.user.smsCheckError": 1014,
-    "module.backend.common.unknownError": 9999,
-    # order error
-    "module.backend.order.orderNotFound": 3001,
-    "module.backend.order.orderAlreadyExists": 3002,
-    "module.backend.order.orderStatusError": 3003,
-    "module.backend.order.orderPayError": 3004,
-    "module.backend.order.orderRefundError": 3005,
-    "module.backend.order.orderPayExpired": 3006,
-    "module.backend.order.orderPayNotFound": 3007,
-    "module.backend.order.orderHasPaid": 3008,
-    # discount error
-    "module.backend.discount.discountNotFound": 3101,
-    "module.backend.discount.discountAlreadyUsed": 3102,
-    "module.backend.discount.discountLimit": 3103,
-    "module.backend.discount.discountNotStart": 3104,
-    "module.backend.discount.discountExpired": 3105,
-    "module.backend.discount.orderDiscountAlreadyUsed": 3106,
-    "module.backend.discount.discountLimitExceeded": 3107,
-    "module.backend.discount.discountAlreadyExpired": 3108,
-    "module.backend.discount.discountCountNotZero": 3109,
-    # course error
-    "module.backend.course.courseNotFound": 4001,
-    "module.backend.course.lessonCannotBeReset": 4002,
-    "module.backend.course.lessonNotFound": 4003,
-    "module.backend.course.lessonNotFoundInCourse": 4004,
-    # pay error
-    "module.backend.pay.payChannelNotSupport": 5001,
-    # file error
-    "module.backend.file.fileUploadError": 6001,
-    "module.backend.file.fileTypeNotSupport": 6002,
-    "module.backend.file.fileSizeExceed": 6003,
-    "module.backend.file.videoInvalidBilibiliLink": 6004,
-    "module.backend.file.videoBilibiliApiError": 6005,
-    "module.backend.file.videoBilibiliApiRequestFailed": 6006,
-    "module.backend.file.videoUnsupportedVideoSite": 6007,
-    "module.backend.file.videoGetInfoError": 6008,
-    # params error
-    "module.backend.common.paramsError": 2001,
-    "module.backend.common.textNotAllowed": 2002,
-    # Admin errors
-    "module.backend.admin.viewNotFound": 7001,
-    # LLM errors
-    "module.backend.llm.noDefaultLlm": 8001,
-    "module.backend.llm.specifiedLlmNotConfigured": 8002,
-    "module.backend.llm.modelNotSupported": 8003,
-    # api errors
-    "module.backend.api.alibabaCloudNotConfigured": 9001,
-    "module.backend.scenario.noPermission": 9002,
-    # Unauthorized
-    "module.backend.shifu.noPermission": 401,
-}
+def _load_error_codes() -> dict[str, int]:
+    # Locate src/api/error_codes.json
+    api_root = Path(__file__).resolve().parents[3]
+    manifest_path = api_root / "error_codes.json"
+    if not manifest_path.exists():
+        # Fallback to legacy in-file mapping (minimal set)
+        return {
+            "module.backend.common.unknownError": 9999,
+        }
+
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    codes: dict[str, int] = {}
+    for key, value in data.items():
+        if not isinstance(value, int):
+            continue
+        # Primary key (expected to be 'server.*')
+        codes[key] = value
+        # Legacy alias for gradual migration: module.backend.<...>
+        if key.startswith("server."):
+            legacy = "module.backend." + key[len("server.") :]
+            codes[legacy] = value
+    return codes
+
+
+ERROR_CODE = _load_error_codes()
 
 
 def register_error(error_name, error_code):

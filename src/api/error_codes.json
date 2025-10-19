@@ -1,0 +1,63 @@
+{
+  "server.user.userNotFound": 1001,
+  "server.user.userAlreadyExists": 1002,
+  "server.user.userNotLogin": 1004,
+  "server.user.userTokenExpired": 1005,
+  "server.user.checkCodeError": 1009,
+  "server.user.checkCodeExpired": 1010,
+  "server.user.smsSendError": 1011,
+  "server.user.smsSendFrequently": 1012,
+  "server.user.smsSendExpired": 1013,
+  "server.user.smsCheckError": 1014,
+
+  "server.common.unknownError": 9999,
+  "server.common.paramsError": 2001,
+  "server.common.textNotAllowed": 2002,
+
+  "server.order.orderNotFound": 3001,
+  "server.order.orderAlreadyExists": 3002,
+  "server.order.orderStatusError": 3003,
+  "server.order.orderPayError": 3004,
+  "server.order.orderRefundError": 3005,
+  "server.order.orderPayExpired": 3006,
+  "server.order.orderPayNotFound": 3007,
+  "server.order.orderHasPaid": 3008,
+  "server.order.courseNotPaid": 3009,
+
+  "server.discount.discountNotFound": 3101,
+  "server.discount.discountAlreadyUsed": 3102,
+  "server.discount.discountLimit": 3103,
+  "server.discount.discountNotStart": 3104,
+  "server.discount.discountExpired": 3105,
+  "server.discount.orderDiscountAlreadyUsed": 3106,
+  "server.discount.discountLimitExceeded": 3107,
+  "server.discount.discountAlreadyExpired": 3108,
+  "server.discount.discountCountNotZero": 3109,
+
+  "server.course.courseNotFound": 4001,
+  "server.course.lessonCannotBeReset": 4002,
+  "server.course.lessonNotFound": 4003,
+  "server.course.lessonNotFoundInCourse": 4004,
+
+  "server.pay.payChannelNotSupport": 5001,
+
+  "server.file.fileUploadError": 6001,
+  "server.file.fileTypeNotSupport": 6002,
+  "server.file.fileSizeExceed": 6003,
+  "server.file.videoInvalidBilibiliLink": 6004,
+  "server.file.videoBilibiliApiError": 6005,
+  "server.file.videoBilibiliApiRequestFailed": 6006,
+  "server.file.videoUnsupportedVideoSite": 6007,
+  "server.file.videoGetInfoError": 6008,
+
+  "server.admin.viewNotFound": 7001,
+
+  "server.llm.noDefaultLlm": 8001,
+  "server.llm.specifiedLlmNotConfigured": 8002,
+  "server.llm.modelNotSupported": 8003,
+
+  "server.api.alibabaCloudNotConfigured": 9001,
+  "server.scenario.noPermission": 9002,
+
+  "server.shifu.noPermission": 401
+}

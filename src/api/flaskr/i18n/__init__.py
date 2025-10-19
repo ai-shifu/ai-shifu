@@ -58,6 +58,18 @@ def _store_translation(lang: str, key: str, value):
     _translations[lang][key] = value
     _translations[lang][key.upper()] = value
 
+    # Temporary bidirectional aliasing between legacy and new backend namespaces
+    # to support gradual migration:
+    # - module.backend.<domain>.<key>  <->  server.<domain>.<key>
+    if key.startswith("module.backend."):
+        alias = "server." + key[len("module.backend.") :]
+        _translations[lang][alias] = value
+        _translations[lang][alias.upper()] = value
+    elif key.startswith("server."):
+        alias = "module.backend." + key[len("server.") :]
+        _translations[lang][alias] = value
+        _translations[lang][alias.upper()] = value
+
 
 def _load_json_translations(app: Flask, root: Path):
     if not root.exists():

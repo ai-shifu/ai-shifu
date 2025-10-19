@@ -12,6 +12,20 @@
 - [x] Align Cook Web translation usage with the reorganized namespaces.
 - [ ] Resolve missing-or-unused key discrepancies reported by `scripts/check_translation_usage.py`.
 
+## Namespace Migration – Backend to `server.*`
+- [ ] Add server namespace alias (loader) [done]
+- [ ] Migrate `order` service to `server.order.*`
+- [ ] Migrate `user` service to `server.user.*`
+- [ ] Migrate `profile` service to `server.profile.*`
+- [ ] Migrate `shifu` service to `server.shifu.*`
+- [ ] Migrate `course/lesson/learn` to `server.lesson.*`/`server.learn.*`
+- [ ] Migrate `file` to `server.file.*`
+- [ ] Migrate `discount` to `server.discount.*`
+- [ ] Migrate `pay` to `server.pay.*`
+- [ ] Migrate `llm` to `server.llm.*`
+- [ ] Migrate `admin/api/check/scenario` to `server.<domain>.*`
+- [ ] Replace JSON namespaces: `module.backend.<domain>` -> `server.<domain>` (after code done)
+
 ## Phase 0 – Decisions
 - [x] Lock unified key naming convention across API and Cook Web (flat `MODULE.KEY` vs nested)
 - [x] Adopt ICU MessageFormat for placeholders and confirm runtime libraries (front-end `i18next` + `i18next-icu` or `FormatJS`; back-end Babel/MessageFormat)
