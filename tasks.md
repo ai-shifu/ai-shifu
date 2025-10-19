@@ -35,7 +35,7 @@
 - [ ] Add automated tests or integration checks for language detection and loading
 
 ### Docker & Environment Parity
-- [ ] During image builds, `COPY src/i18n ./src/i18n` (and any equivalent path) into each service image so runtime code reads the same files as local dev.
+- [x] During image builds, `COPY src/i18n ./src/i18n` (and any equivalent path) into each service image so runtime code reads the same files as local dev.
 - [x] Keep loaders identical between dev and containers—Flask should resolve JSON from `src/i18n/<lang>/<namespace>.json`, and Cook Web should serve them via the new API bridge in both environments.
 - [ ] Add a lightweight startup check (script or import-time assertion) that fails fast if `src/i18n` is missing so build and dev inconsistencies surface immediately.
 
