@@ -23,6 +23,7 @@
     "backend-file",
     "backend-learn",
     "backend-lesson",
+    "backend-llm",
     "backend-order",
     "backend-profile",
     "backend-user",
