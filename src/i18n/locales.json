@@ -15,6 +15,7 @@
     "auth",
     "backend-admin",
     "backend-banner",
+    "backend-check",
     "backend-discount",
     "backend-order",
     "backend-user",
