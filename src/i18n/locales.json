@@ -8,6 +8,10 @@
     "zh-CN": {
       "label": "中文",
       "rtl": false
+    },
+    "qps-ploc": {
+      "label": "Pseudo",
+      "rtl": false
     }
   },
   "namespaces": [

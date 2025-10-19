@@ -1,0 +1,18 @@
+{
+  "__namespace__": "⟦šēřṽēř.ųšēř⟧",
+  "__flat__": {
+    "userNotFound": "⟦Ųšēř Ňøŧ Ғøųňđ⟧",
+    "userNotLogin": "⟦Ųšēř Ňøŧ Ŀøǥǥēđ Įň⟧",
+    "userTokenExpired": "⟦Ŧøķēň Ēẋƥįřēđ⟧",
+    "emailSendFailed": "⟦Ēmåįŀ šēňđ ƒåįŀēđ⟧",
+    "emailSendTooFrequent": "⟦Ēmåįŀš šēňŧ ŧøø ƒřēɋųēňŧŀŷ⟧",
+    "emailVerificationSubject": "⟦ÅĮ-Šħįƒų: Ŷøųř Ṽēřįƒįćåŧįøň Ćøđē⟧",
+    "ipBanned": "⟦Řēɋųēšŧš ƒřøm ŧħįš ĮƤ åřē ŧēmƥøřåřįŀŷ ƀŀøćķēđ⟧",
+    "languageNotFound": "⟦Ŀåňǥųåǥē Ňøŧ Ғøųňđ⟧",
+    "mailCheckError": "⟦Ēmåįŀ ṽēřįƒįćåŧįøň ćøđē ēřřøř⟧",
+    "mailSendExpired": "⟦Ēmåįŀ ṽēřįƒįćåŧįøň ćøđē ēẋƥįřēđ⟧",
+    "smsCheckError": "⟦ŠΜŠ Ṽēřįƒįćåŧįøň Ćøđē Ēřřøř⟧",
+    "smsSendExpired": "⟦ŠΜŠ Ṽēřįƒįćåŧįøň Ćøđē Ēẋƥįřēđ⟧",
+    "smsSendTooFrequent": "⟦ŠΜŠ šēňŧ ŧøø ƒřēɋųēňŧŀŷ⟧"
+  }
+}

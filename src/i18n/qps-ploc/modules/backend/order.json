@@ -1,0 +1,22 @@
+{
+  "__namespace__": "⟦šēřṽēř.øřđēř⟧",
+  "__flat__": {
+    "courseNotPaid": "⟦Ćøųřšē ňøŧ ƥųřćħåšēđ, ƥŀēåšē ƥųřćħåšē ŧħē ćøųřšē ƒįřšŧ⟧",
+    "orderNotFound": "⟦Øřđēř Ňøŧ Ғøųňđ⟧",
+    "checkout": "⟦Ćħēćķøųŧ⟧",
+    "learnStatusNotStarted": "⟦Řēåđŷ⟧",
+    "learnStatusInProgress": "⟦Ŀřňįňǥ⟧",
+    "learnStatusCompleted": "⟦Đøňē⟧",
+    "learnStatusRefund": "⟦Řēƒųňđ⟧",
+    "learnStatusLocked": "⟦Ŀøćķēđ⟧",
+    "learnStatusUnavailable": "⟦Ųňåṽåįŀåƀŀē⟧",
+    "learnStatusBranch": "⟦Ƀřåňćħ⟧",
+    "learnStatusReset": "⟦Řēšēŧ⟧",
+    "orderHasPaid": "⟦Øřđēř Ħåš Ƥåįđ⟧",
+    "orderStatusInit": "⟦Įňįŧ⟧",
+    "orderStatusSuccess": "⟦Šųććēšš⟧",
+    "orderStatusRefund": "⟦Řēƒųňđ⟧",
+    "orderStatusToBePaid": "⟦Ŧø ƀē ƥåįđ⟧",
+    "orderStatusTimeout": "⟦Ēẋƥįřēđ⟧"
+  }
+}

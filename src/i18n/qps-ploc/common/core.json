@@ -1,0 +1,53 @@
+{
+  "__namespace__": "⟦ćømmøň.ćøřē⟧",
+  "all": "⟦Åŀŀ⟧",
+  "cancel": "⟦Ćåňćēŀ⟧",
+  "companyAddress": "⟦Řøøm 163, 19ŧħ Ғŀøøř, Đøňǥħųåň Ƀųįŀđįňǥ, Ŵåňǥĵįňǥ, Ćħåøŷåňǥ Đįšŧřįćŧ, Ƀēįĵįňǥ⟧",
+  "companyName": "⟦Ƀēįĵįňǥ Ćħåňćħåňšħåňmų Ŧēćħňøŀøǥŷ Ćø., Ŀŧđ.⟧",
+  "confirm": "⟦Ćøňƒįřm⟧",
+  "createBlankShifu": "⟦Ćřēåŧē Ňēŵ Šħįƒų⟧",
+  "createFailed": "⟦Ćřēåŧē ƒåįŀēđ⟧",
+  "createSuccess": "⟦Ćřēåŧē šųććēššƒųŀ⟧",
+  "createSuccessDescription": "⟦Ňēŵ Šħįƒų ħåš ƀēēň ćřēåŧēđ⟧",
+  "default": "⟦Đēƒåųŀŧ⟧",
+  "errorSaveFailed": "⟦Šåṽē ƒåįŀēđ: Įňṽåŀįđ šēřṽēř řēšƥøňšē⟧",
+  "expandCollapse": "⟦Ēẋƥåňđ/Ćøŀŀåƥšē⟧",
+  "favorites": "⟦Ғåṽøřįŧēš⟧",
+  "follow": "⟦Ғøŀŀøŵ⟧",
+  "home": "⟦Ħømē⟧",
+  "imageName": "⟦Įmåǥē Ňåmē⟧",
+  "inputBilibiliUrl": "⟦Ƥŀēåšē ēňŧēř Ƀįŀįƀįŀį ṽįđēø ŲŘĿ⟧",
+  "inputValidBilibiliUrl": "⟦Ƥŀēåšē ēňŧēř å ṽåŀįđ Ƀįŀįƀįŀį ṽįđēø ŲŘĿ⟧",
+  "logout": "⟦Ŀøǥøųŧ⟧",
+  "networkError": "⟦Ňēŧŵøřķ ēřřøř, ƥŀēåšē ŧřŷ åǥåįň ŀåŧēř⟧",
+  "noMoreShifus": "⟦Ňø møřē Šħįƒųš⟧",
+  "noShifus": "⟦Ňø Šħįƒųš åṽåįŀåƀŀē⟧",
+  "ok": "⟦ØĶ⟧",
+  "pleaseSet": "⟦Ƥŀēåšē šēŧ⟧",
+  "retry": "⟦Řēŧřŷ⟧",
+  "run": "⟦Řųň⟧",
+  "selectModel": "⟦Šēŀēćŧ Μøđēŀ⟧",
+  "settings": "⟦Šēŧŧįňǥš⟧",
+  "shifu": "⟦Šħįƒų⟧",
+  "shortcut": {
+    "key": {
+      "cmd": "⟦⌘⟧",
+      "ctrl": "⟦Ćŧřŀ⟧",
+      "shift": "⟦⇧⟧",
+      "space": "⟦Šƥåćē⟧"
+    },
+    "title": {
+      "ask": "⟦Åšķ ƒøŀŀøŵ-ųƥ ɋųēšŧįøňš⟧",
+      "continue": "⟦Ćøňŧįňųē (ŵħēň ňø įňƥųŧ øř šēŀēćŧįøň řēɋųįřēđ)⟧",
+      "shortcut": "⟦Đįšƥŀåŷ Šħøřŧćųŧš⟧"
+    }
+  },
+  "submitFailed": "⟦Šųƀmįŧ ƒåįŀēđ⟧",
+  "submitting": "⟦Šųƀmįŧŧįňǥ...⟧",
+  "unknownError": "⟦Ųňķňøŵň ēřřøř⟧",
+  "useImage": "⟦Ųšē Įmåǥē⟧",
+  "useResource": "⟦Ųšē Řēšøųřćē⟧",
+  "videoTitle": "⟦Ṽįđēø Ŧįŧŀē⟧",
+  "videoTitlePlaceholder": "⟦Ƥŀēåšē ēňŧēř ṽįđēø ŧįŧŀē⟧",
+  "waitingForCompletion": "⟦Ćømįňǥ Šøøň⟧"
+}
