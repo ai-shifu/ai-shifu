@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.admin",
+  "__namespace__": "server.admin",
   "__flat__": {
     "viewNotFound": "没有找到视图"
   }

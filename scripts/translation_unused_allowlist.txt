@@ -22,7 +22,7 @@ module.auth.registerSuccess
 module.auth.resendOtp
 module.auth.verificationSuccessDescription
 module.auth.verify
-module.backend.admin.viewNotFound
+server.admin.viewNotFound
 module.backend.api.alibabaCloudNotConfigured
 server.banner.bannerPopUpCancelText
 server.banner.bannerPopUpConfirmText

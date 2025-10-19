@@ -25,7 +25,7 @@
     "component.profileSelectModal",
     "module.aiDebug",
     "module.auth",
-    "module.backend.admin",
+    "server.admin",
     "module.backend.api",
     "server.banner",
     "module.backend.check",
