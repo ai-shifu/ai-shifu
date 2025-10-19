@@ -18,14 +18,14 @@
 - [x] Create `src/i18n/` with locale subfolders (`src/i18n/en-US`, `src/i18n/zh-CN`, ...)
 - [x] Split translations by business domain JSON (e.g. `order.json`, `common.json`)
 - [x] Move Cook Web `public/locales/*.json` content and language metadata into the new structure
-- [ ] Convert API-side Python translation modules under `src/api/flaskr/i18n/<locale>/` into JSON and retire the old files once references are updated
+- [x] Convert API-side Python translation modules under `src/api/flaskr/i18n/<locale>/` into JSON and retire the old files once references are updated
 
 ### Backend (API)
 - [x] Update `src/api/flaskr/i18n/__init__.py` loader to consume JSON from `src/i18n/<lang>/`
 - [x] Keep `_`, `set_language`, `get_i18n_list` APIs stable while reading the new data format
-- [ ] Replace direct Python constants with the new keys (e.g. `src/api/flaskr/service/order/consts.py`)
+- [x] Replace direct Python constants with the new keys (e.g. `src/api/flaskr/service/order/consts.py`)
 - [x] Add startup validation to catch malformed JSON or duplicate keys and surface actionable errors
-- [ ] Run `python scripts/list_python_i18n_modules.py` to track remaining Python-defined translations and migrate them to shared JSON
+- [x] Run `python scripts/list_python_i18n_modules.py` to track remaining Python-defined translations and migrate them to shared JSON
 - [ ] Add/adjust unit tests covering translation loading and language selection
 
 ### Cook Web
@@ -38,7 +38,7 @@
 ### Docker & Environment Parity
 - [x] During image builds, `COPY src/i18n ./src/i18n` (and any equivalent path) into each service image so runtime code reads the same files as local dev.
 - [x] Keep loaders identical between dev and containers—Flask should resolve JSON from `src/i18n/<lang>/<namespace>.json`, and Cook Web should serve them via the new API bridge in both environments.
-- [ ] Add a lightweight startup check (script or import-time assertion) that fails fast if `src/i18n` is missing so build and dev inconsistencies surface immediately.
+- [x] Add a lightweight startup check (script or import-time assertion) that fails fast if `src/i18n` is missing so build and dev inconsistencies surface immediately.
 
 ### Validation & Tooling (MVP)
 - [ ] Implement a shared CLI (e.g. `scripts/check_translations.py`) that validates JSON schema and ensures key parity across locales/modules
