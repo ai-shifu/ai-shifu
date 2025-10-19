@@ -13,6 +13,7 @@
   "namespaces": [
     "aiDebug",
     "auth",
+    "backend-order",
     "button",
     "c",
     "chapterSetting",
