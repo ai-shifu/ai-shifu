@@ -1,6 +1,7 @@
 'use client';
 
 import i18n from 'i18next';
+import ICU from 'i18next-icu';
 import { initReactI18next } from 'react-i18next';
 
 import UnifiedI18nBackend from '@/lib/unified-i18n-backend';
@@ -51,6 +52,8 @@ export const browserLanguage = normalizeLanguage(detectedBrowserLanguage);
 
 if (typeof window !== 'undefined' && !i18n.isInitialized) {
   i18n
+    // ICU messageformat support to match server-side formatting features
+    .use(new ICU())
     .use(UnifiedI18nBackend)
     .use(initReactI18next)
     .init({

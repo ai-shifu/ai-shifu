@@ -19,7 +19,8 @@
     "update-i18n": "node src/scripts/update-i18n.js",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "i18n:keys": "node ../../scripts/generate_i18n_keys.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -54,6 +55,7 @@
     "dompurify": "^3.2.6",
     "eruda": "^3.4.3",
     "i18next-http-backend": "^3.0.2",
+    "i18next-icu": "^2.3.0",
     "immer": "^10.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
