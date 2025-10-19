@@ -28,6 +28,11 @@
 - [ ] Replace JSON namespaces: `module.backend.<domain>` -> `server.<domain>` (after code done)
   - [x] Switch shifu JSON to `server.shifu` and update locales metadata
   - [x] Switch llm, banner, common, discount, file, pay, admin, api, check, scenario, user, learn JSON to `server.*` and update locales metadata
+  - [x] Switch order and profile JSON to `server.order` and `server.profile`
+
+## Cleanup – Remove Transitional Logic
+- [x] Remove aliasing in Flask loader (module.backend.* <-> server.*; lesson/course aliases)
+- [ ] Remove legacy alias in ERROR_CODE loader (optional once stable)
 
 ## Phase 0 – Decisions
 - [x] Lock unified key naming convention across API and Cook Web (flat `MODULE.KEY` vs nested)
