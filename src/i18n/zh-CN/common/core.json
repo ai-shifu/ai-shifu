@@ -24,7 +24,7 @@
   "noShifus": "暂无师傅",
   "ok": "确定",
   "pleaseSet": "请设置",
-  "pleaseTryAgainLater": "请稍后重试",
+
   "retry": "重试",
   "run": "运行",
   "selectModel": "选择模型",
@@ -32,8 +32,8 @@
   "shifu": "师傅",
   "shortcut": {
     "key": {
-      "/": "/",
-      "a": "A",
+
+
       "cmd": "⌘",
       "ctrl": "Ctrl",
       "shift": "⇧",

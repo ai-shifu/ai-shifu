@@ -3,8 +3,8 @@
   "errors": {
     "authRequired": "Please log in and try again",
     "authRequiredTitle": "Authentication Required",
-    "errorCode": "Error Code",
-    "errorMessage": "Error Message",
+
+
     "forbidden": "Access forbidden",
     "forbiddenTitle": "Forbidden",
     "generalError": "An error occurred, please try again later",

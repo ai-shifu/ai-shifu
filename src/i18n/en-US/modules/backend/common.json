@@ -3,7 +3,7 @@
   "__flat__": {
     "unknownError": "Unknown Error",
     "paramsError": "Params Error {param_message}",
-    "textNotAllowed": "Please check the input content",
+
     "nicknameNotAllowed": "Oops, illegal nickname.",
     "backgroundNotAllowed": "Oops, illegal background.",
     "startTimeNotAllowed": "Start time cannot be later than end time",

@@ -2,7 +2,6 @@
   "__namespace__": "server.scenario",
   "__flat__": {
     "blockNotFound": "场景模块不存在",
-    "notFound": "场景不存在",
-    "noPermission": "没有访问该场景的权限"
+    "notFound": "场景不存在"
   }
 }

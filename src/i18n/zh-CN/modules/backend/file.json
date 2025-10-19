@@ -6,6 +6,12 @@
     "videoBilibiliApiError": "B站API返回错误",
     "videoBilibiliApiRequestFailed": "请求B站API失败",
     "videoUnsupportedVideoSite": "暂不支持该视频网站",
-    "videoGetInfoError": "获取视频信息时发生错误"
+    "videoGetInfoError": "获取视频信息时发生错误",
+    "fileDownloadFailed": "文件下载失败",
+    "fileUploadFailed": "文件上传失败",
+    "videoInvalidUrlFormat": "视频链接格式不正确",
+    "videoNetworkError": "视频网络错误",
+    "videoParseError": "视频解析错误",
+    "videoUrlRequired": "视频链接必填"
   }
 }

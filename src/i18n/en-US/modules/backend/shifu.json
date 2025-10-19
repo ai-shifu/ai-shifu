@@ -12,7 +12,7 @@
     "unitNameTooLong": "Unit name is too long",
     "unitNotFound": "Unit not found",
     "shifuNameRequired": "Shifu name is required",
-    "shifuDescriptionRequired": "Shifu description is required",
+
     "shifuNameAlreadyExists": "Shifu name already exists",
     "outlineNotFound": "Outline not found",
 
@@ -24,7 +24,7 @@
 
     "shifuNameTooLong": "Shifu name is too long (max 20 characters)",
     "shifuDescriptionTooLong": "Shifu description is too long (max 500 characters)",
-    "shifuDescriptionTooShort": "Shifu description is too short (min 10 characters)",
+
 
     "textInputPromptRequired": "text input prompt is required",
     "textInputPromptJsonRequired": "User input content will be parsed as JSON format. Please ensure the prompt contains the keyword 'JSON'.",

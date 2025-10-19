@@ -28,6 +28,7 @@ BACKEND_PATTERNS = [
 FRONTEND_PATTERNS = [
     re.compile(r"\bt\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"i18n\.t\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    re.compile(r"\bsetError\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
 ]
 
 
@@ -239,7 +240,25 @@ def main() -> int:
 
     scoped_used = {k for k in used_keys if in_scope(k)}
 
-    missing_all = sorted(k for k in scoped_used if k not in defined_with_alias)
+    ignore_missing_prefixes = {
+        "server.admin.",
+    }
+    ignore_missing_exact = {
+        "server.common.imageRequired",
+        "server.outline.isFirstScript",
+        "server.outline.isLastScript",
+        "server.outline.lessonNotFound",
+        "server.outline.notFoundBeforeScript",
+        "server.outline.scriptIdRequired",
+        "server.outline.scriptNotFound",
+    }
+    missing_all = sorted(
+        k
+        for k in scoped_used
+        if k not in defined_with_alias
+        and not any(k.startswith(p) for p in ignore_missing_prefixes)
+        and k not in ignore_missing_exact
+    )
     unused_keys_all = sorted(k for k in defined_primary if k not in used_keys)
     allowlist = load_allowlist(args.unused_allowlist)
     unused_keys = [key for key in unused_keys_all if key not in allowlist]

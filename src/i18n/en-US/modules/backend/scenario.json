@@ -2,7 +2,6 @@
   "__namespace__": "server.scenario",
   "__flat__": {
     "blockNotFound": "Scenario block not found",
-    "notFound": "Scenario not found",
-    "noPermission": "No permission to access this scenario"
+    "notFound": "Scenario not found"
   }
 }

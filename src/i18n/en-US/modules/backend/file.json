@@ -6,6 +6,12 @@
     "videoBilibiliApiError": "Bilibili API Error",
     "videoBilibiliApiRequestFailed": "Request Bilibili API Failed",
     "videoUnsupportedVideoSite": "Unsupported Video Site",
-    "videoGetInfoError": "Error Getting Video Info"
+    "videoGetInfoError": "Error Getting Video Info",
+    "fileDownloadFailed": "File download failed",
+    "fileUploadFailed": "File upload failed",
+    "videoInvalidUrlFormat": "Invalid video URL format",
+    "videoNetworkError": "Video network error",
+    "videoParseError": "Video parse error",
+    "videoUrlRequired": "Video URL is required"
   }
 }

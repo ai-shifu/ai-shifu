@@ -1,6 +1,8 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
-    "nextChapter": "进入下一章"
+    "nextChapter": "进入下一章",
+    "generatedBlockNotFound": "生成的块未找到",
+    "invalidAction": "无效的操作"
   }
 }

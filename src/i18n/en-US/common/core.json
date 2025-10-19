@@ -24,7 +24,6 @@
   "noShifus": "No Shifus available",
   "ok": "OK",
   "pleaseSet": "Please set",
-  "pleaseTryAgainLater": "Please try again later",
   "retry": "Retry",
   "run": "Run",
   "selectModel": "Select Model",
@@ -32,8 +31,8 @@
   "shifu": "Shifu",
   "shortcut": {
     "key": {
-      "/": "/",
-      "a": "A",
+
+
       "cmd": "⌘",
       "ctrl": "Ctrl",
       "shift": "⇧",

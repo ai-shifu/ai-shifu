@@ -10,6 +10,23 @@
     "style": "Style",
     "sexMale": "Male",
     "sexFemale": "Female",
-    "sexSecret": "Secret"
+    "sexSecret": "Secret",
+    "parentIdRequired": "Parent ID is required",
+    "profileKeyRequired": "Profile key is required",
+    "profileTypeRequired": "Profile type is required",
+    "profileTypeInvalid": "Invalid profile type",
+    "profileIdRequired": "Profile ID is required",
+    "prarentRequired": "Parent is required",
+    "keyRequire": "Key is required",
+    "systemProfileNotAllowUpdate": "System profile cannot be updated",
+    "systemProfileKeyExist": "System profile key already exists",
+    "notFound": "Profile not found",
+    "keyRequired": "Key is required",
+    "keyExist": "Key already exists",
+    "promptRequired": "Prompt is required",
+    "itemsRequired": "Items are required",
+    "confTypeInvalid": "Invalid config type",
+    "systemProfileNotAllowDelete": "System profile cannot be deleted",
+    "optionValueRequired": "Option value is required"
   }
 }

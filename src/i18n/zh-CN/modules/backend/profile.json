@@ -10,6 +10,23 @@
     "style": "风格",
     "sexMale": "男",
     "sexFemale": "女",
-    "sexSecret": "保密"
+    "sexSecret": "保密",
+    "parentIdRequired": "父级ID必填",
+    "profileKeyRequired": "变量键必填",
+    "profileTypeRequired": "变量类型必选",
+    "profileTypeInvalid": "变量类型不正确",
+    "profileIdRequired": "变量ID必填",
+    "prarentRequired": "父级必填",
+    "keyRequire": "键必填",
+    "systemProfileNotAllowUpdate": "系统变量不允许更新",
+    "systemProfileKeyExist": "系统变量键已存在",
+    "notFound": "变量不存在",
+    "keyRequired": "键必填",
+    "keyExist": "键已存在",
+    "promptRequired": "提示词必填",
+    "itemsRequired": "选项必填",
+    "confTypeInvalid": "配置类型不正确",
+    "systemProfileNotAllowDelete": "系统变量不允许删除",
+    "optionValueRequired": "选项值必填"
   }
 }

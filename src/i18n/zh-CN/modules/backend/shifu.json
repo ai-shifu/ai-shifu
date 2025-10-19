@@ -12,7 +12,7 @@
     "unitNameTooLong": "单元名称过长",
     "unitNotFound": "单元不存在",
     "shifuNameRequired": "请输入师傅名称",
-    "shifuDescriptionRequired": "请输入师傅描述",
+
     "shifuNameAlreadyExists": "同名师傅已存在",
     "outlineNotFound": "大纲不存在",
 
@@ -24,7 +24,7 @@
 
     "shifuNameTooLong": "师傅名称不能超过20个字符",
     "shifuDescriptionTooLong": "师傅描述不能超过500个字符",
-    "shifuDescriptionTooShort": "师傅描述不能少于10个字符",
+
 
     "textInputPromptRequired": "输入提示不能为空",
     "textInputPromptJsonRequired": "用户输入的内容将被解析为 JSON 格式。请确保提示词中包含「JSON」关键字。",

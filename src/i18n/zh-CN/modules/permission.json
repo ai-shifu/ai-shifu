@@ -3,8 +3,8 @@
   "errors": {
     "authRequired": "请登录后再试",
     "authRequiredTitle": "需要登录",
-    "errorCode": "错误代码",
-    "errorMessage": "错误信息",
+
+
     "forbidden": "访问被拒绝",
     "forbiddenTitle": "禁止访问",
     "generalError": "发生错误，请稍后重试",
