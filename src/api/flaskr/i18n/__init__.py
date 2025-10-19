@@ -4,7 +4,7 @@ import json
 import os
 from pathlib import Path
 import threading
-from typing import Dict, Iterable
+from typing import Dict, Iterable, List
 
 from flask import Flask
 
@@ -88,6 +88,75 @@ def _load_json_translations(app: Flask, root: Path):
                 _store_translation(lang, key, value)
 
 
+def _validate_json_translations(app: Flask, root: Path):
+    if not root.exists():
+        raise FileNotFoundError(
+            f"Missing shared i18n directory at '{root}'. Run the migration checklist to generate JSON translations."
+        )
+
+    problems: List[str] = []
+
+    metadata_path = root / "locales.json"
+    metadata_declared_locales: set[str] = set()
+    if metadata_path.exists():
+        try:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            metadata_declared_locales = set(metadata.get("locales", {}).keys())
+            default_locale = metadata.get("default")
+            if default_locale and default_locale not in metadata_declared_locales:
+                problems.append(
+                    f"Default locale '{default_locale}' listed in {metadata_path} is missing from locales map."
+                )
+        except Exception as exc:
+            problems.append(f"Invalid locales metadata JSON: {metadata_path} ({exc})")
+    else:
+        problems.append(f"Missing locales metadata file: {metadata_path}")
+
+    locale_dirs = [
+        entry
+        for entry in root.iterdir()
+        if entry.is_dir() and not entry.name.startswith(".")
+    ]
+
+    if not locale_dirs:
+        problems.append(f"No locale directories found under '{root}'.")
+
+    locale_dir_names = {locale_dir.name for locale_dir in locale_dirs}
+
+    if metadata_declared_locales:
+        missing_locale_dirs = metadata_declared_locales - locale_dir_names
+        if missing_locale_dirs:
+            problems.append(
+                "Locales declared in metadata but missing directories: "
+                + ", ".join(sorted(missing_locale_dirs))
+            )
+
+        missing_metadata_entries = locale_dir_names - metadata_declared_locales
+        if missing_metadata_entries:
+            problems.append(
+                "Locale directories missing from metadata locales map: "
+                + ", ".join(sorted(missing_metadata_entries))
+            )
+
+    for locale_dir in locale_dirs:
+        json_files = list(locale_dir.glob("*.json"))
+        if not json_files:
+            problems.append(
+                f"Locale '{locale_dir.name}' does not contain any JSON translation files."
+            )
+            continue
+
+        for file_path in json_files:
+            try:
+                json.loads(file_path.read_text(encoding="utf-8"))
+            except Exception as exc:
+                problems.append(f"Malformed JSON in {file_path}: {exc}")
+
+    if problems:
+        details = "\n - ".join(["Detected translation issues:"] + problems)
+        raise RuntimeError(details)
+
+
 def _load_python_translations(app: Flask, translations_dir: Path):
     if not translations_dir.exists():
         return
@@ -126,7 +195,14 @@ def load_translations(app: Flask, translations_dir=None):
 
     _translations.clear()
 
-    _load_json_translations(app, _shared_json_root())
+    shared_root = _shared_json_root()
+    try:
+        _validate_json_translations(app, shared_root)
+    except Exception as exc:
+        app.logger.error("i18n validation failed: %s", exc)
+        raise
+
+    _load_json_translations(app, shared_root)
     _load_python_translations(app, Path(__file__).resolve().parent)
 
 
