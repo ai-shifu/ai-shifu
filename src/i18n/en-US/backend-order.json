@@ -20,6 +20,11 @@
     "ORDER.LEARN_STATUS_UNAVAILABLE": "Unavailable",
     "ORDER.LEARN_STATUS_BRANCH": "Branch",
     "ORDER.LEARN_STATUS_RESET": "Reset",
-    "ORDER.CHECKOUT": "Checkout"
+    "ORDER.CHECKOUT": "Checkout",
+    "ORDER.ORDER_STATUS_INIT": "Init",
+    "ORDER.ORDER_STATUS_SUCCESS": "Success",
+    "ORDER.ORDER_STATUS_REFUND": "Refund",
+    "ORDER.ORDER_STATUS_TO_BE_PAID": "To be paid",
+    "ORDER.ORDER_STATUS_TIMEOUT": "Expired"
   }
 }
