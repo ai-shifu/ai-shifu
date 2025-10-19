@@ -1,0 +1,23 @@
+{
+  "__flat__": {
+    "PROFILE.NICKNAME": "昵称",
+    "PROFILE.USER_BACKGROUND": "背景",
+    "PROFILE.SEX": "性别",
+    "PROFILE.BIRTH": "生日",
+    "PROFILE.AVATAR": "头像",
+    "PROFILE.INDUSTRY": "行业",
+    "PROFILE.OCCUPATION": "职业",
+    "PROFILE.LANGUAGE": "语言",
+    "PROFILE.AI_TOOLS": "常用AI工具",
+    "PROFILE.USER_OS": "用户操作系统",
+    "PROFILE.STYLE": "风格",
+    "PROFILE.PROGRAMMING": "编程",
+    "PROFILE.SEX_MALE": "男",
+    "PROFILE.SEX_FEMALE": "女",
+    "PROFILE.SEX_SECRET": "保密",
+    "PROFILE.PROFILE_SCOPE_USER": "自定义变量",
+    "PROFILE.PROFILE_SCOPE_SYSTEM": "系统变量",
+    "PROFILE.PROFILE_TYPE_TEXT": "文本",
+    "PROFILE.PROFILE_TYPE_OPTION": "选项"
+  }
+}
