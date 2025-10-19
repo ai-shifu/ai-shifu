@@ -1,6 +1,7 @@
 import styles from './ChatInputSmsCode.module.scss';
 
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // import { Input } from '@ai-shifu/chatui';
 import { Input } from '../ForkChatUI/components/Input';
@@ -11,6 +12,7 @@ import { toast } from '@/hooks/useToast';
 
 export const ChatInputSmsCode = ({ onClick }) => {
   const [input, setInput] = useState('');
+  const { t } = useTranslation();
 
   const onSendClick = async () => {
     const inputData = input.trim();
@@ -53,7 +55,7 @@ export const ChatInputSmsCode = ({ onClick }) => {
           height={32}
           style={{ marginLeft: '15px' }}
         >
-          提交
+          {t('common.core.submit')}
         </SubButton>
       </div>
     </div>

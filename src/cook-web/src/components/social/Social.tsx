@@ -22,7 +22,7 @@ const SocialLinks = () => {
             width='20'
             height='20'
           />
-          <span>Github</span>
+          <span>{t('module.social.github')}</span>
         </a>
       </div>
       <div className='border-t border-gray-200 my-3'></div>
@@ -41,7 +41,7 @@ const SocialLinks = () => {
             width='20'
             height='20'
           />
-          <span>Weibo</span>
+          <span>{t('module.social.weibo')}</span>
         </a>
 
         <a
@@ -54,7 +54,7 @@ const SocialLinks = () => {
             width='20'
             height='20'
           />
-          <span>X</span>
+          <span>{t('module.social.x')}</span>
         </a>
       </div>
 
