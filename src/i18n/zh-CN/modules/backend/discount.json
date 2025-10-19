@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.discount",
+  "__namespace__": "server.discount",
   "__flat__": {
     "discountNotFound": "兑换码不存在",
     "discountAlreadyUsed": "兑换码已使用",

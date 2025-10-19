@@ -31,7 +31,7 @@
     "module.backend.check",
     "server.common",
     "module.backend.course",
-    "module.backend.discount",
+    "server.discount",
     "module.backend.file",
     "module.backend.learn",
     "module.backend.lesson",

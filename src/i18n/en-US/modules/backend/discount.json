@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.discount",
+  "__namespace__": "server.discount",
   "__flat__": {
     "discountNotFound": "The voucher code does not exist.",
     "discountAlreadyUsed": "The voucher code has been used.",
