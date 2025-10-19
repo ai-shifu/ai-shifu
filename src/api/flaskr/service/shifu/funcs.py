@@ -118,7 +118,7 @@ def get_content_type(filename):
         return "image/png"
     elif extension == "gif":
         return "image/gif"
-    raise_error("module.backend.file.fileTypeNotSupport")
+    raise_error("server.file.fileTypeNotSupport")
 
 
 def _warm_up_cdn(app, url: str, ALI_API_ID: str, ALI_API_SECRET: str, endpoint: str):
@@ -233,7 +233,7 @@ def _upload_to_oss(app, file_content, file_id: str, content_type: str) -> str:
             "ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID or ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET not configured"
         )
         raise_error_with_args(
-            "module.backend.api.alibabaCloudNotConfigured",
+            "server.api.alibabaCloudNotConfigured",
             config_var="ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_COURSES_ACCESS_KEY_SECRET",
         )
 
@@ -317,11 +317,11 @@ def upload_url(app, user_id: str, url: str) -> str:
         try:
             # Validate URL format
             if not url or not url.strip():
-                raise_error("module.backend.file.videoUrlRequired")
+                raise_error("server.file.videoUrlRequired")
 
             # Ensure URL is properly formatted
             if not url.startswith(("http://", "https://")):
-                raise_error("module.backend.file.videoInvalidUrlFormat")
+                raise_error("server.file.videoInvalidUrlFormat")
 
             parsed_url = urlparse(url)
             clean_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
@@ -341,7 +341,7 @@ def upload_url(app, user_id: str, url: str) -> str:
             content_type = response.headers.get("Content-Type", "")
             if not content_type.startswith("image/"):
                 app.logger.error(f"Invalid content type: {content_type}")
-                raise_error("module.backend.file.fileTypeNotSupport")
+                raise_error("server.file.fileTypeNotSupport")
 
             file_content = BytesIO(response.content)
 
@@ -379,10 +379,10 @@ def upload_url(app, user_id: str, url: str) -> str:
             app.logger.error(
                 f"Failed to download image from URL: {url}, error: {str(e)}"
             )
-            raise_error("module.backend.file.fileDownloadFailed")
+            raise_error("server.file.fileDownloadFailed")
         except Exception as e:
             app.logger.error(f"Failed to upload image to OSS: {url}, error: {str(e)}")
-            raise_error("module.backend.file.fileUploadFailed")
+            raise_error("server.file.fileUploadFailed")
 
 
 def shifu_permission_verification(
@@ -471,7 +471,7 @@ def get_video_info(app, user_id: str, url: str) -> dict:
                 bv_pattern = r"/video/(BV\w+)"
                 match = re.search(bv_pattern, url)
                 if not match:
-                    raise_error("module.backend.file.videoInvalidBilibiliLink")
+                    raise_error("server.file.videoInvalidBilibiliLink")
 
                 bv_id = match.group(1)
                 api_url = f"https://api.bilibili.com/x/web-interface/view?bvid={bv_id}"
@@ -499,18 +499,18 @@ def get_video_info(app, user_id: str, url: str) -> dict:
                             "duration": video_data["duration"],
                         }
                     else:
-                        raise_error("module.backend.file.videoBilibiliApiError")
+                        raise_error("server.file.videoBilibiliApiError")
                 else:
-                    raise_error("module.backend.file.videoBilibiliApiRequestFailed")
+                    raise_error("server.file.videoBilibiliApiRequestFailed")
             else:
-                raise_error("module.backend.file.videoUnsupportedVideoSite")
+                raise_error("server.file.videoUnsupportedVideoSite")
 
         except requests.RequestException as e:
             app.logger.error(f"Failed to fetch video info from {url}: {str(e)}")
-            raise_error("module.backend.file.videoNetworkError")
+            raise_error("server.file.videoNetworkError")
         except KeyError as e:
             app.logger.error(f"Missing expected field in API response: {str(e)}")
-            raise_error("module.backend.file.videoParseError")
+            raise_error("server.file.videoParseError")
         except Exception as e:
             app.logger.error(f"Unexpected error getting video info: {str(e)}")
-            raise_error("module.backend.file.videoGetInfoError")
+            raise_error("server.file.videoGetInfoError")

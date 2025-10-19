@@ -716,7 +716,7 @@ class RunScriptContextV2:
             LearnGeneratedBlock.deleted == 0,
         ).first()
         if not generate_block:
-            raise_error("module.backend.lesson.lessonNotFoundInCourse")
+            raise_error("server.lesson.lessonNotFoundInCourse")
         outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
             self.app, generate_block.outline_item_bid, self._preview_mode
         )

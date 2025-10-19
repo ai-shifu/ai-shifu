@@ -610,7 +610,7 @@ def get_course_info(
                 .first()
             )
         if shifu_info is None:
-            raise_error("module.backend.lesson.courseNotFound")
+            raise_error("server.shifu.courseNotFound")
         return AICourseDTO(
             shifu_info.shifu_bid,
             shifu_info.title,

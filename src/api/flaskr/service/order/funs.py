@@ -218,7 +218,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         course_info: AICourseDTO = get_course_info(app, course_id)
         app.logger.info(f"course_info: {course_info}")
         if not course_info:
-            raise_error("module.backend.lesson.courseNotFound")
+            raise_error("server.shifu.courseNotFound")
         origin_record = (
             Order.query.filter(
                 Order.user_bid == user_id,
@@ -343,7 +343,7 @@ def generate_charge(
             raise_error("module.backend.order.orderNotFound")
         course: AICourseDTO = get_course_info(app, buy_record.shifu_bid)
         if not course:
-            raise_error("module.backend.course.courseNotFound")
+            raise_error("server.shifu.courseNotFound")
         app.logger.info("buy record found:{}".format(buy_record))
         if buy_record.status == ORDER_STATUS_SUCCESS:
             app.logger.warning("buy record:{} status is not init".format(record_id))
@@ -429,7 +429,7 @@ def generate_charge(
             )
         else:
             app.logger.error("channel:{} not support".format(channel))
-            raise_error("module.backend.pay.payChannelNotSupport")
+            raise_error("server.pay.payChannelNotSupport")
         app.logger.info("charge created:{}".format(charge))
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         pingxxOrder = PingxxOrder()

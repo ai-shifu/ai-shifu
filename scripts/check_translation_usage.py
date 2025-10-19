@@ -93,11 +93,40 @@ def collect_backend_keys() -> Set[str]:
                 # Only consider our backend namespaces
                 if match.startswith("server.") or match.startswith("module.backend."):
                     used.add(match)
-                    # Add alias to smooth migration (server.* <-> module.backend.*)
+                    # Add alias (with domain remap where needed)
                     if match.startswith("server."):
-                        used.add("module.backend." + match[len("server.") :])
+                        if match.startswith("server.shifu."):
+                            tail = match[len("server.shifu.") :]
+                            if tail in {
+                                "courseNotFound",
+                                "lessonCannotBeReset",
+                                "lessonNotFound",
+                                "lessonNotFoundInCourse",
+                            }:
+                                used.add("module.backend.course." + tail)
+                        elif match.startswith("server.outline."):
+                            used.add(
+                                "module.backend.lesson."
+                                + match[len("server.outline.") :]
+                            )
+                        elif match.startswith("server.outlineItem."):
+                            used.add(
+                                "module.backend.lesson."
+                                + match[len("server.outlineItem.") :]
+                            )
+                        else:
+                            used.add("module.backend." + match[len("server.") :])
                     else:
-                        used.add("server." + match[len("module.backend.") :])
+                        if match.startswith("module.backend.course."):
+                            used.add(
+                                "server.shifu." + match[len("module.backend.course.") :]
+                            )
+                        elif match.startswith("module.backend.lesson."):
+                            t = match[len("module.backend.lesson.") :]
+                            used.add("server.outline." + t)
+                            used.add("server.outlineItem." + t)
+                        else:
+                            used.add("server." + match[len("module.backend.") :])
     return used
 
 
@@ -167,6 +196,19 @@ def main() -> int:
             aliases.add("server." + key[len("module.backend.") :])
         elif key.startswith("server."):
             aliases.add("module.backend." + key[len("server.") :])
+        # Domain rename aliases: course <-> shifu, lesson <-> outline/outlineItem
+        if key.startswith("module.backend.course."):
+            aliases.add("server.shifu." + key[len("module.backend.course.") :])
+        if key.startswith("server.shifu."):
+            aliases.add("module.backend.course." + key[len("server.shifu.") :])
+        if key.startswith("module.backend.lesson."):
+            tail = key[len("module.backend.lesson.") :]
+            aliases.add("server.outline." + tail)
+            aliases.add("server.outlineItem." + tail)
+        if key.startswith("server.outline."):
+            aliases.add("module.backend.lesson." + key[len("server.outline.") :])
+        if key.startswith("server.outlineItem."):
+            aliases.add("module.backend.lesson." + key[len("server.outlineItem.") :])
     defined_with_alias = set(defined_primary) | aliases
     backend_used = collect_backend_keys()
     frontend_used = collect_frontend_keys()
@@ -185,6 +227,27 @@ def main() -> int:
             missing_allow_expanded.add("server." + key[len("module.backend.") :])
         elif key.startswith("server."):
             missing_allow_expanded.add("module.backend." + key[len("server.") :])
+        # Domain aliasing for missing baseline
+        if key.startswith("module.backend.course."):
+            missing_allow_expanded.add(
+                "server.shifu." + key[len("module.backend.course.") :]
+            )
+        if key.startswith("server.shifu."):
+            missing_allow_expanded.add(
+                "module.backend.course." + key[len("server.shifu.") :]
+            )
+        if key.startswith("module.backend.lesson."):
+            t = key[len("module.backend.lesson.") :]
+            missing_allow_expanded.add("server.outline." + t)
+            missing_allow_expanded.add("server.outlineItem." + t)
+        if key.startswith("server.outline."):
+            missing_allow_expanded.add(
+                "module.backend.lesson." + key[len("server.outline.") :]
+            )
+        if key.startswith("server.outlineItem."):
+            missing_allow_expanded.add(
+                "module.backend.lesson." + key[len("server.outlineItem.") :]
+            )
     missing_keys = [key for key in missing_all if key not in missing_allow_expanded]
     allowed_missing = [key for key in missing_all if key in missing_allow_expanded]
 

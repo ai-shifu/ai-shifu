@@ -390,7 +390,7 @@ def get_learn_record(
         if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
             interaction = (
                 "?["
-                + _("module.backend.learn.nextChapter")
+                + _("server.learn.nextChapter")
                 + "//"
                 + CONTEXT_INTERACTION_NEXT
                 + "]"
@@ -440,9 +440,9 @@ def handle_reaction(
             LearnGeneratedBlock.status == 1,
         ).first()
         if not generated_block:
-            raise_error("module.backend.learn.generatedBlockNotFound")
+            raise_error("server.learn.generatedBlockNotFound")
         if action not in ["like", "dislike", "none"]:
-            raise_error("module.backend.learn.invalidAction")
+            raise_error("server.learn.invalidAction")
         if action == "like":
             generated_block.liked = 1
         if action == "dislike":

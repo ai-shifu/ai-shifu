@@ -129,14 +129,14 @@ def get_content_type(filename):
         return "image/png"
     elif extension == "gif":
         return "image/gif"
-    raise_error("module.backend.file.fileTypeNotSupport")
+    raise_error("server.file.fileTypeNotSupport")
 
 
 def upload_user_avatar(app: Flask, user_id: str, avatar) -> str:
     with app.app_context():
         if not ALI_API_ID or not ALI_API_SECRET:
             raise_error_with_args(
-                "module.backend.api.alibabaCloudNotConfigured",
+                "server.api.alibabaCloudNotConfigured",
                 config_var="ALIBABA_CLOUD_OSS_ACCESS_KEY_ID,ALIBABA_CLOUD_OSS_ACCESS_KEY_SECRET",
             )
         user = User.query.filter(User.user_id == user_id).first()

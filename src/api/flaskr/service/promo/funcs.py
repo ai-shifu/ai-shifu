@@ -87,7 +87,7 @@ def generate_coupon_code(
         coupon.created_user_bid = user_id
         if coupon_bid is None or coupon_bid == "":
             if total_count <= 0:
-                raise_error("module.backend.discount.discountCountNotZero")
+                raise_error("server.discount.discountCountNotZero")
             db.session.add(coupon)
         else:
             db.session.merge(coupon)

@@ -492,7 +492,7 @@ def save_profile_item_defination(
         return
     scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
     if scenario is None:
-        raise_error("module.backend.scenario.notFound")
+        raise_error("server.scenario.notFound")
     if isinstance(profile, TextProfileDto):
         app.logger.info("save text profile item defination:{}".format(profile))
         profile_item = ProfileItem.query.filter(

@@ -238,7 +238,7 @@ def get_openai_client_and_model(model: str):
             client = openai_client
             if not client:
                 raise_error_with_args(
-                    "module.backend.llm.specifiedLlmNotConfigured",
+                    "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="OPENAI_API_KEY,OPENAI_BASE_URL",
                 )
@@ -247,7 +247,7 @@ def get_openai_client_and_model(model: str):
             model = model.replace(QWEN_PREFIX, "")
             if not client:
                 raise_error_with_args(
-                    "module.backend.llm.specifiedLlmNotConfigured",
+                    "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="QWEN_API_KEY,QWEN_API_URL",
                 )
@@ -255,7 +255,7 @@ def get_openai_client_and_model(model: str):
             client = deepseek_client
             if not client:
                 raise_error_with_args(
-                    "module.backend.llm.specifiedLlmNotConfigured",
+                    "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="DEEPSEEK_API_KEY,DEEPSEEK_API_URL",
                 )
@@ -264,7 +264,7 @@ def get_openai_client_and_model(model: str):
             model = model.replace(SILICON_PREFIX, "")
             if not client:
                 raise_error_with_args(
-                    "module.backend.llm.specifiedLlmNotConfigured",
+                    "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="SILICON_API_KEY,SILICON_API_URL",
                 )
@@ -273,7 +273,7 @@ def get_openai_client_and_model(model: str):
             model = model.replace(ERNIE_V2_PREFIX, "")
             if not client:
                 raise_error_with_args(
-                    "module.backend.llm.specifiedLlmNotConfigured",
+                    "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="ERNIE_API_KEY",
                 )
@@ -282,7 +282,7 @@ def get_openai_client_and_model(model: str):
             model = ARK_MODELS_MAP[model]
             if not client:
                 raise_error_with_args(
-                    "module.backend.llm.specifiedLlmNotConfigured",
+                    "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
                 )
@@ -352,7 +352,7 @@ def invoke_llm(
     elif model in ERNIE_MODELS:
         if not ernie_enabled:
             raise_error_with_args(
-                "module.backend.llm.specifiedLlmNotConfigured",
+                "server.llm.specifiedLlmNotConfigured",
                 model=model,
                 config_var="ERNIE_API_ID,ERNIE_API_SECRET",
             )
@@ -385,7 +385,7 @@ def invoke_llm(
     elif model.lower() in GLM_MODELS:
         if not glm_enabled:
             raise_error_with_args(
-                "module.backend.llm.specifiedLlmNotConfigured",
+                "server.llm.specifiedLlmNotConfigured",
                 model=model,
                 config_var="GLM_API_KEY",
             )
@@ -432,7 +432,7 @@ def invoke_llm(
                 )
     else:
         raise_error_with_args(
-            "module.backend.llm.modelNotSupported",
+            "server.llm.modelNotSupported",
             model=model,
         )
 
@@ -498,7 +498,7 @@ def chat_llm(
     elif model in ERNIE_MODELS:
         if not ernie_enabled:
             raise_error_with_args(
-                "module.backend.llm.specifiedLlmNotConfigured",
+                "server.llm.specifiedLlmNotConfigured",
                 model=model,
                 config_var="ERNIE_API_ID,ERNIE_API_SECRET",
             )
@@ -527,7 +527,7 @@ def chat_llm(
     elif model.lower() in GLM_MODELS:
         if not glm_enabled:
             raise_error_with_args(
-                "module.backend.llm.specifiedLlmNotConfigured",
+                "server.llm.specifiedLlmNotConfigured",
                 model=model,
                 config_var="GLM_API_KEY",
             )
@@ -572,7 +572,7 @@ def chat_llm(
                 )
     else:
         raise_error_with_args(
-            "module.backend.llm.modelNotSupported",
+            "server.llm.modelNotSupported",
             model=model,
         )
 

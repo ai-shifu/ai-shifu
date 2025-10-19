@@ -38,6 +38,10 @@
   "server.course.lessonCannotBeReset": 4002,
   "server.course.lessonNotFound": 4003,
   "server.course.lessonNotFoundInCourse": 4004,
+  "server.shifu.courseNotFound": 4001,
+  "server.shifu.lessonCannotBeReset": 4002,
+  "server.shifu.lessonNotFound": 4003,
+  "server.shifu.lessonNotFoundInCourse": 4004,
 
   "server.pay.payChannelNotSupport": 5001,
 
