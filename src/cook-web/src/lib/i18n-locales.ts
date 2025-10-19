@@ -1,12 +1,14 @@
-import localesMetadata from '../../../i18n/locales.json';
-
 type LocalesMetadata = {
   default: string;
   locales: Record<string, { label: string; rtl?: boolean }>;
   namespaces?: string[];
 };
 
-const metadata = localesMetadata as LocalesMetadata;
+const rawMetadata = process.env.NEXT_PUBLIC_I18N_META;
+
+const metadata: LocalesMetadata = rawMetadata
+  ? (JSON.parse(rawMetadata) as LocalesMetadata)
+  : { default: 'en-US', locales: {} };
 
 export const localeEntries = Object.entries(metadata.locales) as [
   string,

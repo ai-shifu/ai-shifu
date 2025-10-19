@@ -1,9 +1,18 @@
 // next.config.mjs / next.config.ts
 import createMDX from '@next/mdx';
+import fs from 'fs';
 import type { NextConfig } from 'next';
+import path from 'path';
+
+const sharedI18nPath = path.resolve(__dirname, '../i18n');
+const localesJsonPath = path.join(sharedI18nPath, 'locales.json');
+const sharedLocalesMetadata = fs.existsSync(localesJsonPath)
+  ? JSON.parse(fs.readFileSync(localesJsonPath, 'utf-8'))
+  : { default: 'en-US', locales: {} };
 
 const withMDX = createMDX({
-  extension: /\.mdx?$/, // 同时支持 .md / .mdx，按需改
+  // Support both .md and .mdx
+  extension: /\.mdx?$/,
   options: {
     // remarkPlugins: [],
     // rehypePlugins: [],
@@ -11,7 +20,7 @@ const withMDX = createMDX({
 });
 
 const nextConfig: NextConfig = {
-  // 启用 standalone 输出模式,大幅减小生产镜像体积
+  // Enable standalone output to reduce production image size
   output: 'standalone',
 
   async redirects() {
@@ -23,19 +32,23 @@ const nextConfig: NextConfig = {
     unoptimized: true,
   },
 
-  // 仅 Turbopack dev 时生效
+  // Effective only in Turbopack dev
   experimental: {
     externalDir: true,
-    turbo: {
-      rules: {
-        '*.less': {
-          loaders: ['less-loader'],
-          as: '*.css',
-        },
+  },
+
+  turbopack: {
+    rules: {
+      '*.less': {
+        loaders: ['less-loader'],
+        as: '*.css',
       },
     },
   },
-  // 若 pages/ 目录里有 MDX 页面，需要这行；纯 app/ 可删
+  env: {
+    NEXT_PUBLIC_I18N_META: JSON.stringify(sharedLocalesMetadata),
+  },
+  // Include MDX in page extensions if pages/ has MDX pages; for pure app/ it can be removed
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
 };
 
