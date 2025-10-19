@@ -19,9 +19,10 @@ WEB_DIR = ROOT / "src" / "web" / "src"
 STRING_LITERAL = re.compile(r"['\"][^'\"]+['\"]")
 
 BACKEND_PATTERNS = [
-    re.compile(r"_\(\s*['\"]([A-Za-z0-9_.]+)['\"]"),
-    re.compile(r"raise_error\(\s*['\"]([A-Za-z0-9_.]+)['\"]"),
-    re.compile(r"ERROR_CODE\\\[\"([A-Za-z0-9_.]+)\"\\\]"),
+    re.compile(r"_\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    re.compile(r"raise_error\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    re.compile(r"raise_error_with_args\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    re.compile(r"ERROR_CODE\\\[\"([A-Za-z0-9_.-]+)\"\\\]"),
 ]
 
 FRONTEND_PATTERNS = [
@@ -79,6 +80,21 @@ def collect_defined_keys() -> Set[str]:
     return defined
 
 
+def load_metadata_namespaces() -> Set[str]:
+    namespaces: Set[str] = set()
+    meta = I18N_DIR / "locales.json"
+    if not meta.exists():
+        return namespaces
+    try:
+        data = json.loads(meta.read_text(encoding="utf-8"))
+        for ns in data.get("namespaces", []) or []:
+            if isinstance(ns, str) and ns:
+                namespaces.add(ns)
+    except Exception:
+        pass
+    return namespaces
+
+
 def collect_backend_keys() -> Set[str]:
     patterns = BACKEND_PATTERNS
     used: Set[str] = set()
@@ -134,8 +150,10 @@ def collect_frontend_keys() -> Set[str]:
     patterns = FRONTEND_PATTERNS
     used: Set[str] = set()
     extensions = (".ts", ".tsx", ".js", ".jsx")
-    if COOK_WEB_DIR.exists():
-        for file_path in COOK_WEB_DIR.rglob("*"):
+    for root in (COOK_WEB_DIR, WEB_DIR):
+        if not root.exists():
+            continue
+        for file_path in root.rglob("*"):
             if file_path.suffix not in extensions:
                 continue
             text = file_path.read_text(encoding="utf-8", errors="ignore")
@@ -213,8 +231,15 @@ def main() -> int:
     backend_used = collect_backend_keys()
     frontend_used = collect_frontend_keys()
     used_keys = backend_used | frontend_used
+    # Limit missing calculation to namespaces declared in shared metadata
+    allowed_namespaces = load_metadata_namespaces()
 
-    missing_all = sorted(k for k in used_keys if k not in defined_with_alias)
+    def in_scope(key: str) -> bool:
+        return any(key == ns or key.startswith(ns + ".") for ns in allowed_namespaces)
+
+    scoped_used = {k for k in used_keys if in_scope(k)}
+
+    missing_all = sorted(k for k in scoped_used if k not in defined_with_alias)
     unused_keys_all = sorted(k for k in defined_primary if k not in used_keys)
     allowlist = load_allowlist(args.unused_allowlist)
     unused_keys = [key for key in unused_keys_all if key not in allowlist]
