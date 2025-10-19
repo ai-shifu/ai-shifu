@@ -17,7 +17,8 @@
 - [ ] Migrate `order` service to `server.order.*`
 - [ ] Migrate `user` service to `server.user.*`
 - [x] Migrate `profile` service to `server.profile.*`
-- [ ] Migrate `shifu` service to `server.shifu.*`
+- [x] Migrate `shifu` service to `server.shifu.*`
+- [x] Migrate `llm` service to `server.llm.*`
 - [ ] Migrate `course/lesson/learn` to `server.lesson.*`/`server.learn.*`
 - [ ] Migrate `file` to `server.file.*`
 - [ ] Migrate `discount` to `server.discount.*`
@@ -25,6 +26,7 @@
 - [ ] Migrate `llm` to `server.llm.*`
 - [ ] Migrate `admin/api/check/scenario` to `server.<domain>.*`
 - [ ] Replace JSON namespaces: `module.backend.<domain>` -> `server.<domain>` (after code done)
+  - [x] Switch shifu JSON to `server.shifu` and update locales metadata
 
 ## Phase 0 – Decisions
 - [x] Lock unified key naming convention across API and Cook Web (flat `MODULE.KEY` vs nested)
@@ -63,8 +65,9 @@
 
 ### Validation & Tooling (MVP)
 - [x] Implement a shared CLI (e.g. `scripts/check_translations.py`) that validates JSON schema and ensures key parity across locales/modules
-- [ ] Wire the CLI into pre-commit and one GitHub Action workflow to gate commits/PRs
-- [ ] Document how to run the checks locally and interpret failures
+- [x] Wire the CLI into pre-commit and one GitHub Action workflow to gate commits/PRs
+- [x] Document how to run the checks locally and interpret failures
+ - [x] Shrink allowlists for migrated domains (shifu)
 
 ### Documentation
 - [x] Update developer docs (e.g. `AGENTS.md`) with the new directory layout and workflow
