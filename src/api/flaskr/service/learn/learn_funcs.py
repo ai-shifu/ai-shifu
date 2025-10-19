@@ -86,7 +86,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
             .first()
         )
         if not shifu:
-            raise_error("module.backend.shifu.shifuNotFound")
+            raise_error("server.shifu.shifuNotFound")
         return LearnShifuInfoDTO(
             bid=shifu.shifu_bid,
             title=shifu.title,
@@ -146,7 +146,7 @@ def get_outline_item_tree(
             .first()
         )
         if not struct:
-            raise_error("module.backend.shifu.shifuStructNotFound")
+            raise_error("server.shifu.shifuStructNotFound")
         struct = HistoryItem.from_json(struct.struct)
         outline_items: list[HistoryItem] = []
         q = queue.Queue()

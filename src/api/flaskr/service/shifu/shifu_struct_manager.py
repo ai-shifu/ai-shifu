@@ -90,7 +90,7 @@ def get_shifu_struct(
             .first()
         )
         if not shifu_struct:
-            raise_error("module.backend.shifu.shifuNotFound")
+            raise_error("server.shifu.shifuNotFound")
         return HistoryItem.from_json(shifu_struct.struct)
 
 
@@ -121,12 +121,12 @@ def get_shifu_outline_tree(
                 for child in item.children:
                     q.put(child)
         if len(shifu_ids) != 1:
-            raise_error("module.backend.shifu.shifuNotFound")
+            raise_error("server.shifu.shifuNotFound")
         shifu: Union[DraftShifu, PublishedShifu] = shifu_model.query.filter(
             shifu_model.id.in_(shifu_ids),
         ).first()
         if not shifu:
-            raise_error("module.backend.shifu.shifuNotFound")
+            raise_error("server.shifu.shifuNotFound")
         outline_items = outline_item_model.query.filter(
             outline_item_model.id.in_(outline_item_ids),
         ).all()
@@ -199,7 +199,7 @@ def get_shifu_dto(app: Flask, shifu_bid: str, is_preview: bool = False) -> Shifu
         .first()
     )
     if not shifu:
-        raise_error("module.backend.shifu.shifuNotFound")
+        raise_error("server.shifu.shifuNotFound")
     return ShifuInfoDto(
         bid=shifu.shifu_bid,
         title=shifu.title,
@@ -233,7 +233,7 @@ def get_default_shifu_dto(app: Flask, is_preview: bool = False) -> ShifuInfoDto:
         .first()
     )
     if not shifu:
-        raise_error("module.backend.shifu.shifuNotFound")
+        raise_error("server.shifu.shifuNotFound")
     return ShifuInfoDto(
         bid=shifu.shifu_bid,
         title=shifu.title,
@@ -273,7 +273,7 @@ def get_outline_item_dto(
         .first()
     )
     if not outline_item:
-        raise_error("module.backend.shifu.outlineItemNotFound")
+        raise_error("server.shifu.outlineItemNotFound")
     return ShifuOutlineItemDto(
         bid=outline_item.outline_item_bid,
         position=outline_item.position,
@@ -315,7 +315,7 @@ def get_outline_item_dto_with_mdflow(
         .first()
     )
     if not outline_item:
-        raise_error("module.backend.shifu.outlineItemNotFound")
+        raise_error("server.shifu.outlineItemNotFound")
 
     return OutlineItemDtoWithMdflow(
         mdflow=outline_item.content,

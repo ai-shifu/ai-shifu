@@ -26,7 +26,7 @@ def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
             .first()
         )
         if not outline_item:
-            raise_error("module.backend.shifu.outlineItemNotFound")
+            raise_error("server.shifu.outlineItemNotFound")
         return outline_item.content
 
 
@@ -45,6 +45,7 @@ def save_shifu_mdflow(
             .first()
         )
         if not outline_item:
+<<<<<<< HEAD
             raise_error("module.backend.shifu.outlineItemNotFound")
         # create new version
         new_outline: DraftOutlineItem = outline_item.clone()
@@ -84,6 +85,12 @@ def save_shifu_mdflow(
                 len(blocks),
             )
             db.session.commit()
+=======
+            raise_error("server.shifu.outlineItemNotFound")
+        outline_item.content = content
+        outline_item.updated_user_bid = user_id
+        db.session.commit()
+>>>>>>> 3f229698 (refactor(server): migrate shifu service to server.shifu.*)
 
 
 def parse_shifu_mdflow(
