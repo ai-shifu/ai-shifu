@@ -1,0 +1,23 @@
+{
+  "__flat__": {
+    "USER.USER_NOT_FOUND": "没有找到用户",
+    "USER.USER_ALREADY_EXISTS": "用户已经存在",
+    "USER.USER_NOT_LOGIN": "用户没有登录",
+    "USER.USER_TOKEN_EXPIRED": "Token失效",
+    "USER.UNKNOWN_ERROR": "未知错误",
+    "USER.CHECK_CODE_ERROR": "验证码错误",
+    "USER.CHECK_CODE_EXPIRED": "验证码过期",
+    "USER.SMS_SEND_ERROR": "短信发送失败",
+    "USER.SMS_SEND_FREQUENTLY": "短信发送过于频繁",
+    "USER.SMS_SEND_EXPIRED": "短信验证码过期",
+    "USER.SMS_CHECK_ERROR": "短信验证码错误",
+    "USER.LANGUAGE_NOT_FOUND": "语言配置错误",
+    "USER.EMAIL_VERIFICATION_SUBJECT": "AI-Shifu: 您的验证码",
+    "USER.IP_BANNED": "当前IP请求过于频繁，已暂时封禁",
+    "USER.SMS_SEND_TOO_FREQUENT": "短信发送过于频繁",
+    "USER.EMAIL_SEND_TOO_FREQUENT": "邮件发送过于频繁",
+    "USER.EMAIL_SEND_FAILED": "邮件发送失败",
+    "USER.MAIL_SEND_EXPIRED": "邮件验证码过期",
+    "USER.MAIL_CHECK_ERROR": "邮件验证码错误"
+  }
+}
