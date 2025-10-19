@@ -25,6 +25,7 @@ const nextConfig: NextConfig = {
 
   // 仅 Turbopack dev 时生效
   experimental: {
+    externalDir: true,
     turbo: {
       rules: {
         '*.less': {

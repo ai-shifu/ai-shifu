@@ -4,12 +4,14 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import Backend from 'i18next-http-backend';
 
-import languages from '../public/locales/languages.json';
+import { defaultLocale, localeCodes } from '@/lib/i18n-locales';
 
-const languageCodes = Object.keys(languages);
-const fallbackLanguage = languageCodes.includes('en-US')
-  ? 'en-US'
-  : languageCodes[0];
+const languageCodes = localeCodes;
+const fallbackLanguage = languageCodes.length
+  ? languageCodes.includes(defaultLocale)
+    ? defaultLocale
+    : languageCodes[0]
+  : 'en-US';
 
 export const normalizeLanguage = (lang?: string | null): string => {
   if (!lang) {
@@ -51,14 +53,14 @@ if (typeof window !== 'undefined') {
       },
       lng: browserLanguage,
       backend: {
-        loadPath: `/locales/{{lng}}.json`,
+        loadPath: `/api/i18n/{{lng}}`,
       },
       interpolation: {
         escapeValue: false,
       },
       returnNull: false,
       load: 'all',
-      supportedLngs: languageCodes,
+      supportedLngs: languageCodes.length ? languageCodes : undefined,
       nonExplicitSupportedLngs: false,
       react: {
         useSuspense: false,

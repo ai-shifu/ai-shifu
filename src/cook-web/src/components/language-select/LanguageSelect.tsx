@@ -6,10 +6,10 @@ import {
   SelectValue,
 } from '@/components/ui/Select';
 import { GlobeIcon } from 'lucide-react';
-import languages from '../../../public/locales/languages.json';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { browserLanguage, normalizeLanguage } from '@/i18n';
+import { localeEntries } from '@/lib/i18n-locales';
 
 import { type ClassValue } from 'clsx';
 import { cn } from '@/lib/utils';
@@ -51,12 +51,12 @@ export default function LanguageSelect(props: languageProps) {
         />
       </SelectTrigger>
       <SelectContent className={cn(props.contentClassName)}>
-        {Object.entries(languages).map(([code, label]) => (
+        {localeEntries.map(([code, info]) => (
           <SelectItem
             key={code}
             value={code}
           >
-            {label}
+            {info.label ?? code}
           </SelectItem>
         ))}
       </SelectContent>
