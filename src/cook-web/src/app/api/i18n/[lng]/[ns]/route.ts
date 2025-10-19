@@ -13,9 +13,9 @@ const isValidSegment = (value: string) => VALID_SEGMENT.test(value);
 
 export async function GET(
   _request: Request,
-  context: { params: { lng: string; ns: string } },
+  context: { params: Promise<{ lng: string; ns: string }> },
 ) {
-  const { lng, ns } = context.params;
+  const { lng, ns } = await context.params;
 
   if (!isValidSegment(lng) || !isValidSegment(ns)) {
     return NextResponse.json({ error: 'Invalid segment' }, { status: 400 });
