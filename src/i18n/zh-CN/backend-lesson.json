@@ -1,0 +1,28 @@
+{
+  "__flat__": {
+    "LESSON.UI_TYPE_BUTTON": "显示 按钮",
+    "LESSON.UI_TYPE_INPUT": "显示 输入框",
+    "LESSON.UI_TYPE_TO_PAY": "显示 付款码",
+    "LESSON.UI_TYPE_SELECTION": "显示 按钮组",
+    "LESSON.UI_TYPE_PHONE": "输入 手机号",
+    "LESSON.UI_TYPE_CHECKCODE": "输入 验证码",
+    "LESSON.UI_TYPE_LOGIN": "弹出 登录注册框",
+    "LESSON.UI_TYPE_CONTINUED": "无",
+    "LESSON.UI_TYPE_BRANCH": "跳转按钮",
+    "LESSON.LESSON_TYPE_TRIAL": "试用课",
+    "LESSON.LESSON_TYPE_NORMAL": "正式课",
+    "LESSON.LESSON_TYPE_EXTEND": "延展课",
+    "LESSON.LESSON_TYPE_BRANCH": "分支课",
+    "LESSON.LESSON_TYPE_BRANCH_HIDDEN": "隐藏分支课",
+    "LESSON.SCRIPT_TYPE_FIX": "固定剧本",
+    "LESSON.SCRIPT_TYPE_PROMPT": "Prompt",
+    "LESSON.SCRIPT_TYPE_SYSTEM": "系统角色",
+    "LESSON.CONTENT_TYPE_TEXT": "文本",
+    "LESSON.CONTENT_TYPE_IMAGE": "图片",
+    "LESSON.ASK_MODE_DEFAULT": "默认",
+    "LESSON.ASK_MODE_DISABLE": "禁用",
+    "LESSON.ASK_MODE_ENABLE": "启用",
+    "LESSON.COURSE_NOT_FOUND": "课程不存在",
+    "LESSON.HAS_NOT_LESSON": "没有配置任何课程"
+  }
+}
