@@ -13,6 +13,7 @@
   "namespaces": [
     "aiDebug",
     "auth",
+    "backend-admin",
     "backend-discount",
     "backend-order",
     "backend-user",
