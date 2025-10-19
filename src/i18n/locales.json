@@ -41,7 +41,7 @@
     "module.backend.profile",
     "server.scenario",
     "server.shifu",
-    "module.backend.user",
+    "server.user",
     "module.chapterSetting",
     "module.chat",
     "module.feedback",

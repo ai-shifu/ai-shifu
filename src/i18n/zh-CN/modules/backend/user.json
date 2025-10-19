@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.user",
+  "__namespace__": "server.user",
   "__flat__": {
     "userNotFound": "没有找到用户",
     "userAlreadyExists": "用户已经存在",
