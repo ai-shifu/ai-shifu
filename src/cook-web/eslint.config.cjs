@@ -14,6 +14,11 @@ const eslintConfig = [
       '@typescript-eslint/no-explicit-any': 'off',
       'no-console': 'warn', // Original was 'error', relaxed to 'warn'
       'next/no-img-element': 'off', // From original config
+      // Disallow hardcoded user-facing strings in JSX
+      'react/jsx-no-literals': [
+        'warn',
+        { noStrings: true, ignoreProps: true, allowedStrings: [] },
+      ],
     },
   },
   {
