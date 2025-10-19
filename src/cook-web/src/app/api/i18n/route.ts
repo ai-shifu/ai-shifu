@@ -30,7 +30,7 @@ const VALID_SEGMENT = /^[\w.-]+$/;
 const MULTI_SEPARATOR = /[+,]/;
 
 const isValidSegment = (value: string | null): value is string =>
-  Boolean(value) && VALID_SEGMENT.test(value);
+  typeof value === 'string' && VALID_SEGMENT.test(value);
 
 const parseNamespaces = (raw: string | null, fallback: string[]) => {
   if (!raw) {
