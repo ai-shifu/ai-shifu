@@ -56,6 +56,12 @@
 - [ ] Introduce ICU formatting helpers server-side (Babel) and ensure API responses use them consistently
 - [ ] Enable `i18next-icu` (or chosen alternative) in Cook Web to match server formatting features
 
+### Key Standardization
+- [ ] Inventory existing i18n keys across API, Cook Web, and legacy modules to identify duplicates and inconsistencies.
+- [ ] Finalize and document the canonical key naming rules (namespacing, separators, casing) for every surface.
+- [ ] Provide tooling or scripts to migrate legacy keys to the approved convention.
+- [ ] Update translation JSON and code references to the standardized keys and validate lookups end-to-end.
+
 ### Observability & Quality Gates
 - [ ] Extend the CLI with ICU placeholder validation, unused-key detection, and duplicate key checks
 - [ ] Add lint rules to block hardcoded non-i18n user-facing strings (ESLint for front-end, Flake8/pytest or grep hook for backend)
