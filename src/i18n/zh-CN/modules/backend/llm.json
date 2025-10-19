@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.llm",
+  "__namespace__": "server.llm",
   "__flat__": {
     "noDefaultLlm": "没有配置默认的大模型",
     "specifiedLlmNotConfigured": "模型 {model} 没有配置，请检查 .env 中的变量：{config_var}",

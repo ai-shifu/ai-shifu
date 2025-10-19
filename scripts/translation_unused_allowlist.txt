@@ -92,9 +92,9 @@ module.backend.lesson.uiTypeLogin
 module.backend.lesson.uiTypePhone
 module.backend.lesson.uiTypeSelection
 module.backend.lesson.uiTypeToPay
-module.backend.llm.modelNotSupported
-module.backend.llm.noDefaultLlm
-module.backend.llm.specifiedLlmNotConfigured
+server.llm.modelNotSupported
+server.llm.noDefaultLlm
+server.llm.specifiedLlmNotConfigured
 module.backend.order.buyStatusInit
 module.backend.order.buyStatusRefund
 module.backend.order.buyStatusSuccess

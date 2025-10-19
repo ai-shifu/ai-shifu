@@ -35,7 +35,7 @@
     "module.backend.file",
     "module.backend.learn",
     "module.backend.lesson",
-    "module.backend.llm",
+    "server.llm",
     "module.backend.order",
     "module.backend.pay",
     "module.backend.profile",

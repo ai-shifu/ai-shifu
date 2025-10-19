@@ -435,7 +435,7 @@ def get_model_setting(
         )
     default_model = app.config.get("DEFAULT_LLM_MODEL", "")
     if not default_model or default_model == "":
-        raise_error("module.backend.llm.noDefaultLlm")
+        raise_error("server.llm.noDefaultLlm")
     return ModelSetting(
         app.config.get("DEFAULT_LLM_MODEL"),
         {"temperature": float(app.config.get("DEFAULT_LLM_TEMPERATURE"))},
