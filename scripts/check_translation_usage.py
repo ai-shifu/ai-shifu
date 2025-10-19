@@ -93,6 +93,11 @@ def collect_backend_keys() -> Set[str]:
                 # Only consider our backend namespaces
                 if match.startswith("server.") or match.startswith("module.backend."):
                     used.add(match)
+                    # Add alias to smooth migration (server.* <-> module.backend.*)
+                    if match.startswith("server."):
+                        used.add("module.backend." + match[len("server.") :])
+                    else:
+                        used.add("server." + match[len("module.backend.") :])
     return used
 
 
@@ -173,8 +178,15 @@ def main() -> int:
     unused_keys = [key for key in unused_keys_all if key not in allowlist]
     allowed_unused = [key for key in unused_keys_all if key in allowlist]
     missing_allow = load_allowlist(args.missing_allowlist)
-    missing_keys = [key for key in missing_all if key not in missing_allow]
-    allowed_missing = [key for key in missing_all if key in missing_allow]
+    # Expand allowlist with alias keys to stabilize migration (server.* <-> module.backend.*)
+    missing_allow_expanded: Set[str] = set(missing_allow)
+    for key in list(missing_allow):
+        if key.startswith("module.backend."):
+            missing_allow_expanded.add("server." + key[len("module.backend.") :])
+        elif key.startswith("server."):
+            missing_allow_expanded.add("module.backend." + key[len("server.") :])
+    missing_keys = [key for key in missing_all if key not in missing_allow_expanded]
+    allowed_missing = [key for key in missing_all if key in missing_allow_expanded]
 
     if missing_keys:
         print("Missing translation keys detected:")

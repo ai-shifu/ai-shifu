@@ -119,7 +119,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
             if redis.get(ip_ban_key):
                 # Development, debugging and use
                 # redis.delete(ip_ban_key)
-                raise_error("module.backend.user.ipBanned")
+                raise_error("server.user.ipBanned")
 
             # Check IP sending frequency
             ip_limit_key = app.config["REDIS_KEY_PREFIX_IP_LIMIT"] + ip
@@ -130,7 +130,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
                 if ip_send_count >= int(app.config["IP_SMS_LIMIT_COUNT"]):
                     # Ban the IP
                     redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
-                    raise_error("module.backend.user.ipBanned")
+                    raise_error("server.user.ipBanned")
                 else:
                     redis.incr(ip_limit_key)
             else:
@@ -147,7 +147,7 @@ def send_sms_code(app: Flask, phone: str, ip: str = None):
 
             interval = int(app.config["SMS_CODE_INTERVAL"])
             if time_diff < interval:
-                raise_error("module.backend.user.smsSendTooFrequent")
+                raise_error("server.user.smsSendTooFrequent")
 
         characters = string.digits
         # Generate a random string of length 4
@@ -187,7 +187,7 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             if redis.get(ip_ban_key):
                 # Development, debugging and use
                 # redis.delete(ip_ban_key)
-                raise_error("module.backend.user.ipBanned")
+                raise_error("server.user.ipBanned")
 
             # Check IP sending frequency
             ip_limit_key = app.config["REDIS_KEY_PREFIX_IP_LIMIT"] + ip
@@ -198,7 +198,7 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
                 if ip_send_count >= int(app.config["IP_MAIL_LIMIT_COUNT"]):
                     # Ban the IP
                     redis.set(ip_ban_key, 1, ex=int(app.config["IP_BAN_TIME"]))
-                    raise_error("module.backend.user.ipBanned")
+                    raise_error("server.user.ipBanned")
                 else:
                     redis.incr(ip_limit_key)
             else:
@@ -215,13 +215,13 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
 
             interval = int(app.config["MAIL_CODE_INTERVAL"])
             if time_diff < interval:
-                raise_error("module.backend.user.emailSendTooFrequent")
+                raise_error("server.user.emailSendTooFrequent")
 
         # Create the email content
         msg = MIMEMultipart()
         msg["From"] = app.config["SMTP_SENDER"]
         msg["To"] = email
-        msg["Subject"] = _("module.backend.user.emailVerificationSubject")
+        msg["Subject"] = _("server.user.emailVerificationSubject")
         characters = string.digits
         random_string = "".join(random.choices(characters, k=4))
         # to set redis
@@ -262,7 +262,7 @@ def send_email_code(app: Flask, email: str, ip: str = None, language: str = None
             db.session.commit()
         except Exception as e:
             app.logger.error(f"Failed to send verification code to {email}: {str(e)}")
-            raise_error("module.backend.user.emailSendFailed")
+            raise_error("server.user.emailSendFailed")
         return {"expire_in": app.config["MAIL_CODE_EXPIRE_TIME"]}
 
 

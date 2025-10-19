@@ -132,11 +132,11 @@ def verify_phone_code(
 
     check_save = redis.get(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
     if check_save is None and code != FIX_CHECK_CODE:
-        raise_error("module.backend.user.smsSendExpired")
+        raise_error("server.user.smsSendExpired")
 
     check_save_str = str(check_save, encoding="utf-8") if check_save else ""
     if code != check_save_str and code != FIX_CHECK_CODE:
-        raise_error("module.backend.user.smsCheckError")
+        raise_error("server.user.smsCheckError")
 
     redis.delete(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
 

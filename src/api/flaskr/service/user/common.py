@@ -30,7 +30,7 @@ def _user_info_from_legacy(app: Flask, legacy_user: User) -> UserInfo:
 def validate_user(app: Flask, token: str) -> UserInfo:
     with app.app_context():
         if not token:
-            raise_error("module.backend.user.userNotLogin")
+            raise_error("server.user.userNotLogin")
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
                 user_id = token
@@ -47,7 +47,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             app.logger.info("user_id:" + user_id)
             redis_user_id = redis.get(app.config["REDIS_KEY_PREFIX_USER"] + token)
             if redis_user_id is None:
-                raise_error("module.backend.user.userTokenExpired")
+                raise_error("server.user.userTokenExpired")
             set_user_id = str(
                 redis_user_id,
                 encoding="utf-8",
@@ -57,13 +57,13 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 if legacy_user:
                     return _user_info_from_legacy(app, legacy_user)
                 else:
-                    raise_error("module.backend.user.userTokenExpired")
+                    raise_error("server.user.userTokenExpired")
             else:
-                raise_error("module.backend.user.userTokenExpired")
+                raise_error("server.user.userTokenExpired")
         except jwt.exceptions.ExpiredSignatureError:
-            raise_error("module.backend.user.userTokenExpired")
+            raise_error("server.user.userTokenExpired")
         except jwt.exceptions.DecodeError:
-            raise_error("module.backend.user.userNotFound")
+            raise_error("server.user.userNotFound")
 
 
 def update_user_info(
@@ -77,12 +77,12 @@ def update_user_info(
 ) -> UserInfo:
     with app.app_context():
         if not user:
-            raise_error("module.backend.user.userNotFound")
+            raise_error("server.user.userNotFound")
 
         app.logger.info("update_user_info %s %s %s %s", name, email, mobile, language)
         legacy_user = User.query.filter_by(user_id=user.user_id).first()
         if not legacy_user:
-            raise_error("module.backend.user.userNotFound")
+            raise_error("server.user.userNotFound")
 
         legacy_user.name = name
         if email is not None:
@@ -93,7 +93,7 @@ def update_user_info(
             if language in get_i18n_list(app):
                 legacy_user.user_language = language
             else:
-                raise_error("module.backend.user.languageNotFound")
+                raise_error("server.user.languageNotFound")
 
         sync_user_entity_for_legacy(app, legacy_user)
         db.session.commit()
@@ -104,7 +104,7 @@ def get_user_info(app: Flask, user_id: str) -> UserInfo:
     with app.app_context():
         legacy_user, _ = load_user_with_entity(app, user_id)
         if not legacy_user:
-            raise_error("module.backend.user.userNotFound")
+            raise_error("server.user.userNotFound")
         return build_user_info_dto(legacy_user)
 
 

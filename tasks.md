@@ -16,7 +16,7 @@
 - [ ] Add server namespace alias (loader) [done]
 - [ ] Migrate `order` service to `server.order.*`
 - [ ] Migrate `user` service to `server.user.*`
-- [ ] Migrate `profile` service to `server.profile.*`
+- [x] Migrate `profile` service to `server.profile.*`
 - [ ] Migrate `shifu` service to `server.shifu.*`
 - [ ] Migrate `course/lesson/learn` to `server.lesson.*`/`server.learn.*`
 - [ ] Migrate `file` to `server.file.*`
