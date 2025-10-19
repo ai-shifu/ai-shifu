@@ -25,6 +25,7 @@
 - [x] Keep `_`, `set_language`, `get_i18n_list` APIs stable while reading the new data format
 - [ ] Replace direct Python constants with the new keys (e.g. `src/api/flaskr/service/order/consts.py`)
 - [x] Add startup validation to catch malformed JSON or duplicate keys and surface actionable errors
+- [ ] Run `python scripts/list_python_i18n_modules.py` to track remaining Python-defined translations and migrate them to shared JSON
 - [ ] Add/adjust unit tests covering translation loading and language selection
 
 ### Cook Web
