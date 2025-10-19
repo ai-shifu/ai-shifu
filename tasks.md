@@ -24,7 +24,7 @@
 - [x] Update `src/api/flaskr/i18n/__init__.py` loader to consume JSON from `src/i18n/<lang>/`
 - [x] Keep `_`, `set_language`, `get_i18n_list` APIs stable while reading the new data format
 - [ ] Replace direct Python constants with the new keys (e.g. `src/api/flaskr/service/order/consts.py`)
-- [ ] Add startup validation to catch malformed JSON or duplicate keys and surface actionable errors
+- [x] Add startup validation to catch malformed JSON or duplicate keys and surface actionable errors
 - [ ] Add/adjust unit tests covering translation loading and language selection
 
 ### Cook Web

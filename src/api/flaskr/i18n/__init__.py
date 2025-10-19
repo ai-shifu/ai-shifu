@@ -15,7 +15,25 @@ _translations: Dict[str, Dict[str, str]] = defaultdict(dict)
 
 
 def _shared_json_root() -> Path:
-    return Path(__file__).resolve().parents[3] / "i18n"
+    env_override = os.getenv("SHARED_I18N_ROOT")
+    if env_override:
+        env_path = Path(env_override).resolve()
+        if env_path.exists():
+            return env_path
+
+    candidates = [
+        Path(__file__).resolve().parents[3] / "i18n",
+        Path(__file__).resolve().parents[2] / "i18n",
+        Path(__file__).resolve().parents[1] / "i18n",
+        Path(__file__).resolve().parent / "json",
+    ]
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    # Default fallback; validation will raise a clearer error later
+    return Path(__file__).resolve().parents[2] / "i18n"
 
 
 def _flatten_dict(data, prefix: str = ""):

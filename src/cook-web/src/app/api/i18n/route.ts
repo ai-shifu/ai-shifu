@@ -2,7 +2,32 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-const I18N_ROOT = path.join(process.cwd(), '../i18n');
+const envRoot = process.env.I18N_ROOT
+  ? path.resolve(process.env.I18N_ROOT)
+  : null;
+
+const defaultRootCandidates = [
+  path.join(process.cwd(), 'src/i18n'),
+  path.join(process.cwd(), '../i18n'),
+  '/app/src/i18n',
+  '/i18n',
+];
+
+const resolveI18nRoot = () => {
+  if (envRoot) {
+    return envRoot;
+  }
+
+  for (const candidate of defaultRootCandidates) {
+    if (candidate && candidate.length) {
+      return candidate;
+    }
+  }
+
+  return path.join(process.cwd(), 'src/i18n');
+};
+
+const I18N_ROOT = resolveI18nRoot();
 const VALID_SEGMENT = /^[\w-]+$/;
 const MULTI_SEPARATOR = /[+,]/;
 
