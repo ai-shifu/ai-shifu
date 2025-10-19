@@ -7,6 +7,6 @@ class PaidException(AppException):
             "server.order.courseNotPaid",
             ERROR_CODE.get(
                 "server.order.courseNotPaid",
-                ERROR_CODE["module.backend.common.unknownError"],
+                ERROR_CODE["server.common.unknownError"],
             ),
         )

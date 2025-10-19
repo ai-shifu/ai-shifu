@@ -443,7 +443,7 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
     with app.app_context():
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
-            raise_error("module.backend.profile.notFound")
+            raise_error("server.profile.notFound")
         if profile_item.parent_id == "" or profile_item.parent_id is None:
             raise_error("server.profile.systemProfileNotAllowDelete")
         profile_item.status = 0

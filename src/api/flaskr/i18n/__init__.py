@@ -58,49 +58,6 @@ def _store_translation(lang: str, key: str, value):
     _translations[lang][key] = value
     _translations[lang][key.upper()] = value
 
-    # Temporary bidirectional aliasing between legacy and new backend namespaces
-    # to support gradual migration:
-    # - module.backend.<domain>.<key>  <->  server.<domain>.<key>
-    if key.startswith("module.backend."):
-        alias = "server." + key[len("module.backend.") :]
-        _translations[lang][alias] = value
-        _translations[lang][alias.upper()] = value
-    elif key.startswith("server."):
-        alias = "module.backend." + key[len("server.") :]
-        _translations[lang][alias] = value
-        _translations[lang][alias.upper()] = value
-    # Domain rename transitional aliases
-    # course -> shifu
-    if key.startswith("module.backend.course."):
-        tail = key[len("module.backend.course.") :]
-        alias = f"server.shifu.{tail}"
-        _translations[lang][alias] = value
-        _translations[lang][alias.upper()] = value
-    elif key.startswith("server.shifu."):
-        tail = key[len("server.shifu.") :]
-        alias = f"module.backend.course.{tail}"
-        _translations[lang][alias] = value
-        _translations[lang][alias.upper()] = value
-    # lesson -> outline / outlineItem
-    if key.startswith("module.backend.lesson."):
-        tail = key[len("module.backend.lesson.") :]
-        alias1 = f"server.outline.{tail}"
-        alias2 = f"server.outlineItem.{tail}"
-        _translations[lang][alias1] = value
-        _translations[lang][alias1.upper()] = value
-        _translations[lang][alias2] = value
-        _translations[lang][alias2.upper()] = value
-    elif key.startswith("server.outline.") or key.startswith("server.outlineItem."):
-        prefix = (
-            "server.outline."
-            if key.startswith("server.outline.")
-            else "server.outlineItem."
-        )
-        tail = key[len(prefix) :]
-        alias = f"module.backend.lesson.{tail}"
-        _translations[lang][alias] = value
-        _translations[lang][alias.upper()] = value
-
 
 def _load_json_translations(app: Flask, root: Path):
     if not root.exists():

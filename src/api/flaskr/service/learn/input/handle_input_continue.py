@@ -31,7 +31,7 @@ def _handle_input_continue(
 ) -> Generator[str, None, None]:
     if block_dto.block_content:
         # The continue button has a non-default label
-        default = _("module.backend.common.continue")
+        default = _("server.common.continue")
         button_label: ButtonDTO = block_dto.block_content
         if input != default and attend_id:
             log_script = generation_attend(
