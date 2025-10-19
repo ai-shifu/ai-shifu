@@ -2,32 +2,30 @@ import { NextResponse } from 'next/server';
 import path from 'path';
 import { promises as fs } from 'fs';
 
-const envRoot = process.env.I18N_ROOT
-  ? path.resolve(process.env.I18N_ROOT)
-  : null;
+const resolveI18nRoot = async (): Promise<string> => {
+  const envRoot = process.env.I18N_ROOT;
+  const candidates = [
+    envRoot ? path.resolve(envRoot) : undefined,
+    path.join(process.cwd(), 'src/i18n'),
+    path.join(process.cwd(), '../i18n'),
+    path.join(process.cwd(), '../../i18n'),
+    '/app/src/i18n',
+    '/i18n',
+  ].filter((candidate): candidate is string => Boolean(candidate));
 
-const defaultRootCandidates = [
-  path.join(process.cwd(), 'src/i18n'),
-  path.join(process.cwd(), '../i18n'),
-  '/app/src/i18n',
-  '/i18n',
-];
-
-const resolveI18nRoot = () => {
-  if (envRoot) {
-    return envRoot;
-  }
-
-  for (const candidate of defaultRootCandidates) {
-    if (candidate && candidate.length) {
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
       return candidate;
+    } catch {
+      // continue
     }
   }
 
-  return path.join(process.cwd(), 'src/i18n');
+  throw new Error(
+    `Unable to locate shared i18n directory. Checked: ${candidates.join(', ')}`,
+  );
 };
-
-const I18N_ROOT = resolveI18nRoot();
 const VALID_SEGMENT = /^[\w-]+$/;
 const MULTI_SEPARATOR = /[+,]/;
 
@@ -89,14 +87,24 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const searchParams = url.searchParams;
 
-  const metadataPath = path.join(I18N_ROOT, 'locales.json');
+  let i18nRoot: string;
+  try {
+    i18nRoot = await resolveI18nRoot();
+  } catch (error) {
+    return NextResponse.json(
+      { error: 'Translation root not found', details: String(error) },
+      { status: 500 },
+    );
+  }
+
+  const metadataPath = path.join(i18nRoot, 'locales.json');
   const metadata = await readJsonIfExists(metadataPath, {
     default: 'en-US',
     locales: {},
     namespaces: [],
   });
 
-  const localeDirs = await listDirectories(I18N_ROOT);
+  const localeDirs = await listDirectories(i18nRoot);
 
   const requestedLanguage = searchParams.get('lng');
   const language = isValidSegment(requestedLanguage)
@@ -107,7 +115,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Language not found' }, { status: 404 });
   }
 
-  const langDir = path.join(I18N_ROOT, language);
+  const langDir = path.join(i18nRoot, language);
   const availableNamespaces = metadata.namespaces?.length
     ? metadata.namespaces
     : await listNamespaces(langDir);

@@ -6,10 +6,12 @@ import { initReactI18next } from 'react-i18next';
 import UnifiedI18nBackend from '@/lib/unified-i18n-backend';
 import { defaultLocale, localeCodes, namespaces } from '@/lib/i18n-locales';
 
-const namespaceList = namespaces.length ? namespaces : ['common'];
-const defaultNamespace = namespaceList.includes('common')
-  ? 'common'
-  : namespaceList[0];
+const fileNamespaces = namespaces.length ? namespaces : ['common'];
+const namespaceList = [
+  'translation',
+  ...fileNamespaces.filter(ns => ns !== 'translation'),
+];
+const defaultNamespace = 'translation';
 
 const languageCodes = localeCodes;
 const fallbackLanguage = languageCodes.length
@@ -69,7 +71,7 @@ if (typeof window !== 'undefined' && !i18n.isInitialized) {
         useSuspense: false,
       },
       backend: {
-        namespaces: namespaceList,
+        namespaces: fileNamespaces,
         includeMetadata: false,
       },
     });

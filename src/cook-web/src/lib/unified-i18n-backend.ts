@@ -94,8 +94,12 @@ class UnifiedI18nBackend {
       const url = new URL(baseUrl, window.location.origin);
       url.searchParams.set('lng', language);
 
-      if (this.options.namespaces.length) {
-        url.searchParams.set('ns', this.options.namespaces.join(','));
+      const namespacesToFetch = this.options.namespaces.length
+        ? this.options.namespaces
+        : DEFAULT_OPTIONS.namespaces;
+
+      if (namespacesToFetch.length) {
+        url.searchParams.set('ns', namespacesToFetch.join(','));
       }
 
       if (!this.options.includeMetadata) {
@@ -116,11 +120,26 @@ class UnifiedI18nBackend {
         }
 
         const payload = await response.json();
-        const translations: Record<string, unknown> =
+        const baseTranslations: Record<string, unknown> =
           payload.translations ?? payload;
 
-        this.cache.set(language, translations);
-        return translations;
+        const legacyNamespace: Record<string, unknown> = {};
+        Object.entries(baseTranslations).forEach(([namespace, value]) => {
+          if (namespace !== 'translation') {
+            legacyNamespace[namespace] = value;
+          }
+        });
+
+        const translationsWithLegacy: Record<string, unknown> = {
+          ...baseTranslations,
+        };
+
+        if (!('translation' in translationsWithLegacy)) {
+          translationsWithLegacy.translation = legacyNamespace;
+        }
+
+        this.cache.set(language, translationsWithLegacy);
+        return translationsWithLegacy;
       } finally {
         this.pending.delete(language);
       }
