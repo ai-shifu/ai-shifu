@@ -19,6 +19,7 @@
     "backend-common",
     "backend-course",
     "backend-discount",
+    "backend-file",
     "backend-order",
     "backend-user",
     "button",
