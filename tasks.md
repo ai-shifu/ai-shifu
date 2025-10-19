@@ -82,8 +82,8 @@
 ## Phase 2 – Enhancements
 
 ### Repository & Runtime Enhancements
-- [ ] Add a pseudo-locale (e.g. `qps-ploc`) for visual QA and truncation detection
-- [ ] Generate TypeScript definitions from `src/i18n` for key autocompletion (`src/cook-web/src/types/i18n-keys.d.ts`)
+- [x] Add a pseudo-locale (e.g. `qps-ploc`) for visual QA and truncation detection
+- [x] Generate TypeScript definitions from `src/i18n` for key autocompletion (`src/cook-web/src/types/i18n-keys.d.ts`)
 - [ ] Introduce ICU formatting helpers server-side (Babel) and ensure API responses use them consistently
 - [x] Enable `i18next-icu` (or chosen alternative) in Cook Web to match server formatting features
 
