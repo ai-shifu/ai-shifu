@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.common",
+  "__namespace__": "server.common",
   "__flat__": {
     "unknownError": "未知错误",
     "paramsError": "参数错误",

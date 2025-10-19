@@ -67,7 +67,7 @@ def generate_coupon_code(
         start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
         end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
         if end < start:
-            raise_error("module.backend.common.startTimeNotAllowed")
+            raise_error("server.common.startTimeNotAllowed")
         if code is None:
             code = generate_coupon_strcode(app)
         if coupon_bid is None or coupon_bid == "":

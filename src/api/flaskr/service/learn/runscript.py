@@ -165,9 +165,7 @@ def run_script(
                 yield make_script_dto("text", str(e), None)
             else:
                 app.logger.error(error_info)
-                yield make_script_dto(
-                    "text", _("module.backend.common.unknownError"), None
-                )
+                yield make_script_dto("text", _("server.common.unknownError"), None)
             yield make_script_dto("text_end", "", None)
         finally:
             lock.release()

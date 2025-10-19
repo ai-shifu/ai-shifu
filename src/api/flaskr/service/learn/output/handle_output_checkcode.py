@@ -29,7 +29,7 @@ def _handle_output_checkcode(
     checkcode: CheckCodeDTO = block_dto.block_content
     if check_phone_number(app, user_info, checkcode.phone):
         expires = send_sms_code_without_check(app, user_info, checkcode.phone)
-        expires["content"] = _("module.backend.common.checkcode")
+        expires["content"] = _("server.common.checkcode")
         return ScriptDTO(
             INPUT_TYPE_CHECKCODE,
             expires,
@@ -42,7 +42,7 @@ def _handle_output_checkcode(
         )
         msg = get_script_ui_label(app, checkcode.label)
         if not msg:
-            msg = _("module.backend.common.checkcode")
+            msg = _("server.common.checkcode")
         return ScriptDTO(
             INPUT_TYPE_CHECKCODE,
             msg,

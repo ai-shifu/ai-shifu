@@ -29,7 +29,7 @@
     "module.backend.api",
     "server.banner",
     "module.backend.check",
-    "module.backend.common",
+    "server.common",
     "module.backend.course",
     "module.backend.discount",
     "module.backend.file",

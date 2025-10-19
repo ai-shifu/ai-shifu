@@ -27,7 +27,7 @@ def _handle_output_button(
     msg = get_script_ui_label(app, button.label)
     display = bool(msg)
     if not msg:
-        msg = _("module.backend.common.continue")
+        msg = _("server.common.continue")
     btn = [
         {
             "label": msg,

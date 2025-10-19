@@ -42,7 +42,7 @@ module.backend.common.nicknameNotAllowed
 module.backend.common.paramsError
 module.backend.common.phone
 module.backend.common.startTimeNotAllowed
-module.backend.common.textNotAllowed
+server.common.textNotAllowed
 module.backend.common.unknownError
 module.backend.course.courseNotFound
 module.backend.course.courseNotPurchased

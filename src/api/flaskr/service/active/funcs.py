@@ -29,7 +29,7 @@ def save_active(
     active_start_time = datetime.strptime(active_start_time, "%Y-%m-%d %H:%M:%S")
     active_end_time = datetime.strptime(active_end_time, "%Y-%m-%d %H:%M:%S")
     if active_end_time < active_start_time:
-        raise_error("module.backend.common.startTimeNotAllowed")
+        raise_error("server.common.startTimeNotAllowed")
     if active_id is not None and active_id != "":
         active = Active.query.filter(Active.active_id == active_id).first()
     else:

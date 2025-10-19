@@ -31,7 +31,7 @@ def _load_error_codes() -> dict[str, int]:
     if not manifest_path.exists():
         # Fallback to legacy in-file mapping (minimal set)
         return {
-            "module.backend.common.unknownError": 9999,
+            "server.common.unknownError": 9999,
         }
 
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -57,22 +57,22 @@ def register_error(error_name, error_code):
 
 def raise_param_error(param_message):
     raise AppException(
-        _("module.backend.common.paramsError").format(param_message=param_message),
-        ERROR_CODE["module.backend.common.paramsError"],
+        _("server.common.paramsError").format(param_message=param_message),
+        ERROR_CODE["server.common.paramsError"],
     )
 
 
 def raise_error(error_name):
     raise AppException(
         _(error_name),
-        ERROR_CODE.get(error_name, ERROR_CODE["module.backend.common.unknownError"]),
+        ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
 
 
 def raise_error_with_args(error_name, **kwargs):
     raise AppException(
         _(error_name).format(**kwargs),
-        ERROR_CODE.get(error_name, ERROR_CODE["module.backend.common.unknownError"]),
+        ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
 
 
