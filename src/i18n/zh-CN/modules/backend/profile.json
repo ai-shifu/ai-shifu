@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.profile",
+  "__namespace__": "server.profile",
   "__flat__": {
     "nickname": "昵称",
     "userBackground": "背景",

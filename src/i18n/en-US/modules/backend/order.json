@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.order",
+  "__namespace__": "server.order",
   "__flat__": {
     "courseNotPaid": "Course not purchased, please purchase the course first",
     "orderNotFound": "Order Not Found",
