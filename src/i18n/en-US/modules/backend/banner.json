@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.banner",
+  "__namespace__": "server.banner",
   "__flat__": {
     "bannerTitle": "Unlock All",
     "bannerPopUpTitle": "Unlock All Content Anytime",

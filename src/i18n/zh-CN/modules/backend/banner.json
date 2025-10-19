@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.banner",
+  "__namespace__": "server.banner",
   "__flat__": {
     "bannerTitle": "解锁全部",
     "bannerPopUpTitle": "在此随时解锁全部内容",

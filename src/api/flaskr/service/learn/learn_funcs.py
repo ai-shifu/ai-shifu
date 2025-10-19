@@ -237,13 +237,11 @@ def get_outline_item_tree(
         if not is_paid:
             if add_banner:
                 banner_info_dto = LearnBannerInfoDTO(
-                    title=_("module.backend.banner.bannerTitle"),
-                    pop_up_title=_("module.backend.banner.bannerPopUpTitle"),
-                    pop_up_content=_("module.backend.banner.bannerPopUpContent"),
-                    pop_up_confirm_text=_(
-                        "module.backend.banner.bannerPopUpConfirmText"
-                    ),
-                    pop_up_cancel_text=_("module.backend.banner.bannerPopUpCancelText"),
+                    title=_("server.banner.bannerTitle"),
+                    pop_up_title=_("server.banner.bannerPopUpTitle"),
+                    pop_up_content=_("server.banner.bannerPopUpContent"),
+                    pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
+                    pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
                 )
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,

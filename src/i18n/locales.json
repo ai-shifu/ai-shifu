@@ -27,7 +27,7 @@
     "module.auth",
     "module.backend.admin",
     "module.backend.api",
-    "module.backend.banner",
+    "server.banner",
     "module.backend.check",
     "module.backend.common",
     "module.backend.course",
