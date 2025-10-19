@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.lesson",
+  "__namespace__": "server.outline",
   "__flat__": {
     "uiTypeButton": "显示 按钮",
     "uiTypeInput": "显示 输入框",

@@ -40,7 +40,7 @@ def _handle_output_goto(
             )
             struct_info = get_shifu_struct(app, shifu_info.bid, is_preview)
             if not struct_info:
-                raise_error("server.lesson.shifuNotFound")
+                raise_error("server.shifu.shifuNotFound")
 
             if shifu_info.price > 0:
                 success_buy_record = (

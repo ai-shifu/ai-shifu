@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.course",
+  "__namespace__": "server.shifu",
   "__flat__": {
     "courseNotFound": "没有找到课程",
     "lessonCannotBeReset": "课程不能重置",
