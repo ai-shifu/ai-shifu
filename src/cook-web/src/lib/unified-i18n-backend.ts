@@ -19,6 +19,36 @@ const DEFAULT_OPTIONS: Required<BackendOptions> = {
   requestOptions: { cache: 'no-cache' },
 };
 
+const setNestedValue = (
+  target: Record<string, unknown>,
+  keyPath: string,
+  value: unknown,
+) => {
+  if (!keyPath) {
+    return;
+  }
+
+  const segments = keyPath.split('.');
+  let cursor: Record<string, unknown> = target;
+
+  segments.forEach((segment, index) => {
+    if (!segment) {
+      return;
+    }
+
+    if (index === segments.length - 1) {
+      cursor[segment] = value;
+      return;
+    }
+
+    if (!(segment in cursor) || typeof cursor[segment] !== 'object') {
+      cursor[segment] = {};
+    }
+
+    cursor = cursor[segment] as Record<string, unknown>;
+  });
+};
+
 class UnifiedI18nBackend {
   public static type = 'backend' as const;
 
@@ -126,7 +156,7 @@ class UnifiedI18nBackend {
         const legacyNamespace: Record<string, unknown> = {};
         Object.entries(baseTranslations).forEach(([namespace, value]) => {
           if (namespace !== 'translation') {
-            legacyNamespace[namespace] = value;
+            setNestedValue(legacyNamespace, namespace, value);
           }
         });
 
