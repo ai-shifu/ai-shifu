@@ -17,15 +17,15 @@ These decisions align the repository with the Phase 0 tasks in `tasks.md` and un
 - **Follow-up**: Add lint/validation to ensure placeholders exist in every locale and match the ICU schema.
 
 ## Shared JSON Distribution
-- **Decision**: Store canonical translation JSON under `src/i18/<locale>/<namespace>.json`.
+- **Decision**: Store canonical translation JSON under `src/i18n/<locale>/<namespace>.json`.
 - **Cook Web Access**:
-  - Expose `src/i18` through a lightweight Next.js `app/api/i18/[lng]/[ns]/route.ts` file system bridge.
+  - Expose `src/i18n` through a lightweight Next.js `app/api/i18n/[lng]/[ns]/route.ts` file system bridge.
   - The Next.js build copies nothing; instead, the API route streams JSON directly from the shared directory so dev and prod stay in sync.
 - **API Access**:
   - Backend loader reads the same JSON files from the filesystem (no module imports) at application boot, caching them in memory.
 
 ## Locale Metadata Source
-- **Decision**: Author the locale list and defaults in `src/i18/locales.json` with shape:
+- **Decision**: Author the locale list and defaults in `src/i18n/locales.json` with shape:
   ```json
   {
     "default": "en-US",
@@ -42,7 +42,7 @@ These decisions align the repository with the Phase 0 tasks in `tasks.md` and un
 
 ## Migration Sequencing & Rollback
 - **Sequencing**:
-  1. Create `src/i18` structure and copy existing Cook Web JSON (namespaced per domain) and locale metadata.
+  1. Create `src/i18n` structure and copy existing Cook Web JSON (namespaced per domain) and locale metadata.
   2. Update Cook Web to load JSON through the new API route while keeping legacy bundles as a fallback.
   3. Convert backend Python modules into JSON namespaces, reusing the same keys.
   4. Remove legacy files once parity tests pass.
@@ -52,6 +52,6 @@ These decisions align the repository with the Phase 0 tasks in `tasks.md` and un
   - CLI validation targets both storages during transition, so a regression in new JSON fails fast before rollout.
 
 ## Immediate Action Items
-- Scaffold the shared `src/i18` directory and metadata file from the decisions above.
+- Scaffold the shared `src/i18n` directory and metadata file from the decisions above.
 - Implement the shared validation CLI noted in `tasks.md` so JSON schemas stay aligned.
 - Draft migration documentation for contributors once the structure exists.

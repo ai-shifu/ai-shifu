@@ -15,13 +15,13 @@
 ## Phase 1 – Migration MVP
 
 ### Repository Structure
-- Create `src/i18/` with locale subfolders (`src/i18/en-US`, `src/i18/zh-CN`, ...)
+- Create `src/i18n/` with locale subfolders (`src/i18n/en-US`, `src/i18n/zh-CN`, ...)
 - Split translations by business domain JSON (e.g. `order.json`, `common.json`)
 - Move Cook Web `public/locales/*.json` content and language metadata into the new structure
 - Convert API-side Python translation modules under `src/api/flaskr/i18n/<locale>/` into JSON and retire the old files once references are updated
 
 ### Backend (API)
-- Update `src/api/flaskr/i18n/__init__.py` loader to consume JSON from `src/i18/<lang>/`
+- Update `src/api/flaskr/i18n/__init__.py` loader to consume JSON from `src/i18n/<lang>/`
 - Keep `_`, `set_language`, `get_i18n_list` APIs stable while reading the new data format
 - Replace direct Python constants with the new keys (e.g. `src/api/flaskr/service/order/consts.py`)
 - Add startup validation to catch malformed JSON or duplicate keys and surface actionable errors
@@ -29,8 +29,8 @@
 
 ### Cook Web
 - Refactor `src/cook-web/src/i18n.ts` to read supported locales/fallback from the unified metadata
-- Configure i18next HTTP backend to fetch modular JSON (`/i18/{lng}/{ns}.json`) instead of `public/locales` bundles
-- Ensure build/runtime pipeline exposes `src/i18` assets to Next.js (copy step, API route, or shared package)
+- Configure i18next HTTP backend to fetch modular JSON (`/i18n/{lng}/{ns}.json`) instead of `public/locales` bundles
+- Ensure build/runtime pipeline exposes `src/i18n` assets to Next.js (copy step, API route, or shared package)
 - Run regression checks so components still resolve translations; update keys where necessary
 - Add automated tests or integration checks for language detection and loading
 
@@ -47,7 +47,7 @@
 
 ### Repository & Runtime Enhancements
 - Add a pseudo-locale (e.g. `qps-ploc`) for visual QA and truncation detection
-- Generate TypeScript definitions from `src/i18` for key autocompletion (`src/cook-web/src/types/i18n-keys.d.ts`)
+- Generate TypeScript definitions from `src/i18n` for key autocompletion (`src/cook-web/src/types/i18n-keys.d.ts`)
 - Introduce ICU formatting helpers server-side (Babel) and ensure API responses use them consistently
 - Enable `i18next-icu` (or chosen alternative) in Cook Web to match server formatting features
 
