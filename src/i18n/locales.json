@@ -17,6 +17,7 @@
     "backend-banner",
     "backend-check",
     "backend-common",
+    "backend-course",
     "backend-discount",
     "backend-order",
     "backend-user",
