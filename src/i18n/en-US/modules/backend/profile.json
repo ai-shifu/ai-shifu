@@ -6,19 +6,10 @@
     "sex": "Sex",
     "birth": "Birth",
     "avatar": "Avatar",
-    "industry": "Industry",
-    "occupation": "Occupation",
     "language": "Language",
-    "aiTools": "AI Tools",
-    "userOs": "User OS",
     "style": "Style",
-    "programming": "Programming",
     "sexMale": "Male",
     "sexFemale": "Female",
-    "sexSecret": "Secret",
-    "profileScopeUser": "Customized Variables",
-    "profileScopeSystem": "System Variables",
-    "profileTypeText": "Text",
-    "profileTypeOption": "Option"
+    "sexSecret": "Secret"
   }
 }
