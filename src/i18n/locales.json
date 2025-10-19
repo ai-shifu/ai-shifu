@@ -40,7 +40,7 @@
     "module.backend.pay",
     "module.backend.profile",
     "module.backend.scenario",
-    "module.backend.shifu",
+    "server.shifu",
     "module.backend.user",
     "module.chapterSetting",
     "module.chat",

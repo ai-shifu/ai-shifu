@@ -44,13 +44,3 @@ module.backend.profile.promptRequired
 module.backend.profile.systemProfileKeyExist
 module.backend.profile.systemProfileNotAllowDelete
 module.backend.profile.systemProfileNotAllowUpdate
-module.backend.shifu.blockNotFound
-module.backend.shifu.noPermission
-module.backend.shifu.outlineDeleted
-module.backend.shifu.outlineItemNotFound
-module.backend.shifu.outlineNameTooLong
-module.backend.shifu.parentOutlineNotFound
-module.backend.shifu.shifuNotFound
-module.backend.shifu.shifuStructNotFound
-module.backend.shifu.unitNameTooLong
-module.backend.shifu.unitNotFound

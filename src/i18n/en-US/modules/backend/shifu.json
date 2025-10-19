@@ -1,6 +1,16 @@
 {
-  "__namespace__": "module.backend.shifu",
+  "__namespace__": "server.shifu",
   "__flat__": {
+    "blockNotFound": "Block not found",
+    "noPermission": "No permission",
+    "outlineDeleted": "Outline has been deleted",
+    "outlineItemNotFound": "Outline item not found",
+    "outlineNameTooLong": "Outline name is too long",
+    "parentOutlineNotFound": "Parent outline not found",
+    "shifuNotFound": "Shifu not found",
+    "shifuStructNotFound": "Shifu structure not found",
+    "unitNameTooLong": "Unit name is too long",
+    "unitNotFound": "Unit not found",
     "shifuNameRequired": "Shifu name is required",
     "shifuDescriptionRequired": "Shifu description is required",
     "shifuNameAlreadyExists": "Shifu name already exists",

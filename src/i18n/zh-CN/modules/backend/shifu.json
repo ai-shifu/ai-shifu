@@ -1,6 +1,16 @@
 {
-  "__namespace__": "module.backend.shifu",
+  "__namespace__": "server.shifu",
   "__flat__": {
+    "blockNotFound": "块不存在",
+    "noPermission": "没有权限",
+    "outlineDeleted": "大纲已被删除",
+    "outlineItemNotFound": "大纲单元不存在",
+    "outlineNameTooLong": "大纲名称过长",
+    "parentOutlineNotFound": "父级大纲不存在",
+    "shifuNotFound": "师傅不存在",
+    "shifuStructNotFound": "师傅结构不存在",
+    "unitNameTooLong": "单元名称过长",
+    "unitNotFound": "单元不存在",
     "shifuNameRequired": "请输入师傅名称",
     "shifuDescriptionRequired": "请输入师傅描述",
     "shifuNameAlreadyExists": "同名师傅已存在",
