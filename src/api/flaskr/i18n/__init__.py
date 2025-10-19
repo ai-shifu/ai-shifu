@@ -19,6 +19,10 @@ def _shared_json_root() -> Path:
 
 
 def _flatten_dict(data, prefix: str = ""):
+    if not isinstance(data, dict):
+        key = prefix if prefix else ""
+        return {key: data} if key else {}
+
     flattened = {}
     for key, value in data.items():
         str_key = str(key)
