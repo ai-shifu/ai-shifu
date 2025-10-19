@@ -619,6 +619,16 @@ Cook Web provides tools for:
 
 ### Internationalization (i18n)
 
+#### Backend Translation Workflow
+- Backend translations live in shared JSON under `src/i18n/<locale>` (not
+  `src/api/flaskr/i18n`).
+- Run `python scripts/list_python_i18n_modules.py` regularly to keep the
+  migration checklist clean.
+- When adding backend text, update the relevant JSON namespace, refresh
+  `src/i18n/locales.json` if a new namespace is introduced, and reference strings
+  in Python via `_('NAMESPACE.KEY')`.
+
+
 - **ALL user-facing strings MUST use i18n**: Never hardcode any text that will be displayed to users
 - Use translation keys instead of hardcoded strings
 - Examples:
