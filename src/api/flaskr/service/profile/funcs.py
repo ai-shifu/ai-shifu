@@ -111,47 +111,47 @@ def get_profile_labels(course_id: str = None):
     # language = get_current_language()
     return {
         "sys_user_nickname": {
-            "label": _("module.backend.profile.nickname"),
+            "label": _("server.profile.nickname"),
             "mapping": "name",
             "default": "",
         },
-        "sys_user_background": {"label": _("module.backend.profile.userBackground")},
+        "sys_user_background": {"label": _("server.profile.userBackground")},
         "sex": {
-            "label": _("module.backend.profile.sex"),
+            "label": _("server.profile.sex"),
             "mapping": "user_sex",
             "items": [
-                _("module.backend.profile.sexMale"),
-                _("module.backend.profile.sexFemale"),
-                _("module.backend.profile.sexSecret"),
+                _("server.profile.sexMale"),
+                _("server.profile.sexFemale"),
+                _("server.profile.sexSecret"),
             ],
             "items_mapping": {
-                0: _("module.backend.profile.sexSecret"),
-                1: _("module.backend.profile.sexMale"),
-                2: _("module.backend.profile.sexFemale"),
+                0: _("server.profile.sexSecret"),
+                1: _("server.profile.sexMale"),
+                2: _("server.profile.sexFemale"),
             },
             "default": 0,
         },
         "birth": {
-            "label": _("module.backend.profile.birth"),
+            "label": _("server.profile.birth"),
             "mapping": "user_birth",
             "type": "date",
             "default": datetime.date(2003, 1, 1),
         },
         "avatar": {
-            "label": _("module.backend.profile.avatar"),
+            "label": _("server.profile.avatar"),
             "mapping": "user_avatar",
             "type": "image",
             "default": "",
         },
         "language": {
-            "label": _("module.backend.profile.language"),
+            "label": _("server.profile.language"),
             "items": ["中文", "English"],
             "mapping": "user_language",
             "items_mapping": {"zh-CN": "中文", "en-US": "English"},
             "default": "zh-CN",
         },
         "sys_user_style": {
-            "label": _("module.backend.profile.style"),
+            "label": _("server.profile.style"),
         },
     }
 
@@ -444,10 +444,10 @@ def update_user_profile_with_lable(
         # check nickname
         nickname = [p for p in profiles if p["key"] == "sys_user_nickname"]
         if nickname and not check_text_content(app, user_id, nickname[0]["value"]):
-            raise_error("module.backend.common.nicknameNotAllowed")
+            raise_error("server.common.nicknameNotAllowed")
         background = [p for p in profiles if p["key"] == "sys_user_background"]
         if background and not check_text_content(app, user_id, background[0]["value"]):
-            raise_error("module.backend.common.backgroundNotAllowed")
+            raise_error("server.common.backgroundNotAllowed")
         user_profiles = (
             UserProfile.query.filter_by(user_id=user_id)
             .order_by(UserProfile.id.desc())

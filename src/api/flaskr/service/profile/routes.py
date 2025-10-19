@@ -205,16 +205,16 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         profile_id = request.get_json().get("profile_id", None)
         parent_id = request.get_json().get("parent_id", None)
         if not parent_id:
-            raise_error("module.backend.profile.parentIdRequired")
+            raise_error("server.profile.parentIdRequired")
         profile_key = request.get_json().get("profile_key", None)
         if not profile_key:
-            raise_error("module.backend.profile.profileKeyRequired")
+            raise_error("server.profile.profileKeyRequired")
 
         profile_type = request.get_json().get("profile_type", None)
         if not profile_type:
-            raise_error("module.backend.profile.profileTypeRequired")
+            raise_error("server.profile.profileTypeRequired")
         if profile_type not in PROFILE_TYPE_VLUES.keys():
-            raise_error("module.backend.profile.profileTypeInvalid")
+            raise_error("server.profile.profileTypeInvalid")
         profile_type = PROFILE_TYPE_VLUES[profile_type]
 
         profile_remark = request.get_json().get("profile_remark", None)
@@ -280,7 +280,7 @@ def register_profile_routes(app: Flask, path_prefix: str = "/api/profiles"):
         user_id = request.user.user_id
         profile_id = request.get_json().get("profile_id", None)
         if not profile_id:
-            raise_error("module.backend.profile.profileIdRequired")
+            raise_error("server.profile.profileIdRequired")
         return make_common_response(delete_profile_item(app, user_id, profile_id))
 
     @app.route(f"{path_prefix}/get-profile-item", methods=["POST"])
