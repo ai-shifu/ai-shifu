@@ -31,7 +31,7 @@ server.banner.bannerPopUpTitle
 server.banner.bannerTitle
 server.banner.lessonBannerContent
 server.banner.lessonBannerTitle
-module.backend.check.checkRiskControlReject
+server.check.checkRiskControlReject
 module.backend.common.backgroundNotAllowed
 module.backend.common.checkcode
 module.backend.common.checkout

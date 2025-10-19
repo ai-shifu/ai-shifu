@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.check",
+  "__namespace__": "server.check",
   "__flat__": {
     "checkRiskControlReject": "please check the content"
   }

@@ -28,7 +28,7 @@
     "server.admin",
     "server.api",
     "server.banner",
-    "module.backend.check",
+    "server.check",
     "server.common",
     "module.backend.course",
     "server.discount",
