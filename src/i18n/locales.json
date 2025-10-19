@@ -14,6 +14,7 @@
     "aiDebug",
     "auth",
     "backend-admin",
+    "backend-api",
     "backend-banner",
     "backend-check",
     "backend-common",
