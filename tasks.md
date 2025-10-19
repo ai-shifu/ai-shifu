@@ -10,7 +10,7 @@
 - [x] Restructure shared locales into clear groupings (common/component/module) or a better agreed taxonomy.
 - [x] Align API translation lookups with the reorganized namespaces.
 - [x] Align Cook Web translation usage with the reorganized namespaces.
-- [ ] Resolve missing-or-unused key discrepancies reported by `scripts/check_translation_usage.py`.
+- [x] Resolve missing-or-unused key discrepancies reported by `scripts/check_translation_usage.py`.
 
 ## Namespace Migration – Backend to `server.*`
 - [ ] Add server namespace alias (loader) [done]
@@ -25,14 +25,14 @@
 - [x] Migrate `discount` to `server.discount.*`
 - [x] Migrate `pay` to `server.pay.*`
 - [x] Migrate `admin/api/check/scenario` to `server.<domain>.*`
-- [ ] Replace JSON namespaces: `module.backend.<domain>` -> `server.<domain>` (after code done)
+- [x] Replace JSON namespaces: `module.backend.<domain>` -> `server.<domain>` (after code done)
   - [x] Switch shifu JSON to `server.shifu` and update locales metadata
   - [x] Switch llm, banner, common, discount, file, pay, admin, api, check, scenario, user, learn JSON to `server.*` and update locales metadata
   - [x] Switch order and profile JSON to `server.order` and `server.profile`
 
 ## Cleanup – Remove Transitional Logic
 - [x] Remove aliasing in Flask loader (module.backend.* <-> server.*; lesson/course aliases)
-- [ ] Remove legacy alias in ERROR_CODE loader (optional once stable)
+- [x] Remove legacy alias in ERROR_CODE loader (optional once stable)
 
 ## Phase 0 – Decisions
 - [x] Lock unified key naming convention across API and Cook Web (flat `MODULE.KEY` vs nested)
@@ -61,7 +61,7 @@
 - [x] Refactor `src/cook-web/src/i18n.ts` to read supported locales/fallback from the unified metadata
 - [x] Configure i18next HTTP backend to fetch modular JSON (`/api/i18n?lng={lng}&ns={ns}`) instead of `public/locales` bundles
 - [x] Ensure build/runtime pipeline exposes `src/i18n` assets to Next.js (copy step, API route, or shared package)
-- [ ] Run regression checks so components still resolve translations; update keys where necessary
+- [ ] Run regression checks so components still resolve translations; update keys where necessary (build passes; address lint warnings next)
 - [ ] Add automated tests or integration checks for language detection and loading
 
 ### Docker & Environment Parity
@@ -77,7 +77,7 @@
 
 ### Documentation
 - [x] Update developer docs (e.g. `AGENTS.md`) with the new directory layout and workflow
-- [ ] Publish a short migration playbook instructing how to add/modify translations under the new system
+- [x] Publish a short migration playbook instructing how to add/modify translations under the new system
 
 ## Phase 2 – Enhancements
 
@@ -85,7 +85,11 @@
 - [ ] Add a pseudo-locale (e.g. `qps-ploc`) for visual QA and truncation detection
 - [ ] Generate TypeScript definitions from `src/i18n` for key autocompletion (`src/cook-web/src/types/i18n-keys.d.ts`)
 - [ ] Introduce ICU formatting helpers server-side (Babel) and ensure API responses use them consistently
-- [ ] Enable `i18next-icu` (or chosen alternative) in Cook Web to match server formatting features
+- [x] Enable `i18next-icu` (or chosen alternative) in Cook Web to match server formatting features
+
+### Frontend Warning Cleanup (New)
+- [ ] Replace obvious JSX literals with i18n keys (Dialog/Sheet/Breadcrumb/Social/ChatInputSmsCode)
+- [ ] Reduce no-console and unused-vars in frequently mounted components
 
 ### Key Standardization
 - [ ] Inventory existing i18n keys across API, Cook Web, and legacy modules to identify duplicates and inconsistencies.
