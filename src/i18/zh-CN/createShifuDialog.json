@@ -1,0 +1,12 @@
+{
+  "create": "创建",
+  "creating": "创建中...",
+  "descriptionLabel": "师傅描述",
+  "descriptionMaxLength": "师傅描述不能超过500个字符",
+  "descriptionPlaceholder": "请输入师傅描述",
+  "nameLabel": "师傅名称",
+  "nameMaxLength": "师傅名称不能超过20个字符",
+  "namePlaceholder": "请输入师傅名称",
+  "nameRequired": "师傅名称不能为空",
+  "title": "创建新师傅"
+}

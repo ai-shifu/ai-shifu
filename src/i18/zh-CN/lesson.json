@@ -1,0 +1,7 @@
+{
+  "reset": {
+    "confirmContent": "重修会清空当前学习数据。确定重修？",
+    "confirmTitle": "确认重修",
+    "title": "重修"
+  }
+}

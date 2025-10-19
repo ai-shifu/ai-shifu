@@ -1,0 +1,16 @@
+{
+  "aiModuleContent": "AI Module Content",
+  "collapse": "Collapse",
+  "columnCount": "Column Count (Test Iterations per Model)",
+  "debug": "Debug AI Template",
+  "expand": "Expand",
+  "inputVariableValue": "Input Variable Value",
+  "rowCount": "Row Count",
+  "setTemperature": "Set Temperature",
+  "startDebug": "Start Debug",
+  "stopOutput": "Stop Output",
+  "systemPrompt": "System Prompt",
+  "updateToShifu": "Update to Shifu",
+  "userPrompt": "User Prompt",
+  "variable": "Variable Found:"
+}

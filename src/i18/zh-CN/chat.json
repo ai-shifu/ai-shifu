@@ -1,0 +1,19 @@
+{
+  "ask": "追问",
+  "askContent": "请输入你想追问的问题",
+  "chatInputPlaceholder": "请输入内容",
+  "chatInputWarn": "请输入内容",
+  "chatTips": "内容由 AI 大模型生成，无法确保真实准确，仅供学习参考",
+  "copySuccess": "已复制到剪切板",
+  "copyText": "复制",
+  "dislike": "点踩",
+  "like": "点赞",
+  "loginSuccess": "已经登录成功了",
+  "outputInProgress": "正在有内容输出中，请等待输出结束后再重试",
+  "regenerate": "重新生成",
+  "regenerateConfirmDescription": "选择重新生成后，此内容及其以后的内容将会重新生成，当前的内容将被清空。",
+  "regenerateConfirmTitle": "确定重新生成此内容？",
+  "startAutoSkip": "开启自动跳过",
+  "stopAutoSkip": "停止自动跳过",
+  "thinking": "思考中..."
+}

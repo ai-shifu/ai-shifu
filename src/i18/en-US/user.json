@@ -1,0 +1,14 @@
+{
+  "confirmLogoutContent": "Are you sure you want to logout?",
+  "confirmLogoutTitle": "Confirm Logout",
+  "defaultUserName": "Default Name",
+  "gender": {
+    "female": "Female",
+    "male": "Male",
+    "secret": "Secret"
+  },
+  "login": "Login",
+  "loginMainButton": "Login/Register",
+  "logout": "Logout",
+  "notLogin": "Not Logged In"
+}

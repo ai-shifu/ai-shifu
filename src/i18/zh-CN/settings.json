@@ -1,0 +1,17 @@
+{
+  "basicInfo": "基础信息",
+  "birth": "生日",
+  "birthPlaceholder": "请选择生日",
+  "dialogTitle": {
+    "selectBirthday": "选择生日",
+    "selectGender": "选择性别"
+  },
+  "gender": "性别",
+  "genderPlaceholder": "请选择性别",
+  "home": "主页",
+  "nickname": "昵称",
+  "nicknamePersonal": "昵称（同时作为个人基本信息）",
+  "nicknamePlaceholder": "请输入昵称",
+  "personalInfo": "个性化设置",
+  "settingTitle": "个人信息"
+}
