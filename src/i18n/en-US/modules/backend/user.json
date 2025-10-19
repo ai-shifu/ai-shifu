@@ -2,23 +2,17 @@
   "__namespace__": "server.user",
   "__flat__": {
     "userNotFound": "User Not Found",
-    "userAlreadyExists": "User Already Exists",
     "userNotLogin": "User Not Logged In",
     "userTokenExpired": "Token Expired",
-    "unknownError": "Unknown Error",
-    "checkCodeError": "Verification Code Error",
-    "checkCodeExpired": "Verification Code Expired",
-    "smsSendError": "SMS Send Error",
-    "smsSendFrequently": "SMS sent too frequently",
-    "smsSendExpired": "SMS Verification Code Expired",
-    "smsCheckError": "SMS Verification Code Error",
-    "languageNotFound": "Language Not Found",
+    "emailSendFailed": "Email send failed",
+    "emailSendTooFrequent": "Emails sent too frequently",
     "emailVerificationSubject": "AI-Shifu: Your Verification Code",
     "ipBanned": "Requests from this IP are temporarily blocked",
-    "smsSendTooFrequent": "SMS sent too frequently",
-    "emailSendTooFrequent": "Emails sent too frequently",
-    "emailSendFailed": "Email send failed",
+    "languageNotFound": "Language Not Found",
+    "mailCheckError": "Email verification code error",
     "mailSendExpired": "Email verification code expired",
-    "mailCheckError": "Email verification code error"
+    "smsCheckError": "SMS Verification Code Error",
+    "smsSendExpired": "SMS Verification Code Expired",
+    "smsSendTooFrequent": "SMS sent too frequently"
   }
 }

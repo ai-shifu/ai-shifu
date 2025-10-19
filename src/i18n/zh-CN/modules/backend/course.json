@@ -2,9 +2,6 @@
   "__namespace__": "server.shifu",
   "__flat__": {
     "courseNotFound": "没有找到课程",
-    "lessonCannotBeReset": "课程不能重置",
-    "lessonNotFound": "没有找到课程",
-    "lessonNotFoundInCourse": "没有找到课程",
-    "courseNotPurchased": "课程未购买,请先购买课程"
+    "lessonNotFoundInCourse": "没有找到课程"
   }
 }
