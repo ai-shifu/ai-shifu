@@ -340,7 +340,7 @@ def generate_charge(
             Order.status != ORDER_STATUS_TIMEOUT,
         ).first()
         if not buy_record:
-            raise_error("module.backend.order.orderNotFound")
+            raise_error("server.order.orderNotFound")
         course: AICourseDTO = get_course_info(app, buy_record.shifu_bid)
         if not course:
             raise_error("server.shifu.courseNotFound")
@@ -670,4 +670,4 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 item,
             )
 
-        raise_error("module.backend.order.orderNotFound")
+        raise_error("server.order.orderNotFound")

@@ -35,7 +35,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         now = datetime.fromtimestamp(datetime.now().timestamp(), bj_time)
         buy_record: Order = Order.query.filter(Order.order_bid == order_id).first()
         if not buy_record:
-            raise_error("module.backend.order.orderNotFound")
+            raise_error("server.order.orderNotFound")
         order_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
             CouponUsageModel.order_bid == order_id,
             CouponUsageModel.status == COUPON_STATUS_USED,
