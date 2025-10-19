@@ -14,19 +14,20 @@
 
 ## Namespace Migration – Backend to `server.*`
 - [ ] Add server namespace alias (loader) [done]
-- [ ] Migrate `order` service to `server.order.*`
-- [ ] Migrate `user` service to `server.user.*`
+- [x] Migrate `order` service to `server.order.*`
+- [x] Migrate `user` service to `server.user.*`
 - [x] Migrate `profile` service to `server.profile.*`
 - [x] Migrate `shifu` service to `server.shifu.*`
 - [x] Migrate `llm` service to `server.llm.*`
-- [ ] Migrate `course/lesson/learn` to `server.lesson.*`/`server.learn.*`
-- [ ] Migrate `file` to `server.file.*`
-- [ ] Migrate `discount` to `server.discount.*`
-- [ ] Migrate `pay` to `server.pay.*`
-- [ ] Migrate `llm` to `server.llm.*`
-- [ ] Migrate `admin/api/check/scenario` to `server.<domain>.*`
+- [ ] Migrate `course/lesson` to `server.lesson.*` (or `server.outline.*`) later
+- [x] Migrate `learn` to `server.learn.*`
+- [x] Migrate `file` to `server.file.*`
+- [x] Migrate `discount` to `server.discount.*`
+- [x] Migrate `pay` to `server.pay.*`
+- [x] Migrate `admin/api/check/scenario` to `server.<domain>.*`
 - [ ] Replace JSON namespaces: `module.backend.<domain>` -> `server.<domain>` (after code done)
   - [x] Switch shifu JSON to `server.shifu` and update locales metadata
+  - [x] Switch llm, banner, common, discount, file, pay, admin, api, check, scenario, user, learn JSON to `server.*` and update locales metadata
 
 ## Phase 0 – Decisions
 - [x] Lock unified key naming convention across API and Cook Web (flat `MODULE.KEY` vs nested)
