@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.scenario",
+  "__namespace__": "server.scenario",
   "__flat__": {
     "blockNotFound": "Scenario block not found",
     "notFound": "Scenario not found",

@@ -141,9 +141,9 @@ module.backend.profile.sexSecret
 module.backend.profile.style
 module.backend.profile.userBackground
 module.backend.profile.userOs
-module.backend.scenario.blockNotFound
-module.backend.scenario.noPermission
-module.backend.scenario.notFound
+server.scenario.blockNotFound
+server.scenario.noPermission
+server.scenario.notFound
 server.shifu.buttonKeyRequired
 server.shifu.buttonNameRequired
 server.shifu.inputKeyRequired

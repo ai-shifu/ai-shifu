@@ -39,7 +39,7 @@
     "module.backend.order",
     "server.pay",
     "module.backend.profile",
-    "module.backend.scenario",
+    "server.scenario",
     "server.shifu",
     "module.backend.user",
     "module.chapterSetting",
