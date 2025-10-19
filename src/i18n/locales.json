@@ -33,7 +33,7 @@
     "module.backend.course",
     "server.discount",
     "server.file",
-    "module.backend.learn",
+    "server.learn",
     "module.backend.lesson",
     "server.llm",
     "module.backend.order",

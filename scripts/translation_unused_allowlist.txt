@@ -67,7 +67,7 @@ server.file.videoBilibiliApiRequestFailed
 server.file.videoGetInfoError
 server.file.videoInvalidBilibiliLink
 server.file.videoUnsupportedVideoSite
-module.backend.learn.nextChapter
+server.learn.nextChapter
 module.backend.lesson.askModeDefault
 module.backend.lesson.askModeDisable
 module.backend.lesson.askModeEnable
