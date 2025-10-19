@@ -2,8 +2,8 @@
 
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import Backend from 'i18next-http-backend';
 
+import UnifiedI18nBackend from '@/lib/unified-i18n-backend';
 import { defaultLocale, localeCodes, namespaces } from '@/lib/i18n-locales';
 
 const namespaceList = namespaces.length ? namespaces : ['common'];
@@ -47,30 +47,30 @@ const detectedBrowserLanguage =
 
 export const browserLanguage = normalizeLanguage(detectedBrowserLanguage);
 
-// Ensure initialization only happens in the browser
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !i18n.isInitialized) {
   i18n
-    .use(Backend)
+    .use(UnifiedI18nBackend)
     .use(initReactI18next)
     .init({
       fallbackLng: {
-        default: [fallbackLanguage], // All unsupported languages fallback to default locale
+        default: [fallbackLanguage],
       },
       ns: namespaceList,
       defaultNS: defaultNamespace,
       lng: browserLanguage,
-      backend: {
-        loadPath: `/api/i18n/{{lng}}/{{ns}}`,
-      },
+      load: 'currentOnly',
+      supportedLngs: languageCodes.length ? languageCodes : undefined,
+      nonExplicitSupportedLngs: false,
       interpolation: {
         escapeValue: false,
       },
       returnNull: false,
-      load: 'all',
-      supportedLngs: languageCodes.length ? languageCodes : undefined,
-      nonExplicitSupportedLngs: false,
       react: {
         useSuspense: false,
+      },
+      backend: {
+        namespaces: namespaceList,
+        includeMetadata: false,
       },
     });
 }

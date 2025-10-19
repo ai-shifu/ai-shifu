@@ -29,7 +29,7 @@
 
 ### Cook Web
 - [x] Refactor `src/cook-web/src/i18n.ts` to read supported locales/fallback from the unified metadata
-- [x] Configure i18next HTTP backend to fetch modular JSON (`/api/i18n/{lng}/{ns}.json`) instead of `public/locales` bundles
+- [x] Configure i18next HTTP backend to fetch modular JSON (`/api/i18n?lng={lng}&ns={ns}`) instead of `public/locales` bundles
 - [x] Ensure build/runtime pipeline exposes `src/i18n` assets to Next.js (copy step, API route, or shared package)
 - [ ] Run regression checks so components still resolve translations; update keys where necessary
 - [ ] Add automated tests or integration checks for language detection and loading
