@@ -1181,7 +1181,7 @@ class RunScriptContextV2:
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid=generate_id(self.app),
                 type=GeneratedType.INTERACTION,
-                content=f"?[{_('ORDER.CHECKOUT')}//_sys_pay]",
+                content=f"?[{_('server.order.checkout')}//_sys_pay]",
             )
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")

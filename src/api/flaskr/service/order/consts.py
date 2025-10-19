@@ -16,42 +16,42 @@ LEARN_STATUS_BRANCH = 607
 LEARN_STATUS_RESET = 608
 LEARN_STATUS_NOT_EXIST = -1
 ORDER_STATUS_TYPES = {
-    _("module.backend.order.orderStatusInit"): ORDER_STATUS_INIT,
-    _("module.backend.order.orderStatusSuccess"): ORDER_STATUS_SUCCESS,
-    _("module.backend.order.orderStatusRefund"): ORDER_STATUS_REFUND,
-    _("module.backend.order.orderStatusToBePaid"): ORDER_STATUS_TO_BE_PAID,
-    _("module.backend.order.orderStatusTimeout"): ORDER_STATUS_TIMEOUT,
+    _("server.order.orderStatusInit"): ORDER_STATUS_INIT,
+    _("server.order.orderStatusSuccess"): ORDER_STATUS_SUCCESS,
+    _("server.order.orderStatusRefund"): ORDER_STATUS_REFUND,
+    _("server.order.orderStatusToBePaid"): ORDER_STATUS_TO_BE_PAID,
+    _("server.order.orderStatusTimeout"): ORDER_STATUS_TIMEOUT,
 }
 
 ORDER_STATUS_VALUES = {
-    ORDER_STATUS_INIT: _("module.backend.order.orderStatusInit"),
-    ORDER_STATUS_SUCCESS: _("module.backend.order.orderStatusSuccess"),
-    ORDER_STATUS_REFUND: _("module.backend.order.orderStatusRefund"),
-    ORDER_STATUS_TO_BE_PAID: _("module.backend.order.orderStatusToBePaid"),
-    ORDER_STATUS_TIMEOUT: _("module.backend.order.orderStatusTimeout"),
+    ORDER_STATUS_INIT: _("server.order.orderStatusInit"),
+    ORDER_STATUS_SUCCESS: _("server.order.orderStatusSuccess"),
+    ORDER_STATUS_REFUND: _("server.order.orderStatusRefund"),
+    ORDER_STATUS_TO_BE_PAID: _("server.order.orderStatusToBePaid"),
+    ORDER_STATUS_TIMEOUT: _("server.order.orderStatusTimeout"),
 }
 
 LEARN_STATUS_TYPES = {
-    _("module.backend.order.learnStatusNotStarted"): LEARN_STATUS_NOT_STARTED,
-    _("module.backend.order.learnStatusInProgress"): LEARN_STATUS_IN_PROGRESS,
-    _("module.backend.order.learnStatusCompleted"): LEARN_STATUS_COMPLETED,
-    _("module.backend.order.learnStatusRefund"): LEARN_STATUS_REFUND,
-    _("module.backend.order.learnStatusLocked"): LEARN_STATUS_LOCKED,
-    _("module.backend.order.learnStatusUnavailable"): LEARN_STATUS_UNAVAILABLE,
-    _("module.backend.order.learnStatusBranch"): LEARN_STATUS_BRANCH,
-    _("module.backend.order.learnStatusReset"): LEARN_STATUS_RESET,
+    _("server.order.learnStatusNotStarted"): LEARN_STATUS_NOT_STARTED,
+    _("server.order.learnStatusInProgress"): LEARN_STATUS_IN_PROGRESS,
+    _("server.order.learnStatusCompleted"): LEARN_STATUS_COMPLETED,
+    _("server.order.learnStatusRefund"): LEARN_STATUS_REFUND,
+    _("server.order.learnStatusLocked"): LEARN_STATUS_LOCKED,
+    _("server.order.learnStatusUnavailable"): LEARN_STATUS_UNAVAILABLE,
+    _("server.order.learnStatusBranch"): LEARN_STATUS_BRANCH,
+    _("server.order.learnStatusReset"): LEARN_STATUS_RESET,
 }
 
 
 def get_learn_status_values():
     return {
-        LEARN_STATUS_NOT_STARTED: _("module.backend.order.learnStatusNotStarted"),
-        LEARN_STATUS_IN_PROGRESS: _("module.backend.order.learnStatusInProgress"),
-        LEARN_STATUS_COMPLETED: _("module.backend.order.learnStatusCompleted"),
-        LEARN_STATUS_REFUND: _("module.backend.order.learnStatusRefund"),
-        LEARN_STATUS_LOCKED: _("module.backend.order.learnStatusLocked"),
-        LEARN_STATUS_UNAVAILABLE: _("module.backend.order.learnStatusUnavailable"),
-        LEARN_STATUS_BRANCH: _("module.backend.order.learnStatusBranch"),
-        LEARN_STATUS_RESET: _("module.backend.order.learnStatusReset"),
-        LEARN_STATUS_NOT_EXIST: _("module.backend.order.learnStatusLocked"),
+        LEARN_STATUS_NOT_STARTED: _("server.order.learnStatusNotStarted"),
+        LEARN_STATUS_IN_PROGRESS: _("server.order.learnStatusInProgress"),
+        LEARN_STATUS_COMPLETED: _("server.order.learnStatusCompleted"),
+        LEARN_STATUS_REFUND: _("server.order.learnStatusRefund"),
+        LEARN_STATUS_LOCKED: _("server.order.learnStatusLocked"),
+        LEARN_STATUS_UNAVAILABLE: _("server.order.learnStatusUnavailable"),
+        LEARN_STATUS_BRANCH: _("server.order.learnStatusBranch"),
+        LEARN_STATUS_RESET: _("server.order.learnStatusReset"),
+        LEARN_STATUS_NOT_EXIST: _("server.order.learnStatusLocked"),
     }

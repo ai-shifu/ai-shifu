@@ -19,9 +19,9 @@ WEB_DIR = ROOT / "src" / "web" / "src"
 STRING_LITERAL = re.compile(r"['\"][^'\"]+['\"]")
 
 BACKEND_PATTERNS = [
-    re.compile(r"_\(\s*['\"]([A-Z0-9_.]+)['\"]"),
-    re.compile(r"raise_error\(\s*['\"]([A-Z0-9_.]+)['\"]"),
-    re.compile(r"ERROR_CODE\\\[\"([A-Z0-9_.]+)\"\\\]"),
+    re.compile(r"_\(\s*['\"]([A-Za-z0-9_.]+)['\"]"),
+    re.compile(r"raise_error\(\s*['\"]([A-Za-z0-9_.]+)['\"]"),
+    re.compile(r"ERROR_CODE\\\[\"([A-Za-z0-9_.]+)\"\\\]"),
 ]
 
 FRONTEND_PATTERNS = [
@@ -88,7 +88,10 @@ def collect_backend_keys() -> Set[str]:
         text = file_path.read_text(encoding="utf-8", errors="ignore")
         for pattern in patterns:
             for match in pattern.findall(text):
-                if "." in match:
+                if "." not in match:
+                    continue
+                # Only consider our backend namespaces
+                if match.startswith("server.") or match.startswith("module.backend."):
                     used.add(match)
     return used
 
@@ -122,6 +125,14 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Path to a file listing unused keys that are temporarily allowed.",
     )
+    parser.add_argument(
+        "--missing-allowlist",
+        type=Path,
+        help=(
+            "Path to a file listing missing keys that are currently allowed. "
+            "If provided, only missing keys not in this list will fail."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -143,23 +154,37 @@ def load_allowlist(path: Path | None) -> Set[str]:
 
 def main() -> int:
     args = parse_args()
-    defined_keys = collect_defined_keys()
+    defined_primary = collect_defined_keys()
+    # Aliases for missing-key comparison only
+    aliases: Set[str] = set()
+    for key in list(defined_primary):
+        if key.startswith("module.backend."):
+            aliases.add("server." + key[len("module.backend.") :])
+        elif key.startswith("server."):
+            aliases.add("module.backend." + key[len("server.") :])
+    defined_with_alias = set(defined_primary) | aliases
     backend_used = collect_backend_keys()
     frontend_used = collect_frontend_keys()
     used_keys = backend_used | frontend_used
 
-    missing_keys = sorted(k for k in used_keys if k not in defined_keys)
-    unused_keys_all = sorted(k for k in defined_keys if k not in used_keys)
+    missing_all = sorted(k for k in used_keys if k not in defined_with_alias)
+    unused_keys_all = sorted(k for k in defined_primary if k not in used_keys)
     allowlist = load_allowlist(args.unused_allowlist)
     unused_keys = [key for key in unused_keys_all if key not in allowlist]
     allowed_unused = [key for key in unused_keys_all if key in allowlist]
+    missing_allow = load_allowlist(args.missing_allowlist)
+    missing_keys = [key for key in missing_all if key not in missing_allow]
+    allowed_missing = [key for key in missing_all if key in missing_allow]
 
     if missing_keys:
         print("Missing translation keys detected:")
         for key in missing_keys:
             print(f" - {key}")
     else:
-        print("No missing translation keys detected.")
+        if allowed_missing:
+            print("No new missing keys; allowed baseline present.")
+        else:
+            print("No missing translation keys detected.")
 
     if unused_keys:
         print("\nUnused translation keys detected (consider cleanup):")

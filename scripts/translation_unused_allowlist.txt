@@ -205,3 +205,4 @@ module.backend.user.userNotLogin
 module.backend.user.userTokenExpired
 module.permission.errors.errorCode
 module.permission.errors.errorMessage
+module.backend.order.courseNotPaid

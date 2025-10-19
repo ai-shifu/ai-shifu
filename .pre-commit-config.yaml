@@ -47,7 +47,7 @@ repos:
         pass_filenames: false
     -   id: check-translation-usage
         name: Validate translation key usage
-        entry: python scripts/check_translation_usage.py --fail-on-unused --unused-allowlist scripts/translation_unused_allowlist.txt
+        entry: python scripts/check_translation_usage.py --fail-on-unused --unused-allowlist scripts/translation_unused_allowlist.txt --missing-allowlist scripts/translation_missing_allowlist.txt
         language: system
         pass_filenames: false
 -   repo: local

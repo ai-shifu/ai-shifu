@@ -1,6 +1,7 @@
 {
   "__namespace__": "module.backend.order",
   "__flat__": {
+    "courseNotPaid": "课程未购买，请先购买课程",
     "orderNotFound": "没有找到订单",
     "orderAlreadyExists": "订单已经存在",
     "orderStatusError": "订单状态错误",

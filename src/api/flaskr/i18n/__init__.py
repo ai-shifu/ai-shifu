@@ -125,8 +125,6 @@ def _load_json_translations(app: Flask, root: Path):
             flat_entries = {}
             if isinstance(content, dict) and "__flat__" in content:
                 flat_section = content.get("__flat__", {})
-                if isinstance(flat_section, dict):
-                    flat_entries.update(flat_section)
                 namespace_override = content.get("__namespace__")
                 residual = {
                     key: value
@@ -138,13 +136,18 @@ def _load_json_translations(app: Flask, root: Path):
                     if isinstance(namespace_override, str) and namespace_override
                     else namespace
                 )
+                # 1) store flat-section with namespace prefix
+                if isinstance(flat_section, dict):
+                    for k, v in flat_section.items():
+                        qualified = f"{base_namespace}.{k}" if base_namespace else k
+                        _store_translation(lang, qualified, v)
+                # 2) store nested residuals with namespace prefix
                 for key, value in _flatten_dict(residual, base_namespace).items():
                     _store_translation(lang, key, value)
             else:
                 flat_entries.update(_flatten_dict(content, namespace))
-
-            for key, value in flat_entries.items():
-                _store_translation(lang, key, value)
+                for key, value in flat_entries.items():
+                    _store_translation(lang, key, value)
 
 
 def _validate_json_translations(app: Flask, root: Path):
