@@ -121,7 +121,7 @@ module.backend.order.orderStatusRefund
 module.backend.order.orderStatusSuccess
 module.backend.order.orderStatusTimeout
 module.backend.order.orderStatusToBePaid
-module.backend.pay.payChannelNotSupport
+server.pay.payChannelNotSupport
 module.backend.profile.aiTools
 module.backend.profile.avatar
 module.backend.profile.birth

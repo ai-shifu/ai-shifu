@@ -37,7 +37,7 @@
     "module.backend.lesson",
     "server.llm",
     "module.backend.order",
-    "module.backend.pay",
+    "server.pay",
     "module.backend.profile",
     "module.backend.scenario",
     "server.shifu",
