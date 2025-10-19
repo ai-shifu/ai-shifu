@@ -1,0 +1,24 @@
+{
+  "__namespace__": "module.backend.profile",
+  "__flat__": {
+    "nickname": "昵称",
+    "userBackground": "背景",
+    "sex": "性别",
+    "birth": "生日",
+    "avatar": "头像",
+    "industry": "行业",
+    "occupation": "职业",
+    "language": "语言",
+    "aiTools": "常用AI工具",
+    "userOs": "用户操作系统",
+    "style": "风格",
+    "programming": "编程",
+    "sexMale": "男",
+    "sexFemale": "女",
+    "sexSecret": "保密",
+    "profileScopeUser": "自定义变量",
+    "profileScopeSystem": "系统变量",
+    "profileTypeText": "文本",
+    "profileTypeOption": "选项"
+  }
+}

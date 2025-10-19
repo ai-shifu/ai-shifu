@@ -1,0 +1,11 @@
+{
+  "__namespace__": "module.renderUi.option",
+  "buttonKey": "Button Key",
+  "buttonText": "Button Text",
+  "complete": "Complete",
+  "optionName": "Option Name",
+  "selectVariable": "Select Variable",
+  "title": "Title",
+  "value": "Value",
+  "variable": "Variable"
+}

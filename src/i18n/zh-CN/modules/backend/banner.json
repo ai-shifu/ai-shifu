@@ -1,0 +1,12 @@
+{
+  "__namespace__": "module.backend.banner",
+  "__flat__": {
+    "bannerTitle": "解锁全部",
+    "bannerPopUpTitle": "在此随时解锁全部内容",
+    "bannerPopUpContent": "立即获得无限追问等诸多权益，让学习从容无忧",
+    "bannerPopUpConfirmText": "立即解锁",
+    "bannerPopUpCancelText": "再学学看",
+    "lessonBannerTitle": "立即解锁 全部内容",
+    "lessonBannerContent": "共 {chapter_count} 章 {lesson_count} 节，为您专属定制"
+  }
+}

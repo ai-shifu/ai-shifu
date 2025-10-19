@@ -144,7 +144,7 @@ export const ChatInteractionArea = ({
                 onClick={onSendAsk}
                 type='text'
                 // @ts-expect-error EXPECT
-                props={{ content: t('chat.askContent') }}
+                props={{ content: t('module.chat.askContent') }}
                 visible={isInputVisible}
                 initialValue={askContent}
                 onInputChange={setAskContent}
@@ -163,7 +163,7 @@ export const ChatInteractionArea = ({
           )}
         </div>
       </div>
-      <div className={styles.tipText}>{t('chat.chatTips')}</div>
+      <div className={styles.tipText}>{t('module.chat.chatTips')}</div>
     </div>
   );
 };

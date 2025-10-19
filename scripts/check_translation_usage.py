@@ -45,7 +45,8 @@ def flatten_translation(data, namespace: str) -> Dict[str, str]:
             for key, value in flat_section.items():
                 if not isinstance(value, str):
                     raise ValueError(f"Translation value for '{key}' must be a string")
-                items[key] = value
+                composite_key = f"{namespace}.{key}" if namespace else key
+                items[composite_key] = value
         for key, value in data.items():
             if key in {"__flat__", "__namespace__"}:
                 continue
@@ -67,7 +68,13 @@ def collect_defined_keys() -> Set[str]:
         rel = file_path.relative_to(reference_locale)
         namespace = str(rel.with_suffix("")).replace("/", ".")
         data = json.loads(file_path.read_text(encoding="utf-8"))
-        defined.update(flatten_translation(data, namespace).keys())
+        declared_namespace = data.get("__namespace__")
+        base_namespace = (
+            declared_namespace
+            if isinstance(declared_namespace, str) and declared_namespace
+            else namespace
+        )
+        defined.update(flatten_translation(data, base_namespace).keys())
     return defined
 
 
@@ -80,7 +87,8 @@ def collect_backend_keys() -> Set[str]:
         text = file_path.read_text(encoding="utf-8", errors="ignore")
         for pattern in patterns:
             for match in pattern.findall(text):
-                used.add(match)
+                if "." in match:
+                    used.add(match)
     return used
 
 
@@ -88,10 +96,8 @@ def collect_frontend_keys() -> Set[str]:
     patterns = FRONTEND_PATTERNS
     used: Set[str] = set()
     extensions = (".ts", ".tsx", ".js", ".jsx")
-    for base_dir in (COOK_WEB_DIR, WEB_DIR):
-        if not base_dir.exists():
-            continue
-        for file_path in base_dir.rglob("*"):
+    if COOK_WEB_DIR.exists():
+        for file_path in COOK_WEB_DIR.rglob("*"):
             if file_path.suffix not in extensions:
                 continue
             text = file_path.read_text(encoding="utf-8", errors="ignore")

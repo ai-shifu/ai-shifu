@@ -35,13 +35,13 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         now = datetime.fromtimestamp(datetime.now().timestamp(), bj_time)
         buy_record: Order = Order.query.filter(Order.order_bid == order_id).first()
         if not buy_record:
-            raise_error("ORDER.ORDER_NOT_FOUND")
+            raise_error("module.backend.order.orderNotFound")
         order_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
             CouponUsageModel.order_bid == order_id,
             CouponUsageModel.status == COUPON_STATUS_USED,
         ).first()
         if order_coupon_useage:
-            raise_error("DISCOUNT.ORDER_DISCOUNT_ALREADY_USED")
+            raise_error("module.backend.discount.orderDiscountAlreadyUsed")
 
         user_coupon_useage: CouponUsageModel = CouponUsageModel.query.filter(
             CouponUsageModel.code == coupon_code,
@@ -71,7 +71,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
                 .first()
             )
             if not coupon:
-                raise_error("DISCOUNT.DISCOUNT_NOT_FOUND")
+                raise_error("module.backend.discount.discountNotFound")
             coupon_usage = CouponUsageModel()
             coupon_usage.coupon_usage_bid = generate_id(app)
             coupon_usage.coupon_bid = coupon.coupon_bid
@@ -87,20 +87,20 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
                 Coupon.coupon_bid == coupon_usage.coupon_bid
             ).first()
         if not coupon:
-            raise_error("DISCOUNT.DISCOUNT_NOT_FOUND")
+            raise_error("module.backend.discount.discountNotFound")
         if coupon_usage.status != COUPON_STATUS_ACTIVE:
-            raise_error("DISCOUNT.DISCOUNT_ALREADY_USED")
+            raise_error("module.backend.discount.discountAlreadyUsed")
         coupon_start = bj_time.localize(coupon.start)
         coupon_end = bj_time.localize(coupon.end)
         if coupon_start > now:
-            raise_error("DISCOUNT.DISCOUNT_NOT_START")
+            raise_error("module.backend.discount.discountNotStart")
         if coupon_end < now:
             app.logger.info(
                 "coupon_end < now:{} {} {}".format(coupon_end, now, coupon_end < now)
             )
-            raise_error("DISCOUNT.DISCOUNT_ALREADY_EXPIRED")
+            raise_error("module.backend.discount.discountAlreadyExpired")
         if coupon.used_count + 1 > coupon.total_count:
-            raise_error("DISCOUNT.DISCOUNT_LIMIT_EXCEEDED")
+            raise_error("module.backend.discount.discountLimitExceeded")
 
         if coupon.filter:
             try:
@@ -110,7 +110,7 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
             if "course_id" in coupon_filter:
                 course_id = coupon_filter["course_id"]
                 if course_id and course_id != "" and course_id != buy_record.shifu_bid:
-                    raise_error("DISCOUNT.DISCOUNT_NOT_APPLY")
+                    raise_error("module.backend.discount.discountNotApply")
 
         coupon_usage.status = COUPON_STATUS_USED
         coupon_usage.updated_at = now

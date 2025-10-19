@@ -264,7 +264,7 @@ export default function AuthPage() {
 
     if (!googleTermsAccepted) {
       toast({
-        title: t('auth.termsError'),
+        title: t('module.auth.termsError'),
         variant: 'destructive',
       });
       return;
@@ -372,16 +372,16 @@ export default function AuthPage() {
           <CardHeader>
             {authMode === 'login' && (
               <CardTitle className='text-xl text-center'>
-                {t('auth.title')}
+                {t('module.auth.title')}
               </CardTitle>
             )}
             {authMode === 'feedback' && (
               <>
                 <CardTitle className='text-xl text-center'>
-                  {t('auth.feedback')}
+                  {t('module.auth.feedback')}
                 </CardTitle>
                 <CardDescription className='text-sm text-center'>
-                  {t('auth.feedback')}
+                  {t('module.auth.feedback')}
                 </CardDescription>
               </>
             )}
@@ -411,10 +411,10 @@ export default function AuthPage() {
                             value={method}
                           >
                             {method === 'phone'
-                              ? t('auth.phone')
+                              ? t('module.auth.phone')
                               : method === 'email'
-                                ? t('auth.email')
-                                : t('auth.googleTab')}
+                                ? t('module.auth.email')
+                                : t('module.auth.googleTab')}
                           </TabsTrigger>
                         ))}
                       </TabsList>
@@ -437,7 +437,7 @@ export default function AuthPage() {
                   )
                 ) : (
                   <p className='text-sm text-muted-foreground text-center'>
-                    {t('auth.noLoginMethods')}
+                    {t('module.auth.noLoginMethods')}
                   </p>
                 )}
               </div>
@@ -453,17 +453,17 @@ export default function AuthPage() {
                 onClick={handleBackToLogin}
                 className='text-primary hover:underline'
               >
-                {t('auth.backToLogin')}
+                {t('module.auth.backToLogin')}
               </button>
             )}
             {authMode !== 'feedback' && (
               <p className='text-sm text-muted-foreground'>
-                {t('auth.problem')}
+                {t('module.auth.problem')}
                 <button
                   onClick={handleFeedback}
                   className='text-primary hover:underline'
                 >
-                  {t('auth.submitFeedback')}
+                  {t('module.auth.submitFeedback')}
                 </button>
               </p>
             )}

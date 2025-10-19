@@ -1,0 +1,24 @@
+{
+  "__namespace__": "module.backend.user",
+  "__flat__": {
+    "userNotFound": "没有找到用户",
+    "userAlreadyExists": "用户已经存在",
+    "userNotLogin": "用户没有登录",
+    "userTokenExpired": "Token失效",
+    "unknownError": "未知错误",
+    "checkCodeError": "验证码错误",
+    "checkCodeExpired": "验证码过期",
+    "smsSendError": "短信发送失败",
+    "smsSendFrequently": "短信发送过于频繁",
+    "smsSendExpired": "短信验证码过期",
+    "smsCheckError": "短信验证码错误",
+    "languageNotFound": "语言配置错误",
+    "emailVerificationSubject": "AI-Shifu: 您的验证码",
+    "ipBanned": "当前IP请求过于频繁，已暂时封禁",
+    "smsSendTooFrequent": "短信发送过于频繁",
+    "emailSendTooFrequent": "邮件发送过于频繁",
+    "emailSendFailed": "邮件发送失败",
+    "mailSendExpired": "邮件验证码过期",
+    "mailCheckError": "邮件验证码错误"
+  }
+}

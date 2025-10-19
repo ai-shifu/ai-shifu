@@ -1,0 +1,13 @@
+{
+  "__namespace__": "module.backend.file",
+  "__flat__": {
+    "fileUploadError": "File Upload Failed",
+    "fileTypeNotSupport": "Unsupported File Type",
+    "fileSizeExceed": "File Size Exceeds Limit",
+    "videoInvalidBilibiliLink": "Invalid Bilibili Link",
+    "videoBilibiliApiError": "Bilibili API Error",
+    "videoBilibiliApiRequestFailed": "Request Bilibili API Failed",
+    "videoUnsupportedVideoSite": "Unsupported Video Site",
+    "videoGetInfoError": "Error Getting Video Info"
+  }
+}

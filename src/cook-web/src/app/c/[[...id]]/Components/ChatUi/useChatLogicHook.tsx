@@ -526,7 +526,7 @@ function useChatLogicHook({
               item.content +
               (!mobileStyle
                 ? ``
-                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('chat.ask')}</span></custom-button-after-content>`),
+                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`),
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
@@ -962,7 +962,7 @@ function useChatLogicHook({
                 ...updatedList[i],
                 content:
                   (updatedList[i].content || '') +
-                  `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('chat.ask')}</span></custom-button-after-content>`,
+                  `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
                 isHistory: true, // Prevent AskButton from triggering typewriter
               };
               break;

@@ -1,0 +1,6 @@
+{
+  "__namespace__": "module.backend.api",
+  "__flat__": {
+    "alibabaCloudNotConfigured": "阿里云参数{config_var}未设置"
+  }
+}

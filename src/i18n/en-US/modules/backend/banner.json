@@ -1,0 +1,12 @@
+{
+  "__namespace__": "module.backend.banner",
+  "__flat__": {
+    "bannerTitle": "Unlock All",
+    "bannerPopUpTitle": "Unlock All Content Anytime",
+    "bannerPopUpContent": "Gain unlimited access and enjoy stress-free learning",
+    "bannerPopUpConfirmText": "Unlock Now!",
+    "bannerPopUpCancelText": "Keep Exploring",
+    "lessonBannerTitle": "Unlock All Content",
+    "lessonBannerContent": "{chapter_count} chapters and {lesson_count} lessons, customized for you"
+  }
+}

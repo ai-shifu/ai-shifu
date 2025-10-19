@@ -47,7 +47,7 @@ export default function LanguageSelect(props: languageProps) {
         <GlobeIcon className='w-4 h-4 mr-1' />
         <SelectValue
           className='hidden'
-          placeholder={t('langName')}
+          placeholder={t('common.language.name')}
         />
       </SelectTrigger>
       <SelectContent className={cn(props.contentClassName)}>

@@ -1,9 +1,0 @@
-{
-  "__flat__": {
-    "COURSE.COURSE_NOT_FOUND": "Course not found",
-    "COURSE.LESSON_CANNOT_BE_RESET": "Lesson cannot be reset",
-    "COURSE.LESSON_NOT_FOUND": "Lesson not found",
-    "COURSE.LESSON_NOT_FOUND_IN_COURSE": "Lesson not found in course",
-    "COURSE.COURSE_NOT_PURCHASED": "Course not purchased, please purchase the course first"
-  }
-}

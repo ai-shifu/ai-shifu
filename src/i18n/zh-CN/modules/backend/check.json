@@ -1,0 +1,6 @@
+{
+  "__namespace__": "module.backend.check",
+  "__flat__": {
+    "checkRiskControlReject": "输入内容不合规, 请检查！"
+  }
+}

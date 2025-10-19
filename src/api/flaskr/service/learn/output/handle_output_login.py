@@ -26,7 +26,7 @@ def _handle_output_login(
     login: LoginDTO = block_dto.block_content
     title = get_script_ui_label(app, login.label)
     if not title:
-        title = _("COMMON.LOGIN")
+        title = _("module.backend.common.login")
     # display = bool(title)
     btn = [
         {

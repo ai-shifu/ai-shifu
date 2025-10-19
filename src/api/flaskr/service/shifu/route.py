@@ -107,7 +107,7 @@ class ShifuTokenValidation:
                 token = request.get_json().get("token", None)
 
             if not request.user.is_creator:
-                raise_error("SHIFU.NO_PERMISSION")
+                raise_error("module.backend.shifu.noPermission")
 
             # If is_creator is True, only verify creator permission and skip shifu-specific verification
             if self.is_creator:
@@ -131,7 +131,7 @@ class ShifuTokenValidation:
                 app, user_id, shifu_bid, self.permission.value
             )
             if not has_permission:
-                raise_error("SHIFU.NO_PERMISSION")
+                raise_error("module.backend.shifu.noPermission")
 
             return f(*args, **kwargs)
 

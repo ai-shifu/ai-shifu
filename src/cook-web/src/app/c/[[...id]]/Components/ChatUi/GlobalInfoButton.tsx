@@ -71,13 +71,13 @@ const GlobalInfoButton = ({ className }) => {
   const menuItems = [
     {
       key: '1',
-      label: t('navigation.contactUs'),
+      label: t('component.navigation.contactUs'),
       icon: <MailIcon />,
       onClick: onContactUsClick,
     },
     {
       key: '2',
-      label: t('navigation.feedbackTitle'),
+      label: t('component.navigation.feedbackTitle'),
       icon: <MessageSquareWarningIcon />,
       onClick: () => {
         onFeedbackModalOpen();
@@ -86,7 +86,7 @@ const GlobalInfoButton = ({ className }) => {
     },
     {
       key: '3',
-      label: t('navigation.userAgreement'),
+      label: t('component.navigation.userAgreement'),
       icon: <SquareArrowOutUpRightIcon />,
       onClick: () => {
         onPopoverClose();
@@ -95,7 +95,7 @@ const GlobalInfoButton = ({ className }) => {
     },
     {
       key: '4',
-      label: t('navigation.privacyPolicy'),
+      label: t('component.navigation.privacyPolicy'),
       icon: <SquareArrowOutUpRightIcon />,
       onClick: () => {
         onPopoverClose();
@@ -104,7 +104,7 @@ const GlobalInfoButton = ({ className }) => {
     },
     {
       key: '5',
-      label: t('navigation.shortcut'),
+      label: t('component.navigation.shortcut'),
       icon: <KeyboardIcon />,
       onClick: () => {
         onPopoverClose();
@@ -163,10 +163,10 @@ const GlobalInfoButton = ({ className }) => {
 
             <div className={styles.policyInfo}>
               <div className={styles.policyInfoRow}>
-                {t('common.companyName')}
+                {t('common.core.companyName')}
               </div>
               <div className={styles.policyInfoRow}>
-                {t('common.companyAddress')}
+                {t('common.core.companyAddress')}
               </div>
               <div className={styles.policyInfoRow}>
                 <a
@@ -175,7 +175,7 @@ const GlobalInfoButton = ({ className }) => {
                   target='_blank'
                   rel='noopener noreferrer'
                 >
-                  {t('navigation.icp')}
+                  {t('component.navigation.icp')}
                 </a>
               </div>
               <div className={clsx(styles.gonganRow, styles.policyInfoRow)}>
@@ -184,9 +184,9 @@ const GlobalInfoButton = ({ className }) => {
                   width={12}
                   height={14}
                   className={styles.beianIcon}
-                  alt={t('navigation.filing')}
+                  alt={t('component.navigation.filing')}
                 />
-                <span>{t('navigation.gongan')}</span>
+                <span>{t('component.navigation.gongan')}</span>
               </div>
             </div>
           </div>

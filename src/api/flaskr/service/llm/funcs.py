@@ -49,7 +49,7 @@ def debug_script(
                 .first()
             )
             if not block_info:
-                raise_error("SCENARIO.BLOCK_NOT_FOUND")
+                raise_error("module.backend.scenario.blockNotFound")
             trace_args = {}
             trace_args["user_id"] = user_id
             trace_args["session_id"] = "debug-" + block_id

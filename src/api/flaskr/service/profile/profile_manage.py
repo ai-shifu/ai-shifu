@@ -133,9 +133,9 @@ def get_profile_item_definition_option_list(
 def add_profile_item_quick(app: Flask, parent_id: str, key: str, user_id: str):
     with app.app_context():
         if not parent_id:
-            raise_error("PROFILE.PRARENT_REQUIRED")
+            raise_error("module.backend.profile.prarentRequired")
         if not key:
-            raise_error("PROFILE.KEY_REQUIRE")
+            raise_error("module.backend.profile.keyRequire")
         ret = add_profile_item_quick_internal(app, parent_id, key, user_id)
         db.session.commit()
         return ret
@@ -187,7 +187,7 @@ def save_profile_item(
 ):
     with app.app_context():
         if (not parent_id or parent_id == "") and user_id != "":
-            raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_UPDATE")
+            raise_error("module.backend.profile.systemProfileNotAllowUpdate")
         exist_system_profile_list = ProfileItem.query.filter(
             ProfileItem.parent_id == "",
             ProfileItem.status == 1,
@@ -195,7 +195,7 @@ def save_profile_item(
         if exist_system_profile_list:
             for exist_system_profile in exist_system_profile_list:
                 if exist_system_profile.profile_key == key:
-                    raise_error("PROFILE.SYSTEM_PROFILE_KEY_EXIST")
+                    raise_error("module.backend.profile.systemProfileKeyExist")
         if profile_id and bool(profile_id):
             profile_item = ProfileItem.query.filter(
                 ProfileItem.profile_id == profile_id,
@@ -203,7 +203,7 @@ def save_profile_item(
                 ProfileItem.status == 1,
             ).first()
             if not profile_item:
-                raise_error("PROFILE.NOT_FOUND")
+                raise_error("module.backend.profile.notFound")
             app.logger.info("type:{}".format(type))
             profile_item.updated = datetime.now()
             profile_item.updated_by = user_id
@@ -234,20 +234,20 @@ def save_profile_item(
             db.session.add(profile_item)
             profile_id = profile_item.profile_id
         if not key:
-            raise_error("PROFILE.KEY_REQUIRED")
+            raise_error("module.backend.profile.keyRequired")
         exist_item = ProfileItem.query.filter(
             ProfileItem.parent_id == parent_id,
             ProfileItem.profile_key == key,
             ProfileItem.profile_id != profile_id,
         ).first()
         if exist_item:
-            raise_error("PROFILE.KEY_EXIST")
+            raise_error("module.backend.profile.keyExist")
 
         if type == PROFILE_TYPE_INPUT_TEXT and not profile_prompt:
-            # raise_error("PROFILE.PROMPT_REQUIRED")
+            # raise_error("module.backend.profile.promptRequired")
             profile_prompt = ""
         if type == PROFILE_TYPE_INPUT_SELECT and not items:
-            raise_error("PROFILE.ITEMS_REQUIRED")
+            raise_error("module.backend.profile.itemsRequired")
 
         current_language = get_current_language()
 
@@ -356,7 +356,7 @@ def update_profile_item(
     with app.app_context():
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
-            raise_error("PROFILE.NOT_FOUND")
+            raise_error("module.backend.profile.notFound")
         profile_item.profile_key = key
         profile_item.profile_type = type
         profile_item.profile_show_type = show_type
@@ -366,10 +366,10 @@ def update_profile_item(
         profile_item.profile_check_model_args = str(profile_check_model_args)
         profile_item.updated_by = user_id
         if type == PROFILE_TYPE_INPUT_TEXT and not profile_prompt:
-            raise_error("PROFILE.PROMPT_REQUIRED")
+            raise_error("module.backend.profile.promptRequired")
         if type == PROFILE_TYPE_INPUT_SELECT:
             if len(items) == 0:
-                raise_error("PROFILE.ITEMS_REQUIRED")
+                raise_error("module.backend.profile.itemsRequired")
             profile_item_value = ProfileItemValue.query.filter_by(
                 profile_id=profile_id, status=1
             ).all()
@@ -412,9 +412,9 @@ def add_profile_i18n(
                 ProfileItemValue.profile_id == parent_id
             ).first()
         else:
-            raise_error("PROFILE.CONF_TYPE_INVALID")
+            raise_error("module.backend.profile.confTypeInvalid")
         if not profile_item:
-            raise_error("PROFILE.NOT_FOUND")
+            raise_error("module.backend.profile.notFound")
         profile_i18n = ProfileItemI18n.query.filter(
             ProfileItemI18n.parent_id == parent_id,
             ProfileItemI18n.conf_type == conf_type,
@@ -443,9 +443,9 @@ def delete_profile_item(app: Flask, user_id: str, profile_id: str):
     with app.app_context():
         profile_item = ProfileItem.query.filter_by(profile_id=profile_id).first()
         if not profile_item:
-            raise_error("PROFILE.NOT_FOUND")
+            raise_error("module.backend.profile.notFound")
         if profile_item.parent_id == "" or profile_item.parent_id is None:
-            raise_error("PROFILE.SYSTEM_PROFILE_NOT_ALLOW_DELETE")
+            raise_error("module.backend.profile.systemProfileNotAllowDelete")
         profile_item.status = 0
         item_ids = [profile_id]
         if profile_item.profile_type == PROFILE_TYPE_INPUT_SELECT:
@@ -492,7 +492,7 @@ def save_profile_item_defination(
         return
     scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
     if scenario is None:
-        raise_error("SCENARIO.NOT_FOUND")
+        raise_error("module.backend.scenario.notFound")
     if isinstance(profile, TextProfileDto):
         app.logger.info("save text profile item defination:{}".format(profile))
         profile_item = ProfileItem.query.filter(
@@ -588,7 +588,7 @@ def save_profile_item_defination(
         ).all()
         for index, option in enumerate(profile.profile_options):
             if option.value is None or option.value == "":
-                raise_error("PROFILE.OPTION_VALUE_REQUIRED")
+                raise_error("module.backend.profile.optionValueRequired")
             profile_item_value = next(
                 (
                     item

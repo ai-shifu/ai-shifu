@@ -1,0 +1,31 @@
+{
+  "__namespace__": "module.backend.order",
+  "__flat__": {
+    "orderNotFound": "没有找到订单",
+    "orderAlreadyExists": "订单已经存在",
+    "orderStatusError": "订单状态错误",
+    "orderPayError": "订单支付失败",
+    "orderRefundError": "订单退款失败",
+    "orderPayExpired": "订单支付过期",
+    "orderPayNotFound": "没有找到支付订单",
+    "orderHasPaid": "订单已经支付",
+    "checkout": "去支付",
+    "buyStatusInit": "初始化",
+    "buyStatusSuccess": "购买成功",
+    "buyStatusRefund": "退款",
+    "buyStatusToBePaid": "待支付",
+    "learnStatusNotStarted": "可学习",
+    "learnStatusInProgress": "正在学",
+    "learnStatusCompleted": "已完成",
+    "learnStatusRefund": "退款",
+    "learnStatusLocked": "未解锁",
+    "learnStatusUnavailable": "不可用",
+    "learnStatusBranch": "分支",
+    "learnStatusReset": "重置",
+    "orderStatusInit": "初始化",
+    "orderStatusSuccess": "购买成功",
+    "orderStatusRefund": "退款",
+    "orderStatusToBePaid": "待支付",
+    "orderStatusTimeout": "已过期"
+  }
+}

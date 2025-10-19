@@ -957,7 +957,7 @@ export const ChatComponents = forwardRef<any, any>(
 
     // const onLogin = useCallback(async () => {
     //   await refreshUserInfo();
-    //   handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, false, t('chat.loginSuccess'));
+    //   handleSend(INTERACTION_OUTPUT_TYPE.LOGIN, false, t('module.chat.loginSuccess'));
     // }, [handleSend, refreshUserInfo, t]);
 
     useEffect(() => {

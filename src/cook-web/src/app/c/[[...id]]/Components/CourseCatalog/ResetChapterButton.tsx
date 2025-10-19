@@ -42,8 +42,8 @@ export const ResetChapterButton = ({
     async e => {
       setShowConfirm(true);
       // Modal.confirm({
-      //   title: t('lesson.reset.confirmTitle'),
-      //   content: t('lesson.reset.confirmContent'),
+      //   title: t('module.lesson.reset.confirmTitle'),
+      //   content: t('module.lesson.reset.confirmContent'),
       //   onOk: async () => {
       //     await resetChapter(chapterId);
       //     updateLessonId(lessonId);
@@ -95,7 +95,7 @@ export const ResetChapterButton = ({
         className={cn(className, 'size-max', 'px-2', 'rounded-full')}
         onClick={onButtonClick}
       >
-        {t('lesson.reset.title')}
+        {t('module.lesson.reset.title')}
       </Button>
       <Dialog
         open={showConfirm}
@@ -103,13 +103,13 @@ export const ResetChapterButton = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('lesson.reset.confirmTitle')}</DialogTitle>
+            <DialogTitle>{t('module.lesson.reset.confirmTitle')}</DialogTitle>
             <DialogDescription>
-              {t('lesson.reset.confirmContent')}
+              {t('module.lesson.reset.confirmContent')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button onClick={handleConfirm}>{t('common.ok')}</Button>
+            <Button onClick={handleConfirm}>{t('common.core.ok')}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

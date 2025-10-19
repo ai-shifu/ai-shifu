@@ -67,7 +67,7 @@ def generate_coupon_code(
         start = datetime.strptime(start, "%Y-%m-%d %H:%M:%S")
         end = datetime.strptime(end, "%Y-%m-%d %H:%M:%S")
         if end < start:
-            raise_error("COMMON.START_TIME_NOT_ALLOWED")
+            raise_error("module.backend.common.startTimeNotAllowed")
         if code is None:
             code = generate_coupon_strcode(app)
         if coupon_bid is None or coupon_bid == "":
@@ -87,7 +87,7 @@ def generate_coupon_code(
         coupon.created_user_bid = user_id
         if coupon_bid is None or coupon_bid == "":
             if total_count <= 0:
-                raise_error("DISCOUNT.DISCOUNT_COUNT_NOT_ZERO")
+                raise_error("module.backend.discount.discountCountNotZero")
             db.session.add(coupon)
         else:
             db.session.merge(coupon)

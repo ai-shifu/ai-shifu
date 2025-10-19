@@ -54,7 +54,7 @@ const UserProfileCard = () => {
     {
       icon: <HeartIcon className='w-4 h-4' />,
       id: 'follow',
-      label: t('common.follow'),
+      label: t('common.core.follow'),
       href: '#',
     },
   ];
@@ -140,7 +140,7 @@ const UserProfileCard = () => {
           className='flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-gray-100 cursor-pointer'
         >
           <LogOut className='w-4 h-4' />
-          <span>{t('common.logout')}</span>
+          <span>{t('common.core.logout')}</span>
         </div>
       </PopoverContent>
     </Popover>

@@ -31,7 +31,7 @@ function extractKeysFromFile(filePath) {
     const normalizedContent = content.replace(/\bt\s*\(\s*\n\s*/g, 't(');
 
     // Match t() function calls in various contexts including JSX attributes
-    // This regex handles: t('key'), t('key', {...}), {t('key')}, placeholder={t('key')}, etc.
+    // This regex handles: t(`namespace.key`), t(`namespace.key`, {...}), {t(`namespace.key`)}, placeholder={t(`namespace.key`)}, etc.
     const tRegex =
       /\bt\s*\(\s*['"]([a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+)['"](?:\s*,\s*[^)]+)?\s*\)/g;
     const setErrorRegex =
@@ -106,8 +106,8 @@ function sortObjectKeys(obj) {
 
   Object.keys(obj)
     .sort((a, b) => {
-      if (a === 'langName') return -1;
-      if (b === 'langName') return 1;
+      if (a === 'common.language.name') return -1;
+      if (b === 'common.language.name') return 1;
 
       return a.localeCompare(b);
     })
@@ -139,7 +139,7 @@ function pruneUnusedKeys(obj, validKeys, prefix = '') {
   for (const key in obj) {
     const fullKey = prefix ? `${prefix}.${key}` : key;
 
-    if (key === 'langName' || validKeysSet.has(fullKey)) {
+    if (key === 'common.language.name' || validKeysSet.has(fullKey)) {
       if (typeof obj[key] === 'object' && obj[key] !== null) {
         result[key] = pruneUnusedKeys(obj[key], validKeysSet, fullKey);
       } else {

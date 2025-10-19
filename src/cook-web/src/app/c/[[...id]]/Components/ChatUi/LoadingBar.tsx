@@ -9,7 +9,7 @@ const LoadingBar = () => {
         className='animate-spin'
         style={{ width: '15px', height: '15px' }}
       />
-      {t('chat.thinking')}
+      {t('module.chat.thinking')}
     </span>
   );
 };

@@ -26,7 +26,7 @@ def _handle_output_input(
     inputDto: InputDTO = block_dto.block_content
     msg = get_script_ui_label(app, inputDto.placeholder)
     if not msg:
-        msg = _("COMMON.INPUT")
+        msg = _("module.backend.common.input")
     return ScriptDTO(
         "input",
         {"content": msg},

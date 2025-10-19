@@ -1,0 +1,24 @@
+{
+  "__namespace__": "module.backend.user",
+  "__flat__": {
+    "userNotFound": "User Not Found",
+    "userAlreadyExists": "User Already Exists",
+    "userNotLogin": "User Not Logged In",
+    "userTokenExpired": "Token Expired",
+    "unknownError": "Unknown Error",
+    "checkCodeError": "Verification Code Error",
+    "checkCodeExpired": "Verification Code Expired",
+    "smsSendError": "SMS Send Error",
+    "smsSendFrequently": "SMS sent too frequently",
+    "smsSendExpired": "SMS Verification Code Expired",
+    "smsCheckError": "SMS Verification Code Error",
+    "languageNotFound": "Language Not Found",
+    "emailVerificationSubject": "AI-Shifu: Your Verification Code",
+    "ipBanned": "Requests from this IP are temporarily blocked",
+    "smsSendTooFrequent": "SMS sent too frequently",
+    "emailSendTooFrequent": "Emails sent too frequently",
+    "emailSendFailed": "Email send failed",
+    "mailSendExpired": "Email verification code expired",
+    "mailCheckError": "Email verification code error"
+  }
+}

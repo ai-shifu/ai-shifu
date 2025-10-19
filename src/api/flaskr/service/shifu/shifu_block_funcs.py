@@ -89,7 +89,7 @@ def delete_block(app, user_id: str, outline_id: str, block_id: str):
         now_time = datetime.now()
         block_model = next((b for b in blocks if b.block_bid == block_id), None)
         if block_model is None:
-            raise_error("SHIFU.BLOCK_NOT_FOUND")
+            raise_error("module.backend.shifu.blockNotFound")
         block_model.deleted = 1
         block_model.updated_at = now_time
         block_model.updated_user_bid = user_id
@@ -149,9 +149,9 @@ def save_shifu_block_list(
             .first()
         )
         if outline is None:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("module.backend.shifu.outlineNotFound")
         if outline.deleted == 1:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("module.backend.shifu.outlineNotFound")
         blocks = __get_block_list_internal(outline_id)
         variable_definitions = get_profile_item_definition_list(app, outline.shifu_bid)
         variable_map = {
@@ -289,9 +289,9 @@ def add_block(
             .first()
         )
         if outline is None:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("module.backend.shifu.outlineNotFound")
         if outline.deleted == 1:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("module.backend.shifu.outlineNotFound")
         block_bid = generate_id(app)
         block_dto = convert_to_blockDTO(block)
         block_index = block_index + 1

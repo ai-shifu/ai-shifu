@@ -33,13 +33,13 @@ def _handle_output_payment(
             title = payment.label
             title = get_script_ui_label(app, title)
             if not title:
-                title = _("COMMON.CHECKOUT")
+                title = _("module.backend.common.checkout")
             btn = [{"label": title, "value": order.order_id}]
             return ScriptDTO(
                 "order", {"buttons": btn}, outline_item_info.bid, block_dto.bid
             )
     else:
-        title = _("COMMON.CONTINUE")
+        title = _("module.backend.common.continue")
         btn = [
             {
                 "label": title,

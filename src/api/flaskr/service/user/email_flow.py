@@ -51,11 +51,11 @@ def verify_email_code(
 
     check_save = redis.get(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email)
     if check_save is None and code != FIX_CHECK_CODE:
-        raise_error("USER.MAIL_SEND_EXPIRED")
+        raise_error("module.backend.user.mailSendExpired")
 
     check_save_str = str(check_save, encoding="utf-8") if check_save else ""
     if code != check_save_str and code != FIX_CHECK_CODE:
-        raise_error("USER.MAIL_CHECK_ERROR")
+        raise_error("module.backend.user.mailCheckError")
 
     redis.delete(app.config["REDIS_KEY_PREFIX_MAIL_CODE"] + email)
 

@@ -1,0 +1,17 @@
+{
+  "__namespace__": "module.backend.common",
+  "__flat__": {
+    "unknownError": "Unknown Error",
+    "paramsError": "Params Error {param_message}",
+    "textNotAllowed": "Please check the input content",
+    "nicknameNotAllowed": "Oops, illegal nickname.",
+    "backgroundNotAllowed": "Oops, illegal background.",
+    "startTimeNotAllowed": "Start time cannot be later than end time",
+    "continue": "Continue",
+    "login": "Login",
+    "checkout": "Checkout",
+    "input": "Input",
+    "checkcode": "Verification Code",
+    "phone": "Phone"
+  }
+}

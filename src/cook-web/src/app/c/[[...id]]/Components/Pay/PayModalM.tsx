@@ -49,7 +49,7 @@ const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
     <div className={styles.completedSection}>
-      <div className={styles.title}>{t('pay.paySuccess')}</div>
+      <div className={styles.title}>{t('module.pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
         <Image
           className={styles.paySuccessBg}
@@ -118,14 +118,14 @@ export const PayModalM = ({
       try {
         await payByJsApi(qrcodeResp.qr_url);
         toast({
-          title: t('pay.paySuccess'),
+          title: t('module.pay.paySuccess'),
         });
         setIsCompleted(true);
         onOk();
       } catch (e) {
         console.log(e);
         toast({
-          title: t('pay.payFailed'),
+          title: t('module.pay.payFailed'),
           variant: 'destructive',
         });
       }
@@ -196,7 +196,7 @@ export const PayModalM = ({
       >
         <DialogContent className='w-full'>
           <DialogHeader className='sr-only'>
-            <DialogTitle>{t('pay.title')}</DialogTitle>
+            <DialogTitle>{t('module.pay.title')}</DialogTitle>
           </DialogHeader>
           <div className={styles.payModalContent}>
             {isCompleted ? (
@@ -206,7 +206,7 @@ export const PayModalM = ({
                 {!initLoading ? (
                   <>
                     <div className={styles.payInfoTitle}>
-                      {t('pay.finalPrice')}
+                      {t('module.pay.finalPrice')}
                     </div>
                     <div className={styles.priceWrapper}>
                       <div className={cn(styles.price)}>
@@ -269,10 +269,10 @@ export const PayModalM = ({
                                   <Image
                                     className={styles.payChannelIcon}
                                     src={weixinIcon}
-                                    alt={t('pay.wechatPay')}
+                                    alt={t('module.pay.wechatPay')}
                                   />
                                   <span className={styles.payChannelTitle}>
-                                    {t('pay.wechatPay')}
+                                    {t('module.pay.wechatPay')}
                                   </span>
                                 </div>
                                 <RadioGroupItem
@@ -294,10 +294,10 @@ export const PayModalM = ({
                                   <Image
                                     className={styles.payChannelIcon}
                                     src={zhifuboIcon}
-                                    alt={t('pay.alipay')}
+                                    alt={t('module.pay.alipay')}
                                   />
                                   <span className={styles.payChannelTitle}>
-                                    {t('pay.alipay')}
+                                    {t('module.pay.alipay')}
                                   </span>
                                 </div>
                                 <RadioGroupItem
@@ -314,7 +314,7 @@ export const PayModalM = ({
                             className={styles.payButton}
                             onClick={handlePay}
                           >
-                            {t('pay.pay')}
+                            {t('module.pay.pay')}
                           </MainButtonM>
                         </div>
                         <div className={styles.couponCodeWrapper}>
@@ -325,8 +325,8 @@ export const PayModalM = ({
                             onClick={onCouponCodeButtonClick}
                           >
                             {!couponCode
-                              ? t('groupon.useOtherPayment')
-                              : t('groupon.modify')}
+                              ? t('module.groupon.useOtherPayment')
+                              : t('module.groupon.modify')}
                           </MainButtonM>
                         </div>
                         <PayModalFooter className={styles.payModalFooter} />
@@ -335,7 +335,7 @@ export const PayModalM = ({
                       <div className={styles.loginButtonWrapper}>
                         {/* @ts-expect-error EXPECT */}
                         <MainButtonM onClick={onLoginButtonClick}>
-                          {t('auth.login')}
+                          {t('module.auth.login')}
                         </MainButtonM>
                       </div>
                     )}
@@ -363,12 +363,12 @@ export const PayModalM = ({
         <Dialog open={couponCodeModalOpen}>
           <DialogContent className={cn('w-5/6', styles.couponCodeModal)}>
             <DialogHeader>
-              <DialogTitle>{t('groupon.title')}</DialogTitle>
+              <DialogTitle>{t('module.groupon.title')}</DialogTitle>
             </DialogHeader>
             <div className={styles.couponCodeInputWrapper}>
               {/* @ts-expect-error EXPECT */}
               <SettingInputM
-                title={t('groupon.title')}
+                title={t('module.groupon.title')}
                 onChange={e => setCouponCode(e)}
               />
             </div>
@@ -378,7 +378,7 @@ export const PayModalM = ({
                 onClick={onCouponCodeOkClick}
                 className={styles.okButton}
               >
-                {t('common.ok')}
+                {t('common.core.ok')}
               </MainButtonM>
             </div>
           </DialogContent>

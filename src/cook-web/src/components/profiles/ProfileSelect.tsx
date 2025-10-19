@@ -82,7 +82,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
     <div className='space-y-4 text-xs'>
       <div className='relative'>
         <Input
-          placeholder={t('profilesManage.searchVariable')}
+          placeholder={t('module.profilesManage.searchVariable')}
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           className='w-full'
@@ -103,7 +103,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
           {!!systemProfiles?.length && (
             <div>
               <h4 className='mb-2 text-sm font-medium text-muted-foreground'>
-                {t('profiles.systemVariable')}
+                {t('module.profiles.systemVariable')}
               </h4>
               <div className='space-y-1'>
                 {systemProfiles?.map(profile => (
@@ -127,8 +127,8 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                     <div className='flex items-center'>
                       <span className='text-xs text-muted-foreground mr-2'>
                         {profile.profile_type === 'text'
-                          ? t('profilesManage.text')
-                          : t('profilesManage.enum')}
+                          ? t('module.profilesManage.text')
+                          : t('module.profilesManage.enum')}
                       </span>
                     </div>
                   </div>
@@ -139,7 +139,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
           {!!customProfiles?.length && (
             <div>
               <h4 className='mb-2 text-sm font-medium text-muted-foreground'>
-                {t('profiles.customVariable')}
+                {t('module.profiles.customVariable')}
               </h4>
               <div className='space-y-1'>
                 {customProfiles?.map(profile => (
@@ -159,7 +159,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                           profile.profile_type === 'text' &&
                           profile.defaultValue && (
                             <span className='text-xs text-muted-foreground ml-2 bg-muted px-1.5 py-0.5 rounded'>
-                              {t('profiles.defaultValue')}:{' '}
+                              {t('module.profiles.defaultValue')}:{' '}
                               {profile.defaultValue}
                             </span>
                           )}
@@ -173,8 +173,8 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
                     <div className='flex items-center'>
                       <span className='text-xs text-muted-foreground mr-2'>
                         {profile.profile_type === 'text'
-                          ? t('profilesManage.text')
-                          : t('profilesManage.enum')}
+                          ? t('module.profilesManage.text')
+                          : t('module.profilesManage.enum')}
                       </span>
 
                       {hoveredId === profile.profile_id ? (
@@ -217,7 +217,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
 
           {!systemProfiles?.length && !customProfiles?.length && (
             <div className='py-6 text-center text-muted-foreground'>
-              {t('profiles.noVariableFound')}
+              {t('module.profiles.noVariableFound')}
             </div>
           )}
         </div>
@@ -228,7 +228,7 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
         onClick={() => handleSaveProfile(false)}
       >
         <Plus className='h-4 w-4' />
-        {t('profiles.addNewVariable')}
+        {t('module.profiles.addNewVariable')}
       </Button>
       <ProfileSave
         parentId={currentShifu?.bid}
@@ -251,15 +251,17 @@ const ProfileSelect: React.FC<ProfileSelectProps> = ({
         />
         <AlertDialogContent className='z-[51]'>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('profiles.confirmDelete')}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('module.profiles.confirmDelete')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('profiles.confirmDeleteDescription')}
+              {t('module.profiles.confirmDeleteDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('profiles.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>{t('module.profiles.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete}>
-              {t('profiles.confirm')}
+              {t('module.profiles.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -214,7 +214,7 @@ class RunScriptContext:
                 ).first()
             )
             if not outline_item_info_db:
-                raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                raise_error("module.backend.lesson.lessonNotFoundInCourse")
             if outline_item_info_db.type == LESSON_TYPE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise PaidException()
@@ -575,7 +575,7 @@ class RunScriptContext:
             self._block_model.id == block_id,
         ).first()
         if not block_info:
-            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+            raise_error("module.backend.lesson.lessonNotFoundInCourse")
         block_dto = generate_block_dto_from_model_internal(
             block_info, convert_html=False
         )
@@ -607,7 +607,7 @@ class RunScriptContext:
             .first()
         )
         if not block_info:
-            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+            raise_error("module.backend.lesson.lessonNotFoundInCourse")
         block_dto = generate_block_dto_from_model_internal(
             block_info, convert_html=False
         )

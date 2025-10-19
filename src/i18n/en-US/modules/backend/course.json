@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.backend.course",
+  "__flat__": {
+    "courseNotFound": "Course not found",
+    "lessonCannotBeReset": "Lesson cannot be reset",
+    "lessonNotFound": "Lesson not found",
+    "lessonNotFoundInCourse": "Lesson not found in course",
+    "courseNotPurchased": "Course not purchased, please purchase the course first"
+  }
+}

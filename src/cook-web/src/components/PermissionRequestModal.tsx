@@ -43,7 +43,7 @@ export const PermissionRequestModal = ({
 
   const formSchema = z.object({
     request: z.string().min(5, {
-      message: t('permission.requestPlaceholder'),
+      message: t('module.permission.permission.requestPlaceholder'),
     }),
   });
 
@@ -68,14 +68,14 @@ export const PermissionRequestModal = ({
         await submitFeedback(requestContent);
 
         toast({
-          title: t('permission.requestSuccess'),
+          title: t('module.permission.permission.requestSuccess'),
         });
         form.reset();
         onClose();
       } catch (error) {
         console.error('Permission request submission failed:', error);
         toast({
-          title: t('permission.requestError'),
+          title: t('module.permission.permission.requestError'),
           variant: 'destructive',
         });
       } finally {
@@ -100,7 +100,7 @@ export const PermissionRequestModal = ({
       <DialogContent className='sm:max-w-md'>
         <DialogHeader>
           <DialogTitle className='text-center text-lg'>
-            {t('permission.requestTitle')}
+            {t('module.permission.permission.requestTitle')}
           </DialogTitle>
         </DialogHeader>
 
@@ -108,7 +108,7 @@ export const PermissionRequestModal = ({
           <form onSubmit={form.handleSubmit(onSubmitRequest)}>
             <div className='py-4'>
               <p className='text-sm text-gray-600 mb-4'>
-                {t('permission.requestDescription')}
+                {t('module.permission.permission.requestDescription')}
               </p>
 
               <FormField
@@ -120,7 +120,9 @@ export const PermissionRequestModal = ({
                       <Textarea
                         maxLength={REQUEST_MAX_LENGTH}
                         minLength={5}
-                        placeholder={t('permission.requestPlaceholder')}
+                        placeholder={t(
+                          'module.permission.permission.requestPlaceholder',
+                        )}
                         className='resize-none h-24'
                         {...field}
                       />
@@ -138,7 +140,7 @@ export const PermissionRequestModal = ({
                 onClick={() => handleOpenChange(false)}
                 className='min-w-[100px]'
               >
-                {t('common.cancel')}
+                {t('common.core.cancel')}
               </Button>
               <Button
                 type='submit'
@@ -146,8 +148,8 @@ export const PermissionRequestModal = ({
                 className='min-w-[120px]'
               >
                 {isSubmitting
-                  ? t('common.submitting')
-                  : t('permission.requestSubmit')}
+                  ? t('common.core.submitting')
+                  : t('module.permission.permission.requestSubmit')}
               </Button>
             </DialogFooter>
           </form>

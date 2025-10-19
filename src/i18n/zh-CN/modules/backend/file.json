@@ -1,0 +1,13 @@
+{
+  "__namespace__": "module.backend.file",
+  "__flat__": {
+    "fileUploadError": "文件上传失败",
+    "fileTypeNotSupport": "不支持的文件类型",
+    "fileSizeExceed": "文件大小超过限制",
+    "videoInvalidBilibiliLink": "无效的B站视频链接",
+    "videoBilibiliApiError": "B站API返回错误",
+    "videoBilibiliApiRequestFailed": "请求B站API失败",
+    "videoUnsupportedVideoSite": "暂不支持该视频网站",
+    "videoGetInfoError": "获取视频信息时发生错误"
+  }
+}

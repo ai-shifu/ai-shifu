@@ -5,6 +5,13 @@
 - [ ] Commit promptly so progress is captured incrementally and reviewable.
 - [ ] Keep the working tree clean by staging, committing, or discarding leftovers before starting the next task.
 
+## Active Focus – I18n Consolidation
+- [x] Inventory every translation namespace and JSON file across API and Cook Web.
+- [x] Restructure shared locales into clear groupings (common/component/module) or a better agreed taxonomy.
+- [x] Align API translation lookups with the reorganized namespaces.
+- [x] Align Cook Web translation usage with the reorganized namespaces.
+- [ ] Resolve missing-or-unused key discrepancies reported by `scripts/check_translation_usage.py`.
+
 ## Phase 0 – Decisions
 - [x] Lock unified key naming convention across API and Cook Web (flat `MODULE.KEY` vs nested)
 - [x] Adopt ICU MessageFormat for placeholders and confirm runtime libraries (front-end `i18next` + `i18next-icu` or `FormatJS`; back-end Babel/MessageFormat)
@@ -46,7 +53,7 @@
 - [ ] Document how to run the checks locally and interpret failures
 
 ### Documentation
-- [ ] Update developer docs (e.g. `AGENTS.md`) with the new directory layout and workflow
+- [x] Update developer docs (e.g. `AGENTS.md`) with the new directory layout and workflow
 - [ ] Publish a short migration playbook instructing how to add/modify translations under the new system
 
 ## Phase 2 – Enhancements

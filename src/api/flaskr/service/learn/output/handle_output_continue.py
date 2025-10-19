@@ -28,11 +28,13 @@ def _handle_output_continue(
         msg = get_script_ui_label(app, block_dto.block_content.label)
     display = bool(msg)  # Set display based on whether msg has content
     if not msg:
-        msg = _("COMMON.CONTINUE")  # Assign default message if msg is empty
+        msg = _(
+            "module.backend.common.continue"
+        )  # Assign default message if msg is empty
 
     msg = get_script_ui_label(app, msg)
     if not msg:
-        msg = _("COMMON.CONTINUE")
+        msg = _("module.backend.common.continue")
     btn = [
         {
             "label": msg,

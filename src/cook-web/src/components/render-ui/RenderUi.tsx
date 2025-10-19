@@ -257,13 +257,17 @@ export const RenderBlockUI = memo(
             onClick={() => handleExpandChange(!expand)}
           >
             <div className='flex flex-row items-center space-x-1'>
-              <span className='w-[70px]'>{t('renderUi.userOperation')}</span>
+              <span className='w-[70px]'>
+                {t('module.renderUi.core.userOperation')}
+              </span>
               <Select
                 value={blockProperties[block.bid].type}
                 onValueChange={onUITypeChange.bind(null, block.bid)}
               >
                 <SelectTrigger className='h-8 w-[120px]'>
-                  <SelectValue placeholder={t('renderUi.selectPlaceholder')} />
+                  <SelectValue
+                    placeholder={t('module.renderUi.core.selectPlaceholder')}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
@@ -292,7 +296,9 @@ export const RenderBlockUI = memo(
                   expand ? 'rotate-180' : '',
                 )}
               />
-              {expand ? t('renderUi.collapse') : t('renderUi.expand')}
+              {expand
+                ? t('module.renderUi.core.collapse')
+                : t('module.renderUi.core.expand')}
             </div>
           </div>
           <div className={cn('space-y-1', expand ? 'block' : 'hidden')}>
@@ -316,15 +322,19 @@ export const RenderBlockUI = memo(
         >
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('renderUi.confirmChange')}</AlertDialogTitle>
+              <AlertDialogTitle>
+                {t('module.renderUi.core.confirmChange')}
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                {t('renderUi.confirmChangeDescription')}
+                {t('module.renderUi.core.confirmChangeDescription')}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t('renderUi.cancel')}</AlertDialogCancel>
+              <AlertDialogCancel>
+                {t('module.renderUi.core.cancel')}
+              </AlertDialogCancel>
               <AlertDialogAction onClick={handleConfirmChange}>
-                {t('renderUi.confirm')}
+                {t('module.renderUi.core.confirm')}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -348,41 +358,41 @@ export const useUITypes = () => {
   return [
     {
       type: 'button',
-      name: t('renderUi.button'),
+      name: t('module.renderUi.core.button'),
       properties: {
         label: {
           lang: {
-            'zh-CN': t('renderUi.buttonText'),
-            'en-US': t('renderUi.buttonText'),
+            'zh-CN': t('module.renderUi.core.buttonText'),
+            'en-US': t('module.renderUi.core.buttonText'),
           },
         },
       },
     },
     {
       type: 'options',
-      name: t('renderUi.option'),
+      name: t('module.renderUi.core.option'),
       properties: {
         options: [
           {
             label: {
               lang: {
-                'zh-CN': t('renderUi.buttonText'),
-                'en-US': t('renderUi.buttonText'),
+                'zh-CN': t('module.renderUi.core.buttonText'),
+                'en-US': t('module.renderUi.core.buttonText'),
               },
             },
-            value: t('renderUi.buttonKey'),
+            value: t('module.renderUi.core.buttonKey'),
           },
         ],
         result_variable_bid: '',
       },
       validate: (data): string => {
         if (data.properties.options.length === 0) {
-          return t('renderUi.optionButtonsEmpty');
+          return t('module.renderUi.core.optionButtonsEmpty');
         }
         for (let i = 0; i < data.properties.options.length; i++) {
           const item = data.properties.options[i];
           if (!item.value || item.label.lang[i18n.language] == '') {
-            return t('renderUi.optionButtonEmpty');
+            return t('module.renderUi.core.optionButtonEmpty');
           }
         }
         return '';
@@ -390,7 +400,7 @@ export const useUITypes = () => {
     },
     {
       type: 'goto',
-      name: t('renderUi.goto'),
+      name: t('module.renderUi.core.goto'),
       properties: {
         conditions: [
           {
@@ -403,7 +413,7 @@ export const useUITypes = () => {
     },
     {
       type: 'input',
-      name: t('renderUi.textInput'),
+      name: t('module.renderUi.core.textInput'),
 
       properties: {
         placeholder: {
@@ -421,20 +431,20 @@ export const useUITypes = () => {
         const p = data.properties;
 
         if (!p.placeholder.lang[i18n.language]) {
-          return t('renderUi.textInputPlaceholderEmpty');
+          return t('module.renderUi.core.textInputPlaceholderEmpty');
         }
         if (!p?.prompt) {
-          return t('renderUi.textInputPromptEmpty');
+          return t('module.renderUi.core.textInputPromptEmpty');
         }
         if (typeof p?.llm_temperature == 'undefined') {
-          return t('renderUi.textInputTemperatureEmpty');
+          return t('module.renderUi.core.textInputTemperatureEmpty');
         }
         return '';
       },
     },
     {
       type: 'login',
-      name: t('renderUi.login'),
+      name: t('module.renderUi.core.login'),
       properties: {
         label: {
           lang: {
@@ -446,7 +456,7 @@ export const useUITypes = () => {
     },
     {
       type: 'payment',
-      name: t('renderUi.payment'),
+      name: t('module.renderUi.core.payment'),
       properties: {
         label: {
           lang: {
@@ -458,7 +468,7 @@ export const useUITypes = () => {
     },
     {
       type: 'content',
-      name: t('renderUi.content'),
+      name: t('module.renderUi.core.content'),
       properties: {
         content: '',
         llm: '',
@@ -467,7 +477,7 @@ export const useUITypes = () => {
       },
       validate: (data): string => {
         if (!data.properties.content) {
-          return t('renderUi.contentEmpty');
+          return t('module.renderUi.core.contentEmpty');
         }
         return '';
       },

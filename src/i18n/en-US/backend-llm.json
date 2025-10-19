@@ -1,7 +1,0 @@
-{
-  "__flat__": {
-    "LLM.NO_DEFAULT_LLM": "No default LLM is configured",
-    "LLM.SPECIFIED_LLM_NOT_CONFIGURED": "Model {model} is not configured. Check .env file variable: {config_var}",
-    "LLM.MODEL_NOT_SUPPORTED": "Model {model} is not supported"
-  }
-}

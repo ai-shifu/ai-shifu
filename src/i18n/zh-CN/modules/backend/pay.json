@@ -1,0 +1,6 @@
+{
+  "__namespace__": "module.backend.pay",
+  "__flat__": {
+    "payChannelNotSupport": "不支持的支付渠道"
+  }
+}

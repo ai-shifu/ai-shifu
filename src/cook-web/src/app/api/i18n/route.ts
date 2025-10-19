@@ -26,7 +26,7 @@ const resolveI18nRoot = async (): Promise<string> => {
     `Unable to locate shared i18n directory. Checked: ${candidates.join(', ')}`,
   );
 };
-const VALID_SEGMENT = /^[\w-]+$/;
+const VALID_SEGMENT = /^[\w.-]+$/;
 const MULTI_SEPARATOR = /[+,]/;
 
 const isValidSegment = (value: string | null): value is string =>
@@ -66,21 +66,118 @@ const listDirectories = async (root: string): Promise<string[]> => {
   }
 };
 
-const listNamespaces = async (langDir: string): Promise<string[]> => {
+const collectJsonFiles = async (root: string): Promise<string[]> => {
   try {
-    const entries = await fs.readdir(langDir, { withFileTypes: true });
-    return entries
-      .filter(
-        entry =>
-          entry.isFile() &&
-          entry.name.endsWith('.json') &&
-          entry.name !== 'langName.json',
-      )
-      .map(entry => entry.name.replace(/\.json$/, ''))
-      .sort();
+    const entries = await fs.readdir(root, { withFileTypes: true });
+    const files: string[] = [];
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) {
+        continue;
+      }
+      const entryPath = path.join(root, entry.name);
+      if (entry.isDirectory()) {
+        files.push(...(await collectJsonFiles(entryPath)));
+      } else if (entry.isFile() && entry.name.endsWith('.json')) {
+        files.push(entryPath);
+      }
+    }
+    return files;
   } catch {
     return [];
   }
+};
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const setNestedValue = (
+  target: Record<string, unknown>,
+  keyPath: string,
+  value: unknown,
+) => {
+  if (!keyPath) {
+    return;
+  }
+
+  const segments = keyPath.split('.');
+  let current: Record<string, unknown> = target;
+
+  segments.forEach((segment, index) => {
+    if (!segment) {
+      return;
+    }
+
+    if (index === segments.length - 1) {
+      current[segment] = value;
+      return;
+    }
+
+    const next = current[segment];
+    if (!isPlainObject(next)) {
+      current[segment] = {};
+    }
+
+    current = current[segment] as Record<string, unknown>;
+  });
+};
+
+const extractTranslationPayload = (
+  raw: Record<string, unknown>,
+): Record<string, unknown> => {
+  const payload: Record<string, unknown> = {};
+
+  Object.entries(raw).forEach(([key, value]) => {
+    if (key === '__namespace__' || key === '__flat__') {
+      return;
+    }
+
+    payload[key] = value;
+  });
+
+  const flatSection = raw.__flat__;
+  if (isPlainObject(flatSection)) {
+    Object.entries(flatSection).forEach(([key, value]) => {
+      if (typeof key === 'string') {
+        setNestedValue(payload, key, value);
+      }
+    });
+  }
+
+  return payload;
+};
+
+const loadNamespaceResources = async (
+  langDir: string,
+): Promise<Map<string, Record<string, unknown>>> => {
+  const files = await collectJsonFiles(langDir);
+  const resources = new Map<string, Record<string, unknown>>();
+
+  await Promise.all(
+    files.map(async filePath => {
+      const content = await readJsonIfExists<Record<string, unknown> | null>(
+        filePath,
+        null,
+      );
+
+      if (!content) {
+        return;
+      }
+
+      const declaredNamespace = content.__namespace__;
+      const namespace =
+        typeof declaredNamespace === 'string' && declaredNamespace
+          ? declaredNamespace
+          : path
+              .relative(langDir, filePath)
+              .replace(/\\/g, '/')
+              .replace(/\.json$/, '')
+              .replace(/\//g, '.');
+
+      resources.set(namespace, extractTranslationPayload(content));
+    }),
+  );
+
+  return resources;
 };
 
 export async function GET(request: Request) {
@@ -116,9 +213,10 @@ export async function GET(request: Request) {
   }
 
   const langDir = path.join(i18nRoot, language);
+  const namespaceResources = await loadNamespaceResources(langDir);
   const availableNamespaces = metadata.namespaces?.length
     ? metadata.namespaces
-    : await listNamespaces(langDir);
+    : Array.from(namespaceResources.keys()).sort();
 
   const namespacesParam =
     searchParams.get('ns') || searchParams.get('namespaces');
@@ -129,21 +227,19 @@ export async function GET(request: Request) {
   const translations: Record<string, unknown> = {};
   const missingNamespaces: string[] = [];
 
-  await Promise.all(
-    namespaces.map(async namespace => {
-      if (!isValidSegment(namespace)) {
-        return;
-      }
+  namespaces.forEach(namespace => {
+    if (!isValidSegment(namespace)) {
+      return;
+    }
 
-      const filePath = path.join(langDir, `${namespace}.json`);
-      try {
-        const content = await fs.readFile(filePath, 'utf-8');
-        translations[namespace] = JSON.parse(content);
-      } catch {
-        missingNamespaces.push(namespace);
-      }
-    }),
-  );
+    const resource = namespaceResources.get(namespace);
+    if (resource) {
+      translations[namespace] = resource;
+      return;
+    }
+
+    missingNamespaces.push(namespace);
+  });
 
   if (!includeMetadata) {
     return NextResponse.json(translations);

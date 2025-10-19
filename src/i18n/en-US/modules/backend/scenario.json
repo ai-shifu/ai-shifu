@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.backend.scenario",
+  "__flat__": {
+    "blockNotFound": "Scenario block not found",
+    "notFound": "Scenario not found",
+    "noPermission": "No permission to access this scenario"
+  }
+}

@@ -85,20 +85,20 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     switch (errorCode) {
       case 401:
       case 9002:
-        return t('c.errors.noPermissionTitle');
+        return t('module.permission.errors.noPermissionTitle');
       case 403:
-        return t('c.errors.forbiddenTitle');
+        return t('module.permission.errors.forbiddenTitle');
       case 404:
-        return t('c.errors.notFoundTitle');
+        return t('module.permission.errors.notFoundTitle');
       case 1001:
       case 1004:
       case 1005:
-        return t('c.errors.authRequiredTitle');
+        return t('module.permission.errors.authRequiredTitle');
       default:
         if (errorCode >= 500 && errorCode < 600) {
-          return t('c.errors.serverErrorTitle');
+          return t('module.permission.errors.serverErrorTitle');
         }
-        return t('c.errors.generalErrorTitle');
+        return t('module.permission.errors.generalErrorTitle');
     }
   };
 
@@ -107,20 +107,20 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
     switch (errorCode) {
       case 401:
       case 9002:
-        return t('c.errors.noPermission');
+        return t('module.permission.errors.noPermission');
       case 403:
-        return t('c.errors.forbidden');
+        return t('module.permission.errors.forbidden');
       case 404:
-        return t('c.errors.notFound');
+        return t('module.permission.errors.notFound');
       case 1001:
       case 1004:
       case 1005:
-        return t('c.errors.authRequired');
+        return t('module.permission.errors.authRequired');
       default:
         if (errorCode >= 500 && errorCode < 600) {
-          return t('c.errors.serverError');
+          return t('module.permission.errors.serverError');
         }
-        return t('c.errors.generalError');
+        return t('module.permission.errors.generalError');
     }
   };
 
@@ -169,7 +169,7 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
               onClick={handleLogin}
               className='min-w-[120px]'
             >
-              {t('c.user.login')}
+              {t('module.permission.user.login')}
             </Button>
           )}
           {(onRetry || shouldShowPermissionRequest()) && (
@@ -179,8 +179,8 @@ export const ErrorDisplay: React.FC<ErrorDisplayProps> = ({
               className='min-w-[120px]'
             >
               {shouldShowPermissionRequest()
-                ? t('c.permission.requestTitle')
-                : t('common.retry')}
+                ? t('module.permission.permission.requestTitle')
+                : t('common.core.retry')}
             </Button>
           )}
           {customAction && (

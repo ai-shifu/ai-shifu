@@ -28,7 +28,7 @@ def make_continue_ui(
 
     display = bool(msg)
     if not msg:
-        msg = _("COMMON.CONTINUE")
+        msg = _("module.backend.common.continue")
     btn = [
         {
             "label": msg,

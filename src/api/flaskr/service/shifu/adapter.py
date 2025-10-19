@@ -485,7 +485,7 @@ def check_content_block_dto(
         not block_dto.block_content.content
         or not block_dto.block_content.content.strip()
     ):
-        return BlockUpdateResultDto(None, _("SHIFU.PROMPT_REQUIRED"))
+        return BlockUpdateResultDto(None, _("module.backend.shifu.promptRequired"))
     return BlockUpdateResultDto(None, None)
 
 
@@ -502,7 +502,7 @@ def check_button_block_dto(
         The block update result dto
     """
     if not block_dto.block_content.label or not block_dto.block_content.label.lang:
-        return BlockUpdateResultDto(None, _("SHIFU.BUTTON_LABEL_REQUIRED"))
+        return BlockUpdateResultDto(None, _("module.backend.shifu.buttonLabelRequired"))
     return BlockUpdateResultDto(None, None)
 
 
@@ -520,18 +520,24 @@ def check_input_block_dto(
     """
     content: InputDTO = block_dto.block_content
     if not content.prompt or not content.prompt.strip():
-        return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_REQUIRED"))
+        return BlockUpdateResultDto(
+            None, _("module.backend.shifu.textInputPromptRequired")
+        )
     if content.result_variable_bids is None or len(content.result_variable_bids) == 0:
-        return BlockUpdateResultDto(None, _("SHIFU.RESULT_VARIABLE_BIDS_REQUIRED"))
+        return BlockUpdateResultDto(
+            None, _("module.backend.shifu.resultVariableBidsRequired")
+        )
     if "json" not in content.prompt.strip().lower():
-        return BlockUpdateResultDto(None, _("SHIFU.TEXT_INPUT_PROMPT_JSON_REQUIRED"))
+        return BlockUpdateResultDto(
+            None, _("module.backend.shifu.textInputPromptJsonRequired")
+        )
     for variable_bid in content.result_variable_bids:
         variable_definition = variable_definition_map.get(variable_bid, None)
         if variable_definition is None:
-            return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+            return BlockUpdateResultDto(None, _("module.backend.shifu.profileNotFound"))
         if variable_definition.profile_key not in content.prompt.strip().lower():
             return BlockUpdateResultDto(
-                None, _("SHIFU.TEXT_INPUT_PROMPT_VARIABLE_REQUIRED")
+                None, _("module.backend.shifu.textInputPromptVariableRequired")
             )
     return BlockUpdateResultDto(None, None)
 
@@ -550,19 +556,25 @@ def check_options_block_dto(
     """
     content: OptionsDTO = block_dto.block_content
     if not content.options or len(content.options) == 0:
-        return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_REQUIRED"))
+        return BlockUpdateResultDto(None, _("module.backend.shifu.optionsRequired"))
     if block_dto.variable_bids is None or len(block_dto.variable_bids) == 0:
-        return BlockUpdateResultDto(None, _("SHIFU.OPTIONS_VARIABLE_BIDS_REQUIRED"))
+        return BlockUpdateResultDto(
+            None, _("module.backend.shifu.optionsVariableBidsRequired")
+        )
     if (
         content.result_variable_bid is None
         or content.result_variable_bid not in block_dto.variable_bids
     ):
-        return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+        return BlockUpdateResultDto(None, _("module.backend.shifu.profileNotFound"))
     for option in content.options:
         if not option.value or not option.value.strip():
-            return BlockUpdateResultDto(None, _("SHIFU.OPTION_VALUE_REQUIRED"))
+            return BlockUpdateResultDto(
+                None, _("module.backend.shifu.optionValueRequired")
+            )
         if not option.label or not option.label.lang:
-            return BlockUpdateResultDto(None, _("SHIFU.OPTION_LABEL_REQUIRED"))
+            return BlockUpdateResultDto(
+                None, _("module.backend.shifu.optionLabelRequired")
+            )
     return BlockUpdateResultDto(None, None)
 
 
@@ -583,13 +595,17 @@ def check_goto_block_dto(
 
     content: GotoDTO = block_dto.block_content
     if not content.conditions or len(content.conditions) == 0:
-        return BlockUpdateResultDto(None, _("SHIFU.GOTO_CONDITIONS_REQUIRED"))
+        return BlockUpdateResultDto(
+            None, _("module.backend.shifu.gotoConditionsRequired")
+        )
     if block_dto.variable_bids is None or len(block_dto.variable_bids) == 0:
-        return BlockUpdateResultDto(None, _("SHIFU.GOTO_VARIABLE_BIDS_REQUIRED"))
+        return BlockUpdateResultDto(
+            None, _("module.backend.shifu.gotoVariableBidsRequired")
+        )
     for variable_bid in block_dto.variable_bids:
         variable_definition = variable_definition_map.get(variable_bid, None)
         if variable_definition is None:
-            return BlockUpdateResultDto(None, _("SHIFU.PROFILE_NOT_FOUND"))
+            return BlockUpdateResultDto(None, _("module.backend.shifu.profileNotFound"))
     return BlockUpdateResultDto(None, None)
 
 

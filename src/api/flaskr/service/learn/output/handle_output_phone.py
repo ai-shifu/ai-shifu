@@ -26,7 +26,7 @@ def _handle_output_phone(
     phone: PhoneDTO = block_dto.block_content
     msg = get_script_ui_label(app, phone.label)
     if not msg:
-        msg = _("COMMON.PHONE")
+        msg = _("module.backend.common.phone")
     return ScriptDTO(
         INPUT_TYPE_PHONE,
         msg,

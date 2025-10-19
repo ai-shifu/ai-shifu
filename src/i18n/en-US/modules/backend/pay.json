@@ -1,0 +1,6 @@
+{
+  "__namespace__": "module.backend.pay",
+  "__flat__": {
+    "payChannelNotSupport": "Unsupported Payment Channel"
+  }
+}

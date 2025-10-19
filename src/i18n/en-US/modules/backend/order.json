@@ -1,0 +1,31 @@
+{
+  "__namespace__": "module.backend.order",
+  "__flat__": {
+    "orderNotFound": "Order Not Found",
+    "orderAlreadyExists": "Order Already Exists",
+    "orderStatusError": "Order Status Error",
+    "orderPayError": "订单支付失败",
+    "orderRefundError": "Order Refund Error",
+    "orderPayExpired": "Order Pay Expired",
+    "orderPayNotFound": "Order Pay Not Found",
+    "orderHasPaid": "Order Has Paid",
+    "buyStatusInit": "Init",
+    "buyStatusSuccess": "Success",
+    "buyStatusRefund": "Refund",
+    "buyStatusToBePaid": "To be paid",
+    "learnStatusNotStarted": "Ready",
+    "learnStatusInProgress": "Lrning",
+    "learnStatusCompleted": "Done",
+    "learnStatusRefund": "Refund",
+    "learnStatusLocked": "Locked",
+    "learnStatusUnavailable": "Unavailable",
+    "learnStatusBranch": "Branch",
+    "learnStatusReset": "Reset",
+    "checkout": "Checkout",
+    "orderStatusInit": "Init",
+    "orderStatusSuccess": "Success",
+    "orderStatusRefund": "Refund",
+    "orderStatusToBePaid": "To be paid",
+    "orderStatusTimeout": "Expired"
+  }
+}

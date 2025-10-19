@@ -52,4 +52,4 @@ def check_text_with_risk_control(
         "check_text",
     )
     if res.check_result == CHECK_RESULT_REJECT:
-        raise_error("CHECK.CHECK_RISK_CONTROL_REJECT")
+        raise_error("module.backend.check.checkRiskControlReject")

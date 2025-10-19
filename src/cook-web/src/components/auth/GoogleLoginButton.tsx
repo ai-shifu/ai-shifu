@@ -31,7 +31,7 @@ export function GoogleLoginButton({
         'w-full flex items-center justify-center space-x-3',
         className,
       )}
-      aria-label={t('auth.googleLogin')}
+      aria-label={t('module.auth.googleLogin')}
     >
       {loading ? (
         <Loader2 className='h-5 w-5 animate-spin' />
@@ -44,7 +44,7 @@ export function GoogleLoginButton({
           className='h-5 w-5'
         />
       )}
-      <span>{t('auth.googleLogin')}</span>
+      <span>{t('module.auth.googleLogin')}</span>
     </Button>
   );
 }

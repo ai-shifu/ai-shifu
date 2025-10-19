@@ -55,20 +55,20 @@ def run_script_inner(
                 else:
                     shifu_info = get_shifu_dto(app, course_id, preview_mode)
                 if not shifu_info:
-                    raise_error("LESSON.HAS_NOT_LESSON")
+                    raise_error("module.backend.lesson.hasNotLesson")
                 course_id = shifu_info.bid
             else:
                 outline_item_info = get_outline_item_dto(app, lesson_id, preview_mode)
                 if not outline_item_info:
-                    raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                    raise_error("module.backend.lesson.lessonNotFoundInCourse")
                 course_id = outline_item_info.shifu_bid
                 shifu_info = get_shifu_dto(app, course_id, preview_mode)
                 if not shifu_info:
-                    raise_error("LESSON.COURSE_NOT_FOUND")
+                    raise_error("module.backend.lesson.courseNotFound")
 
             struct_info = get_shifu_struct(app, shifu_info.bid, preview_mode)
             if not struct_info:
-                raise_error("LESSON.SHIFU_NOT_FOUND")
+                raise_error("module.backend.lesson.shifuNotFound")
             if not outline_item_info:
                 lesson_info = None
             else:
@@ -165,7 +165,9 @@ def run_script(
                 yield make_script_dto("text", str(e), None)
             else:
                 app.logger.error(error_info)
-                yield make_script_dto("text", _("COMMON.UNKNOWN_ERROR"), None)
+                yield make_script_dto(
+                    "text", _("module.backend.common.unknownError"), None
+                )
             yield make_script_dto("text_end", "", None)
         finally:
             lock.release()

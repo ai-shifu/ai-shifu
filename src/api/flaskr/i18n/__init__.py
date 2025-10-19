@@ -92,8 +92,16 @@ def _load_json_translations(app: Flask, root: Path):
             continue
 
         app.logger.info("load_json_translations lang: %s", lang)
-        for file_path in lang_dir.glob("*.json"):
-            namespace = file_path.stem
+        for file_path in lang_dir.rglob("*.json"):
+            if file_path.name.startswith("."):
+                continue
+
+            try:
+                namespace = str(
+                    file_path.relative_to(lang_dir).with_suffix("")
+                ).replace(os.sep, ".")
+            except ValueError:
+                namespace = file_path.stem
             try:
                 content = json.loads(file_path.read_text(encoding="utf-8"))
             except Exception as exc:  # pragma: no cover - IO errors are logged
@@ -178,7 +186,7 @@ def _validate_json_translations(app: Flask, root: Path):
             )
 
     for locale_dir in locale_dirs:
-        json_files = list(locale_dir.glob("*.json"))
+        json_files = list(locale_dir.rglob("*.json"))
         if not json_files:
             problems.append(
                 f"Locale '{locale_dir.name}' does not contain any JSON translation files."
