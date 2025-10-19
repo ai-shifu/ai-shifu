@@ -41,7 +41,7 @@
 - [x] Add a lightweight startup check (script or import-time assertion) that fails fast if `src/i18n` is missing so build and dev inconsistencies surface immediately.
 
 ### Validation & Tooling (MVP)
-- [ ] Implement a shared CLI (e.g. `scripts/check_translations.py`) that validates JSON schema and ensures key parity across locales/modules
+- [x] Implement a shared CLI (e.g. `scripts/check_translations.py`) that validates JSON schema and ensures key parity across locales/modules
 - [ ] Wire the CLI into pre-commit and one GitHub Action workflow to gate commits/PRs
 - [ ] Document how to run the checks locally and interpret failures
 

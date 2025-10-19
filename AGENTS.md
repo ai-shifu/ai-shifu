@@ -624,6 +624,10 @@ Cook Web provides tools for:
   `src/api/flaskr/i18n`).
 - Run `python scripts/list_python_i18n_modules.py` regularly to keep the
   migration checklist clean.
+- Validate localization data with `python scripts/check_translations.py` before
+  committing; it ensures every locale has matching files and keys.
+- Use `python scripts/create_translation_namespace.py <namespace> [--keys ...]`
+  to scaffold new namespaces across locales.
 - When adding backend text, update the relevant JSON namespace, refresh
   `src/i18n/locales.json` if a new namespace is introduced, and reference strings
   in Python via `_('NAMESPACE.KEY')`.
