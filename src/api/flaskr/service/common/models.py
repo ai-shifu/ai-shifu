@@ -39,12 +39,8 @@ def _load_error_codes() -> dict[str, int]:
     for key, value in data.items():
         if not isinstance(value, int):
             continue
-        # Primary key (expected to be 'server.*')
+        # Primary keys are defined as server.*; legacy module.backend.* is no longer supported
         codes[key] = value
-        # Legacy alias for gradual migration: module.backend.<...>
-        if key.startswith("server."):
-            legacy = "module.backend." + key[len("server.") :]
-            codes[legacy] = value
     return codes
 
 
