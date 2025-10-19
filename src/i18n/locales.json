@@ -26,6 +26,7 @@
     "module.aiDebug",
     "module.auth",
     "server.admin",
+    "server.active",
     "server.api",
     "server.banner",
     "server.check",

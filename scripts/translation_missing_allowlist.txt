@@ -1,6 +1,5 @@
 # Allowed missing keys baseline; to be shrunk over time.
 module.backend.1.1
-module.backend.active.alreadyJoined
 module.backend.admin.emailExists
 module.backend.admin.invalidEmailFormat
 module.backend.admin.invalidMobileFormat

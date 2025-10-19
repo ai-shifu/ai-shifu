@@ -146,7 +146,7 @@ def join_active(app, active_id, user_id, order_id):
         ActiveUserRecord.user_id == user_id,
     ).first()
     if active_user_record:
-        raise_error("module.backend.active.alreadyJoined")
+        raise_error("server.active.alreadyJoined")
     active_info = query_active(app, active_id)
     active_user_record = create_active_user_record(
         app,
