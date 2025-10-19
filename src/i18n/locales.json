@@ -16,6 +16,7 @@
     "backend-admin",
     "backend-banner",
     "backend-check",
+    "backend-common",
     "backend-discount",
     "backend-order",
     "backend-user",

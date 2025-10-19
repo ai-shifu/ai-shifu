@@ -1,6 +1,0 @@
-UNKNOWN_ERROR = "Unknown Error"
-PARAMS_ERROR = "Params Error {param_message}"
-TEXT_NOT_ALLOWED = "Please check the input content"
-NICKNAME_NOT_ALLOWED = "Oops, illegal nickname."
-BACKGROUND_NOT_ALLOWED = "Oops, illegal background."
-START_TIME_NOT_ALLOWED = "Start time cannot be later than end time"

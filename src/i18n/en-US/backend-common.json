@@ -1,0 +1,16 @@
+{
+  "__flat__": {
+    "COMMON.UNKNOWN_ERROR": "Unknown Error",
+    "COMMON.PARAMS_ERROR": "Params Error {param_message}",
+    "COMMON.TEXT_NOT_ALLOWED": "Please check the input content",
+    "COMMON.NICKNAME_NOT_ALLOWED": "Oops, illegal nickname.",
+    "COMMON.BACKGROUND_NOT_ALLOWED": "Oops, illegal background.",
+    "COMMON.START_TIME_NOT_ALLOWED": "Start time cannot be later than end time",
+    "COMMON.CONTINUE": "Continue",
+    "COMMON.LOGIN": "Login",
+    "COMMON.CHECKOUT": "Checkout",
+    "COMMON.INPUT": "Input",
+    "COMMON.CHECKCODE": "Verification Code",
+    "COMMON.PHONE": "Phone"
+  }
+}
