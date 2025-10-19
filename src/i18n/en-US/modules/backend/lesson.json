@@ -1,29 +1,6 @@
 {
   "__namespace__": "server.outline",
   "__flat__": {
-    "uiTypeButton": "显示 按钮",
-    "uiTypeInput": "显示 输入框",
-    "uiTypeToPay": "显示 付款码",
-    "uiTypeSelection": "显示 按钮组",
-    "uiTypePhone": "输入 手机号",
-    "uiTypeCheckcode": "输入 验证码",
-    "uiTypeLogin": "弹出 登录注册框",
-    "uiTypeContinued": "无",
-    "uiTypeBranch": "跳转按钮",
-    "lessonTypeTrial": "试用课",
-    "lessonTypeNormal": "正式课",
-    "lessonTypeExtend": "延展课",
-    "lessonTypeBranch": "分支课",
-    "lessonTypeBranchHidden": "隐藏分支课",
-    "scriptTypeFix": "固定剧本",
-    "scriptTypePrompt": "Prompt",
-    "scriptTypeSystem": "系统角色",
-    "contentTypeText": "文本",
-    "contentTypeImage": "图片",
-    "askModeDefault": "默认",
-    "askModeDisable": "禁用",
-    "askModeEnable": "启用",
-    "courseNotFound": "Course not found",
     "hasNotLesson": "No lesson configured"
   }
 }
