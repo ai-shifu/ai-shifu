@@ -628,6 +628,8 @@ Cook Web provides tools for:
   committing; it ensures every locale has matching files and keys.
 - Use `python scripts/create_translation_namespace.py <namespace> [--keys ...]`
   to scaffold new namespaces across locales.
+- Run `python scripts/check_translation_usage.py` to detect keys that are missing
+  translations or unused across backend/frontend.
 - When adding backend text, update the relevant JSON namespace, refresh
   `src/i18n/locales.json` if a new namespace is introduced, and reference strings
   in Python via `_('NAMESPACE.KEY')`.
