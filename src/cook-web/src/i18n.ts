@@ -4,7 +4,12 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import Backend from 'i18next-http-backend';
 
-import { defaultLocale, localeCodes } from '@/lib/i18n-locales';
+import { defaultLocale, localeCodes, namespaces } from '@/lib/i18n-locales';
+
+const namespaceList = namespaces.length ? namespaces : ['common'];
+const defaultNamespace = namespaceList.includes('common')
+  ? 'common'
+  : namespaceList[0];
 
 const languageCodes = localeCodes;
 const fallbackLanguage = languageCodes.length
@@ -51,9 +56,11 @@ if (typeof window !== 'undefined') {
       fallbackLng: {
         default: [fallbackLanguage], // All unsupported languages fallback to default locale
       },
+      ns: namespaceList,
+      defaultNS: defaultNamespace,
       lng: browserLanguage,
       backend: {
-        loadPath: `/api/i18n/{{lng}}`,
+        loadPath: `/api/i18n/{{lng}}/{{ns}}`,
       },
       interpolation: {
         escapeValue: false,

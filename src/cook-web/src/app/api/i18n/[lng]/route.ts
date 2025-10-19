@@ -34,6 +34,7 @@ export async function GET(
   try {
     files = await fs.readdir(langDir);
   } catch (_error) {
+    void _error;
     return NextResponse.json({ error: 'Language not found' }, { status: 404 });
   }
 
@@ -52,6 +53,7 @@ export async function GET(
         }),
     );
   } catch (_error) {
+    void _error;
     return NextResponse.json(
       { error: 'Failed to load translations' },
       { status: 500 },
