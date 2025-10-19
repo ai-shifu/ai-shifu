@@ -40,6 +40,18 @@ repos:
         additional_dependencies: ['prettier@^3.5.3']
 -   repo: local
     hooks:
+    -   id: check-shared-translations
+        name: Validate shared translation parity
+        entry: python scripts/check_translations.py
+        language: system
+        pass_filenames: false
+    -   id: check-translation-usage
+        name: Validate translation key usage
+        entry: python scripts/check_translation_usage.py --fail-on-unused --unused-allowlist scripts/translation_unused_allowlist.txt
+        language: system
+        pass_filenames: false
+-   repo: local
+    hooks:
     -   id: eslint
         name: ESLint cook-web files (errors only)
         entry: bash -c 'cd src/cook-web && npm run lint-file -- $(echo "$@" | sed "s|src/cook-web/||g")' --

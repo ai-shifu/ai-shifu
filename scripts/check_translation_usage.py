@@ -8,6 +8,7 @@ import re
 import sys
 from pathlib import Path
 from typing import Dict, Iterable, Set
+import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -107,14 +108,51 @@ def collect_frontend_keys() -> Set[str]:
     return used
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Validate translation key usage across backend and frontend."
+    )
+    parser.add_argument(
+        "--fail-on-unused",
+        action="store_true",
+        help="Exit with non-zero status when unused keys are detected.",
+    )
+    parser.add_argument(
+        "--unused-allowlist",
+        type=Path,
+        help="Path to a file listing unused keys that are temporarily allowed.",
+    )
+    return parser.parse_args()
+
+
+def load_allowlist(path: Path | None) -> Set[str]:
+    if not path:
+        return set()
+
+    if not path.exists():
+        raise FileNotFoundError(f"Unused allowlist file not found: {path}")
+
+    allowed: Set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        allowed.add(stripped)
+    return allowed
+
+
 def main() -> int:
+    args = parse_args()
     defined_keys = collect_defined_keys()
     backend_used = collect_backend_keys()
     frontend_used = collect_frontend_keys()
     used_keys = backend_used | frontend_used
 
     missing_keys = sorted(k for k in used_keys if k not in defined_keys)
-    unused_keys = sorted(k for k in defined_keys if k not in used_keys)
+    unused_keys_all = sorted(k for k in defined_keys if k not in used_keys)
+    allowlist = load_allowlist(args.unused_allowlist)
+    unused_keys = [key for key in unused_keys_all if key not in allowlist]
+    allowed_unused = [key for key in unused_keys_all if key in allowlist]
 
     if missing_keys:
         print("Missing translation keys detected:")
@@ -128,9 +166,20 @@ def main() -> int:
         for key in unused_keys:
             print(f" - {key}")
     else:
-        print("\nNo unused translation keys detected.")
+        if allowed_unused:
+            print("\nOnly allowlisted unused translation keys detected:")
+            for key in allowed_unused:
+                print(f" - {key}")
+        else:
+            print("\nNo unused translation keys detected.")
 
-    return 1 if missing_keys else 0
+    if missing_keys:
+        return 1
+
+    if args.fail_on_unused and unused_keys:
+        return 1
+
+    return 0
 
 
 if __name__ == "__main__":
