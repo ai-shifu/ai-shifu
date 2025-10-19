@@ -219,7 +219,11 @@ export default function AuthPage() {
     }
 
     const resolvedLanguage = i18n.resolvedLanguage ?? i18n.language;
-    const hasBundle = i18n.hasResourceBundle(language, 'translation');
+    const defaultNamespaceOption = i18n.options.defaultNS;
+    const defaultNamespace = Array.isArray(defaultNamespaceOption)
+      ? defaultNamespaceOption[0]
+      : (defaultNamespaceOption ?? 'common');
+    const hasBundle = i18n.hasResourceBundle(language, defaultNamespace);
 
     if (!ready || resolvedLanguage !== language) {
       return;
