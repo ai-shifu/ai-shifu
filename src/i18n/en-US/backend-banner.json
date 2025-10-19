@@ -1,0 +1,11 @@
+{
+  "__flat__": {
+    "BANNER.BANNER_TITLE": "Unlock All",
+    "BANNER.BANNER_POP_UP_TITLE": "Unlock All Content Anytime",
+    "BANNER.BANNER_POP_UP_CONTENT": "Gain unlimited access and enjoy stress-free learning",
+    "BANNER.BANNER_POP_UP_CONFIRM_TEXT": "Unlock Now!",
+    "BANNER.BANNER_POP_UP_CANCEL_TEXT": "Keep Exploring",
+    "BANNER.LESSON_BANNER_TITLE": "Unlock All Content",
+    "BANNER.LESSON_BANNER_CONTENT": "{chapter_count} chapters and {lesson_count} lessons, customized for you"
+  }
+}
