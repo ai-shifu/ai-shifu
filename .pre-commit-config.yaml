@@ -64,3 +64,10 @@ repos:
         name: ESLint web files (errors only)
         files: ^src/web/.*\.(js|jsx|ts|tsx)$
         args: [--config, src/web/eslint.config.cjs, --max-warnings=0, --fix]
+-   repo: local
+    hooks:
+    -   id: no-hardcoded-cjk-in-backend
+        name: Forbid hardcoded CJK characters in backend Python
+        entry: python3 scripts/check_backend_hardcoded_cn.py
+        language: system
+        pass_filenames: false
