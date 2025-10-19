@@ -23,7 +23,7 @@ module.auth.resendOtp
 module.auth.verificationSuccessDescription
 module.auth.verify
 server.admin.viewNotFound
-module.backend.api.alibabaCloudNotConfigured
+server.api.alibabaCloudNotConfigured
 server.banner.bannerPopUpCancelText
 server.banner.bannerPopUpConfirmText
 server.banner.bannerPopUpContent

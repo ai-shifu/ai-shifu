@@ -1,5 +1,5 @@
 {
-  "__namespace__": "module.backend.api",
+  "__namespace__": "server.api",
   "__flat__": {
     "alibabaCloudNotConfigured": "Alibaba Cloud parameter {config_var} not configured"
   }
