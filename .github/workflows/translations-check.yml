@@ -1,0 +1,30 @@
+name: translations-check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+      - refactor_i18n
+
+jobs:
+  validate-translations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+      - name: Verify translation parity
+        run: python scripts/check_translations.py
+
+      - name: Verify translation key usage
+        run: python scripts/check_translation_usage.py --fail-on-unused --unused-allowlist scripts/translation_unused_allowlist.txt
