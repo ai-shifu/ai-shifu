@@ -15,8 +15,6 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "precommit": "lint-staged",
-    "generate-languages": "python ../../scripts/generate_languages.py",
-    "update-i18n": "python ../../scripts/update_i18n.py",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
