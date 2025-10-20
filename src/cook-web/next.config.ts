@@ -11,8 +11,16 @@ const withMDX = createMDX({
 });
 
 const nextConfig: NextConfig = {
+  // 启用 standalone 输出模式,大幅减小生产镜像体积
+  output: 'standalone',
+
   async redirects() {
     return [{ source: '/', destination: '/main', permanent: true }];
+  },
+
+  // Disable image optimization to avoid Sharp dependency
+  images: {
+    unoptimized: true,
   },
 
   // 仅 Turbopack dev 时生效
