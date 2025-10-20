@@ -15,6 +15,13 @@ const nextConfig: NextConfig = {
     return [{ source: '/', destination: '/main', permanent: true }];
   },
 
+  // Disable image optimization to avoid Sharp dependency
+  images: {
+    unoptimized: true,
+    loader: 'custom',
+    loaderFile: './src/lib/image-loader.ts',
+  },
+
   // 仅 Turbopack dev 时生效
   experimental: {
     turbo: {
