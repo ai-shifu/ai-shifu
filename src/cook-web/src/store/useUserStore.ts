@@ -7,6 +7,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { removeParamFromUrl } from '@/c-utils/urlUtils';
 import i18n from '@/i18n';
 import { UserStoreState } from '@/c-types/store';
+import { clearGoogleOAuthSession } from '@/lib/google-oauth-session';
 
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
@@ -49,26 +50,44 @@ export const useUserStore = create<
     // Public API: Login with user credentials
     login: async (userInfo: any, token: string) => {
       tokenTool.set({ token, faked: false });
+
+      const normalizedUserInfo = {
+        ...userInfo,
+      };
+
+      if (!normalizedUserInfo.name && normalizedUserInfo.email) {
+        normalizedUserInfo.name = normalizedUserInfo.email.split('@')[0];
+      }
+      if (!normalizedUserInfo.avatar && normalizedUserInfo.user_avatar) {
+        normalizedUserInfo.avatar = normalizedUserInfo.user_avatar;
+      }
+
       set(() => ({
-        userInfo,
+        userInfo: normalizedUserInfo,
       }));
 
       // Let i18next handle the language and its fallback mechanism
-      i18n.changeLanguage(userInfo.language);
+      if (normalizedUserInfo.language) {
+        i18n.changeLanguage(normalizedUserInfo.language);
+      }
 
       get()._updateUserStatus();
+
+      if (typeof window !== 'undefined') {
+        const cleanedUrl = removeParamFromUrl(window.location.href, [
+          'code',
+          'state',
+          'redirect',
+        ]);
+        if (cleanedUrl !== window.location.href) {
+          window.history.replaceState(null, '', cleanedUrl);
+        }
+      }
     },
 
     // Public API: Logout user
     logout: async (reload = true) => {
-      // BUGFIX: Prevent the page from loading twice during logout
-      // Issue: Logout triggers a refresh, some API calls then return auth errors, and request.ts redirects again
-      // Fix: Set a global flag so request.ts skips automatic redirects while logout is in progress
-      // Related file: src/lib/request.ts
-      if (typeof window !== 'undefined') {
-        window.__IS_LOGGING_OUT__ = true;
-      }
-
+      clearGoogleOAuthSession();
       await registerAsGuest();
       set(() => ({
         userInfo: null,
@@ -77,10 +96,12 @@ export const useUserStore = create<
       get()._updateUserStatus();
 
       if (reload) {
-        // OPTIMIZATION: Use replace instead of assign to avoid duplicating history entries
-        // This keeps the back button from returning to the intermediate "logging out" state
-        const url = removeParamFromUrl(window.location.href, ['code', 'state']);
-        window.location.replace(url);
+        const url = removeParamFromUrl(window.location.href, [
+          'code',
+          'state',
+          'redirect',
+        ]);
+        window.location.assign(url);
       }
     },
 
@@ -182,6 +203,14 @@ export const useUserStore = create<
 
       // Let i18next handle the language and its fallback mechanism
       i18n.changeLanguage(res.language);
+    },
+
+    ensureGuestToken: async () => {
+      const tokenData = tokenTool.get();
+      if (!tokenData.token) {
+        await registerAsGuest();
+      }
+      get()._updateUserStatus();
     },
   })),
 );

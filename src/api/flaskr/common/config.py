@@ -430,6 +430,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Expire time for phone verification code in seconds",
         group="auth",
     ),
+    "GOOGLE_OAUTH_CLIENT_ID": EnvVar(
+        name="GOOGLE_OAUTH_CLIENT_ID",
+        default="",
+        description="OAuth client ID issued by Google",
+        group="auth",
+    ),
+    "GOOGLE_OAUTH_CLIENT_SECRET": EnvVar(
+        name="GOOGLE_OAUTH_CLIENT_SECRET",
+        default="",
+        description="OAuth client secret issued by Google",
+        secret=True,
+        group="auth",
+    ),
     "MAIL_CODE_EXPIRE_TIME": EnvVar(
         name="MAIL_CODE_EXPIRE_TIME",
         default=300,

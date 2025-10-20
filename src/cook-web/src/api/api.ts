@@ -19,6 +19,8 @@ const api = {
   verifyMailCode: 'POST /user/verify_mail_code',
   verifySmsCode: 'POST /user/verify_sms_code',
   submitFeedback: 'POST /user/submit-feedback',
+  googleOauthStart: 'GET /user/oauth/google',
+  googleOauthCallback: 'GET /user/oauth/google/callback',
 
   // shifu api start
   getShifuList: 'GET /shifu/shifus',
