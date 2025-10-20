@@ -124,6 +124,7 @@ function useChatLogicHook({
       updateUserInfo: state.updateUserInfo,
     })),
   );
+  const isStreamingRef = useRef(false);
   const { updateResetedChapterId, updateResetedLessonId, resetedLessonId } =
     useCourseStore(
       useShallow(state => ({
@@ -413,6 +414,15 @@ function useChatLogicHook({
           }
         },
       );
+      source.addEventListener('readystatechange', () => {
+        // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
+        if(source.readyState === 1) {
+          isStreamingRef.current = true;
+        }
+        if (source.readyState === 2) {
+          isStreamingRef.current = false;
+        }
+      });
       sseRef.current = source;
     },
     [
@@ -422,6 +432,7 @@ function useChatLogicHook({
       outlineBid,
       setTrackedContentList,
       shifuBid,
+      lessonId,
       trackTrailProgress,
       updateUserInfo,
     ],
@@ -712,7 +723,7 @@ function useChatLogicHook({
    */
   const onRefresh = useCallback(
     (generatedBlockBid: string) => {
-      if (!isTypeFinished) {
+      if (!isTypeFinished || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
@@ -744,7 +755,7 @@ function useChatLogicHook({
    */
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
-      if (!isTypeFinished) {
+      if (!isTypeFinished || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
@@ -823,11 +834,29 @@ function useChatLogicHook({
     //   contentListLength: contentListRef.current.length,
     //   isTypeFinished,
     // });
+    if(isTypeFinished && isStreamingRef.current) {
+      setIsTypeFinished(false);
+
+      currentBlockIdRef.current = 'loading';
+      currentContentRef.current = '';
+      // setLastInteractionBlock(null);
+      lastInteractionBlockRef.current = null;
+      setTrackedContentList(prev => {
+        const placeholderItem: ChatContentItem = {
+          generated_block_bid: currentBlockIdRef.current || '',
+          content: '',
+          customRenderBar: () => <LoadingBar />,
+          type: ChatContentItemType.CONTENT,
+        };
+        return [...prev, placeholderItem];
+      });
+      return 
+    }
 
     // Only process if:
     // 1. There's a pending interaction block
     // 2. Currently in typing state (not already finished)
-    if (!lastInteractionBlockRef.current || !isTypeFinished) {
+    if (!lastInteractionBlockRef.current || !isTypeFinished || isStreamingRef.current) {
       // console.log('🟢 onTypeFinished skipped - no pending interaction or already finished');
       return;
     }
