@@ -58,6 +58,7 @@ class HistoryItem(BaseModel, Generic[T]):
     id: int
     type: str
     children: List["HistoryItem"] = []
+    child_count: int = 0
 
     def to_json(self):
         """
@@ -320,7 +321,12 @@ def save_new_block_history(
 
 
 def save_outline_history(
-    app: Flask, user_id: str, shifu_bid: str, outline_bid: str, id: int
+    app: Flask,
+    user_id: str,
+    shifu_bid: str,
+    outline_bid: str,
+    id: int,
+    child_count: int = 0,
 ):
     """
     Save outline history
@@ -340,6 +346,7 @@ def save_outline_history(
         item = q.get()
         if item.bid == outline_bid:
             item.id = id
+            item.child_count = child_count
             break
         for child in item.children:
             q.put(child)

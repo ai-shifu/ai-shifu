@@ -452,8 +452,9 @@ class RunScriptContextV2:
                             )
                         )
 
-        if self._current_attend.block_position >= len(
-            self._current_outline_item.children
+        if self._current_attend.block_position >= max(
+            len(self._current_outline_item.children),
+            self._current_outline_item.child_count,
         ):
             _mark_sub_node_completed(self._current_outline_item, res)
         if self._current_attend.status == LEARN_STATUS_NOT_STARTED:
@@ -583,6 +584,8 @@ class RunScriptContextV2:
             self.app, outline_item_id, self._preview_mode
         )
 
+        self.app.logger.info(f"outline_item_info: {outline_item_info.mdflow}")
+
         mddoc = MarkdownFlow(outline_item_info.mdflow)
         block_list = mddoc.get_all_blocks()
         self.app.logger.info(
@@ -631,6 +634,9 @@ class RunScriptContextV2:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
             db.session.flush()
             if self._current_attend.status != LEARN_STATUS_IN_PROGRESS:
+                app.logger.info(
+                    "current_attend.status != LEARN_STATUS_IN_PROGRESS To False"
+                )
                 self._can_continue = False
                 return
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
@@ -697,8 +703,11 @@ class RunScriptContextV2:
                 db.session.flush()
             return
         block = block_list[run_script_info.block_position]
+        app.logger.info(f"block: {block}")
+        app.logger.info(f"self._run_type: {self._run_type}")
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
+                app.logger.info("block.block_type != BlockType.INTERACTION To OUTPUT")
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -969,6 +978,7 @@ class RunScriptContextV2:
                 generated_content = ""
 
                 async def process_stream():
+                    app.logger.info(f"process_stream: {run_script_info.block_position}")
                     # Run in STREAM mode; mdflow.process may return a coroutine or an async generator
                     stream_or_result = mdflow.process(
                         run_script_info.block_position,
