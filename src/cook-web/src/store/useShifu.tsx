@@ -321,6 +321,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     console.log('mdflow', mdflow);
     setMdflow(mdflow);
     setIsLoading(false);
+    setCurrentMdflow(mdflow)
   };
 
   const loadChapters = async (shifuId: string) => {
@@ -593,7 +594,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     debounce(
       async () => {
         console.log('自动保存...');
-        return await saveMdflow(currentMdflow.current);
+        return await saveMdflow();
         // return await saveCurrentBlocks(
         //   outline,
         //   blocks,
@@ -988,12 +989,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const saveMdflow = async (value: string) => {
-    console.log('saveMdflow', currentShifu?.bid, currentNode?.bid, value);
+  const saveMdflow = async () => {
+    console.log('saveMdflow', currentShifu?.bid, currentNode?.bid, currentMdflow.current);
     await api.saveMdflow({
       shifu_bid: currentShifu?.bid || '',
       outline_bid: currentNode?.bid || '',
-      data: value,
+      data: currentMdflow.current,
     });
   };
   
