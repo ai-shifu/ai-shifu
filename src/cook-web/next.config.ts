@@ -11,6 +11,8 @@ const withMDX = createMDX({
 });
 
 const nextConfig: NextConfig = {
+
+  output: 'standalone',
   async redirects() {
     return [{ source: '/', destination: '/main', permanent: true }];
   },
