@@ -6,6 +6,10 @@ from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from flaskr.service.shifu.shifu_history_manager import save_outline_history
+from flaskr.service.profile.profile_manage import (
+    get_profile_item_definition_list,
+    add_profile_item_quick,
+)
 from datetime import datetime
 
 
@@ -58,6 +62,19 @@ def save_shifu_mdflow(
             db.session.flush()
             markdown_flow = MarkdownFlow(content)
             blocks = markdown_flow.get_all_blocks()
+            variable_definitions = get_profile_item_definition_list(
+                app, outline_item.shifu_bid
+            )
+
+            variables = markdown_flow.extract_variables()
+            for variable in variables:
+                exist_variable = next(
+                    (v for v in variable_definitions if v.profile_key == variable), None
+                )
+                if not exist_variable:
+                    add_profile_item_quick(
+                        app, outline_item.shifu_bid, variable, user_id
+                    )
             save_outline_history(
                 app,
                 user_id,
