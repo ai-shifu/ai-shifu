@@ -43,7 +43,7 @@ from flaskr.service.shifu.consts import (
 from markdown_flow import MarkdownFlow
 
 
-def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict, skip: bool):
+def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict):
     """
     Preview shifu draft
     Args:
@@ -58,14 +58,7 @@ def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict, skip:
         if not shifu_draft:
             raise_error("SHIFU.SHIFU_NOT_FOUND")
 
-        return (
-            get_config("WEB_URL")
-            + "/c/"
-            + shifu_id
-            + "?preview=true"
-            + "&skip="
-            + str(skip).lower()
-        )
+        return get_config("WEB_URL") + "/c/" + shifu_id + "?preview=true"
 
 
 def publish_shifu_draft(app, user_id: str, shifu_id: str):

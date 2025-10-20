@@ -473,9 +473,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                     variables:
                         type: object
                         description: variables
-                    skip:
-                        type: boolean
-                        description: skip
         responses:
             200:
                 description: preview shifu success
@@ -495,9 +492,8 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
-        skip = request.get_json().get("skip", False)
         return make_common_response(
-            preview_shifu_draft(app, user_id, shifu_bid, variables, skip)
+            preview_shifu_draft(app, user_id, shifu_bid, variables)
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
