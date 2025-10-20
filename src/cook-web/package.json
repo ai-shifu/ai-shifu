@@ -57,27 +57,7 @@
     "immer": "^10.1.1",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
     "markdown-flow-ui": "^0.1.20",
-=======
-    "markdown-flow-ui": "^0.1.17-beta.1",
->>>>>>> 02425dda (feat: hidden auto scroll bottom)
-=======
-    "markdown-flow-ui": "^0.1.17-beta.2",
->>>>>>> bdcf301b (feat: add mdf-ui style)
-=======
-    "markdown-flow-ui": "^0.1.17-beta.4",
->>>>>>> 1a5c0051 (fix: create outline type is normal)
-=======
-    "markdown-flow-ui": "^0.1.17-beta.5",
->>>>>>> 17c0102c (fix: export error)
-=======
-    "markdown-flow-ui": "^0.1.17-beta.13",
->>>>>>> d10a8c41 (feat: update mdf-ui)
     "next": "^15.5.3",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
