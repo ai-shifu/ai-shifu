@@ -210,7 +210,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         preview_mode = True if preview_mode.lower() == "true" else False
         user_bid = request.user.user_id
         return make_common_response(
-            get_learn_record(app, shifu_bid, outline_bid, user_bid)
+            get_learn_record(app, shifu_bid, outline_bid, user_bid, preview_mode)
         )
 
     @app.route(
