@@ -40,6 +40,7 @@ from flaskr.service.shifu.consts import (
     ASK_MODE_ENABLE,
     BLOCK_TYPE_CONTENT_VALUE,
 )
+from markdown_flow import MarkdownFlow
 
 
 def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict, skip: bool):
@@ -133,8 +134,14 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
             outline_item.content = draft_outline_item.content
             db.session.add(outline_item)
             db.session.flush()
+            markdown_flow = MarkdownFlow(draft_outline_item.content)
+            blocks = markdown_flow.get_all_blocks()
             outline_item_history_item = HistoryItem(
-                bid=node.outline_id, id=outline_item.id, type="outline", children=[]
+                bid=node.outline_id,
+                id=outline_item.id,
+                type="outline",
+                children=[],
+                child_count=len(blocks),
             )
             history_item.children.append(outline_item_history_item)
             if node.children and len(node.children) > 0:

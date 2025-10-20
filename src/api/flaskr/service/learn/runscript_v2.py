@@ -109,6 +109,7 @@ def run_script_inner(
                 yield from run_script_context.reload(app, reload_generated_block_bid)
                 db.session.commit()
             while run_script_context.has_next():
+                app.logger.info("run_script_context.run")
                 yield from run_script_context.run(app)
             db.session.commit()
         except BreakException:

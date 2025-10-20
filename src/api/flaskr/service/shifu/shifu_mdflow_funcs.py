@@ -4,6 +4,9 @@ from flaskr.service.shifu.models import DraftOutlineItem
 from flaskr.service.common import raise_error
 from flaskr.dao import db
 from flaskr.service.shifu.dtos import MdflowDTOParseResult
+from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from flaskr.service.shifu.shifu_history_manager import save_outline_history
+from datetime import datetime
 
 
 def get_shifu_mdflow(app: Flask, shifu_bid: str, outline_bid: str) -> str:
@@ -39,9 +42,31 @@ def save_shifu_mdflow(
         )
         if not outline_item:
             raise_error("SHIFU.OUTLINE_ITEM_NOT_FOUND")
-        outline_item.content = content
-        outline_item.updated_user_bid = user_id
-        db.session.commit()
+        # create new version
+        new_outline: DraftOutlineItem = outline_item.clone()
+        new_outline.content = content
+
+        # risk check
+        # save to database
+        if not outline_item.content == new_outline.content:
+            check_text_with_risk_control(
+                app, outline_item.outline_item_bid, user_id, content
+            )
+            new_outline.updated_user_bid = user_id
+            new_outline.updated_at = datetime.now()
+            db.session.add(new_outline)
+            db.session.flush()
+            markdown_flow = MarkdownFlow(content)
+            blocks = markdown_flow.get_all_blocks()
+            save_outline_history(
+                app,
+                user_id,
+                outline_item.shifu_bid,
+                outline_item.outline_item_bid,
+                new_outline.id,
+                len(blocks),
+            )
+            db.session.commit()
 
 
 def parse_shifu_mdflow(
