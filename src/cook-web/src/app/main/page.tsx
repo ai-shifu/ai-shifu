@@ -47,7 +47,7 @@ const ShifuCard = ({
     >
       <CardContent className='p-4 cursor-pointer'>
         <div className='flex flex-row items-center justify-between'>
-          <div className='flex flex-row items-center mb-2'>
+          <div className='flex flex-row items-center mb-2 w-full'>
             <div className='p-2 h-10 w-10 rounded-lg bg-primary/10 mr-4 flex items-center justify-center shrink-0'>
               {image && (
                 <img
@@ -59,7 +59,7 @@ const ShifuCard = ({
               {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
             </div>
 
-            <h3 className='font-medium text-gray-900 leading-5'>{title}</h3>
+            <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>{title}</h3>
           </div>
           {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
         </div>
