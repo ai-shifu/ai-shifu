@@ -33,7 +33,7 @@ const Header = () => {
       description: t('header.confirmPublishDescription'),
       async onConfirm() {
         setPublishing(true);
-        const reuslt = await api.publishShifu({
+        const result = await api.publishShifu({
           shifu_bid: currentShifu?.bid || '',
         });
         setPublishing(false);
@@ -45,17 +45,17 @@ const Header = () => {
             <div className='flex flex-col space-y-2'>
               <span>{t('header.publishSuccessDescription')}</span>
               <a
-                href={reuslt}
+                href={result}
                 target='_blank'
                 rel='noreferrer'
                 className='text-blue-500 hover:underline'
               >
-                {reuslt}
+                {result}
               </a>
             </div>
           ),
           onConfirm() {
-            window.open(reuslt, '_blank');
+            window.open(result, '_blank');
           },
         });
       },
@@ -68,7 +68,7 @@ const Header = () => {
           variant='ghost'
           size='icon'
           className='h-9 w-9'
-          onClick={() => router.push('/')}
+          onClick={() => router.push('/main')}
         >
           <Home className='h-5 w-5' />
         </Button>
