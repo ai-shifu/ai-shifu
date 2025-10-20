@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+
 import { useShifu } from '@/store';
 import Loading from '../loading';
 import { useAlert } from '@/components/ui/UseAlert';
@@ -64,14 +66,18 @@ const Header = () => {
   return (
     <div className='flex items-center w-full h-16 px-2 py-2 bg-white border-b border-gray-200'>
       <div className='flex items-center space-x-4'>
-        <Button
-          variant='ghost'
-          size='icon'
-          className='h-9 w-9'
-          onClick={() => router.push('/main')}
+        <Link
+          href={'/main'}
+          // className='flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100'
         >
-          <Home className='h-5 w-5' />
-        </Button>
+          <Button
+            variant='ghost'
+            size='icon'
+            className='h-9 w-9'
+          >
+            <Home className='h-5 w-5' />
+          </Button>
+        </Link>
 
         <div className='flex items-center'>
           {currentShifu?.avatar ? (
