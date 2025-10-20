@@ -24,7 +24,8 @@ const PreviewSettingsModal = () => {
   const [autoSkipEmptyFields, setAutoSkipEmptyFields] = useState(false);
 
   const handleStartPreview = async () => {
-    await actions.saveBlocks(currentShifu?.bid || '');
+    // await actions.saveBlocks(currentShifu?.bid || '');
+    await actions.saveMdflow()
     // Handle the start preview action
     const result = await api.previewShifu({
       shifu_bid: currentShifu?.bid || '',
