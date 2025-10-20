@@ -2,6 +2,9 @@
   "name": "cook-web",
   "version": "0.6.0",
   "private": true,
+  "engines": {
+    "node": "22.16.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "dev-web300": "NEXT_PUBLIC_API_BASE_URL=https://web.dev.pillowai.cn npm run dev",
