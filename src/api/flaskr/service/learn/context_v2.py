@@ -1148,8 +1148,8 @@ class RunScriptContextV2:
                         LearnGeneratedBlock.outline_item_bid
                         == generated_block.outline_item_bid,
                         LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                        LearnGeneratedBlock.id > generated_block.id,
-                        LearnGeneratedBlock.position > generated_block.position,
+                        LearnGeneratedBlock.id >= generated_block.id,
+                        LearnGeneratedBlock.position >= generated_block.position,
                     ).all()
                     for updated_block in updated_blocks:
                         app.logger.info(
