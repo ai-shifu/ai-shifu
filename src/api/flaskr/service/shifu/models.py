@@ -17,7 +17,7 @@ from sqlalchemy import (
     SmallInteger,
     DateTime,
 )
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy.dialects.mysql import BIGINT, LONGTEXT
 from sqlalchemy.sql import func
 from ...dao import db
 from .consts import ASK_MODE_DEFAULT
@@ -534,7 +534,7 @@ class LogDraftStruct(db.Model):
         comment="Shifu business identifier",
     )
     struct = Column(
-        Text, nullable=False, default="", comment="JSON serialized shifu struct"
+        LONGTEXT, nullable=False, default="", comment="JSON serialized shifu struct"
     )
     deleted = Column(
         SmallInteger,
@@ -844,7 +844,7 @@ class LogPublishedStruct(db.Model):
         comment="Shifu business identifier",
     )
     struct = Column(
-        Text,
+        LONGTEXT,
         nullable=False,
         default="",
         comment="JSON serialized struct of published shifu",
