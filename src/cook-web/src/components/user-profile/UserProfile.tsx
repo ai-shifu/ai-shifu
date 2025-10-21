@@ -63,7 +63,7 @@ const UserProfileCard = () => {
     <Popover>
       <PopoverTrigger asChild>
         <div className='flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 cursor-pointer transition-all duration-200 group'>
-          <Avatar>
+          <Avatar className='w-9 h-9'>
             <AvatarImage src='https://github.com/shadcn.png' />
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
@@ -81,7 +81,7 @@ const UserProfileCard = () => {
         sideOffset={5}
       >
         <div className='flex items-center space-x-2 p-2'>
-          <Avatar>
+          <Avatar className='w-9 h-9'>
             <AvatarImage src='https://github.com/shadcn.png' />
             <AvatarFallback>CN</AvatarFallback>
           </Avatar>
