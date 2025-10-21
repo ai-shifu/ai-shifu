@@ -859,7 +859,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/parse",
-        methods=["GET"],
+        methods=["POST"],
     )
     @ShifuTokenValidation(ShifuPermission.VIEW)
     def parse_mdflow_api(shifu_bid: str, outline_bid: str):
@@ -872,7 +872,15 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
             - name: outline_bid
               type: string
               required: true
-
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    data:
+                        type: string
+                        description: mdflow
         responses:
             200:
                 description: parse mdflow success
@@ -890,7 +898,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     type: object
                                     $ref: "#/components/schemas/MdflowDTOParseResult"
         """
-        return make_common_response(parse_shifu_mdflow(app, shifu_bid, outline_bid))
+        data = request.get_json().get("data", None)
+        return make_common_response(
+            parse_shifu_mdflow(app, shifu_bid, outline_bid, data)
+        )
 
     @app.route(
         path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/mdflow/run",

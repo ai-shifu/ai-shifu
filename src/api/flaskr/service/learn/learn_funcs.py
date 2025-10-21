@@ -64,6 +64,12 @@ from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.dtos import BlockDTO
 from flaskr.service.shifu.adapter import generate_block_dto_from_model_internal
 
+from flaskr.service.shifu.consts import (
+    UNIT_TYPE_VALUE_TRIAL,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_GUEST,
+)
+
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
     LEARN_STATUS_NOT_STARTED: LearnStatus.NOT_STARTED,
@@ -197,6 +203,7 @@ def get_outline_item_tree(
                 title=outline_item.title,
                 status=STATUS_MAP.get(status, LearnStatus.LOCKED),
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
+                is_paid=is_paid,
                 children=[],
             )
             if item.children:
