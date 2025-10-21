@@ -466,7 +466,7 @@
     "keywords": "关键词",
     "learningUrl": "学习地址",
     "limit300Characters": "限制300字符以内",
-    "limit50Characters": "限制50字符以内",
+    "limit20Characters": "限制20字符以内",
     "number": "数字",
     "previewUrl": "预览地址",
     "price": "价格",

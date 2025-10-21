@@ -64,7 +64,7 @@ const ShifuCard = ({
           {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
         </div>
         <div>
-          <p className='mt-1 text-sm text-gray-500 line-clamp-3'>
+          <p className='mt-1 text-sm text-gray-500 line-clamp-3 break-words break-all'>
             {description}
           </p>
         </div>
