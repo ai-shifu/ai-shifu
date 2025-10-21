@@ -122,6 +122,7 @@ const MinimalTreeItemComponent = React.forwardRef<
       });
       return;
     }
+    console.log('createOutline111', props.item);
     await actions.createOutline({
       shifu_bid: currentShifu?.bid || '',
       id: props.item.id,
@@ -165,8 +166,8 @@ const MinimalTreeItemComponent = React.forwardRef<
 
   const handleConfirmDelete = async () => {
     await actions.removeOutline({
-      parent_bid: props.item.parentId,
       ...props.item,
+      parent_bid: props.item.parentId,
     });
     setShowDeleteDialog(false);
   };
