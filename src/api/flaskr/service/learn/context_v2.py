@@ -157,7 +157,7 @@ class RUNLLMProvider(LLMProvider):
         system_prompt = self.system_prompt
 
         # Check if there's a system message
-
+        self.app.logger.info("stream invoke_llm begin")
         res = invoke_llm(
             self.app,
             self.trace_args["user_id"],
@@ -169,9 +169,15 @@ class RUNLLMProvider(LLMProvider):
             generation_name="run_llm",
             temperature=self.llm_settings.temperature,
         )
+        self.app.logger.info(f"stream invoke_llm res: {res}")
+        first_result = False
         for i in res:
             if i.result:
+                if not first_result:
+                    first_result = True
+                    self.app.logger.info(f"stream first result: {i.result}")
                 yield i.result
+        self.app.logger.info("stream invoke_llm end")
 
 
 class RunScriptContextV2:
@@ -772,6 +778,8 @@ class RunScriptContextV2:
 
             generated_block.generated_content = self._input
             generated_block.role = ROLE_STUDENT
+            generated_block.position = run_script_info.block_position
+            generated_block.block_content_conf = block.content
             generated_block.status = 1
             db.session.flush()
             res = check_text_with_llm_response(
@@ -1124,32 +1132,37 @@ class RunScriptContextV2:
         return self._get_default_llm_settings()
 
     def reload(self, app: Flask, reload_generated_block_bid: str):
-        generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
-            LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
-        ).first()
-        self._can_continue = False
-        if generated_block:
-            if self._input_type != "ask":
-                app.logger.error(
-                    f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
-                )
-                LearnGeneratedBlock.query.filter(
-                    LearnGeneratedBlock.progress_record_bid
-                    == generated_block.progress_record_bid,
-                    LearnGeneratedBlock.outline_item_bid
-                    == generated_block.outline_item_bid,
-                    LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                    LearnGeneratedBlock.id > generated_block.id,
-                    LearnGeneratedBlock.position > generated_block.position,
-                ).update(
-                    {
-                        LearnGeneratedBlock.status: 0,
-                    }
-                )
-                self._current_attend.block_position = generated_block.position
-                self._current_attend.status = LEARN_STATUS_IN_PROGRESS
-                db.session.flush()
-            else:
-                self._last_position = generated_block.position
-        yield from self.run(app)
+        with app.app_context():
+            generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
+            ).first()
+            self._can_continue = False
+            if generated_block:
+                if self._input_type != "ask":
+                    app.logger.info(
+                        f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
+                    )
+                    updated_blocks = LearnGeneratedBlock.query.filter(
+                        LearnGeneratedBlock.progress_record_bid
+                        == generated_block.progress_record_bid,
+                        LearnGeneratedBlock.outline_item_bid
+                        == generated_block.outline_item_bid,
+                        LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                        LearnGeneratedBlock.id > generated_block.id,
+                        LearnGeneratedBlock.position > generated_block.position,
+                    ).all()
+                    for updated_block in updated_blocks:
+                        app.logger.info(
+                            f"updated_block: {updated_block.id}, {updated_block.position}"
+                        )
+                        updated_block.status = 0
+
+                    self._current_attend.block_position = generated_block.position
+                    self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                    db.session.commit()
+                else:
+                    self._last_position = generated_block.position
+        with app.app_context():
+            yield from self.run(app)
+            db.session.commit()
         return
