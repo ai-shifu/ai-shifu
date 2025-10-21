@@ -697,11 +697,18 @@ function useChatLogicHook({
   const updateContentListWithUserOperate = useCallback(
     (
       params: OnSendContentParams,
+      blockBid: string,
     ): { newList: ChatContentItem[]; needChangeItemIndex: number } => {
       const newList = [...contentListRef.current];
-      const needChangeItemIndex = newList.findIndex(item =>
+      // first find the item with the same variable value
+      let needChangeItemIndex = newList.findIndex(item =>
         item.content?.includes(params.variableName || ''),
       );
+      // if has multiple items with the same variable value, we need to find the item with the same blockBid
+      const sameVariableValueItems = newList.filter(item => item.content?.includes(params.variableName || '')) || [];
+      if(sameVariableValueItems.length > 1) {
+          needChangeItemIndex = newList.findIndex(item => item.generated_block_bid === blockBid);
+      }
       if (needChangeItemIndex !== -1) {
         newList[needChangeItemIndex] = {
           ...newList[needChangeItemIndex],
@@ -791,7 +798,7 @@ function useChatLogicHook({
       }
 
       const { newList, needChangeItemIndex } =
-        updateContentListWithUserOperate(content);
+        updateContentListWithUserOperate(content, blockBid);
 
       if (needChangeItemIndex === -1) {
         setTrackedContentList(newList);
