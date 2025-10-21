@@ -36,6 +36,7 @@ from .shifu_history_manager import (
     delete_outline_history,
 )
 from datetime import datetime
+from markdown_flow import MarkdownFlow
 
 
 def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
@@ -437,7 +438,6 @@ def reorder_outline_tree(
                 if outline_dto.bid in existing_items_map:
                     item = existing_items_map[outline_dto.bid]
                     new_position = f"{parent_position}{i + 1:02d}"
-
                     if item.position != new_position:
                         # create new version
                         new_item: DraftOutlineItem = item.clone()
@@ -457,6 +457,10 @@ def reorder_outline_tree(
                         history_info = HistoryItem(
                             bid=outline_dto.bid, id=item.id, type="outline", children=[]
                         )
+                    if history_info.child_count == 0 and bool(item.content):
+                        mdflow = MarkdownFlow(item.content)
+                        block_list = mdflow.get_all_blocks()
+                        history_info.child_count = len(block_list)
 
                     history_infos.append(history_info)
 
