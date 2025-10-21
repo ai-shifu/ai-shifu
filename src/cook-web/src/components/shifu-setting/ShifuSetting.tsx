@@ -280,8 +280,8 @@ export default function ShifuSettingDialog ({
                     <FormControl>
                       <Input
                         {...field}
-                        maxLength={50}
-                        placeholder={t('shifuSetting.limit50Characters')}
+                        maxLength={20}
+                        placeholder={t('shifuSetting.limit20Characters')}
                       />
                     </FormControl>
                     {/* <div className='text-xs text-muted-foreground text-right'>
@@ -526,7 +526,9 @@ export default function ShifuSettingDialog ({
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('shifuSetting.systemPrompt')}
                       </FormLabel>
-                      <CircleHelp className='h-4 w-4 text-muted-foreground' />
+                      <a href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2' target='_blank' rel='noopener noreferrer'>
+                        <CircleHelp className='h-4 w-4 text-muted-foreground' />
+                      </a>
                     </div>
                     <p className='text-xs text-muted-foreground'>
                       {t('shifuSetting.systemPromptHint')}

@@ -466,7 +466,7 @@
     "keywords": "Keywords",
     "learningUrl": "Learning URL",
     "limit300Characters": "Limited to 300 characters",
-    "limit50Characters": "Limited to 50 characters",
+    "limit20Characters": "Limited to 20 characters",
     "number": "Number",
     "previewUrl": "Preview URL",
     "price": "Price",
