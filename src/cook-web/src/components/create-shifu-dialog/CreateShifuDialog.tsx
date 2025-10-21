@@ -102,6 +102,7 @@ export const CreateShifuDialog = ({
                       autoComplete='off'
                       placeholder={t('createShifuDialog.namePlaceholder')}
                       {...field}
+                      maxLength={20}
                     />
                   </FormControl>
                   <FormMessage />
@@ -127,6 +128,7 @@ export const CreateShifuDialog = ({
                         'createShifuDialog.descriptionPlaceholder',
                       )}
                       {...field}
+                      maxLength={300}
                     />
                   </FormControl>
                   <FormMessage />
