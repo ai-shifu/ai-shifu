@@ -21,6 +21,7 @@ import CourseCatalogList from '../CourseCatalog/CourseCatalogList';
 import FeedbackModal from '../FeedbackModal/FeedbackModal';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { getBoolEnv } from '@/c-utils/envUtils';
+import { useEnvStore } from '@/c-store/envStore';
 import {
   FRAME_LAYOUT_PAD,
   FRAME_LAYOUT_PAD_INTENSIVE,
@@ -87,10 +88,10 @@ const NavDrawer = ({
   const { frameLayout } = useUiLayoutStore(state => state);
 
   const { mobileStyle } = useContext(AppContext);
+  const alwaysShowLessonTree = useEnvStore(state => state.alwaysShowLessonTree);
 
   const [feedbackModalOpen, setFeedbackModalOpen] = useState(false);
-  const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
-
+  // const alwaysShowLessonTree = getBoolEnv('alwaysShowLessonTree');
   const footerRef = useRef(null);
   const bodyRef = useRef(null);
 
