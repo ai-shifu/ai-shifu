@@ -303,6 +303,7 @@ def get_learn_record(
                 records=[],
                 interaction="",
             )
+        app.logger.info(f"progress_record: {progress_record.progress_record_bid}")
         generated_blocks: list[LearnGeneratedBlock] = (
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.user_bid == user_bid,
