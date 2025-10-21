@@ -2,7 +2,7 @@ from flaskr.api.llm import invoke_llm
 from flaskr.api.langfuse import langfuse_client
 from flaskr.service.learn.utils import get_model_setting
 from flaskr.service.learn.utils import extract_variables
-from langchain.prompts import PromptTemplate
+from flaskr.service.learn.utils import safe_format_template
 from flaskr.service.common import raise_error
 from flaskr.service.learn.dtos import ScriptDTO
 from flaskr.service.learn.utils import make_script_dto_to_stream
@@ -12,7 +12,6 @@ from flaskr.service.shifu.models import DraftBlock
 
 
 def format_script_prompt(script_prompt: str, script_variables: dict) -> str:
-    prompt_template_lc = PromptTemplate.from_template(script_prompt)
     keys = extract_variables(script_prompt)
     fmt_keys = {}
     for key in keys:
@@ -20,7 +19,7 @@ def format_script_prompt(script_prompt: str, script_variables: dict) -> str:
             fmt_keys[key] = script_variables[key]
         else:
             fmt_keys[key] = "目前未知"
-    return prompt_template_lc.format(**fmt_keys)
+    return safe_format_template(script_prompt, fmt_keys)
 
 
 def get_system_prompt(app, block_id):
