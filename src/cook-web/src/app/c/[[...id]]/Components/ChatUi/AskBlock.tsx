@@ -373,7 +373,7 @@ export default function AskBlock({
                   defaultButtonText={''}
                   defaultInputText={''}
                   enableTypewriter={message.isStreaming === true}
-                  typingSpeed={60}
+                  typingSpeed={20}
                   readonly={true}
                   onTypeFinished={() => setIsTypeFinished(true)}
                 />
