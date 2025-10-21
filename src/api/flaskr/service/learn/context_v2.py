@@ -630,12 +630,11 @@ class RunScriptContextV2:
         )
 
     def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
-        if not self._current_attend:
-            self._current_attend = self._get_current_attend(self._outline_item_info.bid)
-            app.logger.info(
-                f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
-            )
-            self._trace_args["session_id"] = self._current_attend.progress_record_bid
+        self._current_attend = self._get_current_attend(self._outline_item_info.bid)
+        app.logger.info(
+            f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
+        )
+        self._trace_args["session_id"] = self._current_attend.progress_record_bid
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
@@ -1139,6 +1138,7 @@ class RunScriptContextV2:
             generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
             ).first()
+            current_attend = self._get_current_attend(generated_block.outline_item_bid)
             self._can_continue = False
             if generated_block:
                 if self._input_type != "ask":
@@ -1160,8 +1160,8 @@ class RunScriptContextV2:
                         )
                         updated_block.status = 0
 
-                    self._current_attend.block_position = generated_block.position
-                    self._current_attend.status = LEARN_STATUS_IN_PROGRESS
+                    current_attend.block_position = generated_block.position
+                    current_attend.status = LEARN_STATUS_IN_PROGRESS
                     db.session.commit()
                 else:
                     self._last_position = generated_block.position
