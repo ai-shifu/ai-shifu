@@ -52,7 +52,7 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          typingSpeed={60}
+          typingSpeed={20}
           enableTypewriter={!item.isHistory}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
