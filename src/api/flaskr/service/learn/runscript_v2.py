@@ -139,7 +139,13 @@ def run_script(
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    lock_key = app.config.get("REDIS_KEY_PREFIX") + ":run_script:" + user_bid
+    lock_key = (
+        app.config.get("REDIS_KEY_PREFIX")
+        + ":run_script:"
+        + user_bid
+        + ":"
+        + outline_bid
+    )
     lock = redis_client.lock(
         lock_key, timeout=timeout, blocking_timeout=blocking_timeout
     )
