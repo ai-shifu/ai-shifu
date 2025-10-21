@@ -615,7 +615,8 @@ function useChatLogicHook({
         setIsLoading(true);
         if (curr === lessonId) {
           // sseRef.current?.close();
-          await refreshData();
+          // console.log('重修', curr);
+          // await refreshData();
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
           updateResetedLessonId(null);
