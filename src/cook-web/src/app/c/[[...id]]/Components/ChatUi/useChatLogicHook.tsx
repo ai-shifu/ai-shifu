@@ -248,7 +248,7 @@ function useChatLogicHook({
    */
   const run = useCallback(
     (sseParams: SSEParams) => {
-      sseRef.current?.close();
+      // sseRef.current?.close();
       setIsTypeFinished(false);
 
       currentBlockIdRef.current = 'loading';
@@ -440,7 +440,7 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
-      sseRef.current?.close();
+      // sseRef.current?.close();
     };
   }, []);
 
@@ -614,7 +614,7 @@ function useChatLogicHook({
         }
         setIsLoading(true);
         if (curr === lessonId) {
-          sseRef.current?.close();
+          // sseRef.current?.close();
           await refreshData();
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
@@ -653,7 +653,7 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    sseRef.current?.close();
+    // sseRef.current?.close();
 
     if (!lessonId || resetedLessonId === lessonId) {
       return;
