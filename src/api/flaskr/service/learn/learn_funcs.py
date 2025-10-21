@@ -67,6 +67,7 @@ from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.dtos import BlockDTO
 from flaskr.service.shifu.adapter import generate_block_dto_from_model_internal
 
+
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
     LEARN_STATUS_NOT_STARTED: LearnStatus.NOT_STARTED,
