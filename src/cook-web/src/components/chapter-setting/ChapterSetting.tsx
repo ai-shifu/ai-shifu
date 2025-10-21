@@ -210,20 +210,20 @@ const ChapterSettingsDialog = ({
                 <div className='text-sm font-medium text-foreground'>
                   {t('chapterSetting.systemPrompt')}
                 </div>
-                <div className='text-xs text-muted-foreground'>
+                {/* <div className='text-xs text-muted-foreground'>
                   {t('chapterSetting.promptHint')}
-                </div>
+                </div> */}
                 <Textarea
                   value={systemPrompt}
                   onChange={event => setSystemPrompt(event.target.value)}
-                  maxLength={1000}
+                  // maxLength={1000}
                   rows={6}
-                  placeholder={t('chapterSetting.promptHint')}
+                  // placeholder={t('chapterSetting.promptHint')}
                   className='min-h-[220px]'
                 />
-                <div className='text-xs text-muted-foreground text-right'>
+                {/* <div className='text-xs text-muted-foreground text-right'>
                   {systemPrompt.length}/1000
-                </div>
+                </div> */}
               </div>
             </div>
           </div>
