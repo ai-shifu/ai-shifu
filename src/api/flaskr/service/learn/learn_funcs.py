@@ -317,10 +317,6 @@ def get_learn_record(
             .all()
         )
 
-        sorted_generated_blocks = sorted(
-            generated_blocks,
-            key=lambda x: (0, x.position, x.id) if x.position >= 0 else (1, 0, x.id),
-        )
         records: list[GeneratedBlockDTO] = []
         interaction = ""
         BLOCK_TYPE_MAP = {
@@ -345,16 +341,14 @@ def get_learn_record(
             -1: LikeStatus.DISLIKE,
             0: LikeStatus.NONE,
         }
-        block_ids = [
-            generated_block.block_bid for generated_block in sorted_generated_blocks
-        ]
+        block_ids = [generated_block.block_bid for generated_block in generated_blocks]
         blocks = block_model.query.filter(
             block_model.block_bid.in_(block_ids), block_model.deleted == 0
         ).all()
         block_map: dict[str, Union[DraftBlock, PublishedBlock]] = {
             i.block_bid: i for i in blocks
         }
-        for generated_block in sorted_generated_blocks:
+        for generated_block in generated_blocks:
             block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
             if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
                 block_type = BlockType.ANSWER
