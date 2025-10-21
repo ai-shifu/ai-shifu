@@ -1064,7 +1064,7 @@ class RunScriptContextV2:
             self._can_continue = False
             yield RunMarkdownFlowDTO(
                 outline_bid=self._outline_item_info.bid,
-                generated_block_bid="",
+                generated_block_bid=generate_id(self.app),
                 type=GeneratedType.INTERACTION,
                 content=f"?[{_('ORDER.CHECKOUT')}//_sys_pay]",
             )
