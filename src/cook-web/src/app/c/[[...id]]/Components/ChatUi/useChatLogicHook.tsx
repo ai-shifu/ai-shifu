@@ -422,15 +422,15 @@ function useChatLogicHook({
         if (source.readyState === 2) {
           isStreamingRef.current = false;
           // when sse close and only one interaction block in current connection, it won't onTypeFinished and append the interaction UI
-          if(isTypeFinished && lastInteractionBlockRef.current) {
-            const item = lastInteractionBlockRef.current
-            lastInteractionBlockRef.current = null
-            setTrackedContentList(prev => {
-              const updatedList = [...prev];
-              updatedList.push(item as ChatContentItem);
-              return updatedList;
-            });
-          }
+          // if(isTypeFinished && lastInteractionBlockRef.current) {
+          //   const item = lastInteractionBlockRef.current
+          //   lastInteractionBlockRef.current = null
+          //   setTrackedContentList(prev => {
+          //     const updatedList = [...prev];
+          //     updatedList.push(item as ChatContentItem);
+          //     return updatedList;
+          //   });
+          // }
         }
       });
       sseRef.current = source;
