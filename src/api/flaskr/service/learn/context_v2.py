@@ -1083,8 +1083,11 @@ class RunScriptContextV2:
             self._shifu_model.query.filter(
                 self._shifu_model.id.in_(shifu_ids),
                 self._shifu_model.deleted == 0,
-            ).first()
+            )
+            .order_by(self._shifu_model.id.desc())
+            .first()
         )
+        self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
         if shifu_info_db and shifu_info_db.llm_system_prompt:
             return shifu_info_db.llm_system_prompt
         return None
