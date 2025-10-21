@@ -235,7 +235,6 @@ class RunScriptContextV2:
         self._is_paid = is_paid
         self._preview_mode = preview_mode
         self._shifu_info = shifu_info
-
         self.shifu_ids = []
         self.outline_item_ids = []
         self.current_outline_item = None
@@ -261,10 +260,11 @@ class RunScriptContextV2:
             if item.children:
                 for child in item.children:
                     self._q.put(child)
-        self._current_attend = self._get_current_attend(self._outline_item_info.bid)
+        # self._current_attend = self._get_current_attend(self._outline_item_info.bid)
+        self._current_attend = None
         self._trace_args = {}
         self._trace_args["user_id"] = user_info.user_id
-        self._trace_args["session_id"] = self._current_attend.progress_record_bid
+        # self._trace_args["session_id"] = self._current_attend.progress_record_bid
         self._trace_args["input"] = ""
         self._trace_args["name"] = self._outline_item_info.title
         self._trace = langfuse.trace(**self._trace_args)
@@ -295,10 +295,10 @@ class RunScriptContextV2:
                 ).first()
             )
             if not outline_item_info_db:
-                raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                raise PaidException()
             if outline_item_info_db.type == LESSON_TYPE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
-                    raise_error("ORDER.COURSE_NOT_PAID")
+                    raise PaidException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
             attend_info = None
             for item in parent_path:
@@ -630,11 +630,12 @@ class RunScriptContextV2:
         )
 
     def run_inner(self, app: Flask) -> Generator[RunMarkdownFlowDTO, None, None]:
-        app.logger.info(
-            f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
-        )
         if not self._current_attend:
             self._current_attend = self._get_current_attend(self._outline_item_info.bid)
+            app.logger.info(
+                f"run_context.run {self._current_attend.block_position} {self._current_attend.status}"
+            )
+            self._trace_args["session_id"] = self._current_attend.progress_record_bid
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
@@ -1059,11 +1060,13 @@ class RunScriptContextV2:
         try:
             yield from self.run_inner(app)
         except PaidException:
+            app.logger.info("PaidException")
+            self._can_continue = False
             yield RunMarkdownFlowDTO(
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid="",
                 type=GeneratedType.INTERACTION,
-                content=_("ORDER.CHECKOUT") + "//_sys_pay",
+                content=f"?[{_('ORDER.CHECKOUT')}//_sys_pay]",
             )
 
     def has_next(self) -> bool:
