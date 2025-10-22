@@ -135,8 +135,10 @@ function useChatLogicHook({
     );
 
   const [contentList, setContentList] = useState<ChatContentItem[]>([]);
-  const [isTypeFinished, setIsTypeFinished] = useState(false);
+  // const [isTypeFinished, setIsTypeFinished] = useState(false);
+  const isTypeFinishedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(true);
+  const isInitHistoryRef = useRef(true);
   // const [lastInteractionBlock, setLastInteractionBlock] =
   //   useState<ChatContentItem | null>(null);
   const [loadedChapterId, setLoadedChapterId] = useState('');
@@ -249,8 +251,9 @@ function useChatLogicHook({
   const run = useCallback(
     (sseParams: SSEParams) => {
       // sseRef.current?.close();
-      setIsTypeFinished(false);
-
+      // setIsTypeFinished(false);
+      isTypeFinishedRef.current = false;
+      isInitHistoryRef.current = false;
       currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
@@ -313,6 +316,7 @@ function useChatLogicHook({
               if (isEnd) {
                 return;
               }
+
 
               const prevText = currentContentRef.current || '';
               const delta = fixMarkdownStream(prevText, response.content || '');
@@ -399,11 +403,12 @@ function useChatLogicHook({
 
                 // Set finished state if no interaction block pending
                 if (!lastInteractionBlockRef.current) {
-                  setIsTypeFinished(true);
+                  // setIsTypeFinished(true);
+                  isTypeFinishedRef.current = true;
                 }
               }
-              currentBlockIdRef.current = null;
-              currentContentRef.current = '';
+              // currentBlockIdRef.current = null;
+              // currentContentRef.current = '';
             } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
               updateUserInfo({
                 [response.content.key]: response.content.value,
@@ -440,7 +445,7 @@ function useChatLogicHook({
       effectivePreviewMode,
       lessonUpdateResp,
       outlineBid,
-      isTypeFinished,
+      isTypeFinishedRef,
       setTrackedContentList,
       shifuBid,
       lessonId,
@@ -542,7 +547,7 @@ function useChatLogicHook({
 
       // final flush
       flushBuffer();
-      console.log('result:', result);
+      // console.log('result:', result);
       return result;
     },
     [mobileStyle],
@@ -554,10 +559,12 @@ function useChatLogicHook({
   const refreshData = useCallback(async () => {
     setTrackedContentList(() => []);
 
-    setIsTypeFinished(true);
+    // setIsTypeFinished(true);
+    isTypeFinishedRef.current = true;
     lastInteractionBlockRef.current = null;
     setIsLoading(true);
     hasScrolledToBottomRef.current = false;
+    isInitHistoryRef.current = true;
 
     try {
       const recordResp = await getLessonStudyRecord({
@@ -569,7 +576,8 @@ function useChatLogicHook({
       if (recordResp?.records?.length > 0) {
         const contentRecords = mapRecordsToContent(recordResp.records);
         setTrackedContentList(contentRecords);
-        setIsTypeFinished(true);
+        // setIsTypeFinished(true);
+        isTypeFinishedRef.current = true;
         if (chapterId) {
           setLoadedChapterId(chapterId);
         }
@@ -602,7 +610,7 @@ function useChatLogicHook({
     // scrollToBottom,
     setTrackedContentList,
     shifuBid,
-    lessonId,
+    // lessonId,
     effectivePreviewMode,
   ]);
 
@@ -683,7 +691,8 @@ function useChatLogicHook({
       if (targetChapterId !== loadedChapterId) {
         return;
       }
-      setIsTypeFinished(true);
+      // setIsTypeFinished(true);
+      isTypeFinishedRef.current = true;
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
       scrollToLesson(targetLessonId);
@@ -742,7 +751,7 @@ function useChatLogicHook({
    */
   const onRefresh = useCallback(
     (generatedBlockBid: string) => {
-      if (!isTypeFinished || isStreamingRef.current) {
+      if (!isTypeFinishedRef.current || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
@@ -759,14 +768,15 @@ function useChatLogicHook({
       newList.length = needChangeItemIndex;
       setTrackedContentList(newList);
 
-      setIsTypeFinished(false);
+      // setIsTypeFinished(false);
+      isTypeFinishedRef.current = false;
       runRef.current?.({
         input: '',
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid: generatedBlockBid,
       });
     },
-    [isTypeFinished, setTrackedContentList, showOutputInProgressToast],
+    [isTypeFinishedRef, isStreamingRef, setTrackedContentList, showOutputInProgressToast],
   );
 
   /**
@@ -774,7 +784,8 @@ function useChatLogicHook({
    */
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
-      if (!isTypeFinished || isStreamingRef.current) {
+      
+      if (!isTypeFinishedRef.current || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
@@ -816,7 +827,8 @@ function useChatLogicHook({
         setTrackedContentList(newList);
       }
 
-      setIsTypeFinished(false);
+      // setIsTypeFinished(false);
+      isTypeFinishedRef.current = false;
       // scrollToBottom();
       runRef.current?.({
         input: {
@@ -831,7 +843,7 @@ function useChatLogicHook({
     },
     [
       getNextLessonId,
-      isTypeFinished,
+      isTypeFinishedRef,
       lessonId,
       onGoChapter,
       onPayModalOpen,
@@ -850,11 +862,15 @@ function useChatLogicHook({
   const onTypeFinished = useCallback(() => {
     // console.log('🟢 onTypeFinished called', {
     //   hasInteractionBlock: !!lastInteractionBlockRef.current,
-    //   contentListLength: contentListRef.current.length,
-    //   isTypeFinished,
+    //   contentListLength: contentListRef.current,
+    //   isTypeFinishedRef: isTypeFinishedRef.current,
+    //   isStreamingRef: isStreamingRef.current,
+    //   lastInteractionBlockRef: lastInteractionBlockRef.current,
+    //   isInitHistoryRef: isInitHistoryRef.current,
     // });
-    if(isTypeFinished && isStreamingRef.current) {
-      setIsTypeFinished(false);
+    if(isTypeFinishedRef.current && isStreamingRef.current) {
+      // setIsTypeFinished(false);
+      isTypeFinishedRef.current = false;
 
       currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
@@ -875,21 +891,22 @@ function useChatLogicHook({
     // Only process if:
     // 1. There's a pending interaction block
     // 2. Currently in typing state (not already finished)
-    if (!lastInteractionBlockRef.current || !isTypeFinished || isStreamingRef.current) {
+    if(!isTypeFinishedRef.current || isStreamingRef.current || isInitHistoryRef.current){
+    // if (!lastInteractionBlockRef.current || !isTypeFinished || isStreamingRef.current) {
       // console.log('🟢 onTypeFinished skipped - no pending interaction or already finished');
       return;
     }
 
+    
     if (contentListRef.current.length > 0) {
       // Capture the interaction block value before async operations
-      const interactionBlockToAdd = lastInteractionBlockRef.current;
+      const interactionBlockToAdd = lastInteractionBlockRef.current || null;
 
       // Clear the ref immediately to prevent reuse
       lastInteractionBlockRef.current = null;
 
       setTrackedContentList(prev => {
         const updatedList = [...prev];
-
         // Find the last CONTENT type item and append AskButton to its content
         // Set isHistory=true to prevent triggering typewriter effect for AskButton
         if (mobileStyle) {
@@ -913,6 +930,7 @@ function useChatLogicHook({
         // Add interaction blocks - use captured value instead of ref
         const lastItem = updatedList[updatedList.length - 1];
         const gid = lastItem.generated_block_bid;
+        
         updatedList.push(
           {
             parent_block_bid: gid,
@@ -921,16 +939,19 @@ function useChatLogicHook({
             like_status: LIKE_STATUS.NONE,
             type: ChatContentItemType.LIKE_STATUS,
           },
-          interactionBlockToAdd,
         );
+        if(interactionBlockToAdd){
+          updatedList.push(interactionBlockToAdd);
+        }
 
         return updatedList;
       });
 
-      setIsTypeFinished(true);
+      // setIsTypeFinished(true);
+      isTypeFinishedRef.current = true;
       // console.log('🟢 onTypeFinished processed - interaction block added');
     }
-  }, [isTypeFinished, mobileStyle, setTrackedContentList, t]);
+  }, [isTypeFinishedRef, mobileStyle, setTrackedContentList, t]);
 
   /**
    * toggleAskExpanded toggles the expanded state of the ask panel for a specific block
