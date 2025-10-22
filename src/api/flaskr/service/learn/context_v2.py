@@ -45,7 +45,10 @@ from flaskr.service.order.consts import (
     LEARN_STATUS_NOT_STARTED,
     LEARN_STATUS_LOCKED,
 )
-from flaskr.service.lesson.const import LESSON_TYPE_NORMAL
+from flaskr.service.shifu.consts import (
+    UNIT_TYPE_VALUE_TRIAL,
+    UNIT_TYPE_VALUE_NORMAL,
+)
 
 from flaskr.service.user.models import User
 from flaskr.service.shifu.struct_utils import find_node_with_parents
@@ -70,6 +73,7 @@ from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _
+from flaskr.service.user.exceptions import UserNotLoginException
 
 context_local = threading.local()
 
@@ -260,16 +264,13 @@ class RunScriptContextV2:
             if item.children:
                 for child in item.children:
                     self._q.put(child)
-        # self._current_attend = self._get_current_attend(self._outline_item_info.bid)
         self._current_attend = None
         self._trace_args = {}
         self._trace_args["user_id"] = user_info.user_id
-        # self._trace_args["session_id"] = self._current_attend.progress_record_bid
         self._trace_args["input"] = ""
         self._trace_args["name"] = self._outline_item_info.title
         self._trace = langfuse.trace(**self._trace_args)
         self._trace_args["output"] = ""
-
         context_local.current_context = self
 
     @staticmethod
@@ -295,10 +296,13 @@ class RunScriptContextV2:
                 ).first()
             )
             if not outline_item_info_db:
-                raise PaidException()
-            if outline_item_info_db.type == LESSON_TYPE_NORMAL:
+                raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+            if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise PaidException()
+            elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL:
+                if not self._user_info.mobile:
+                    raise UserNotLoginException()
             parent_path = find_node_with_parents(self._struct, outline_bid)
             attend_info = None
             for item in parent_path:
@@ -1066,6 +1070,15 @@ class RunScriptContextV2:
                 generated_block_bid=generate_id(self.app),
                 type=GeneratedType.INTERACTION,
                 content=f"?[{_('ORDER.CHECKOUT')}//_sys_pay]",
+            )
+        except UserNotLoginException:
+            app.logger.info("UserNotLoginException")
+            self._can_continue = False
+            yield RunMarkdownFlowDTO(
+                outline_bid=self._outline_item_info.bid,
+                generated_block_bid=generate_id(self.app),
+                type=GeneratedType.INTERACTION,
+                content=f"?[{_('USER.LOGIN')}//_sys_login]",
             )
 
     def has_next(self) -> bool:
