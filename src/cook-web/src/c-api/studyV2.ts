@@ -154,9 +154,6 @@ export const getRunMessage = (
     console.error('[SSE error]', e);
   });
 
-  source.addEventListener('open', () => {
-    console.log('[SSE connection opened]');
-  });
 
   // sse.js may not support 'close' event, use readystatechange instead
   source.addEventListener('readystatechange', () => {
@@ -167,16 +164,6 @@ export const getRunMessage = (
     }else if(source.readyState === 1){
       console.log('[SSE connection open]');
     }
-  });
-
-  // Attempt standard close event (may not trigger)
-  source.addEventListener('close', () => {
-    console.log('[SSE connection closed via close event]');
-  });
-
-  // Add abort event listener (if supported)
-  source.addEventListener('abort', () => {
-    console.log('[SSE connection aborted]');
   });
 
   source.stream();

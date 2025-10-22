@@ -456,7 +456,7 @@ function useChatLogicHook({
 
   useEffect(() => {
     return () => {
-      sseRef.current?.close();
+      // sseRef.current?.close();
     };
   }, []);
 
@@ -635,7 +635,7 @@ function useChatLogicHook({
         if (curr === lessonId) {
 
           sseRef.current?.close();
-          // console.log('重修close sse', curr);
+          console.log('resetedLessonId close sse', curr);
           // await refreshData();
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
@@ -674,6 +674,7 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
+    console.log('lessonId change close sse', lessonId);
     sseRef.current?.close();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
