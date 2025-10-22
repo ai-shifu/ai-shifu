@@ -80,7 +80,7 @@ export const useLessonTree = () => {
     }
     if (lesson) {
 
-      if (lesson.type === LEARNING_PERMISSION.TRIAL && !isLoggedIn) {
+      if ((lesson.type === LEARNING_PERMISSION.TRIAL || lesson.type === LEARNING_PERMISSION.NORMAL) && !isLoggedIn) {
         window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
         return;
       }
