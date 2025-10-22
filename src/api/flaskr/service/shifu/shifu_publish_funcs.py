@@ -40,7 +40,10 @@ from flaskr.service.shifu.consts import (
     ASK_MODE_ENABLE,
     BLOCK_TYPE_CONTENT_VALUE,
 )
-from markdown_flow import MarkdownFlow
+from markdown_flow import (
+    MarkdownFlow,
+    BlockType,
+)
 
 
 def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict):
@@ -329,15 +332,28 @@ def _generate_summaries(
 
     for chapter in outline_tree.outline_items:
         for section in chapter.children:
-            section_blocks = all_blocks.get(section.bid, [])
-            content_blocks = [
-                block
-                for block in section_blocks
-                if block.type == BLOCK_TYPE_CONTENT_VALUE
-            ]
-            now_lesson_script_prompts = "".join(
-                json.loads(block.content)["content"] for block in content_blocks
-            )
+            outline_item = outline_item_map.get(section.bid)
+            now_lesson_script_prompts = ""
+            if outline_item and bool(outline_item.content):
+                app.logger.info(
+                    f"outline_item: {outline_item.outline_item_bid} has mdflow content,make summary from mdflow"
+                )
+                mdflow = MarkdownFlow(outline_item.content)
+                blocks = mdflow.get_all_blocks()
+                for block in blocks:
+                    if block.block_type == BlockType.CONTENT:
+                        now_lesson_script_prompts += "\n" + block.content
+            else:
+                section_blocks = all_blocks.get(section.bid, [])
+                app.logger.info(f"section_blocks: {len(section_blocks)}")
+                content_blocks = [
+                    block
+                    for block in section_blocks
+                    if block.type == BLOCK_TYPE_CONTENT_VALUE
+                ]
+                now_lesson_script_prompts = "".join(
+                    json.loads(block.content)["content"] for block in content_blocks
+                )
 
             final_prompt = summary_prompt_template.format(
                 all_script_content=now_lesson_script_prompts
