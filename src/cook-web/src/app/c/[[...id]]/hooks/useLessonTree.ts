@@ -72,26 +72,25 @@ export const useLessonTree = () => {
       }
     }
     if (lesson) {
-      console.log('lesson=======', lesson, isLoggedIn);
 
-      // if (lesson.type === LEARNING_PERMISSION.TRIAL && !isLoggedIn) {
-      //   window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
-      //   return;
-      // }
+      if (lesson.type === LEARNING_PERMISSION.TRIAL && !isLoggedIn) {
+        window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+        return;
+      }
   
-      // if (lesson.type === LEARNING_PERMISSION.NORMAL && !lesson.is_paid) {
-      //   openPayModal({
-      //     type: lesson.type,
-      //     payload: {
-      //       chapterId: lesson.chapterId,
-      //       lessonId: lesson.id,
-      //     },
-      //   });
-      //   return;
-      // }
+      if (lesson.type === LEARNING_PERMISSION.NORMAL && !lesson.is_paid) {
+        openPayModal({
+          type: lesson.type,
+          payload: {
+            chapterId: lesson.chapterId,
+            lessonId: lesson.id,
+          },
+        });
+        return;
+      }
       setSelectedLessonId(lesson.id);
     }
-  }, []);
+  }, [isLoggedIn, openPayModal]);
 
   const loadTreeInner = useCallback(async () => {
     setSelectedLessonId(null);
