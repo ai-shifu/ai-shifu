@@ -138,8 +138,11 @@ export const useUserStore = create<
 
         // If already has token, try to get user info
         try {
-          const userInfo = await getUserInfo();
-          console.log('userInfo======', userInfo);
+          let userInfo = await getUserInfo();
+          // because request in login page will all response
+          if(location.pathname.includes('login')){
+            userInfo = userInfo.data;
+          }
           // Determine if user is authenticated based on mobile number or email
           const isAuthenticated = !!(userInfo.mobile || userInfo.email);
           tokenTool.set({ token: tokenData.token, faked: !isAuthenticated });
