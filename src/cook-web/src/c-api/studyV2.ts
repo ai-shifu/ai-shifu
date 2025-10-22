@@ -163,7 +163,7 @@ export const getRunMessage = (
     console.log('[SSE readystatechange]', source.readyState);
     // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
     if (source.readyState === 2) {
-      console.log('[SSE connection closed via readystatechange]');
+      console.log('[SSE connection close]');
     }
   });
 

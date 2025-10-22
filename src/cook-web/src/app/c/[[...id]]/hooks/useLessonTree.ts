@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { produce } from 'immer';
 import { getLessonTree } from '@/c-api/lesson';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
@@ -19,11 +19,18 @@ export const checkChapterCanLearning = ({ status_value }) => {
   return canLearn;
 };
 
+type LessonTree = {
+  bannerInfo?: any;
+  catalogs: any[];
+} | null;
+
 export const useLessonTree = () => {
-  const [tree, setTree] = useState<{
-    bannerInfo?: any;
-    catalogs: any[];
-  } | null>(null);
+  const [tree, setTree] = useState<LessonTree>(null);
+  const treeRef = useRef<LessonTree>(tree);
+
+  useEffect(() => {
+    treeRef.current = tree;
+  }, [tree]);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const { trackEvent } = useTracking();
   const { updateCourseId } = useEnvStore.getState();
@@ -183,9 +190,10 @@ export const useLessonTree = () => {
       } else {
         setSelectedState(newTree, chapterId, lessonId);
       }
-      // Restore each catalog's collapse state
-      await newTree?.catalogs.forEach(c => {
-        const oldCatalog = tree?.catalogs.find(oc => oc.id === c.id);
+      // Restore each catalog's collapse state using the previous snapshot
+      const previousTree = treeRef.current;
+      newTree?.catalogs.forEach(c => {
+        const oldCatalog = previousTree?.catalogs.find(oc => oc.id === c.id);
 
         if (oldCatalog) {
           c.collapse = oldCatalog.collapse;
@@ -195,7 +203,7 @@ export const useLessonTree = () => {
       setTree(newTree);
       return newTree;
     },
-    [loadTreeInner, tree, initialSelectedChapter, setSelectedState],
+    [loadTreeInner, initialSelectedChapter, setSelectedState],
   );
 
   const loadTree = useCallback(
