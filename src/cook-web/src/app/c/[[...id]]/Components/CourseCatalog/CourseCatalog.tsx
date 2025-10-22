@@ -29,10 +29,6 @@ export const CourseCatalog = ({
     [id, onTrySelect],
   );
 
-  const onResetButtonClick = useCallback(e => {
-    e.stopPropagation();
-  }, []);
-
   const onTitleRowClick = useCallback(() => {
     onCollapse?.({ id });
   }, [id, onCollapse]);

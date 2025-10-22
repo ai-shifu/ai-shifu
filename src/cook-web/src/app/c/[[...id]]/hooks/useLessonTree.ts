@@ -5,6 +5,11 @@ import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { useEnvStore } from '@/c-store/envStore';
 import { useSystemStore } from '@/c-store/useSystemStore';
+import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import { useUserStore } from '@/store';
+import { useCourseStore } from '@/c-store/useCourseStore';
+import { useShallow } from 'zustand/react/shallow';
+
 
 export const checkChapterCanLearning = ({ status_value }) => {
   const canLearn =
@@ -22,6 +27,12 @@ export const useLessonTree = () => {
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const { trackEvent } = useTracking();
   const { updateCourseId } = useEnvStore.getState();
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const { openPayModal } = useCourseStore(
+    useShallow(state => ({
+      openPayModal: state.openPayModal,
+    })),
+  );
 
   const getCurrElement = useCallback(async () => {
     if (!tree || !selectedLessonId) {
@@ -41,31 +52,43 @@ export const useLessonTree = () => {
     let catalog = tree.catalogs.find(
       v => v.status_value === LESSON_STATUS_VALUE.LEARNING,
     );
+    let lesson;
     if (catalog) {
-      const lesson = catalog.lessons.find(
+      lesson = catalog.lessons.find(
         v =>
           v.status_value === LESSON_STATUS_VALUE.LEARNING ||
           v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
       );
-      // lesson && setSelectedLessonId(lesson.id);
-      if (lesson) {
-        setSelectedLessonId(lesson.id);
-      }
     } else {
       catalog = tree.catalogs.find(
         v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
       );
       if (catalog) {
-        const lesson = catalog.lessons.find(
+        lesson = catalog.lessons.find(
           v =>
             v.status_value === LESSON_STATUS_VALUE.LEARNING ||
             v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
         );
-        // lesson && setSelectedLessonId(lesson.id);
-        if (lesson) {
-          setSelectedLessonId(lesson.id);
-        }
       }
+    }
+    if (lesson) {
+     
+      if (lesson.type === LEARNING_PERMISSION.TRIAL && !isLoggedIn) {
+        window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+        return;
+      }
+  
+      if (lesson.type === LEARNING_PERMISSION.NORMAL && !lesson.is_paid) {
+        openPayModal({
+          type: lesson.type,
+          payload: {
+            chapterId: lesson.chapterId,
+            lessonId: lesson.id,
+          },
+        });
+        return;
+      }
+      setSelectedLessonId(lesson.id);
     }
   }, []);
 
