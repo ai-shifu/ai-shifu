@@ -197,11 +197,13 @@ def get_outline_item_tree(
                     status = LEARN_STATUS_NOT_STARTED
             else:
                 status = progress_record.status
+                if status == LEARN_STATUS_LOCKED:
+                    status = LEARN_STATUS_NOT_STARTED
             outline_item_info = LearnOutlineItemInfoDTO(
                 bid=outline_item.outline_item_bid,
                 position=outline_item.position,
                 title=outline_item.title,
-                status=STATUS_MAP.get(status, LearnStatus.LOCKED),
+                status=STATUS_MAP.get(status, LearnStatus.NOT_STARTED),
                 type=outline_type_map.get(outline_item.type, OutlineType.NORMAL),
                 is_paid=is_paid,
                 children=[],
