@@ -223,6 +223,7 @@ class LearnOutlineItemInfoDTO(BaseModel):
             position=position,
             title=title,
             status=status,
+            children=children,
             type=type,
             is_paid=is_paid,
         )

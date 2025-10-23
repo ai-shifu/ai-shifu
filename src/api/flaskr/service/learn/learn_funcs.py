@@ -55,9 +55,6 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_BREAK_VALUE,
     BLOCK_TYPE_PHONE_VALUE,
     BLOCK_TYPE_CHECKCODE_VALUE,
-    UNIT_TYPE_VALUE_GUEST,
-    UNIT_TYPE_VALUE_NORMAL,
-    UNIT_TYPE_VALUE_TRIAL,
 )
 from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT, ROLE_TEACHER
 from flaskr.service.shifu.models import DraftBlock, PublishedBlock
@@ -71,7 +68,6 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_GUEST,
 )
-
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
