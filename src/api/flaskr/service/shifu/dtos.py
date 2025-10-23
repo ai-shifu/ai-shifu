@@ -76,6 +76,7 @@ class ShifuDetailDto(BaseModel):
     price: float = Field(..., description="shifu price", required=False)
     preview_url: str = Field(..., description="shifu preview url", required=False)
     url: str = Field(..., description="shifu url", required=False)
+    system_prompt: str = Field(..., description="shifu system prompt", required=False)
 
     def __init__(
         self,
@@ -89,6 +90,7 @@ class ShifuDetailDto(BaseModel):
         shifu_price: float,
         shifu_preview_url: str,
         shifu_url: str,
+        shifu_system_prompt: str,
     ):
         super().__init__(
             bid=shifu_id,
@@ -101,6 +103,7 @@ class ShifuDetailDto(BaseModel):
             price=shifu_price,
             preview_url=shifu_preview_url,
             url=shifu_url,
+            system_prompt=shifu_system_prompt,
         )
 
     def __json__(self):
@@ -115,6 +118,7 @@ class ShifuDetailDto(BaseModel):
             "preview_url": self.preview_url,
             "url": self.url,
             "temperature": self.temperature,
+            "system_prompt": self.system_prompt,
         }
 
 

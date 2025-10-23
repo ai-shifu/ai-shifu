@@ -354,6 +354,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_model = request.get_json().get("model")
         shifu_price = request.get_json().get("price")
         shifu_temperature = request.get_json().get("temperature")
+        shifu_system_prompt = request.get_json().get("system_prompt", None)
         return make_common_response(
             save_shifu_draft_info(
                 app,
@@ -366,6 +367,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_model,
                 shifu_temperature,
                 shifu_price,
+                shifu_system_prompt,
             )
         )
 

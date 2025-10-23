@@ -68,6 +68,7 @@ def return_shifu_draft_dto(shifu_draft: DraftShifu) -> ShifuDetailDto:
         + "/c/"
         + shifu_draft.shifu_bid
         + "?preview=true",
+        shifu_system_prompt=shifu_draft.llm_system_prompt,
     )
 
 
@@ -185,6 +186,7 @@ def save_shifu_draft_info(
     shifu_model: str,
     shifu_temperature: float,
     shifu_price: float,
+    shifu_system_prompt: str,
 ):
     """
     Save shifu draft info
@@ -199,6 +201,7 @@ def save_shifu_draft_info(
         shifu_model: Shifu model
         shifu_temperature: Shifu temperature
         shifu_price: Shifu price
+        shifu_system_prompt: Shifu system prompt
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -214,6 +217,7 @@ def save_shifu_draft_info(
                 llm=shifu_model,
                 llm_temperature=shifu_temperature,
                 price=shifu_price,
+                llm_system_prompt=shifu_system_prompt if shifu_system_prompt else "",
                 deleted=0,
                 created_user_bid=user_id,
                 updated_user_bid=user_id,
@@ -235,6 +239,8 @@ def save_shifu_draft_info(
             new_shifu_draft.price = shifu_price
             new_shifu_draft.updated_user_bid = user_id
             new_shifu_draft.updated_at = datetime.now()
+            if shifu_system_prompt is not None:
+                new_shifu_draft.llm_system_prompt = shifu_system_prompt
             if not new_shifu_draft.eq(shifu_draft):
                 check_text_with_risk_control(
                     app, shifu_id, user_id, new_shifu_draft.get_str_to_check()
