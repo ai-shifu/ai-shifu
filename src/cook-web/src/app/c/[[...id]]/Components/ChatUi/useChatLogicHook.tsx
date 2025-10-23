@@ -251,7 +251,8 @@ function useChatLogicHook({
    */
   const run = useCallback(
     (sseParams: SSEParams) => {
-      // sseRef.current?.close();
+      sseRef.current?.close();
+      console.log('run close')
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
@@ -989,9 +990,9 @@ function useChatLogicHook({
         );
         if(interactionBlockToAdd){
           updatedList.push(interactionBlockToAdd);
-        }else{
-          sseRef.current?.close()
-          console.log('close.......')
+        } else {
+          sseRef.current?.close();
+          console.log('close.......');
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
