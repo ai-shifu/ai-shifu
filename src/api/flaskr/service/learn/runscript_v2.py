@@ -336,7 +336,6 @@ def run_script(
                 )
     else:
         app.logger.warning("lockfail")
-    yield "data: [DONE]\n\n"
 
 
 def get_run_status(
