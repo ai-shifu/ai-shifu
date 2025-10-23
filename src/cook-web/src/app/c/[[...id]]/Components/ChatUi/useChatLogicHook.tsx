@@ -330,7 +330,7 @@ function useChatLogicHook({
                 readonly: false,
                 type: ChatContentItemType.INTERACTION,
               };
-              // 
+              //
               // setLastInteractionBlock(interactionBlock);
               lastInteractionBlockRef.current = interactionBlock;
               // console.log('🔵 Set lastInteractionBlockRef.current:', interactionBlock);
