@@ -225,7 +225,6 @@ class LearnOutlineItemInfoDTO(BaseModel):
             status=status,
             type=type,
             is_paid=is_paid,
-            children=children,
         )
 
     def __json__(self):
