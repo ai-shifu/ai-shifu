@@ -987,9 +987,9 @@ function useChatLogicHook({
         });
         if (interactionBlockToAdd) {
           updatedList.push(interactionBlockToAdd);
-        }else{
-          sseRef.current?.close()
-          console.log('close.......')
+        } else {
+          sseRef.current?.close();
+          console.log('close.......');
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1003,7 +1003,7 @@ function useChatLogicHook({
       isTypeFinishedRef.current = true;
       // console.log('🟢 onTypeFinished processed - interaction block added');
     }
-  }, [isTypeFinishedRef, mobileStyle, setTrackedContentList, t,]);
+  }, [isTypeFinishedRef, mobileStyle, setTrackedContentList, t]);
 
   /**
    * toggleAskExpanded toggles the expanded state of the ask panel for a specific block
