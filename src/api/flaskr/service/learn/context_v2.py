@@ -220,6 +220,30 @@ class RunScriptContextV2:
             # No event loop running, safe to use asyncio.run
             return asyncio.run(_collect())
 
+    def _run_async_in_safe_context(self, coro):
+        """Helper method to run async coroutine safely in any context"""
+        # Check if we're already in an event loop
+        try:
+            asyncio.get_running_loop()
+            # We're in an event loop, need to run in a new thread
+            import concurrent.futures
+
+            def run_in_thread():
+                # Create a new event loop in this thread
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(coro)
+                finally:
+                    new_loop.close()
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+        except RuntimeError:
+            # No event loop running, safe to use asyncio.run
+            return asyncio.run(coro)
+
     preview_mode: bool
     _q: queue.Queue
     _outline_item_info: ShifuOutlineItemDto
@@ -859,7 +883,7 @@ class RunScriptContextV2:
                 self._current_attend.block_position += 1
                 db.session.flush()
                 return
-            validate_result = asyncio.run(
+            validate_result = self._run_async_in_safe_context(
                 mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
