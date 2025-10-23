@@ -97,6 +97,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
         shifu_published.price = shifu_draft.price
         shifu_published.updated_user_bid = user_id
         shifu_published.updated_at = now_time
+        shifu_published.llm_system_prompt = shifu_draft.llm_system_prompt
         db.session.add(shifu_published)
         db.session.flush()
         outline_tree = build_outline_tree(app, shifu_id)

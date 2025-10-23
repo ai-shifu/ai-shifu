@@ -1214,6 +1214,9 @@ class RunScriptContextV2:
                 and outline_item_info.llm_system_prompt
                 and outline_item_info.llm_system_prompt != ""
             ):
+                self.app.logger.info(
+                    f"outline_item_info.llm_system_prompt: {outline_item_info.llm_system_prompt}"
+                )
                 return outline_item_info.llm_system_prompt
         shifu_info_db: Union[DraftShifu, PublishedShifu] = (
             self._shifu_model.query.filter(
@@ -1225,6 +1228,9 @@ class RunScriptContextV2:
         )
         self.app.logger.info(f"shifu_info_db: {shifu_info_db}")
         if shifu_info_db and shifu_info_db.llm_system_prompt:
+            self.app.logger.info(
+                f"shifu_info_db.llm_system_prompt: {shifu_info_db.llm_system_prompt}"
+            )
             return shifu_info_db.llm_system_prompt
         return None
 
