@@ -293,12 +293,18 @@ class RunScriptContextV2:
             outline_item_info_db: Union[DraftOutlineItem, PublishedOutlineItem] = (
                 self._outline_model.query.filter(
                     self._outline_model.outline_item_bid == outline_bid,
-                ).first()
+                    self._outline_model.deleted == 0,
+                )
+                .order_by(self._outline_model.id.desc())
+                .first()
             )
             if not outline_item_info_db:
                 raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
+                    self.app.logger.error(
+                        f"self._is_paid: {self._is_paid}, outline_item_info_db.type: {outline_item_info_db.title}"
+                    )
                     raise PaidException()
             elif outline_item_info_db.type == UNIT_TYPE_VALUE_TRIAL:
                 if not self._user_info.mobile:
