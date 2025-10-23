@@ -160,14 +160,13 @@ export const getRunMessage = (
     console.error('[SSE error]', e);
   });
 
-
   // sse.js may not support 'close' event, use readystatechange instead
   source.addEventListener('readystatechange', () => {
     console.log('[SSE readystatechange]', source.readyState);
     // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
     if (source.readyState === 2) {
       console.log('[SSE connection close]');
-    }else if(source.readyState === 1){
+    } else if (source.readyState === 1) {
       console.log('[SSE connection open]');
     }
   });
@@ -219,8 +218,10 @@ export async function postGeneratedContentAction(
   return request.post(url, params);
 }
 
-
-export const checkIsRunning = async (shifu_bid: string, outline_bid: string): Promise<RunningResult> => {
+export const checkIsRunning = async (
+  shifu_bid: string,
+  outline_bid: string,
+): Promise<RunningResult> => {
   const url = `/api/learn/shifu/${shifu_bid}/run/${outline_bid}`;
   return request.get(url);
-}
+};

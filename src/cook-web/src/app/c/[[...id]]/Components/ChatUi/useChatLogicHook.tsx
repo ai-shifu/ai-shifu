@@ -277,7 +277,7 @@ function useChatLogicHook({
         effectivePreviewMode,
         sseParams,
         async response => {
-          if(response.type === SSE_OUTPUT_TYPE.HEARTBEAT){
+          if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             return;
           }
           try {
@@ -342,7 +342,6 @@ function useChatLogicHook({
               if (isEnd) {
                 return;
               }
-
 
               const prevText = currentContentRef.current || '';
               const delta = fixMarkdownStream(prevText, response.content || '');
@@ -447,7 +446,7 @@ function useChatLogicHook({
       );
       source.addEventListener('readystatechange', () => {
         // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
-        if(source.readyState === 1) {
+        if (source.readyState === 1) {
           isStreamingRef.current = true;
         }
         if (source.readyState === 2) {
@@ -659,7 +658,6 @@ function useChatLogicHook({
         }
         setIsLoading(true);
         if (curr === lessonId) {
-
           sseRef.current?.close();
           console.log('resetedLessonId close sse', curr);
           // await refreshData();
@@ -753,9 +751,14 @@ function useChatLogicHook({
         item.content?.includes(params.variableName || ''),
       );
       // if has multiple items with the same variable value, we need to find the item with the same blockBid
-      const sameVariableValueItems = newList.filter(item => item.content?.includes(params.variableName || '')) || [];
-      if(sameVariableValueItems.length > 1) {
-          needChangeItemIndex = newList.findIndex(item => item.generated_block_bid === blockBid);
+      const sameVariableValueItems =
+        newList.filter(item =>
+          item.content?.includes(params.variableName || ''),
+        ) || [];
+      if (sameVariableValueItems.length > 1) {
+        needChangeItemIndex = newList.findIndex(
+          item => item.generated_block_bid === blockBid,
+        );
       }
       if (needChangeItemIndex !== -1) {
         newList[needChangeItemIndex] = {
@@ -777,16 +780,16 @@ function useChatLogicHook({
    * onRefresh replays a block from the server using the original inputs.
    */
   const onRefresh = useCallback(
-   async (generatedBlockBid: string) => {
+    async (generatedBlockBid: string) => {
       if (!isTypeFinishedRef.current || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
       }
 
-      const runningRes = await checkIsRunning(shifuBid, outlineBid)
-      if(runningRes.is_running){
+      const runningRes = await checkIsRunning(shifuBid, outlineBid);
+      if (runningRes.is_running) {
         showOutputInProgressToast();
-        return
+        return;
       }
 
       const newList = [...contentListRef.current];
@@ -809,7 +812,14 @@ function useChatLogicHook({
         reload_generated_block_bid: generatedBlockBid,
       });
     },
-    [isTypeFinishedRef, outlineBid, shifuBid, isStreamingRef, setTrackedContentList, showOutputInProgressToast],
+    [
+      isTypeFinishedRef,
+      outlineBid,
+      shifuBid,
+      isStreamingRef,
+      setTrackedContentList,
+      showOutputInProgressToast,
+    ],
   );
 
   /**
@@ -817,7 +827,6 @@ function useChatLogicHook({
    */
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
-      
       if (!isTypeFinishedRef.current || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
@@ -846,15 +855,17 @@ function useChatLogicHook({
         return;
       }
 
-
       let isReGenerate = false;
       const currentList = contentListRef.current;
-      if(currentList.length > 0) {
-        isReGenerate = blockBid !== currentList[currentList.length - 1 ].generated_block_bid;
+      if (currentList.length > 0) {
+        isReGenerate =
+          blockBid !== currentList[currentList.length - 1].generated_block_bid;
       }
 
-      const { newList, needChangeItemIndex } =
-        updateContentListWithUserOperate(content, blockBid);
+      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
+        content,
+        blockBid,
+      );
 
       if (needChangeItemIndex === -1) {
         setTrackedContentList(newList);
@@ -901,7 +912,7 @@ function useChatLogicHook({
     //   lastInteractionBlockRef: lastInteractionBlockRef.current,
     //   isInitHistoryRef: isInitHistoryRef.current,
     // });
-    if(isTypeFinishedRef.current && isStreamingRef.current) {
+    if (isTypeFinishedRef.current && isStreamingRef.current) {
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
 
@@ -918,19 +929,22 @@ function useChatLogicHook({
         };
         return [...prev, placeholderItem];
       });
-      return 
+      return;
     }
 
     // Only process if:
     // 1. There's a pending interaction block
     // 2. Currently in typing state (not already finished)
-    if(!isTypeFinishedRef.current || isStreamingRef.current || isInitHistoryRef.current){
-    // if (!lastInteractionBlockRef.current || !isTypeFinished || isStreamingRef.current) {
+    if (
+      !isTypeFinishedRef.current ||
+      isStreamingRef.current ||
+      isInitHistoryRef.current
+    ) {
+      // if (!lastInteractionBlockRef.current || !isTypeFinished || isStreamingRef.current) {
       // console.log('🟢 onTypeFinished skipped - no pending interaction or already finished');
       return;
     }
 
-    
     if (contentListRef.current.length > 0) {
       // Capture the interaction block value before async operations
       const interactionBlockToAdd = lastInteractionBlockRef.current || null;
@@ -963,26 +977,24 @@ function useChatLogicHook({
         // Add interaction blocks - use captured value instead of ref
         const lastItem = updatedList[updatedList.length - 1];
         const gid = lastItem.generated_block_bid;
-        
-        updatedList.push(
-          {
-            parent_block_bid: gid,
-            generated_block_bid: '',
-            content: '',
-            like_status: LIKE_STATUS.NONE,
-            type: ChatContentItemType.LIKE_STATUS,
-          },
-        );
-        if(interactionBlockToAdd){
+
+        updatedList.push({
+          parent_block_bid: gid,
+          generated_block_bid: '',
+          content: '',
+          like_status: LIKE_STATUS.NONE,
+          type: ChatContentItemType.LIKE_STATUS,
+        });
+        if (interactionBlockToAdd) {
           updatedList.push(interactionBlockToAdd);
-        }else{
-          sseRef.current?.close()
+        } else {
+          sseRef.current?.close();
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
           });
         }
-       
+
         return updatedList;
       });
 

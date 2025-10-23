@@ -42,9 +42,12 @@ const ContentBlock = memo(
       delay: 600,
     });
 
-    const _onSend = useCallback((content: OnSendContentParams) => {
-      onSend(content, blockBid);
-    }, [onSend, blockBid]);
+    const _onSend = useCallback(
+      (content: OnSendContentParams) => {
+        onSend(content, blockBid);
+      },
+      [onSend, blockBid],
+    );
 
     return (
       <div

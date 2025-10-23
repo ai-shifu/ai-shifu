@@ -10,7 +10,6 @@ import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
 
-
 export const checkChapterCanLearning = ({ status_value }) => {
   const canLearn =
     status_value === LESSON_STATUS_VALUE.LEARNING ||
@@ -55,49 +54,55 @@ export const useLessonTree = () => {
     return { catalog: null, lesson: null };
   }, [selectedLessonId, tree]);
 
-  const initialSelectedChapter = useCallback(tree => {
-    let catalog = tree.catalogs.find(
-      v => v.status_value === LESSON_STATUS_VALUE.LEARNING,
-    );
-    let lesson;
-    if (catalog) {
-      lesson = catalog.lessons.find(
-        v =>
-          v.status_value === LESSON_STATUS_VALUE.LEARNING ||
-          v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+  const initialSelectedChapter = useCallback(
+    tree => {
+      let catalog = tree.catalogs.find(
+        v => v.status_value === LESSON_STATUS_VALUE.LEARNING,
       );
-    } else {
-      catalog = tree.catalogs.find(
-        v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
-      );
+      let lesson;
       if (catalog) {
         lesson = catalog.lessons.find(
           v =>
             v.status_value === LESSON_STATUS_VALUE.LEARNING ||
             v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
         );
+      } else {
+        catalog = tree.catalogs.find(
+          v => v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+        );
+        if (catalog) {
+          lesson = catalog.lessons.find(
+            v =>
+              v.status_value === LESSON_STATUS_VALUE.LEARNING ||
+              v.status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING,
+          );
+        }
       }
-    }
-    if (lesson) {
+      if (lesson) {
+        if (
+          (lesson.type === LEARNING_PERMISSION.TRIAL ||
+            lesson.type === LEARNING_PERMISSION.NORMAL) &&
+          !isLoggedIn
+        ) {
+          window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+          return;
+        }
 
-      if ((lesson.type === LEARNING_PERMISSION.TRIAL || lesson.type === LEARNING_PERMISSION.NORMAL) && !isLoggedIn) {
-        window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
-        return;
+        if (lesson.type === LEARNING_PERMISSION.NORMAL && !lesson.is_paid) {
+          openPayModal({
+            type: lesson.type,
+            payload: {
+              chapterId: lesson.chapterId,
+              lessonId: lesson.id,
+            },
+          });
+          return;
+        }
+        setSelectedLessonId(lesson.id);
       }
-  
-      if (lesson.type === LEARNING_PERMISSION.NORMAL && !lesson.is_paid) {
-        openPayModal({
-          type: lesson.type,
-          payload: {
-            chapterId: lesson.chapterId,
-            lessonId: lesson.id,
-          },
-        });
-        return;
-      }
-      setSelectedLessonId(lesson.id);
-    }
-  }, [isLoggedIn, openPayModal]);
+    },
+    [isLoggedIn, openPayModal],
+  );
 
   const loadTreeInner = useCallback(async () => {
     setSelectedLessonId(null);

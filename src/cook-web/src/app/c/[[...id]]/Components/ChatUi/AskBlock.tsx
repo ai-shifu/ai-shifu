@@ -93,10 +93,10 @@ export default function AskBlock({
     if (!question) {
       return;
     }
-    const runningRes = await checkIsRunning(shifu_bid, outline_bid)
-    if(runningRes.is_running){
+    const runningRes = await checkIsRunning(shifu_bid, outline_bid);
+    if (runningRes.is_running) {
       showOutputInProgressToast();
-      return
+      return;
     }
 
     // Close any previous SSE connection
@@ -145,7 +145,7 @@ export default function AskBlock({
       async response => {
         try {
           console.log('SSE response:', response);
-          if(response.type === SSE_OUTPUT_TYPE.HEARTBEAT){
+          if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             return;
           }
           setIsTypeFinished(false);

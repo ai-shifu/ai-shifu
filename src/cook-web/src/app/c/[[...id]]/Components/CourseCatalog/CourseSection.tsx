@@ -56,7 +56,11 @@ export const CourseSection = ({
       return;
     }
 
-    if ((type === LEARNING_PERMISSION.TRIAL || type === LEARNING_PERMISSION.NORMAL) && !isLoggedIn) {
+    if (
+      (type === LEARNING_PERMISSION.TRIAL ||
+        type === LEARNING_PERMISSION.NORMAL) &&
+      !isLoggedIn
+    ) {
       window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
       return;
     }

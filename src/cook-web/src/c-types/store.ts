@@ -59,9 +59,15 @@ export interface CourseStoreState {
     type: string;
     payload: Record<string, any>;
   };
-  openPayModal: (options?: { type?: string; payload?: Record<string, any> }) => void;
+  openPayModal: (options?: {
+    type?: string;
+    payload?: Record<string, any>;
+  }) => void;
   closePayModal: () => void;
-  setPayModalState: (state?: { type?: string; payload?: Record<string, any> }) => void;
+  setPayModalState: (state?: {
+    type?: string;
+    payload?: Record<string, any>;
+  }) => void;
   payModalResult: 'ok' | 'cancel' | null;
   setPayModalResult: (result: 'ok' | 'cancel' | null) => void;
 }
