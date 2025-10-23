@@ -843,6 +843,9 @@ class RunScriptContextV2:
                     outline_item_bid=run_script_info.outline_bid,
                     progress_record_bid=run_script_info.attend.progress_record_bid,
                     user_bid=self._user_info.user_id,
+                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                    mdflow=block.content,
+                    block_index=run_script_info.block_position,
                 )
                 db.session.add(generated_block)
                 db.session.flush()
