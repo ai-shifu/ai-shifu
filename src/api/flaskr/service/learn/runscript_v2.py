@@ -212,7 +212,6 @@ def run_script(
                     if done_received or client_disconnected:
                         break
                     try:
-                        app.logger.info("heartbeat")
                         yield (
                             "data: "
                             + json.dumps(
