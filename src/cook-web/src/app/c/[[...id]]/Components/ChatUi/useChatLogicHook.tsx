@@ -276,7 +276,27 @@ function useChatLogicHook({
         effectivePreviewMode,
         sseParams,
         async response => {
+         
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
+            if (!isEnd) {
+              currentBlockIdRef.current = 'loading';
+              setTrackedContentList(prev => {
+                const hasLoading = prev.some(
+                  item => item.generated_block_bid === 'loading',
+                );
+                console.log('hasLoading',hasLoading)
+                if (hasLoading) {
+                  return prev;
+                }
+                const placeholderItem: ChatContentItem = {
+                  generated_block_bid: 'loading',
+                  content: '',
+                  customRenderBar: () => <LoadingBar />,
+                  type: ChatContentItemType.CONTENT,
+                };
+                return [...prev, placeholderItem];
+              });
+            }
             return;
           }
           try {
@@ -301,27 +321,6 @@ function useChatLogicHook({
               trackTrailProgress(nid);
             }
 
-            if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
-              if (!isEnd) {
-                currentBlockIdRef.current = 'loading';
-                setTrackedContentList(prev => {
-                  const hasLoading = prev.some(
-                    item => item.generated_block_bid === 'loading',
-                  );
-                  if (hasLoading) {
-                    return prev;
-                  }
-                  const placeholderItem: ChatContentItem = {
-                    generated_block_bid: 'loading',
-                    content: '',
-                    customRenderBar: () => <LoadingBar />,
-                    type: ChatContentItemType.CONTENT,
-                  };
-                  return [...prev, placeholderItem];
-                });
-              }
-              return;
-            }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
               // console.log('🔵 Received INTERACTION type:', response);
@@ -1004,7 +1003,14 @@ function useChatLogicHook({
       isTypeFinishedRef.current = true;
       // console.log('🟢 onTypeFinished processed - interaction block added');
     }
-  }, [isTypeFinishedRef, mobileStyle, setTrackedContentList, t, sseRef, runRef]);
+  }, [
+    isTypeFinishedRef,
+    mobileStyle,
+    setTrackedContentList,
+    t,
+    sseRef,
+    runRef,
+  ]);
 
   /**
    * toggleAskExpanded toggles the expanded state of the ask panel for a specific block
