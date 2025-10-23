@@ -283,7 +283,6 @@ function useChatLogicHook({
                 const hasLoading = prev.some(
                   item => item.generated_block_bid === 'loading',
                 );
-                console.log('hasLoading', hasLoading);
                 if (hasLoading) {
                   return prev;
                 }
