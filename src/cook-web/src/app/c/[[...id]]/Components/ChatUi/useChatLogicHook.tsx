@@ -276,7 +276,6 @@ function useChatLogicHook({
         effectivePreviewMode,
         sseParams,
         async response => {
-         
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             if (!isEnd) {
               currentBlockIdRef.current = 'loading';
@@ -284,7 +283,7 @@ function useChatLogicHook({
                 const hasLoading = prev.some(
                   item => item.generated_block_bid === 'loading',
                 );
-                console.log('hasLoading',hasLoading)
+                console.log('hasLoading', hasLoading);
                 if (hasLoading) {
                   return prev;
                 }
@@ -320,7 +319,6 @@ function useChatLogicHook({
             if (nid && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
               trackTrailProgress(nid);
             }
-
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
               // console.log('🔵 Received INTERACTION type:', response);
