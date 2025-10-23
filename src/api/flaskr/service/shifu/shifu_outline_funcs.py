@@ -571,7 +571,7 @@ def modify_unit(
 
         if unit_name:
             new_unit.title = unit_name
-        if unit_system_prompt:
+        if unit_system_prompt is not None:
             new_unit.llm_system_prompt = html_2_markdown(unit_system_prompt, [])
         if unit_is_hidden is True:
             new_unit.hidden = 1
