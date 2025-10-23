@@ -138,8 +138,11 @@ export default function AskBlock({
       },
       async response => {
         try {
-          setIsTypeFinished(false);
           console.log('SSE response:', response);
+          if(response.type === SSE_OUTPUT_TYPE.HEARTBEAT){
+            return;
+          }
+          setIsTypeFinished(false);
 
           if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
             // Streaming content

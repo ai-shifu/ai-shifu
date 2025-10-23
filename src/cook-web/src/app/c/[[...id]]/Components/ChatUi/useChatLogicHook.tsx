@@ -276,6 +276,9 @@ function useChatLogicHook({
         effectivePreviewMode,
         sseParams,
         async response => {
+          if(response.type === SSE_OUTPUT_TYPE.HEARTBEAT){
+            return;
+          }
           try {
             const nid = response.generated_block_bid;
             if (
