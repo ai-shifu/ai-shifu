@@ -108,6 +108,11 @@ export interface PostGeneratedContentActionData {
   action: LikeStatus;
 }
 
+export interface RunningResult {
+  is_running: boolean;
+  running_time: number;
+}
+
 export const getRunMessage = (
   shifu_bid: string,
   outline_bid: string,
@@ -212,4 +217,10 @@ export async function postGeneratedContentAction(
   const url = `/api/learn/shifu/${shifu_bid}/generated-contents/${generated_block_bid}/${action}`;
   // Use standard request wrapper; it will return response.data when code===0
   return request.post(url, params);
+}
+
+
+export const checkIsRunning = async (shifu_bid: string, outline_bid: string): Promise<RunningResult> => {
+  const url = `/api/learn/shifu/${shifu_bid}/run/${outline_bid}`;
+  return request.get(url);
 }

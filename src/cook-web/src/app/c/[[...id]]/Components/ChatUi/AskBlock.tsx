@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Send, Maximize2, Minimize2, X } from 'lucide-react';
 import { ContentRender } from 'markdown-flow-ui';
 import {
+  checkIsRunning,
   getRunMessage,
   SSE_INPUT_TYPE,
   SSE_OUTPUT_TYPE,
@@ -78,7 +79,7 @@ export default function AskBlock({
     });
   }, [t]);
 
-  const handleSendCustomQuestion = useCallback(() => {
+  const handleSendCustomQuestion = useCallback(async () => {
     const question = inputRef.current?.value.trim() || '';
     if (isStreamingRef.current) {
       showOutputInProgressToast();
@@ -91,6 +92,11 @@ export default function AskBlock({
     }
     if (!question) {
       return;
+    }
+    const runningRes = await checkIsRunning(shifu_bid, outline_bid)
+    if(runningRes.is_running){
+      showOutputInProgressToast();
+      return
     }
 
     // Close any previous SSE connection
