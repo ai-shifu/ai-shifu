@@ -2,7 +2,7 @@ import queue
 import threading
 import asyncio
 import inspect
-from typing import Generator, Union, AsyncGenerator
+from typing import Generator, Union, AsyncGenerator, Callable
 from enum import Enum
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.shifu.consts import (
@@ -189,36 +189,49 @@ class RunScriptContextV2:
     attend_id: str
     is_paid: bool
 
-    def _collect_async_generator(self, async_gen):
-        """Helper method to collect results from an async generator"""
+    def _collect_async_generator(self, async_gen_factory: Callable[[], AsyncGenerator]):
+        """Collect all items from an async generator produced by the factory.
 
-        async def _collect():
+        The factory is invoked inside the context that will drive the generator so
+        the async generator is always bound to the correct event loop.
+        """
+
+        if not callable(async_gen_factory):
+            raise TypeError(
+                "async_gen_factory must be a callable returning an async generator"
+            )
+
+        async def _consume(gen: AsyncGenerator):
             results = []
-            async for item in async_gen:
+            async for item in gen:
                 results.append(item)
             return results
 
+        async def _runner():
+            gen = async_gen_factory()
+            if inspect.isawaitable(gen):
+                gen = await gen
+            if not inspect.isasyncgen(gen):
+                raise TypeError("async_gen_factory must return an async generator")
+            return await _consume(gen)
+
         # Check if we're already in an event loop
         try:
-            asyncio.get_running_loop()
-            # We're in an event loop, need to run in a new thread
+            loop = asyncio.get_running_loop()
+
+            # Offload the blocking wait to a worker thread to avoid deadlocking the loop.
             import concurrent.futures
 
             def run_in_thread():
-                # Create a new event loop in this thread
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    return new_loop.run_until_complete(_collect())
-                finally:
-                    new_loop.close()
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(run_in_thread)
+                future = asyncio.run_coroutine_threadsafe(_runner(), loop)
                 return future.result()
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                worker_future = executor.submit(run_in_thread)
+                return worker_future.result()
         except RuntimeError:
             # No event loop running, safe to use asyncio.run
-            return asyncio.run(_collect())
+            return asyncio.run(_runner())
 
     def _run_async_in_safe_context(self, coro):
         """Helper method to run async coroutine safely in any context"""
@@ -1078,7 +1091,7 @@ class RunScriptContextV2:
                         # Fallback: convert to string to avoid leaking object reprs
                         yield str(result) if result else ""
 
-                res = self._collect_async_generator(process_stream())
+                res = self._collect_async_generator(process_stream)
                 for i in res:
                     generated_content += i
                     yield RunMarkdownFlowDTO(
@@ -1095,7 +1108,7 @@ class RunScriptContextV2:
                 )
                 generated_block.generated_content = generated_content
                 db.session.add(generated_block)
-                self._can_continue = True
+                self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
