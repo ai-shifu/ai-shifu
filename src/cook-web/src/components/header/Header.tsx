@@ -141,6 +141,7 @@ const Header = () => {
           size='sm'
           className='h-8 ml-1 bg-primary hover:bg-primary-lighter text-xs font-normal'
           onClick={publish}
+          disabled
         >
           {publishing && <Loading className='h-4 w-4 mr-1' />}
           {!publishing && <TrendingUp />}
