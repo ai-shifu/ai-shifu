@@ -330,6 +330,7 @@ function useChatLogicHook({
                 readonly: false,
                 type: ChatContentItemType.INTERACTION,
               };
+              // 
               // setLastInteractionBlock(interactionBlock);
               lastInteractionBlockRef.current = interactionBlock;
               // console.log('🔵 Set lastInteractionBlockRef.current:', interactionBlock);
@@ -985,12 +986,12 @@ function useChatLogicHook({
         if(interactionBlockToAdd){
           updatedList.push(interactionBlockToAdd);
         } else {
-          sseRef.current?.close();
-          console.log('close.......');
-          runRef.current?.({
-            input: '',
-            input_type: SSE_INPUT_TYPE.NORMAL,
-          });
+          // sseRef.current?.close();
+          // console.log('close.......');
+          // runRef.current?.({
+          //   input: '',
+          //   input_type: SSE_INPUT_TYPE.NORMAL,
+          // });
         }
 
         return updatedList;
@@ -1005,8 +1006,8 @@ function useChatLogicHook({
     mobileStyle,
     setTrackedContentList,
     t,
-    sseRef,
-    runRef,
+    // sseRef,
+    // runRef,
   ]);
 
   /**
