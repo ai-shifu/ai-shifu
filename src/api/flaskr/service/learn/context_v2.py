@@ -2,7 +2,9 @@ import queue
 import threading
 import asyncio
 import inspect
-from typing import Generator, Union, AsyncGenerator, Callable
+import contextvars
+from asyncio import events as asyncio_events
+from typing import Generator, Union, AsyncGenerator, Callable, Awaitable, Any
 from enum import Enum
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.shifu.consts import (
@@ -215,47 +217,85 @@ class RunScriptContextV2:
                 raise TypeError("async_gen_factory must return an async generator")
             return await _consume(gen)
 
-        # Check if we're already in an event loop
-        try:
-            loop = asyncio.get_running_loop()
+        ctx = contextvars.copy_context()
 
-            # Offload the blocking wait to a worker thread to avoid deadlocking the loop.
-            import concurrent.futures
+        def run_with_asyncio_run() -> list:
+            try:
+                return asyncio.run(ctx.run(_runner))
+            except RuntimeError as exc:
+                if "asyncio.run()" not in str(exc):
+                    raise
+                # Some runtimes (e.g., gevent) keep a loop marked as running even in fresh threads.
+                # Temporarily reset it so asyncio can manage its own loop lifecycle.
+                previous_loop = (
+                    asyncio_events._get_running_loop()
+                    if hasattr(asyncio_events, "_get_running_loop")
+                    else None
+                )
+                try:
+                    if hasattr(asyncio_events, "_set_running_loop"):
+                        asyncio_events._set_running_loop(None)
+                    return asyncio.run(ctx.run(_runner))
+                finally:
+                    if hasattr(asyncio_events, "_set_running_loop"):
+                        asyncio_events._set_running_loop(previous_loop)
 
-            def run_in_thread():
-                future = asyncio.run_coroutine_threadsafe(_runner(), loop)
-                return future.result()
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                worker_future = executor.submit(run_in_thread)
-                return worker_future.result()
-        except RuntimeError:
-            # No event loop running, safe to use asyncio.run
-            return asyncio.run(_runner())
-
-    def _run_async_in_safe_context(self, coro):
-        """Helper method to run async coroutine safely in any context"""
         # Check if we're already in an event loop
         try:
             asyncio.get_running_loop()
-            # We're in an event loop, need to run in a new thread
+        except RuntimeError:
+            # No loop running in this thread; execute directly.
+            return run_with_asyncio_run()
+        else:
+            # Loop is active; delegate to a worker thread so we don't block the loop thread.
             import concurrent.futures
 
-            def run_in_thread():
-                # Create a new event loop in this thread
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    return new_loop.run_until_complete(coro)
-                finally:
-                    new_loop.close()
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(run_in_thread)
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(run_with_asyncio_run)
                 return future.result()
+
+    def _run_async_in_safe_context(
+        self, coro_factory: Callable[[], Awaitable[Any] | Any]
+    ):
+        """Run an async coroutine safely regardless of surrounding event loops."""
+
+        if not callable(coro_factory):
+            raise TypeError("coro_factory must be a callable returning a coroutine")
+
+        ctx = contextvars.copy_context()
+
+        def run_with_asyncio_run():
+            result = ctx.run(coro_factory)
+            if not inspect.isawaitable(result):
+                return result
+            try:
+                return asyncio.run(result)
+            except RuntimeError as exc:
+                if "asyncio.run()" not in str(exc):
+                    raise
+                previous_loop = (
+                    asyncio_events._get_running_loop()
+                    if hasattr(asyncio_events, "_get_running_loop")
+                    else None
+                )
+                try:
+                    if hasattr(asyncio_events, "_set_running_loop"):
+                        asyncio_events._set_running_loop(None)
+                    return asyncio.run(ctx.run(coro_factory))
+                finally:
+                    if hasattr(asyncio_events, "_set_running_loop"):
+                        asyncio_events._set_running_loop(previous_loop)
+
+        try:
+            asyncio.get_running_loop()
         except RuntimeError:
-            # No event loop running, safe to use asyncio.run
-            return asyncio.run(coro)
+            return run_with_asyncio_run()
+        else:
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(run_with_asyncio_run)
+                return future.result()
 
     preview_mode: bool
     _q: queue.Queue
@@ -796,6 +836,16 @@ class RunScriptContextV2:
                 .order_by(LearnGeneratedBlock.id.desc())
                 .first()
             )
+            if not generated_block:
+                generated_block = init_generated_block(
+                    app,
+                    shifu_bid=run_script_info.attend.shifu_bid,
+                    outline_item_bid=run_script_info.outline_bid,
+                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                    user_bid=self._user_info.user_id,
+                )
+                db.session.add(generated_block)
+                db.session.flush()
             if (
                 parsed_interaction.get("buttons")
                 and len(parsed_interaction.get("buttons")) > 0
@@ -839,7 +889,6 @@ class RunScriptContextV2:
                             self._can_continue = False
                             db.session.flush()
                             return
-
             generated_block.generated_content = self._input
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
@@ -897,7 +946,7 @@ class RunScriptContextV2:
                 db.session.flush()
                 return
             validate_result = self._run_async_in_safe_context(
-                mdflow.process(
+                lambda: mdflow.process(
                     run_script_info.block_position,
                     ProcessMode.COMPLETE,
                     user_input=self._input,
