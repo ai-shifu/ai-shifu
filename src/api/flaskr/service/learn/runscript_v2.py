@@ -13,9 +13,6 @@ import json
 
 from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
 from flaskr.dao import db, redis_client
-from flaskr.service.learn.utils import (
-    make_script_dto,
-)
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_dto,
     get_outline_item_dto,
@@ -271,6 +268,7 @@ def run_script(
             producer_thread.join(timeout=0.1)
             if producer_thread.is_alive():
                 app.logger.warning("run_script producer thread did not stop in time")
+
             lock.release()
 
         if stream_error and not client_disconnected:
@@ -336,11 +334,9 @@ def run_script(
                     )
                     + "\n\n".encode("utf-8").decode("utf-8")
                 )
-        return
     else:
         app.logger.warning("lockfail")
-        yield make_script_dto("text_end", "", None)
-    return
+    yield "data: [DONE]\n\n"
 
 
 def get_run_status(
