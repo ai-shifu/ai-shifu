@@ -361,3 +361,22 @@ class LearnRecordDTO(BaseModel):
             "records": self.records,
             "interaction": self.interaction,
         }
+
+
+@register_schema_to_swagger
+class RunStatusDTO(BaseModel):
+    is_running: bool = Field(..., description="is running", required=False)
+    running_time: int = Field(..., description="running time", required=False)
+
+    def __init__(
+        self,
+        is_running: bool,
+        running_time: int,
+    ):
+        super().__init__(is_running=is_running, running_time=running_time)
+
+    def __json__(self):
+        return {
+            "is_running": self.is_running,
+            "running_time": self.running_time,
+        }
