@@ -975,8 +975,14 @@ function useChatLogicHook({
         );
         if(interactionBlockToAdd){
           updatedList.push(interactionBlockToAdd);
+        }else{
+          sseRef.current?.close()
+          runRef.current?.({
+            input: '',
+            input_type: SSE_INPUT_TYPE.NORMAL,
+          });
         }
-
+       
         return updatedList;
       });
 
