@@ -1100,7 +1100,11 @@ class RunScriptContextV2:
         ] = {o.id: o for o in outline_item_info_db}
         for id in outline_ids:
             outline_item_info = outline_item_info_map.get(id, None)
-            if outline_item_info and outline_item_info.llm_system_prompt:
+            if (
+                outline_item_info
+                and outline_item_info.llm_system_prompt
+                and outline_item_info.llm_system_prompt != ""
+            ):
                 return outline_item_info.llm_system_prompt
         shifu_info_db: Union[DraftShifu, PublishedShifu] = (
             self._shifu_model.query.filter(
