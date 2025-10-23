@@ -1002,7 +1002,14 @@ function useChatLogicHook({
       isTypeFinishedRef.current = true;
       // console.log('🟢 onTypeFinished processed - interaction block added');
     }
-  }, [isTypeFinishedRef, mobileStyle, setTrackedContentList, t, sseRef, runRef]);
+  }, [
+    isTypeFinishedRef,
+    mobileStyle,
+    setTrackedContentList,
+    t,
+    sseRef,
+    runRef,
+  ]);
 
   /**
    * toggleAskExpanded toggles the expanded state of the ask panel for a specific block
