@@ -106,6 +106,6 @@ def parse_shifu_mdflow(
         if data:
             mdflow = data
         markdown_flow = MarkdownFlow(mdflow)
-        varibales = markdown_flow.extract_variables()
+        variables = markdown_flow.extract_variables()
         blocks = markdown_flow.get_all_blocks()
-        return MdflowDTOParseResult(variables=varibales, blocks_count=len(blocks))
+        return MdflowDTOParseResult(variables=variables, blocks_count=len(blocks))
