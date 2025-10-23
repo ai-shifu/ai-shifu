@@ -213,7 +213,13 @@ def run_script(
                         break
                     try:
                         app.logger.info("heartbeat")
-                        yield ":heartbeat\n\n"
+                        yield (
+                            "data: "
+                            + json.dumps(
+                                {"type": "heartbeat"}, default=fmt, ensure_ascii=False
+                            )
+                            + "\n\n".encode("utf-8").decode("utf-8")
+                        )
                     except GeneratorExit:
                         client_disconnected = True
                         stop_event.set()
