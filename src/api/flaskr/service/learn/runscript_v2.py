@@ -11,7 +11,7 @@ from flaskr.i18n import _
 import json
 
 
-from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO
+from flaskr.service.learn.learn_dtos import RunMarkdownFlowDTO, RunStatusDTO
 from flaskr.dao import db, redis_client
 from flaskr.service.learn.utils import (
     make_script_dto,
@@ -342,3 +342,27 @@ def run_script(
         app.logger.warning("lockfail")
         yield make_script_dto("text_end", "", None)
     return
+
+
+def get_run_status(
+    app: Flask,
+    shifu_bid: str,
+    outline_bid: str,
+    user_bid: str,
+) -> RunStatusDTO:
+    lock_key = (
+        app.config.get("REDIS_KEY_PREFIX")
+        + ":run_script:"
+        + user_bid
+        + ":"
+        + outline_bid
+    )
+    lock = redis_client.lock(lock_key, timeout=300, blocking_timeout=0)
+    if lock.acquire(blocking=False):
+        # Lock acquired successfully, so no other process is running
+        lock.release()
+        return RunStatusDTO(is_running=False, running_time=0)
+    else:
+        # Lock is held by another process
+        # We can't get the exact running time without additional metadata
+        return RunStatusDTO(is_running=True, running_time=0)

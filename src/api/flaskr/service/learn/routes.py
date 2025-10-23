@@ -9,7 +9,7 @@ from flaskr.service.learn.learn_funcs import (
     handle_reaction,
     reset_learn_record,
 )
-from flaskr.service.learn.runscript_v2 import run_script
+from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 
 
 @inject
@@ -169,6 +169,46 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         except Exception as e:
             app.logger.error(e)
             return make_common_response(e)
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>",
+        methods=["GET"],
+    )
+    def get_run_status_api(shifu_bid: str, outline_bid: str):
+        """
+        get run status
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: get run status success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    $ref: "#/components/schemas/RunStatusDTO"
+        """
+        user_bid = request.user.user_id
+
+        return make_common_response(
+            get_run_status(app, shifu_bid, outline_bid, user_bid)
+        )
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/records/<outline_bid>", methods=["GET"]
