@@ -23,6 +23,7 @@ import {
   LIKE_STATUS,
   BLOCK_TYPE,
   BlockType,
+  checkIsRunning,
 } from '@/c-api/studyV2';
 import { LESSON_STATUS_VALUE } from '@/c-constants/courseConstants';
 import {
@@ -754,10 +755,16 @@ function useChatLogicHook({
    * onRefresh replays a block from the server using the original inputs.
    */
   const onRefresh = useCallback(
-    (generatedBlockBid: string) => {
+   async (generatedBlockBid: string) => {
       if (!isTypeFinishedRef.current || isStreamingRef.current) {
         showOutputInProgressToast();
         return;
+      }
+
+      const runningRes = await checkIsRunning(shifuBid, outlineBid)
+      if(runningRes.is_running){
+        showOutputInProgressToast();
+        return
       }
 
       const newList = [...contentListRef.current];
@@ -780,7 +787,7 @@ function useChatLogicHook({
         reload_generated_block_bid: generatedBlockBid,
       });
     },
-    [isTypeFinishedRef, isStreamingRef, setTrackedContentList, showOutputInProgressToast],
+    [isTypeFinishedRef, outlineBid, shifuBid, isStreamingRef, setTrackedContentList, showOutputInProgressToast],
   );
 
   /**
