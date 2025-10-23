@@ -160,10 +160,6 @@ export const getRunMessage = (
     console.error('[SSE error]', e);
   });
 
-<<<<<<< HEAD
-
-=======
->>>>>>> xjl/cook_editor_from_qq
   // sse.js may not support 'close' event, use readystatechange instead
   source.addEventListener('readystatechange', () => {
     console.log('[SSE readystatechange]', source.readyState);
