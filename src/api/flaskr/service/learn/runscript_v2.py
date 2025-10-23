@@ -151,7 +151,7 @@ def run_script(
 ) -> Generator[str, None, None]:
     timeout = 5 * 60
     blocking_timeout = 1
-    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.5))
+    heartbeat_interval = float(app.config.get("SSE_HEARTBEAT_INTERVAL", 0.2))
     lock_key = (
         app.config.get("REDIS_KEY_PREFIX")
         + ":run_script:"
@@ -268,7 +268,7 @@ def run_script(
                     break
         finally:
             stop_event.set()
-            producer_thread.join(timeout=2)
+            producer_thread.join(timeout=0.2)
             if producer_thread.is_alive():
                 app.logger.warning("run_script producer thread did not stop in time")
             lock.release()
