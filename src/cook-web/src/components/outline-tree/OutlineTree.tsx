@@ -122,7 +122,6 @@ const MinimalTreeItemComponent = React.forwardRef<
       });
       return;
     }
-    console.log('createOutline111', props.item);
     await actions.createOutline({
       shifu_bid: currentShifu?.bid || '',
       id: props.item.id,
