@@ -66,6 +66,11 @@ from flaskr.service.profile.profile_manage import get_profile_item_definition_li
 from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
 from flaskr.service.shifu.dtos import BlockDTO
 from flaskr.service.shifu.adapter import generate_block_dto_from_model_internal
+from flaskr.service.shifu.consts import (
+    UNIT_TYPE_VALUE_TRIAL,
+    UNIT_TYPE_VALUE_NORMAL,
+    UNIT_TYPE_VALUE_GUEST,
+)
 
 
 STATUS_MAP = {
