@@ -321,7 +321,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     console.log('mdflow', mdflow);
     setMdflow(mdflow);
     setIsLoading(false);
-    setCurrentMdflow(mdflow)
+    setCurrentMdflow(mdflow);
   };
 
   const loadChapters = async (shifuId: string) => {
@@ -591,20 +591,17 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const autoSaveBlocks = useCallback(
-    debounce(
-      async () => {
-        console.log('自动保存...');
-        return await saveMdflow();
-        // return await saveCurrentBlocks(
-        //   outline,
-        //   blocks,
-        //   blockTypes,
-        //   blockContentProperties,
-        //   shifu_id,
-        // );
-      },
-      3000,
-    ),
+    debounce(async () => {
+      console.log('自动保存...');
+      return await saveMdflow();
+      // return await saveCurrentBlocks(
+      //   outline,
+      //   blocks,
+      //   blockTypes,
+      //   blockContentProperties,
+      //   shifu_id,
+      // );
+    }, 3000),
     [currentShifu?.bid, currentNode?.bid],
   ) as () => Promise<ApiResponse<SaveBlockListResult> | null>;
 
@@ -990,14 +987,18 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   };
 
   const saveMdflow = async () => {
-    console.log('saveMdflow', currentShifu?.bid, currentNode?.bid, currentMdflow.current);
+    console.log(
+      'saveMdflow',
+      currentShifu?.bid,
+      currentNode?.bid,
+      currentMdflow.current,
+    );
     await api.saveMdflow({
       shifu_bid: currentShifu?.bid || '',
       outline_bid: currentNode?.bid || '',
       data: currentMdflow.current,
     });
   };
-  
 
   const setCurrentMdflow = (value: string) => {
     currentMdflow.current = value;

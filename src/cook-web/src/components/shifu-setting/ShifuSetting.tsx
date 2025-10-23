@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Copy, Check, SlidersVertical, Plus, Minus, CircleHelp } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  SlidersVertical,
+  Plus,
+  Minus,
+  CircleHelp,
+} from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -43,7 +50,7 @@ interface Shifu {
   system_prompt?: string;
 }
 
-export default function ShifuSettingDialog ({
+export default function ShifuSettingDialog({
   shifuId,
   onSave,
 }: {
@@ -77,9 +84,7 @@ export default function ShifuSettingDialog ({
       .min(1, t('shifuSetting.shifuDescriptionEmpty'))
       .max(300, t('shifuSetting.shifuDescriptionMaxLength')),
     model: z.string(),
-    systemPrompt: z
-      .string()
-      .max(300, t('shifuSetting.systemPromptMaxLength')),
+    systemPrompt: z.string().max(300, t('shifuSetting.systemPromptMaxLength')),
     price: z
       .string()
       .min(1, t('shifuSetting.shifuPriceEmpty'))
@@ -526,7 +531,11 @@ export default function ShifuSettingDialog ({
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('shifuSetting.systemPrompt')}
                       </FormLabel>
-                      <a href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2' target='_blank' rel='noopener noreferrer'>
+                      <a
+                        href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2'
+                        target='_blank'
+                        rel='noopener noreferrer'
+                      >
                         <CircleHelp className='h-4 w-4 text-muted-foreground' />
                       </a>
                     </div>
@@ -542,7 +551,7 @@ export default function ShifuSettingDialog ({
                       />
                     </FormControl>
                     <div className='text-xs text-muted-foreground text-right'>
-                      {(field.value?.length ?? 0)}/300
+                      {field.value?.length ?? 0}/300
                     </div>
                     <FormMessage />
                   </FormItem>

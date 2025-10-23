@@ -140,7 +140,7 @@ export const useUserStore = create<
         try {
           let userInfo = await getUserInfo();
           // because request in login page will all response
-          if(location.pathname.includes('login')){
+          if (location.pathname.includes('login')) {
             userInfo = userInfo.data;
           }
           // Determine if user is authenticated based on mobile number or email

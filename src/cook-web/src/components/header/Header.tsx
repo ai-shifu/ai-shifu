@@ -27,7 +27,7 @@ const Header = () => {
     // TODO: publish
     // actions.publishScenario();
     // await actions.saveBlocks(currentShifu?.bid || '');
-    await actions.saveMdflow()
+    await actions.saveMdflow();
     alert.showAlert({
       confirmText: t('header.confirm'),
       cancelText: t('header.cancel'),

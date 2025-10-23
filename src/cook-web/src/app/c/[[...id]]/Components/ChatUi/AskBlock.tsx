@@ -96,7 +96,7 @@ export default function AskBlock({
     const runningRes = await checkIsRunning(shifu_bid, outline_bid)
     if(runningRes.is_running){
       showOutputInProgressToast();
-      return
+      return;
     }
 
     // Close any previous SSE connection

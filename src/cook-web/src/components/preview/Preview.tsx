@@ -25,7 +25,7 @@ const PreviewSettingsModal = () => {
 
   const handleStartPreview = async () => {
     // await actions.saveBlocks(currentShifu?.bid || '');
-    await actions.saveMdflow()
+    await actions.saveMdflow();
     // Handle the start preview action
     const result = await api.previewShifu({
       shifu_bid: currentShifu?.bid || '',

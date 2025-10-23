@@ -59,7 +59,9 @@ const ShifuCard = ({
               {!image && <TrophyIcon className='w-6 h-6 text-primary' />}
             </div>
 
-            <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>{title}</h3>
+            <h3 className='font-medium text-gray-900 leading-5 whitespace-nowrap overflow-hidden text-ellipsis'>
+              {title}
+            </h3>
           </div>
           {isFavorite && <StarIcon className='w-5 h-5 text-yellow-400' />}
         </div>

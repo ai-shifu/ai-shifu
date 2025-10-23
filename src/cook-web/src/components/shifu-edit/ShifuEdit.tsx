@@ -20,7 +20,7 @@ import '@mdxeditor/editor/style.css';
 import Header from '../header';
 import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu';
 import RenderBlockUI from '../render-ui';
-import { MarkdownFlowEditor } from 'markdown-flow-ui'
+import { MarkdownFlowEditor } from 'markdown-flow-ui';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import AIDebugDialog from '@/components/ai-debug';
 
@@ -376,7 +376,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id]);
 
-
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
     actions.autoSaveBlocks();
@@ -422,19 +421,26 @@ const ScriptEditor = ({ id }: { id: string }) => {
         </div>
         <div className='flex-1 overflow-auto relative text-sm'>
           <div className='p-8 gap-4 flex flex-col max-w-[900px] mx-auto h-full w-full'>
-            {isLoading ? (
-              <div className='h-40 flex items-center justify-center'>
-                <Loading />
-              </div>
-            ) : (
-              currentNode?.depth && currentNode.depth > 0 ? <>
-                <div className='flex items-center'>
+            {
+              isLoading ? (
+                <div className='h-40 flex items-center justify-center'>
+                  <Loading />
+                </div>
+              ) : currentNode?.depth && currentNode.depth > 0 ? (
+                <>
+                  <div className='flex items-center'>
                     <h2 className='text-base font-semibold text-foreground'>
                       {t('shifu.creationArea.title')}
                     </h2>
-                </div>
-                <MarkdownFlowEditor locale={profile?.language as "en-US" | "zh-CN"} content={mdflow} onChange={onChangeMdflow}/>
-              </> : <></>
+                  </div>
+                  <MarkdownFlowEditor
+                    locale={profile?.language as 'en-US' | 'zh-CN'}
+                    content={mdflow}
+                    onChange={onChangeMdflow}
+                  />
+                </>
+              ) : (
+                <></>
               )
               // <>
               //   <DndProvider backend={HTML5Backend}>
