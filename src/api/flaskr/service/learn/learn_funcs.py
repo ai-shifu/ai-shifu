@@ -126,22 +126,19 @@ def get_outline_item_tree(
             )
             if not shifu:
                 raise_error("SHIFU.SHIFU_NOT_FOUND")
-            if shifu.price == 0:
-                is_paid = True
-            else:
-                buy_record = (
-                    Order.query.filter(
-                        Order.user_bid == user_bid,
-                        Order.shifu_bid == shifu_bid,
-                        Order.status == ORDER_STATUS_SUCCESS,
-                    )
-                    .order_by(Order.id.desc())
-                    .first()
+            buy_record = (
+                Order.query.filter(
+                    Order.user_bid == user_bid,
+                    Order.shifu_bid == shifu_bid,
+                    Order.status == ORDER_STATUS_SUCCESS,
                 )
-                if not buy_record:
-                    is_paid = False
-                else:
-                    is_paid = True
+                .order_by(Order.id.desc())
+                .first()
+            )
+            if not buy_record:
+                is_paid = False
+            else:
+                is_paid = True
         struct = (
             struct_model.query.filter(
                 struct_model.shifu_bid == shifu_bid, struct_model.deleted == 0
