@@ -125,7 +125,7 @@ export const createFetchSseSource = ({
     },
     onmessage: event => {
       if (onMessage) {
-        onMessage(event);
+        onMessage(event as any);
       }
       dispatchEvent(listeners, 'message', event);
     },
