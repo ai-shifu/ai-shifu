@@ -1,10 +1,8 @@
-import { SSE } from 'sse.js';
 import request from '@/lib/request';
-import { tokenStore } from '@/c-service/storeUtil';
 import { v4 } from 'uuid';
 import { getStringEnv } from '@/c-utils/envUtils';
-import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUserStore } from '@/store/useUserStore';
+import { createFetchSseSource } from './sseClient';
 
 // ===== Constants  Types for shared literals =====
 // record history block type
@@ -130,19 +128,29 @@ export const getRunMessage = (
 
   // TODO: MOCK
   payload.input = Object.values(body.input).join('');
-  const source = new SSE(
-    `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Request-ID': v4().replace(/-/g, ''),
-        Authorization: `Bearer ${token}`,
-        Token: token,
-      },
-      payload: JSON.stringify(payload),
-      method: 'PUT',
+  const source = createFetchSseSource({
+    url: `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Request-ID': v4().replace(/-/g, ''),
+      Authorization: `Bearer ${token}`,
+      Token: token,
     },
-  );
+    body: JSON.stringify(payload),
+    onOpen: () => {
+      console.log('[SSE connection open]');
+    },
+    onClose: () => {
+      console.log('[SSE connection close]');
+    },
+    onError: err => {
+      if (err?.name === 'AbortError') {
+        return;
+      }
+      console.error('[SSE error]', err);
+    },
+  });
 
   source.addEventListener('message', event => {
     try {
@@ -155,23 +163,6 @@ export const getRunMessage = (
       console.log(e);
     }
   });
-
-  source.addEventListener('error', e => {
-    console.error('[SSE error]', e);
-  });
-
-  // sse.js may not support 'close' event, use readystatechange instead
-  source.addEventListener('readystatechange', () => {
-    console.log('[SSE readystatechange]', source.readyState);
-    // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
-    if (source.readyState === 2) {
-      console.log('[SSE connection close]');
-    } else if (source.readyState === 1) {
-      console.log('[SSE connection open]');
-    }
-  });
-
-  source.stream();
 
   return source;
 };
