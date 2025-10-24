@@ -37,6 +37,97 @@ import { useTranslation } from 'react-i18next';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 
+type RunMessageStreamOptions = {
+  shifuBid: string;
+  outlineBid: string;
+  previewMode: boolean;
+  onMessage: (data: any) => void;
+  onOpen?: () => void;
+  onClose?: () => void;
+  onError?: (error: any) => void;
+};
+
+const useRunMessageStream = ({
+  shifuBid,
+  outlineBid,
+  previewMode,
+  onMessage,
+  onOpen,
+  onClose,
+  onError,
+}: RunMessageStreamOptions) => {
+  const sourceRef = useRef<ReturnType<typeof getRunMessage> | null>(null);
+
+  const onMessageRef = useRef(onMessage);
+  const onOpenRef = useRef(onOpen);
+  const onCloseRef = useRef(onClose);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => {
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
+
+  useEffect(() => {
+    onOpenRef.current = onOpen;
+  }, [onOpen]);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
+
+  const close = useCallback(() => {
+    if (sourceRef.current) {
+      sourceRef.current.close();
+      sourceRef.current = null;
+    }
+  }, []);
+
+  const connect = useCallback(
+    (params: SSEParams) => {
+      close();
+      const source = getRunMessage(
+        shifuBid,
+        outlineBid,
+        previewMode,
+        params,
+        data => {
+          onMessageRef.current?.(data);
+        },
+      );
+
+      source.addEventListener('readystatechange', event => {
+        const ready = (event as any)?.readyState ?? source.readyState;
+        if (ready === 1) {
+          onOpenRef.current?.();
+        }
+        if (ready === 2) {
+          onCloseRef.current?.();
+        }
+      });
+
+      source.addEventListener('error', event => {
+        const error = (event as any)?.error ?? event;
+        onErrorRef.current?.(error);
+      });
+
+      sourceRef.current = source;
+    },
+    [close, outlineBid, previewMode, shifuBid],
+  );
+
+  useEffect(() => {
+    return () => {
+      close();
+    };
+  }, [close]);
+
+  return { connect, close };
+};
+
 export enum ChatContentItemType {
   CONTENT = 'content',
   INTERACTION = 'interaction',
@@ -148,7 +239,7 @@ function useChatLogicHook({
   const currentContentRef = useRef<string>('');
   const currentBlockIdRef = useRef<string | null>(null);
   const runRef = useRef<((params: SSEParams) => void) | null>(null);
-  const sseRef = useRef<any>(null);
+  const isEndRef = useRef(false);
   const lastInteractionBlockRef = useRef<ChatContentItem | null>(null);
   const hasScrolledToBottomRef = useRef<boolean>(false);
 
@@ -246,17 +337,191 @@ function useChatLogicHook({
     [lessonUpdate, updateSelectedLesson],
   );
 
+  const handleSseResponse = useCallback(
+    async (response: any) => {
+      if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
+        if (!isEndRef.current) {
+          currentBlockIdRef.current = 'loading';
+          setTrackedContentList(prev => {
+            const hasLoading = prev.some(
+              item => item.generated_block_bid === 'loading',
+            );
+            if (hasLoading) {
+              return prev;
+            }
+            const placeholderItem: ChatContentItem = {
+              generated_block_bid: 'loading',
+              content: '',
+              customRenderBar: () => <LoadingBar />,
+              type: ChatContentItemType.CONTENT,
+            };
+            return [...prev, placeholderItem];
+          });
+        }
+        return;
+      }
+
+      try {
+        const nid = response.generated_block_bid;
+        if (
+          currentBlockIdRef.current === 'loading' &&
+          response.type !== SSE_OUTPUT_TYPE.VARIABLE_UPDATE
+        ) {
+          setTrackedContentList(pre =>
+            pre.filter(item => item.generated_block_bid !== 'loading'),
+          );
+          currentBlockIdRef.current = nid;
+        }
+
+        const blockId = currentBlockIdRef.current;
+
+        if (nid && response.type === SSE_OUTPUT_TYPE.BREAK) {
+          trackTrailProgress(nid);
+        }
+
+        if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
+          const interactionBlock = {
+            generated_block_bid: nid,
+            content: response.content,
+            customRenderBar: () => null,
+            defaultButtonText: '',
+            defaultInputText: '',
+            readonly: false,
+            type: ChatContentItemType.INTERACTION,
+          };
+          lastInteractionBlockRef.current = interactionBlock;
+        } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
+          if (isEndRef.current) {
+            return;
+          }
+
+          const prevText = currentContentRef.current || '';
+          const delta = fixMarkdownStream(prevText, response.content || '');
+          const nextText = prevText + delta;
+          currentContentRef.current = nextText;
+          if (blockId) {
+            setTrackedContentList(prevState => {
+              let hasItem = false;
+              const updatedList = prevState.map(item => {
+                if (item.generated_block_bid === blockId) {
+                  hasItem = true;
+                  return {
+                    ...item,
+                    content: nextText,
+                    customRenderBar: () => null,
+                  };
+                }
+                return item;
+              });
+              if (!hasItem) {
+                updatedList.push({
+                  generated_block_bid: blockId,
+                  content: nextText,
+                  defaultButtonText: '',
+                  defaultInputText: '',
+                  readonly: false,
+                  customRenderBar: () => null,
+                  type: ChatContentItemType.CONTENT,
+                });
+              }
+              return updatedList;
+            });
+          }
+        } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
+          if (response.content.has_children) {
+            const { status, outline_bid: chapterBid } = response.content;
+            chapterUpdate?.({
+              id: chapterBid,
+              status,
+              status_value: status,
+            });
+            if (status === LESSON_STATUS_VALUE.COMPLETED) {
+              isEndRef.current = true;
+            }
+          } else {
+            if (lessonId === response.content.outline_bid) {
+              currentBlockIdRef.current = 'loading';
+              currentContentRef.current = '';
+              lastInteractionBlockRef.current = null;
+              setTrackedContentList(prev => {
+                const placeholderItem: ChatContentItem = {
+                  generated_block_bid: currentBlockIdRef.current || '',
+                  content: '',
+                  customRenderBar: () => <LoadingBar />,
+                  type: ChatContentItemType.CONTENT,
+                };
+                return [...prev, placeholderItem];
+              });
+            }
+            lessonUpdateResp(response, isEndRef.current);
+          }
+        } else if (
+          response.type === SSE_OUTPUT_TYPE.BREAK ||
+          response.type === SSE_OUTPUT_TYPE.TEXT_END
+        ) {
+          if (blockId) {
+            setTrackedContentList(prevState =>
+              prevState.map(item =>
+                item.generated_block_bid === blockId
+                  ? {
+                      ...item,
+                      readonly: true,
+                      customRenderBar: () => null,
+                      isHistory: false,
+                    }
+                  : item,
+              ),
+            );
+
+            if (!lastInteractionBlockRef.current) {
+              isTypeFinishedRef.current = true;
+            }
+          }
+        } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
+          updateUserInfo({
+            [response.content.key]: response.content.value,
+          });
+        }
+      } catch (error) {
+        console.warn('SSE handling error:', error);
+      }
+    },
+    [
+      chapterUpdate,
+      lessonId,
+      lessonUpdateResp,
+      setTrackedContentList,
+      trackTrailProgress,
+      updateUserInfo,
+    ],
+  );
+
+  const { connect: connectRunStream, close: closeRunStream } = useRunMessageStream({
+    shifuBid,
+    outlineBid,
+    previewMode: effectivePreviewMode,
+    onMessage: handleSseResponse,
+    onOpen: () => {
+      isStreamingRef.current = true;
+    },
+    onClose: () => {
+      isStreamingRef.current = false;
+    },
+    onError: () => {
+      isStreamingRef.current = false;
+    },
+  });
+
   /**
    * Starts the SSE request and streams content into the chat list.
    */
   const run = useCallback(
     (sseParams: SSEParams) => {
-      // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
+      isEndRef.current = false;
       currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
-      // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
       setTrackedContentList(prev => {
         const placeholderItem: ChatContentItem = {
@@ -268,221 +533,16 @@ function useChatLogicHook({
         return [...prev, placeholderItem];
       });
 
-      let isEnd = false;
-
-      const source = getRunMessage(
-        shifuBid,
-        outlineBid,
-        effectivePreviewMode,
-        sseParams,
-        async response => {
-          if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
-            if (!isEnd) {
-              currentBlockIdRef.current = 'loading';
-              setTrackedContentList(prev => {
-                const hasLoading = prev.some(
-                  item => item.generated_block_bid === 'loading',
-                );
-                if (hasLoading) {
-                  return prev;
-                }
-                const placeholderItem: ChatContentItem = {
-                  generated_block_bid: 'loading',
-                  content: '',
-                  customRenderBar: () => <LoadingBar />,
-                  type: ChatContentItemType.CONTENT,
-                };
-                return [...prev, placeholderItem];
-              });
-            }
-            return;
-          }
-          try {
-            const nid = response.generated_block_bid;
-            if (
-              currentBlockIdRef.current === 'loading' &&
-              response.type !== SSE_OUTPUT_TYPE.VARIABLE_UPDATE
-            ) {
-              // close loading
-              setTrackedContentList(pre => {
-                const newList = pre.filter(
-                  item => item.generated_block_bid !== 'loading',
-                );
-                return newList;
-              });
-              currentBlockIdRef.current = nid;
-            }
-
-            const blockId = currentBlockIdRef.current;
-
-            if (nid && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
-              trackTrailProgress(nid);
-            }
-
-            if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-              // console.log('🔵 Received INTERACTION type:', response);
-              const interactionBlock = {
-                generated_block_bid: nid,
-                content: response.content,
-                customRenderBar: () => null,
-                defaultButtonText: '',
-                defaultInputText: '',
-                readonly: false,
-                type: ChatContentItemType.INTERACTION,
-              };
-              //
-              // setLastInteractionBlock(interactionBlock);
-              lastInteractionBlockRef.current = interactionBlock;
-              // console.log('🔵 Set lastInteractionBlockRef.current:', interactionBlock);
-            } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
-              if (isEnd) {
-                return;
-              }
-
-              const prevText = currentContentRef.current || '';
-              const delta = fixMarkdownStream(prevText, response.content || '');
-              const nextText = prevText + delta;
-              currentContentRef.current = nextText;
-              if (blockId) {
-                setTrackedContentList(prevState => {
-                  let hasItem = false;
-                  const updatedList = prevState.map(item => {
-                    if (item.generated_block_bid === blockId) {
-                      hasItem = true;
-                      return {
-                        ...item,
-                        content: nextText,
-                        customRenderBar: () => null,
-                      };
-                    }
-                    return item;
-                  });
-                  if (!hasItem) {
-                    updatedList.push({
-                      generated_block_bid: blockId,
-                      content: nextText,
-                      defaultButtonText: '',
-                      defaultInputText: '',
-                      readonly: false,
-                      customRenderBar: () => null,
-                      type: ChatContentItemType.CONTENT,
-                    });
-                  }
-                  return updatedList;
-                });
-              }
-            } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
-              if (response.content.has_children) {
-                const { status, outline_bid: chapterBid } = response.content;
-                chapterUpdate?.({
-                  id: chapterBid,
-                  status,
-                  status_value: status,
-                });
-                if (status === LESSON_STATUS_VALUE.COMPLETED) {
-                  isEnd = true;
-                }
-              } else {
-                // current lesson loading
-                if (lessonId === response.content.outline_bid) {
-                  currentBlockIdRef.current = 'loading';
-                  currentContentRef.current = '';
-                  // setLastInteractionBlock(null);
-                  lastInteractionBlockRef.current = null;
-                  setTrackedContentList(prev => {
-                    const placeholderItem: ChatContentItem = {
-                      generated_block_bid: currentBlockIdRef.current || '',
-                      content: '',
-                      customRenderBar: () => <LoadingBar />,
-                      type: ChatContentItemType.CONTENT,
-                    };
-                    return [...prev, placeholderItem];
-                  });
-                }
-                lessonUpdateResp(response, isEnd);
-              }
-            } else if (
-              response.type === SSE_OUTPUT_TYPE.BREAK ||
-              response.type === SSE_OUTPUT_TYPE.TEXT_END
-            ) {
-              // console.log('🟢 Received TEXT_END/BREAK, type:', response.type);
-              // console.log('🟢 lastInteractionBlockRef.current:', lastInteractionBlockRef.current);
-              if (blockId) {
-                setTrackedContentList(prevState => {
-                  const updatedList = prevState.map(item =>
-                    item.generated_block_bid === blockId
-                      ? {
-                          ...item,
-                          readonly: true,
-                          customRenderBar: () => null,
-                          isHistory: false,
-                        }
-                      : item,
-                  );
-                  return updatedList;
-                });
-
-                // Set finished state if no interaction block pending
-                if (!lastInteractionBlockRef.current) {
-                  // setIsTypeFinished(true);
-                  isTypeFinishedRef.current = true;
-                }
-              }
-              // currentBlockIdRef.current = null;
-              // currentContentRef.current = '';
-            } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
-              updateUserInfo({
-                [response.content.key]: response.content.value,
-              });
-            }
-          } catch (error) {
-            console.warn('SSE handling error:', error);
-          }
-        },
-      );
-      source.addEventListener('readystatechange', () => {
-        // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
-        if (source.readyState === 1) {
-          isStreamingRef.current = true;
-          console.log('设置isStreamingRef.current',isStreamingRef.current)
-        }
-        if (source.readyState === 2) {
-          isStreamingRef.current = false;
-          console.log('设置isStreamingRef.current',isStreamingRef.current)
-
-          // when sse close and only one interaction block in current connection, it won't onTypeFinished and append the interaction UI
-          // if(isTypeFinished && lastInteractionBlockRef.current) {
-          //   const item = lastInteractionBlockRef.current
-          //   lastInteractionBlockRef.current = null
-          //   setTrackedContentList(prev => {
-          //     const updatedList = [...prev];
-          //     updatedList.push(item as ChatContentItem);
-          //     return updatedList;
-          //   });
-          // }
-        }
-      });
-      sseRef.current = source;
+      connectRunStream(sseParams);
     },
-    [
-      chapterUpdate,
-      effectivePreviewMode,
-      lessonUpdateResp,
-      outlineBid,
-      isTypeFinishedRef,
-      setTrackedContentList,
-      shifuBid,
-      lessonId,
-      trackTrailProgress,
-      updateUserInfo,
-    ],
+    [connectRunStream, setTrackedContentList],
   );
 
   useEffect(() => {
     return () => {
-      sseRef.current?.close();
+      closeRunStream();
     };
-  }, []);
+  }, [closeRunStream]);
 
   useEffect(() => {
     runRef.current = run;
@@ -657,7 +717,7 @@ function useChatLogicHook({
         }
         setIsLoading(true);
         if (curr === lessonId) {
-          sseRef.current?.close();
+          closeRunStream();
           console.log('resetedLessonId close sse', curr);
           // await refreshData();
           // updateResetedChapterId(null);
@@ -677,6 +737,7 @@ function useChatLogicHook({
     updateResetedLessonId,
     resetedLessonId,
     lessonId,
+    closeRunStream,
   ]);
 
   useEffect(() => {
@@ -698,13 +759,13 @@ function useChatLogicHook({
 
   useEffect(() => {
     console.log('lessonId change close sse', lessonId);
-    sseRef.current?.close();
+    closeRunStream();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
     }
     refreshData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId, resetedLessonId]);
+  }, [lessonId, resetedLessonId, closeRunStream]);
 
   useEffect(() => {
     const onGoToNavigationNode = (
@@ -986,8 +1047,10 @@ function useChatLogicHook({
         });
         if (interactionBlockToAdd) {
           updatedList.push(interactionBlockToAdd);
+          console.log('结束run')
         } else {
-          sseRef.current?.close();
+          console.log('上一块不是交互块继续run', lastItem)
+          closeRunStream();
           runRef.current?.({
             input: '',
             input_type: SSE_INPUT_TYPE.NORMAL,
@@ -1002,11 +1065,11 @@ function useChatLogicHook({
       // console.log('🟢 onTypeFinished processed - interaction block added');
     }
   }, [
+    closeRunStream,
     isTypeFinishedRef,
     mobileStyle,
     setTrackedContentList,
     t,
-    // sseRef,
     // runRef,
   ]);
 
