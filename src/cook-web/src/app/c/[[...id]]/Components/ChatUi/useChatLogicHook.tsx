@@ -277,24 +277,24 @@ function useChatLogicHook({
         sseParams,
         async response => {
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
-            if (!isEnd) {
-              currentBlockIdRef.current = 'loading';
-              setTrackedContentList(prev => {
-                const hasLoading = prev.some(
-                  item => item.generated_block_bid === 'loading',
-                );
-                if (hasLoading) {
-                  return prev;
-                }
-                const placeholderItem: ChatContentItem = {
-                  generated_block_bid: 'loading',
-                  content: '',
-                  customRenderBar: () => <LoadingBar />,
-                  type: ChatContentItemType.CONTENT,
-                };
-                return [...prev, placeholderItem];
-              });
-            }
+            // if (!isEnd) {
+            //   currentBlockIdRef.current = 'loading';
+            //   setTrackedContentList(prev => {
+            //     const hasLoading = prev.some(
+            //       item => item.generated_block_bid === 'loading',
+            //     );
+            //     if (hasLoading) {
+            //       return prev;
+            //     }
+            //     const placeholderItem: ChatContentItem = {
+            //       generated_block_bid: 'loading',
+            //       content: '',
+            //       customRenderBar: () => <LoadingBar />,
+            //       type: ChatContentItemType.CONTENT,
+            //     };
+            //     return [...prev, placeholderItem];
+            //   });
+            // }
             return;
           }
           try {
@@ -984,11 +984,12 @@ function useChatLogicHook({
         if (interactionBlockToAdd) {
           updatedList.push(interactionBlockToAdd);
         } else {
-          sseRef.current?.close();
-          runRef.current?.({
-            input: '',
-            input_type: SSE_INPUT_TYPE.NORMAL,
-          });
+          // sseRef.current?.close();
+          // console.log('close.......');
+          // runRef.current?.({
+          //   input: '',
+          //   input_type: SSE_INPUT_TYPE.NORMAL,
+          // });
         }
 
         return updatedList;

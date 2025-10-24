@@ -1,7 +1,7 @@
+import { SSE } from 'sse.js';
 import request from '@/lib/request';
 import { v4 as uuid4 } from 'uuid';
 import { getStringEnv } from '@/c-utils/envUtils';
-import { createFetchSseSource } from './sseClient';
 const token = getStringEnv('token');
 const url = (getStringEnv('baseURL') || '') + '/api/study/run';
 
@@ -13,34 +13,17 @@ export const RunScript = (
   onMessage,
 ) => {
   const request_id = uuid4();
-  const source = createFetchSseSource({
-    url: `${url}?token=${token}`,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Request-ID': request_id,
-    },
-    body: JSON.stringify({
+  const source = new SSE(url + '?token=' + token, {
+    headers: { 'Content-Type': 'application/json', 'X-Request-ID': request_id },
+    payload: JSON.stringify({
       course_id,
       lesson_id,
       input,
       input_type,
     }),
-    onOpen: () => {
-      console.log('[SSE connection open]');
-    },
-    onClose: () => {
-      console.log('[SSE connection close]');
-    },
-    onError: err => {
-      if (err?.name === 'AbortError') {
-        return;
-      }
-      console.error('[SSE error]', err);
-    },
   });
 
-  source.addEventListener('message', event => {
+  source.onmessage = event => {
     try {
       const response = JSON.parse(event.data);
       if (onMessage) {
@@ -49,7 +32,12 @@ export const RunScript = (
     } catch (e) {
       console.log(e);
     }
-  });
+  };
+  source.onerror = () => {};
+  source.onclose = () => {};
+  source.onopen = () => {};
+  source.close = () => {};
+  source.stream();
 
   return source;
 };
