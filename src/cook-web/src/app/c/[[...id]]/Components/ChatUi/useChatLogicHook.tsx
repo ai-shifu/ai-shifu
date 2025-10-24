@@ -973,7 +973,6 @@ function useChatLogicHook({
         // Add interaction blocks - use captured value instead of ref
         const lastItem = updatedList[updatedList.length - 1];
         const gid = lastItem.generated_block_bid;
-        console.log('updatedList',updatedList)
         if(lastItem.type !== ChatContentItemType.INTERACTION){
           updatedList.push({
             parent_block_bid: gid,
@@ -987,9 +986,7 @@ function useChatLogicHook({
           updatedList.push(interactionBlockToAdd);
         } else {
           if(lastItem.type !== ChatContentItemType.INTERACTION){
-            console.log("上一块不是交互块，继续run", lastItem)
             sseRef.current?.close();
-            console.log('close.......');
             runRef.current?.({
               input: '',
               input_type: SSE_INPUT_TYPE.NORMAL,
