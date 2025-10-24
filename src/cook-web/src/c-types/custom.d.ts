@@ -1,3 +1,4 @@
+declare module 'sse.js';
 declare module '*.scss';
 declare module '*.css';
 declare module '*.png';

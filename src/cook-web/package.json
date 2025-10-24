@@ -75,7 +75,7 @@
     "react-use": "^17.6.0",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
-    "@microsoft/fetch-event-source": "^2.0.1",
+    "sse.js": "^2.6.0",
     "store": "^2.0.12",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
