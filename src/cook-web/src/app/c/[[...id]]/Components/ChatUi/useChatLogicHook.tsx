@@ -973,14 +973,16 @@ function useChatLogicHook({
         // Add interaction blocks - use captured value instead of ref
         const lastItem = updatedList[updatedList.length - 1];
         const gid = lastItem.generated_block_bid;
-
-        updatedList.push({
-          parent_block_bid: gid,
-          generated_block_bid: '',
-          content: '',
-          like_status: LIKE_STATUS.NONE,
-          type: ChatContentItemType.LIKE_STATUS,
-        });
+        console.log('updatedList',updatedList)
+        if(lastItem.type !== ChatContentItemType.INTERACTION){
+          updatedList.push({
+            parent_block_bid: gid,
+            generated_block_bid: '',
+            content: '',
+            like_status: LIKE_STATUS.NONE,
+            type: ChatContentItemType.LIKE_STATUS,
+          });
+        }
         if (interactionBlockToAdd) {
           updatedList.push(interactionBlockToAdd);
         } else {
