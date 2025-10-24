@@ -444,9 +444,12 @@ function useChatLogicHook({
         // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
         if (source.readyState === 1) {
           isStreamingRef.current = true;
+          console.log('设置isStreamingRef.current',isStreamingRef.current)
         }
         if (source.readyState === 2) {
           isStreamingRef.current = false;
+          console.log('设置isStreamingRef.current',isStreamingRef.current)
+
           // when sse close and only one interaction block in current connection, it won't onTypeFinished and append the interaction UI
           // if(isTypeFinished && lastInteractionBlockRef.current) {
           //   const item = lastInteractionBlockRef.current
