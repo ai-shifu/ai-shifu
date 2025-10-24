@@ -990,7 +990,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       outline_bid: currentNode?.bid || '',
       data: currentMdflow.current,
     });
-    setLastSaveTime(new Date())
+    setLastSaveTime(new Date());
   };
 
   const setCurrentMdflow = (value: string) => {
