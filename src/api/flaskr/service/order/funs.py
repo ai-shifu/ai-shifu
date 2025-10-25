@@ -183,17 +183,13 @@ def send_order_feishu(app: Flask, record_id: str):
         msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
         if item.is_discount:
             msgs.append("优惠码：{}".format(item.discount_code))
-    user_count = (
-        UserEntity.query.filter(
-            UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
-        ).count()
-    )
+    user_count = UserEntity.query.filter(
+        UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
+    ).count()
     msgs.append("总付费用户数：{}".format(user_count))
-    user_reg_count = (
-        UserEntity.query.filter(
-            UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
-        ).count()
-    )
+    user_reg_count = UserEntity.query.filter(
+        UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
+    ).count()
     msgs.append("总注册用户数：{}".format(user_reg_count))
     user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
     msgs.append("总访客数：{}".format(user_total_count))

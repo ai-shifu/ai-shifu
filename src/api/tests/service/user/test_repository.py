@@ -31,7 +31,7 @@ def _insert_email_credential(user_bid: str, email: str) -> AuthCredential:
         subject_id=email,
         subject_format="email",
         identifier=email,
-        raw_profile="{\"provider\": \"email\", \"metadata\": {}}",
+        raw_profile='{"provider": "email", "metadata": {}}',
         state=CREDENTIAL_STATE_VERIFIED,
         deleted=0,
         created_at=datetime.utcnow(),

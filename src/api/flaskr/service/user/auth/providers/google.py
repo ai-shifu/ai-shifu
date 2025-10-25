@@ -140,9 +140,7 @@ class GoogleAuthProvider(AuthProvider):
             raise RuntimeError("Google profile missing required identifiers")
 
         email = email.lower()
-        credential = find_credential(
-            provider_name=self.provider_name, identifier=email
-        )
+        credential = find_credential(provider_name=self.provider_name, identifier=email)
 
         aggregate = None
         created_user = False

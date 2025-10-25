@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional, Tuple
 
 from flask import Flask
 
-from flaskr.dao import db
 from flaskr.dao import redis_client as redis
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error

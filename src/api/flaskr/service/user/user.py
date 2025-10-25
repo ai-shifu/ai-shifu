@@ -129,9 +129,7 @@ def generate_temp_user(
             if not refreshed:
                 raise_error("USER.USER_NOT_FOUND")
             token = generate_token(app, user_id=refreshed.user_bid)
-            return UserToken(
-                build_user_info_from_aggregate(refreshed), token=token
-            )
+            return UserToken(build_user_info_from_aggregate(refreshed), token=token)
 
 
 def update_user_open_id(app: Flask, user_id: str, wx_code: str) -> str:

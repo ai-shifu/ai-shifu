@@ -1,4 +1,13 @@
-from sqlalchemy import Column, String, Integer, TIMESTAMP, Date, Text, SmallInteger, DateTime
+from sqlalchemy import (
+    Column,
+    String,
+    Integer,
+    TIMESTAMP,
+    Date,
+    Text,
+    SmallInteger,
+    DateTime,
+)
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db

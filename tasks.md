@@ -5,7 +5,7 @@
 - [x] Implement repository helpers to load/update users using `user_users` and `user_auth_credentials` only.
 - [x] Provide adapters that map aggregated user data to existing DTOs (`UserInfo`, `UserToken`).
 - [x] Document the new access layer usage patterns in this file (section added below).
-- **Tests**: Targeted repository/service unit tests via `pytest tests/service/user` *(fails in container: Alembic migrations require MySQL column `ai_course.course_keywords` unavailable on SQLite; see test run log).* 
+- **Tests**: Targeted repository/service unit tests via `pytest tests/service/user` *(fails in container: Alembic migrations require MySQL column `ai_course.course_keywords` unavailable on SQLite; see test run log).*
 
 ### Access layer usage notes
 - Use `load_user_aggregate(user_bid)` to obtain a `UserAggregate` snapshot including normalized identifiers and credential summaries.
@@ -18,7 +18,7 @@
 - [x] Adjust phone/email verification flows to create/update records exclusively through the new tables.
 - [x] Ensure token validation and profile snapshots are built from the new structures.
 - **Notes**: Legacy tables remain accessible only through repository helpers for role flag compatibility; business logic now operates on `user_users` aggregates and credential summaries.
-- **Tests**: `pytest tests/service/user` *(still blocked in container by MySQL-specific migration requirements; see latest run log).* 
+- **Tests**: `pytest tests/service/user` *(still blocked in container by MySQL-specific migration requirements; see latest run log).*
 
 ## Task 3: Update cross-domain modules referencing `user_info`
 - [x] Replace direct `User` model usage in `flaskr/service/learn`, `order`, `profile`, and `feedback` packages with the new helpers or DTOs.

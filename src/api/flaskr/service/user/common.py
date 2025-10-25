@@ -5,12 +5,9 @@ import random
 import string
 from flask import Flask
 
-import random
-import string
 from typing import Optional
 
 import jwt
-from flask import Flask
 
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from flaskr.i18n import get_i18n_list
@@ -26,6 +23,7 @@ from .repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+
 
 def _load_user_info(app: Flask, user_bid: str) -> UserInfo:
     aggregate = load_user_aggregate(user_bid)

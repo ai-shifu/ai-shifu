@@ -99,9 +99,9 @@ def migrate_user_study_record(
 
 
 def init_first_course(app: Flask, user_id: str) -> None:
-    user_count = (
-        UserEntity.query.filter(UserEntity.state != USER_STATE_UNREGISTERED).count()
-    )
+    user_count = UserEntity.query.filter(
+        UserEntity.state != USER_STATE_UNREGISTERED
+    ).count()
     if user_count != 1:
         return
 

@@ -378,9 +378,7 @@ def ensure_user_for_identifier(
 
     defaults = defaults or {}
     normalized = _normalize_identifier(provider, identifier)
-    aggregate = load_user_aggregate_by_identifier(
-        normalized, providers=[provider]
-    )
+    aggregate = load_user_aggregate_by_identifier(normalized, providers=[provider])
     if aggregate:
         entity = get_user_entity_by_bid(aggregate.user_bid, include_deleted=True)
         update_defaults = {
@@ -412,9 +410,7 @@ def ensure_user_for_identifier(
     db.session.flush()
     aggregate = load_user_aggregate(user_bid)
     if not aggregate:
-        raise RuntimeError(
-            f"Failed to create user aggregate for provider {provider}"
-        )
+        raise RuntimeError(f"Failed to create user aggregate for provider {provider}")
     return aggregate, True
 
 
@@ -451,7 +447,9 @@ def create_user_entity(
         avatar=avatar or "",
         birthday=birthday,
         language=language or "en-US",
-        state=_normalize_user_state(state) if state is not None else USER_STATE_UNREGISTERED,
+        state=_normalize_user_state(state)
+        if state is not None
+        else USER_STATE_UNREGISTERED,
         deleted=0,
     )
     db.session.add(entity)
@@ -521,6 +519,7 @@ def set_user_state(user_bid: str, state: int) -> None:
 
 def build_user_info_from_aggregate(user: UserAggregate) -> UserInfo:
     return user.to_user_info()
+
 
 VALID_USER_STATES = {
     USER_STATE_UNREGISTERED,

@@ -448,9 +448,7 @@ def get_user_profile_labels(
                 UserProfileLabelItemDTO(
                     key=key,
                     label=meta["label"],
-                    type=meta.get(
-                        "type", "select" if "items" in meta else "text"
-                    ),
+                    type=meta.get("type", "select" if "items" in meta else "text"),
                     value=display_value,
                     items=meta.get("items"),
                 )
@@ -587,9 +585,7 @@ def update_user_profile_with_lable(
             if profile_item:
                 user_profile.profile_id = profile_item.profile_id
             else:
-                app.logger.warning(
-                    "profile_item not found:{}".format(profile["key"])
-                )
+                app.logger.warning("profile_item not found:{}".format(profile["key"]))
             user_profile.status = 1
             if (
                 bool(profile_value)

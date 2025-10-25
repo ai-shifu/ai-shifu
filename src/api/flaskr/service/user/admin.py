@@ -64,13 +64,9 @@ def get_user_list(app: Flask, page: int = 1, page_size: int = 20, query=None):
                 )
             if query.get("nickname"):
                 nickname = query.get("nickname").strip()
-                db_query = db_query.filter(
-                    UserEntity.nickname.like(f"%{nickname}%")
-                )
+                db_query = db_query.filter(UserEntity.nickname.like(f"%{nickname}%"))
             if query.get("user_id"):
-                db_query = db_query.filter(
-                    UserEntity.user_bid == query.get("user_id")
-                )
+                db_query = db_query.filter(UserEntity.user_bid == query.get("user_id"))
         count = db_query.count()
         if count == 0:
             return {}
@@ -88,6 +84,8 @@ def get_user_list(app: Flask, page: int = 1, page_size: int = 20, query=None):
             birth = _resolve_user_birthday(aggregate)
             items.append(UserItemDTO(user.user_bid, mobile, nickname, sex, birth))
         return PageNationDTO(page, page_size, count, items)
+
+
 DEFAULT_BIRTHDAY = Date(2003, 1, 1)
 
 
