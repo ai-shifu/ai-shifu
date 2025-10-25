@@ -132,7 +132,7 @@ export default function OutlineSelector({
       <DropdownMenuTrigger>
         {selectedNode
           ? selectedNode.position + ':' + selectedNode.name
-          : t('outlineSelector.selectChapter')}
+          : t('component.outlineSelector.selectChapter')}
       </DropdownMenuTrigger>
       <DropdownMenuContent align='start'>
         <CataTree

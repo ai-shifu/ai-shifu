@@ -39,14 +39,14 @@ export default function ModelList({
       value={displayValue}
     >
       <SelectTrigger className={cn('w-full', className)}>
-        <SelectValue placeholder={t('common.selectModel')} />
+        <SelectValue placeholder={t('common.core.selectModel')} />
       </SelectTrigger>
       <SelectContent>
         <SelectItem
           key='default'
           value={DEFAULT_MODEL_OPTION_VALUE}
         >
-          {t('common.default')}
+          {t('common.core.default')}
         </SelectItem>
         {models.map((item, i) => {
           return (

@@ -1,0 +1,15 @@
+{
+  "__namespace__": "⟦møđųŀē.ųšēř⟧",
+  "confirmLogoutContent": "⟦Åřē ŷøų šųřē ŷøų ŵåňŧ ŧø ŀøǥøųŧ?⟧",
+  "confirmLogoutTitle": "⟦Ćøňƒįřm Ŀøǥøųŧ⟧",
+  "defaultUserName": "⟦Đēƒåųŀŧ Ňåmē⟧",
+  "gender": {
+    "female": "⟦Ғēmåŀē⟧",
+    "male": "⟦Μåŀē⟧",
+    "secret": "⟦Šēćřēŧ⟧"
+  },
+  "login": "⟦Ŀøǥįň⟧",
+  "loginMainButton": "⟦Ŀøǥįň/Řēǥįšŧēř⟧",
+  "logout": "⟦Ŀøǥøųŧ⟧",
+  "notLogin": "⟦Ňøŧ Ŀøǥǥēđ Įň⟧"
+}

@@ -47,7 +47,8 @@ export const ChatInputText = ({
   }, [initialValue]);
   const [isComposing, setIsComposing] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const placeholder = props?.content?.content || t('chat.chatInputPlaceholder');
+  const placeholder =
+    props?.content?.content || t('module.chat.chatInputPlaceholder');
   // @ts-expect-error EXPECT
   const outputType = OUTPUT_TYPE_MAP[type];
 
@@ -57,7 +58,7 @@ export const ChatInputText = ({
     }
     if (input.trim() === '') {
       toast({
-        title: t('chat.chatInputWarn'),
+        title: t('module.chat.chatInputWarn'),
         variant: 'destructive',
       });
       return;

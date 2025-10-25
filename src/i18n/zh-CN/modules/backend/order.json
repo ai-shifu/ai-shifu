@@ -1,0 +1,22 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "courseNotPaid": "课程未购买，请先购买课程",
+    "orderNotFound": "没有找到订单",
+    "checkout": "去支付",
+    "learnStatusNotStarted": "可学习",
+    "learnStatusInProgress": "正在学",
+    "learnStatusCompleted": "已完成",
+    "learnStatusRefund": "退款",
+    "learnStatusLocked": "未解锁",
+    "learnStatusUnavailable": "不可用",
+    "learnStatusBranch": "分支",
+    "learnStatusReset": "重置",
+    "orderHasPaid": "订单已经支付",
+    "orderStatusInit": "初始化",
+    "orderStatusSuccess": "购买成功",
+    "orderStatusRefund": "退款",
+    "orderStatusToBePaid": "待支付",
+    "orderStatusTimeout": "已过期"
+  }
+}

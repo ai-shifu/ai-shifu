@@ -133,7 +133,7 @@ export default function InteractionBlockM({
                 size={16}
                 className='text-gray-500'
               />
-              <span>{t('chat.regenerate')}</span>
+              <span>{t('module.chat.regenerate')}</span>
             </button>
             <button
               onClick={handleLike}
@@ -144,7 +144,7 @@ export default function InteractionBlockM({
                 size={16}
                 className={cn(isLike ? 'text-blue-500' : 'text-gray-500')}
               />
-              <span>{t('chat.like')}</span>
+              <span>{t('module.chat.like')}</span>
             </button>
             <button
               onClick={handleDislike}
@@ -155,7 +155,7 @@ export default function InteractionBlockM({
                 size={16}
                 className={cn(isDislike ? 'text-blue-500' : 'text-gray-500')}
               />
-              <span>{t('chat.dislike')}</span>
+              <span>{t('module.chat.dislike')}</span>
             </button>
           </div>
         </PopoverContent>
@@ -167,9 +167,9 @@ export default function InteractionBlockM({
       >
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
-            <DialogTitle>{t('chat.regenerateConfirmTitle')}</DialogTitle>
+            <DialogTitle>{t('module.chat.regenerateConfirmTitle')}</DialogTitle>
             <DialogDescription>
-              {t('chat.regenerateConfirmDescription')}
+              {t('module.chat.regenerateConfirmDescription')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className='flex gap-2 sm:gap-2'>
@@ -178,14 +178,14 @@ export default function InteractionBlockM({
               onClick={() => setShowRegenerateDialog(false)}
               className='px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50'
             >
-              {t('common.cancel')}
+              {t('common.core.cancel')}
             </button>
             <button
               type='button'
               onClick={handleConfirmRegenerate}
               className='px-4 py-2 text-sm font-medium text-white bg-primary rounded-md hover:bg-primary-lighter'
             >
-              {t('common.ok')}
+              {t('common.core.ok')}
             </button>
           </DialogFooter>
         </DialogContent>

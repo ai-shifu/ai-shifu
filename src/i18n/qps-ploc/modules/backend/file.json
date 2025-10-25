@@ -1,0 +1,17 @@
+{
+  "__namespace__": "⟦šēřṽēř.ƒįŀē⟧",
+  "__flat__": {
+    "fileTypeNotSupport": "⟦Ųňšųƥƥøřŧēđ Ғįŀē Ŧŷƥē⟧",
+    "videoInvalidBilibiliLink": "⟦Įňṽåŀįđ Ƀįŀįƀįŀį Ŀįňķ⟧",
+    "videoBilibiliApiError": "⟦Ƀįŀįƀįŀį ÅƤĮ Ēřřøř⟧",
+    "videoBilibiliApiRequestFailed": "⟦Řēɋųēšŧ Ƀįŀįƀįŀį ÅƤĮ Ғåįŀēđ⟧",
+    "videoUnsupportedVideoSite": "⟦Ųňšųƥƥøřŧēđ Ṽįđēø Šįŧē⟧",
+    "videoGetInfoError": "⟦Ēřřøř Ǥēŧŧįňǥ Ṽįđēø Įňƒø⟧",
+    "fileDownloadFailed": "⟦Ғįŀē đøŵňŀøåđ ƒåįŀēđ⟧",
+    "fileUploadFailed": "⟦Ғįŀē ųƥŀøåđ ƒåįŀēđ⟧",
+    "videoInvalidUrlFormat": "⟦Įňṽåŀįđ ṽįđēø ŲŘĿ ƒøřmåŧ⟧",
+    "videoNetworkError": "⟦Ṽįđēø ňēŧŵøřķ ēřřøř⟧",
+    "videoParseError": "⟦Ṽįđēø ƥåřšē ēřřøř⟧",
+    "videoUrlRequired": "⟦Ṽįđēø ŲŘĿ įš řēɋųįřēđ⟧"
+  }
+}

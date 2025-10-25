@@ -16,42 +16,42 @@ LEARN_STATUS_BRANCH = 607
 LEARN_STATUS_RESET = 608
 LEARN_STATUS_NOT_EXIST = -1
 ORDER_STATUS_TYPES = {
-    "初始化": ORDER_STATUS_INIT,
-    "购买成功": ORDER_STATUS_SUCCESS,
-    "退款": ORDER_STATUS_REFUND,
-    "待支付": ORDER_STATUS_TO_BE_PAID,
-    "已过期": ORDER_STATUS_TIMEOUT,
+    _("server.order.orderStatusInit"): ORDER_STATUS_INIT,
+    _("server.order.orderStatusSuccess"): ORDER_STATUS_SUCCESS,
+    _("server.order.orderStatusRefund"): ORDER_STATUS_REFUND,
+    _("server.order.orderStatusToBePaid"): ORDER_STATUS_TO_BE_PAID,
+    _("server.order.orderStatusTimeout"): ORDER_STATUS_TIMEOUT,
 }
 
 ORDER_STATUS_VALUES = {
-    ORDER_STATUS_INIT: "初始化",
-    ORDER_STATUS_SUCCESS: "购买成功",
-    ORDER_STATUS_REFUND: "退款",
-    ORDER_STATUS_TO_BE_PAID: "待支付",
-    ORDER_STATUS_TIMEOUT: "已过期",
+    ORDER_STATUS_INIT: _("server.order.orderStatusInit"),
+    ORDER_STATUS_SUCCESS: _("server.order.orderStatusSuccess"),
+    ORDER_STATUS_REFUND: _("server.order.orderStatusRefund"),
+    ORDER_STATUS_TO_BE_PAID: _("server.order.orderStatusToBePaid"),
+    ORDER_STATUS_TIMEOUT: _("server.order.orderStatusTimeout"),
 }
 
 LEARN_STATUS_TYPES = {
-    "可学习": LEARN_STATUS_NOT_STARTED,
-    "正在学": LEARN_STATUS_IN_PROGRESS,
-    "已完成": LEARN_STATUS_COMPLETED,
-    "退款": LEARN_STATUS_REFUND,
-    "未解锁": LEARN_STATUS_LOCKED,
-    "不可用": LEARN_STATUS_UNAVAILABLE,
-    "分支": LEARN_STATUS_BRANCH,
-    "重置": LEARN_STATUS_RESET,
+    _("server.order.learnStatusNotStarted"): LEARN_STATUS_NOT_STARTED,
+    _("server.order.learnStatusInProgress"): LEARN_STATUS_IN_PROGRESS,
+    _("server.order.learnStatusCompleted"): LEARN_STATUS_COMPLETED,
+    _("server.order.learnStatusRefund"): LEARN_STATUS_REFUND,
+    _("server.order.learnStatusLocked"): LEARN_STATUS_LOCKED,
+    _("server.order.learnStatusUnavailable"): LEARN_STATUS_UNAVAILABLE,
+    _("server.order.learnStatusBranch"): LEARN_STATUS_BRANCH,
+    _("server.order.learnStatusReset"): LEARN_STATUS_RESET,
 }
 
 
 def get_learn_status_values():
     return {
-        LEARN_STATUS_NOT_STARTED: _("ORDER.LEARN_STATUS_NOT_STARTED"),
-        LEARN_STATUS_IN_PROGRESS: _("ORDER.LEARN_STATUS_IN_PROGRESS"),
-        LEARN_STATUS_COMPLETED: _("ORDER.LEARN_STATUS_COMPLETED"),
-        LEARN_STATUS_REFUND: _("ORDER.LEARN_STATUS_REFUND"),
-        LEARN_STATUS_LOCKED: _("ORDER.LEARN_STATUS_LOCKED"),
-        LEARN_STATUS_UNAVAILABLE: _("ORDER.LEARN_STATUS_UNAVAILABLE"),
-        LEARN_STATUS_BRANCH: _("ORDER.LEARN_STATUS_BRANCH"),
-        LEARN_STATUS_RESET: _("ORDER.LEARN_STATUS_RESET"),
-        LEARN_STATUS_NOT_EXIST: _("ORDER.LEARN_STATUS_LOCKED"),
+        LEARN_STATUS_NOT_STARTED: _("server.order.learnStatusNotStarted"),
+        LEARN_STATUS_IN_PROGRESS: _("server.order.learnStatusInProgress"),
+        LEARN_STATUS_COMPLETED: _("server.order.learnStatusCompleted"),
+        LEARN_STATUS_REFUND: _("server.order.learnStatusRefund"),
+        LEARN_STATUS_LOCKED: _("server.order.learnStatusLocked"),
+        LEARN_STATUS_UNAVAILABLE: _("server.order.learnStatusUnavailable"),
+        LEARN_STATUS_BRANCH: _("server.order.learnStatusBranch"),
+        LEARN_STATUS_RESET: _("server.order.learnStatusReset"),
+        LEARN_STATUS_NOT_EXIST: _("server.order.learnStatusLocked"),
     }

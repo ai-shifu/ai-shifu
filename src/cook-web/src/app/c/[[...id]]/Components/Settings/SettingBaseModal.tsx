@@ -41,7 +41,7 @@ export const SettingBaseModal = ({
     >
       <DialogContent className={cn(styles.SettingBaseModal)}>
         {/* <DialogHeader>
-          <DialogTitle>{title || t('common.settings')}</DialogTitle>
+          <DialogTitle>{title || t('common.core.settings')}</DialogTitle>
         </DialogHeader> */}
         <div
           style={{
@@ -52,14 +52,14 @@ export const SettingBaseModal = ({
           }}
           className={styles.modalWrapper}
         >
-          {header(t, title || t('common.settings'))}
+          {header(t, title || t('common.core.settings'))}
           {children}
           <div className={styles.btnWrapper}>
             <Button
               className={cn('w-full')}
               onClick={onOk}
             >
-              {t('common.ok')}
+              {t('common.core.ok')}
             </Button>
           </div>
         </div>

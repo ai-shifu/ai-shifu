@@ -199,7 +199,9 @@ const DraggableBlock = ({
             <div className='flex flex-col gap-2 text-sm'>
               {type === 'content' && (
                 <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                  {llmEnabled ? t('shifu.aiBlock') : t('shifu.regularBlock')}
+                  {llmEnabled
+                    ? t('module.shifu.aiBlock')
+                    : t('module.shifu.regularBlock')}
                 </div>
               )}
               {type === 'content' && (
@@ -212,8 +214,8 @@ const DraggableBlock = ({
                 >
                   <Settings2 className='h-4 w-4' />
                   {llmEnabled
-                    ? t('shifu.setAsRegularBlock')
-                    : t('shifu.setAsAiBlock')}
+                    ? t('module.shifu.setAsRegularBlock')
+                    : t('module.shifu.setAsAiBlock')}
                 </div>
               )}
               {type === 'content' && llmEnabled && (
@@ -222,7 +224,7 @@ const DraggableBlock = ({
                   onClick={() => onClickDebug?.(id)}
                 >
                   <BugPlay className='h-4 w-4' />
-                  {t('shifu.debug')}
+                  {t('module.shifu.debug')}
                 </div>
               )}
               <div
@@ -230,7 +232,7 @@ const DraggableBlock = ({
                 onClick={() => onClickRemove?.(id)}
               >
                 <Trash2 className='h-4 w-4' />
-                {t('shifu.delete')}
+                {t('module.shifu.delete')}
               </div>
             </div>
           </div>
@@ -401,7 +403,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 onClick={onAddChapter}
               >
                 <Plus />
-                {t('shifu.newChapter')}
+                {t('module.shifu.newChapter')}
               </Button>
             )}
           </div>
@@ -530,18 +532,20 @@ const ScriptEditor = ({ id }: { id: string }) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {t('renderBlock.confirmDelete')}
+              {t('module.renderBlock.confirmDelete')}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('renderBlock.confirmDeleteDescription')}
+              {t('module.renderBlock.confirmDeleteDescription')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t('renderBlock.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t('module.renderBlock.cancel')}
+            </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => handleConfirmDelete(removeBlockInfo.blockId)}
             >
-              {t('renderBlock.confirm')}
+              {t('module.renderBlock.confirm')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

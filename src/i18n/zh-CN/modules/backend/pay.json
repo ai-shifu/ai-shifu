@@ -1,0 +1,6 @@
+{
+  "__namespace__": "server.pay",
+  "__flat__": {
+    "payChannelNotSupport": "不支持的支付渠道"
+  }
+}

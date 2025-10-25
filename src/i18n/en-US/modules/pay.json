@@ -1,0 +1,18 @@
+{
+  "__namespace__": "module.pay",
+  "alipay": "Alipay",
+  "dialogTitle": "Payment dialog",
+  "finalPrice": "Final Price",
+  "modelServiceAgreement": "Model Service Agreement",
+  "pay": "Pay",
+  "payChannelAlipay": "Alipay",
+  "payChannelWechat": "WeChat",
+  "payFailed": "Payment Failed",
+  "paySuccess": "Payment Successful",
+  "title": "Payment",
+  "userPrivacyPolicy": "User Privacy Policy",
+  "virtualProductDesc": "Note:",
+  "virtualProductPoint1": "1. Purchase indicates you have read and agreed to {{modelServiceAgreement}} and {{userPrivacyPolicy}}.",
+  "virtualProductPoint2": "2. Virtual products are non-refundable and non-transferable.",
+  "wechatPay": "WeChat Pay"
+}

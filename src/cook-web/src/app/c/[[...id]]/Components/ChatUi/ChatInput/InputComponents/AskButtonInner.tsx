@@ -148,7 +148,7 @@ const AskButtonInner = ({
                 : '',
             )}
           >
-            {t('chat.ask')}
+            {t('module.chat.ask')}
           </div>
         </div>
       </div>

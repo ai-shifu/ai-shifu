@@ -1,0 +1,7 @@
+{
+  "__namespace__": "module.renderBlock",
+  "cancel": "Cancel",
+  "confirm": "Confirm",
+  "confirmDelete": "Confirm Delete",
+  "confirmDeleteDescription": "This operation will cause the current content to be lost. Are you sure?"
+}

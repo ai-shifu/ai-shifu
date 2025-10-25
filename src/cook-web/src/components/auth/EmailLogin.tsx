@@ -24,12 +24,12 @@ export function EmailLogin({}: EmailLoginProps) {
           htmlFor='email'
           className='text-muted-foreground'
         >
-          {t('auth.email')}
+          {t('module.auth.email')}
         </Label>
         <Input
           id='email'
           type='email'
-          placeholder={t('auth.emailPlaceholder')}
+          placeholder={t('module.auth.emailPlaceholder')}
           disabled
           className='bg-muted'
         />
@@ -41,14 +41,16 @@ export function EmailLogin({}: EmailLoginProps) {
             <Mail className='h-8 w-8 text-muted-foreground' />
           </div>
         </div>
-        <h3 className='text-lg font-medium mb-2'>{t('auth.comingSoon')}</h3>
+        <h3 className='text-lg font-medium mb-2'>
+          {t('module.auth.comingSoon')}
+        </h3>
         <p className='text-sm text-muted-foreground mb-4'>
-          {t('auth.moreLoginMethodsComingSoon')}
+          {t('module.auth.moreLoginMethodsComingSoon')}
         </p>
         <div className='space-y-2'>
           <div className='flex items-center justify-center space-x-2 text-sm text-muted-foreground'>
             <ExternalLink className='h-4 w-4' />
-            <span>{t('auth.googleLoginSoon')}</span>
+            <span>{t('module.auth.googleLoginSoon')}</span>
           </div>
         </div>
       </div>
@@ -58,7 +60,7 @@ export function EmailLogin({}: EmailLoginProps) {
         disabled
         variant='outline'
       >
-        {t('auth.moreOptionsComingSoon')}
+        {t('module.auth.moreOptionsComingSoon')}
       </Button>
     </div>
   );

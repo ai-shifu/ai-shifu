@@ -21,7 +21,7 @@ export const ThemeWindow = ({ open, onClose, style, className }) => {
           alignItems: 'center',
         }}
       >
-        {t('common.waitingForCompletion')}
+        {t('common.core.waitingForCompletion')}
       </div>
     </PopupModal>
   );

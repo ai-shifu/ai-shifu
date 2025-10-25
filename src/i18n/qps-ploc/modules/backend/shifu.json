@@ -1,0 +1,33 @@
+{
+  "__namespace__": "⟦šēřṽēř.šħįƒų⟧",
+  "__flat__": {
+    "blockNotFound": "⟦Ƀŀøćķ ňøŧ ƒøųňđ⟧",
+    "noPermission": "⟦Ňø ƥēřmįššįøň⟧",
+    "outlineDeleted": "⟦Øųŧŀįňē ħåš ƀēēň đēŀēŧēđ⟧",
+    "outlineItemNotFound": "⟦Øųŧŀįňē įŧēm ňøŧ ƒøųňđ⟧",
+    "outlineNameTooLong": "⟦Øųŧŀįňē ňåmē įš ŧøø ŀøňǥ⟧",
+    "parentOutlineNotFound": "⟦Ƥåřēňŧ øųŧŀįňē ňøŧ ƒøųňđ⟧",
+    "shifuNotFound": "⟦Šħįƒų ňøŧ ƒøųňđ⟧",
+    "shifuStructNotFound": "⟦Šħįƒų šŧřųćŧųřē ňøŧ ƒøųňđ⟧",
+    "unitNameTooLong": "⟦Ųňįŧ ňåmē įš ŧøø ŀøňǥ⟧",
+    "unitNotFound": "⟦Ųňįŧ ňøŧ ƒøųňđ⟧",
+    "shifuNameRequired": "⟦Šħįƒų ňåmē įš řēɋųįřēđ⟧",
+    "shifuNameAlreadyExists": "⟦Šħįƒų ňåmē åŀřēåđŷ ēẋįšŧš⟧",
+    "outlineNotFound": "⟦Øųŧŀįňē ňøŧ ƒøųňđ⟧",
+    "optionsRequired": "⟦øƥŧįøňš įš řēɋųįřēđ⟧",
+    "profileNotFound": "⟦Ƥřøƒįŀē ňøŧ ƒøųňđ⟧",
+    "promptRequired": "⟦Ƥřømƥŧ įš řēɋųįřēđ⟧",
+    "shifuNameTooLong": "⟦Šħįƒų ňåmē įš ŧøø ŀøňǥ (måẋ 20 ćħåřåćŧēřš)⟧",
+    "shifuDescriptionTooLong": "⟦Šħįƒų đēšćřįƥŧįøň įš ŧøø ŀøňǥ (måẋ 500 ćħåřåćŧēřš)⟧",
+    "textInputPromptRequired": "⟦ŧēẋŧ įňƥųŧ ƥřømƥŧ įš řēɋųįřēđ⟧",
+    "textInputPromptJsonRequired": "⟦Ųšēř įňƥųŧ ćøňŧēňŧ ŵįŀŀ ƀē ƥåřšēđ åš ĴŠØŇ ƒøřmåŧ. Ƥŀēåšē ēňšųřē ŧħē ƥřømƥŧ ćøňŧåįňš ŧħē ķēŷŵøřđ 'ĴŠØŇ'.⟧",
+    "textInputPromptVariableRequired": "⟦Ŧħē ƥřømƥŧ mųšŧ ćøňŧåįň å ṽåřįåƀŀē⟧",
+    "resultVariableBidsRequired": "⟦Řēšųŀŧ ṽåřįåƀŀē įš řēɋųįřēđ⟧",
+    "buttonLabelRequired": "⟦Ƀųŧŧøň ŀåƀēŀ įš řēɋųįřēđ⟧",
+    "gotoConditionsRequired": "⟦Ǥøŧø ćøňđįŧįøňš įš řēɋųįřēđ⟧",
+    "gotoVariableBidsRequired": "⟦Ǥøŧø ṽåřįåƀŀē ƀįđš įš řēɋųįřēđ⟧",
+    "optionsVariableBidsRequired": "⟦Øƥŧįøňš ṽåřįåƀŀē ƀįđš įš řēɋųįřēđ⟧",
+    "optionValueRequired": "⟦Øƥŧįøň ṽåŀųē įš řēɋųįřēđ⟧",
+    "optionLabelRequired": "⟦Øƥŧįøň ŀåƀēŀ įš řēɋųįřēđ⟧"
+  }
+}

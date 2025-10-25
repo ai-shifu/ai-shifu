@@ -36,7 +36,7 @@ export const CopyButton = ({ content }) => {
       onClick={onCopyClick}
     >
       <CopyIcon />
-      {hasCopy ? t('chat.copySuccess') : t('chat.copyText')}
+      {hasCopy ? t('module.chat.copySuccess') : t('module.chat.copyText')}
     </Button>
   );
 };

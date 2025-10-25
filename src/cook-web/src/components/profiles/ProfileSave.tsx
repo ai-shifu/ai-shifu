@@ -175,13 +175,13 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
         <DialogHeader>
           <DialogTitle>
             {isEditing
-              ? t('profiles.editVariable')
-              : t('profiles.addNewVariable')}
+              ? t('module.profiles.editVariable')
+              : t('module.profiles.addNewVariable')}
           </DialogTitle>
           <DialogDescription>
             {isEditing
-              ? t('profiles.modifyExistingVariable')
-              : t('profiles.createNewCustomVariable')}
+              ? t('module.profiles.modifyExistingVariable')
+              : t('module.profiles.createNewCustomVariable')}
           </DialogDescription>
         </DialogHeader>
         <div className='grid gap-4 py-4'>
@@ -190,7 +190,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               htmlFor='profile_key'
               className='text-right'
             >
-              {t('profiles.variableName')}
+              {t('module.profiles.variableName')}
             </Label>
             <Input
               id='profile_key'
@@ -206,7 +206,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
               htmlFor='title'
               className='text-right'
             >
-              {t('profiles.title')}
+              {t('module.profiles.title')}
             </Label>
             <Input
               id='profile_remark'
@@ -215,11 +215,13 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                 setProfile({ ...profile, profile_remark: e.target.value })
               }
               className='col-span-3'
-              placeholder={t('profiles.optional')}
+              placeholder={t('module.profiles.optional')}
             />
           </div>
           <div className='grid grid-cols-4 items-center gap-4'>
-            <Label className='text-right'>{t('profiles.dataType')}</Label>
+            <Label className='text-right'>
+              {t('module.profiles.dataType')}
+            </Label>
             <div className='col-span-3'>
               <RadioGroup
                 value={profile.profile_type}
@@ -233,14 +235,14 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                     value='text'
                     id='text'
                   />
-                  <Label htmlFor='text'>{t('profiles.string')}</Label>
+                  <Label htmlFor='text'>{t('module.profiles.string')}</Label>
                 </div>
                 <div className='flex items-center space-x-2'>
                   <RadioGroupItem
                     value='option'
                     id='option'
                   />
-                  <Label htmlFor='option'>{t('profiles.option')}</Label>
+                  <Label htmlFor='option'>{t('module.profiles.option')}</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -250,18 +252,20 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
             <>
               <div className='grid grid-cols-4 gap-4'>
                 <div className='col-span-4'>
-                  <Label className='mb-2 block'>{t('profiles.enumItem')}</Label>
+                  <Label className='mb-2 block'>
+                    {t('module.profiles.enumItem')}
+                  </Label>
                   {!!profile.profile_items?.length && (
                     <div className='mb-3 rounded-md border'>
                       <div className='grid grid-cols-12 border-b bg-muted px-3 py-2 text-sm font-medium'>
                         <div className='col-span-5'>
-                          {t('profiles.optionValue')}
+                          {t('module.profiles.optionValue')}
                         </div>
                         <div className='col-span-5'>
-                          {t('profiles.optionName')}
+                          {t('module.profiles.optionName')}
                         </div>
                         <div className='col-span-2 text-right'>
-                          {t('profiles.operation')}
+                          {t('module.profiles.operation')}
                         </div>
                       </div>
                       <div className='divide-y'>
@@ -294,7 +298,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
 
                   <div className='grid grid-cols-12 gap-2'>
                     <Input
-                      placeholder={t('profiles.optionValue')}
+                      placeholder={t('module.profiles.optionValue')}
                       value={newEnumItem.value}
                       onChange={e =>
                         setNewEnumItem({
@@ -305,7 +309,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                       className='col-span-5'
                     />
                     <Input
-                      placeholder={t('profiles.title')}
+                      placeholder={t('module.profiles.title')}
                       value={newEnumItem.name}
                       onChange={e =>
                         setNewEnumItem({
@@ -322,7 +326,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                         !newEnumItem.value.trim() || !newEnumItem.name.trim()
                       }
                     >
-                      {t('profiles.add')}
+                      {t('module.profiles.add')}
                     </Button>
                   </div>
                 </div>
@@ -336,7 +340,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
             variant='outline'
             onClick={handleCancelSaveProfile}
           >
-            {t('profiles.cancel')}
+            {t('module.profiles.cancel')}
           </Button>
           <Button
             className='h-8'
@@ -347,7 +351,7 @@ const ProfileSave: React.FC<ProfileSaveProps> = ({
                 (profile.profile_items || []).length === 0)
             }
           >
-            {isEditing ? t('profiles.save') : t('profiles.add')}
+            {isEditing ? t('module.profiles.save') : t('module.profiles.add')}
           </Button>
         </DialogFooter>
       </DialogContent>

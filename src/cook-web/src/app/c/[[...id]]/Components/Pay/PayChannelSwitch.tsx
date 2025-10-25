@@ -60,7 +60,7 @@ export const PayChannelSwitch = ({
         channel={PAY_CHANNEL_WECHAT}
         icon={payWechat0}
         iconSelected={payWechat1}
-        text={t('pay.payChannelWechat')}
+        text={t('module.pay.payChannelWechat')}
         selected={channel === PAY_CHANNEL_WECHAT}
         onClick={onChange}
       />
@@ -69,7 +69,7 @@ export const PayChannelSwitch = ({
         channel={PAY_CHANNEL_ZHIFUBAO}
         icon={payZhifubo0}
         iconSelected={payZhifubo1}
-        text={t('pay.payChannelAlipay')}
+        text={t('module.pay.payChannelAlipay')}
         selected={channel === PAY_CHANNEL_ZHIFUBAO}
         onClick={onChange}
       />

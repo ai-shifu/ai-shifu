@@ -83,7 +83,9 @@ export const ChatUi = ({
             className={cn(styles.previewModeButton, { [styles.active]: skip })}
             onClick={handlePreviewModeClick}
           >
-            {skip ? t('chat.stopAutoSkip') : t('chat.startAutoSkip')}
+            {skip
+              ? t('module.chat.stopAutoSkip')
+              : t('module.chat.startAutoSkip')}
           </button>
         </div>
       )} */}

@@ -1,0 +1,13 @@
+{
+  "__namespace__": "component.createShifuDialog",
+  "create": "Create",
+  "creating": "Creating...",
+  "descriptionLabel": "Shifu Description",
+  "descriptionMaxLength": "Shifu description cannot exceed 500 characters",
+  "descriptionPlaceholder": "Please input shifu description",
+  "nameLabel": "Shifu Name",
+  "nameMaxLength": "Shifu name cannot exceed 20 characters",
+  "namePlaceholder": "Please input shifu name",
+  "nameRequired": "Shifu name cannot be empty",
+  "title": "Create New Shifu"
+}

@@ -48,7 +48,7 @@ export const NewChatComponents = ({
   const chatBoxBottomRef = useRef<HTMLDivElement | null>(null);
   const showOutputInProgressToast = useCallback(() => {
     toast({
-      title: t('chat.outputInProgress'),
+      title: t('module.chat.outputInProgress'),
     });
   }, [t]);
 

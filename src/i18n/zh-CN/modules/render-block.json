@@ -1,0 +1,7 @@
+{
+  "__namespace__": "module.renderBlock",
+  "cancel": "取消",
+  "confirm": "确认",
+  "confirmDelete": "确认删除",
+  "confirmDeleteDescription": "您的操作将会造成当前内容的丢失，是否确认？"
+}

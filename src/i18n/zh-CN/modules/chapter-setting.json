@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "chapterType": "章节类型",
+  "formalChapter": "正式章节",
+  "hideChapter": "隐藏章节",
+  "isHidden": "是否隐藏",
+  "systemPrompt": "系统提示词",
+  "title": "章节设置",
+  "trialChapter": "试用章节"
+}

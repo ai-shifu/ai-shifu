@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.renderUi.textInput",
+  "complete": "完成",
+  "inputKey": "变量名",
+  "inputName": "变量名",
+  "inputPlaceholder": "输入框提示",
+  "model": "指定模型",
+  "prompt": "提示词",
+  "temperature": "设定温度"
+}

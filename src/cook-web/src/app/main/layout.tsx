@@ -24,7 +24,7 @@ const MainInterface = ({
   }[] = [
     {
       icon: <DocumentIcon className='w-4 h-4' />,
-      label: t('common.shifu'),
+      label: t('common.core.shifu'),
       href: '/main',
     },
   ];
@@ -100,7 +100,7 @@ const MainInterface = ({
               <SidebarContent />
             </SheetContent>
           </Sheet>
-          <h1 className='text-xl font-bold'>{t('common.home')}</h1>
+          <h1 className='text-xl font-bold'>{t('common.core.home')}</h1>
           <div className='w-6' /> {/* Spacer for centering */}
         </div>
       </div>

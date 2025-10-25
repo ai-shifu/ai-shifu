@@ -86,7 +86,7 @@ def get_shifu_info(app: Flask, shifu_bid: str, preview_mode: bool) -> LearnShifu
             .first()
         )
         if not shifu:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
+            raise_error("server.shifu.shifuNotFound")
         return LearnShifuInfoDTO(
             bid=shifu.shifu_bid,
             title=shifu.title,
@@ -124,7 +124,7 @@ def get_outline_item_tree(
                 .first()
             )
             if not shifu:
-                raise_error("SHIFU.SHIFU_NOT_FOUND")
+                raise_error("server.shifu.shifuNotFound")
             buy_record = (
                 Order.query.filter(
                     Order.user_bid == user_bid,
@@ -146,7 +146,7 @@ def get_outline_item_tree(
             .first()
         )
         if not struct:
-            raise_error("SHIFU.SHIFU_STRUCT_NOT_FOUND")
+            raise_error("server.shifu.shifuStructNotFound")
         struct = HistoryItem.from_json(struct.struct)
         outline_items: list[HistoryItem] = []
         q = queue.Queue()
@@ -237,11 +237,11 @@ def get_outline_item_tree(
         if not is_paid:
             if add_banner:
                 banner_info_dto = LearnBannerInfoDTO(
-                    title=_("BANNER.BANNER_TITLE"),
-                    pop_up_title=_("BANNER.BANNER_POP_UP_TITLE"),
-                    pop_up_content=_("BANNER.BANNER_POP_UP_CONTENT"),
-                    pop_up_confirm_text=_("BANNER.BANNER_POP_UP_CONFIRM_TEXT"),
-                    pop_up_cancel_text=_("BANNER.BANNER_POP_UP_CANCEL_TEXT"),
+                    title=_("server.banner.bannerTitle"),
+                    pop_up_title=_("server.banner.bannerPopUpTitle"),
+                    pop_up_content=_("server.banner.bannerPopUpContent"),
+                    pop_up_confirm_text=_("server.banner.bannerPopUpConfirmText"),
+                    pop_up_cancel_text=_("server.banner.bannerPopUpCancelText"),
                 )
         return LearnOutlineItemsWithBannerInfoDTO(
             banner_info=banner_info_dto,
@@ -387,7 +387,11 @@ def get_learn_record(
                                 records.remove(last_record)
         if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
             interaction = (
-                "?[" + _("LEARN.NEXT_CHAPTER") + "//" + CONTEXT_INTERACTION_NEXT + "]"
+                "?["
+                + _("server.learn.nextChapter")
+                + "//"
+                + CONTEXT_INTERACTION_NEXT
+                + "]"
             )
             records.append(
                 GeneratedBlockDTO(
@@ -434,9 +438,9 @@ def handle_reaction(
             LearnGeneratedBlock.status == 1,
         ).first()
         if not generated_block:
-            raise_error("LEARN.GENERATED_BLOCK_NOT_FOUND")
+            raise_error("server.learn.generatedBlockNotFound")
         if action not in ["like", "dislike", "none"]:
-            raise_error("LEARN.INVALID_ACTION")
+            raise_error("server.learn.invalidAction")
         if action == "like":
             generated_block.liked = 1
         if action == "dislike":

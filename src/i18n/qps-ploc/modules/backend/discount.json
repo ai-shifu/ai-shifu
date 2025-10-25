@@ -1,0 +1,13 @@
+{
+  "__namespace__": "⟦šēřṽēř.đįšćøųňŧ⟧",
+  "__flat__": {
+    "discountNotFound": "⟦Ŧħē ṽøųćħēř ćøđē đøēš ňøŧ ēẋįšŧ.⟧",
+    "discountNotStart": "⟦Ŧħē ṽøųćħēř ćøđē ħåš ňøŧ šŧåřŧēđ.⟧",
+    "discountAlreadyUsed": "⟦Ŧħē ṽøųćħēř ćøđē ħåš ƀēēň ųšēđ.⟧",
+    "discountAlreadyExpired": "⟦Ŧħē ṽøųćħēř ćøđē įš įňṽåŀįđ.⟧",
+    "orderDiscountAlreadyUsed": "⟦Øřđēř Åŀřēåđŷ Ųšēđ Đįšćøųňŧ⟧",
+    "discountLimitExceeded": "⟦Ŧħē ṽøųćħēř ćøđē ŀįmįŧ ēẋćēēđēđ.⟧",
+    "discountNotApply": "⟦Ŧħē ṽøųćħēř ćøđē đøēš ňøŧ åƥƥŀŷ ŧø ŧħįš ćøųřšē.⟧",
+    "discountCountNotZero": "⟦Ŧħē ṽøųćħēř ćøđē ćøųňŧ mųšŧ ƀē ǥřēåŧēř ŧħåň 0.⟧"
+  }
+}

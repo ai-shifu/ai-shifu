@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.renderUi.button",
+  "buttonText": "Button Text",
+  "complete": "Complete",
+  "placeholderEdit": "Default is \"Continue\"",
+  "placeholderLogin": "Default is \"Login\"",
+  "placeholderPayment": "Default is \"Checkout\""
+}

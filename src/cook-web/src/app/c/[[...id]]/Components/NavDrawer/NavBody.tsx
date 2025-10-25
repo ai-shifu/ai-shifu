@@ -21,7 +21,7 @@ export const NavBody = ({ onLoginClick = () => {} }) => {
           className={cn('w-48')}
           onClick={() => onLoginClick?.()}
         >
-          {t('user.loginMainButton')}
+          {t('module.user.loginMainButton')}
         </Button>
       </div>
     </div>

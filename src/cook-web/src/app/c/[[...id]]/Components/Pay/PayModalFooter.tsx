@@ -7,7 +7,7 @@ export const PayModalFooter = ({ className = '' }) => {
   const { t } = useTranslation();
 
   const renderVirtualProductPoint1 = () => {
-    const point1Text = t('pay.virtualProductPoint1');
+    const point1Text = t('module.pay.virtualProductPoint1');
     const parts = point1Text.split(
       /\{\{modelServiceAgreement\}\}|\{\{userPrivacyPolicy\}\}/g,
     );
@@ -26,7 +26,7 @@ export const PayModalFooter = ({ className = '' }) => {
           referrerPolicy='no-referrer'
           rel='noopener'
         >
-          {t('pay.modelServiceAgreement')}
+          {t('module.pay.modelServiceAgreement')}
         </a>
         {parts[1]}
         <a
@@ -36,7 +36,7 @@ export const PayModalFooter = ({ className = '' }) => {
           referrerPolicy='no-referrer'
           rel='noopener'
         >
-          {t('pay.userPrivacyPolicy')}
+          {t('module.pay.userPrivacyPolicy')}
         </a>
         {parts[2]}
       </>
@@ -46,9 +46,13 @@ export const PayModalFooter = ({ className = '' }) => {
   return (
     <div className={classNames(styles.protocolWrapper, className)}>
       <div className={styles.virtualProductDesc}>
-        <div className={styles.descTitle}>{t('pay.virtualProductDesc')}</div>
+        <div className={styles.descTitle}>
+          {t('module.pay.virtualProductDesc')}
+        </div>
         <div className={styles.descPoint}>{renderVirtualProductPoint1()}</div>
-        <div className={styles.descPoint}>{t('pay.virtualProductPoint2')}</div>
+        <div className={styles.descPoint}>
+          {t('module.pay.virtualProductPoint2')}
+        </div>
       </div>
     </div>
   );

@@ -205,11 +205,11 @@ export const UserSettings = ({
                 onChange={onChangeAvatarChanged}
               />
               <div className={styles.basicInfoTitle}>
-                {t('settings.basicInfo')}
+                {t('module.settings.basicInfo')}
               </div>
               <SettingInputElement
-                title={t('settings.nickname')}
-                placeholder={t('settings.nicknamePlaceholder')}
+                title={t('module.settings.nickname')}
+                placeholder={t('module.settings.nicknamePlaceholder')}
                 onChange={onNickNameChanged}
                 className={styles.inputUnit}
                 value={nickName}
@@ -217,15 +217,15 @@ export const UserSettings = ({
                 maxLength={10}
               />
               <SettingSelectElement
-                title={t('settings.gender')}
-                placeholder={t('settings.genderPlaceholder')}
+                title={t('module.settings.gender')}
+                placeholder={t('module.settings.genderPlaceholder')}
                 value={sex}
                 className={styles.inputUnit}
                 onClick={onSexSelectClick}
               />
               <SettingSelectElement
-                title={t('settings.birth')}
-                placeholder={t('settings.birthPlaceholder')}
+                title={t('module.settings.birth')}
+                placeholder={t('module.settings.birthPlaceholder')}
                 className={styles.inputUnit}
                 onClick={onBirthClick}
                 value={birth}
@@ -240,11 +240,11 @@ export const UserSettings = ({
               }
             >
               <div className={clsx(styles.basicInfoTitle)}>
-                {t('settings.personalInfo')}
+                {t('module.settings.personalInfo')}
               </div>
               <SettingInputElement
-                title={t('settings.nicknamePersonal')}
-                placeholder={t('settings.nicknamePlaceholder')}
+                title={t('module.settings.nicknamePersonal')}
+                placeholder={t('module.settings.nicknamePlaceholder')}
                 onChange={onNickNameChanged}
                 className={styles.inputUnit}
                 value={nickName}

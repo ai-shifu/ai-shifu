@@ -7,7 +7,7 @@ const SocialLinks = () => {
   return (
     <div className='w-64 bg-white rounded-lg shadow-md p-4'>
       <h2 className='text-gray-600 text-sm mb-3'>
-        {t('social.joinCommunity')}
+        {t('module.social.joinCommunity')}
       </h2>
       <div className='space-y-3'>
         <a
@@ -22,12 +22,14 @@ const SocialLinks = () => {
             width='20'
             height='20'
           />
-          <span>Github</span>
+          <span>{t('module.social.github')}</span>
         </a>
       </div>
       <div className='border-t border-gray-200 my-3'></div>
 
-      <h2 className='text-gray-600 text-sm mb-3'>{t('social.aboutUs')}</h2>
+      <h2 className='text-gray-600 text-sm mb-3'>
+        {t('module.social.aboutUs')}
+      </h2>
       <div className='space-y-3'>
         <a
           href='#'
@@ -39,7 +41,7 @@ const SocialLinks = () => {
             width='20'
             height='20'
           />
-          <span>Weibo</span>
+          <span>{t('module.social.weibo')}</span>
         </a>
 
         <a
@@ -52,14 +54,14 @@ const SocialLinks = () => {
             width='20'
             height='20'
           />
-          <span>X</span>
+          <span>{t('module.social.x')}</span>
         </a>
       </div>
 
       <div className='border-t border-gray-200 my-3'></div>
 
       <div className='text-sm text-gray-600 mb-2'>
-        {t('social.followWechat')}
+        {t('module.social.followWechat')}
       </div>
       <div className='w-full h-32 bg-gray-100 rounded-md flex items-center justify-center'>
         <svg

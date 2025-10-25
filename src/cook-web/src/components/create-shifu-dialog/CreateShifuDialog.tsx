@@ -41,11 +41,11 @@ export const CreateShifuDialog = ({
   const formSchema = z.object({
     name: z
       .string()
-      .min(1, t('createShifuDialog.nameRequired'))
-      .max(20, t('createShifuDialog.nameMaxLength')),
+      .min(1, t('component.createShifuDialog.nameRequired'))
+      .max(20, t('component.createShifuDialog.nameMaxLength')),
     description: z
       .string()
-      .max(500, t('createShifuDialog.descriptionMaxLength'))
+      .max(500, t('component.createShifuDialog.descriptionMaxLength'))
       .optional(),
     avatar: z.string().default(''),
   });
@@ -78,7 +78,7 @@ export const CreateShifuDialog = ({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('createShifuDialog.title')}</DialogTitle>
+          <DialogTitle>{t('component.createShifuDialog.title')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form
@@ -95,12 +95,14 @@ export const CreateShifuDialog = ({
                       color: '#000000',
                     }}
                   >
-                    {t('createShifuDialog.nameLabel')}
+                    {t('component.createShifuDialog.nameLabel')}
                   </FormLabel>
                   <FormControl>
                     <Input
                       autoComplete='off'
-                      placeholder={t('createShifuDialog.namePlaceholder')}
+                      placeholder={t(
+                        'component.createShifuDialog.namePlaceholder',
+                      )}
                       {...field}
                       maxLength={20}
                     />
@@ -119,13 +121,13 @@ export const CreateShifuDialog = ({
                       color: '#000000',
                     }}
                   >
-                    {t('createShifuDialog.descriptionLabel')}
+                    {t('component.createShifuDialog.descriptionLabel')}
                   </FormLabel>
                   <FormControl>
                     <Textarea
                       autoComplete='off'
                       placeholder={t(
-                        'createShifuDialog.descriptionPlaceholder',
+                        'component.createShifuDialog.descriptionPlaceholder',
                       )}
                       {...field}
                       maxLength={300}
@@ -141,8 +143,8 @@ export const CreateShifuDialog = ({
                 disabled={form.formState.isSubmitting}
               >
                 {form.formState.isSubmitting
-                  ? t('createShifuDialog.creating')
-                  : t('createShifuDialog.create')}
+                  ? t('component.createShifuDialog.creating')
+                  : t('component.createShifuDialog.create')}
               </Button>
             </div>
           </form>

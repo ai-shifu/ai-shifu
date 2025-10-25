@@ -176,7 +176,7 @@ def create_outline(
 
         # validate name length
         if len(outline_name) > 100:
-            raise_error("SHIFU.OUTLINE_NAME_TOO_LONG")
+            raise_error("server.shifu.outlineNameTooLong")
 
         # determine position
         existing_items = __get_existing_outline_items(shifu_id)
@@ -187,7 +187,7 @@ def create_outline(
                 None,
             )
             if not parent_item:
-                raise_error("SHIFU.PARENT_OUTLINE_NOT_FOUND")
+                raise_error("server.shifu.parentOutlineNotFound")
 
             # find max index of same level
             siblings = [item for item in existing_items if item.parent_bid == parent_id]
@@ -287,14 +287,14 @@ def modify_outline(
         )
 
         if not existing_outline:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("server.shifu.outlineNotFound")
 
         if existing_outline.deleted == 1:
-            raise_error("SHIFU.OUTLINE_DELETED")
+            raise_error("server.shifu.outlineDeleted")
 
         # validate name length
         if len(outline_name) > 100:
-            raise_error("SHIFU.OUTLINE_NAME_TOO_LONG")
+            raise_error("server.shifu.outlineNameTooLong")
 
         # check if needs update
         old_check_str = existing_outline.get_str_to_check()
@@ -349,7 +349,7 @@ def delete_outline(app, user_id: str, shifu_id: str, outline_id: str):
         )
 
         if not outline_to_delete:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("server.shifu.outlineNotFound")
 
         # build outline tree to find all children
         outline_tree = build_outline_tree(app, shifu_id)
@@ -367,7 +367,7 @@ def delete_outline(app, user_id: str, shifu_id: str, outline_id: str):
 
         node_to_delete = find_node_by_id(outline_tree, outline_id)
         if not node_to_delete:
-            raise_error("SHIFU.OUTLINE_NOT_FOUND")
+            raise_error("server.shifu.outlineNotFound")
 
         # collect all node ids to delete (including children)
         def collect_all_node_ids(node):
@@ -499,7 +499,7 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
         )
 
         if not unit:
-            raise_error("SHIFU.UNIT_NOT_FOUND")
+            raise_error("server.shifu.unitNotFound")
         unit_type: str = UNIT_TYPE_VALUES_REVERSE.get(unit.type, UNIT_TYPE_TRIAL)
         is_hidden: bool = True if unit.hidden == 1 else False
 
@@ -557,11 +557,11 @@ def modify_unit(
         )
 
         if not existing_unit:
-            raise_error("SHIFU.UNIT_NOT_FOUND")
+            raise_error("server.shifu.unitNotFound")
 
         # validate name length
         if unit_name and len(unit_name) > 100:
-            raise_error("SHIFU.UNIT_NAME_TOO_LONG")
+            raise_error("server.shifu.unitNameTooLong")
 
         # check if needs update
         old_check_str = existing_unit.get_str_to_check()
@@ -634,7 +634,7 @@ def delete_unit(app, user_id: str, unit_id: str):
         )
 
         if not unit_to_delete:
-            raise_error("SHIFU.UNIT_NOT_FOUND")
+            raise_error("server.shifu.unitNotFound")
 
         # build outline tree to find all children
         outline_tree = build_outline_tree(app, unit_to_delete.shifu_bid)
@@ -652,7 +652,7 @@ def delete_unit(app, user_id: str, unit_id: str):
 
         node_to_delete = find_node_by_id(outline_tree, unit_id)
         if not node_to_delete:
-            raise_error("SHIFU.UNIT_NOT_FOUND")
+            raise_error("server.shifu.unitNotFound")
 
         # collect all node ids to delete (including children)
         def collect_all_node_ids(node: ShifuOutlineTreeNode):

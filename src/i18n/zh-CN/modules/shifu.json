@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.shifu",
+  "aiBlock": "AI模块",
+  "debug": "调试",
+  "delete": "删除",
+  "newChapter": "添加章",
+  "regularBlock": "固定模块",
+  "setAsAiBlock": "设为AI模块",
+  "setAsRegularBlock": "设为固定模块"
+}

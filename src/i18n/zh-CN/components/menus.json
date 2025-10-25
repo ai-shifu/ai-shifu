@@ -1,0 +1,8 @@
+{
+  "__namespace__": "component.menus",
+  "navigationMenus": {
+    "basicInfo": "用户信息",
+    "language": "语言",
+    "personalInfo": "个性化设置"
+  }
+}

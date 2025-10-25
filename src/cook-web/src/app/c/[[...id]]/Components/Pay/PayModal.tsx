@@ -44,7 +44,7 @@ const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
     <div className={styles.completedSection}>
-      <div className={styles.title}>{t('pay.paySuccess')}</div>
+      <div className={styles.title}>{t('module.pay.paySuccess')}</div>
       <div className={styles.completeWrapper}>
         <Image
           className={styles.paySuccessBg}
@@ -267,7 +267,9 @@ export const PayModal = ({
           className={cn(styles.payModal, 'max-w-none')}
           onPointerDownOutside={evt => evt.preventDefault()}
         >
-          <DialogTitle className='sr-only'>{t('pay.dialogTitle')}</DialogTitle>
+          <DialogTitle className='sr-only'>
+            {t('module.pay.dialogTitle')}
+          </DialogTitle>
           {!initLoading && (
             <div className={styles.payModalContent}>
               <div
@@ -369,8 +371,8 @@ export const PayModal = ({
                           className={styles.couponCodeButton}
                         >
                           {!couponCode
-                            ? t('groupon.useOtherPayment')
-                            : t('groupon.modify')}
+                            ? t('module.groupon.useOtherPayment')
+                            : t('module.groupon.modify')}
                         </Button>
                       </div>
                     </>

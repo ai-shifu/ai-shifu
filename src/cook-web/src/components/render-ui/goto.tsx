@@ -160,7 +160,7 @@ export default memo(function Goto(props: UIBlockDTO) {
     <div className='flex flex-col space-y-1'>
       <div className='flex flex-row items-center space-x-1'>
         <div className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-          {t('goto.selectVariable')}
+          {t('module.renderUi.goto.selectVariable')}
         </div>
         <Select
           value={selectedProfile?.profile_key || ''}
@@ -173,7 +173,8 @@ export default memo(function Goto(props: UIBlockDTO) {
         >
           <SelectTrigger className='h-8 w-[170px]'>
             <SelectValue>
-              {selectedProfile?.profile_key || t('goto.selectVariable')}
+              {selectedProfile?.profile_key ||
+                t('module.renderUi.goto.selectVariable')}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -192,7 +193,7 @@ export default memo(function Goto(props: UIBlockDTO) {
       </div>
       <div className='flex flex-row items-start py-2'>
         <div className='flex flex-row whitespace-nowrap w-[70px] shrink-0'>
-          {t('goto.gotoSettings')}
+          {t('module.renderUi.goto.gotoSettings')}
         </div>
         <div className='flex flex-col space-y-1 '>
           {tempGotoSettings.conditions.map((item, index) => {
@@ -202,7 +203,7 @@ export default memo(function Goto(props: UIBlockDTO) {
                 key={`${item.destination_bid}-${index}`}
               >
                 <span className='w-40'>{item.value}</span>
-                <span className='px-2'>{t('goto.jumpTo')}</span>
+                <span className='px-2'>{t('module.renderUi.goto.jumpTo')}</span>
                 <span>
                   <OutlineSelector
                     value={item.destination_bid}
@@ -221,7 +222,7 @@ export default memo(function Goto(props: UIBlockDTO) {
           className='h-8 w-20'
           onClick={handleConfirm}
         >
-          {t('goto.complete')}
+          {t('module.renderUi.goto.complete')}
         </Button>
       </div>
     </div>

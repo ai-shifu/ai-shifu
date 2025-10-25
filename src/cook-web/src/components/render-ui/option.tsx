@@ -82,11 +82,11 @@ export default memo(function Option(props: UIBlockDTO) {
   const handleConfirm = () => {
     if (tempOptions.length === 0) {
       const defaultButton = {
-        value: t('option.buttonKey'),
+        value: t('module.renderUi.option.buttonKey'),
         label: {
           lang: {
-            'zh-CN': t('option.buttonText'),
-            'en-US': t('option.buttonText'),
+            'zh-CN': t('module.renderUi.option.buttonText'),
+            'en-US': t('module.renderUi.option.buttonText'),
           },
         },
       };
@@ -174,7 +174,7 @@ export default memo(function Option(props: UIBlockDTO) {
           htmlFor=''
           className='whitespace-nowrap w-[70px] shrink-0'
         >
-          {t('option.variable')}
+          {t('module.renderUi.option.variable')}
         </label>
         <Select
           value={selectedProfile?.profile_key || ''}
@@ -187,7 +187,8 @@ export default memo(function Option(props: UIBlockDTO) {
         >
           <SelectTrigger className='h-8 w-[170px]'>
             <SelectValue>
-              {selectedProfile?.profile_key || t('option.selectVariable')}
+              {selectedProfile?.profile_key ||
+                t('module.renderUi.option.selectVariable')}
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
@@ -215,14 +216,14 @@ export default memo(function Option(props: UIBlockDTO) {
                 htmlFor=''
                 className='whitespace-nowrap w-[70px] shrink-0'
               >
-                {t('option.value')}
+                {t('module.renderUi.option.value')}
               </label>
               <label>{option.value}</label>
               <label
                 htmlFor=''
                 className='whitespace-nowrap w-[50px] shrink-0 ml-4'
               >
-                {t('option.title')}
+                {t('module.renderUi.option.title')}
               </label>
               <Input
                 value={option.label.lang[i18n.language]}
@@ -242,7 +243,7 @@ export default memo(function Option(props: UIBlockDTO) {
           className='h-8 w-20'
           onClick={handleConfirm}
         >
-          {t('option.complete')}
+          {t('module.renderUi.option.complete')}
         </Button>
       </div>
     </div>
