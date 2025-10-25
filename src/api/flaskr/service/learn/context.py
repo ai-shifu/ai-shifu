@@ -40,7 +40,7 @@ from flaskr.service.learn.plugin import (
     check_block_continue,
 )
 
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.order.consts import get_learn_status_values
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
@@ -115,7 +115,7 @@ class RunScriptContext:
     _q: queue.Queue
     _outline_item_info: ShifuOutlineItemDto
     _struct: HistoryItem
-    _user_info: User
+    _user_info: UserAggregate
     _is_paid: bool
     _preview_mode: bool
     _shifu_ids: list[str]
@@ -137,7 +137,7 @@ class RunScriptContext:
         shifu_info: ShifuInfoDto,
         struct: HistoryItem,
         outline_item_info: ShifuOutlineItemDto,
-        user_info: User,
+        user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
     ):
@@ -504,7 +504,7 @@ class RunScriptContext:
     def _get_goto_attend(
         self,
         block_dto: BlockDTO,
-        user_info: User,
+        user_info: UserAggregate,
         outline_item_info: ShifuOutlineItemDto,
     ) -> LearnProgressRecord:
         goto: GotoDTO = block_dto.block_content

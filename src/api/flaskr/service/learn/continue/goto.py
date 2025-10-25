@@ -3,7 +3,7 @@ from flask import Flask
 from flaskr.service.learn.plugin import (
     register_shifu_continue_handler,
 )
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
@@ -13,7 +13,7 @@ from typing import Generator
 @register_shifu_continue_handler("goto")
 def _handle_input_continue_branch(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

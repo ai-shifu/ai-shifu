@@ -13,7 +13,7 @@ from flaskr.service.profile.funcs import get_user_profiles
 from flaskr.service.llm.funcs import format_script_prompt
 from flaskr.dao import db
 from flaskr.service.learn.check_text import check_text_with_llm_response
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from langfuse.client import StatefulTraceClient
 from flaskr.service.learn.utils_v2 import init_generated_block
@@ -29,7 +29,7 @@ from flaskr.service.learn.llmsetting import LLMSettings
 def handle_input_ask(
     app: Flask,
     context,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     input: str,
     outline_item_info: ShifuOutlineItemDto,

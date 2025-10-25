@@ -2,7 +2,7 @@ from flask import Flask
 
 from flaskr.service.learn.plugin import register_shifu_output_handler
 from flaskr.service.learn.dtos import ScriptDTO
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
 from flaskr.service.order.models import Order
@@ -22,7 +22,7 @@ from flaskr.service.learn.plugin import SHIFU_OUTPUT_HANDLER_MAP
 @register_shifu_output_handler("goto")
 def _handle_output_goto(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

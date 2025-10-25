@@ -2,7 +2,7 @@ from flask import Flask
 
 from flaskr.service.learn.const import INPUT_TYPE_CONTINUE
 from flaskr.service.learn.dtos import ScriptDTO
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.i18n import _
 from flaskr.service.learn.utils import get_script_ui_label
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
@@ -13,7 +13,7 @@ from flaskr.service.shifu.dtos import ButtonDTO
 
 def make_continue_ui(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

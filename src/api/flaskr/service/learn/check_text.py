@@ -12,7 +12,7 @@ from flaskr.service.learn.const import (
     ROLE_TEACHER,
 )
 from flaskr.dao import db
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.llmsetting import LLMSettings
 from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.shifu.consts import BLOCK_TYPE_MDINTERACTION_VALUE
@@ -24,7 +24,7 @@ class BreakException(Exception):
 
 def check_text_with_llm_response(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     log_script: LearnGeneratedBlock,
     input: str,
     span,

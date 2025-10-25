@@ -5,13 +5,13 @@ def test_buy_and_pay(app):
         query_buy_record,
     )
 
-    from flaskr.service.user.models import User
+    from flaskr.service.user.models import UserInfo as UserEntity
     from flaskr.service.shifu.models import PublishedShifu
     from flaskr.service.order.models import Order
     from flaskr.dao import db
 
     with app.app_context():
-        user = User.query.first()
+        user = UserEntity.query.filter(UserEntity.deleted == 0).first()
         shifu = (
             PublishedShifu.query.filter(
                 PublishedShifu.price > 0,
@@ -20,7 +20,7 @@ def test_buy_and_pay(app):
             .order_by(PublishedShifu.id.desc())
             .first()
         )
-        user_id = user.user_id
+        user_id = user.user_bid
 
         Order.query.filter(
             Order.user_bid == user_id,
