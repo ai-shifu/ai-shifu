@@ -1,6 +1,6 @@
 from flaskr.service.learn.plugin import register_shifu_continue_handler
 from flask import Flask
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
@@ -9,7 +9,7 @@ from langfuse.client import StatefulTraceClient
 @register_shifu_continue_handler("content")
 def _handle_continue_content(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

@@ -19,7 +19,7 @@ from flaskr.service.learn.input_funcs import (
     check_text_with_llm_response,
     generation_attend,
 )
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.lesson.const import UI_TYPE_ASK
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
@@ -31,7 +31,7 @@ from flaskr.service.learn.context import RunScriptContext
 @extensible_generic
 def _handle_input_ask(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     input: str,
     outline_item_info: ShifuOutlineItemDto,

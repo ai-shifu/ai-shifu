@@ -4,8 +4,15 @@ from flask import Flask
 from .constants import SYS_USER_LANGUAGE
 from .models import UserProfile
 from ...dao import db
-from ..user.models import User
-from ..user.utils import get_user_language
+from typing import Optional
+
+from flaskr.service.user.repository import (
+    UserAggregate,
+    create_user_entity,
+    get_user_entity_by_bid,
+    load_user_aggregate,
+    update_user_entity_fields,
+)
 from ...i18n import _
 import datetime
 from ..check_risk.funcs import add_risk_control_result
@@ -54,6 +61,77 @@ _LANGUAGE_SPECIFIC_DISPLAY = {
 }
 
 _DEFAULT_LANGUAGE_DISPLAY = "English"
+
+
+def _ensure_user_entity(user_id: str):
+    entity = get_user_entity_by_bid(user_id, include_deleted=True)
+    if entity:
+        return entity
+    return create_user_entity(user_bid=user_id, identify=user_id, nickname=user_id)
+
+
+def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
+    aggregate = load_user_aggregate(user_id)
+    if aggregate:
+        return aggregate
+    _ensure_user_entity(user_id)
+    return load_user_aggregate(user_id)
+
+
+def _update_aggregate_field(
+    aggregate: Optional[UserAggregate], mapping: str, value
+) -> None:
+    if not aggregate:
+        return
+    if mapping == "name":
+        aggregate.nickname = value or ""
+    elif mapping == "user_avatar":
+        aggregate.avatar = value or ""
+    elif mapping == "user_language":
+        aggregate.language = value or ""
+    elif mapping == "user_birth":
+        aggregate.birthday = value
+
+
+def _normalize_core_value(mapping: str, value):
+    if mapping == "user_birth":
+        if isinstance(value, datetime.date):
+            return value
+        if isinstance(value, str) and value:
+            try:
+                return datetime.date.fromisoformat(value)
+            except ValueError:
+                return None
+        return None
+    return value or ""
+
+
+def _apply_core_mapping(user_id: str, mapping: str, value):
+    entity = _ensure_user_entity(user_id)
+    normalized = _normalize_core_value(mapping, value)
+    if mapping == "name":
+        update_user_entity_fields(entity, nickname=normalized)
+    elif mapping == "user_avatar":
+        update_user_entity_fields(entity, avatar=normalized)
+    elif mapping == "user_language":
+        update_user_entity_fields(entity, language=normalized)
+    elif mapping == "user_birth":
+        update_user_entity_fields(entity, birthday=normalized)
+    return normalized
+
+
+def _current_core_value(aggregate: Optional[UserAggregate], mapping: str):
+    if not aggregate:
+        return None
+    if mapping == "name":
+        return aggregate.nickname
+    if mapping == "user_avatar":
+        return aggregate.avatar
+    if mapping == "user_language":
+        return aggregate.language
+    if mapping == "user_birth":
+        return aggregate.birthday
+    return None
 
 
 def _language_display_value(language_code: str) -> str:
@@ -179,7 +257,7 @@ def save_user_profile(
     user_profile = UserProfile.query.filter_by(
         user_id=user_id, profile_key=profile_key
     ).first()
-    user_info = User.query.filter(User.user_id == user_id).first()
+    aggregate = _ensure_user_aggregate(user_id)
     if user_profile:
         user_profile.profile_value = profile_value
         user_profile.profile_type = profile_type
@@ -199,7 +277,10 @@ def save_user_profile(
                 profile_value = profile_lable["items_mapping"].get(
                     profile_value, profile_value
                 )
-            setattr(user_info, profile_lable["mapping"], profile_value)
+            normalized = _apply_core_mapping(
+                user_id, profile_lable["mapping"], profile_value
+            )
+            _update_aggregate_field(aggregate, profile_lable["mapping"], normalized)
     db.session.flush()
     return UserProfileDTO(
         user_profile.user_id,
@@ -214,7 +295,7 @@ def save_user_profiles(
 ) -> bool:
     PROFILES_LABLES = get_profile_labels()
     app.logger.info("save user profiles:{}".format(profiles))
-    user_info = User.query.filter(User.user_id == user_id).first()
+    aggregate = _ensure_user_aggregate(user_id)
     profiles_items = get_profile_item_definition_list(app, course_id)
     for profile in profiles:
         profile_item = next(
@@ -271,7 +352,10 @@ def save_user_profiles(
                     profile.value = profile_lable["items_mapping"].get(
                         profile.value, profile.value
                     )
-                setattr(user_info, profile_lable["mapping"], profile.value)
+                normalized = _apply_core_mapping(
+                    user_id, profile_lable["mapping"], profile.value
+                )
+                _update_aggregate_field(aggregate, profile_lable["mapping"], normalized)
     db.session.flush()
     return True
 
@@ -288,10 +372,10 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
-    user_info = User.query.filter(User.user_id == user_id).first()
+    aggregate = load_user_aggregate(user_id)
     result = {}
 
-    language_code = get_user_language(user_info) if user_info else None
+    language_code = aggregate.user_language if aggregate else None
     result[SYS_USER_LANGUAGE] = _language_display_value(language_code)
 
     for profile_item in profiles_items:
@@ -335,39 +419,42 @@ def get_user_profile_labels(
         .order_by(UserProfile.id.desc())
         .all()
     )
-    user_info: User = User.query.filter(User.user_id == user_id).first()
     profiles_items = get_profile_item_definition_list(app, course_id)
     PROFILES_LABLES = get_profile_labels()
-    result = UserProfileLabelDTO(profiles=[], language=get_user_language(user_info))
+    aggregate = load_user_aggregate(user_id)
+    language_value = aggregate.user_language if aggregate else "en-US"
+    result = UserProfileLabelDTO(profiles=[], language=language_value)
     mapping_keys = []
-    if user_info:
-        for key in PROFILES_LABLES.keys():
-            if PROFILES_LABLES[key].get("mapping"):
-                mapping_keys.append(key)
-                item = {
-                    "key": key,
-                    "label": PROFILES_LABLES[key]["label"],
-                    "type": PROFILES_LABLES[key].get(
-                        "type", "select" if "items" in PROFILES_LABLES[key] else "text"
-                    ),
-                    "value": getattr(user_info, PROFILES_LABLES[key]["mapping"]),
-                    "items": PROFILES_LABLES[key].get("items"),
-                }
-                if PROFILES_LABLES[key].get("items_mapping"):
-                    item["value"] = PROFILES_LABLES[key]["items_mapping"].get(
-                        getattr(user_info, PROFILES_LABLES[key]["mapping"]),
-                        PROFILES_LABLES[key].get("items")[0],
-                    )
-
-                result.profiles.append(
-                    UserProfileLabelItemDTO(
-                        key=item["key"],
-                        label=item["label"],
-                        type=item["type"],
-                        value=item["value"],
-                        items=item["items"],
-                    )
+    if aggregate:
+        for key, meta in PROFILES_LABLES.items():
+            mapping = meta.get("mapping")
+            if not mapping:
+                continue
+            mapping_keys.append(key)
+            raw_value = _current_core_value(aggregate, mapping)
+            if raw_value is None:
+                profile_entry = next(
+                    (item for item in user_profiles if item.profile_key == key),
+                    None,
                 )
+                if profile_entry:
+                    raw_value = profile_entry.profile_value
+            display_value = raw_value
+            if meta.get("items_mapping"):
+                mapping_items = meta.get("items", [])
+                default_value = mapping_items[0] if mapping_items else ""
+                display_value = meta["items_mapping"].get(raw_value, default_value)
+            result.profiles.append(
+                UserProfileLabelItemDTO(
+                    key=key,
+                    label=meta["label"],
+                    type=meta.get(
+                        "type", "select" if "items" in meta else "text"
+                    ),
+                    value=display_value,
+                    items=meta.get("items"),
+                )
+            )
     for key in PROFILES_LABLES.keys():
         if key in mapping_keys:
             continue
@@ -438,88 +525,90 @@ def update_user_profile_with_lable(
     if profiles and isinstance(profiles[0], UserProfileLabelItemDTO):
         profiles = [item.__json__() for item in profiles]
 
-    user_info = User.query.filter(User.user_id == user_id).first()
+    aggregate = _ensure_user_aggregate(user_id)
     profile_items = get_profile_item_definition_list(app, course_id)
-    if user_info:
-        # check nickname
-        nickname = [p for p in profiles if p["key"] == "sys_user_nickname"]
-        if nickname and not check_text_content(app, user_id, nickname[0]["value"]):
-            raise_error("COMMON.NICKNAME_NOT_ALLOWED")
-        background = [p for p in profiles if p["key"] == "sys_user_background"]
-        if background and not check_text_content(app, user_id, background[0]["value"]):
-            raise_error("COMMON.BACKGROUND_NOT_ALLOWED")
-        user_profiles = (
-            UserProfile.query.filter_by(user_id=user_id)
-            .order_by(UserProfile.id.desc())
-            .all()
+    # check nickname and background content
+    nickname = [p for p in profiles if p["key"] == "sys_user_nickname"]
+    if nickname and not check_text_content(app, user_id, nickname[0]["value"]):
+        raise_error("COMMON.NICKNAME_NOT_ALLOWED")
+    background = [p for p in profiles if p["key"] == "sys_user_background"]
+    if background and not check_text_content(app, user_id, background[0]["value"]):
+        raise_error("COMMON.BACKGROUND_NOT_ALLOWED")
+
+    user_profiles = (
+        UserProfile.query.filter_by(user_id=user_id)
+        .order_by(UserProfile.id.desc())
+        .all()
+    )
+
+    for profile in profiles:
+        profile_item = next(
+            (item for item in profile_items if item.profile_key == profile["key"]),
+            None,
         )
-        for profile in profiles:
-            profile_item = next(
-                (item for item in profile_items if item.profile_key == profile["key"]),
-                None,
-            )
+        app.logger.info(
+            "update user profile:{}-{}".format(profile["key"], profile["value"])
+        )
+        user_profile_to_update = [
+            p for p in user_profiles if p.profile_key == profile["key"]
+        ]
+        user_profile = (
+            user_profile_to_update[0] if len(user_profile_to_update) > 0 else None
+        )
+        profile_lable = PROFILES_LABLES.get(profile["key"], None)
+        profile_value = profile["value"]
+        default_value = profile_lable.get("default", None) if profile_lable else None
+        if profile_lable:
+            if profile_lable.get("items_mapping"):
+                for k, v in profile_lable["items_mapping"].items():
+                    if v == profile_value:
+                        profile_value = k
             app.logger.info(
-                "update user profile:{}-{}".format(profile["key"], profile["value"])
+                "default_value:{}, profile_value:{}".format(
+                    default_value, profile_value
+                )
             )
-            user_profile_to_update = [
-                p for p in user_profiles if p.profile_key == profile["key"]
-            ]
-            user_profile = (
-                user_profile_to_update[0] if len(user_profile_to_update) > 0 else None
-            )
-            profile_lable = PROFILES_LABLES.get(profile["key"], None)
-            profile_value = profile["value"]
-            if profile_lable:
-                if profile_lable.get("items_mapping"):
-                    for k, v in profile_lable["items_mapping"].items():
-                        if v == profile_value:
-                            profile_value = k
-                default_value = profile_lable.get("default", None)
+            mapping = profile_lable.get("mapping")
+            if mapping and (
+                update_all
+                or (
+                    (profile_value != default_value)
+                    and _current_core_value(aggregate, mapping) != profile_value
+                )
+            ):
                 app.logger.info(
-                    "default_value:{}, profile_value:{}".format(
-                        default_value, profile_value
-                    )
+                    "update user info: {} - {}".format(profile, profile_value)
                 )
-                if profile_lable.get("mapping") and (
-                    update_all
-                    or (
-                        (profile_value != default_value)
-                        and getattr(user_info, profile_lable["mapping"])
-                        != profile_value
-                    )
-                ):
-                    app.logger.info(
-                        "update user info: {} - {}".format(profile, profile_value)
-                    )
-                    setattr(user_info, profile_lable["mapping"], profile_value)
+                normalized = _apply_core_mapping(user_id, mapping, profile_value)
+                _update_aggregate_field(aggregate, mapping, normalized)
+        else:
+            app.logger.info("profile_lable not found:{}".format(profile["key"]))
+        if user_profile:
+            if profile_item:
+                user_profile.profile_id = profile_item.profile_id
             else:
-                app.logger.info("profile_lable not found:{}".format(profile["key"]))
-            if user_profile:
-                if profile_item:
-                    user_profile.profile_id = profile_item.profile_id
-                else:
-                    app.logger.warning(
-                        "profile_item not found:{}".format(profile["key"])
-                    )
-                user_profile.status = 1
-                if (
-                    bool(profile_value)
-                    and (profile_value != default_value)
-                    and user_profile.profile_value != profile_value
-                ):
-                    user_profile.profile_value = profile_value
-            elif not profile_lable.get("mapping"):
-                user_profile = UserProfile(
-                    user_id=user_id,
-                    profile_key=profile["key"],
-                    profile_value=profile_value,
-                    profile_type=profile_item.profile_type if profile_item else 1,
-                    profile_id=profile_item.profile_id if profile_item else "",
-                    status=1,
+                app.logger.warning(
+                    "profile_item not found:{}".format(profile["key"])
                 )
-                db.session.add(user_profile)
-        db.session.flush()
-        return True
+            user_profile.status = 1
+            if (
+                bool(profile_value)
+                and (profile_value != default_value)
+                and user_profile.profile_value != profile_value
+            ):
+                user_profile.profile_value = profile_value
+        elif not profile_lable or not profile_lable.get("mapping"):
+            user_profile = UserProfile(
+                user_id=user_id,
+                profile_key=profile["key"],
+                profile_value=profile_value,
+                profile_type=profile_item.profile_type if profile_item else 1,
+                profile_id=profile_item.profile_id if profile_item else "",
+                status=1,
+            )
+            db.session.add(user_profile)
+    db.session.flush()
+    return True
 
 
 def get_user_variable_by_variable_id(app: Flask, user_id: str, variable_id: str):

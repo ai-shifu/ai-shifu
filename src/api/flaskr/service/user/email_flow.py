@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from flask import Flask
 
@@ -16,17 +16,18 @@ from flaskr.service.profile.funcs import (
     update_user_profile_with_lable,
 )
 from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
-from flaskr.service.user.consts import (
-    USER_STATE_REGISTERED,
-    USER_STATE_UNREGISTERED,
-)
-from flaskr.service.user.models import User
+from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import generate_token
 from flaskr.service.user.repository import (
-    build_user_info_dto,
-    build_user_profile_snapshot,
-    list_credentials,
-    sync_user_entity_for_legacy,
+    build_user_info_from_aggregate,
+    build_user_profile_snapshot_from_aggregate,
+    ensure_user_for_identifier,
+    get_user_entity_by_bid,
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    update_user_entity_fields,
+    upsert_wechat_credentials,
+    upsert_credential,
     transactional_session,
 )
 
@@ -61,79 +62,89 @@ def verify_email_code(
 
     normalized_email = email.lower() if email else ""
 
-    user_info = (
-        User.query.filter(User.email == normalized_email)
-        .order_by(User.user_state.desc())
-        .order_by(User.id.asc())
-        .first()
-    )
-
     created_new_user = False
 
     with transactional_session():
-        if not user_info and user_id:
-            user_info = (
-                User.query.filter(User.user_id == user_id)
-                .order_by(User.id.asc())
-                .first()
-            )
+        target_aggregate = load_user_aggregate_by_identifier(
+            normalized_email, providers=["email"]
+        )
+        origin_aggregate = load_user_aggregate(user_id) if user_id else None
+
+        if not target_aggregate and origin_aggregate:
+            target_aggregate = origin_aggregate
 
         if (
-            user_info
+            target_aggregate
             and user_id
-            and user_id != user_info.user_id
+            and target_aggregate.user_bid != user_id
             and course_id is not None
         ):
             new_profiles = get_user_profile_labels(app, user_id, course_id)
             update_user_profile_with_lable(
-                app, user_info.user_id, new_profiles, False, course_id
+                app, target_aggregate.user_bid, new_profiles, False, course_id
             )
-            origin_user = User.query.filter(User.user_id == user_id).first()
-            if origin_user:
+            if origin_aggregate:
                 migrate_user_study_record(
-                    app, origin_user.user_id, user_info.user_id, course_id
+                    app,
+                    origin_aggregate.user_bid,
+                    target_aggregate.user_bid,
+                    course_id,
                 )
                 if (
-                    origin_user.user_open_id
-                    and origin_user.user_open_id != user_info.user_open_id
-                    and not user_info.user_open_id
+                    origin_aggregate.wechat_open_id
+                    and not target_aggregate.wechat_open_id
                 ):
-                    user_info.user_open_id = origin_user.user_open_id
+                    upsert_wechat_credentials(
+                        app,
+                        user_bid=target_aggregate.user_bid,
+                        open_id=origin_aggregate.wechat_open_id,
+                        union_id=origin_aggregate.wechat_union_id,
+                        verified=True,
+                    )
 
-        if user_info is None:
-            generated_user_id = uuid.uuid4().hex
-            user_info = User(
-                user_id=generated_user_id,
-                username="",
-                name="",
-                email=normalized_email,
-                mobile="",
+        if target_aggregate is None:
+            defaults = {
+                "user_bid": user_id or uuid.uuid4().hex,
+                "nickname": normalized_email or user_id,
+                "language": language,
+                "state": USER_STATE_REGISTERED,
+            }
+            target_aggregate, created_new_user = ensure_user_for_identifier(
+                app,
+                provider="email",
+                identifier=normalized_email,
+                defaults=defaults,
             )
-            user_info.user_state = USER_STATE_REGISTERED
-            user_info.user_language = language or user_info.user_language
-            user_info.email = normalized_email
-            db.session.add(user_info)
-            init_first_course(app, user_info.user_id)
-            created_new_user = True
+            init_first_course(app, target_aggregate.user_bid)
         else:
-            if user_info.user_state == USER_STATE_UNREGISTERED:
-                user_info.user_state = USER_STATE_REGISTERED
-            if language:
-                user_info.user_language = language
-            user_info.email = normalized_email
+            entity = get_user_entity_by_bid(
+                target_aggregate.user_bid, include_deleted=True
+            )
+            if entity:
+                updates: Dict[str, Any] = {"identify": normalized_email}
+                if target_aggregate.state == USER_STATE_UNREGISTERED:
+                    updates["state"] = USER_STATE_REGISTERED
+                if language:
+                    updates["language"] = language
+                update_user_entity_fields(entity, **updates)
 
-        token = generate_token(app, user_id=user_info.user_id)
-        db.session.flush()
-
-        user_entity = sync_user_entity_for_legacy(app, user_info)
-        if user_entity:
-            # On email verification, persist normalized email as identifier
-            user_entity.user_identify = normalized_email
-        db.session.flush()
-        user_dto = build_user_info_dto(user_info)
-        snapshot = build_user_profile_snapshot(
-            user_info, credentials=list_credentials(user_bid=user_info.user_id)
+        upsert_credential(
+            app,
+            user_bid=target_aggregate.user_bid,
+            provider_name="email",
+            subject_id=normalized_email,
+            subject_format="email",
+            identifier=normalized_email,
+            metadata={"course_id": course_id, "language": language},
+            verified=True,
         )
+
+        refreshed = load_user_aggregate(target_aggregate.user_bid)
+        if not refreshed:
+            raise_error("USER.USER_NOT_FOUND")
+        token = generate_token(app, user_id=refreshed.user_bid)
+        user_dto = build_user_info_from_aggregate(refreshed)
+        snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
     return (
         UserToken(userInfo=user_dto, token=token),

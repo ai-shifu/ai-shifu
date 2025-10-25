@@ -7,7 +7,7 @@ from flaskr.service.learn.plugin import (
 from flaskr.service.learn.utils import check_phone_number, get_script_ui_label
 from flaskr.service.user.common import send_sms_code_without_check
 from flaskr.service.learn.dtos import ScriptDTO
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.i18n import _
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
@@ -18,7 +18,7 @@ from flaskr.service.shifu.dtos import CheckCodeDTO
 @register_shifu_output_handler("checkcode")
 def _handle_output_checkcode(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

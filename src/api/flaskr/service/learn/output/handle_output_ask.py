@@ -1,5 +1,5 @@
 from flask import Flask
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.dtos import ScriptDTO
 from flaskr.framework.plugin.plugin_manager import extensible
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
@@ -12,7 +12,7 @@ from flaskr.service.shifu.consts import ASK_MODE_ENABLE
 @extensible
 def _handle_output_ask(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

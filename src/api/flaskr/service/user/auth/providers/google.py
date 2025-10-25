@@ -12,7 +12,6 @@ from urllib.parse import urljoin
 
 from flask import current_app, request
 
-from flaskr.dao import db
 from flaskr.dao import redis_client as redis
 from flaskr.service.user.auth.base import (
     AuthProvider,
@@ -21,18 +20,18 @@ from flaskr.service.user.auth.base import (
 )
 from flaskr.service.user.auth.factory import has_provider, register_provider
 from flaskr.service.user.repository import (
-    build_user_info_dto,
-    build_user_profile_snapshot,
-    ensure_user_entity,
-    fetch_legacy_user,
+    build_user_info_from_aggregate,
+    build_user_profile_snapshot_from_aggregate,
+    ensure_user_for_identifier,
     find_credential,
-    list_credentials,
-    sync_user_entity_for_legacy,
+    get_user_entity_by_bid,
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
     transactional_session,
+    update_user_entity_fields,
     upsert_credential,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.models import User
 from flaskr.service.user.utils import generate_token
 from flaskr.service.common.dtos import UserToken
 
@@ -141,42 +140,57 @@ class GoogleAuthProvider(AuthProvider):
             raise RuntimeError("Google profile missing required identifiers")
 
         email = email.lower()
-        credential = find_credential(provider_name=self.provider_name, identifier=email)
+        credential = find_credential(
+            provider_name=self.provider_name, identifier=email
+        )
 
-        legacy_user = None
+        aggregate = None
         created_user = False
-        created_entity = False
+        credential_record = None
 
         with transactional_session():
             if credential:
-                legacy_user = fetch_legacy_user(credential.user_bid)
+                aggregate = load_user_aggregate(credential.user_bid)
 
-            if not legacy_user:
-                legacy_user = User.query.filter_by(email=email).first()
-
-            if not legacy_user:
-                user_id = secrets.token_hex(16)
-                legacy_user = User(
-                    user_id=user_id,
-                    username=email,
-                    name=profile.get("name", ""),
-                    email=email,
-                    mobile="",
-                    user_state=USER_STATE_REGISTERED,
+            if not aggregate:
+                aggregate = load_user_aggregate_by_identifier(
+                    email, providers=["email"]
                 )
-                db.session.add(legacy_user)
-                created_user = True
 
-            if profile.get("picture") and not legacy_user.user_avatar:
-                legacy_user.user_avatar = profile["picture"]
+            if aggregate:
+                entity = get_user_entity_by_bid(
+                    aggregate.user_bid, include_deleted=True
+                )
+                if entity:
+                    updates: Dict[str, Any] = {
+                        "identify": email,
+                        "state": USER_STATE_REGISTERED,
+                    }
+                    display_name = profile.get("name")
+                    if display_name:
+                        updates["nickname"] = display_name
+                    picture = profile.get("picture")
+                    if picture and not aggregate.avatar:
+                        updates["avatar"] = picture
+                    update_user_entity_fields(entity, **updates)
+            else:
+                defaults = {
+                    "user_bid": secrets.token_hex(16),
+                    "nickname": profile.get("name") or email,
+                    "avatar": profile.get("picture"),
+                    "language": None,
+                    "state": USER_STATE_REGISTERED,
+                }
+                aggregate, created_user = ensure_user_for_identifier(
+                    app,
+                    provider="email",
+                    identifier=email,
+                    defaults=defaults,
+                )
 
-            db.session.flush()
-
-            user_entity, created_entity = ensure_user_entity(app, legacy_user)
-
-            upsert_credential(
+            credential_record = upsert_credential(
                 app,
-                user_bid=user_entity.user_bid,
+                user_bid=aggregate.user_bid,
                 provider_name=self.provider_name,
                 subject_id=subject_id,
                 subject_format="google",
@@ -185,26 +199,21 @@ class GoogleAuthProvider(AuthProvider):
                 verified=profile.get("email_verified", False),
             )
 
-            # Persist email as the user's identifier for Google OAuth
-            if user_entity:
-                user_entity.user_identify = email
-            db.session.flush()
-
-            sync_user_entity_for_legacy(app, legacy_user)
-
-            user_dto = build_user_info_dto(legacy_user)
-            token_value = generate_token(app, legacy_user.user_id)
+            refreshed = load_user_aggregate(aggregate.user_bid)
+            if not refreshed:
+                raise RuntimeError(
+                    "Failed to refresh user aggregate after Google OAuth"
+                )
+            user_dto = build_user_info_from_aggregate(refreshed)
+            token_value = generate_token(app, refreshed.user_bid)
             user_token = UserToken(userInfo=user_dto, token=token_value)
-            snapshot = build_user_profile_snapshot(
-                legacy_user,
-                credentials=list_credentials(user_bid=legacy_user.user_id),
-            )
+            snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
         return AuthResult(
             user=user_dto,
             token=user_token,
-            credential=None,
-            is_new_user=created_user or created_entity,
+            credential=credential_record,
+            is_new_user=created_user,
             metadata={
                 "token_response": token,
                 "profile": profile,
