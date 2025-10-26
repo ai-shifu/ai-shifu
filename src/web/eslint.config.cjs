@@ -26,7 +26,6 @@ const eslintConfig = [
       // React specific rules
       'react/react-in-jsx-scope': 'off', // Not needed with React 17+
       'react/prop-types': 'off', // Using TypeScript for prop validation
-      // Note: hardcoded literal checks are enforced in cook-web only for now
     },
   },
   {
@@ -48,7 +47,6 @@ const eslintConfig = [
       // React specific rules
       'react/react-in-jsx-scope': 'off', // Not needed with React 17+
       'react/prop-types': 'off', // Using TypeScript for prop validation
-      // Note: hardcoded literal checks are enforced in cook-web only for now
     },
   },
   {
