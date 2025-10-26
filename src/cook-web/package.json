@@ -52,6 +52,7 @@
     "@uiw/react-codemirror": "^4.23.10",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "classnames": "^2.5.1",
     "dompurify": "^3.2.6",
     "eruda": "^3.4.3",
     "i18next": "^23.11.0",
