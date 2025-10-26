@@ -10,6 +10,18 @@ const sharedLocalesMetadata = fs.existsSync(localesJsonPath)
   ? JSON.parse(fs.readFileSync(localesJsonPath, 'utf-8'))
   : { default: 'en-US', locales: {} };
 
+// Only expose real user-facing locales to the frontend env (hide pseudo-locale)
+const allowedFrontendLocales = new Set(['en-US', 'zh-CN']);
+const filteredLocales = Object.fromEntries(
+  Object.entries(sharedLocalesMetadata.locales || {}).filter(([code]) =>
+    allowedFrontendLocales.has(code),
+  ),
+);
+const frontendLocalesMetadata = {
+  ...sharedLocalesMetadata,
+  locales: filteredLocales,
+};
+
 const withMDX = createMDX({
   // Support both .md and .mdx
   extension: /\.mdx?$/,
@@ -46,7 +58,7 @@ const nextConfig: NextConfig = {
     },
   },
   env: {
-    NEXT_PUBLIC_I18N_META: JSON.stringify(sharedLocalesMetadata),
+    NEXT_PUBLIC_I18N_META: JSON.stringify(frontendLocalesMetadata),
   },
   // Include MDX in page extensions if pages/ has MDX pages; for pure app/ it can be removed
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
