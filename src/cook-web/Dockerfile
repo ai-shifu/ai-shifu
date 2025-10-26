@@ -1,4 +1,4 @@
-FROM node:20.11.1-alpine AS builder
+FROM node:22.16.0-alpine AS builder
 
 WORKDIR /app
 
@@ -25,7 +25,7 @@ COPY ${I18N_DIR}/ ./src/i18n
 
 RUN npm run build
 
-FROM node:20.11.1-alpine AS runner
+FROM node:22.16.0-alpine AS runner
 
 WORKDIR /app
 

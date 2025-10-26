@@ -93,4 +93,4 @@ Docker 启动后：
 - 前端语言列表只展示 `en-US` 与 `zh-CN`；伪语言 `qps-ploc` 仅用于校验，不在 UI 中显示。
 
 Cook Web 环境要求
-- Node.js `22.11.1`（参见 `src/cook-web/package.json#engines`）
+- Node.js `22.16.0`（参见 `src/cook-web/package.json#engines`）
