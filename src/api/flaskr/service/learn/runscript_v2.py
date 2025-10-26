@@ -313,7 +313,7 @@ def run_script(
                                 outline_bid=outline_bid,
                                 generated_block_bid="",
                                 type=GeneratedType.CONTENT,
-                                content=str(_("COMMON.UNKNOWN_ERROR")),
+                                content=str(_("server.common.unknownError")),
                             ),
                             default=fmt,
                             ensure_ascii=False,
