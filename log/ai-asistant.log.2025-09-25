@@ -1,6 +1,0 @@
-2025-09-25T20:12:16.417+08:00 [INFO] ai-shifu.com/ai-shifu geyunfeis-MacBook-Pro.local No_Client_IP No_URL 82c8776da79b4c55afad9cbf7df2e52a enable_plugin_manager 95815 enable_plugin_manager
-2025-09-25T20:12:16.443+08:00 [INFO] ai-shifu.com/ai-shifu geyunfeis-MacBook-Pro.local No_Client_IP No_URL 82c8776da79b4c55afad9cbf7df2e52a __init__ 95815 PluginManager init
-2025-09-25T20:12:16.443+08:00 [INFO] ai-shifu.com/ai-shifu geyunfeis-MacBook-Pro.local No_Client_IP No_URL 82c8776da79b4c55afad9cbf7df2e52a create_app 95815 ai-shifu-api mode: api
-2025-09-25T20:16:53.152+08:00 [INFO] ai-shifu.com/ai-shifu geyunfeis-MacBook-Pro.local No_Client_IP No_URL 6ddd2985f525412a884c407f2ade0aed enable_plugin_manager 99890 enable_plugin_manager
-2025-09-25T20:16:53.166+08:00 [INFO] ai-shifu.com/ai-shifu geyunfeis-MacBook-Pro.local No_Client_IP No_URL 6ddd2985f525412a884c407f2ade0aed __init__ 99890 PluginManager init
-2025-09-25T20:16:53.166+08:00 [INFO] ai-shifu.com/ai-shifu geyunfeis-MacBook-Pro.local No_Client_IP No_URL 6ddd2985f525412a884c407f2ade0aed create_app 99890 ai-shifu-api mode: api
