@@ -30,7 +30,7 @@ jobs:
         run: python scripts/check_translations.py
 
       - name: Verify translation key usage
-        run: python scripts/check_translation_usage.py --fail-on-unused --unused-allowlist scripts/translation_unused_allowlist.txt
+        run: python scripts/check_translation_usage.py --fail-on-unused
 
       - name: Ensure locales metadata is up to date
         run: |
