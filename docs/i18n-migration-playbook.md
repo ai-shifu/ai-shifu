@@ -1,33 +1,6 @@
-# I18n Migration Playbook
+This content has moved. See the consolidated guide:
 
-This playbook captures the agreed workflow for adding, modifying, and verifying translations under the unified `src/i18n` structure used by both the backend (Flask) and Cook Web (Next.js).
-
-## Directory Structure
-
-- Authoritative translations are stored under `src/i18n/<locale>/.../*.json`.
-- Every translation file uses the JSON format with two optional helpers:
-  - `__namespace__`: overrides the default inferred namespace (recommended)
-  - `__flat__`: allows defining flat keys under the namespace without extra nesting
-
-Example:
-
-```json
-{
-  "__namespace__": "server.order",
-  "__flat__": {
-    "orderNotFound": "Order Not Found"
-  }
-}
-```
-
-## Add or Modify Keys
-
-1) Choose the correct namespace and file
-   - Backend business domains use `server.<domain>.*`, e.g. `server.order.*`, `server.profile.*`, etc.
-   - UI components or modules on Cook Web use `component.*` / `module.*` namespaces.
-
-2) Edit per-locale files
-   - Update both locales in `src/i18n/en-US/...` and `src/i18n/zh-CN/...`.
+docs/i18n.md
    - Keep keys aligned across locales to maintain parity.
 
 3) If adding a new namespace, add it to `src/i18n/locales.json`
