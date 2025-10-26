@@ -40,9 +40,7 @@ Run these from the repository root:
 
 ```bash
 python scripts/check_translations.py
-python scripts/check_translation_usage.py --fail-on-unused \
-  --unused-allowlist scripts/translation_unused_allowlist.txt \
-  --missing-allowlist scripts/translation_missing_allowlist.txt
+python scripts/check_translation_usage.py --fail-on-unused
 ```
 
 The first script enforces JSON parity (same files and keys) across locales. The second cross-checks all usages in backend (`src/api`) and frontends (`src/web`, `src/cook-web`). Our CI and pre-commit already run both.
