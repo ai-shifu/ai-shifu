@@ -242,7 +242,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             find_active_id = None
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             return query_buy_record(app, origin_record.order_bid)
-        # raise_error("module.backend.order.orderNotFound")
+        # raise_error("server.order.orderNotFound")
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
             buy_record = Order()
@@ -354,7 +354,7 @@ def generate_charge(
                 channel,
                 "",
             )
-            # raise_error("module.backend.order.orderHasPaid")
+            # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
         product_id = course.course_id
         subject = course.course_name
