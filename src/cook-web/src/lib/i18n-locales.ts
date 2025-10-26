@@ -10,10 +10,11 @@ const metadata: LocalesMetadata = rawMetadata
   ? (JSON.parse(rawMetadata) as LocalesMetadata)
   : { default: 'en-US', locales: {} };
 
-export const localeEntries = Object.entries(metadata.locales) as [
-  string,
-  { label: string; rtl?: boolean },
-][];
+// Hide pseudo-locale from any UI language lists by default
+const hiddenLocales = new Set(['qps-ploc']);
+export const localeEntries = Object.entries(metadata.locales).filter(
+  ([code]) => !hiddenLocales.has(code),
+) as [string, { label: string; rtl?: boolean }][];
 
 export const localeCodes = localeEntries.map(([code]) => code);
 
