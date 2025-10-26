@@ -630,7 +630,7 @@ Cook Web provides tools for:
 - Use `python scripts/create_translation_namespace.py <namespace> [--keys ...]`
   to scaffold new namespaces across locales.
 - Run `python scripts/check_translation_usage.py --fail-on-unused` to detect keys
-  that are missing或未使用 across backend/frontend（无 allowlist，直接修复）。
+  that are missing or unused across backend/frontend (no allowlists; fix directly).
 - When adding backend text, update the relevant JSON namespace, refresh
   `src/i18n/locales.json` if a new namespace is introduced, and reference strings
   in Python via `_('NAMESPACE.KEY')`.
@@ -643,10 +643,12 @@ Cook Web provides tools for:
   - ❌ Wrong: `'您当前没有权限访问此内容'`
   - ✅ Correct: `t('common.retry', 'Retry')` (with fallback)
   - ❌ Wrong: `'重试'`
-- Shared translation files are located in `src/i18n/<locale>`. Cook Web 和后端共享
-  同一份 JSON；不要向 `public/locales` 里新增主翻译。
-- 前端语言仅展示 `en-US` 与 `zh-CN`；伪语言 `qps-ploc` 仅用于校验（不在 UI 显示）。
-- 新增命名空间时请同时更新两种语言文件，并运行：
+- Shared translation files are located in `src/i18n/<locale>`. Cook Web and
+  the backend share the same JSON; do not add primary translations under
+  `public/locales`.
+- The frontend language list shows only `en-US` and `zh-CN`. The pseudo-locale
+  `qps-ploc` is for validation only (hidden in the UI).
+- When adding a new namespace, update both languages and run:
   - `python scripts/generate_languages.py && git diff -- src/i18n/locales.json`
   - `python scripts/check_translations.py`
   - `python scripts/check_translation_usage.py --fail-on-unused`
