@@ -7,4 +7,8 @@
   "regularBlock": "Regular Block",
   "setAsAiBlock": "Set as AI Block",
   "setAsRegularBlock": "Set as Regular Block"
+  ,
+  "creationArea": {
+    "title": "Creation Area"
+  }
 }

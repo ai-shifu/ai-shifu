@@ -305,7 +305,7 @@ const MinimalTreeItemComponent = React.forwardRef<
                         }}
                       >
                         <SlidersHorizontal className='mr-2 h-4 w-4' />
-                        <span>{t('outlineTree.setting')}</span>
+                        <span>{t('component.outlineTree.setting')}</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem

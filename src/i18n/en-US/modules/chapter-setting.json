@@ -1,0 +1,14 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "title": "Chapter Settings",
+  "learningPermission": "Learning Permission",
+  "paidChapter": "Paid Chapter",
+  "freeChapter": "Free Chapter",
+  "guestChapter": "Guest Chapter",
+  "isHidden": "Visibility",
+  "visibleChapter": "Visible",
+  "hideChapter": "Hidden",
+  "systemPrompt": "System Prompt",
+  "promptHint": "Optional initial instruction for this chapter",
+  "chapterTitle": "Chapter Title"
+}

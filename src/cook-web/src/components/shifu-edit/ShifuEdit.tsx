@@ -432,7 +432,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 <>
                   <div className='flex items-center'>
                     <h2 className='text-base font-semibold text-foreground'>
-                      {t('shifu.creationArea.title')}
+                      {t('module.shifu.creationArea.title')}
                     </h2>
                   </div>
                   <MarkdownFlowEditor
