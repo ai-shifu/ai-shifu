@@ -1,4 +1,4 @@
-FROM node:22.16.0-slim AS builder
+FROM node:20.11.1-alpine AS builder
 
 WORKDIR /app
 
@@ -18,7 +18,7 @@ COPY . ./
 
 RUN npm run build
 
-FROM node:22.16.0-slim AS runner
+FROM node:20.11.1-alpine AS runner
 
 WORKDIR /app
 
@@ -26,7 +26,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV I18N_ROOT=/app/src/i18n
 
-RUN true
+RUN apk add --no-cache libc6-compat
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
