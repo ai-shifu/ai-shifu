@@ -44,9 +44,17 @@ const filteredLocales = Object.fromEntries(
     allowedFrontendLocales.has(code),
   ),
 );
+// Filter out any pseudo-locale style namespaces (only allow sane identifiers)
+const isValidNs = (s: unknown): s is string =>
+  typeof s === 'string' && /^[A-Za-z0-9_.-]+$/.test(s);
+const validNamespaces = Array.isArray((sharedLocalesMetadata as any).namespaces)
+  ? (sharedLocalesMetadata as any).namespaces.filter(isValidNs)
+  : [];
+
 const frontendLocalesMetadata = {
   ...sharedLocalesMetadata,
   locales: filteredLocales,
+  namespaces: validNamespaces,
 };
 
 const withMDX = createMDX({
