@@ -21,7 +21,6 @@
     "i18n:keys": "node ../../scripts/generate_i18n_keys.js"
   },
   "dependencies": {
-    "sharp": "^0.33.4",
     "@codemirror/autocomplete": "^6.0.0",
     "@codemirror/view": "^6.0.0",
     "@dnd-kit/core": "^6.3.1",
