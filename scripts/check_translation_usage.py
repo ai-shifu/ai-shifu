@@ -29,6 +29,8 @@ FRONTEND_PATTERNS = [
     re.compile(r"\bt\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"i18n\.t\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
     re.compile(r"\bsetError\(\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
+    # Support <Trans i18nKey='namespace.key'> usages in TSX/JSX
+    re.compile(r"i18nKey\s*=\s*['\"]([A-Za-z0-9_.-]+)['\"]"),
 ]
 
 

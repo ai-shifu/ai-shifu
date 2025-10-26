@@ -4,11 +4,38 @@ import fs from 'fs';
 import type { NextConfig } from 'next';
 import path from 'path';
 
-const sharedI18nPath = path.resolve(__dirname, '../i18n');
-const localesJsonPath = path.join(sharedI18nPath, 'locales.json');
-const sharedLocalesMetadata = fs.existsSync(localesJsonPath)
-  ? JSON.parse(fs.readFileSync(localesJsonPath, 'utf-8'))
-  : { default: 'en-US', locales: {} };
+// Resolve shared i18n directory robustly for both local and Docker builds
+const resolveSharedI18nPath = (): string | null => {
+  const candidates = [
+    path.resolve(__dirname, 'src/i18n'), // when building from repo root (Docker)
+    path.resolve(__dirname, '../i18n'), // when running Next from src/cook-web
+    path.resolve(__dirname, '../../i18n'), // monorepo-like layout
+    '/app/src/i18n',
+    '/i18n',
+  ];
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+};
+
+const sharedI18nPath = resolveSharedI18nPath();
+const sharedLocalesMetadata = (() => {
+  if (!sharedI18nPath) return { default: 'en-US', locales: {}, namespaces: [] };
+  const localesJsonPath = path.join(sharedI18nPath, 'locales.json');
+  try {
+    if (fs.existsSync(localesJsonPath)) {
+      return JSON.parse(fs.readFileSync(localesJsonPath, 'utf-8'));
+    }
+  } catch {
+    // fall through
+  }
+  return { default: 'en-US', locales: {}, namespaces: [] };
+})();
 
 // Only expose real user-facing locales to the frontend env (hide pseudo-locale)
 const allowedFrontendLocales = new Set(['en-US', 'zh-CN']);
