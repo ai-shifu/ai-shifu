@@ -2,7 +2,7 @@
   "__namespace__": "server.common",
   "__flat__": {
     "unknownError": "未知错误",
-    "paramsError": "参数错误",
+    "paramsError": "参数错误 {param_message}",
 
     "nicknameNotAllowed": "你输入的是不合规的昵称哦。",
     "backgroundNotAllowed": "你输入的是不合规的背景哦。",

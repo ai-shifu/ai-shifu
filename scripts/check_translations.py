@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 from typing import Dict, Iterable
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
@@ -120,6 +121,36 @@ def validate_locale_files(locale_dirs: Iterable[Path]):
                 problems.append(
                     f"Locale '{locale}' has extra keys in '{namespace}': {sorted(extra_keys)}"
                 )
+
+    # ICU placeholders consistency across locales for each key
+    var_before_comma = re.compile(r"\{\s*([A-Za-z_][\w]*)\s*,")
+    simple_var = re.compile(r"\{\s*([A-Za-z_][\w]*)\s*\}")
+
+    def extract_placeholders(text: str) -> set[str]:
+        if not isinstance(text, str):
+            return set()
+        names = set(var_before_comma.findall(text))
+        names.update(simple_var.findall(text))
+        return names
+
+    for namespace in sorted(reference_files):
+        ref_map = flattened_per_locale[reference_locale][namespace]
+        for key in sorted(ref_map.keys()):
+            ref_placeholders = extract_placeholders(ref_map[key])
+            for locale in locales[1:]:
+                locale_map = flattened_per_locale[locale].get(namespace)
+                if not locale_map or key not in locale_map:
+                    continue  # key/file parity already handled above
+                loc_placeholders = extract_placeholders(locale_map[key])
+                if ref_placeholders != loc_placeholders:
+                    problems.append(
+                        (
+                            "ICU placeholder mismatch for key '"
+                            f"{namespace}.{key.split('.', 1)[-1]}"  # human-friendly
+                            f"' between '{reference_locale}' ({sorted(ref_placeholders)})"
+                            f" and '{locale}' ({sorted(loc_placeholders)})"
+                        )
+                    )
 
     if problems:
         message = "\n".join(

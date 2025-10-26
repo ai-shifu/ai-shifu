@@ -16,5 +16,6 @@
   "regenerateConfirmTitle": "确定重新生成此内容？",
   "startAutoSkip": "开启自动跳过",
   "stopAutoSkip": "停止自动跳过",
-  "thinking": "思考中..."
+  "thinking": "思考中...",
+  "invalidSmsCode": "请输入4位短信验证码"
 }

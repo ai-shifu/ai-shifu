@@ -73,7 +73,6 @@ export const PermissionRequestModal = ({
         form.reset();
         onClose();
       } catch (error) {
-        console.error('Permission request submission failed:', error);
         toast({
           title: t('module.permission.permission.requestError'),
           variant: 'destructive',

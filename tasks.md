@@ -13,7 +13,7 @@
 - [x] Resolve missing-or-unused key discrepancies reported by `scripts/check_translation_usage.py`.
 
 ## Namespace Migration – Backend to `server.*`
-- [ ] Add server namespace alias (loader) [done]
+- [x] Add server namespace alias (loader) [done]
 - [x] Migrate `order` service to `server.order.*`
 - [x] Migrate `user` service to `server.user.*`
 - [x] Migrate `profile` service to `server.profile.*`
@@ -55,14 +55,14 @@
 - [x] Replace direct Python constants with the new keys (e.g. `src/api/flaskr/service/order/consts.py`)
 - [x] Add startup validation to catch malformed JSON or duplicate keys and surface actionable errors
 - [x] Run `python scripts/list_python_i18n_modules.py` to track remaining Python-defined translations and migrate them to shared JSON
-- [ ] Add/adjust unit tests covering translation loading and language selection
+- [x] Add/adjust unit tests covering translation loading and language selection
 
 ### Cook Web
 - [x] Refactor `src/cook-web/src/i18n.ts` to read supported locales/fallback from the unified metadata
 - [x] Configure i18next HTTP backend to fetch modular JSON (`/api/i18n?lng={lng}&ns={ns}`) instead of `public/locales` bundles
 - [x] Ensure build/runtime pipeline exposes `src/i18n` assets to Next.js (copy step, API route, or shared package)
 - [ ] Run regression checks so components still resolve translations; update keys where necessary (build passes; address lint warnings next)
-- [ ] Add automated tests or integration checks for language detection and loading
+- [x] Add automated tests or integration checks for language detection and loading
 
 ### Docker & Environment Parity
 - [x] During image builds, `COPY src/i18n ./src/i18n` (and any equivalent path) into each service image so runtime code reads the same files as local dev.
@@ -74,6 +74,9 @@
 - [x] Wire the CLI into pre-commit and one GitHub Action workflow to gate commits/PRs
 - [x] Document how to run the checks locally and interpret failures
  - [x] Shrink allowlists for migrated domains (shifu)
+
+#### Added (New)
+- [x] ICU placeholder consistency validation across locales in `scripts/check_translations.py`
 
 ### Documentation
 - [x] Update developer docs (e.g. `AGENTS.md`) with the new directory layout and workflow
@@ -88,13 +91,13 @@
 - [x] Enable `i18next-icu` (or chosen alternative) in Cook Web to match server formatting features
 
 ### Frontend Warning Cleanup (New)
-- [ ] Replace obvious JSX literals with i18n keys (Dialog/Sheet/Breadcrumb/Social/ChatInputSmsCode)
+- [ ] Replace obvious JSX literals with i18n keys (Dialog/Sheet/Breadcrumb/Social) — ChatInputSmsCode done
 - [ ] Reduce no-console and unused-vars in frequently mounted components
 
 ### Key Standardization
 - [ ] Inventory existing i18n keys across API, Cook Web, and legacy modules to identify duplicates and inconsistencies.
-- [ ] Finalize and document the canonical key naming rules (namespacing, separators, casing) for every surface.
-- [ ] Provide tooling or scripts to migrate legacy keys to the approved convention.
+- [x] Finalize and document the canonical key naming rules (namespacing, separators, casing) for every surface.
+- [x] Provide tooling or scripts to migrate legacy keys to the approved convention.
 - [ ] Update translation JSON and code references to the standardized keys and validate lookups end-to-end.
 
 ### Observability & Quality Gates
@@ -104,8 +107,8 @@
 - [ ] Consider smoke tests that load every namespace via API/Cook Web runtimes to catch runtime parsing issues
 
 ### Documentation & Enablement
-- [ ] Document pseudo-locale usage, ICU plural/select/date/number patterns, and common pitfalls
-- [ ] Provide examples for adding a new module or locale, including running validation tooling
+- [x] Document pseudo-locale usage, ICU plural/select/date/number patterns, and common pitfalls
+- [x] Provide examples for adding a new module or locale, including running validation tooling
 
 ## Optional Integrations
 - [ ] Integrate with a translation platform (Weblate/Crowdin/Lokalise) and sync via CI

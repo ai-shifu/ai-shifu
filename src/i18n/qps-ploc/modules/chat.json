@@ -16,5 +16,6 @@
   "regenerateConfirmTitle": "⟦Ćøňƒįřm řēǥēňēřåŧē ŧħįš ćøňŧēňŧ?⟧",
   "startAutoSkip": "⟦Šŧåřŧ Åųŧø-šķįƥ⟧",
   "stopAutoSkip": "⟦Šŧøƥ Åųŧø-šķįƥ⟧",
-  "thinking": "⟦Ŧħįňķįňǥ...⟧"
+  "thinking": "⟦Ŧħįňķįňǥ...⟧",
+  "invalidSmsCode": "⟦Ƥŀēåšē ēňŧēř å 4-đįǥįŧ ŠΜŠ ćøđē⟧"
 }

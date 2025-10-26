@@ -1,3 +1,4 @@
+import os
 import pytest
 from app import create_app
 from flask_migrate import upgrade
@@ -12,7 +13,9 @@ def app():
     app = create_app()
 
     with app.app_context():
-        upgrade("migrations")
+        # Allow skipping DB migrations in CI/unit-only runs
+        if not os.getenv("SKIP_DB_MIGRATIONS_FOR_TESTS"):
+            upgrade("migrations")
 
     yield app
 

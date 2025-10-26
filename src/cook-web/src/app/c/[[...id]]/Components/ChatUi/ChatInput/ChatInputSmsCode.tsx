@@ -18,7 +18,7 @@ export const ChatInputSmsCode = ({ onClick }) => {
     const inputData = input.trim();
     if (inputData === '' || !/^\d{4}$/.test(inputData)) {
       toast({
-        title: '请输入4位短信验证码',
+        title: t('module.chat.invalidSmsCode'),
         variant: 'destructive',
       });
       return;

@@ -1,6 +1,7 @@
 {
   "__namespace__": "server.outline",
   "__flat__": {
-    "hasNotLesson": "No lesson configured"
+    "hasNotLesson": "No lesson configured",
+    "lessonNotFoundInCourse": "Lesson not found in the course"
   }
 }
