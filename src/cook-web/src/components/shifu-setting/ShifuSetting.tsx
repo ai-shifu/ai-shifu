@@ -473,7 +473,7 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='space-y-2 mb-4'>
                     <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('common.selectModel')}
+                      {t('common.core.selectModel')}
                     </FormLabel>
                     <FormControl>
                       <ModelList
