@@ -2,7 +2,7 @@ ARG SRC_ROOT=src
 ARG WEB_SRC=${SRC_ROOT}/cook-web
 ARG I18N_SRC=${SRC_ROOT}/i18n
 
-FROM node:20.11.1-alpine AS builder
+FROM node:22.16.0-alpine AS builder
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ COPY ${I18N_SRC} ./src/i18n
 
 RUN npm run build --ignore-scripts
 
-FROM node:20.11.1-alpine AS runner
+FROM node:22.16.0-alpine AS runner
 
 WORKDIR /app
 
