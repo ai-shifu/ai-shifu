@@ -1,18 +1,16 @@
-FROM node:22.16.0-alpine AS builder
+FROM node:22.16.0-slim AS builder
 
 WORKDIR /app
 
 # Copy dependency manifests from current context (support building with context=src/cook-web)
 COPY package.json package-lock.json ./
 
-RUN apk add --no-cache libc6-compat python3 make g++ && \
-    npm config set fetch-retries 5 && \
+RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
     npm config set fetch-timeout 300000 && \
     npm ci && \
-    # Ensure sharp optional binaries are available on musl (alpine)
-    npm rebuild sharp || npm install --include=optional sharp && \
+    npm install --include=optional sharp || true && \
     npm cache clean --force
 
 # Copy project source
@@ -20,7 +18,7 @@ COPY . ./
 
 RUN npm run build
 
-FROM node:22.16.0-alpine AS runner
+FROM node:22.16.0-slim AS runner
 
 WORKDIR /app
 
@@ -28,7 +26,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV I18N_ROOT=/app/src/i18n
 
-RUN apk add --no-cache libc6-compat
+RUN true
 
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
