@@ -18,7 +18,7 @@ RUN npm config set fetch-retries 5 && \
 COPY ${WEB_SRC} ./
 COPY ${I18N_SRC} ./src/i18n
 
-RUN npm run build --ignore-scripts
+RUN npm run build
 
 FROM node:22.16.0-alpine AS runner
 
@@ -36,7 +36,7 @@ COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src/i18n ./src/i18n
 
-RUN npm ci --only=production --ignore-scripts && \
+RUN npm ci --only=production && \
     npm cache clean --force && \
     rm -rf /root/.cache /root/.npm /tmp/*
 
