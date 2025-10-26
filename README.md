@@ -91,4 +91,4 @@ After Docker starts:
 - Frontend language list only exposes `en-US` and `zh-CN`; the pseudo-locale `qps-ploc` is available for validation but hidden from the UI.
 
 Cook Web requirements
-- Node.js `22.16.0` (see `src/cook-web/package.json#engines`)
+- Node.js `22.11.1` (see `src/cook-web/package.json#engines`)

@@ -20,7 +20,7 @@ jobs:
       - name: Setup Node.js (match Cook Web engines)
         uses: actions/setup-node@v4
         with:
-          node-version: '22.16.0'
+          node-version: '22.11.1'
 
       - name: Install dependencies
         run: |
