@@ -16,6 +16,7 @@ This file provides guidance to all Coding Agents such as Claude Code (claude.ai/
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
 | Check code quality | `pre-commit run -a` | Root directory |
 | Start all services (Docker) | `docker compose up -d` | `cd docker` |
+| Build Cook Web image (includes i18n) | `./build-cook-web.sh` | `cd docker` |
 
 ### Essential Environment Variables
 

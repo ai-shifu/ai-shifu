@@ -4,6 +4,11 @@ ARG I18N_SRC=${SRC_ROOT}/i18n
 
 FROM python:3.11 AS base
 
+# Re-declare build args within this stage for COPY path expansion
+ARG SRC_ROOT
+ARG API_SRC
+ARG I18N_SRC
+
 # ensure /etc/apt/sources.list exists and change APT source to aliyun mirror
 RUN if [ -f /etc/apt/sources.list ]; then \
     sed -i 's|http://deb.debian.org/debian|http://mirrors.aliyun.com/debian|g' /etc/apt/sources.list; \

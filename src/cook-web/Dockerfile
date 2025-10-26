@@ -2,19 +2,26 @@ FROM node:20.11.1-alpine AS builder
 
 WORKDIR /app
 
-# Copy dependency manifests from current context (support building with context=src/cook-web)
-COPY package.json package-lock.json ./
+# Support building from repo root or from src/cook-web with build args
+ARG APP_DIR=src/cook-web
+ARG I18N_DIR=src/i18n
 
-RUN npm config set fetch-retries 5 && \
+# Copy dependency manifests
+COPY ${APP_DIR}/package.json ${APP_DIR}/package-lock.json ./
+
+RUN apk add --no-cache libc6-compat python3 make g++ && \
+    npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000 && \
     npm config set fetch-timeout 300000 && \
     npm ci && \
-    npm install --include=optional sharp || true && \
+    # Ensure sharp is built/installed for the current musl/glibc + arch
+    (npm rebuild sharp || npm install --include=optional sharp) && \
     npm cache clean --force
 
-# Copy project source
-COPY . ./
+# Copy project source and shared i18n
+COPY ${APP_DIR}/ ./
+COPY ${I18N_DIR}/ ./src/i18n
 
 RUN npm run build
 
@@ -32,7 +39,7 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-# i18n metadata is read at runtime via NEXT_PUBLIC_I18N_META; no need to copy shared tree here
+COPY --from=builder /app/src/i18n ./src/i18n
 
 RUN npm ci --only=production && \
     npm cache clean --force && \
