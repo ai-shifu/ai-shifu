@@ -193,8 +193,14 @@ def load_allowlist(path: Path | None) -> Set[str]:
     if not path:
         return set()
 
+    # Be resilient if legacy CI passes an allowlist path that no longer exists.
+    # Treat missing file as empty allowlist instead of failing hard.
     if not path.exists():
-        raise FileNotFoundError(f"Unused allowlist file not found: {path}")
+        try:
+            print(f"Allowlist file not found, treating as empty: {path}")
+        except Exception:
+            pass
+        return set()
 
     allowed: Set[str] = set()
     for line in path.read_text(encoding="utf-8").splitlines():
