@@ -20,7 +20,7 @@ src/
 ### Required Tools and Services
 
 - **Python 3.11+** for backend API
-- **Node.js 18+** for frontend applications
+- **Node.js 22.16.0** for frontend applications
 - **MySQL 8.0+** for database storage
 - **Redis** for caching and session management
 - **Docker & Docker Compose** (recommended for easy deployment)
@@ -198,7 +198,7 @@ The script editor will be available at `http://localhost:3001`.
    - Ensure the model name matches your provider
 
 4. **Frontend Build Failures**
-   - Ensure Node.js version is 18+
+   - Ensure Node.js version is 22.16.0
    - Clear node_modules and reinstall: `rm -rf node_modules && npm install`
    - Check for environment variable issues
 
