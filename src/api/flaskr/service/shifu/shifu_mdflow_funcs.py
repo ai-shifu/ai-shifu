@@ -45,7 +45,7 @@ def save_shifu_mdflow(
             .first()
         )
         if not outline_item:
-            raise_error("module.backend.shifu.outlineItemNotFound")
+            raise_error("server.shifu.outlineItemNotFound")
         # create new version
         new_outline: DraftOutlineItem = outline_item.clone()
         new_outline.content = content
@@ -101,7 +101,7 @@ def parse_shifu_mdflow(
             .first()
         )
         if not outline_item:
-            raise_error("module.backend.shifu.outlineItemNotFound")
+            raise_error("server.shifu.outlineItemNotFound")
         mdflow = outline_item.content
         if data:
             mdflow = data

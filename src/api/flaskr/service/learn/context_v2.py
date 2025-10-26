@@ -396,7 +396,7 @@ class RunScriptContextV2:
                 .first()
             )
             if not outline_item_info_db:
-                raise_error("module.backend.lesson.lessonNotFoundInCourse")
+                raise_error("server.shifu.lessonNotFoundInCourse")
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise PaidException()

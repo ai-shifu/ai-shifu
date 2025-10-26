@@ -124,7 +124,7 @@ def get_outline_item_tree(
                 .first()
             )
             if not shifu:
-                raise_error("module.backend.shifu.shifuNotFound")
+                raise_error("server.shifu.shifuNotFound")
             buy_record = (
                 Order.query.filter(
                     Order.user_bid == user_bid,
