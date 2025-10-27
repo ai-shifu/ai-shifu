@@ -1160,7 +1160,7 @@ class RunScriptContextV2:
                 )
                 generated_block.generated_content = generated_content
                 db.session.add(generated_block)
-                self._can_continue = False
+                self._can_continue = True
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
