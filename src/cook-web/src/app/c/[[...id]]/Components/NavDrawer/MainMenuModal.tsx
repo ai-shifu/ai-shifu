@@ -3,7 +3,8 @@ import styles from './MainMenuModal.module.scss';
 import { memo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import i18n from '@/i18n';
+import i18n, { normalizeLanguage } from '@/i18n';
+import { useSystemStore } from '@/c-store/useSystemStore';
 import api from '@/api';
 import {
   AlertDialog,
@@ -96,22 +97,21 @@ const MainMenuModal = ({
     }
   };
 
-  const normalizeLanguage = (lang: string): string => {
-    const supportedLanguages = Object.values(
-      i18n.options.fallbackLng || {},
-    ).flat();
-    const normalizedLang = lang.replace('_', '-');
-    if (supportedLanguages.includes(normalizedLang)) {
-      return normalizedLang;
+  const updateLanguage = async (language: string) => {
+    const normalized = normalizeLanguage(language);
+    // Persist preference to backend (best-effort)
+    try {
+      await api.updateUserInfo({ language: normalized });
+    } catch (e) {
+      // Non-blocking: UI already switched via LanguageSelect
+      console.warn('Failed to persist language preference', e);
     }
-    return 'en-US';
-  };
-
-  const updateLanguage = (language: string) => {
-    // const normalizedLang = normalizeLanguage(language);
-    // i18n.changeLanguage(language);
-    // console.log('updateLanguage====', language);
-    api.updateUserInfo({ language });
+    // Update local store so pages relying on userInfo.language react immediately
+    useUserStore.getState().updateUserInfo({ language: normalized });
+    // Keep system store language in sync for APIs that read it
+    try {
+      useSystemStore.getState().updateLanguage(normalized);
+    } catch {}
   };
 
   return (

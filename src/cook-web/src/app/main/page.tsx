@@ -77,7 +77,7 @@ const ShifuCard = ({
 
 const ScriptManagementPage = () => {
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const [activeTab, setActiveTab] = useState('all');
@@ -166,6 +166,18 @@ const ScriptManagementPage = () => {
     currentPage.current = 1;
     setError(null);
   }, [activeTab]);
+
+  // Reload list when language changes to reflect localized fields
+  useEffect(() => {
+    setShifus([]);
+    setHasMore(true);
+    currentPage.current = 1;
+    setError(null);
+    if (isInitialized && fetchShifusRef.current) {
+      fetchShifusRef.current();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
 
   useEffect(() => {
     const container = containerRef.current;

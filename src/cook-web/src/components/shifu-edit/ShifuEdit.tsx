@@ -37,7 +37,7 @@ import {
 import AddBlock from '@/components/add-block';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
-import i18n from '@/i18n';
+import i18n, { normalizeLanguage } from '@/i18n';
 interface DragItem {
   id: string;
   index: number;
@@ -261,8 +261,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
 
   useEffect(() => {
-    if (profile) {
-      i18n.changeLanguage(profile.language);
+    if (profile && profile.language) {
+      const next = normalizeLanguage(profile.language);
+      if ((i18n.resolvedLanguage ?? i18n.language) !== next) {
+        i18n.changeLanguage(next);
+      }
     }
   }, [profile]);
   const {
@@ -436,7 +439,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     </h2>
                   </div>
                   <MarkdownFlowEditor
-                    locale={profile?.language as 'en-US' | 'zh-CN'}
+                    locale={
+                      normalizeLanguage(
+                        (i18n.resolvedLanguage ?? i18n.language) as string,
+                      ) as 'en-US' | 'zh-CN'
+                    }
                     content={mdflow}
                     onChange={onChangeMdflow}
                   />

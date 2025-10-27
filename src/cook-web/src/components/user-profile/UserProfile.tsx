@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import LanguageSelect from '@/components/language-select';
 import i18n, { normalizeLanguage } from '@/i18n';
 import { useUserStore } from '@/store';
+import { useSystemStore } from '@/c-store/useSystemStore';
 
 const UserProfileCard = () => {
   const { t } = useTranslation();
@@ -35,14 +36,32 @@ const UserProfileCard = () => {
     }
   }, [language]);
 
+  // Keep local selection in sync if language changes elsewhere
+  useEffect(() => {
+    const current = normalizeLanguage(i18n.resolvedLanguage ?? i18n.language);
+    if (language !== current) {
+      setLanguage(current);
+    }
+  }, [i18n.language, i18n.resolvedLanguage]);
+
   if (!isInitialized || !userInfo) {
     return null;
   }
 
-  const updateLanguage = (language: string) => {
+  const updateLanguage = async (language: string) => {
     const normalizedLang = normalizeLanguage(language);
     setLanguage(normalizedLang);
-    api.updateUserInfo({ language: normalizedLang });
+    try {
+      await api.updateUserInfo({ language: normalizedLang });
+    } catch (e) {
+      // non-blocking
+      console.warn('Failed to persist language preference', e);
+    }
+    // Update stores for immediate UI coherence
+    useUserStore.getState().updateUserInfo({ language: normalizedLang });
+    try {
+      useSystemStore.getState().updateLanguage(normalizedLang);
+    } catch {}
   };
 
   const userMenuItems: {
