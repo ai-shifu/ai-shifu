@@ -21,7 +21,7 @@ RUN apk add --no-cache libc6-compat python3 make g++ && \
 
 # Copy project source and shared i18n
 COPY ${APP_DIR}/ ./
-COPY ${I18N_DIR}/ ./src/i18n
+COPY ${I18N_DIR}/ ./i18n
 
 RUN npm run build
 
@@ -39,7 +39,7 @@ COPY --from=builder /app/package.json ./
 COPY --from=builder /app/package-lock.json ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/src/i18n ./src/i18n
+COPY --from=builder /app/i18n ./i18n
 
 RUN npm ci --only=production && \
     npm cache clean --force && \

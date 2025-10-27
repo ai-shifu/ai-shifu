@@ -28,6 +28,8 @@ services:
     image: aishifu/ai-shifu-cook-web:latest
     env_file:
       - ./.env
+    environment:
+      - I18N_ROOT=/app/i18n
     depends_on:
       - ai-shifu-api
   ai-shifu-nginx:

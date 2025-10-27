@@ -10,6 +10,7 @@ const resolveSharedI18nPath = (): string | null => {
     path.resolve(__dirname, 'src/i18n'), // when building from repo root (Docker)
     path.resolve(__dirname, '../i18n'), // when running Next from src/cook-web
     path.resolve(__dirname, '../../i18n'), // monorepo-like layout
+    '/app/i18n',
     '/app/src/i18n',
     '/i18n',
   ];

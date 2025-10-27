@@ -9,6 +9,7 @@ const resolveI18nRoot = async (): Promise<string> => {
     path.join(process.cwd(), 'src/i18n'),
     path.join(process.cwd(), '../i18n'),
     path.join(process.cwd(), '../../i18n'),
+    '/app/i18n',
     '/app/src/i18n',
     '/i18n',
   ].filter((candidate): candidate is string => Boolean(candidate));

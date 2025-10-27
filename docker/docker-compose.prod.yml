@@ -34,6 +34,8 @@ services:
     image: aishifu/ai-shifu-cook-web:v0.7.0
     env_file:
       - ./.env
+    environment:
+      - I18N_ROOT=/app/i18n
     depends_on:
       - ai-shifu-api
     restart: unless-stopped
