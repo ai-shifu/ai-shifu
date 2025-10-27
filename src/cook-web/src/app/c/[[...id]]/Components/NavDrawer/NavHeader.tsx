@@ -24,6 +24,7 @@ export const NavHeader = ({
   const { trackEvent } = useTracking();
   const onLogoAreaClick = useCallback(() => {
     trackEvent(EVENT_NAMES.NAV_TOP_LOGO, {});
+    console.log('onLogoAreaClick');
   }, [trackEvent]);
 
   const onToggleButtonClick = useCallback(() => {

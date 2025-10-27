@@ -67,6 +67,7 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_GUEST,
 )
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,

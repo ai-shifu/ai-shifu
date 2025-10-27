@@ -1,4 +1,4 @@
-.tag-profile,
+/* .tag-profile,
 .tag-image,
 .tag-video {
   cursor: pointer;
@@ -9,9 +9,6 @@
   &:hover {
     border: 1px solid #ddd;
 
-    /* .tag-icon {
-            visibility: visible;
-        } */
   }
 }
 .tag-image {
@@ -23,10 +20,8 @@
 
 .tag-icon {
   margin-left: 10px;
-  /* visibility: hidden; */
 }
 
-/* label */
 .cm-tooltip.cm-tooltip-autocomplete {
   border: 1px solid #e5e5e5;
   background-color: #fff;
@@ -45,4 +40,4 @@
   background-color: #f9fafb;
   cursor: pointer;
   width: 140px;
-}
+} */

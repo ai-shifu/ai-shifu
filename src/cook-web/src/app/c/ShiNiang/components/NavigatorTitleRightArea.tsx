@@ -48,13 +48,7 @@ const NavigatorTitleRightArea = ({ payload }) => {
       trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
-  }, [
-    EVENT_NAMES.POP_PAY,
-    hasPay,
-    openPayModal,
-    trackEvent,
-    updateOrderPromotePopoverOpen,
-  ]);
+  }, [EVENT_NAMES.POP_PAY, hasPay, openPayModal, trackEvent, updateOrderPromotePopoverOpen]);
 
   // const popoverLocation = shifu.utils.checkMobileStyle(frameLayout)
   //   ? 'bottom'

@@ -55,7 +55,9 @@ export const useCourseStore = create<
       set(current => ({
         payModalState: {
           type:
-            state.type !== undefined ? state.type : current.payModalState.type,
+            state.type !== undefined
+              ? state.type
+              : current.payModalState.type,
           payload:
             state.payload !== undefined
               ? state.payload

@@ -87,6 +87,7 @@ export const CourseCatalog = ({
               chapterId={id}
               onSelect={onLessonSelect}
               onTrySelect={_onTrySelect}
+             
             />
           );
         })}
