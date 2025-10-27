@@ -31,7 +31,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV I18N_ROOT=/app/src/i18n
+ENV I18N_ROOT=/app/i18n
 
 RUN apk add --no-cache libc6-compat
 
