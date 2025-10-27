@@ -122,13 +122,13 @@ const ChapterPromptSetting = ({
             variant='outline'
             onClick={() => onOpenChange?.(false)}
           >
-            {t('common.cancel')}
+            {t('common.core.cancel')}
           </Button>
           <Button
             disabled={loading}
             onClick={onConfirm}
           >
-            {t('common.confirm')}
+            {t('common.core.confirm')}
           </Button>
         </SheetFooter>
       </SheetContent>
