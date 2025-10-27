@@ -93,7 +93,6 @@ export const CourseSection = ({
     e.stopPropagation();
   }, []);
 
-
   return (
     <div
       className={classNames(

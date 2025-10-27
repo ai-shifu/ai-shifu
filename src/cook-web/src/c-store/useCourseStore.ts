@@ -29,7 +29,7 @@ export const useCourseStore = create<
     updateResetedLessonId: resetedLessonId => set(() => ({ resetedLessonId })),
     updateResetedChapterId: resetedChapterId =>
       set(() => ({ resetedChapterId })),
-    resetChapter: async (lid ) => {
+    resetChapter: async lid => {
       await apiResetChapter({ lessonId: lid });
       // set({ chapterId: resetedChapterId });
       set({ resetedLessonId: lid, lessonId: lid });

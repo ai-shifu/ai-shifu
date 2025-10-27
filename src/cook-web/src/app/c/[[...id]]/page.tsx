@@ -379,7 +379,7 @@ export default function ChatPage() {
     };
   }, [gotoLogin, onGoChapter, reloadTree]);
 
-  console.log('lessonid', lessonId, 'selectedLessonId',selectedLessonId)
+  console.log('lessonid', lessonId, 'selectedLessonId', selectedLessonId);
   return (
     <div className={clsx(styles.newChatPage)}>
       <AppContext.Provider
