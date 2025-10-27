@@ -93,6 +93,7 @@ export const CourseSection = ({
     e.stopPropagation();
   }, []);
 
+
   return (
     <div
       className={classNames(
@@ -161,7 +162,7 @@ export const CourseSection = ({
             // @ts-expect-error EXPECT
             <ResetChapterButton
               onClick={onResetButtonClick}
-              chapterId={id}
+              chapterId={chapterId}
               chapterName={name}
               className={styles.resetButton}
               lessonId={id}

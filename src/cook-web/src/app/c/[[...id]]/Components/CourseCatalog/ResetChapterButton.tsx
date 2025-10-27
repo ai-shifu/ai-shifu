@@ -70,16 +70,18 @@ export const ResetChapterButton = ({
   );
 
   async function handleConfirm() {
-    await resetChapter(chapterId);
+    await resetChapter(lessonId);
     updateLessonId(lessonId);
 
     shifu.resetTools.resetChapter({
       chapter_id: chapterId,
+      lesson_id: lessonId,
       chapter_name: chapterName,
     });
 
     trackEvent(EVENT_NAMES.RESET_CHAPTER_CONFIRM, {
       chapter_id: chapterId,
+      lesson_id: lessonId,
       chapter_name: chapterName,
     });
 
