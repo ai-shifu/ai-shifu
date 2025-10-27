@@ -1,4 +1,3 @@
-from decimal import Decimal
 from markdown_flow import (
     InteractionParser,
 )
@@ -225,15 +224,6 @@ def get_outline_item_tree(
                 banner_info=banner_info_dto,
                 outline_items=outline_items,
             )
-        is_paid = shifu.price == Decimal(0)
-        if not is_paid:
-            buy_record = Order.query.filter(
-                Order.user_bid == user_bid,
-                Order.shifu_bid == shifu_bid,
-                Order.status == ORDER_STATUS_SUCCESS,
-            ).first()
-            is_paid = buy_record and buy_record.status == ORDER_STATUS_SUCCESS
-
         if not is_paid:
             if add_banner:
                 banner_info_dto = LearnBannerInfoDTO(
