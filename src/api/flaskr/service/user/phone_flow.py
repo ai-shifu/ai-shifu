@@ -204,8 +204,11 @@ def verify_phone_code(
             init_first_course(app, user_info.user_id)
             created_new_user = True
         else:
+            # If this is the first time the user completes verification,
+            # promote state from UNREGISTERED to REGISTERED and run first-course init.
             if user_info.user_state == USER_STATE_UNREGISTERED:
                 user_info.user_state = USER_STATE_REGISTERED
+                init_first_course(app, user_info.user_id)
             user_info.mobile = phone
             if language:
                 user_info.user_language = language
