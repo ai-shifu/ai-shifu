@@ -254,7 +254,6 @@ export default function AskBlock({
 
   // Decide which messages to display
   const messagesToShow = isExpanded ? displayList : displayList.slice(0, 1);
-  // console.log('displayList:',isExpanded,messagesToShow);
 
   useEffect(() => {
     if (!isExpanded) {

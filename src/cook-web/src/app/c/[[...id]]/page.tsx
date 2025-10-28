@@ -180,18 +180,6 @@ export default function ChatPage() {
     }
   }, [chapterId, initialized, loadData, loadedChapterId]);
 
-  // TODO: REMOVE
-  // console.log(
-  //   'chapterId: ',
-  //   chapterId,
-  //   'lessonId: ',
-  //   lessonId,
-  //   'initialized: ',
-  //   initialized,
-  //   'loadedChapterId: ',
-  //   loadedChapterId,
-  // );
-
   const onLessonSelect = ({ id }) => {
     const chapter = getChapterByLesson(id);
     if (!chapter) {
@@ -380,7 +368,6 @@ export default function ChatPage() {
     };
   }, [gotoLogin, onGoChapter, reloadTree]);
 
-  console.log('lessonid', lessonId, 'selectedLessonId', selectedLessonId);
   return (
     <div className={clsx(styles.newChatPage)}>
       <AppContext.Provider

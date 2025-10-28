@@ -284,6 +284,7 @@ function useChatLogicHook({
                   item => item.generated_block_bid === 'loading',
                 );
                 if (hasLoading) {
+                  // console.log('接收到心跳，但是不增加loading', prev)
                   return prev;
                 }
                 const placeholderItem: ChatContentItem = {
@@ -292,6 +293,7 @@ function useChatLogicHook({
                   customRenderBar: () => <LoadingBar />,
                   type: ChatContentItemType.CONTENT,
                 };
+                // console.log('接收到心跳，增加loading', [...prev, placeholderItem])
                 return [...prev, placeholderItem];
               });
             }
@@ -356,7 +358,9 @@ function useChatLogicHook({
                     }
                     return item;
                   });
+                  // console.log('接收content hasItem', hasItem, blockId)
                   if (!hasItem) {
+                    // console.log('增加content', nextText)
                     updatedList.push({
                       generated_block_bid: blockId,
                       content: nextText,
@@ -367,6 +371,7 @@ function useChatLogicHook({
                       type: ChatContentItemType.CONTENT,
                     });
                   }
+                  // console.log('updatedList', updatedList)
                   return updatedList;
                 });
               }
@@ -427,8 +432,14 @@ function useChatLogicHook({
                   isTypeFinishedRef.current = true;
                 }
               }
-              // currentBlockIdRef.current = null;
-              // currentContentRef.current = '';
+              // if break, means the block is finished,
+              // maybe sse is not closed, it will let prevText not null, so we need to clear it
+              if(response.type === SSE_OUTPUT_TYPE.BREAK){
+                // console.log('=====BREAK=====', response)
+                // currentBlockIdRef.current = null;
+                currentContentRef.current = '';
+              }
+           
             } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
               updateUserInfo({
                 [response.content.key]: response.content.value,
@@ -692,7 +703,6 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    console.log('lessonId change close sse', lessonId);
     sseRef.current?.close();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
@@ -907,20 +917,28 @@ function useChatLogicHook({
     //   isInitHistoryRef: isInitHistoryRef.current,
     // });
     if (isTypeFinishedRef.current && isStreamingRef.current) {
+      // console.log('打字结束', contentListRef.current)
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
-
       currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
       setTrackedContentList(prev => {
+        const hasLoading = prev.some(
+          item => item.generated_block_bid === 'loading',
+        );
+        if (hasLoading) {
+          // console.log('打字结束，但是不增加loading', prev)
+          return prev;
+        }
         const placeholderItem: ChatContentItem = {
-          generated_block_bid: currentBlockIdRef.current || '',
+          generated_block_bid: 'loading',
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
         };
+        // console.log('打字结束，增加loading', [...prev, placeholderItem])
         return [...prev, placeholderItem];
       });
       return;
@@ -991,7 +1009,7 @@ function useChatLogicHook({
             });
           }
         }
-
+        // console.log('updateList', updatedList)
         return updatedList;
       });
 
