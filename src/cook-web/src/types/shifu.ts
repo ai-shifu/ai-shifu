@@ -154,7 +154,7 @@ export interface ShifuActions {
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
-  saveMdflow: (value: string) => Promise<void>;
+  saveMdflow: () => Promise<void>;
   setCurrentMdflow: (value: string) => void;
   parseMdflow: (value: string, shifuId: string, outlineId: string) => Promise<void>;
 }
