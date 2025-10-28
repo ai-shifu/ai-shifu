@@ -98,6 +98,9 @@ def migrate_user_study_record(
 
 
 def init_first_course(app: Flask, user_id: str) -> None:
+    # Ensure pending state changes are visible to subsequent queries
+    db.session.flush()
+
     # Count users who are actually verified/registered or above.
     # Support both legacy (0..3) and new (1101..1104) state ranges.
     verified_states = [
@@ -112,14 +115,18 @@ def init_first_course(app: Flask, user_id: str) -> None:
     if user_count != 1:
         return
 
-    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-    if course_count != 1:
-        return
-
+    # Always grant admin/creator to the first verified user
     first_user = User.query.filter(User.user_id == user_id).first()
     if first_user:
         first_user.is_admin = True
         first_user.is_creator = True
+    db.session.flush()
+
+    # Assign demo shifu only when there is exactly one published course
+    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
+    if course_count != 1:
+        db.session.flush()
+        return
 
     course = (
         PublishedShifu.query.filter(PublishedShifu.deleted == 0)
