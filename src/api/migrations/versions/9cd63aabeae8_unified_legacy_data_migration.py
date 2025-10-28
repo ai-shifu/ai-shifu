@@ -79,35 +79,6 @@ def upgrade():
     engine = create_engine(database_url)
 
     # Check and add content column if needed
-    log_and_print("Checking and adding content columns...")
-
-    with engine.connect() as conn:
-        # Check if content column exists in shifu_draft_outline_items
-        draft_result = conn.execute(
-            text("SHOW COLUMNS FROM shifu_draft_outline_items LIKE 'content'")
-        ).fetchone()
-        if not draft_result:
-            log_and_print("Adding content column to shifu_draft_outline_items...")
-            conn.execute(
-                text(
-                    "ALTER TABLE shifu_draft_outline_items ADD COLUMN content TEXT NOT NULL COMMENT 'MarkdownFlow content'"
-                )
-            )
-            conn.commit()
-
-        # Check if content column exists in shifu_published_outline_items
-        published_result = conn.execute(
-            text("SHOW COLUMNS FROM shifu_published_outline_items LIKE 'content'")
-        ).fetchone()
-        if not published_result:
-            log_and_print("Adding content column to shifu_published_outline_items...")
-            conn.execute(
-                text(
-                    "ALTER TABLE shifu_published_outline_items ADD COLUMN content TEXT NOT NULL COMMENT 'MarkdownFlow content'"
-                )
-            )
-            conn.commit()
-
     log_and_print("Content columns verified/added successfully")
     log_and_print("Starting unified legacy data migration...")
 
@@ -182,35 +153,6 @@ def upgrade():
 
         # Clean up: Drop content columns after migration is complete
         log_and_print("Cleaning up temporary content columns...")
-        with engine.connect() as conn:
-            # Drop content column from shifu_draft_outline_items
-            try:
-                conn.execute(
-                    text("ALTER TABLE shifu_draft_outline_items DROP COLUMN content")
-                )
-                conn.commit()
-                log_and_print("Dropped content column from shifu_draft_outline_items")
-            except Exception as e:
-                log_and_print(
-                    f"Warning: Could not drop content column from shifu_draft_outline_items: {e}"
-                )
-
-            # Drop content column from shifu_published_outline_items
-            try:
-                conn.execute(
-                    text(
-                        "ALTER TABLE shifu_published_outline_items DROP COLUMN content"
-                    )
-                )
-                conn.commit()
-                log_and_print(
-                    "Dropped content column from shifu_published_outline_items"
-                )
-            except Exception as e:
-                log_and_print(
-                    f"Warning: Could not drop content column from shifu_published_outline_items: {e}"
-                )
-
         log_and_print("Cleanup completed")
 
     except Exception as e:

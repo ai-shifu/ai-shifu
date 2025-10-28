@@ -218,7 +218,11 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
         __save_shifu_history(app, user_id, shifu_bid, history_item)
         db.session.commit()
         db.session.begin()
-        print("migrate shifu info to shifu published v2, shifu_bid: ", shifu_bid)
+        print(
+            "migrate shifu info to shifu published v2, shifu_bid: ",
+            shifu_bid,
+            history_item.id,
+        )
 
         # migrate to publish shifu
         online_course = (
@@ -262,7 +266,6 @@ def migrate_shifu_draft_to_shifu_draft_v2(app, shifu_bid: str):
         history_item = HistoryItem(
             bid=shifu_bid, id=new_online_course.id, type="shifu", children=[]
         )
-        __save_shifu_history(app, user_id, shifu_bid, history_item)
         outlines: list[AILesson] = (
             AILesson.query.filter(
                 AILesson.course_id == shifu_bid,
