@@ -17,7 +17,7 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
-from flaskr.service.shifu.models import PublishedShifu
+from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
@@ -115,7 +115,14 @@ def init_first_course(app: Flask, user_id: str) -> None:
         .first()
     )
     if course:
-        course.created_user_id = user_id
+        # Persist creator on the published record
+        course.created_user_bid = user_id
+        # Also persist creator on the corresponding draft (used by permission checks)
+        draft = DraftShifu.query.filter(
+            DraftShifu.shifu_bid == course.shifu_bid
+        ).first()
+        if draft:
+            draft.created_user_bid = user_id
     db.session.flush()
 
 
