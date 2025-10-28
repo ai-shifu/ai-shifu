@@ -38,7 +38,24 @@ AI-Shifu is designed for creators, instructors, and training/education teams, of
 
 Make sure your machine has installed [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/).
 
-### Using Docker Hub image
+### Quick Start (Docker, zero config)
+
+```bash
+git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu/docker
+
+# Use Docker-ready defaults (matches bundled MySQL/Redis services)
+cp .env.example.minimal .env
+
+# Start all services
+docker compose up -d
+```
+
+Notes
+- First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
+- Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
+
+### Using Docker Hub image (customize)
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -50,11 +67,12 @@ cp .env.example.minimal .env
 # Or for full configuration options:
 cp .env.example.full .env
 
-# Edit .env and configure the required variables:
-# - SQLALCHEMY_DATABASE_URI: Database connection
-# - SECRET_KEY: JWT signing key (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
-# - UNIVERSAL_VERIFICATION_CODE: Test verification code
-# - At least one LLM API key (OPENAI_API_KEY, ERNIE_API_KEY, etc.)
+# Edit .env if you need to customize (optional for quick start):
+# - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
+# - REDIS_HOST: Defaults to docker Redis service
+# - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
+# - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
+# - LLM API keys (OPENAI_API_KEY, ERNIE_API_KEY, etc.) for model access
 
 docker compose up -d
 ```
@@ -83,6 +101,7 @@ After Docker starts:
 1. Open `http://localhost:8080` in your browser to access the user interface
 2. Open `http://localhost:8081` in your browser to access the script editor
 3. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
+4. The first verified user becomes Admin and Creator and will own the demo course
 
 ## Internationalization (i18n)
 

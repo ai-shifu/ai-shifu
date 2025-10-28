@@ -32,7 +32,7 @@ AI‑Shifu – Work Items Status and Next Steps
     - Updated `docker/.env.example.minimal` to include Docker-ready defaults: `SECRET_KEY=ai-shifu`, `SQLALCHEMY_DATABASE_URI` using `ai-shifu-mysql`, and `REDIS_HOST=ai-shifu-redis`.
     - Updated `docker/.env.example.full` defaults: `SQLALCHEMY_DATABASE_URI` points to `ai-shifu-mysql` and `REDIS_HOST=ai-shifu-redis`.
 
-- [ ] 3) “Clone and auto-start” docs are unclear
+- [x] 3) “Clone and auto-start” docs are unclear
   - Status: Not complete
   - Evidence:
     - README describes copying `.env` and starting compose, but does not provide a single “works out-of-the-box” example with the exact Docker values for `SQLALCHEMY_DATABASE_URI` and `REDIS_HOST` that match bundled services (see `README.md:44`–`README.md:61`).
@@ -40,9 +40,12 @@ AI‑Shifu – Work Items Status and Next Steps
   - Impact:
     - New users cloning the repo may fail to start services on first try and need to iterate on env values.
   - Fix Plan:
-    - Add a “One‑liner quick start” section showing: `cp .env.example.minimal .env && sed -i ...` or provide an example `.env` file that just works with included MySQL/Redis.
+    - Add a “One‑liner quick start” section showing: `cp .env.example.minimal .env` then `docker compose up -d` (env defaults already match services).
     - Explicitly document the Docker service hostnames and the recommended `SQLALCHEMY_DATABASE_URI` string for Docker.
     - Clarify dev vs prod compose differences, and where env overrides come from.
+  - Done:
+    - README.md: Added “Quick Start (Docker, zero config)” and noted first-user admin/creator + demo ownership.
+    - README_ZH-CN.md: 增加了“一键快速启动（Docker，无需修改）”，并说明首个用户角色与 Demo 课程所有权。
 
 Notes
 - The user role flags `is_admin` and `is_creator` are persisted on the legacy user model and exposed in the `UserInfo` DTO (see `src/api/flaskr/service/user/repository.py:119`). These work, but demo course ownership must be fixed as above to align creator permissions with shifu ownership checks.

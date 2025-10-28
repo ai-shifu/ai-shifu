@@ -40,7 +40,24 @@ AI师傅面向创作者、讲师、培训与教育团队，提供“可扩展的
 
 请先确认你的机器已经安装好[Docker](https://docs.docker.com/get-docker/)和[Docker Compose](https://docs.docker.com/compose/install/)。
 
-### 使用 Docker Hub 镜像
+### 一键快速启动（Docker，无需修改）
+
+```bash
+git clone https://github.com/ai-shifu/ai-shifu.git
+cd ai-shifu/docker
+
+# 使用与 docker-compose 一致的默认配置
+cp .env.example.minimal .env
+
+# 启动全部服务
+docker compose up -d
+```
+
+说明
+- 第一个完成验证登录的用户会自动成为管理员和创作者；并获得内置 Demo 课程的所有权。
+- 默认通用验证码为 1024（仅用于演示/测试，生产环境请修改或禁用）。
+
+### 使用 Docker Hub 镜像（需定制时）
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -52,10 +69,11 @@ cp .env.example.minimal .env
 # 或选择完整配置选项：
 cp .env.example.full .env
 
-# 编辑 .env 文件并配置必需的变量：
-# - SQLALCHEMY_DATABASE_URI: 数据库连接
-# - SECRET_KEY: JWT签名密钥（生成方法: python -c "import secrets; print(secrets.token_urlsafe(32))"）
-# - UNIVERSAL_VERIFICATION_CODE: 测试验证码
+# 如需自定义（快速启动不需要立即修改）：
+# - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
+# - REDIS_HOST：默认指向 docker 中的 Redis 服务
+# - SECRET_KEY：示例值，仅用于演示；生产环境请替换（生成：python -c "import secrets; print(secrets.token_urlsafe(32))"）
+# - UNIVERSAL_VERIFICATION_CODE：测试验证码（生产环境请清空/禁用）
 # - 至少一个大模型 API key（OPENAI_API_KEY、ERNIE_API_KEY 等）
 
 docker compose up -d
@@ -85,6 +103,7 @@ Docker 启动后：
 1. 用浏览器打开 `http://localhost:8080`，访问用户界面
 2. 用浏览器打开 `http://localhost:8081`，访问剧本编辑器
 3. 登录时可使用任意手机号，默认万能验证码为 **1024**（仅用于演示/测试，生产环境务必修改或禁用）
+4. 第一个验证通过的用户会成为管理员与创作者，并获得 Demo 课程所有权
 
 ## 国际化（i18n）
 
