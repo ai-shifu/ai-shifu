@@ -118,7 +118,7 @@ def verify_email_code(
         else:
             # If this is the first time the user completes verification,
             # promote state from UNREGISTERED to REGISTERED and run first-course init.
-            if user_info.user_state == USER_STATE_UNREGISTERED:
+            if user_info.user_state in (USER_STATE_UNREGISTERED, 0):
                 user_info.user_state = USER_STATE_REGISTERED
                 init_first_course(app, user_info.user_id)
             if language:

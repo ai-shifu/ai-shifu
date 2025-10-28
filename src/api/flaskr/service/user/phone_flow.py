@@ -21,6 +21,8 @@ from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_PAID,
 )
 from flaskr.service.user.models import User
 from flaskr.service.user.utils import generate_token
@@ -96,7 +98,17 @@ def migrate_user_study_record(
 
 
 def init_first_course(app: Flask, user_id: str) -> None:
-    user_count = User.query.filter(User.user_state != USER_STATE_UNREGISTERED).count()
+    # Count users who are actually verified/registered or above.
+    # Support both legacy (0..3) and new (1101..1104) state ranges.
+    verified_states = [
+        1,
+        2,
+        3,
+        USER_STATE_REGISTERED,
+        USER_STATE_TRAIL,
+        USER_STATE_PAID,
+    ]
+    user_count = User.query.filter(User.user_state.in_(verified_states)).count()
     if user_count != 1:
         return
 
@@ -206,7 +218,7 @@ def verify_phone_code(
         else:
             # If this is the first time the user completes verification,
             # promote state from UNREGISTERED to REGISTERED and run first-course init.
-            if user_info.user_state == USER_STATE_UNREGISTERED:
+            if user_info.user_state in (USER_STATE_UNREGISTERED, 0):
                 user_info.user_state = USER_STATE_REGISTERED
                 init_first_course(app, user_info.user_id)
             user_info.mobile = phone
