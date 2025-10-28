@@ -35,7 +35,7 @@ def _load_user_info(app: Flask, user_bid: str) -> UserInfo:
 def validate_user(app: Flask, token: str) -> UserInfo:
     with app.app_context():
         if not token:
-            raise_error("USER.USER_NOT_LOGIN")
+            raise_error("server.user.userNotLogin")
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
                 return _load_user_info(app, token)
@@ -48,7 +48,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             app.logger.info("user_id:" + user_id)
             redis_user_id = redis.get(app.config["REDIS_KEY_PREFIX_USER"] + token)
             if redis_user_id is None:
-                raise_error("USER.USER_TOKEN_EXPIRED")
+                raise_error("server.user.userTokenExpired")
             set_user_id = str(
                 redis_user_id,
                 encoding="utf-8",
@@ -56,11 +56,11 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             if set_user_id == user_id:
                 return _load_user_info(app, user_id)
             else:
-                raise_error("USER.USER_TOKEN_EXPIRED")
+                raise_error("server.user.userTokenExpired")
         except jwt.exceptions.ExpiredSignatureError:
-            raise_error("USER.USER_TOKEN_EXPIRED")
+            raise_error("server.user.userTokenExpired")
         except jwt.exceptions.DecodeError:
-            raise_error("USER.USER_NOT_FOUND")
+            raise_error("server.user.userNotFound")
 
 
 def update_user_info(
@@ -74,12 +74,12 @@ def update_user_info(
 ) -> UserInfo:
     with app.app_context():
         if not user:
-            raise_error("USER.USER_NOT_FOUND")
+            raise_error("server.user.userNotFound")
 
         app.logger.info("update_user_info %s %s %s %s", name, email, mobile, language)
         aggregate = load_user_aggregate(user.user_id)
         if not aggregate:
-            raise_error("USER.USER_NOT_FOUND")
+            raise_error("server.user.userNotFound")
 
         updates = {"nickname": name}
         if language is not None:
@@ -92,8 +92,7 @@ def update_user_info(
 
         entity = get_user_entity_by_bid(user.user_id, include_deleted=True)
         if not entity:
-            raise_error("USER.USER_NOT_FOUND")
-
+            raise_error("server.user.languageNotFound")
         entity = update_user_entity_fields(entity, **updates)
 
         if email is not None:

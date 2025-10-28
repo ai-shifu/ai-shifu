@@ -227,7 +227,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         course_info: AICourseDTO = get_course_info(app, course_id)
         app.logger.info(f"course_info: {course_info}")
         if not course_info:
-            raise_error("LESSON.COURSE_NOT_FOUND")
+            raise_error("server.shifu.courseNotFound")
         origin_record = (
             Order.query.filter(
                 Order.user_bid == user_id,
@@ -251,7 +251,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             find_active_id = None
         if (not order_timeout_make_new_order) and origin_record and active_id is None:
             return query_buy_record(app, origin_record.order_bid)
-        # raise_error("ORDER.ORDER_NOT_FOUND")
+        # raise_error("server.order.orderNotFound")
         order_id = str(get_uuid(app))
         if order_timeout_make_new_order:
             buy_record = Order()
@@ -349,10 +349,10 @@ def generate_charge(
             Order.status != ORDER_STATUS_TIMEOUT,
         ).first()
         if not buy_record:
-            raise_error("ORDER.ORDER_NOT_FOUND")
+            raise_error("server.order.orderNotFound")
         course: AICourseDTO = get_course_info(app, buy_record.shifu_bid)
         if not course:
-            raise_error("COURSE.COURSE_NOT_FOUND")
+            raise_error("server.shifu.courseNotFound")
         app.logger.info("buy record found:{}".format(buy_record))
         if buy_record.status == ORDER_STATUS_SUCCESS:
             app.logger.warning("buy record:{} status is not init".format(record_id))
@@ -363,7 +363,7 @@ def generate_charge(
                 channel,
                 "",
             )
-            # raise_error("ORDER.ORDER_HAS_PAID")
+            # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
         product_id = course.course_id
         subject = course.course_name
@@ -440,7 +440,7 @@ def generate_charge(
             )
         else:
             app.logger.error("channel:{} not support".format(channel))
-            raise_error("PAY.PAY_CHANNEL_NOT_SUPPORT")
+            raise_error("server.pay.payChannelNotSupport")
         app.logger.info("charge created:{}".format(charge))
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         pingxxOrder = PingxxOrder()
@@ -672,4 +672,4 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 item,
             )
 
-        raise_error("ORDER.ORDER_NOT_FOUND")
+        raise_error("server.order.orderNotFound")

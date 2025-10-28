@@ -28,11 +28,14 @@ services:
     image: ai-shifu-cook-web-dev:latest
     env_file:
       - ./.env
+    environment:
+      - I18N_ROOT=/app/src/i18n
     depends_on:
       - ai-shifu-api-dev
     volumes:
       - ../src/cook-web/public:/app/public
       - ../src/cook-web/src:/app/src
+      - ../src/i18n:/app/src/i18n
 
   ai-shifu-nginx-dev-dev:
     container_name: ai-shifu-nginx-dev

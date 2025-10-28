@@ -66,7 +66,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
 
       if (!response.ok) {
         throw new Error(
-          `${t('fileUploader.uploadFailed')}: ${response.statusText}`,
+          `${t('component.fileUploader.uploadFailed')}: ${response.statusText}`,
         );
       }
 
@@ -76,7 +76,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       }
 
       if (!response.ok) {
-        throw new Error(t('fileUploader.uploadFailed'));
+        throw new Error(t('component.fileUploader.uploadFailed'));
       }
       setResourceUrl(res.data);
       setResourceTitle(file.name);
@@ -85,7 +85,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       img.src = res.data;
     } catch (error) {
       console.error('Error uploading image:', error);
-      alert(t('fileUploader.uploadImageFailed'));
+      alert(t('component.fileUploader.uploadImageFailed'));
     } finally {
       setIsUploading(false);
     }
@@ -98,7 +98,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
     } catch (error) {
       console.error('Error uploading image:', error);
       toast({
-        title: t('fileUploader.checkImageUrl'),
+        title: t('component.fileUploader.checkImageUrl'),
         variant: 'destructive',
       });
       return;
@@ -111,7 +111,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
         const url = await api.upfileByUrl({ url: inputUrl }).catch(err => {
           console.error('Error uploading image:', err);
           toast({
-            title: t('fileUploader.checkImageUrl'),
+            title: t('component.fileUploader.checkImageUrl'),
             variant: 'destructive',
           });
         });
@@ -121,7 +121,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       } catch (error) {
         console.error('Error uploading image:', error);
         toast({
-          title: t('fileUploader.checkImageUrl'),
+          title: t('component.fileUploader.checkImageUrl'),
           variant: 'destructive',
         });
       } finally {
@@ -167,10 +167,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
       {!resourceUrl ? (
         <>
           <div className='text-xs'>
-            <h2 className='font-bold mb-4'>{t('fileUploader.url')}</h2>
+            <h2 className='font-bold mb-4'>
+              {t('component.fileUploader.url')}
+            </h2>
             <div className='flex gap-2'>
               <Input
-                placeholder={t('fileUploader.pasteOrInputImageUrl')}
+                placeholder={t('component.fileUploader.pasteOrInputImageUrl')}
                 value={inputUrl}
                 onChange={e => setInputUrl(e.target.value)}
                 className='flex-1'
@@ -180,13 +182,15 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                 disabled={isUploading || !inputUrl}
                 className='w-24 h-8'
               >
-                {t('fileUploader.run')}
+                {t('component.fileUploader.run')}
               </Button>
             </div>
           </div>
 
           <div>
-            <h2 className='font-bold mb-4'>{t('fileUploader.upload')}</h2>
+            <h2 className='font-bold mb-4'>
+              {t('component.fileUploader.upload')}
+            </h2>
             <Card
               className='border-dashed border-2 text-center flex flex-col items-center justify-center min-h-[200px] p-2'
               onDrop={handleDrop}
@@ -201,7 +205,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                     ></div>
                   </div>
                   <p className='text-xs text-gray-500 mt-1 text-center'>
-                    {t('fileUploader.uploading')} {uploadProgress}%
+                    {t('component.fileUploader.uploading')} {uploadProgress}%
                   </p>
                 </div>
               ) : (
@@ -215,15 +219,17 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
                   />
                   <Upload className='h-10 w-10 text-gray-400 mb-4' />
                   <div className='mb-2'>
-                    {t('fileUploader.dragOrClickToUpload')}
+                    {t('component.fileUploader.dragOrClickToUpload')}
                     <button
                       className='text-blue-600 hover:underline'
                       onClick={() => resourceInputRef.current?.click()}
                     >
-                      {t('fileUploader.clickToUpload')}
+                      {t('component.fileUploader.clickToUpload')}
                     </button>
                   </div>
-                  <p className='text-gray-500'>{t('fileUploader.tips')}</p>
+                  <p className='text-gray-500'>
+                    {t('component.fileUploader.tips')}
+                  </p>
                 </>
               )}
             </Card>
@@ -238,18 +244,22 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
           />
           <div className='flex items-center w-full mb-2'>{resourceUrl}</div>
           <div className='flex items-center w-full mb-2'>
-            <div className='text-sm w-20'>{t('fileUploader.imageTitle')}</div>
+            <div className='text-sm w-20'>
+              {t('component.fileUploader.imageTitle')}
+            </div>
             <Input
               className='flex-1'
               value={resourceTitle}
               onChange={e => setResourceTitle(e.target.value.slice(0, 100))}
-              placeholder={t('fileUploader.imageTitlePlaceholder')}
+              placeholder={t('component.fileUploader.imageTitlePlaceholder')}
               maxLength={100}
             />
           </div>
 
           <div className='flex items-center w-full mb-2'>
-            <div className='text-sm w-20'>{t('fileUploader.imageScale')}</div>
+            <div className='text-sm w-20'>
+              {t('component.fileUploader.imageScale')}
+            </div>
             <div className='flex items-center gap-1'>
               <Input
                 type='number'
@@ -274,7 +284,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ value, onChange }) => {
             className='w-full py-2'
             onClick={resetState}
           >
-            {t('fileUploader.replaceImage')}
+            {t('component.fileUploader.replaceImage')}
           </Button>
         </div>
       )}

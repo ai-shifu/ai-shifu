@@ -38,7 +38,7 @@ export const FeedbackModal = ({ open, onClose }) => {
 
   const formSchema = z.object({
     feedback: z.string().min(5, {
-      message: t('feedback.feedbackPlaceholder'),
+      message: t('module.feedback.feedbackPlaceholder'),
     }),
   });
 
@@ -56,13 +56,13 @@ export const FeedbackModal = ({ open, onClose }) => {
         await submitFeedback(feedback);
 
         toast({
-          title: t('feedback.feedbackSuccess'),
+          title: t('module.feedback.feedbackSuccess'),
         });
         form.reset();
         onClose();
       } catch (error) {
         toast({
-          title: t('feedback.feedbackError') || 'Submission failed',
+          title: t('module.feedback.feedbackError') || 'Submission failed',
           variant: 'destructive',
         });
       }
@@ -89,7 +89,7 @@ export const FeedbackModal = ({ open, onClose }) => {
           <DialogContent className={styles.feedbackModal}>
             <DialogHeader>
               <DialogTitle className={cn(styles.title)}>
-                {t('feedback.feedbackTitle')}
+                {t('module.feedback.feedbackTitle')}
               </DialogTitle>
             </DialogHeader>
 
@@ -102,7 +102,7 @@ export const FeedbackModal = ({ open, onClose }) => {
                     <Textarea
                       maxLength={FEEDBACK_MAX_LENGTH}
                       minLength={5}
-                      placeholder={t('feedback.feedbackPlaceholder')}
+                      placeholder={t('module.feedback.feedbackPlaceholder')}
                       className='resize-none h-24'
                       {...field}
                     />
@@ -120,7 +120,7 @@ export const FeedbackModal = ({ open, onClose }) => {
                   form.handleSubmit(onSubmitFeedback)();
                 }}
               >
-                {t('feedback.feedbackSubmit')}
+                {t('module.feedback.feedbackSubmit')}
               </Button>
             </DialogFooter>
           </DialogContent>

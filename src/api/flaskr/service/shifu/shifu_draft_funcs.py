@@ -104,11 +104,11 @@ def create_shifu_draft(
         shifu_id = generate_id(app)
 
         if not shifu_name:
-            raise_error("SHIFU.SHIFU_NAME_REQUIRED")
+            raise_error("server.shifu.shifuNameRequired")
         if len(shifu_name) > 20:
-            raise_error("SHIFU.SHIFU_NAME_TOO_LONG")
+            raise_error("server.shifu.shifuNameTooLong")
         if len(shifu_description) > 500:
-            raise_error("SHIFU.SHIFU_DESCRIPTION_TOO_LONG")
+            raise_error("server.shifu.shifuDescriptionTooLong")
 
         # check if the name already exists
         existing_shifu = (
@@ -117,7 +117,7 @@ def create_shifu_draft(
             .first()
         )
         if existing_shifu:
-            raise_error("SHIFU.SHIFU_NAME_ALREADY_EXISTS")
+            raise_error("server.shifu.shifuNameAlreadyExists")
         # create a new DraftShifu object
         shifu_draft: DraftShifu = DraftShifu(
             shifu_bid=shifu_id,
@@ -171,7 +171,7 @@ def get_shifu_draft_info(app, user_id: str, shifu_id: str) -> ShifuDetailDto:
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
+            raise_error("server.shifu.shifuNotFound")
         return return_shifu_draft_dto(shifu_draft)
 
 

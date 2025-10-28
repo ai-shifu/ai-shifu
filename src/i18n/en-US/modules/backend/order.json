@@ -1,0 +1,22 @@
+{
+  "__namespace__": "server.order",
+  "__flat__": {
+    "courseNotPaid": "Course not purchased, please purchase the course first",
+    "orderNotFound": "Order Not Found",
+    "checkout": "Checkout",
+    "learnStatusNotStarted": "Ready",
+    "learnStatusInProgress": "Lrning",
+    "learnStatusCompleted": "Done",
+    "learnStatusRefund": "Refund",
+    "learnStatusLocked": "Locked",
+    "learnStatusUnavailable": "Unavailable",
+    "learnStatusBranch": "Branch",
+    "learnStatusReset": "Reset",
+    "orderHasPaid": "Order Has Paid",
+    "orderStatusInit": "Init",
+    "orderStatusSuccess": "Success",
+    "orderStatusRefund": "Refund",
+    "orderStatusToBePaid": "To be paid",
+    "orderStatusTimeout": "Expired"
+  }
+}

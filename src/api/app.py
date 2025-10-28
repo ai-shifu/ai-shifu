@@ -90,7 +90,8 @@ def create_app() -> Flask:
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(host="0.0.0.0", port=5800, debug=True)
+    # Only enable debug mode if explicitly running in development environment
+    app.run(host="0.0.0.0", port=5800, debug=app.config.get("ENV") == "development")
 else:
     app = create_app()
     from flaskr.framework.plugin.enable_plugin import enable_plugins

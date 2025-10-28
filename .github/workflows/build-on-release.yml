@@ -76,13 +76,15 @@ jobs:
         include:
           - service_name: "build-api"
             image_name_env: "AI_SHIFU_API_IMAGE_NAME"
-            context: "src/api"
+            context: "."
+            dockerfile: "src/api/Dockerfile"
           - service_name: "build-web"
             image_name_env: "AI_SHIFU_WEB_IMAGE_NAME"
             context: "src/web"
           - service_name: "build-cook-web"
             image_name_env: "AI_SHIFU_COOK_WEB_IMAGE_NAME"
-            context: "src/cook-web"
+            context: "."
+            dockerfile: "src/cook-web/Dockerfile"
 
     env:
       DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -110,8 +112,9 @@ jobs:
         run: |
           TAG_VERSION="${{ needs.validate-release.outputs.tag }}"
           echo "TAG_VERSION=$TAG_VERSION" >> $GITHUB_ENV
-          echo "RELEASE_BUILD=true" >> $GITHUB_ENV
-          echo "🏷️ Building release images with tag: $TAG_VERSION"
+          RELEASE_BUILD="${RELEASE_BUILD:-true}"
+          echo "RELEASE_BUILD=$RELEASE_BUILD" >> $GITHUB_ENV
+          echo "🏷️ Building release images with tag: $TAG_VERSION (push=$RELEASE_BUILD)"
 
       - name: Login to Docker Hub
         if: env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
@@ -155,8 +158,10 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: "${{ matrix.context }}"
+          file: ${{ matrix.dockerfile || '' }}
           platforms: linux/amd64,linux/arm64
-          push: true
+          push: ${{ env.RELEASE_BUILD == 'true' }}
+          load: ${{ env.RELEASE_BUILD != 'true' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}

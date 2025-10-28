@@ -1,0 +1,6 @@
+{
+  "__namespace__": "server.pay",
+  "__flat__": {
+    "payChannelNotSupport": "Unsupported Payment Channel"
+  }
+}

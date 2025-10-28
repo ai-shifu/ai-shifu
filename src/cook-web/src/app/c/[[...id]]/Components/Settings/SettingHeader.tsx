@@ -24,12 +24,12 @@ export const SettingHeader = ({ className, onHomeClick }) => {
               className={styles.clickable}
               onClick={onHomeClick}
             >
-              {t('settings.home')}
+              {t('module.settings.home')}
             </span>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <span>{t('settings.settingTitle')}</span>
+            <span>{t('module.settings.settingTitle')}</span>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

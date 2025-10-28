@@ -77,7 +77,7 @@ const ShifuCard = ({
 
 const ScriptManagementPage = () => {
   const { toast } = useToast();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isInitialized = useUserStore(state => state.isInitialized);
   const isGuest = useUserStore(state => state.isGuest);
   const [activeTab, setActiveTab] = useState('all');
@@ -138,8 +138,8 @@ const ScriptManagementPage = () => {
     try {
       await api.createShifu(values);
       toast({
-        title: t('common.createSuccess'),
-        description: t('common.createSuccessDescription'),
+        title: t('common.core.createSuccess'),
+        description: t('common.core.createSuccessDescription'),
       });
       setShifus([]);
       setHasMore(true);
@@ -148,9 +148,11 @@ const ScriptManagementPage = () => {
       setShowCreateShifuModal(false);
     } catch (error) {
       toast({
-        title: t('common.createFailed'),
+        title: t('common.core.createFailed'),
         description:
-          error instanceof Error ? error.message : t('common.unknownError'),
+          error instanceof Error
+            ? error.message
+            : t('common.core.unknownError'),
         variant: 'destructive',
       });
     }
@@ -164,6 +166,18 @@ const ScriptManagementPage = () => {
     currentPage.current = 1;
     setError(null);
   }, [activeTab]);
+
+  // Reload list when language changes to reflect localized fields
+  useEffect(() => {
+    setShifus([]);
+    setHasMore(true);
+    currentPage.current = 1;
+    setError(null);
+    if (isInitialized && fetchShifusRef.current) {
+      fetchShifusRef.current();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -225,7 +239,7 @@ const ScriptManagementPage = () => {
       <div className='max-w-7xl mx-auto h-full overflow-hidden flex flex-col'>
         <div className='flex justify-between items-center mb-5'>
           <h1 className='text-2xl font-semibold text-gray-900'>
-            {t('common.shifu')}
+            {t('common.core.shifu')}
           </h1>
         </div>
         <div className='flex space-x-3 mb-5'>
@@ -235,7 +249,7 @@ const ScriptManagementPage = () => {
             onClick={handleCreateShifuModal}
           >
             <PlusIcon className='w-5 h-5 mr-1' />
-            {t('common.createBlankShifu')}
+            {t('common.core.createBlankShifu')}
           </Button>
           <CreateShifuDialog
             open={showCreateShifuModal}
@@ -256,7 +270,7 @@ const ScriptManagementPage = () => {
               {activeTab != 'all' && (
                 <RectangleStackOutlineIcon className='w-5 h-5 mr-1' />
               )}
-              {t('common.all')}
+              {t('common.core.all')}
             </TabsTrigger>
             <TabsTrigger value='favorites'>
               {activeTab == 'favorites' && (
@@ -265,7 +279,7 @@ const ScriptManagementPage = () => {
               {activeTab != 'favorites' && (
                 <StarOutlineIcon className='w-5 h-5 mr-1' />
               )}
-              {t('common.favorites')}
+              {t('common.core.favorites')}
             </TabsTrigger>
           </TabsList>
           <TabsContent
@@ -294,11 +308,13 @@ const ScriptManagementPage = () => {
             {loading && <Loading />}
             {!hasMore && shifus.length > 0 && (
               <p className='text-gray-500 text-sm'>
-                {t('common.noMoreShifus')}
+                {t('common.core.noMoreShifus')}
               </p>
             )}
             {!loading && !hasMore && shifus.length == 0 && (
-              <p className='text-gray-500 text-sm'>{t('common.noShifus')}</p>
+              <p className='text-gray-500 text-sm'>
+                {t('common.core.noShifus')}
+              </p>
             )}
           </div>
         </div>

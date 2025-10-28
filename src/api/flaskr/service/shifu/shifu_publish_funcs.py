@@ -59,7 +59,7 @@ def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict):
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
+            raise_error("server.shifu.shifuNotFound")
 
         return get_config("WEB_URL") + "/c/" + shifu_id + "?preview=true"
 
@@ -82,7 +82,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
         now_time = datetime.now()
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
-            raise_error("SHIFU.SHIFU_NOT_FOUND")
+            raise_error("server.shifu.shifuNotFound")
         PublishedShifu.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         PublishedOutlineItem.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})
         PublishedBlock.query.filter_by(shifu_bid=shifu_id).update({"deleted": 1})

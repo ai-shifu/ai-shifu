@@ -1,0 +1,13 @@
+{
+  "__namespace__": "server.discount",
+  "__flat__": {
+    "discountNotFound": "The voucher code does not exist.",
+    "discountNotStart": "The voucher code has not started.",
+    "discountAlreadyUsed": "The voucher code has been used.",
+    "discountAlreadyExpired": "The voucher code is invalid.",
+    "orderDiscountAlreadyUsed": "Order Already Used Discount",
+    "discountLimitExceeded": "The voucher code limit exceeded.",
+    "discountNotApply": "The voucher code does not apply to this course.",
+    "discountCountNotZero": "The voucher code count must be greater than 0."
+  }
+}

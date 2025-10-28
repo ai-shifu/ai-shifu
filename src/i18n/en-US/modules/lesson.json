@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.lesson",
+  "reset": {
+    "confirmContent": "Reset will clear current learning data. Are you sure?",
+    "confirmTitle": "Confirm Reset",
+    "title": "Reset"
+  }
+}

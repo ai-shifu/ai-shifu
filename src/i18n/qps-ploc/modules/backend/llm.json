@@ -1,0 +1,8 @@
+{
+  "__namespace__": "⟦šēřṽēř.ŀŀm⟧",
+  "__flat__": {
+    "noDefaultLlm": "⟦Ňø đēƒåųŀŧ ĿĿΜ įš ćøňƒįǥųřēđ⟧",
+    "specifiedLlmNotConfigured": "⟦Μøđēŀ {model} įš ňøŧ ćøňƒįǥųřēđ. Ćħēćķ .ēňṽ ƒįŀē ṽåřįåƀŀē: {config_var}⟧",
+    "modelNotSupported": "⟦Μøđēŀ {model} įš ňøŧ šųƥƥøřŧēđ⟧"
+  }
+}

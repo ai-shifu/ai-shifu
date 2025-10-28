@@ -25,22 +25,30 @@ const ShortcutModal = ({ open, onClose }: Props) => {
   }[] = [
     {
       id: 'continue',
-      title: t('shortcut.continue'),
-      keys: [t('shortcut.keys.space')],
+      title: t('common.core.shortcut.title.continue'),
+      keys: [t('common.core.shortcut.key.space')],
     },
     {
       id: 'ask',
-      title: t('shortcut.ask'),
+      title: t('common.core.shortcut.title.ask'),
       keys: inMacOs
-        ? [t('shortcut.keys.cmd'), t('shortcut.keys.shift'), 'A']
-        : [t('shortcut.keys.ctrl'), t('shortcut.keys.shift'), 'A'],
+        ? [
+            t('common.core.shortcut.key.cmd'),
+            t('common.core.shortcut.key.shift'),
+            'A',
+          ]
+        : [
+            t('common.core.shortcut.key.ctrl'),
+            t('common.core.shortcut.key.shift'),
+            'A',
+          ],
     },
     {
       id: 'shortcut',
-      title: t('shortcut.showHelp'),
+      title: t('common.core.shortcut.title.shortcut'),
       keys: inMacOs
-        ? [t('shortcut.keys.cmd'), '/']
-        : [t('shortcut.keys.ctrl'), '/'],
+        ? [t('common.core.shortcut.key.cmd'), '/']
+        : [t('common.core.shortcut.key.ctrl'), '/'],
     },
   ];
 
@@ -72,7 +80,7 @@ const ShortcutModal = ({ open, onClose }: Props) => {
       <DialogContent className={styles.shortcutModal}>
         <DialogHeader>
           <DialogTitle className={styles.shortcutTitle}>
-            {t('shortcut.title')}
+            {t('common.core.shortcut.title.shortcut')}
           </DialogTitle>
         </DialogHeader>
         <div className={styles.shortcutContent}>

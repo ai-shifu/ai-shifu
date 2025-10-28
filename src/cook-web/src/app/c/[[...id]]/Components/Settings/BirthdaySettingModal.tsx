@@ -67,7 +67,7 @@ export const BirthdaySettingModal = ({
       onClose={onClose}
       onOk={onOkClick}
       closeOnMaskClick={true}
-      title={t('settings.dialogTitle.selectBirthday')}
+      title={t('module.settings.dialogTitle.selectBirthday')}
     >
       <Calendar
         mode='single'

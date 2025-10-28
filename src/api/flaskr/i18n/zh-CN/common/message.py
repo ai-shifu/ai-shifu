@@ -1,6 +1,0 @@
-CONTINUE = "继续"
-LOGIN = "登录"
-CHECKOUT = "去支付"
-INPUT = "输入"
-CHECKCODE = "验证码"
-PHONE = "手机号"

@@ -557,7 +557,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         });
 
         if (!result) {
-          setError('common.errorSaveFailed');
+          setError('common.core.errorSaveFailed');
           return result;
         }
 
@@ -990,6 +990,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       outline_bid: currentNode?.bid || '',
       data: currentMdflow.current,
     });
+    setLastSaveTime(new Date());
   };
 
   const setCurrentMdflow = (value: string) => {

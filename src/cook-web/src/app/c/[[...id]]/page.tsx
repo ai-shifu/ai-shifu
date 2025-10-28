@@ -348,8 +348,8 @@ export default function ChatPage() {
   // listen global event
   useEffect(() => {
     const resetChapterEventHandler = async e => {
-      await reloadTree(e.detail.chapter_id);
-      onGoChapter(e.detail.chapter_id);
+      await reloadTree(e.detail.chapter_id, e.detail.lesson_id);
+      onGoChapter(e.detail.lesson_id);
     };
     const eventHandler = () => {
       // setLoginModalOpen(true);
@@ -378,6 +378,8 @@ export default function ChatPage() {
       );
     };
   }, [gotoLogin, onGoChapter, reloadTree]);
+
+  console.log('lessonid', lessonId, 'selectedLessonId', selectedLessonId);
   return (
     <div className={clsx(styles.newChatPage)}>
       <AppContext.Provider

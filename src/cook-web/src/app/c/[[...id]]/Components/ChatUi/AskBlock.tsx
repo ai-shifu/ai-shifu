@@ -75,7 +75,7 @@ export default function AskBlock({
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
   const showOutputInProgressToast = useCallback(() => {
     toast({
-      title: t('chat.outputInProgress'),
+      title: t('module.chat.outputInProgress'),
     });
   }, [t]);
 
@@ -404,7 +404,7 @@ export default function AskBlock({
         <input
           ref={inputRef}
           type='text'
-          placeholder={t('chat.askContent')}
+          placeholder={t('module.chat.askContent')}
           className={cn('flex-1 outline-none border-none bg-transparent')}
           onKeyDown={e => {
             if (e.key === 'Enter') {
@@ -451,7 +451,7 @@ export default function AskBlock({
                     height={20}
                     className={styles.mobileIcon}
                   />
-                  <span>{t('chat.ask')}</span>
+                  <span>{t('module.chat.ask')}</span>
                 </div>
                 <div className={styles.mobileActions}>
                   <button

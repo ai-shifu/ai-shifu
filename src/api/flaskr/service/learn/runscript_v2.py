@@ -59,20 +59,20 @@ def run_script_inner(
                 else:
                     shifu_info = get_shifu_dto(app, shifu_bid, preview_mode)
                 if not shifu_info:
-                    raise_error("LESSON.HAS_NOT_LESSON")
+                    raise_error("server.outline.hasNotLesson")
                 shifu_bid = shifu_info.bid
             else:
                 outline_item_info = get_outline_item_dto(app, outline_bid, preview_mode)
                 if not outline_item_info:
-                    raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                    raise_error("server.shifu.lessonNotFoundInCourse")
                 shifu_bid = outline_item_info.shifu_bid
                 shifu_info = get_shifu_dto(app, shifu_bid, preview_mode)
                 if not shifu_info:
-                    raise_error("LESSON.COURSE_NOT_FOUND")
+                    raise_error("server.shifu.courseNotFound")
 
             struct_info = get_shifu_struct(app, shifu_info.bid, preview_mode)
             if not struct_info:
-                raise_error("LESSON.SHIFU_NOT_FOUND")
+                raise_error("server.shifu.shifuNotFound")
             if not outline_item_info:
                 lesson_info = None
             else:
@@ -315,7 +315,7 @@ def run_script(
                                 outline_bid=outline_bid,
                                 generated_block_bid="",
                                 type=GeneratedType.CONTENT,
-                                content=str(_("COMMON.UNKNOWN_ERROR")),
+                                content=str(_("server.common.unknownError")),
                             ),
                             default=fmt,
                             ensure_ascii=False,

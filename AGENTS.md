@@ -16,6 +16,7 @@ This file provides guidance to all Coding Agents such as Claude Code (claude.ai/
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
 | Check code quality | `pre-commit run -a` | Root directory |
 | Start all services (Docker) | `docker compose up -d` | `cd docker` |
+| Build Cook Web image (includes i18n) | `./build-cook-web.sh` | `cd docker` |
 
 ### Essential Environment Variables
 
@@ -619,6 +620,22 @@ Cook Web provides tools for:
 
 ### Internationalization (i18n)
 
+#### Backend Translation Workflow
+- Backend translations live in shared JSON under `src/i18n/<locale>` (not
+  `src/api/flaskr/i18n`).
+- Run `python scripts/list_python_i18n_modules.py` regularly to keep the
+  migration checklist clean.
+- Validate localization data with `python scripts/check_translations.py` before
+  committing; it ensures every locale has matching files and keys.
+- Use `python scripts/create_translation_namespace.py <namespace> [--keys ...]`
+  to scaffold new namespaces across locales.
+- Run `python scripts/check_translation_usage.py --fail-on-unused` to detect keys
+  that are missing or unused across backend/frontend (no allowlists; fix directly).
+- When adding backend text, update the relevant JSON namespace, refresh
+  `src/i18n/locales.json` if a new namespace is introduced, and reference strings
+  in Python via `_('NAMESPACE.KEY')`.
+
+
 - **ALL user-facing strings MUST use i18n**: Never hardcode any text that will be displayed to users
 - Use translation keys instead of hardcoded strings
 - Examples:
@@ -626,10 +643,15 @@ Cook Web provides tools for:
   - ❌ Wrong: `'您当前没有权限访问此内容'`
   - ✅ Correct: `t('common.retry', 'Retry')` (with fallback)
   - ❌ Wrong: `'重试'`
-- Translation files are located in:
-  - Web app: `src/web/public/locales/`
-  - Cook web: `src/cook-web/public/locales/`
-- Always add translations for both Chinese (`zh-CN.json`) and English (`en-US.json`)
+- Shared translation files are located in `src/i18n/<locale>`. Cook Web and
+  the backend share the same JSON; do not add primary translations under
+  `public/locales`.
+- The frontend language list shows only `en-US` and `zh-CN`. The pseudo-locale
+  `qps-ploc` is for validation only (hidden in the UI).
+- When adding a new namespace, update both languages and run:
+  - `python scripts/generate_languages.py && git diff -- src/i18n/locales.json`
+  - `python scripts/check_translations.py`
+  - `python scripts/check_translation_usage.py --fail-on-unused`
 
 ### File and Directory Naming Conventions
 

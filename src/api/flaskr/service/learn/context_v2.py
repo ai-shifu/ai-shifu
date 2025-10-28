@@ -396,7 +396,7 @@ class RunScriptContextV2:
                 .first()
             )
             if not outline_item_info_db:
-                raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+                raise_error("server.shifu.lessonNotFoundInCourse")
             if outline_item_info_db.type == UNIT_TYPE_VALUE_NORMAL:
                 if (not self._is_paid) and (not self._preview_mode):
                     raise PaidException()
@@ -716,7 +716,7 @@ class RunScriptContextV2:
             LearnGeneratedBlock.deleted == 0,
         ).first()
         if not generate_block:
-            raise_error("LESSON.LESSON_NOT_FOUND_IN_COURSE")
+            raise_error("server.shifu.lessonNotFoundInCourse")
         outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
             self.app, generate_block.outline_item_bid, self._preview_mode
         )
@@ -1181,7 +1181,7 @@ class RunScriptContextV2:
                 outline_bid=self._outline_item_info.bid,
                 generated_block_bid=generate_id(self.app),
                 type=GeneratedType.INTERACTION,
-                content=f"?[{_('ORDER.CHECKOUT')}//_sys_pay]",
+                content=f"?[{_('server.order.checkout')}//_sys_pay]",
             )
         except UserNotLoginException:
             app.logger.info("UserNotLoginException")

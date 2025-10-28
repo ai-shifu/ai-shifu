@@ -1,9 +1,0 @@
-BANNER_TITLE = "解锁全部"
-BANNER_POP_UP_TITLE = "在此随时解锁全部内容"
-BANNER_POP_UP_CONTENT = "立即获得无限追问等诸多权益，让学习从容无忧"
-BANNER_POP_UP_CONFIRM_TEXT = "立即解锁"
-BANNER_POP_UP_CANCEL_TEXT = "再学学看"
-
-
-LESSON_BANNER_TITLE = "立即解锁 全部内容"
-LESSON_BANNER_CONTENT = "共 {chapter_count} 章 {lesson_count} 节，为您专属定制"

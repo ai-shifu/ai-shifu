@@ -50,7 +50,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
       if (value === '') {
         return;
       }
-      onChange(value || t('inlineInput.unnamed'));
+      onChange(value || t('module.renderUi.inlineInput.unnamed'));
     }, 300),
     [onChange, t],
   );

@@ -32,7 +32,7 @@ export class ErrorWithCode extends Error {
 const handleApiError = (error: ErrorWithCode, showToast = true) => {
   if (showToast) {
     toast({
-      title: error.message || i18n.t('common.networkError'),
+      title: error.message || i18n.t('common.core.networkError'),
       variant: 'destructive',
     });
   }
@@ -50,7 +50,7 @@ const handleApiError = (error: ErrorWithCode, showToast = true) => {
 // Check response status code and handle business logic
 const handleBusinessCode = (response: any) => {
   const error = new ErrorWithCode(
-    response.message || i18n.t('common.unknownError'),
+    response.message || i18n.t('common.core.unknownError'),
     response.code || -1,
   );
 
@@ -84,7 +84,7 @@ const handleBusinessCode = (response: any) => {
       response.code === 9002
     ) {
       toast({
-        title: i18n.t('errors.noPermission'),
+        title: i18n.t('common.errors.noPermission'),
         variant: 'destructive',
       });
     }

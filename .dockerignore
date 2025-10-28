@@ -1,0 +1,16 @@
+.git
+.gitignore
+**/node_modules
+**/.next
+**/out
+**/build
+.DS_Store
+*.pem
+.env*
+.eslintrc.json
+.vscode
+coverage
+.idea
+dist
+.cache
+*.log

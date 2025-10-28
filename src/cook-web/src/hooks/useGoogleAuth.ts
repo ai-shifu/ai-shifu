@@ -122,9 +122,9 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         window.location.href = payload.authorization_url;
       } catch (error: any) {
         clearGoogleSession();
-        const message = error?.message || t('auth.googleLoginError');
+        const message = error?.message || t('module.auth.googleLoginError');
         toast({
-          title: t('auth.failed'),
+          title: t('module.auth.failed'),
           description: message,
           variant: 'destructive',
         });
@@ -153,7 +153,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
       try {
         const expectedState = getGoogleOAuthState();
         if (expectedState && state && expectedState !== state) {
-          throw new Error(t('auth.googleStateMismatch'));
+          throw new Error(t('module.auth.googleStateMismatch'));
         }
 
         const response = await callWithTokenRefresh(() =>
@@ -171,7 +171,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           fallbackRedirect || getGoogleOAuthRedirect() || '/main';
 
         options.onSuccess?.(payload.userInfo, redirectTarget);
-        toast({ title: t('auth.success') });
+        toast({ title: t('module.auth.success') });
 
         clearGoogleSession();
 
@@ -181,9 +181,9 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         };
       } catch (error: any) {
         clearGoogleSession();
-        const message = error?.message || t('auth.googleLoginError');
+        const message = error?.message || t('module.auth.googleLoginError');
         toast({
-          title: t('auth.failed'),
+          title: t('module.auth.failed'),
           description: message,
           variant: 'destructive',
         });

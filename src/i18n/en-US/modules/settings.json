@@ -1,0 +1,18 @@
+{
+  "__namespace__": "module.settings",
+  "basicInfo": "Basic Info",
+  "birth": "Birthday",
+  "birthPlaceholder": "Please select birthday",
+  "dialogTitle": {
+    "selectBirthday": "Select Birthday",
+    "selectGender": "Select Gender"
+  },
+  "gender": "Gender",
+  "genderPlaceholder": "Please select gender",
+  "home": "Home",
+  "nickname": "Nickname",
+  "nicknamePersonal": "Nickname (also as personal info)",
+  "nicknamePlaceholder": "Please enter nickname",
+  "personalInfo": "Personal Settings",
+  "settingTitle": "Personal Info"
+}

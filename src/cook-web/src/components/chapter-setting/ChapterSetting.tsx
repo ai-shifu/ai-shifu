@@ -109,7 +109,7 @@ const ChapterSettingsDialog = ({
         <div className='border-b border-border px-6 py-5 pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
-              {t('chapterSetting.title')}
+              {t('module.chapterSetting.title')}
             </SheetTitle>
           </SheetHeader>
         </div>
@@ -122,7 +122,7 @@ const ChapterSettingsDialog = ({
             <div className='space-y-8'>
               <div className='space-y-3'>
                 <div className='text-sm font-medium text-foreground'>
-                  {t('chapterSetting.learningPermission')}
+                  {t('module.chapterSetting.learningPermission')}
                 </div>
                 <RadioGroup
                   value={learningPermission}
@@ -140,7 +140,7 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-normal'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('chapterSetting.paidChapter')}
+                      {t('module.chapterSetting.paidChapter')}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -152,7 +152,7 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-trial'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('chapterSetting.freeChapter')}
+                      {t('module.chapterSetting.freeChapter')}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -164,7 +164,7 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-guest'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('chapterSetting.guestChapter')}
+                      {t('module.chapterSetting.guestChapter')}
                     </Label>
                   </div>
                 </RadioGroup>
@@ -172,7 +172,7 @@ const ChapterSettingsDialog = ({
 
               <div className='space-y-3'>
                 <div className='text-sm font-medium text-foreground'>
-                  {t('chapterSetting.isHidden')}
+                  {t('module.chapterSetting.isHidden')}
                 </div>
                 <RadioGroup
                   value={hideChapter ? 'hidden' : 'visible'}
@@ -188,7 +188,7 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-visible'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('chapterSetting.visibleChapter')}
+                      {t('module.chapterSetting.visibleChapter')}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -200,7 +200,7 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-hidden'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('chapterSetting.hideChapter')}
+                      {t('module.chapterSetting.hideChapter')}
                     </Label>
                   </div>
                 </RadioGroup>
@@ -208,10 +208,10 @@ const ChapterSettingsDialog = ({
 
               <div className='space-y-2'>
                 <div className='text-sm font-medium text-foreground'>
-                  {t('chapterSetting.systemPrompt')}
+                  {t('module.chapterSetting.systemPrompt')}
                 </div>
                 {/* <div className='text-xs text-muted-foreground'>
-                  {t('chapterSetting.promptHint')}
+                  {t('module.chapterSetting.promptHint')}
                 </div> */}
                 <Textarea
                   value={systemPrompt}
@@ -233,13 +233,13 @@ const ChapterSettingsDialog = ({
             variant='outline'
             onClick={() => onOpenChange?.(false)}
           >
-            {t('common.cancel')}
+            {t('common.core.cancel')}
           </Button>
           <Button
             disabled={loading}
             onClick={onConfirm}
           >
-            {t('common.confirm')}
+            {t('common.core.confirm')}
           </Button>
         </SheetFooter>
       </SheetContent>

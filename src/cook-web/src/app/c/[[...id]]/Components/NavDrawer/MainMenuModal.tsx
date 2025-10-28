@@ -3,7 +3,8 @@ import styles from './MainMenuModal.module.scss';
 import { memo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
-import i18n from '@/i18n';
+import i18n, { normalizeLanguage } from '@/i18n';
+import { useSystemStore } from '@/c-store/useSystemStore';
 import api from '@/api';
 import {
   AlertDialog,
@@ -96,22 +97,21 @@ const MainMenuModal = ({
     }
   };
 
-  const normalizeLanguage = (lang: string): string => {
-    const supportedLanguages = Object.values(
-      i18n.options.fallbackLng || {},
-    ).flat();
-    const normalizedLang = lang.replace('_', '-');
-    if (supportedLanguages.includes(normalizedLang)) {
-      return normalizedLang;
+  const updateLanguage = async (language: string) => {
+    const normalized = normalizeLanguage(language);
+    // Persist preference to backend (best-effort)
+    try {
+      await api.updateUserInfo({ language: normalized });
+    } catch (e) {
+      // Non-blocking: UI already switched via LanguageSelect
+      console.warn('Failed to persist language preference', e);
     }
-    return 'en-US';
-  };
-
-  const updateLanguage = (language: string) => {
-    // const normalizedLang = normalizeLanguage(language);
-    // i18n.changeLanguage(language);
-    // console.log('updateLanguage====', language);
-    api.updateUserInfo({ language });
+    // Update local store so pages relying on userInfo.language react immediately
+    useUserStore.getState().updateUserInfo({ language: normalized });
+    // Keep system store language in sync for APIs that read it
+    try {
+      useSystemStore.getState().updateLanguage(normalized);
+    } catch {}
   };
 
   return (
@@ -122,9 +122,11 @@ const MainMenuModal = ({
       >
         <AlertDialogContent className={mobileStyle ? 'w-[80%]' : ''}>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('user.confirmLogoutTitle')}</AlertDialogTitle>
+            <AlertDialogTitle>
+              {t('module.user.confirmLogoutTitle')}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              {t('user.confirmLogoutContent')}
+              {t('module.user.confirmLogoutContent')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -162,7 +164,7 @@ const MainMenuModal = ({
               alt=''
             />
             <div className={styles.rowTitle}>
-              {t('menus.navigationMenus.basicInfo')}
+              {t('component.menus.navigationMenus.basicInfo')}
             </div>
           </div>
           <div
@@ -177,7 +179,7 @@ const MainMenuModal = ({
               alt=''
             />
             <div className={styles.rowTitle}>
-              {t('menus.navigationMenus.personalInfo')}
+              {t('component.menus.navigationMenus.personalInfo')}
             </div>
           </div>
 
@@ -198,7 +200,7 @@ const MainMenuModal = ({
                   alt=''
                 />
                 <div className={styles.rowTitle}>
-                  {t('menus.navigationMenus.language')}
+                  {t('component.menus.navigationMenus.language')}
                 </div>
               </div>
               <div className={styles.languageRowRight}>
@@ -221,7 +223,7 @@ const MainMenuModal = ({
                 src={imgSignIn.src}
                 alt=''
               />
-              <div className={styles.rowTitle}>{t('user.login')}</div>
+              <div className={styles.rowTitle}>{t('module.user.login')}</div>
             </div>
           ) : (
             <div
@@ -235,7 +237,7 @@ const MainMenuModal = ({
                 src={imgSignIn.src}
                 alt=''
               />
-              <div className={styles.rowTitle}>{t('user.logout')}</div>
+              <div className={styles.rowTitle}>{t('module.user.logout')}</div>
             </div>
           )}
         </div>

@@ -35,19 +35,25 @@ export default memo(function InputView(props: InputViewProps) {
   return (
     <div className='flex flex-col space-y-2'>
       <div className='flex flex-row items-center space-x-1'>
-        <span className='whitespace-nowrap'>{t('input.inputPlaceholder')}</span>
+        <span className='whitespace-nowrap'>
+          {t('module.renderUi.input.inputPlaceholder')}
+        </span>
         <div className='px-3 py-2 bg-gray-50 rounded-md'>
           {properties.input_placeholder}
         </div>
       </div>
       <div className='flex flex-row items-center space-x-1'>
-        <span className='whitespace-nowrap'>{t('input.inputKey')}</span>
+        <span className='whitespace-nowrap'>
+          {t('module.renderUi.input.inputKey')}
+        </span>
         <div className='px-3 py-2 bg-gray-50 rounded-md'>
           {properties.input_key}
         </div>
       </div>
       <div className='flex flex-row items-center space-x-1'>
-        <span className='whitespace-nowrap'>{t('input.inputName')}</span>
+        <span className='whitespace-nowrap'>
+          {t('module.renderUi.input.inputName')}
+        </span>
         <div className='px-3 py-2 bg-gray-50 rounded-md'>
           {properties.input_name}
         </div>

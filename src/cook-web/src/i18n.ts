@@ -1,15 +1,25 @@
 'use client';
 
 import i18n from 'i18next';
+import ICU from 'i18next-icu';
 import { initReactI18next } from 'react-i18next';
-import Backend from 'i18next-http-backend';
 
-import languages from '../public/locales/languages.json';
+import UnifiedI18nBackend from '@/lib/unified-i18n-backend';
+import { defaultLocale, localeCodes, namespaces } from '@/lib/i18n-locales';
 
-const languageCodes = Object.keys(languages);
-const fallbackLanguage = languageCodes.includes('en-US')
-  ? 'en-US'
-  : languageCodes[0];
+const fileNamespaces = namespaces.length ? namespaces : ['common'];
+const namespaceList = [
+  'translation',
+  ...fileNamespaces.filter(ns => ns !== 'translation'),
+];
+const defaultNamespace = 'translation';
+
+const languageCodes = localeCodes;
+const fallbackLanguage = languageCodes.length
+  ? languageCodes.includes(defaultLocale)
+    ? defaultLocale
+    : languageCodes[0]
+  : 'en-US';
 
 export const normalizeLanguage = (lang?: string | null): string => {
   if (!lang) {
@@ -40,28 +50,32 @@ const detectedBrowserLanguage =
 
 export const browserLanguage = normalizeLanguage(detectedBrowserLanguage);
 
-// Ensure initialization only happens in the browser
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !i18n.isInitialized) {
   i18n
-    .use(Backend)
+    // ICU messageformat support to match server-side formatting features
+    .use(new ICU())
+    .use(UnifiedI18nBackend)
     .use(initReactI18next)
     .init({
       fallbackLng: {
-        default: [fallbackLanguage], // All unsupported languages fallback to default locale
+        default: [fallbackLanguage],
       },
+      ns: namespaceList,
+      defaultNS: defaultNamespace,
       lng: browserLanguage,
-      backend: {
-        loadPath: `/locales/{{lng}}.json`,
-      },
+      load: 'currentOnly',
+      supportedLngs: languageCodes.length ? languageCodes : undefined,
+      nonExplicitSupportedLngs: false,
       interpolation: {
         escapeValue: false,
       },
       returnNull: false,
-      load: 'all',
-      supportedLngs: languageCodes,
-      nonExplicitSupportedLngs: false,
       react: {
         useSuspense: false,
+      },
+      backend: {
+        namespaces: fileNamespaces,
+        includeMetadata: false,
       },
     });
 }

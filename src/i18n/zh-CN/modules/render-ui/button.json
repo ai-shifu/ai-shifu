@@ -1,0 +1,8 @@
+{
+  "__namespace__": "module.renderUi.button",
+  "buttonText": "按钮文案",
+  "complete": "完成",
+  "placeholderEdit": "默认是「继续」",
+  "placeholderLogin": "默认是「登录」",
+  "placeholderPayment": "默认是「去支付」"
+}

@@ -1,1 +1,0 @@
-PAY_CHANNEL_NOT_SUPPORT = "不支持的支付渠道"

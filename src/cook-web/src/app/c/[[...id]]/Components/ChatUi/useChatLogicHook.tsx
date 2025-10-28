@@ -277,24 +277,24 @@ function useChatLogicHook({
         sseParams,
         async response => {
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
-            // if (!isEnd) {
-            //   currentBlockIdRef.current = 'loading';
-            //   setTrackedContentList(prev => {
-            //     const hasLoading = prev.some(
-            //       item => item.generated_block_bid === 'loading',
-            //     );
-            //     if (hasLoading) {
-            //       return prev;
-            //     }
-            //     const placeholderItem: ChatContentItem = {
-            //       generated_block_bid: 'loading',
-            //       content: '',
-            //       customRenderBar: () => <LoadingBar />,
-            //       type: ChatContentItemType.CONTENT,
-            //     };
-            //     return [...prev, placeholderItem];
-            //   });
-            // }
+            if (!isEnd) {
+              currentBlockIdRef.current = 'loading';
+              setTrackedContentList(prev => {
+                const hasLoading = prev.some(
+                  item => item.generated_block_bid === 'loading',
+                );
+                if (hasLoading) {
+                  return prev;
+                }
+                const placeholderItem: ChatContentItem = {
+                  generated_block_bid: 'loading',
+                  content: '',
+                  customRenderBar: () => <LoadingBar />,
+                  type: ChatContentItemType.CONTENT,
+                };
+                return [...prev, placeholderItem];
+              });
+            }
             return;
           }
           try {
@@ -526,7 +526,7 @@ function useChatLogicHook({
               item.content +
               (!mobileStyle
                 ? ``
-                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('chat.ask')}</span></custom-button-after-content>`),
+                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`),
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
@@ -655,8 +655,7 @@ function useChatLogicHook({
         setIsLoading(true);
         if (curr === lessonId) {
           sseRef.current?.close();
-          console.log('resetedLessonId close sse', curr);
-          // await refreshData();
+          await refreshData();
           // updateResetedChapterId(null);
           // @ts-expect-error resetedLessonId can be null per store design
           updateResetedLessonId(null);
@@ -962,7 +961,7 @@ function useChatLogicHook({
                 ...updatedList[i],
                 content:
                   (updatedList[i].content || '') +
-                  `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('chat.ask')}</span></custom-button-after-content>`,
+                  `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
                 isHistory: true, // Prevent AskButton from triggering typewriter
               };
               break;
@@ -973,23 +972,25 @@ function useChatLogicHook({
         // Add interaction blocks - use captured value instead of ref
         const lastItem = updatedList[updatedList.length - 1];
         const gid = lastItem.generated_block_bid;
-
-        updatedList.push({
-          parent_block_bid: gid,
-          generated_block_bid: '',
-          content: '',
-          like_status: LIKE_STATUS.NONE,
-          type: ChatContentItemType.LIKE_STATUS,
-        });
+        if (lastItem.type !== ChatContentItemType.INTERACTION) {
+          updatedList.push({
+            parent_block_bid: gid,
+            generated_block_bid: '',
+            content: '',
+            like_status: LIKE_STATUS.NONE,
+            type: ChatContentItemType.LIKE_STATUS,
+          });
+        }
         if (interactionBlockToAdd) {
           updatedList.push(interactionBlockToAdd);
         } else {
-          // sseRef.current?.close();
-          // console.log('close.......');
-          // runRef.current?.({
-          //   input: '',
-          //   input_type: SSE_INPUT_TYPE.NORMAL,
-          // });
+          if (lastItem.type !== ChatContentItemType.INTERACTION) {
+            sseRef.current?.close();
+            runRef.current?.({
+              input: '',
+              input_type: SSE_INPUT_TYPE.NORMAL,
+            });
+          }
         }
 
         return updatedList;

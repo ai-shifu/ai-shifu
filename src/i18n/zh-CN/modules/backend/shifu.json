@@ -1,0 +1,40 @@
+{
+  "__namespace__": "server.shifu",
+  "__flat__": {
+    "blockNotFound": "块不存在",
+    "noPermission": "没有权限",
+    "outlineDeleted": "大纲已被删除",
+    "outlineItemNotFound": "大纲单元不存在",
+    "outlineNameTooLong": "大纲名称过长",
+    "parentOutlineNotFound": "父级大纲不存在",
+    "shifuNotFound": "师傅不存在",
+    "shifuStructNotFound": "师傅结构不存在",
+    "unitNameTooLong": "单元名称过长",
+    "unitNotFound": "单元不存在",
+    "shifuNameRequired": "请输入师傅名称",
+
+    "shifuNameAlreadyExists": "同名师傅已存在",
+    "outlineNotFound": "大纲不存在",
+
+    "optionsRequired": "选项不能为空",
+
+    "profileNotFound": "选项变量不存在",
+
+    "promptRequired": "提示词不能为空",
+
+    "shifuNameTooLong": "师傅名称不能超过20个字符",
+    "shifuDescriptionTooLong": "师傅描述不能超过500个字符",
+
+
+    "textInputPromptRequired": "输入提示不能为空",
+    "textInputPromptJsonRequired": "用户输入的内容将被解析为 JSON 格式。请确保提示词中包含「JSON」关键字。",
+    "textInputPromptVariableRequired": "输入提示中必须包含变量",
+    "resultVariableBidsRequired": "结果变量不能为空",
+    "buttonLabelRequired": "按钮名称不能为空",
+    "gotoConditionsRequired": "跳转条件不能为空",
+    "gotoVariableBidsRequired": "跳转变量不能为空",
+    "optionsVariableBidsRequired": "选项变量不能为空",
+    "optionValueRequired": "选项值不能为空",
+    "optionLabelRequired": "选项标签不能为空"
+  }
+}

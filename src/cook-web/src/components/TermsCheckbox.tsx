@@ -34,7 +34,7 @@ export function TermsCheckbox({
         className='block text-center text-sm font-medium leading-snug peer-disabled:cursor-not-allowed peer-disabled:opacity-70 sm:text-left'
       >
         <Trans
-          i18nKey='auth.readAndAgree'
+          i18nKey='module.auth.readAndAgree'
           components={{
             serviceAgreement: (
               <a
@@ -54,8 +54,8 @@ export function TermsCheckbox({
             ),
           }}
           values={{
-            serviceLabel: t('auth.serviceAgreement'),
-            privacyLabel: t('auth.privacyPolicy'),
+            serviceLabel: t('module.auth.serviceAgreement'),
+            privacyLabel: t('module.auth.privacyPolicy'),
           }}
         />
       </label>

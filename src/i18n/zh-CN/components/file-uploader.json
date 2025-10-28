@@ -1,0 +1,18 @@
+{
+  "__namespace__": "component.fileUploader",
+  "checkImageUrl": "上传失败，请检查图片地址是否正确",
+  "clickToUpload": "点击上传",
+  "dragOrClickToUpload": "拖拽文件或点击上传",
+  "imageScale": "缩放比例",
+  "imageTitle": "图片名",
+  "imageTitlePlaceholder": "请输入图片名",
+  "pasteOrInputImageUrl": "输入图片URL",
+  "replaceImage": "替换图片",
+  "run": "运行",
+  "tips": "提示：您还可以将图片拖动或粘贴到卡片中的任意位置",
+  "upload": "上传",
+  "uploadFailed": "上传失败",
+  "uploadImageFailed": "上传失败",
+  "uploading": "上传中",
+  "url": "URL"
+}

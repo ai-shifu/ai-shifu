@@ -83,3 +83,12 @@ After Docker starts:
 1. Open `http://localhost:8080` in your browser to access the user interface
 2. Open `http://localhost:8081` in your browser to access the script editor
 3. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
+
+## Internationalization (i18n)
+
+- Shared translations live in `src/i18n/<locale>/**/*.json` and are consumed by both Backend and Cook Web.
+- See the consolidated guide for conventions, scripts, and CI checks: `docs/i18n.md`.
+- Frontend language list only exposes `en-US` and `zh-CN`; the pseudo-locale `qps-ploc` is available for validation but hidden from the UI.
+
+Cook Web requirements
+- Node.js `22.16.0` (see `src/cook-web/package.json#engines`)

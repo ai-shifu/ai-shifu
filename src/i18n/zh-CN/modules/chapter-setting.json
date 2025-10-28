@@ -1,0 +1,14 @@
+{
+  "__namespace__": "module.chapterSetting",
+  "title": "章节设置",
+  "learningPermission": "学习权限",
+  "paidChapter": "付费章节",
+  "freeChapter": "免费章节",
+  "guestChapter": "游客章节",
+  "isHidden": "可见性",
+  "visibleChapter": "可见",
+  "hideChapter": "隐藏",
+  "systemPrompt": "系统提示词",
+  "promptHint": "该章节的初始指令（可选）",
+  "chapterTitle": "章节标题"
+}

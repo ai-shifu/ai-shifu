@@ -1,5 +1,7 @@
 # Desc: Common models for the application
 from flaskr.i18n import _
+import json
+from pathlib import Path
 
 
 class AppException(Exception):
@@ -22,68 +24,27 @@ class AppException(Exception):
         return self.__json__()
 
 
-ERROR_CODE = {
-    "USER.USER_NOT_FOUND": 1001,
-    "USER.USER_ALREADY_EXISTS": 1002,
-    "USER.USER_NOT_LOGIN": 1004,
-    "USER.USER_TOKEN_EXPIRED": 1005,
-    "USER.CHECK_CODE_ERROR": 1009,
-    "USER.CHECK_CODE_EXPIRED": 1010,
-    "USER.SMS_SEND_ERROR": 1011,
-    "USER.SMS_SEND_FREQUENTLY": 1012,
-    "USER.SMS_SEND_EXPIRED": 1013,
-    "USER.SMS_CHECK_ERROR": 1014,
-    "COMMON.UNKNOWN_ERROR": 9999,
-    # order error
-    "ORDER.ORDER_NOT_FOUND": 3001,
-    "ORDER.ORDER_ALREADY_EXISTS": 3002,
-    "ORDER.ORDER_STATUS_ERROR": 3003,
-    "ORDER.ORDER_PAY_ERROR": 3004,
-    "ORDER.ORDER_REFUND_ERROR": 3005,
-    "ORDER.ORDER_PAY_EXPIRED": 3006,
-    "ORDER.ORDER_PAY_NOT_FOUND": 3007,
-    "ORDER.ORDER_HAS_PAID": 3008,
-    # discount error
-    "DISCOUNT.DISCOUNT_NOT_FOUND": 3101,
-    "DISCOUNT.DISCOUNT_ALREADY_USED": 3102,
-    "DISCOUNT.DISCOUNT_LIMIT": 3103,
-    "DISCOUNT.DISCOUNT_NOT_START": 3104,
-    "DISCOUNT.DISCOUNT_EXPIRED": 3105,
-    "DISCOUNT.ORDER_DISCOUNT_ALREADY_USED": 3106,
-    "DISCOUNT.DISCOUNT_LIMIT_EXCEEDED": 3107,
-    "DISCOUNT.DISCOUNT_ALREADY_EXPIRED": 3108,
-    "DISCOUNT.DISCOUNT_COUNT_NOT_ZERO": 3109,
-    # course error
-    "COURSE.COURSE_NOT_FOUND": 4001,
-    "COURSE.LESSON_CANNOT_BE_RESET": 4002,
-    "COURSE.LESSON_NOT_FOUND": 4003,
-    "COURSE.LESSON_NOT_FOUND_IN_COURSE": 4004,
-    # pay error
-    "PAY.PAY_CHANNEL_NOT_SUPPORT": 5001,
-    # file error
-    "FILE.FILE_UPLOAD_ERROR": 6001,
-    "FILE.FILE_TYPE_NOT_SUPPORT": 6002,
-    "FILE.FILE_SIZE_EXCEED": 6003,
-    "FILE.VIDEO_INVALID_BILIBILI_LINK": 6004,
-    "FILE.VIDEO_BILIBILI_API_ERROR": 6005,
-    "FILE.VIDEO_BILIBILI_API_REQUEST_FAILED": 6006,
-    "FILE.VIDEO_UNSUPPORTED_VIDEO_SITE": 6007,
-    "FILE.VIDEO_GET_INFO_ERROR": 6008,
-    # params error
-    "COMMON.PARAMS_ERROR": 2001,
-    "COMMON.TEXT_NOT_ALLOWED": 2002,
-    # Admin errors
-    "ADMIN.VIEW_NOT_FOUND": 7001,
-    # LLM errors
-    "LLM.NO_DEFAULT_LLM": 8001,
-    "LLM.SPECIFIED_LLM_NOT_CONFIGURED": 8002,
-    "LLM.MODEL_NOT_SUPPORTED": 8003,
-    # api errors
-    "API.ALIBABA_CLOUD_NOT_CONFIGURED": 9001,
-    "SCENARIO.NO_PERMISSION": 9002,
-    # Unauthorized
-    "SHIFU.NO_PERMISSION": 401,
-}
+def _load_error_codes() -> dict[str, int]:
+    # Locate src/api/error_codes.json
+    api_root = Path(__file__).resolve().parents[3]
+    manifest_path = api_root / "error_codes.json"
+    if not manifest_path.exists():
+        # Fallback to legacy in-file mapping (minimal set)
+        return {
+            "server.common.unknownError": 9999,
+        }
+
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    codes: dict[str, int] = {}
+    for key, value in data.items():
+        if not isinstance(value, int):
+            continue
+        # Primary keys are defined as server.*; legacy module.backend.* is no longer supported
+        codes[key] = value
+    return codes
+
+
+ERROR_CODE = _load_error_codes()
 
 
 def register_error(error_name, error_code):
@@ -92,22 +53,22 @@ def register_error(error_name, error_code):
 
 def raise_param_error(param_message):
     raise AppException(
-        _("COMMON.PARAMS_ERROR").format(param_message=param_message),
-        ERROR_CODE["COMMON.PARAMS_ERROR"],
+        _("server.common.paramsError").format(param_message=param_message),
+        ERROR_CODE["server.common.paramsError"],
     )
 
 
 def raise_error(error_name):
     raise AppException(
         _(error_name),
-        ERROR_CODE.get(error_name, ERROR_CODE["COMMON.UNKNOWN_ERROR"]),
+        ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
 
 
 def raise_error_with_args(error_name, **kwargs):
     raise AppException(
         _(error_name).format(**kwargs),
-        ERROR_CODE.get(error_name, ERROR_CODE["COMMON.UNKNOWN_ERROR"]),
+        ERROR_CODE.get(error_name, ERROR_CODE["server.common.unknownError"]),
     )
 
 

@@ -38,8 +38,8 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
         </Avatar>
         <div className={styles.userName}>
           {isLoggedIn
-            ? userInfo?.name || t('user.defaultUserName')
-            : t('user.notLogin')}
+            ? userInfo?.name || t('module.user.defaultUserName')
+            : t('module.user.notLogin')}
         </div>
       </div>
     </div>

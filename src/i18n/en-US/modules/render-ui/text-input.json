@@ -1,0 +1,10 @@
+{
+  "__namespace__": "module.renderUi.textInput",
+  "complete": "Complete",
+  "inputKey": "Variable Key",
+  "inputName": "Variable Name",
+  "inputPlaceholder": "Input Placeholder",
+  "model": "Model",
+  "prompt": "Prompt",
+  "temperature": "Temperature"
+}

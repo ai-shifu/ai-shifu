@@ -85,3 +85,12 @@ Docker 启动后：
 1. 用浏览器打开 `http://localhost:8080`，访问用户界面
 2. 用浏览器打开 `http://localhost:8081`，访问剧本编辑器
 3. 登录时可使用任意手机号，默认万能验证码为 **1024**（仅用于演示/测试，生产环境务必修改或禁用）
+
+## 国际化（i18n）
+
+- 共享翻译位于 `src/i18n/<locale>/**/*.json`，后端与 Cook Web 共用。
+- 统一指南（规范、脚本、CI 校验）：`docs/i18n.md`。
+- 前端语言列表只展示 `en-US` 与 `zh-CN`；伪语言 `qps-ploc` 仅用于校验，不在 UI 中显示。
+
+Cook Web 环境要求
+- Node.js `22.16.0`（参见 `src/cook-web/package.json#engines`）

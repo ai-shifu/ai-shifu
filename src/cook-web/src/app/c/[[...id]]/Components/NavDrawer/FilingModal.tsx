@@ -27,8 +27,8 @@ export const FillingModal = ({
       className={className}
     >
       <div className={styles.filingModal}>
-        <div>{t('common.companyName')}</div>
-        <div>{t('common.companyAddress')}</div>
+        <div>{t('common.core.companyName')}</div>
+        <div>{t('common.core.companyAddress')}</div>
         <div>
           <a
             className={styles.miitLink}
@@ -36,16 +36,16 @@ export const FillingModal = ({
             target='_blank'
             rel='noopener noreferrer'
           >
-            {t('navigation.icp')}
+            {t('component.navigation.icp')}
           </a>
         </div>
         <div className={styles.gonganRow}>
           <Image
             className={styles.beianIcon}
             src={imgBeian.src}
-            alt={t('navigation.filing')}
+            alt={t('component.navigation.filing')}
           />
-          <div>{t('navigation.gongan')}</div>
+          <div>{t('component.navigation.gongan')}</div>
         </div>
         <div className={styles.btnGroup}>
           <Button
@@ -53,7 +53,7 @@ export const FillingModal = ({
             className={styles.actionBtn}
             onClick={onFeedbackClick}
           >
-            {t('navigation.feedbackTitle')}
+            {t('component.navigation.feedbackTitle')}
           </Button>
           <div>|</div>
           <Button
@@ -63,7 +63,7 @@ export const FillingModal = ({
               window.open('/useragreement');
             }}
           >
-            {t('navigation.userAgreement')}
+            {t('component.navigation.userAgreement')}
           </Button>
           <div>|</div>
           <Button
@@ -73,7 +73,7 @@ export const FillingModal = ({
               window.open('/privacypolicy');
             }}
           >
-            {t('navigation.privacyPolicy')}
+            {t('component.navigation.privacyPolicy')}
           </Button>
         </div>
       </div>
