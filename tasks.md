@@ -16,7 +16,7 @@ AI‑Shifu – Work Items Status and Next Steps
     - Implemented in `src/api/flaskr/service/user/phone_flow.py` to write `created_user_bid` on `PublishedShifu` and also update the corresponding `DraftShifu.created_user_bid`.
     - Ran pre-commit hooks; all checks passed.
 
-- [ ] 2) docker/.env.example vs docker-compose for MySQL/Redis are inconsistent
+- [x] 2) docker/.env.example vs docker-compose for MySQL/Redis are inconsistent
   - Status: Not complete
   - Evidence:
     - Dev compose expects service DNS names: MySQL `ai-shifu-mysql`, Redis `ai-shifu-redis` (see `docker/docker-compose-dev.yml:1`, `docker/docker-compose.yml:1`).
@@ -28,6 +28,9 @@ AI‑Shifu – Work Items Status and Next Steps
     - In `.env.example.minimal`, provide Docker-friendly defaults for MySQL/Redis when used with the bundled compose (and comment that these are for Docker).
     - In `.env.example.full`, either set Docker-safe defaults or add prominent comments with the exact values for Docker usage.
     - Optionally add an `.env.example.docker` with correct values referenced by docs.
+  - Done:
+    - Updated `docker/.env.example.minimal` to include Docker-ready defaults: `SECRET_KEY=ai-shifu`, `SQLALCHEMY_DATABASE_URI` using `ai-shifu-mysql`, and `REDIS_HOST=ai-shifu-redis`.
+    - Updated `docker/.env.example.full` defaults: `SQLALCHEMY_DATABASE_URI` points to `ai-shifu-mysql` and `REDIS_HOST=ai-shifu-redis`.
 
 - [ ] 3) “Clone and auto-start” docs are unclear
   - Status: Not complete
