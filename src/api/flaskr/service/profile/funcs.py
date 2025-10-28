@@ -526,7 +526,6 @@ def update_user_profile_with_lable(
     aggregate = _ensure_user_aggregate(user_id)
     profile_items = get_profile_item_definition_list(app, course_id)
 
-    
     if user_info:
         # check nickname
         nickname = [p for p in profiles if p["key"] == "sys_user_nickname"]
