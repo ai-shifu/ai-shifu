@@ -99,8 +99,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   HTMLDivElement,
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-  const { focusId, actions, cataData, currentNode, currentShifu } =
-    useShifu();
+  const { focusId, actions, cataData, currentNode, currentShifu } = useShifu();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
