@@ -59,7 +59,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   };
 
   const handleSendOtp = async () => {
-    tokenTool.set({ token: '', faked: false })
+    tokenTool.set({ token: '', faked: false });
     if (!validatePhone(phoneNumber)) {
       return;
     }
