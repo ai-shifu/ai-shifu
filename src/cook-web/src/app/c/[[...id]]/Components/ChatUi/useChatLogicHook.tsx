@@ -368,6 +368,7 @@ function useChatLogicHook({
                       type: ChatContentItemType.CONTENT,
                     });
                   }
+                  // console.log('updatedList', updatedList)
                   return updatedList;
                 });
               }
@@ -428,8 +429,13 @@ function useChatLogicHook({
                   isTypeFinishedRef.current = true;
                 }
               }
-              // currentBlockIdRef.current = null;
-              // currentContentRef.current = '';
+              // if break, means the block is finished,
+              // maybe sse is not closed, it will let prevText not null, so we need to clear it
+              if (response.type === SSE_OUTPUT_TYPE.BREAK) {
+                // console.log('=====BREAK=====', response)
+                // currentBlockIdRef.current = null;
+                currentContentRef.current = '';
+              }
             } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
               updateUserInfo({
                 [response.content.key]: response.content.value,
@@ -693,7 +699,6 @@ function useChatLogicHook({
   }, [chapterId, refreshData]);
 
   useEffect(() => {
-    console.log('lessonId change close sse', lessonId);
     sseRef.current?.close();
     if (!lessonId || resetedLessonId === lessonId) {
       return;
@@ -910,14 +915,19 @@ function useChatLogicHook({
     if (isTypeFinishedRef.current && isStreamingRef.current) {
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
-
       currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
       setTrackedContentList(prev => {
+        const hasLoading = prev.some(
+          item => item.generated_block_bid === 'loading',
+        );
+        if (hasLoading) {
+          return prev;
+        }
         const placeholderItem: ChatContentItem = {
-          generated_block_bid: currentBlockIdRef.current || '',
+          generated_block_bid: 'loading',
           content: '',
           customRenderBar: () => <LoadingBar />,
           type: ChatContentItemType.CONTENT,
@@ -992,7 +1002,7 @@ function useChatLogicHook({
             });
           }
         }
-
+        // console.log('updateList', updatedList)
         return updatedList;
       });
 

@@ -15,6 +15,7 @@ import i18n from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
 
 import type { UserInfo } from '@/c-types';
+import { tokenTool } from '@/c-service/storeUtil';
 interface PhoneLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
 }
@@ -58,6 +59,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   };
 
   const handleSendOtp = async () => {
+    tokenTool.set({ token: '', faked: false });
     if (!validatePhone(phoneNumber)) {
       return;
     }

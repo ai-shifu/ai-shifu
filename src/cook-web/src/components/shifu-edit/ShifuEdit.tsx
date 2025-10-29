@@ -346,9 +346,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   useEffect(() => {
-    console.log('newBlockId', newBlockId);
     if (newBlockId && expandedBlocks[newBlockId] === false) {
-      console.log('setExpandedBlocks', newBlockId);
       setExpandedBlocks(prev => ({
         ...prev,
         [newBlockId]: true,
@@ -356,10 +354,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
       setNewBlockId('');
     }
   }, [newBlockId, expandedBlocks]);
-
-  useEffect(() => {
-    console.log('expandedBlocks', expandedBlocks);
-  }, [expandedBlocks]);
 
   const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
     const p = blockProperties[id].properties as ContentDTO;

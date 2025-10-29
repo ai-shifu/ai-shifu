@@ -121,11 +121,17 @@ def verify_email_code(
             )
             if entity:
                 updates: Dict[str, Any] = {"identify": normalized_email}
-                if target_aggregate.state == USER_STATE_UNREGISTERED:
+                promote_state = target_aggregate.state in (
+                    USER_STATE_UNREGISTERED,
+                    0,
+                )
+                if promote_state:
                     updates["state"] = USER_STATE_REGISTERED
                 if language:
                     updates["language"] = language
-                update_user_entity_fields(entity, **updates)
+                entity = update_user_entity_fields(entity, **updates)
+                if promote_state:
+                    init_first_course(app, entity.user_bid)
 
         upsert_credential(
             app,

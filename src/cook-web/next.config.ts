@@ -5,6 +5,27 @@ import type { NextConfig } from 'next';
 import path from 'path';
 
 // Resolve shared i18n directory robustly for both local and Docker builds
+const looksLikeI18nDir = (candidate: string): boolean => {
+  try {
+    const stat = fs.statSync(candidate, { throwIfNoEntry: false });
+    if (!stat || !stat.isDirectory()) {
+      return false;
+    }
+
+    const localesJson = path.join(candidate, 'locales.json');
+    if (fs.existsSync(localesJson)) {
+      return true;
+    }
+
+    const entries = fs.readdirSync(candidate, { withFileTypes: true });
+    return entries.some(
+      entry => entry.isDirectory() && !entry.name.startsWith('.'),
+    );
+  } catch {
+    return false;
+  }
+};
+
 const resolveSharedI18nPath = (): string | null => {
   const candidates = [
     path.resolve(__dirname, 'src/i18n'), // when building from repo root (Docker)
@@ -15,10 +36,8 @@ const resolveSharedI18nPath = (): string | null => {
     '/i18n',
   ];
   for (const p of candidates) {
-    try {
-      if (fs.existsSync(p)) return p;
-    } catch {
-      // ignore
+    if (looksLikeI18nDir(p)) {
+      return p;
     }
   }
   return null;

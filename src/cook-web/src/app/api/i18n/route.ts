@@ -3,6 +3,31 @@ import path from 'path';
 import { promises as fs } from 'fs';
 
 const resolveI18nRoot = async (): Promise<string> => {
+  const looksLikeI18nDir = async (candidate: string): Promise<boolean> => {
+    try {
+      const stat = await fs.stat(candidate);
+      if (!stat.isDirectory()) {
+        return false;
+      }
+
+      try {
+        const localesStat = await fs.stat(path.join(candidate, 'locales.json'));
+        if (localesStat.isFile()) {
+          return true;
+        }
+      } catch {
+        // continue with directory inspection
+      }
+
+      const entries = await fs.readdir(candidate, { withFileTypes: true });
+      return entries.some(
+        entry => entry.isDirectory() && !entry.name.startsWith('.'),
+      );
+    } catch {
+      return false;
+    }
+  };
+
   const envRoot = process.env.I18N_ROOT;
   const candidates = [
     envRoot ? path.resolve(envRoot) : undefined,
@@ -15,11 +40,8 @@ const resolveI18nRoot = async (): Promise<string> => {
   ].filter((candidate): candidate is string => Boolean(candidate));
 
   for (const candidate of candidates) {
-    try {
-      await fs.access(candidate);
+    if (await looksLikeI18nDir(candidate)) {
       return candidate;
-    } catch {
-      // continue
     }
   }
 
