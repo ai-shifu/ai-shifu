@@ -434,12 +434,11 @@ function useChatLogicHook({
               }
               // if break, means the block is finished,
               // maybe sse is not closed, it will let prevText not null, so we need to clear it
-              if(response.type === SSE_OUTPUT_TYPE.BREAK){
+              if (response.type === SSE_OUTPUT_TYPE.BREAK) {
                 // console.log('=====BREAK=====', response)
                 // currentBlockIdRef.current = null;
                 currentContentRef.current = '';
               }
-           
             } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
               updateUserInfo({
                 [response.content.key]: response.content.value,
@@ -929,7 +928,6 @@ function useChatLogicHook({
           item => item.generated_block_bid === 'loading',
         );
         if (hasLoading) {
-          // console.log('打字结束，但是不增加loading', prev)
           return prev;
         }
         const placeholderItem: ChatContentItem = {

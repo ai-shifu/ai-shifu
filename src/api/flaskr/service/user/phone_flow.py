@@ -17,10 +17,12 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
-from flaskr.service.shifu.models import PublishedShifu
+from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
     USER_STATE_UNREGISTERED,
+    USER_STATE_TRAIL,
+    USER_STATE_PAID,
 )
 from flaskr.service.user.models import User
 from flaskr.service.user.utils import generate_token
@@ -96,18 +98,35 @@ def migrate_user_study_record(
 
 
 def init_first_course(app: Flask, user_id: str) -> None:
-    user_count = User.query.filter(User.user_state != USER_STATE_UNREGISTERED).count()
+    # Ensure pending state changes are visible to subsequent queries
+    db.session.flush()
+
+    # Count users who are actually verified/registered or above.
+    # Support both legacy (0..3) and new (1101..1104) state ranges.
+    verified_states = [
+        1,
+        2,
+        3,
+        USER_STATE_REGISTERED,
+        USER_STATE_TRAIL,
+        USER_STATE_PAID,
+    ]
+    user_count = User.query.filter(User.user_state.in_(verified_states)).count()
     if user_count != 1:
         return
 
-    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
-    if course_count != 1:
-        return
-
+    # Always grant admin/creator to the first verified user
     first_user = User.query.filter(User.user_id == user_id).first()
     if first_user:
         first_user.is_admin = True
         first_user.is_creator = True
+    db.session.flush()
+
+    # Assign demo shifu only when there is exactly one published course
+    course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
+    if course_count != 1:
+        db.session.flush()
+        return
 
     course = (
         PublishedShifu.query.filter(PublishedShifu.deleted == 0)
@@ -115,7 +134,14 @@ def init_first_course(app: Flask, user_id: str) -> None:
         .first()
     )
     if course:
-        course.created_user_id = user_id
+        # Persist creator on the published record
+        course.created_user_bid = user_id
+        # Also persist creator on the corresponding draft (used by permission checks)
+        draft = DraftShifu.query.filter(
+            DraftShifu.shifu_bid == course.shifu_bid
+        ).first()
+        if draft:
+            draft.created_user_bid = user_id
     db.session.flush()
 
 
@@ -197,8 +223,11 @@ def verify_phone_code(
             init_first_course(app, user_info.user_id)
             created_new_user = True
         else:
-            if user_info.user_state == USER_STATE_UNREGISTERED:
+            # If this is the first time the user completes verification,
+            # promote state from UNREGISTERED to REGISTERED and run first-course init.
+            if user_info.user_state in (USER_STATE_UNREGISTERED, 0):
                 user_info.user_state = USER_STATE_REGISTERED
+                init_first_course(app, user_info.user_id)
             user_info.mobile = phone
             if language:
                 user_info.user_language = language

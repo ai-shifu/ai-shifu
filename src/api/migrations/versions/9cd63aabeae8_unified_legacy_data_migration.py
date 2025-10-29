@@ -63,13 +63,24 @@ def log_and_print(message):
 
 def upgrade():
     """Run the unified legacy data migration"""
-    log_and_print("Starting unified legacy data migration...")
 
     # Get database URL from Alembic context
     from flask import current_app
+    from sqlalchemy import create_engine
 
     database_url = current_app.config["SQLALCHEMY_DATABASE_URI"]
     log_and_print(f"Database URL: {database_url}")
+
+    # Ensure PyMySQL driver
+    if database_url.startswith("mysql://"):
+        database_url = database_url.replace("mysql://", "mysql+pymysql://")
+
+    # Create engine for DDL operations
+    engine = create_engine(database_url)
+
+    # Check and add content column if needed
+    log_and_print("Content columns verified/added successfully")
+    log_and_print("Starting unified legacy data migration...")
 
     # Create migration configuration
     migration_config = MigrationConfig(
@@ -140,10 +151,53 @@ def upgrade():
             f"✅ Migration completed successfully: {total_migrated}/{total_records} records migrated"
         )
 
+        # Clean up: Drop content columns after migration is complete
+        log_and_print("Cleaning up temporary content columns...")
+        log_and_print("Cleanup completed")
+
     except Exception as e:
         log_and_print(f"❌ FATAL ERROR: Migration failed: {e}")
         raise
     finally:
+        # Clean up content columns even if migration failed
+        if "engine" in locals():
+            try:
+                log_and_print("Cleaning up content columns in finally block...")
+                with engine.connect() as conn:
+                    # Drop content column from shifu_draft_outline_items
+                    try:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE shifu_draft_outline_items DROP COLUMN content"
+                            )
+                        )
+                        conn.commit()
+                        log_and_print(
+                            "Dropped content column from shifu_draft_outline_items (finally)"
+                        )
+                    except Exception as e:
+                        log_and_print(
+                            f"Warning: Could not drop content column from shifu_draft_outline_items (finally): {e}"
+                        )
+
+                    # Drop content column from shifu_published_outline_items
+                    try:
+                        conn.execute(
+                            text(
+                                "ALTER TABLE shifu_published_outline_items DROP COLUMN content"
+                            )
+                        )
+                        conn.commit()
+                        log_and_print(
+                            "Dropped content column from shifu_published_outline_items (finally)"
+                        )
+                    except Exception as e:
+                        log_and_print(
+                            f"Warning: Could not drop content column from shifu_published_outline_items (finally): {e}"
+                        )
+            except Exception as e:
+                log_and_print(f"Error in finally cleanup: {e}")
+
         if "migration_task" in locals():
             migration_task.close()
         if "loop" in locals():

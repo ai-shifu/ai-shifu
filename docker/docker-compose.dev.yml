@@ -7,6 +7,7 @@ services:
       - ./.env
     volumes:
       - ../src/api/:/app/
+      - ../src/i18n/:/i18n/
     depends_on:
       - ai-shifu-mysql
       - ai-shifu-redis
@@ -60,7 +61,6 @@ services:
     restart: always
     volumes:
       - ./mysql_data:/var/lib/mysql
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   ai-shifu-redis:
     container_name: ai-shifu-redis

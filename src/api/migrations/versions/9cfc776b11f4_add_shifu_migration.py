@@ -22,6 +22,31 @@ def upgrade():
     from sqlalchemy import text
     import time
 
+    # Add content column to shifu_draft_outline_items if it doesn't exist
+    connection = op.get_bind()
+    draft_result = connection.execute(
+        text("SHOW COLUMNS FROM shifu_draft_outline_items LIKE 'content'")
+    ).fetchone()
+    if not draft_result:
+        print("Adding content column to shifu_draft_outline_items...")
+        connection.execute(
+            text(
+                "ALTER TABLE shifu_draft_outline_items ADD COLUMN content TEXT NOT NULL COMMENT 'MarkdownFlow content'"
+            )
+        )
+
+    # Add content column to shifu_published_outline_items if it doesn't exist
+    published_result = connection.execute(
+        text("SHOW COLUMNS FROM shifu_published_outline_items LIKE 'content'")
+    ).fetchone()
+    if not published_result:
+        print("Adding content column to shifu_published_outline_items...")
+        connection.execute(
+            text(
+                "ALTER TABLE shifu_published_outline_items ADD COLUMN content TEXT NOT NULL COMMENT 'MarkdownFlow content'"
+            )
+        )
+
     old_shifu_bids = AICourse.query.with_entities(AICourse.course_id).distinct().all()
     connection = op.get_bind()
     for i, course_id in enumerate(old_shifu_bids):
@@ -72,4 +97,29 @@ def upgrade():
 
 
 def downgrade():
-    pass
+    from alembic import op
+    from sqlalchemy import text
+
+    # Clean up content columns if they exist
+    connection = op.get_bind()
+    try:
+        # Drop content column from shifu_draft_outline_items
+        connection.execute(
+            text("ALTER TABLE shifu_draft_outline_items DROP COLUMN content")
+        )
+        print("Dropped content column from shifu_draft_outline_items")
+    except Exception as e:
+        print(
+            f"Warning: Could not drop content column from shifu_draft_outline_items: {e}"
+        )
+
+    try:
+        # Drop content column from shifu_published_outline_items
+        connection.execute(
+            text("ALTER TABLE shifu_published_outline_items DROP COLUMN content")
+        )
+        print("Dropped content column from shifu_published_outline_items")
+    except Exception as e:
+        print(
+            f"Warning: Could not drop content column from shifu_published_outline_items: {e}"
+        )
