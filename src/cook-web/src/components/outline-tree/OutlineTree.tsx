@@ -99,7 +99,8 @@ const MinimalTreeItemComponent = React.forwardRef<
   HTMLDivElement,
   TreeItemComponentProps<Outline> & TreeItemProps
 >((props, ref) => {
-  const { focusId, actions, cataData, currentNode, currentShifu } = useShifu();
+  const { focusId, actions, cataData, currentNode, currentShifu } =
+    useShifu();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
@@ -157,6 +158,9 @@ const MinimalTreeItemComponent = React.forwardRef<
       actions.setBlocks([]);
       return;
     }
+
+    // Flush pending autosave with the latest snapshot before switching
+    actions.flushAutoSaveBlocks();
 
     await actions.setCurrentNode(props.item);
     await actions.loadMdflow(props.item.bid || '', currentShifu?.bid || '');
