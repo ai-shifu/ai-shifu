@@ -13,6 +13,7 @@ import {
   ReorderOutlineItemDto,
   BlockDTO,
   BlockType,
+  SaveMdflowPayload,
 } from '../types/shifu';
 import api from '@/api';
 import { useContentTypes } from '@/components/render-block';
@@ -88,6 +89,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   const [models, setModels] = useState<string[]>([]);
   const [mdflow, setMdflow] = useState<string>('');
   const currentMdflow = useRef<string>('');
+  // Debounced autosave for mdflow; kept stable via ref
+  const debouncedAutoSaveRef = useRef(
+    debounce(async (payload?: SaveMdflowPayload) => {
+      await saveMdflow(payload);
+    }, 3000),
+  );
 
   // Ensure UI types and content types are fetched only in the client environment
   // const UITypes = useUITypes()
@@ -587,19 +594,23 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     [],
   );
 
-  const autoSaveBlocks = useCallback(
-    debounce(async () => {
-      return await saveMdflow();
-      // return await saveCurrentBlocks(
-      //   outline,
-      //   blocks,
-      //   blockTypes,
-      //   blockContentProperties,
-      //   shifu_id,
-      // );
-    }, 3000),
-    [currentShifu?.bid, currentNode?.bid],
-  ) as () => Promise<ApiResponse<SaveBlockListResult> | null>;
+  const autoSaveBlocks = (
+    payload?: SaveMdflowPayload,
+  ): Promise<ApiResponse<SaveBlockListResult> | null> => {
+    debouncedAutoSaveRef.current(payload);
+    return Promise.resolve(null);
+  };
+
+  const flushAutoSaveBlocks = (payload?: SaveMdflowPayload) => {
+    if (payload) {
+      debouncedAutoSaveRef.current(payload);
+    }
+    debouncedAutoSaveRef.current.flush();
+  };
+
+  const cancelAutoSaveBlocks = () => {
+    debouncedAutoSaveRef.current.cancel();
+  };
 
   const addSiblingOutline = async (item: Outline, name = '') => {
     const id = 'new_chapter';
@@ -982,11 +993,15 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
   };
 
-  const saveMdflow = async () => {
+  const saveMdflow = async (payload?: SaveMdflowPayload) => {
+    const shifu_bid = payload?.shifu_bid ?? currentShifu?.bid ?? '';
+    const outline_bid = payload?.outline_bid ?? (currentNode?.bid || '');
+    const data = payload?.data ?? currentMdflow.current;
+    console.log('saveMdflow', outline_bid, data);
     await api.saveMdflow({
-      shifu_bid: currentShifu?.bid || '',
-      outline_bid: currentNode?.bid || '',
-      data: currentMdflow.current,
+      shifu_bid,
+      outline_bid,
+      data,
     });
     setLastSaveTime(new Date());
   };
@@ -1054,6 +1069,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       loadMdflow,
       saveMdflow,
       setCurrentMdflow,
+      flushAutoSaveBlocks,
+      cancelAutoSaveBlocks,
     },
   };
 

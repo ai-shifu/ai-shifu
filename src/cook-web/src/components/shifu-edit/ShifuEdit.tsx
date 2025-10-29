@@ -377,7 +377,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
-    actions.autoSaveBlocks();
+    // Pass snapshot so autosave persists pre-switch content + chapter id
+    actions.autoSaveBlocks({
+      shifu_bid: currentShifu?.bid || '',
+      outline_bid: currentNode?.bid || '',
+      data: value,
+    });
   };
 
   return (

@@ -95,6 +95,13 @@ export interface ReorderOutlineItemDto {
   children: ReorderOutlineItemDto[];
 }
 
+// Snapshot payload for mdflow saving to avoid relying on mutable state
+export interface SaveMdflowPayload {
+  shifu_bid?: string;
+  outline_bid?: string;
+  data?: string;
+}
+
 export interface ShifuActions {
   addChapter: (chapter: Outline) => void;
   loadShifu: (shifuId: string) => Promise<void>;
@@ -136,7 +143,11 @@ export interface ShifuActions {
   setBlockContentStateById: (id: string, state: 'edit' | 'preview') => void;
   setBlocks: (blocks: Block[]) => void;
   saveBlocks: (shifuId: string) => Promise<void>;
-  autoSaveBlocks: () => Promise<ApiResponse<SaveBlockListResult> | null>;
+  autoSaveBlocks: (
+    payload?: SaveMdflowPayload,
+  ) => Promise<ApiResponse<SaveBlockListResult> | null>;
+  flushAutoSaveBlocks: (payload?: SaveMdflowPayload) => void;
+  cancelAutoSaveBlocks: () => void;
   saveCurrentBlocks: (
     outline: string,
     blocks: Block[],
@@ -152,7 +163,7 @@ export interface ShifuActions {
   reorderOutlineTree: (outlines: ReorderOutlineItemDto[]) => Promise<void>;
   updateBlockProperties: (bid: string, properties: any) => Promise<void>;
   loadMdflow: (outlineId: string, shifuId: string) => Promise<void>;
-  saveMdflow: () => Promise<void>;
+  saveMdflow: (payload?: SaveMdflowPayload) => Promise<void>;
   setCurrentMdflow: (value: string) => void;
 }
 
