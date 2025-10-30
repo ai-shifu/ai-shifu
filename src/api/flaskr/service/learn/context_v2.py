@@ -193,41 +193,52 @@ class RunScriptContextV2:
     is_paid: bool
 
     def _collect_async_generator(self, async_gen_factory: Callable[[], AsyncGenerator]):
-        """Collect all items from an async generator produced by the factory.
+        """Bridge an async generator to a sync generator for streaming.
 
-        The factory is invoked inside the context that will drive the generator so
-        the async generator is always bound to the correct event loop.
+        Runs the async producer in a background thread and yields items as they
+        arrive via a thread-safe queue, avoiding buffering the entire stream.
         """
 
         if not callable(async_gen_factory):
             raise TypeError(
-                "async_gen_factory must be a callable returning an async generator"
+                "async_gen_factory must be a callable returning an async generator or awaitable"
             )
 
-        async def _consume(gen: AsyncGenerator):
-            results = []
-            async for item in gen:
-                results.append(item)
-            return results
-
-        async def _runner():
-            gen = async_gen_factory()
-            if inspect.isawaitable(gen):
-                gen = await gen
-            if not inspect.isasyncgen(gen):
-                raise TypeError("async_gen_factory must return an async generator")
-            return await _consume(gen)
+        import threading as _threading
 
         ctx = contextvars.copy_context()
+        q: queue.Queue = queue.Queue()
+        _SENTINEL = object()
+        _ERROR = object()
+        error_box = {"err": None}
 
-        def run_with_asyncio_run() -> list:
+        async def _produce():
             try:
-                return asyncio.run(ctx.run(_runner))
+                gen_or_result = async_gen_factory()
+                if inspect.isawaitable(gen_or_result):
+                    gen_or_result = await gen_or_result
+
+                # If it's an async generator, stream items
+                if inspect.isasyncgen(gen_or_result):
+                    async for item in gen_or_result:
+                        q.put(item)
+                    q.put(_SENTINEL)
+                    return
+
+                # Otherwise treat it as a single result and finish
+                q.put(gen_or_result)
+                q.put(_SENTINEL)
+            except Exception as e:  # noqa: E722
+                error_box["err"] = e
+                q.put(_ERROR)
+                q.put(_SENTINEL)
+
+        def _runner():
+            try:
+                asyncio.run(ctx.run(_produce))
             except RuntimeError as exc:
                 if "asyncio.run()" not in str(exc):
                     raise
-                # Some runtimes (e.g., gevent) keep a loop marked as running even in fresh threads.
-                # Temporarily reset it so asyncio can manage its own loop lifecycle.
                 previous_loop = (
                     asyncio_events._get_running_loop()
                     if hasattr(asyncio_events, "_get_running_loop")
@@ -236,39 +247,42 @@ class RunScriptContextV2:
                 try:
                     if hasattr(asyncio_events, "_set_running_loop"):
                         asyncio_events._set_running_loop(None)
-                    return asyncio.run(ctx.run(_runner))
+                    asyncio.run(ctx.run(_produce))
                 finally:
                     if hasattr(asyncio_events, "_set_running_loop"):
                         asyncio_events._set_running_loop(previous_loop)
 
-        # Check if we're already in an event loop
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            # No loop running in this thread; execute directly.
-            return run_with_asyncio_run()
-        else:
-            # Loop is active; delegate to a worker thread so we don't block the loop thread.
-            import concurrent.futures
+        # Always run producer in a dedicated thread to allow consuming while producing
+        t = _threading.Thread(target=_runner, daemon=True)
 
-            # Capture logging thread-local from the caller thread
-            parent_request_id = getattr(log_thread_local, "request_id", None)
-            parent_url = getattr(log_thread_local, "url", None)
-            parent_client_ip = getattr(log_thread_local, "client_ip", None)
+        # Capture logging thread-local from the caller thread and propagate
+        parent_request_id = getattr(log_thread_local, "request_id", None)
+        parent_url = getattr(log_thread_local, "url", None)
+        parent_client_ip = getattr(log_thread_local, "client_ip", None)
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        def _start_thread():
+            if parent_request_id:
+                log_thread_local.request_id = parent_request_id
+            if parent_url:
+                log_thread_local.url = parent_url
+            if parent_client_ip:
+                log_thread_local.client_ip = parent_client_ip
+            t.start()
 
-                def _task():
-                    if parent_request_id:
-                        log_thread_local.request_id = parent_request_id
-                    if parent_url:
-                        log_thread_local.url = parent_url
-                    if parent_client_ip:
-                        log_thread_local.client_ip = parent_client_ip
-                    return run_with_asyncio_run()
+        _start_thread()
 
-                future = executor.submit(_task)
-                return future.result()
+        # Consume from queue and yield to caller
+        while True:
+            item = q.get()
+            if item is _SENTINEL:
+                break
+            if item is _ERROR:
+                # Raise the stored exception after producer signals an error
+                raise error_box["err"]
+            yield item
+
+        # Ensure producer thread finished
+        t.join(timeout=0)
 
     def _run_async_in_safe_context(
         self, coro_factory: Callable[[], Awaitable[Any] | Any]

@@ -124,7 +124,6 @@ def run_script_inner(
                     return
                 app.logger.info("run_script_context.run")
                 yield from run_script_context.run(app)
-            yield "[DONE]".encode("utf-8").decode("utf-8")
             db.session.commit()
         except BreakException:
             db.session.commit()
@@ -350,6 +349,8 @@ def run_script(
                     )
                     + "\n\n".encode("utf-8").decode("utf-8")
                 )
+
+        yield "data: [DONE]".encode("utf-8").decode("utf-8")
     else:
         app.logger.warning("lockfail")
 
