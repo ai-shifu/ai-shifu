@@ -53,7 +53,7 @@ const ContentBlock = memo(
         {...(mobileStyle ? longPressEvent : {})}
       >
         <ContentRender
-          typingSpeed={20}
+          // typingSpeed={20}
           enableTypewriter={false}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
@@ -69,6 +69,9 @@ const ContentBlock = memo(
   (prevProps, nextProps) => {
     // Only re-render if item, mobileStyle, or blockBid changes
     return (
+      prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
+      prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
+      prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid
