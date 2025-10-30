@@ -124,7 +124,7 @@ def run_script_inner(
                     return
                 app.logger.info("run_script_context.run")
                 yield from run_script_context.run(app)
-            yield "data: [DONE]".encode("utf-8").decode("utf-8")
+            yield "[DONE]".encode("utf-8").decode("utf-8")
             db.session.commit()
         except BreakException:
             db.session.commit()
