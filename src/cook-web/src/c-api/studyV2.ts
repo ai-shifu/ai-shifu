@@ -51,7 +51,7 @@ export const SSE_OUTPUT_TYPE = {
   CONTENT: 'content',
   BREAK: 'break',
   ASK: 'ask',
-  TEXT_END: 'text_end',
+  TEXT_END: 'done',
   INTERACTION: 'interaction',
   OUTLINE_ITEM_UPDATE: 'outline_item_update',
   HEARTBEAT: 'heartbeat',
@@ -149,7 +149,7 @@ export const getRunMessage = (
       const response = JSON.parse(event.data);
       console.log('[SSE response]', response);
       if (onMessage) {
-        onMessage(response);
+          onMessage(response);
       }
     } catch (e) {
       console.log(e);
@@ -162,7 +162,6 @@ export const getRunMessage = (
 
   // sse.js may not support 'close' event, use readystatechange instead
   source.addEventListener('readystatechange', () => {
-    console.log('[SSE readystatechange]', source.readyState);
     // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
     if (source.readyState === 2) {
       console.log('[SSE connection close]');

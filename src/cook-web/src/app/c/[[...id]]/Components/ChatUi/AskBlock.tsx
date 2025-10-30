@@ -69,7 +69,6 @@ export default function AskBlock({
   const sseRef = useRef<any>(null);
   const currentContentRef = useRef<string>('');
   const isStreamingRef = useRef(false);
-  const [isTypeFinished, setIsTypeFinished] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobileDialog, setShowMobileDialog] = useState(askList.length > 0);
   const mobileContentRef = useRef<HTMLDivElement | null>(null);
@@ -86,10 +85,6 @@ export default function AskBlock({
       return;
     }
 
-    if (!isTypeFinished) {
-      showOutputInProgressToast();
-      return;
-    }
     if (!question) {
       return;
     }
@@ -101,7 +96,6 @@ export default function AskBlock({
 
     // Close any previous SSE connection
     sseRef.current?.close();
-    setIsTypeFinished(false);
     setShowMobileDialog(true);
 
     // Append the new question as a user message at the end
@@ -148,8 +142,6 @@ export default function AskBlock({
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             return;
           }
-          setIsTypeFinished(false);
-
           if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
             // Streaming content
             const prevText = currentContentRef.current || '';
@@ -174,11 +166,6 @@ export default function AskBlock({
               return newList;
             });
           }
-          // if (
-          //   response.type === SSE_OUTPUT_TYPE.BREAK ||
-          //   response.type === SSE_OUTPUT_TYPE.TEXT_END ||
-          //   response.type === SSE_OUTPUT_TYPE.INTERACTION
-          // )
           else {
             // Streaming finished
             console.log('SSE end, close sse:', response);
@@ -224,9 +211,10 @@ export default function AskBlock({
     });
 
     source.addEventListener('readystatechange', () => {
-      console.log('SSE readystatechange:', source.readyState);
       // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
-      if (source.readyState === 2) {
+      if (source.readyState === 1) {
+        isStreamingRef.current = true;
+      }else if (source.readyState === 2) {
         isStreamingRef.current = false;
         setDisplayList(prev => {
           const newList = [...prev];
@@ -248,7 +236,6 @@ export default function AskBlock({
     outline_bid,
     preview_mode,
     generated_block_bid,
-    isTypeFinished,
     showOutputInProgressToast,
   ]);
 
@@ -380,10 +367,9 @@ export default function AskBlock({
                   onSend={() => {}}
                   defaultButtonText={''}
                   defaultInputText={''}
-                  enableTypewriter={message.isStreaming === true}
+                  enableTypewriter={false}
                   typingSpeed={20}
                   readonly={true}
-                  onTypeFinished={() => setIsTypeFinished(true)}
                 />
               </div>
             )}
@@ -416,7 +402,7 @@ export default function AskBlock({
           className={cn(
             'flex items-center justify-center',
             'cursor-pointer',
-            isStreamingRef.current || !isTypeFinished ? styles.isSending : '',
+            isStreamingRef.current ? styles.isSending : '',
           )}
         >
           <Send size={mobileStyle ? 18 : 12} />

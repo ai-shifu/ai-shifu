@@ -10,7 +10,6 @@ interface ContentBlockProps {
   blockBid: string;
   onClickCustomButtonAfterContent: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
-  onTypeFinished: () => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
 }
 
@@ -21,7 +20,6 @@ const ContentBlock = memo(
     blockBid,
     onClickCustomButtonAfterContent,
     onSend,
-    onTypeFinished,
     onLongPress,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
@@ -56,7 +54,7 @@ const ContentBlock = memo(
       >
         <ContentRender
           typingSpeed={20}
-          enableTypewriter={!item.isHistory}
+          enableTypewriter={false}
           content={item.content || ''}
           onClickCustomButtonAfterContent={handleClick}
           customRenderBar={item.customRenderBar}
@@ -64,7 +62,6 @@ const ContentBlock = memo(
           defaultInputText={item.defaultInputText}
           readonly={item.readonly}
           onSend={_onSend}
-          onTypeFinished={onTypeFinished}
         />
       </div>
     );
@@ -72,7 +69,7 @@ const ContentBlock = memo(
   (prevProps, nextProps) => {
     // Only re-render if item, mobileStyle, or blockBid changes
     return (
-      prevProps.item === nextProps.item &&
+      prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
       prevProps.blockBid === nextProps.blockBid
     );

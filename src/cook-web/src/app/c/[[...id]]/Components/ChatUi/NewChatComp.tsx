@@ -103,7 +103,6 @@ export const NewChatComponents = ({
     isLoading,
     onSend,
     onRefresh,
-    onTypeFinished,
     toggleAskExpanded,
   } = useChatLogicHook({
     onGoChapter,
@@ -201,9 +200,8 @@ export const NewChatComponents = ({
     [toggleAskExpanded],
   );
 
-  // Memoize onSend and onTypeFinished to prevent new function references
+  // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
-  const memoizedOnTypeFinished = useCallback(onTypeFinished, [onTypeFinished]);
 
   return (
     <div
@@ -264,7 +262,6 @@ export const NewChatComponents = ({
                 blockBid={item.generated_block_bid}
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
-                onTypeFinished={memoizedOnTypeFinished}
                 onLongPress={handleLongPress}
               />
             </div>
