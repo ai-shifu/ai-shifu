@@ -1,16 +1,8 @@
 {
   "__namespace__": "module.shifu",
-  "aiBlock": "AI Block",
-  "debug": "Debug",
-  "delete": "Delete",
   "newChapter": "Add Chapter",
-  "regularBlock": "Regular Block",
-  "setAsAiBlock": "Set as AI Block",
-  "setAsRegularBlock": "Set as Regular Block"
-  ,
   "creationArea": {
     "description": "Describe the chapter you want, or leave it blank and let AI take the lead.",
-    "hint": "Default prompt goes here. Type / to discover more options.",
     "title": "Creation Area",
     "modeText": "Raw",
     "modeCode": "Text"

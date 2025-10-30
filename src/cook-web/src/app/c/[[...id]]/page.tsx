@@ -253,16 +253,15 @@ export default function ChatPage() {
     openPayModal,
     closePayModal,
     setPayModalResult,
-  } =
-    useCourseStore(
-      useShallow(state => ({
-        payModalOpen: state.payModalOpen,
-        payModalState: state.payModalState,
-        openPayModal: state.openPayModal,
-        closePayModal: state.closePayModal,
-        setPayModalResult: state.setPayModalResult,
-      })),
-    );
+  } = useCourseStore(
+    useShallow(state => ({
+      payModalOpen: state.payModalOpen,
+      payModalState: state.payModalState,
+      openPayModal: state.openPayModal,
+      closePayModal: state.closePayModal,
+      setPayModalResult: state.setPayModalResult,
+    })),
+  );
 
   const onPurchased = useCallback(() => {
     reloadTree();

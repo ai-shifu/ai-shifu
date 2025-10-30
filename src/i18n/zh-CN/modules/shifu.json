@@ -1,16 +1,8 @@
 {
   "__namespace__": "module.shifu",
-  "aiBlock": "AI模块",
-  "debug": "调试",
-  "delete": "删除",
   "newChapter": "添加章",
-  "regularBlock": "固定模块",
-  "setAsAiBlock": "设为AI模块",
-  "setAsRegularBlock": "设为固定模块"
-  ,
   "creationArea": {
     "description": "写清想要的章节，也可留白，让 AI 自己演绎",
-    "hint": "默认输入 AI 提示词，输入 / 唤起更多",
     "title": "创作区",
     "modeText": "可视",
     "modeCode": "文本"

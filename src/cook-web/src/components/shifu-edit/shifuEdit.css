@@ -1,1 +1,13 @@
-.mode-btn{border-radius:var(--border-radius-rounded-md, 8px)}.mode-btn[data-state=active]{background:var(--custom-background-dark-input-30, #FFF);box-shadow:var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px) var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0) var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px) var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px) var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1))}
+.mode-btn {
+  border-radius: var(--border-radius-rounded-md, 8px);
+}
+.mode-btn[data-state='active'] {
+  background: var(--custom-background-dark-input-30, #fff);
+  box-shadow:
+    var(--shadow-sm-1-offset-x, 0) var(--shadow-sm-1-offset-y, 1px)
+      var(--shadow-sm-1-blur-radius, 3px) var(--shadow-sm-1-spread-radius, 0)
+      var(--shadow-sm-1-color, rgba(0, 0, 0, 0.1)),
+    var(--shadow-sm-2-offset-x, 0) var(--shadow-sm-2-offset-y, 1px)
+      var(--shadow-sm-2-blur-radius, 2px) var(--shadow-sm-2-spread-radius, -1px)
+      var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
+}

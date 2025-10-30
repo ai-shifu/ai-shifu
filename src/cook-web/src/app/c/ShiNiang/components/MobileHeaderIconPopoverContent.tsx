@@ -48,7 +48,13 @@ const MobileHeaderIconPopoverContent = ({ payload, onClose, onOpen }) => {
       trackEvent(EVENT_NAMES.POP_PAY, { from: 'popconfirm-pay-btn' });
     }
     updateOrderPromotePopoverOpen(false);
-  }, [EVENT_NAMES.POP_PAY, hasPay, openPayModal, trackEvent, updateOrderPromotePopoverOpen]);
+  }, [
+    EVENT_NAMES.POP_PAY,
+    hasPay,
+    openPayModal,
+    trackEvent,
+    updateOrderPromotePopoverOpen,
+  ]);
 
   const onCancelButtonClick = useCallback(() => {
     updateOrderPromotePopoverOpen(false);

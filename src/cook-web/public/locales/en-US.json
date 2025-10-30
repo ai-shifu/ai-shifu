@@ -193,9 +193,9 @@
       "key": {
         "/": "/",
         "a": "A",
-        "cmd": "\u2318",
+        "cmd": "⌘",
         "ctrl": "Ctrl",
-        "shift": "\u21e7",
+        "shift": "⇧",
         "space": "Space"
       },
       "title": {
@@ -395,12 +395,6 @@
     "searchVariable": "Search variable...",
     "text": "String"
   },
-  "renderBlock": {
-    "cancel": "Cancel",
-    "confirm": "Confirm",
-    "confirmDelete": "Confirm Delete",
-    "confirmDeleteDescription": "This operation will cause the current content to be lost. Are you sure?"
-  },
   "renderUi": {
     "button": "Button",
     "buttonKey": "Button Key",
@@ -444,20 +438,13 @@
     "settingTitle": "Personal Info"
   },
   "shifu": {
-    "aiBlock": "AI Block",
     "creationArea": {
       "description": "Describe the chapter you want, or leave it blank and let AI take the lead.",
-      "hint": "Default prompt goes here. Type / to discover more options.",
-      "title": "Creation Area",
-      "modeText": "Visual",
-      "modeCode": "Raw"
+      "modeCode": "Text",
+      "modeText": "Raw",
+      "title": "Creation Area"
     },
-    "debug": "Debug",
-    "delete": "Delete",
-    "newChapter": "Add Chapter",
-    "regularBlock": "Regular Block",
-    "setAsAiBlock": "Set as AI Block",
-    "setAsRegularBlock": "Set as Regular Block"
+    "newChapter": "Add Chapter"
   },
   "shifuSetting": {
     "addKeyword": "Add Keyword",
@@ -487,11 +474,6 @@
     "shifuTemperatureFormat": "Temperature must be a valid number",
     "shifuTemperatureMax": "Temperature cannot exceed 2",
     "shifuTemperatureMin": "Temperature cannot be less than 0",
-    "temperatureHint": "Adjust within 0-2. Higher values encourage more creative output.",
-    "systemPrompt": "System Prompt",
-    "systemPromptHint": "Outline audience, tone, style, and essential context.",
-    "systemPromptPlaceholder": "Within 300 characters",
-    "systemPromptMaxLength": "System prompt cannot exceed 300 characters",
     "supportedFormats": "Only JPG and PNG formats are supported",
     "systemPrompt": "System Prompt",
     "systemPromptHint": "Outline audience, tone, style, and essential context.",

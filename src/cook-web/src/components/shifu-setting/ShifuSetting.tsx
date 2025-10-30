@@ -1,5 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { Copy, Check, SlidersVertical, Plus, Minus, CircleHelp } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  SlidersVertical,
+  Plus,
+  Minus,
+  CircleHelp,
+} from 'lucide-react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -43,7 +50,7 @@ interface Shifu {
   system_prompt?: string;
 }
 
-export default function ShifuSettingDialog ({
+export default function ShifuSettingDialog({
   shifuId,
   onSave,
 }: {
