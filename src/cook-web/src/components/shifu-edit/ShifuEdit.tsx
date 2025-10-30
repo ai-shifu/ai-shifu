@@ -66,7 +66,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
-  console.log('baseURL',baseURL)
 
   const onAddChapter = () => {
     actions.addChapter({
@@ -117,7 +116,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   const uploadProps: UploadProps = useMemo(() => ({
-    action: `${baseURL}/api/shifu/upfile`,
+    // TODO: should use baseURL
+    action: `${window.location.origin}/api/shifu/upfile`,
     headers: {
       Authorization: `Bearer ${token}`,
       Token: token,
