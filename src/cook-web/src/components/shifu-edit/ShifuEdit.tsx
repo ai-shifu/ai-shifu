@@ -20,7 +20,8 @@ import './shifuEdit.scss';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import i18n, { normalizeLanguage } from '@/i18n';
-import { getStringEnv } from '@/c-utils/envUtils';
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
 
 
 const ScriptEditor = ({ id }: { id: string }) => {
@@ -58,11 +59,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
     isLoading,
     variables,
     systemVariables,
-    currentNode,
     currentShifu,
+    currentNode,
   } = useShifu();
 
+
   const token = useUserStore(state => state.getToken());
+  const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
+  console.log('baseURL',baseURL)
 
   const onAddChapter = () => {
     actions.addChapter({
@@ -113,12 +117,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
   };
 
   const uploadProps: UploadProps = useMemo(() => ({
-    action: `${getStringEnv('baseURL')}/api/shifu/upfile`,
+    action: `${baseURL}/api/shifu/upfile`,
     headers: {
       Authorization: `Bearer ${token}`,
       Token: token,
     },
-  }), [token]);
+  }), [token, baseURL]);
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
@@ -194,8 +198,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       </TabsList>
                     </Tabs>
                   </div>
-                  <MarkdownFlowEditor 
-                  locale={
+                  <MarkdownFlowEditor
+                    locale={
                       normalizeLanguage(
                         (i18n.resolvedLanguage ?? i18n.language) as string,
                       ) as 'en-US' | 'zh-CN'

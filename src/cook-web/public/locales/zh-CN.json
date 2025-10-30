@@ -449,7 +449,7 @@
       "description": "写清想要的章节，也可留白，让 AI 自己演绎",
       "hint": "默认输入 AI 提示词，输入 / 唤起更多",
       "title": "创作区",
-      "modeText": "标准",
+      "modeText": "可视",
       "modeCode": "文本"
     },
     "debug": "调试",
