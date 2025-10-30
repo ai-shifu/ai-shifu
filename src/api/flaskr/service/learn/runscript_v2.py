@@ -28,6 +28,7 @@ from flaskr.service.learn.context_v2 import RunScriptContextV2
 from flaskr.service.learn.input_funcs import BreakException
 from flaskr.service.learn.learn_dtos import GeneratedType
 import datetime
+from flaskr.common.log import thread_local as log_thread_local
 
 
 def run_script_inner(
@@ -114,12 +115,16 @@ def run_script_inner(
                 yield from run_script_context.reload(app, reload_generated_block_bid)
                 db.session.commit()
             while run_script_context.has_next():
+                app.logger.warning(
+                    f"run_script_context.has_next(): {run_script_context.has_next()}"
+                )
                 if stop_event and stop_event.is_set():
                     app.logger.info("run_script_inner cancelled by stop_event")
                     db.session.rollback()
                     return
                 app.logger.info("run_script_context.run")
                 yield from run_script_context.run(app)
+            yield "data: [DONE]".encode("utf-8").decode("utf-8")
             db.session.commit()
         except BreakException:
             db.session.commit()
@@ -162,6 +167,10 @@ def run_script(
     if lock.acquire(blocking=True):
         stop_event = threading.Event()
         output_queue: queue.Queue[tuple[str, object]] = queue.Queue()
+        # Capture logging context from the request thread so logs in the producer thread keep the same identifiers
+        parent_request_id = getattr(log_thread_local, "request_id", None)
+        parent_url = getattr(log_thread_local, "url", None)
+        parent_client_ip = getattr(log_thread_local, "client_ip", None)
         res = run_script_inner(
             app=app,
             user_bid=user_bid,
@@ -175,6 +184,13 @@ def run_script(
         )
 
         def producer():
+            # Propagate logging thread-local context into this background thread
+            if parent_request_id:
+                log_thread_local.request_id = parent_request_id
+            if parent_url:
+                log_thread_local.url = parent_url
+            if parent_client_ip:
+                log_thread_local.client_ip = parent_client_ip
             try:
                 for item in res:
                     if stop_event.is_set():
