@@ -55,7 +55,7 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_PHONE_VALUE,
     BLOCK_TYPE_CHECKCODE_VALUE,
 )
-from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT, ROLE_TEACHER
+from flaskr.service.learn.const import ROLE_TEACHER
 from flaskr.service.shifu.models import DraftBlock, PublishedBlock
 from typing import Union
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
@@ -375,23 +375,23 @@ def get_learn_record(
                         if button.get("value") == "_sys_login":
                             if bool(request.user.mobile):
                                 records.remove(last_record)
-        if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
-            interaction = (
-                "?["
-                + _("server.learn.nextChapter")
-                + "//"
-                + CONTEXT_INTERACTION_NEXT
-                + "]"
-            )
-            records.append(
-                GeneratedBlockDTO(
-                    "next",
-                    interaction,
-                    LikeStatus.NONE,
-                    BlockType.INTERACTION,
-                    "",
-                )
-            )
+        # if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
+        #     interaction = (
+        #         "?["
+        #         + _("server.learn.nextChapter")
+        #         + "//"
+        #         + CONTEXT_INTERACTION_NEXT
+        #         + "]"
+        #     )
+        #     records.append(
+        #         GeneratedBlockDTO(
+        #             "next",
+        #             interaction,
+        #             LikeStatus.NONE,
+        #             BlockType.INTERACTION,
+        #             "",
+        #         )
+        #     )
         return LearnRecordDTO(
             records=records,
             interaction=interaction,
