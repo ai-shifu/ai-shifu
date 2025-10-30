@@ -31,6 +31,7 @@ class GeneratedType(Enum):
     INTERACTION = "interaction"
     VARIABLE_UPDATE = "variable_update"
     OUTLINE_ITEM_UPDATE = "outline_item_update"
+    DONE = "done"
 
     def __json__(self):
         return self.value
