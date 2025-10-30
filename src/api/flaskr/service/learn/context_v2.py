@@ -556,25 +556,25 @@ class RunScriptContextV2:
                             current_node.children
                             and current_node.children[0].type == "outline"
                         ):
-                            res.append(
-                                OutlineItemUpdateDTO(
-                                    outline_bid=current_node.bid,
-                                    title=outline_item_title_map.get(
-                                        current_node.bid, ""
-                                    ),
-                                    status=LearnStatus.IN_PROGRESS,
-                                    has_children=True,
-                                )
-                            )
+                            # res.append(
+                            #     OutlineItemUpdateDTO(
+                            #         outline_bid=current_node.bid,
+                            #         title=outline_item_title_map.get(
+                            #             current_node.bid, ""
+                            #         ),
+                            #         status=LearnStatus.IN_PROGRESS,
+                            #         has_children=True,
+                            #     )
+                            # )
                             current_node = current_node.children[0]
-                        res.append(
-                            OutlineItemUpdateDTO(
-                                outline_bid=current_node.bid,
-                                title=outline_item_title_map.get(current_node.bid, ""),
-                                status=LearnStatus.IN_PROGRESS,
-                                has_children=False,
-                            )
-                        )
+                        # res.append(
+                        #     OutlineItemUpdateDTO(
+                        #         outline_bid=current_node.bid,
+                        #         title=outline_item_title_map.get(current_node.bid, ""),
+                        #         status=LearnStatus.IN_PROGRESS,
+                        #         has_children=False,
+                        #     )
+                        # )
                         return
                     if index == len(item.children) - 1 and item.type == "outline":
                         _mark_sub_node_completed(item, res)
@@ -589,23 +589,25 @@ class RunScriptContextV2:
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":
-                        res.append(
-                            OutlineItemUpdateDTO(
-                                outline_bid=item.bid,
-                                title=outline_item_title_map.get(item.bid, ""),
-                                status=LearnStatus.IN_PROGRESS,
-                                has_children=True,
-                            )
-                        )
+                        # res.append(
+                        #     OutlineItemUpdateDTO(
+                        #         outline_bid=item.bid,
+                        #         title=outline_item_title_map.get(item.bid, ""),
+                        #         status=LearnStatus.IN_PROGRESS,
+                        #         has_children=True,
+                        #     )
+                        # )
+                        pass
                     else:
-                        res.append(
-                            OutlineItemUpdateDTO(
-                                outline_bid=item.bid,
-                                title=outline_item_title_map.get(item.bid, ""),
-                                status=LearnStatus.IN_PROGRESS,
-                                has_children=False,
-                            )
-                        )
+                        pass
+                        # res.append(
+                        #     OutlineItemUpdateDTO(
+                        #         outline_bid=item.bid,
+                        #         title=outline_item_title_map.get(item.bid, ""),
+                        #         status=LearnStatus.IN_PROGRESS,
+                        #         has_children=False,
+                        #     )
+                        # )
 
         if self._current_attend.block_position >= max(
             len(self._current_outline_item.children),
