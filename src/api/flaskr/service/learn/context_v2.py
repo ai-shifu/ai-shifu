@@ -76,6 +76,7 @@ from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _
 from flaskr.service.user.exceptions import UserNotLoginException
+from flaskr.common.log import thread_local as log_thread_local
 
 context_local = threading.local()
 
@@ -250,8 +251,23 @@ class RunScriptContextV2:
             # Loop is active; delegate to a worker thread so we don't block the loop thread.
             import concurrent.futures
 
+            # Capture logging thread-local from the caller thread
+            parent_request_id = getattr(log_thread_local, "request_id", None)
+            parent_url = getattr(log_thread_local, "url", None)
+            parent_client_ip = getattr(log_thread_local, "client_ip", None)
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(run_with_asyncio_run)
+
+                def _task():
+                    if parent_request_id:
+                        log_thread_local.request_id = parent_request_id
+                    if parent_url:
+                        log_thread_local.url = parent_url
+                    if parent_client_ip:
+                        log_thread_local.client_ip = parent_client_ip
+                    return run_with_asyncio_run()
+
+                future = executor.submit(_task)
                 return future.result()
 
     def _run_async_in_safe_context(
@@ -293,8 +309,23 @@ class RunScriptContextV2:
         else:
             import concurrent.futures
 
+            # Capture logging thread-local from the caller thread
+            parent_request_id = getattr(log_thread_local, "request_id", None)
+            parent_url = getattr(log_thread_local, "url", None)
+            parent_client_ip = getattr(log_thread_local, "client_ip", None)
+
             with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(run_with_asyncio_run)
+
+                def _task():
+                    if parent_request_id:
+                        log_thread_local.request_id = parent_request_id
+                    if parent_url:
+                        log_thread_local.url = parent_url
+                    if parent_client_ip:
+                        log_thread_local.client_ip = parent_client_ip
+                    return run_with_asyncio_run()
+
+                future = executor.submit(_task)
                 return future.result()
 
     preview_mode: bool
@@ -817,7 +848,6 @@ class RunScriptContextV2:
         app.logger.info(f"self._run_type: {self._run_type}")
         if self._run_type == RunType.INPUT:
             if block.block_type != BlockType.INTERACTION:
-                app.logger.info("block.block_type != BlockType.INTERACTION To OUTPUT")
                 self._can_continue = True
                 self._run_type = RunType.OUTPUT
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
@@ -832,23 +862,12 @@ class RunScriptContextV2:
                     LearnGeneratedBlock.outline_item_bid == run_script_info.outline_bid,
                     LearnGeneratedBlock.user_bid == self._user_info.user_id,
                     LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                    LearnGeneratedBlock.position == run_script_info.block_position,
+                    LearnGeneratedBlock.status == 1,
                 )
                 .order_by(LearnGeneratedBlock.id.desc())
                 .first()
             )
-            if not generated_block:
-                generated_block = init_generated_block(
-                    app,
-                    shifu_bid=run_script_info.attend.shifu_bid,
-                    outline_item_bid=run_script_info.outline_bid,
-                    progress_record_bid=run_script_info.attend.progress_record_bid,
-                    user_bid=self._user_info.user_id,
-                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
-                    mdflow=block.content,
-                    block_index=run_script_info.block_position,
-                )
-                db.session.add(generated_block)
-                db.session.flush()
             if (
                 parsed_interaction.get("buttons")
                 and len(parsed_interaction.get("buttons")) > 0
@@ -860,7 +879,7 @@ class RunScriptContextV2:
                                 outline_bid=run_script_info.outline_bid,
                                 generated_block_bid=generated_block.generated_block_bid
                                 if generated_block
-                                else "",
+                                else generate_id(app),
                                 type=GeneratedType.INTERACTION,
                                 content=block.content,
                             )
@@ -885,13 +904,37 @@ class RunScriptContextV2:
                                 outline_bid=run_script_info.outline_bid,
                                 generated_block_bid=generated_block.generated_block_bid
                                 if generated_block
-                                else "",
+                                else generate_id(app),
                                 type=GeneratedType.INTERACTION,
                                 content=block.content,
                             )
                             self._can_continue = False
                             db.session.flush()
                             return
+            if not generated_block:
+                generated_block = init_generated_block(
+                    app,
+                    shifu_bid=run_script_info.attend.shifu_bid,
+                    outline_item_bid=run_script_info.outline_bid,
+                    progress_record_bid=run_script_info.attend.progress_record_bid,
+                    user_bid=self._user_info.user_id,
+                    block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+                    mdflow=block.content,
+                    block_index=run_script_info.block_position,
+                )
+                app.logger.info(
+                    f"generated_block not found, init new one: {generated_block.generated_block_bid}"
+                )
+                yield RunMarkdownFlowDTO(
+                    outline_bid=run_script_info.outline_bid,
+                    generated_block_bid=generated_block.generated_block_bid,
+                    type=GeneratedType.INTERACTION,
+                    content=block.content,
+                )
+                self._can_continue = False
+                db.session.add(generated_block)
+                db.session.flush()
+                return
             generated_block.generated_content = self._input
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
@@ -1049,7 +1092,7 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 db.session.add(generated_block)
                 db.session.flush()
-        if self._run_type == RunType.OUTPUT:
+        elif self._run_type == RunType.OUTPUT:
             generated_block: LearnGeneratedBlock = init_generated_block(
                 app,
                 shifu_bid=run_script_info.attend.shifu_bid,
@@ -1160,7 +1203,7 @@ class RunScriptContextV2:
                 )
                 generated_block.generated_content = generated_content
                 db.session.add(generated_block)
-                self._can_continue = True
+                self._can_continue = False
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
