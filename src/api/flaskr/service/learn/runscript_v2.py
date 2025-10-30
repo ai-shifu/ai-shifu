@@ -350,7 +350,20 @@ def run_script(
                     + "\n\n".encode("utf-8").decode("utf-8")
                 )
 
-        yield "data: [DONE]".encode("utf-8").decode("utf-8")
+        yield (
+            "data: "
+            + json.dumps(
+                RunMarkdownFlowDTO(
+                    outline_bid=outline_bid,
+                    generated_block_bid="",
+                    type=GeneratedType.DONE,
+                    content="",
+                ),
+                default=fmt,
+                ensure_ascii=False,
+            )
+            + "\n\n".encode("utf-8").decode("utf-8")
+        )
     else:
         app.logger.warning("lockfail")
 
