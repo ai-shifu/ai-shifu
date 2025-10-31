@@ -524,18 +524,6 @@ def get_follow_up_info_v2(
         o.outline_item_bid: o for o in outline_infos
     }
 
-    for p in path:
-        if p.type == "outline":
-            outline_info = outline_infos_map.get(p.bid, None)
-            if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
-                return FollowUpInfo(
-                    ask_model=outline_info.ask_llm,
-                    ask_prompt=outline_info.ask_llm_system_prompt,
-                    ask_history_count=10,
-                    ask_limit_count=10,
-                    model_args={"temperature": outline_info.ask_llm_temperature},
-                    ask_mode=outline_info.ask_enabled_status,
-                )
     shifu_info: Union[PublishedShifu, DraftShifu] = (
         shifu_model.query.filter(
             shifu_model.shifu_bid == shifu_bid, shifu_model.deleted == 0
@@ -543,7 +531,23 @@ def get_follow_up_info_v2(
         .order_by(shifu_model.id.desc())
         .first()
     )
-    ask_model = shifu_info.ask_llm
+    ask_model = shifu_info.ask_llm if shifu_info.ask_llm else shifu_info.llm
+
+    for p in path:
+        if p.type == "outline":
+            outline_info = outline_infos_map.get(p.bid, None)
+            if outline_info.ask_enabled_status != ASK_MODE_DEFAULT:
+                return FollowUpInfo(
+                    ask_model=outline_info.ask_llm
+                    if outline_info.ask_llm
+                    else ask_model,
+                    ask_prompt=outline_info.ask_llm_system_prompt,
+                    ask_history_count=10,
+                    ask_limit_count=10,
+                    model_args={"temperature": outline_info.ask_llm_temperature},
+                    ask_mode=outline_info.ask_enabled_status,
+                )
+
     ask_prompt = shifu_info.ask_llm_system_prompt
     ask_history_count = 10
     ask_limit_count = 10
