@@ -343,7 +343,7 @@ function useChatLogicHook({
                   type: ChatContentItemType.INTERACTION,
                 };
                 const lastContent = prev[prev.length - 1];
-                if(lastContent.type === ChatContentItemType.CONTENT) {  
+                if(lastContent && lastContent.type === ChatContentItemType.CONTENT) {  
                   const likeStatusItem: ChatContentItem = {
                       parent_block_bid: lastContent.generated_block_bid || '',
                       generated_block_bid: '',
@@ -459,7 +459,7 @@ function useChatLogicHook({
                 // Add interaction blocks - use captured value instead of ref
                 const lastItem = updatedList[updatedList.length - 1];
                 const gid = lastItem?.generated_block_bid || '';
-                if (lastItem&&lastItem.type === ChatContentItemType.CONTENT) {
+                if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
                   updatedList.push({
                     parent_block_bid: gid,
                     generated_block_bid: '',
