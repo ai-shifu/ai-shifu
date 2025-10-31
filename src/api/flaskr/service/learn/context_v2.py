@@ -791,12 +791,16 @@ class RunScriptContextV2:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
             db.session.flush()
             self._current_attend = self._get_current_attend(self._outline_item_info.bid)
-            if self._current_attend.status != LEARN_STATUS_IN_PROGRESS:
+            if self._current_attend.status not in [
+                LEARN_STATUS_IN_PROGRESS,
+                LEARN_STATUS_NOT_STARTED,
+            ]:
                 app.logger.info(
-                    "current_attend.status != LEARN_STATUS_IN_PROGRESS To False"
+                    f"current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: {self._current_attend.status}"
                 )
                 self._can_continue = False
                 return
+
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
         if run_script_info is None:
             self.app.logger.warning("run script is none")
