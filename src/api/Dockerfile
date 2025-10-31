@@ -27,7 +27,9 @@ COPY ${API_SRC}/requirements.txt ./requirements.txt
 RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r requirements.txt
 
-COPY ${API_SRC} ./
+COPY ${API_SRC}/ ./
+# Ensure error code manifest is present in the image
+RUN test -f error_codes.json
 COPY ${I18N_SRC} /app/i18n
 
 FROM python:3.11-slim
