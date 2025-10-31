@@ -2,7 +2,7 @@ from flask import Flask
 from flaskr.service.common.models import AppException
 from flaskr.service.learn.models import LearnProgressRecord
 from flaskr.dao import db
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.output.ui_continue import make_continue_ui
 from functools import wraps
 from flaskr.service.shifu.adapter import BlockDTO
@@ -15,7 +15,7 @@ from flaskr.service.learn.output.handle_output_ask import _handle_output_ask
 
 def handle_ui(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend: LearnProgressRecord,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
@@ -152,7 +152,7 @@ def register_shifu_continue_handler(block_type: str):
 
 def handle_block_input(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     input_type: str,
     input: str,
@@ -187,7 +187,7 @@ def handle_block_input(
 
 def handle_block_output(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
@@ -229,7 +229,7 @@ def handle_block_output(
 
 def check_block_continue(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

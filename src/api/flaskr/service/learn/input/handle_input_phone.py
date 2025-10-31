@@ -12,7 +12,7 @@ from flaskr.service.learn.utils import (
 )
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.utils import get_script_ui_label
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
@@ -26,7 +26,7 @@ from flaskr.service.shifu.dtos import PhoneDTO
 @extensible_generic
 def _handle_input_phone(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     input: str,
     outline_item_info: ShifuOutlineItemDto,

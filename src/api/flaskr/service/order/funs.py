@@ -12,7 +12,8 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_VALUES,
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
-from flaskr.service.user.models import User, UserConversion
+from flaskr.service.user.models import UserConversion, UserInfo as UserEntity
+from flaskr.service.user.repository import load_user_aggregate, set_user_state
 from flaskr.service.active import (
     query_active_record,
     query_and_join_active,
@@ -154,8 +155,12 @@ def send_order_feishu(app: Flask, record_id: str):
     order_info = query_buy_record(app, record_id)
     if order_info is None:
         return
-    user_info: User = User.query.filter(User.user_id == order_info.user_id).first()
-    if not user_info:
+    aggregate = load_user_aggregate(order_info.user_id)
+    if not aggregate:
+        app.logger.warning(
+            "order notify skipped: user aggregate missing for %s",
+            order_info.user_id,
+        )
         return
     course_info: AICourseDTO = get_course_info(app, order_info.course_id)
     if not course_info:
@@ -163,8 +168,8 @@ def send_order_feishu(app: Flask, record_id: str):
 
     title = "购买课程通知"
     msgs = []
-    msgs.append("手机号：{}".format(user_info.mobile))
-    msgs.append("昵称：{}".format(user_info.name))
+    msgs.append("手机号：{}".format(aggregate.mobile))
+    msgs.append("昵称：{}".format(aggregate.name))
     msgs.append("课程名称：{}".format(course_info.course_name))
     msgs.append("实付金额：{}".format(order_info.price))
     user_convertion = UserConversion.query.filter(
@@ -178,11 +183,15 @@ def send_order_feishu(app: Flask, record_id: str):
         msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
         if item.is_discount:
             msgs.append("优惠码：{}".format(item.discount_code))
-    user_count = User.query.filter(User.user_state == USER_STATE_PAID).count()
+    user_count = UserEntity.query.filter(
+        UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
+    ).count()
     msgs.append("总付费用户数：{}".format(user_count))
-    user_reg_count = User.query.filter(User.user_state >= USER_STATE_REGISTERED).count()
+    user_reg_count = UserEntity.query.filter(
+        UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
+    ).count()
     msgs.append("总注册用户数：{}".format(user_reg_count))
-    user_total_count = User.query.count()
+    user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
     msgs.append("总访客数：{}".format(user_total_count))
     send_notify(app, title, msgs)
 
@@ -400,8 +409,10 @@ def generate_charge(
             )
             qr_url = charge["credential"]["alipay_qr"]
         elif channel == "wx_pub":  # wxpay JSAPI
-            user = User.query.filter(User.user_id == buy_record.user_bid).first()
-            extra = dict({"open_id": user.user_open_id})
+            aggregate = load_user_aggregate(buy_record.user_bid)
+            if not aggregate:
+                raise_error("USER.USER_NOT_FOUND")
+            extra = dict({"open_id": aggregate.user_open_id})
             charge = create_pingxx_order(
                 app,
                 order_no,
@@ -501,17 +512,9 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
 
                     if buy_record and buy_record.status == ORDER_STATUS_TO_BE_PAID:
                         try:
-                            user_info = User.query.filter(
-                                User.user_id == buy_record.user_bid
-                            ).first()
-                            if not user_info:
-                                app.logger.error(
-                                    "user:{} not found".format(buy_record.user_bid)
-                                )
-                            else:
-                                user_info.user_state = USER_STATE_PAID
+                            set_user_state(buy_record.user_bid, USER_STATE_PAID)
                         except Exception as e:
-                            app.logger.error("update user state error:{}".format(e))
+                            app.logger.error("update user state error:%s", e)
                         buy_record.status = ORDER_STATUS_SUCCESS
                         db.session.commit()
                         send_order_feishu(app, buy_record.order_bid)
@@ -541,11 +544,10 @@ def success_buy_record(app: Flask, record_id: str):
         app.logger.info('success buy record:"{}"'.format(record_id))
         buy_record = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
-            user_info = User.query.filter(User.user_id == buy_record.user_bid).first()
-            if not user_info:
-                app.logger.error("user:{} not found".format(buy_record.user_bid))
-            else:
-                user_info.user_state = USER_STATE_PAID
+            try:
+                set_user_state(buy_record.user_bid, USER_STATE_PAID)
+            except Exception as e:
+                app.logger.error("update user state error:%s", e)
             buy_record.status = ORDER_STATUS_SUCCESS
             db.session.commit()
             send_order_feishu(app, buy_record.order_bid)

@@ -6,7 +6,7 @@ from typing import Generator
 from flask import Flask
 
 from flaskr.service.common.models import AppException, raise_error
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import load_user_aggregate
 from flaskr.i18n import _
 import json
 
@@ -47,7 +47,9 @@ def run_script_inner(
     """
     with app.app_context():
         try:
-            user_info = User.query.filter(User.user_id == user_bid).first()
+            user_info = load_user_aggregate(user_bid)
+            if not user_info:
+                raise_error("USER.USER_NOT_FOUND")
             shifu_info: ShifuInfoDto = None
             outline_item_info: ShifuOutlineItemDto = None
             struct_info: HistoryItem = None

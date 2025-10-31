@@ -19,7 +19,7 @@ from flaskr.service.learn.utils import make_script_dto
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from flaskr.service.learn.context import RunScriptContext
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 
 
 class BreakException(Exception):
@@ -28,7 +28,7 @@ class BreakException(Exception):
 
 def check_text_with_llm_response(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     log_script: LearnGeneratedBlock,
     input: str,
     span,

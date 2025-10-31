@@ -32,16 +32,16 @@ def test_create_discount(app):
 def test_buy_and_pay(app):
     from flaskr.service.order.funs import init_buy_record, generate_charge
 
-    from flaskr.service.user.models import User
+    from flaskr.service.user.models import UserInfo as UserEntity
     from flaskr.service.lesson.models import AICourse
     from flaskr.service.order.models import DiscountRecord
     from flaskr.service.order.consts import DISCOUNT_STATUS_ACTIVE
     from flaskr.service.order.discount import use_discount_code
 
     with app.app_context():
-        user = User.query.first()
+        user = UserEntity.query.filter(UserEntity.deleted == 0).first()
         course = AICourse.query.first()
-        user_id = user.user_id
+        user_id = user.user_bid
         discount_record = DiscountRecord.query.filter(
             DiscountRecord.status == DISCOUNT_STATUS_ACTIVE
         ).first()

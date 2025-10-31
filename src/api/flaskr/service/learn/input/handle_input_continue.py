@@ -6,7 +6,7 @@ from flaskr.service.learn.plugin import (
 from flaskr.service.learn.utils import generation_attend, get_script_ui_label
 from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
@@ -20,7 +20,7 @@ from flaskr.service.shifu.dtos import ButtonDTO
 @extensible_generic
 def _handle_input_continue(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     input: str,
     outline_item_info: ShifuOutlineItemDto,
