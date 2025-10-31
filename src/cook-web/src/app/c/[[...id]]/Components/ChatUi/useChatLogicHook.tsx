@@ -310,16 +310,20 @@ function useChatLogicHook({
               response.type === SSE_OUTPUT_TYPE.INTERACTION ||
               response.type === SSE_OUTPUT_TYPE.CONTENT
             ) {
-                if(contentListRef.current?.some(item => item.generated_block_bid === 'loading')) {
-                  // close loading
-                  setTrackedContentList(pre => {
-                    const newList = pre.filter(
-                      item => item.generated_block_bid !== 'loading',
-                    );
-                    return newList;
-                  });
-                  currentBlockIdRef.current = nid;
-                }
+              if (
+                contentListRef.current?.some(
+                  item => item.generated_block_bid === 'loading',
+                )
+              ) {
+                // close loading
+                setTrackedContentList(pre => {
+                  const newList = pre.filter(
+                    item => item.generated_block_bid !== 'loading',
+                  );
+                  return newList;
+                });
+                currentBlockIdRef.current = nid;
+              }
             }
 
             const blockId = currentBlockIdRef.current;
@@ -330,8 +334,7 @@ function useChatLogicHook({
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
               // console.log('🔵 Received INTERACTION type:', response);
-            
-             
+
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const interactionBlock = {
                   generated_block_bid: nid,
@@ -343,16 +346,19 @@ function useChatLogicHook({
                   type: ChatContentItemType.INTERACTION,
                 };
                 const lastContent = prev[prev.length - 1];
-                if(lastContent && lastContent.type === ChatContentItemType.CONTENT) {  
+                if (
+                  lastContent &&
+                  lastContent.type === ChatContentItemType.CONTENT
+                ) {
                   const likeStatusItem: ChatContentItem = {
-                      parent_block_bid: lastContent.generated_block_bid || '',
-                      generated_block_bid: '',
-                      content: '',
-                      like_status: LIKE_STATUS.NONE,
-                      type: ChatContentItemType.LIKE_STATUS,
+                    parent_block_bid: lastContent.generated_block_bid || '',
+                    generated_block_bid: '',
+                    content: '',
+                    like_status: LIKE_STATUS.NONE,
+                    type: ChatContentItemType.LIKE_STATUS,
                   };
                   return [...prev, likeStatusItem, interactionBlock];
-                }else{
+                } else {
                   return [...prev, interactionBlock];
                 }
               });
@@ -401,7 +407,7 @@ function useChatLogicHook({
               const { status, outline_bid } = response.content;
               if (response.content.has_children) {
                 // only update current chapter
-                if(outline_bid && outline_bid === chapterId) {
+                if (outline_bid && outline_bid === chapterId) {
                   chapterUpdate?.({
                     id: outline_bid,
                     status,
@@ -412,8 +418,8 @@ function useChatLogicHook({
                   }
                 }
               } else {
-                // only update current lesson 
-                if(outline_bid && outline_bid === lessonId) {
+                // only update current lesson
+                if (outline_bid && outline_bid === lessonId) {
                   lessonUpdateResp(response, isEnd);
                 }
               }
@@ -424,14 +430,18 @@ function useChatLogicHook({
               // console.log('🟢 Received TEXT_END/BREAK, type:', response.type);
               // console.log('🟢 lastInteractionBlockRef.current:', lastInteractionBlockRef.current);
               setTrackedContentList((prev: ChatContentItem[]) => {
-                const updatedList = [...prev].filter(item => item.generated_block_bid !== 'loading');
+                const updatedList = [...prev].filter(
+                  item => item.generated_block_bid !== 'loading',
+                );
                 // Find the last CONTENT type item and append AskButton to its content
                 // Set isHistory=true to prevent triggering typewriter effect for AskButton
                 if (mobileStyle) {
                   for (let i = updatedList.length - 1; i >= 0; i--) {
                     if (
                       updatedList[i].type === ChatContentItemType.CONTENT &&
-                      !updatedList[i].content?.includes(`<custom-button-after-content>`)
+                      !updatedList[i].content?.includes(
+                        `<custom-button-after-content>`,
+                      )
                     ) {
                       updatedList[i] = {
                         ...updatedList[i],
@@ -444,7 +454,7 @@ function useChatLogicHook({
                     }
                   }
                 }
-        
+
                 // Add interaction blocks - use captured value instead of ref
                 const lastItem = updatedList[updatedList.length - 1];
                 const gid = lastItem?.generated_block_bid || '';

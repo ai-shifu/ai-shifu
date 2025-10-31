@@ -149,7 +149,7 @@ export const getRunMessage = (
       const response = JSON.parse(event.data);
       console.log('[SSE response]', response);
       if (onMessage) {
-          onMessage(response);
+        onMessage(response);
       }
     } catch (e) {
       console.log(e);

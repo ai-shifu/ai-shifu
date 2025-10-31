@@ -98,31 +98,26 @@ export const NewChatComponents = ({
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
-  const {
-    items,
-    isLoading,
-    onSend,
-    onRefresh,
-    toggleAskExpanded,
-  } = useChatLogicHook({
-    onGoChapter,
-    shifuBid,
-    outlineBid: lessonId,
-    lessonId,
-    chapterId,
-    previewMode,
-    trackEvent,
-    chatBoxBottomRef,
-    trackTrailProgress,
-    lessonUpdate,
-    chapterUpdate,
-    updateSelectedLesson,
-    getNextLessonId,
-    scrollToLesson,
-    scrollToBottom,
-    showOutputInProgressToast,
-    onPayModalOpen,
-  });
+  const { items, isLoading, onSend, onRefresh, toggleAskExpanded } =
+    useChatLogicHook({
+      onGoChapter,
+      shifuBid,
+      outlineBid: lessonId,
+      lessonId,
+      chapterId,
+      previewMode,
+      trackEvent,
+      chatBoxBottomRef,
+      trackTrailProgress,
+      lessonUpdate,
+      chapterUpdate,
+      updateSelectedLesson,
+      getNextLessonId,
+      scrollToLesson,
+      scrollToBottom,
+      showOutputInProgressToast,
+      onPayModalOpen,
+    });
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {

@@ -165,8 +165,7 @@ export default function AskBlock({
               }
               return newList;
             });
-          }
-          else {
+          } else {
             // Streaming finished
             console.log('SSE end, close sse:', response);
             isStreamingRef.current = false;
@@ -214,7 +213,7 @@ export default function AskBlock({
       // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
       if (source.readyState === 1) {
         isStreamingRef.current = true;
-      }else if (source.readyState === 2) {
+      } else if (source.readyState === 2) {
         isStreamingRef.current = false;
         setDisplayList(prev => {
           const newList = [...prev];
