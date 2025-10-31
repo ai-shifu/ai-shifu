@@ -589,14 +589,14 @@ class RunScriptContextV2:
             for item in path:
                 if item.type == "outline":
                     if item.children and item.children[0].type == "outline":
-                        # res.append(
-                        #     OutlineItemUpdateDTO(
-                        #         outline_bid=item.bid,
-                        #         title=outline_item_title_map.get(item.bid, ""),
-                        #         status=LearnStatus.IN_PROGRESS,
-                        #         has_children=True,
-                        #     )
-                        # )
+                        res.append(
+                            OutlineItemUpdateDTO(
+                                outline_bid=item.bid,
+                                title=outline_item_title_map.get(item.bid, ""),
+                                status=LearnStatus.IN_PROGRESS,
+                                has_children=True,
+                            )
+                        )
                         pass
                     else:
                         pass
