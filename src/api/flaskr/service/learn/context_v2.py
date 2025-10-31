@@ -597,17 +597,15 @@ class RunScriptContextV2:
                                 has_children=True,
                             )
                         )
-                        pass
                     else:
-                        pass
-                        # res.append(
-                        #     OutlineItemUpdateDTO(
-                        #         outline_bid=item.bid,
-                        #         title=outline_item_title_map.get(item.bid, ""),
-                        #         status=LearnStatus.IN_PROGRESS,
-                        #         has_children=False,
-                        #     )
-                        # )
+                        res.append(
+                            OutlineItemUpdateDTO(
+                                outline_bid=item.bid,
+                                title=outline_item_title_map.get(item.bid, ""),
+                                status=LearnStatus.IN_PROGRESS,
+                                has_children=False,
+                            )
+                        )
 
         if self._current_attend.block_position >= max(
             len(self._current_outline_item.children),
@@ -790,6 +788,7 @@ class RunScriptContextV2:
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
             db.session.flush()
+            self._current_attend = self._get_current_attend(self._outline_item_info.bid)
             if self._current_attend.status != LEARN_STATUS_IN_PROGRESS:
                 app.logger.info(
                     "current_attend.status != LEARN_STATUS_IN_PROGRESS To False"
