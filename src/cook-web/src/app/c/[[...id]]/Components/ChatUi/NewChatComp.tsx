@@ -98,32 +98,26 @@ export const NewChatComponents = ({
   });
   const [longPressedBlockBid, setLongPressedBlockBid] = useState<string>('');
 
-  const {
-    items,
-    isLoading,
-    onSend,
-    onRefresh,
-    onTypeFinished,
-    toggleAskExpanded,
-  } = useChatLogicHook({
-    onGoChapter,
-    shifuBid,
-    outlineBid: lessonId,
-    lessonId,
-    chapterId,
-    previewMode,
-    trackEvent,
-    chatBoxBottomRef,
-    trackTrailProgress,
-    lessonUpdate,
-    chapterUpdate,
-    updateSelectedLesson,
-    getNextLessonId,
-    scrollToLesson,
-    scrollToBottom,
-    showOutputInProgressToast,
-    onPayModalOpen,
-  });
+  const { items, isLoading, onSend, onRefresh, toggleAskExpanded } =
+    useChatLogicHook({
+      onGoChapter,
+      shifuBid,
+      outlineBid: lessonId,
+      lessonId,
+      chapterId,
+      previewMode,
+      trackEvent,
+      chatBoxBottomRef,
+      trackTrailProgress,
+      lessonUpdate,
+      chapterUpdate,
+      updateSelectedLesson,
+      getNextLessonId,
+      scrollToLesson,
+      scrollToBottom,
+      showOutputInProgressToast,
+      onPayModalOpen,
+    });
 
   const handleLongPress = useCallback(
     (event: any, currentBlock: ChatContentItem) => {
@@ -201,9 +195,8 @@ export const NewChatComponents = ({
     [toggleAskExpanded],
   );
 
-  // Memoize onSend and onTypeFinished to prevent new function references
+  // Memoize onSend to prevent new function references
   const memoizedOnSend = useCallback(onSend, [onSend]);
-  const memoizedOnTypeFinished = useCallback(onTypeFinished, [onTypeFinished]);
 
   return (
     <div
@@ -264,7 +257,6 @@ export const NewChatComponents = ({
                 blockBid={item.generated_block_bid}
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
-                onTypeFinished={memoizedOnTypeFinished}
                 onLongPress={handleLongPress}
               />
             </div>
