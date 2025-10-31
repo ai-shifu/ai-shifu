@@ -597,17 +597,15 @@ class RunScriptContextV2:
                                 has_children=True,
                             )
                         )
-                        pass
                     else:
-                        pass
-                        # res.append(
-                        #     OutlineItemUpdateDTO(
-                        #         outline_bid=item.bid,
-                        #         title=outline_item_title_map.get(item.bid, ""),
-                        #         status=LearnStatus.IN_PROGRESS,
-                        #         has_children=False,
-                        #     )
-                        # )
+                        res.append(
+                            OutlineItemUpdateDTO(
+                                outline_bid=item.bid,
+                                title=outline_item_title_map.get(item.bid, ""),
+                                status=LearnStatus.IN_PROGRESS,
+                                has_children=False,
+                            )
+                        )
 
         if self._current_attend.block_position >= max(
             len(self._current_outline_item.children),
