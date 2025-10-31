@@ -398,35 +398,24 @@ function useChatLogicHook({
                 });
               }
             } else if (response.type === SSE_OUTPUT_TYPE.OUTLINE_ITEM_UPDATE) {
+              const { status, outline_bid } = response.content;
               if (response.content.has_children) {
-                const { status, outline_bid: chapterBid } = response.content;
-                chapterUpdate?.({
-                  id: chapterBid,
-                  status,
-                  status_value: status,
-                });
-                if (status === LESSON_STATUS_VALUE.COMPLETED) {
-                  isEnd = true;
+                // only update current chapter
+                if(outline_bid && outline_bid === chapterId) {
+                  chapterUpdate?.({
+                    id: outline_bid,
+                    status,
+                    status_value: status,
+                  });
+                  if (status === LESSON_STATUS_VALUE.COMPLETED) {
+                    isEnd = true;
+                  }
                 }
               } else {
-                // current lesson loading
-                // if (lessonId === response.content.outline_bid) {
-                //   console.log("OUTLINE_ITEM_UPDATE插入loading")
-                //   currentBlockIdRef.current = 'loading';
-                //   currentContentRef.current = '';
-                //   // setLastInteractionBlock(null);
-                //   lastInteractionBlockRef.current = null;
-                //   setTrackedContentList(prev => {
-                //     const placeholderItem: ChatContentItem = {
-                //       generated_block_bid: currentBlockIdRef.current || '',
-                //       content: '',
-                //       customRenderBar: () => <LoadingBar />,
-                //       type: ChatContentItemType.CONTENT,
-                //     };
-                //     return [...prev,placeholderItem];
-                //   });
-                // }
-                lessonUpdateResp(response, isEnd);
+                // only update current lesson 
+                if(outline_bid && outline_bid === lessonId) {
+                  lessonUpdateResp(response, isEnd);
+                }
               }
             } else if (
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
