@@ -556,25 +556,25 @@ class RunScriptContextV2:
                             current_node.children
                             and current_node.children[0].type == "outline"
                         ):
-                            # res.append(
-                            #     OutlineItemUpdateDTO(
-                            #         outline_bid=current_node.bid,
-                            #         title=outline_item_title_map.get(
-                            #             current_node.bid, ""
-                            #         ),
-                            #         status=LearnStatus.IN_PROGRESS,
-                            #         has_children=True,
-                            #     )
-                            # )
+                            res.append(
+                                OutlineItemUpdateDTO(
+                                    outline_bid=current_node.bid,
+                                    title=outline_item_title_map.get(
+                                        current_node.bid, ""
+                                    ),
+                                    status=LearnStatus.IN_PROGRESS,
+                                    has_children=True,
+                                )
+                            )
                             current_node = current_node.children[0]
-                        # res.append(
-                        #     OutlineItemUpdateDTO(
-                        #         outline_bid=current_node.bid,
-                        #         title=outline_item_title_map.get(current_node.bid, ""),
-                        #         status=LearnStatus.IN_PROGRESS,
-                        #         has_children=False,
-                        #     )
-                        # )
+                        res.append(
+                            OutlineItemUpdateDTO(
+                                outline_bid=current_node.bid,
+                                title=outline_item_title_map.get(current_node.bid, ""),
+                                status=LearnStatus.IN_PROGRESS,
+                                has_children=False,
+                            )
+                        )
                         return
                     if index == len(item.children) - 1 and item.type == "outline":
                         _mark_sub_node_completed(item, res)
@@ -597,17 +597,15 @@ class RunScriptContextV2:
                                 has_children=True,
                             )
                         )
-                        pass
                     else:
-                        pass
-                        # res.append(
-                        #     OutlineItemUpdateDTO(
-                        #         outline_bid=item.bid,
-                        #         title=outline_item_title_map.get(item.bid, ""),
-                        #         status=LearnStatus.IN_PROGRESS,
-                        #         has_children=False,
-                        #     )
-                        # )
+                        res.append(
+                            OutlineItemUpdateDTO(
+                                outline_bid=item.bid,
+                                title=outline_item_title_map.get(item.bid, ""),
+                                status=LearnStatus.IN_PROGRESS,
+                                has_children=False,
+                            )
+                        )
 
         if self._current_attend.block_position >= max(
             len(self._current_outline_item.children),
@@ -791,12 +789,16 @@ class RunScriptContextV2:
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
             db.session.flush()
             self._current_attend = self._get_current_attend(self._outline_item_info.bid)
-            if self._current_attend.status != LEARN_STATUS_IN_PROGRESS:
+            if self._current_attend.status not in [
+                LEARN_STATUS_IN_PROGRESS,
+                LEARN_STATUS_NOT_STARTED,
+            ]:
                 app.logger.info(
-                    "current_attend.status != LEARN_STATUS_IN_PROGRESS To False"
+                    f"current_attend.status != LEARN_STATUS_IN_PROGRESS To False,current_attend.status: {self._current_attend.status}"
                 )
                 self._can_continue = False
                 return
+
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
         if run_script_info is None:
             self.app.logger.warning("run script is none")
