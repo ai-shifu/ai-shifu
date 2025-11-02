@@ -30,13 +30,13 @@
 
 ## Configuration & Infrastructure
 - [x] Add Stripe configuration entries in `src/api/flaskr/common/config.py`, with validation and grouping, and update config fixtures/tests.
-- [ ] Document required environment variables in README/docs and ensure secrets management (local `.env`, deployment manifests) is updated.
+- [x] Document required environment variables in README/docs and ensure secrets management (local `.env`, deployment manifests) is updated. README now lists required Ping++/Stripe keys.
 - [x] Evaluate background job queue or schedulers for Stripe reconciliation (optional depending on business requirements) and plan deployment changes if needed. Documented recommendations in `docs/payment-flow.md` under Operational Considerations; backlog item remains for implementing a reconciliation job.
 
 ## Testing & Quality
-- [ ] Add unit tests for the payment factory to verify provider selection and behaviour parity with Ping++.
+- [x] Add unit tests for the payment factory to verify provider selection and behaviour parity with Ping++. Covered in `src/api/tests/service/order/test_payment_channel_resolution.py` and associated DTO tests.
 - [ ] Create integration tests (or service-level tests) covering Stripe charge creation, webhook handling, and refund flows using mocked Stripe SDK responses.
-- [ ] Update existing Ping++ tests affected by the factory refactor to ensure no regressions.
+- [x] Update existing Ping++ tests affected by the factory refactor to ensure no regressions. Legacy tests now supply the optional `payment_channel` argument.
 - [ ] Run full backend test suite (`pytest`) and linting (`pre-commit run --all-files`) once implementation is complete.
 
 ## Documentation & Rollout

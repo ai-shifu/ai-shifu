@@ -73,6 +73,9 @@ cp .env.example.full .env
 # - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
 # - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
 # - LLM API keys (OPENAI_API_KEY, ERNIE_API_KEY, etc.) for model access
+# - Payment providers:
+#   - Ping++ (`PINGXX_APP_ID`, `PINGXX_SECRET_KEY`, `PINGXX_PRIVATE_KEY_PATH`)
+#   - Stripe (`STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, optional `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, `STRIPE_DEFAULT_CURRENCY`)
 
 docker compose up -d
 ```
