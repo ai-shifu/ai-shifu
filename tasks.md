@@ -23,8 +23,8 @@ The refactor must shift creator role state into the canonical `user_users` table
 ## Task 4: Tests & Documentation
 - [x] Update unit/integration tests and fixtures to align with the new column and removed admin flag.
 - [x] Confirm API contract changes with frontend (document response shape adjustments if any).
-- [ ] Run targeted `pytest` suites covering user service flows *(blocked: missing `flask_migrate` dependency in local environment)*.
-- [ ] Execute `pre-commit run -a` to satisfy linters and formatters *(blocked: existing global lint errors unrelated to this change)*.
+- [x] Run targeted `pytest` suites covering user service flows *(passed under `conda activate py311`: `pytest tests/service/user -q`)*.
+- [ ] Execute `pre-commit run -a` to satisfy linters and formatters *(fails: existing Ruff errors in legacy modules such as `flaskr/service/profile/funcs.py`; see latest hook output)*.
 
 ## Task 5: PR Finalization
 - [x] Summarize schema changes and migration steps in PR description/release notes *(see `docs/user-role-migration.md`)*.

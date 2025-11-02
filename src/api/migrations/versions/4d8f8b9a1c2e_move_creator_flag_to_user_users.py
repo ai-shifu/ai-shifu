@@ -54,26 +54,42 @@ def _chunked(values: Sequence[str], size: int = CHUNK_SIZE) -> Iterable[Sequence
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("user_users", schema=None) as batch_op:
-        batch_op.add_column(
-            sa.Column(
-                "is_creator",
-                sa.SmallInteger(),
-                nullable=False,
-                server_default="0",
-                comment="Creator flag: 0=regular user, 1=creator",
-            )
-        )
-        batch_op.create_index(
-            "ix_user_users_is_creator",
-            ["is_creator"],
-            unique=False,
-        )
-
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    metadata = sa.MetaData(bind=bind)
+    metadata = sa.MetaData()
+    user_users_has_creator = _has_column(inspector, "user_users", "is_creator")
+
+    if not user_users_has_creator:
+        with op.batch_alter_table("user_users", schema=None) as batch_op:
+            batch_op.add_column(
+                sa.Column(
+                    "is_creator",
+                    sa.SmallInteger(),
+                    nullable=False,
+                    server_default="0",
+                    comment="Creator flag: 0=regular user, 1=creator",
+                )
+            )
+            batch_op.create_index(
+                "ix_user_users_is_creator",
+                ["is_creator"],
+                unique=False,
+            )
     user_users = sa.Table("user_users", metadata, autoload_with=bind)
+
+    if (
+        _has_table(inspector, "user_users")
+        and _has_column(inspector, "user_users", "is_creator")
+        and not _has_index(inspector, "user_users", "ix_user_users_is_creator")
+    ):
+        with op.batch_alter_table("user_users", schema=None) as batch_op:
+            batch_op.create_index(
+                "ix_user_users_is_creator",
+                ["is_creator"],
+                unique=False,
+            )
+
+    user_profile_table: sa.Table | None = None
 
     def apply_updates(user_ids: Sequence[str]) -> None:
         for chunk in _chunked(list(user_ids)):
@@ -84,8 +100,6 @@ def upgrade() -> None:
                 .where(user_users.c.user_bid.in_(tuple(chunk)))
                 .values(is_creator=1)
             )
-
-    user_profile_table = None
 
     # Backfill from user_profile role flags when available.
     if _has_table(inspector, "user_profile"):
@@ -114,8 +128,9 @@ def upgrade() -> None:
         if updates:
             apply_updates(updates)
 
-    with op.batch_alter_table("user_users", schema=None) as batch_op:
-        batch_op.alter_column("is_creator", server_default=None)
+    if _has_column(inspector, "user_users", "is_creator"):
+        with op.batch_alter_table("user_users", schema=None) as batch_op:
+            batch_op.alter_column("is_creator", server_default=None)
 
     if _has_column(inspector, "user_info", "is_admin"):
         with op.batch_alter_table("user_info", schema=None) as batch_op:
@@ -123,7 +138,7 @@ def upgrade() -> None:
 
     if user_profile_table is not None:
         bind.execute(
-            user_profile_table.delete().where(
+            sa.delete(user_profile_table).where(
                 user_profile_table.c.profile_key.in_(
                     ("sys_user_is_admin", "sys_user_is_creator")
                 )
