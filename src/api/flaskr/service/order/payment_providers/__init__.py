@@ -37,3 +37,6 @@ __all__ = [
     "register_payment_provider",
     "get_payment_provider",
 ]
+
+# Ensure built-in providers are registered on import.
+from . import pingxx  # noqa: E402,F401

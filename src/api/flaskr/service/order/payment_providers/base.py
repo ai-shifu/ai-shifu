@@ -13,6 +13,7 @@ class PaymentRequest:
     user_bid: str
     shifu_bid: str
     amount: int
+    channel: str
     currency: str
     subject: str
     body: str

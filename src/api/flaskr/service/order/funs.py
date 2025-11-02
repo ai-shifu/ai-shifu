@@ -1,7 +1,7 @@
 import datetime
 import decimal
 import json
-from typing import List
+from typing import Any, Dict, List, Optional
 
 
 from flaskr.service.order.consts import (
@@ -27,7 +27,6 @@ from ..common.models import (
     raise_error,
 )
 from ...util.uuid import generate_id as get_uuid
-from .pingxx_order import create_pingxx_order
 from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
 import pytz
 from flaskr.service.lesson.funcs import get_course_info
@@ -35,6 +34,7 @@ from flaskr.service.lesson.funcs import AICourseDTO
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.config import get_config
+from .payment_providers import PaymentRequest, get_payment_provider
 
 
 @register_schema_to_swagger
@@ -361,7 +361,11 @@ def generate_charge(
         body = course.course_name
         order_no = str(get_uuid(app))
         qr_url = None
+        provider = get_payment_provider("pingxx")
         pingpp_id = get_config("PINGXX_APP_ID")
+        provider_options: Dict[str, Any] = {"app_id": pingpp_id}
+        charge_extra: Dict[str, Any] = {}
+        qr_url_key: Optional[str] = None
         if amount == 0:
             success_buy_record(app, buy_record.order_bid)
             return BuyRecordDTO(
@@ -372,64 +376,38 @@ def generate_charge(
                 qr_url,
             )
         if channel == "wx_pub_qr":  # wxpay scan
-            extra = dict({"product_id": product_id})
-            charge = create_pingxx_order(
-                app,
-                order_no,
-                pingpp_id,
-                channel,
-                amount,
-                client_ip,
-                subject,
-                body,
-                extra,
-            )
-            qr_url = charge["credential"]["wx_pub_qr"]
+            charge_extra = {"product_id": product_id}
+            qr_url_key = "wx_pub_qr"
         elif channel == "alipay_qr":  # alipay scan
-            extra = dict({})
-            charge = create_pingxx_order(
-                app,
-                order_no,
-                pingpp_id,
-                channel,
-                amount,
-                client_ip,
-                subject,
-                body,
-                extra,
-            )
-            qr_url = charge["credential"]["alipay_qr"]
+            charge_extra = {}
+            qr_url_key = "alipay_qr"
         elif channel == "wx_pub":  # wxpay JSAPI
             user = User.query.filter(User.user_id == buy_record.user_bid).first()
-            extra = dict({"open_id": user.user_open_id})
-            charge = create_pingxx_order(
-                app,
-                order_no,
-                pingpp_id,
-                channel,
-                amount,
-                client_ip,
-                subject,
-                body,
-                extra,
-            )
-            qr_url = charge["credential"]["wx_pub"]
+            charge_extra = {"open_id": user.user_open_id}
+            qr_url_key = "wx_pub"
         elif channel == "wx_wap":  # wxpay H5
-            extra = dict({})
-            charge = create_pingxx_order(
-                app,
-                order_no,
-                pingpp_id,
-                channel,
-                amount,
-                client_ip,
-                subject,
-                body,
-                extra,
-            )
+            charge_extra = {}
         else:
             app.logger.error("channel:{} not support".format(channel))
             raise_error("server.pay.payChannelNotSupport")
+        provider_options["charge_extra"] = charge_extra
+        payment_request = PaymentRequest(
+            order_bid=order_no,
+            user_bid=buy_record.user_bid,
+            shifu_bid=buy_record.shifu_bid,
+            amount=amount,
+            channel=channel,
+            currency="cny",
+            subject=subject,
+            body=body,
+            client_ip=client_ip,
+            extra=provider_options,
+        )
+        result = provider.create_payment(request=payment_request, app=app)
+        charge = result.raw_response
+        credential = charge.get("credential", {}) or {}
+        if qr_url_key:
+            qr_url = credential.get(qr_url_key)
         app.logger.info("charge created:{}".format(charge))
         buy_record.status = ORDER_STATUS_TO_BE_PAID
         pingxxOrder = PingxxOrder()
