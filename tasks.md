@@ -38,6 +38,6 @@
 - [ ] Run full backend test suite (`pytest`) and linting (`pre-commit run --all-files`) once implementation is complete.
 
 ## Documentation & Rollout
-- [ ] Update developer documentation with payment architecture overview and instructions for adding new providers.
+- [x] Update developer documentation with payment architecture overview and instructions for adding new providers. Expanded `docs/payment-flow.md` with provider selection flow and request samples.
 - [ ] Provide migration/rollback guidance and note any data backfill steps for operations.
 - [ ] Prepare release notes outlining new payment channel support and configuration steps for staging/production environments.

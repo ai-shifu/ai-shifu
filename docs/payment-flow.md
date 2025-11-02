@@ -16,6 +16,28 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - Returned `BuyRecordDTO` instances surface Stripe-specific data via the existing `qr_url` field (client secret or checkout URL), pending API schema evolution later in the rollout.
 - API consumers can explicitly choose a provider by passing `payment_channel` (`pingxx` or `stripe`) when invoking `/reqiure-to-pay`; the existing `channel` field remains for provider-specific options (e.g., `wx_pub_qr`, `stripe:checkout_session`).
 
+### Request Examples
+
+- **Ping++ (JSAPI)**
+
+```json
+{
+  "order_id": "ORDER_BID",
+  "payment_channel": "pingxx",
+  "channel": "wx_pub"
+}
+```
+
+- **Stripe (Checkout Session)**
+
+```json
+{
+  "order_id": "ORDER_BID",
+  "payment_channel": "stripe",
+  "channel": "stripe:checkout_session"
+}
+```
+
 ## Configuration Inventory
 
 ### Ping++ Environment Keys
