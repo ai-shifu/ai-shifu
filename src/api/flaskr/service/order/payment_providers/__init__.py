@@ -40,3 +40,4 @@ __all__ = [
 
 # Ensure built-in providers are registered on import.
 from . import pingxx  # noqa: E402,F401
+from . import stripe  # noqa: E402,F401

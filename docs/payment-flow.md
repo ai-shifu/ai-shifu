@@ -9,6 +9,12 @@
 
 These touch points will guide the upcoming payment factory abstraction; each call site is an integration seam where provider-specific logic must be isolated behind the factory interface.
 
+## Stripe (New Provider)
+- Stripe support is implemented via `StripeProvider` (`src/api/flaskr/service/order/payment_providers/stripe.py`), which currently wraps Payment Intent and Checkout Session creation using the official Stripe SDK. It normalises responses into the shared `PaymentCreationResult`.
+- `generate_charge` detects the desired provider through `Order.payment_channel` (defaulting to Ping++) and optional `channel` hints (`"stripe"` or `"stripe:checkout_session"`), routing to Stripe when appropriate.
+- Newly created Stripe payments persist metadata and raw payloads inside the `StripeOrder` model, ensuring parity with the existing Ping++ audit trail.
+- Returned `BuyRecordDTO` instances surface Stripe-specific data via the existing `qr_url` field (client secret or checkout URL), pending API schema evolution later in the rollout.
+
 ## Configuration Inventory
 
 ### Ping++ Environment Keys

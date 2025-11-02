@@ -1,7 +1,7 @@
 import datetime
 import decimal
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 
 from flaskr.service.order.consts import (
@@ -20,7 +20,7 @@ from flaskr.service.active import (
 )
 from flaskr.common.swagger import register_schema_to_swagger
 from flaskr.api.doc.feishu import send_notify
-from .models import Order, PingxxOrder
+from .models import Order, PingxxOrder, StripeOrder
 from flask import Flask
 from ...dao import db, redis_client
 from ..common.models import (
@@ -356,88 +356,282 @@ def generate_charge(
             )
             # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
-        product_id = course.course_id
         subject = course.course_name
         body = course.course_name
         order_no = str(get_uuid(app))
-        qr_url = None
-        provider = get_payment_provider("pingxx")
-        pingpp_id = get_config("PINGXX_APP_ID")
-        provider_options: Dict[str, Any] = {"app_id": pingpp_id}
-        charge_extra: Dict[str, Any] = {}
-        qr_url_key: Optional[str] = None
+        payment_channel, provider_channel = _resolve_payment_channel(
+            channel, buy_record.payment_channel
+        )
+        buy_record.payment_channel = payment_channel
+        db.session.flush()
+
         if amount == 0:
             success_buy_record(app, buy_record.order_bid)
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
                 buy_record.paid_price,
-                channel,
-                qr_url,
+                channel or payment_channel,
+                "",
             )
-        if channel == "wx_pub_qr":  # wxpay scan
-            charge_extra = {"product_id": product_id}
-            qr_url_key = "wx_pub_qr"
-        elif channel == "alipay_qr":  # alipay scan
-            charge_extra = {}
-            qr_url_key = "alipay_qr"
-        elif channel == "wx_pub":  # wxpay JSAPI
-            user = User.query.filter(User.user_id == buy_record.user_bid).first()
-            charge_extra = {"open_id": user.user_open_id}
-            qr_url_key = "wx_pub"
-        elif channel == "wx_wap":  # wxpay H5
-            charge_extra = {}
-        else:
-            app.logger.error("channel:{} not support".format(channel))
-            raise_error("server.pay.payChannelNotSupport")
-        provider_options["charge_extra"] = charge_extra
-        payment_request = PaymentRequest(
-            order_bid=order_no,
-            user_bid=buy_record.user_bid,
-            shifu_bid=buy_record.shifu_bid,
-            amount=amount,
-            channel=channel,
-            currency="cny",
-            subject=subject,
-            body=body,
-            client_ip=client_ip,
-            extra=provider_options,
+
+        if payment_channel == "pingxx":
+            return _generate_pingxx_charge(
+                app=app,
+                buy_record=buy_record,
+                course=course,
+                channel=provider_channel,
+                client_ip=client_ip,
+                amount=amount,
+                subject=subject,
+                body=body,
+                order_no=order_no,
+            )
+
+        if payment_channel == "stripe":
+            return _generate_stripe_charge(
+                app=app,
+                buy_record=buy_record,
+                course=course,
+                channel=provider_channel,
+                client_ip=client_ip,
+                amount=amount,
+                subject=subject,
+                body=body,
+                order_no=order_no,
+            )
+
+        app.logger.error("payment channel not support: %s", payment_channel)
+        raise_error("server.pay.payChannelNotSupport")
+
+
+def _resolve_payment_channel(
+    requested_channel: str, stored_channel: Optional[str]
+) -> Tuple[str, str]:
+    requested_value = (requested_channel or "").strip()
+    if ":" in requested_value:
+        provider, provider_channel = requested_value.split(":", 1)
+        provider = provider.strip().lower()
+        provider_channel = provider_channel.strip()
+        if provider == "stripe":
+            return "stripe", provider_channel or "payment_intent"
+        if provider == "pingxx":
+            return "pingxx", provider_channel
+
+    lowered = requested_value.lower()
+    if lowered == "stripe":
+        return "stripe", "payment_intent"
+
+    if stored_channel == "stripe":
+        fallback_channel = requested_value or "payment_intent"
+        return "stripe", fallback_channel
+
+    return "pingxx", requested_value
+
+
+def _generate_pingxx_charge(
+    *,
+    app: Flask,
+    buy_record: Order,
+    course: AICourseDTO,
+    channel: str,
+    client_ip: str,
+    amount: int,
+    subject: str,
+    body: str,
+    order_no: str,
+) -> BuyRecordDTO:
+    provider = get_payment_provider("pingxx")
+    pingpp_id = get_config("PINGXX_APP_ID")
+    provider_options: Dict[str, Any] = {"app_id": pingpp_id}
+    charge_extra: Dict[str, Any] = {}
+    qr_url_key: Optional[str] = None
+    product_id = course.course_id
+
+    if channel == "wx_pub_qr":  # wxpay scan
+        charge_extra = {"product_id": product_id}
+        qr_url_key = "wx_pub_qr"
+    elif channel == "alipay_qr":  # alipay scan
+        charge_extra = {}
+        qr_url_key = "alipay_qr"
+    elif channel == "wx_pub":  # wxpay JSAPI
+        user = User.query.filter(User.user_id == buy_record.user_bid).first()
+        charge_extra = {"open_id": user.user_open_id} if user else {}
+        qr_url_key = "wx_pub"
+    elif channel == "wx_wap":  # wxpay H5
+        charge_extra = {}
+    else:
+        app.logger.error("channel:%s not support", channel)
+        raise_error("server.pay.payChannelNotSupport")
+
+    provider_options["charge_extra"] = charge_extra
+    payment_request = PaymentRequest(
+        order_bid=order_no,
+        user_bid=buy_record.user_bid,
+        shifu_bid=buy_record.shifu_bid,
+        amount=amount,
+        channel=channel,
+        currency="cny",
+        subject=subject,
+        body=body,
+        client_ip=client_ip,
+        extra=provider_options,
+    )
+    result = provider.create_payment(request=payment_request, app=app)
+    charge = result.raw_response
+    credential = charge.get("credential", {}) or {}
+    qr_url = credential.get(qr_url_key) if qr_url_key else ""
+    app.logger.info("Pingxx charge created:%s", charge)
+
+    buy_record.status = ORDER_STATUS_TO_BE_PAID
+    pingxx_order = PingxxOrder()
+    pingxx_order.order_bid = order_no
+    pingxx_order.user_bid = buy_record.user_bid
+    pingxx_order.shifu_bid = buy_record.shifu_bid
+    pingxx_order.order_bid = buy_record.order_bid
+    pingxx_order.transaction_no = charge["order_no"]
+    pingxx_order.app_id = charge["app"]
+    pingxx_order.channel = charge["channel"]
+    pingxx_order.amount = amount
+    pingxx_order.currency = charge["currency"]
+    pingxx_order.subject = charge["subject"]
+    pingxx_order.body = charge["body"]
+    pingxx_order.client_ip = charge["client_ip"]
+    pingxx_order.extra = str(charge["extra"])
+    pingxx_order.charge_id = charge["id"]
+    pingxx_order.status = 0
+    pingxx_order.charge_object = str(charge)
+    db.session.add(pingxx_order)
+    db.session.commit()
+    return BuyRecordDTO(
+        buy_record.order_bid,
+        buy_record.user_bid,
+        buy_record.paid_price,
+        channel,
+        qr_url or "",
+    )
+
+
+def _generate_stripe_charge(
+    *,
+    app: Flask,
+    buy_record: Order,
+    course: AICourseDTO,
+    channel: str,
+    client_ip: str,
+    amount: int,
+    subject: str,
+    body: str,
+    order_no: str,
+) -> BuyRecordDTO:
+    provider = get_payment_provider("stripe")
+    resolved_mode = channel.lower() if channel else "payment_intent"
+    if resolved_mode in {"checkout", "checkout_session"}:
+        resolved_mode = "checkout_session"
+    else:
+        resolved_mode = "payment_intent"
+
+    currency = get_config("STRIPE_DEFAULT_CURRENCY", "usd")
+    metadata = {
+        "order_bid": buy_record.order_bid,
+        "stripe_order_bid": order_no,
+        "user_bid": buy_record.user_bid,
+        "shifu_bid": buy_record.shifu_bid,
+    }
+    provider_options: Dict[str, Any] = {
+        "mode": resolved_mode,
+        "metadata": metadata,
+    }
+
+    if resolved_mode == "checkout_session":
+        success_url = get_config("STRIPE_SUCCESS_URL")
+        cancel_url = get_config("STRIPE_CANCEL_URL")
+        if success_url:
+            provider_options["success_url"] = success_url
+        if cancel_url:
+            provider_options["cancel_url"] = cancel_url
+        provider_options["line_items"] = [
+            {
+                "price_data": {
+                    "currency": currency,
+                    "unit_amount": amount,
+                    "product_data": {"name": subject},
+                },
+                "quantity": 1,
+            }
+        ]
+
+    payment_request = PaymentRequest(
+        order_bid=order_no,
+        user_bid=buy_record.user_bid,
+        shifu_bid=buy_record.shifu_bid,
+        amount=amount,
+        channel=resolved_mode,
+        currency=currency,
+        subject=subject,
+        body=body,
+        client_ip=client_ip,
+        extra=provider_options,
+    )
+    result = provider.create_payment(request=payment_request, app=app)
+
+    stripe_order = StripeOrder()
+    stripe_order.order_bid = buy_record.order_bid
+    stripe_order.user_bid = buy_record.user_bid
+    stripe_order.shifu_bid = buy_record.shifu_bid
+    stripe_order.stripe_order_bid = order_no
+    stripe_order.payment_intent_id = result.extra.get(
+        "payment_intent_id",
+        result.provider_reference if resolved_mode == "payment_intent" else "",
+    )
+    stripe_order.checkout_session_id = result.checkout_session_id or (
+        result.provider_reference if resolved_mode == "checkout_session" else ""
+    )
+    stripe_order.latest_charge_id = result.extra.get("latest_charge_id", "")
+    stripe_order.amount = amount
+    stripe_order.currency = currency
+    stripe_order.status = 0
+    stripe_order.receipt_url = result.extra.get("receipt_url", "")
+    stripe_order.payment_method = result.extra.get("payment_method", "")
+    stripe_order.failure_code = ""
+    stripe_order.failure_message = ""
+    stripe_order.metadata_json = _stringify_payload(result.extra.get("metadata", {}))
+    stripe_order.payment_intent_object = _stringify_payload(
+        result.extra.get(
+            "payment_intent_object",
+            result.raw_response if resolved_mode == "payment_intent" else {},
         )
-        result = provider.create_payment(request=payment_request, app=app)
-        charge = result.raw_response
-        credential = charge.get("credential", {}) or {}
-        if qr_url_key:
-            qr_url = credential.get(qr_url_key)
-        app.logger.info("charge created:{}".format(charge))
-        buy_record.status = ORDER_STATUS_TO_BE_PAID
-        pingxxOrder = PingxxOrder()
-        pingxxOrder.order_bid = order_no
-        pingxxOrder.user_bid = buy_record.user_bid
-        pingxxOrder.shifu_bid = buy_record.shifu_bid
-        pingxxOrder.order_bid = buy_record.order_bid
-        pingxxOrder.transaction_no = charge["transaction_no"]
-        pingxxOrder.app_id = charge["app"]
-        pingxxOrder.channel = charge["channel"]
-        pingxxOrder.channel = charge["channel"]
-        pingxxOrder.amount = amount
-        pingxxOrder.currency = charge["currency"]
-        pingxxOrder.subject = charge["subject"]
-        pingxxOrder.body = charge["body"]
-        pingxxOrder.transaction_no = charge["order_no"]
-        pingxxOrder.client_ip = charge["client_ip"]
-        pingxxOrder.extra = str(charge["extra"])
-        pingxxOrder.charge_id = charge["id"]
-        pingxxOrder.status = 0
-        pingxxOrder.charge_object = str(charge)
-        db.session.add(pingxxOrder)
-        db.session.commit()
-        return BuyRecordDTO(
-            buy_record.order_bid,
-            buy_record.user_bid,
-            buy_record.paid_price,
-            channel,
-            qr_url,
-        )
+    )
+    stripe_order.checkout_session_object = _stringify_payload(
+        result.raw_response
+        if resolved_mode == "checkout_session"
+        else result.extra.get("checkout_session_object", {})
+    )
+    db.session.add(stripe_order)
+    buy_record.status = ORDER_STATUS_TO_BE_PAID
+    db.session.commit()
+
+    response_channel = (
+        "stripe" if resolved_mode == "payment_intent" else f"stripe:{resolved_mode}"
+    )
+    qr_value = result.extra.get("url") or result.client_secret or ""
+    app.logger.info("Stripe payment created: %s", result.provider_reference)
+
+    return BuyRecordDTO(
+        buy_record.order_bid,
+        buy_record.user_bid,
+        buy_record.paid_price,
+        response_channel,
+        qr_value,
+    )
+
+
+def _stringify_payload(payload: Any) -> str:
+    if not payload:
+        return "{}"
+    if hasattr(payload, "to_dict"):
+        payload = payload.to_dict()
+    return json.dumps(payload)
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
