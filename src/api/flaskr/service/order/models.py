@@ -51,6 +51,13 @@ class Order(db.Model):
     paid_price = Column(
         Numeric(10, 2), nullable=False, default="0.00", comment="Paid price"
     )
+    payment_channel = Column(
+        String(50),
+        nullable=False,
+        default="pingxx",
+        comment="Payment channel",
+        index=True,
+    )
     status = Column(
         SmallInteger,
         nullable=False,
@@ -167,6 +174,130 @@ class PingxxOrder(db.Model):
         String(255), nullable=False, default="", comment="Failure message"
     )
     charge_object = Column(Text, nullable=False, comment="Pingxx raw charge object")
+    deleted = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Deletion flag: 0=active, 1=deleted",
+    )
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Creation time",
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        comment="Update time",
+        onupdate=func.now(),
+    )
+
+
+class StripeOrder(db.Model):
+    """
+    Stripe Order
+    """
+
+    __tablename__ = "order_stripe_orders"
+    __table_args__ = {"comment": "Order stripe orders"}
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    stripe_order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Stripe order business identifier",
+    )
+    user_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="User business identifier",
+    )
+    shifu_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Shifu business identifier",
+    )
+    order_bid = Column(
+        String(36),
+        index=True,
+        nullable=False,
+        default="",
+        comment="Order business identifier",
+    )
+    payment_intent_id = Column(
+        String(255),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Stripe payment intent identifier",
+    )
+    checkout_session_id = Column(
+        String(255),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Stripe checkout session identifier",
+    )
+    latest_charge_id = Column(
+        String(255),
+        nullable=False,
+        index=True,
+        default="",
+        comment="Latest Stripe charge identifier",
+    )
+    amount = Column(
+        BIGINT, nullable=False, default=0, comment="Payment amount in cents"
+    )
+    currency = Column(String(36), nullable=False, default="usd", comment="Currency")
+    status = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Status of the order: 0=pending, 1=paid, 2=refunded, 3=closed, 4=failed",
+    )
+    receipt_url = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Stripe receipt URL",
+    )
+    payment_method = Column(
+        String(255),
+        nullable=False,
+        default="",
+        comment="Stripe payment method identifier",
+    )
+    failure_code = Column(
+        String(255), nullable=False, default="", comment="Failure code"
+    )
+    failure_message = Column(
+        String(255), nullable=False, default="", comment="Failure message"
+    )
+    metadata_json = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Stripe metadata JSON string",
+    )
+    payment_intent_object = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Stripe payment intent raw object",
+    )
+    checkout_session_object = Column(
+        Text,
+        nullable=False,
+        default="{}",
+        comment="Stripe checkout session raw object",
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,

@@ -6,9 +6,9 @@
 - [x] Inventory environment variables and credentials needed for Stripe (secret key, webhook secret, publishable key) and decide naming conventions that follow existing config standards. See `docs/payment-flow.md` (“Configuration Inventory”) for proposed keys.
 
 ## Database Layer
-- [ ] Design the `order_stripe_orders` schema, mirroring `order_pingxx_orders` while capturing Stripe-specific raw payloads (charge/session/payment intent data, status fields, metadata, timestamps).
-- [ ] Update `src/api/flaskr/service/order/models.py` with a new SQLAlchemy model for Stripe orders, ensuring comments/indexes follow the project database conventions.
-- [ ] Add the `payment_channel` column to the `Order` model with sensible defaults, length 50, comment, and index if needed for query performance.
+- [x] Design the `order_stripe_orders` schema, mirroring `order_pingxx_orders` while capturing Stripe-specific raw payloads (charge/session/payment intent data, status fields, metadata, timestamps). Implemented via `StripeOrder` in `src/api/flaskr/service/order/models.py`.
+- [x] Update `src/api/flaskr/service/order/models.py` with a new SQLAlchemy model for Stripe orders, ensuring comments/indexes follow the project database conventions.
+- [x] Add the `payment_channel` column to the `Order` model with sensible defaults, length 50, comment, and index if needed for query performance. Default set to `pingxx` to maintain backward compatibility.
 - [ ] Generate an Alembic migration creating `order_stripe_orders` and adding `payment_channel` to `order_orders`, with downgrade logic and index definitions.
 - [ ] Backfill `payment_channel` for existing records (default to `pingxx`) inside the migration or follow-up data task to keep downstream code consistent.
 - [ ] Regenerate environment example files if new env vars are introduced (`python scripts/generate_env_examples.py`).
