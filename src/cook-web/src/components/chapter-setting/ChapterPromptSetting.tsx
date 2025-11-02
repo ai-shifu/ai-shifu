@@ -86,7 +86,7 @@ const ChapterPromptSetting = ({
         <div className='border-b border-border px-6 py-5 pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
-              {t('module.chapterSetting.chapterTitle')}
+              {t('module.chapterSetting.chapterSettingsTitle')}
             </SheetTitle>
           </SheetHeader>
         </div>
@@ -98,17 +98,17 @@ const ChapterPromptSetting = ({
           <div className='flex-1 overflow-y-auto px-6 py-6'>
             <div className='space-y-3'>
               <div className='text-sm font-medium text-foreground'>
-                {t('module.chapterSetting.systemPrompt')}
+                {t('module.chapterSetting.chapterPrompt')}
               </div>
               <div className='text-xs text-muted-foreground'>
-                {t('module.chapterSetting.promptHint')}
+                {t('module.chapterSetting.chapterPromptHint')}
               </div>
               <Textarea
                 value={systemPrompt}
                 onChange={event => setSystemPrompt(event.target.value)}
                 maxLength={1000}
                 rows={6}
-                placeholder={t('module.chapterSetting.promptHint')}
+                placeholder={t('module.chapterSetting.chapterPromptPlaceholder')}
                 className='min-h-[220px]'
               />
               <div className='text-xs text-muted-foreground text-right'>

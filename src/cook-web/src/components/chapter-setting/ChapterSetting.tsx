@@ -20,11 +20,15 @@ const ChapterSettingsDialog = ({
   outlineBid,
   open,
   onOpenChange,
+  variant = 'section',
 }: {
   outlineBid: string;
   open: boolean;
   onOpenChange?: (open: boolean) => void;
+  variant?: 'chapter' | 'section';
 }) => {
+  const isChapter = variant === 'chapter';
+  const promptScope = isChapter ? 'chapter' : 'section';
   const { currentShifu } = useShifu();
   const { t } = useTranslation();
   const [learningPermission, setLearningPermission] =
@@ -109,7 +113,11 @@ const ChapterSettingsDialog = ({
         <div className='border-b border-border px-6 py-5 pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
-              {t('module.chapterSetting.title')}
+              {t(
+                `module.chapterSetting.${
+                  isChapter ? 'chapterSettingsTitle' : 'sectionSettingsTitle'
+                }`,
+              )}
             </SheetTitle>
           </SheetHeader>
         </div>
@@ -140,7 +148,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-normal'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.paidChapter')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'paidChapter' : 'paidSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -152,7 +164,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-trial'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.freeChapter')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'freeChapter' : 'freeSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -164,7 +180,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-guest'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.guestChapter')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'guestChapter' : 'guestSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                 </RadioGroup>
@@ -188,7 +208,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-visible'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.visibleChapter')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'visibleChapter' : 'visibleSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -200,7 +224,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-hidden'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.hideChapter')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'hideChapter' : 'hideSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                 </RadioGroup>
@@ -208,17 +236,21 @@ const ChapterSettingsDialog = ({
 
               <div className='space-y-2'>
                 <div className='text-sm font-medium text-foreground'>
-                  {t('module.chapterSetting.systemPrompt')}
+                  {t(`module.chapterSetting.${promptScope}Prompt`)}
                 </div>
-                {/* <div className='text-xs text-muted-foreground'>
-                  {t('module.chapterSetting.promptHint')}
-                </div> */}
+                {promptScope === 'section' && (
+                  <div className='text-xs text-muted-foreground'>
+                    {t('module.chapterSetting.sectionPromptHint')}
+                  </div>
+                )}
                 <Textarea
                   value={systemPrompt}
                   onChange={event => setSystemPrompt(event.target.value)}
                   // maxLength={1000}
                   rows={6}
-                  // placeholder={t('chapterSetting.promptHint')}
+                  placeholder={t(
+                    `module.chapterSetting.${promptScope}PromptPlaceholder`,
+                  )}
                   className='min-h-[220px]'
                 />
                 {/* <div className='text-xs text-muted-foreground text-right'>

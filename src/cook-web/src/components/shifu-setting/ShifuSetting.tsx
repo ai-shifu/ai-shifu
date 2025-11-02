@@ -86,7 +86,7 @@ export default function ShifuSettingDialog({
     model: z.string(),
     systemPrompt: z
       .string()
-      .max(300, t('module.shifuSetting.systemPromptMaxLength')),
+      .max(300, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
       .min(1, t('module.shifuSetting.shifuPriceEmpty'))
@@ -540,7 +540,7 @@ export default function ShifuSettingDialog({
                   <FormItem className='space-y-2 mb-4'>
                     <div className='flex items-center gap-2'>
                       <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.systemPrompt')}
+                        {t('module.shifuSetting.shifuPrompt')}
                       </FormLabel>
                       <a
                         href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2'
@@ -551,14 +551,14 @@ export default function ShifuSettingDialog({
                       </a>
                     </div>
                     <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.systemPromptHint')}
+                      {t('module.shifuSetting.shifuPromptHint')}
                     </p>
                     <FormControl>
                       <Textarea
                         {...field}
                         maxLength={300}
                         placeholder={t(
-                          'module.shifuSetting.systemPromptPlaceholder',
+                          'module.shifuSetting.shifuPromptPlaceholder',
                         )}
                         rows={6}
                       />
