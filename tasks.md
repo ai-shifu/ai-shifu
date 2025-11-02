@@ -18,6 +18,7 @@
 - [x] Refactor existing Ping++ implementation to comply with the new factory without changing behaviour; ensure dependency injection slots into current service entrypoints. `PingxxProvider` now backs `pingxx_order` helpers and order creation leverages the registry.
 - [x] Implement a Stripe provider class handling session/intent creation, webhook verification, refund initiation, and synchronization, leveraging the new factory. See `src/api/flaskr/service/order/payment_providers/stripe.py`.
 - [x] Decide where to store provider selection (likely in order creation workflow) and update service logic to route through the factory based on `payment_channel`. `generate_charge` inspects `Order.payment_channel` and routes to either Ping++ or Stripe flows.
+- [ ] Implement provider-agnostic refund handling (initially Stripe) and ensure persistence mirrors `StripeOrder` changes.
 - [ ] Update any tasks, schedulers, or background jobs that currently hardcode Ping++ so they use the provider abstraction.
 
 ## API & Integration Tasks
