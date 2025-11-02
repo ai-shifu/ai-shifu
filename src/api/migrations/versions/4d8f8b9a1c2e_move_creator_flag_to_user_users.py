@@ -85,14 +85,18 @@ def upgrade() -> None:
                 .values(is_creator=1)
             )
 
+    user_profile_table = None
+
     # Backfill from user_profile role flags when available.
     if _has_table(inspector, "user_profile"):
-        user_profile = sa.Table("user_profile", metadata, autoload_with=bind)
+        user_profile_table = sa.Table("user_profile", metadata, autoload_with=bind)
         query = (
-            sa.select(user_profile.c.user_id, user_profile.c.profile_value)
-            .where(user_profile.c.profile_key == sa.literal("sys_user_is_creator"))
-            .where(user_profile.c.status != 0)
-            .order_by(user_profile.c.id.desc())
+            sa.select(user_profile_table.c.user_id, user_profile_table.c.profile_value)
+            .where(
+                user_profile_table.c.profile_key == sa.literal("sys_user_is_creator")
+            )
+            .where(user_profile_table.c.status != 0)
+            .order_by(user_profile_table.c.id.desc())
         )
         result = bind.execute(query)
         seen = set()
@@ -129,6 +133,15 @@ def upgrade() -> None:
     if _has_column(inspector, "user_info", "is_admin"):
         with op.batch_alter_table("user_info", schema=None) as batch_op:
             batch_op.drop_column("is_admin")
+
+    if user_profile_table is not None:
+        bind.execute(
+            user_profile_table.delete().where(
+                user_profile_table.c.profile_key.in_(
+                    ("sys_user_is_admin", "sys_user_is_creator")
+                )
+            )
+        )
 
 
 def downgrade() -> None:

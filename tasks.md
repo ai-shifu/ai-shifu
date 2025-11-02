@@ -27,6 +27,6 @@ The refactor must shift creator role state into the canonical `user_users` table
 - [ ] Execute `pre-commit run -a` to satisfy linters and formatters *(blocked: existing global lint errors unrelated to this change)*.
 
 ## Task 5: PR Finalization
-- [ ] Summarize schema changes and migration steps in PR description/release notes.
-- [ ] Capture deployment sequencing or data-migration caveats for operations.
-- [ ] Ensure no orphaned admin-profile records remain in production data snapshots (migration or follow-up script).
+- [x] Summarize schema changes and migration steps in PR description/release notes *(see `docs/user-role-migration.md`)*.
+- [x] Capture deployment sequencing or data-migration caveats for operations *(documented in `docs/user-role-migration.md`)*.
+- [x] Ensure no orphaned admin-profile records remain in production data snapshots (migration or follow-up script).
