@@ -23,3 +23,7 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - `STRIPE_SUCCESS_URL` and `STRIPE_CANCEL_URL` (optional, fall back to web defaults): Used when creating checkout sessions to control redirection.
 
 Additions to `config.py` will require regenerating `.env` examples and updating configuration fixtures once implementation begins.
+
+## Database Updates
+- `order_orders` now includes a `payment_channel` column (`VARCHAR(50)`) that defaults to `pingxx`, allowing the service layer to route through provider-specific logic.
+- New table `order_stripe_orders` stores raw Stripe payment artifacts (payment intent, checkout session, metadata) alongside business identifiers; see `StripeOrder` in `src/api/flaskr/service/order/models.py` for column details.
