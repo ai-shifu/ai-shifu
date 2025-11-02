@@ -8,3 +8,18 @@
 - Manual success flows can fall back to `success_buy_record`, which directly marks the `Order` as paid without depending on Ping++ callbacks.
 
 These touch points will guide the upcoming payment factory abstraction; each call site is an integration seam where provider-specific logic must be isolated behind the factory interface.
+
+## Configuration Inventory
+
+### Ping++ Environment Keys
+- Runtime code expects `PINGXX_SECRET_KEY`, `PINGXX_PRIVATE_KEY_PATH`, and `PINGXX_APP_ID` via `get_config`, but these keys are not yet defined in the central config registry (`src/api/flaskr/common/config.py`). We should register them when we revise configuration handling for payment providers.
+- Ping++ also relies on filesystem access to a private key path; document deployment requirements when refactoring to the factory pattern.
+
+### Stripe (Proposed)
+- `STRIPE_SECRET_KEY` (required, secret, group `payment`): API key used for server-side requests and webhook signature verification.
+- `STRIPE_PUBLISHABLE_KEY` (required, group `payment`): Client-facing key returned to the frontend when initializing Stripe elements or checkout sessions.
+- `STRIPE_WEBHOOK_SECRET` (required, secret, group `payment`): Signature secret for webhook verification, stored server-side only.
+- `STRIPE_API_VERSION` (optional, default to Stripe’s latest supported version): Ensures predictable behaviour across environments.
+- `STRIPE_SUCCESS_URL` and `STRIPE_CANCEL_URL` (optional, fall back to web defaults): Used when creating checkout sessions to control redirection.
+
+Additions to `config.py` will require regenerating `.env` examples and updating configuration fixtures once implementation begins.

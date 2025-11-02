@@ -3,7 +3,7 @@
 ## Discovery & Alignment
 - [x] Confirm required naming for the new payment channel flag (`stripe` vs `scripe`) to avoid mismatched literals across code and migrations. Decision: use `stripe` consistently; treat `scripe` as a typo in the initial requirements.
 - [x] Map the existing Ping++ order flow (creation, payment callbacks, refunds) to understand touch points for the upcoming factory abstraction (`src/api/flaskr/service/order/pingxx_order.py`, related services, and webhook handlers). See `docs/payment-flow.md` for the discovery summary.
-- [ ] Inventory environment variables and credentials needed for Stripe (secret key, webhook secret, publishable key) and decide naming conventions that follow existing config standards.
+- [x] Inventory environment variables and credentials needed for Stripe (secret key, webhook secret, publishable key) and decide naming conventions that follow existing config standards. See `docs/payment-flow.md` (“Configuration Inventory”) for proposed keys.
 
 ## Database Layer
 - [ ] Design the `order_stripe_orders` schema, mirroring `order_pingxx_orders` while capturing Stripe-specific raw payloads (charge/session/payment intent data, status fields, metadata, timestamps).
