@@ -24,6 +24,7 @@
 ## API & Integration Tasks
 - [x] Extend order creation APIs/endpoints to accept and validate the desired payment channel, defaulting to existing behaviour when unspecified. `order.reqiure-to-pay` now accepts `payment_channel` and routes requests via the provider abstraction.
 - [ ] Add new endpoints or extend current ones for Stripe-specific steps (e.g., returning client secret/session ID, handling webhook callbacks).
+- [ ] Implement Stripe webhook processing (signature validation, event fan-out); placeholder endpoint exists at `/stripe/webhook`.
 - [ ] Implement webhook handlers with signature validation and idempotency protections, persisting Stripe payloads into `order_stripe_orders`.
 - [ ] Update error handling and response payloads to include payment channel context where relevant.
 

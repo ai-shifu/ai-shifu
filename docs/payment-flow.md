@@ -59,6 +59,10 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 }
 ```
 
+### Webhook Status
+
+- POST `/api/order/stripe/webhook` currently acknowledges events (202 Accepted) and logs the request while full signature verification and event handling are implemented.
+
 ## Configuration Inventory
 
 ### Ping++ Environment Keys

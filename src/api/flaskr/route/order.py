@@ -190,4 +190,28 @@ def register_order_handler(app: Flask, path_prefix: str):
             use_coupon_code(app, user_id, discount_code, order_id)
         )
 
+    @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
+    def stripe_webhook():
+        """
+        Stripe webhook接入占位
+        ---
+        tags:
+            - 订单
+        responses:
+            202:
+                description: Webhook已接收，具体逻辑待实现
+        """
+
+        sig_header = request.headers.get("Stripe-Signature", "")
+        app.logger.warning(
+            "Stripe webhook received but handler not implemented yet. signature=%s",
+            sig_header,
+        )
+        payload = {
+            "status": "accepted",
+            "message": "Stripe webhook handling pending implementation",
+        }
+        body = make_common_response(payload)
+        return app.response_class(body, status=202, mimetype="application/json")
+
     return app
