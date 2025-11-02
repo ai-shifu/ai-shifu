@@ -14,7 +14,7 @@
 - [ ] Regenerate environment example files if new env vars are introduced (`python scripts/generate_env_examples.py`).
 
 ## Service Layer & Factory Abstraction
-- [ ] Define a payment channel factory interface (e.g., `PaymentProvider`, `PaymentContext`) that encapsulates order creation, charge confirmation, refunds, and status sync.
+- [x] Define a payment channel factory interface (e.g., `PaymentProvider`, `PaymentContext`) that encapsulates order creation, charge confirmation, refunds, and status sync. Implemented in `src/api/flaskr/service/order/payment_providers/base.py` with registry helpers in `__init__.py`.
 - [ ] Refactor existing Ping++ implementation to comply with the new factory without changing behaviour; ensure dependency injection slots into current service entrypoints.
 - [ ] Implement a Stripe provider class handling session/intent creation, webhook verification, refund initiation, and synchronization, leveraging the new factory.
 - [ ] Decide where to store provider selection (likely in order creation workflow) and update service logic to route through the factory based on `payment_channel`.
