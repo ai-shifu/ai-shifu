@@ -307,12 +307,23 @@ class BuyRecordDTO:
     channel: str  # 支付渠道
     qr_url: str  # 二维码地址
 
-    def __init__(self, record_id, user_id, price, channel, qr_url):
+    def __init__(
+        self,
+        record_id,
+        user_id,
+        price,
+        channel,
+        qr_url,
+        payment_channel: str = "",
+        payment_payload: Optional[Dict[str, Any]] = None,
+    ):
         self.order_id = record_id
         self.user_id = user_id
         self.price = price
         self.channel = channel
         self.qr_url = qr_url
+        self.payment_channel = payment_channel
+        self.payment_payload = payment_payload or {}
 
     def __json__(self):
         return {
@@ -321,6 +332,8 @@ class BuyRecordDTO:
             "price": str(self.price),
             "channel": self.channel,
             "qr_url": self.qr_url,
+            "payment_channel": self.payment_channel,
+            "payment_payload": self.payment_payload,
         }
 
 
@@ -357,6 +370,7 @@ def generate_charge(
                 buy_record.paid_price,
                 channel,
                 "",
+                payment_channel=buy_record.payment_channel,
             )
             # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
@@ -373,12 +387,16 @@ def generate_charge(
 
         if amount == 0:
             success_buy_record(app, buy_record.order_bid)
+            response_channel = _format_response_channel(
+                payment_channel, provider_channel
+            )
             return BuyRecordDTO(
                 buy_record.order_bid,
                 buy_record.user_bid,
                 buy_record.paid_price,
-                channel or payment_channel,
+                response_channel,
                 "",
+                payment_channel=payment_channel,
             )
 
         if payment_channel == "pingxx":
@@ -457,6 +475,16 @@ def _resolve_payment_channel(
     if not provider_channel:
         raise_error("server.pay.payChannelNotSupport")
     return "pingxx", provider_channel
+
+
+def _format_response_channel(payment_channel: str, provider_channel: str) -> str:
+    if payment_channel == "stripe":
+        return (
+            "stripe"
+            if provider_channel == "payment_intent"
+            else f"stripe:{provider_channel}"
+        )
+    return provider_channel
 
 
 def _generate_pingxx_charge(
@@ -539,6 +567,11 @@ def _generate_pingxx_charge(
         buy_record.paid_price,
         channel,
         qr_url or "",
+        payment_channel="pingxx",
+        payment_payload={
+            "qr_url": qr_url or "",
+            "credential": credential,
+        },
     )
 
 
@@ -641,11 +674,18 @@ def _generate_stripe_charge(
     buy_record.status = ORDER_STATUS_TO_BE_PAID
     db.session.commit()
 
-    response_channel = (
-        "stripe" if resolved_mode == "payment_intent" else f"stripe:{resolved_mode}"
-    )
+    response_channel = _format_response_channel("stripe", resolved_mode)
     qr_value = result.extra.get("url") or result.client_secret or ""
     app.logger.info("Stripe payment created: %s", result.provider_reference)
+
+    payment_payload = {
+        "mode": resolved_mode,
+        "client_secret": result.client_secret or "",
+        "checkout_session_url": result.extra.get("url", ""),
+        "checkout_session_id": stripe_order.checkout_session_id,
+        "payment_intent_id": stripe_order.payment_intent_id,
+        "latest_charge_id": stripe_order.latest_charge_id,
+    }
 
     return BuyRecordDTO(
         buy_record.order_bid,
@@ -653,6 +693,8 @@ def _generate_stripe_charge(
         buy_record.paid_price,
         response_channel,
         qr_value,
+        payment_channel="stripe",
+        payment_payload=payment_payload,
     )
 
 

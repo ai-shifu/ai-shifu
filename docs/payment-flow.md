@@ -13,7 +13,7 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - Stripe support is implemented via `StripeProvider` (`src/api/flaskr/service/order/payment_providers/stripe.py`), which currently wraps Payment Intent and Checkout Session creation using the official Stripe SDK. It normalises responses into the shared `PaymentCreationResult`.
 - `generate_charge` detects the desired provider through `Order.payment_channel` (defaulting to Ping++) and optional `channel` hints (`"stripe"` or `"stripe:checkout_session"`), routing to Stripe when appropriate.
 - Newly created Stripe payments persist metadata and raw payloads inside the `StripeOrder` model, ensuring parity with the existing Ping++ audit trail.
-- Returned `BuyRecordDTO` instances surface Stripe-specific data via the existing `qr_url` field (client secret or checkout URL), pending API schema evolution later in the rollout.
+- Returned `BuyRecordDTO` instances include a `payment_payload` dictionary (client secret, checkout session info, etc.) so callers can distinguish Stripe flows without relying on the legacy `qr_url` field.
 - API consumers can explicitly choose a provider by passing `payment_channel` (`pingxx` or `stripe`) when invoking `/reqiure-to-pay`; the existing `channel` field remains for provider-specific options (e.g., `wx_pub_qr`, `stripe:checkout_session`).
 
 ### Request Examples
@@ -35,6 +35,27 @@ These touch points will guide the upcoming payment factory abstraction; each cal
   "order_id": "ORDER_BID",
   "payment_channel": "stripe",
   "channel": "stripe:checkout_session"
+}
+```
+
+### Response Snapshot
+
+```json
+{
+  "order_id": "ORDER_BID",
+  "user_id": "USER_BID",
+  "price": "199.00",
+  "channel": "stripe:checkout_session",
+  "qr_url": "https://checkout.stripe.com/c/pay/cs_test_xxx",
+  "payment_channel": "stripe",
+  "payment_payload": {
+    "mode": "checkout_session",
+    "client_secret": "cs_test_client_secret_xxx",
+    "checkout_session_url": "https://checkout.stripe.com/c/pay/cs_test_xxx",
+    "checkout_session_id": "cs_test_xxx",
+    "payment_intent_id": "pi_test_xxx",
+    "latest_charge_id": "ch_test_xxx"
+  }
 }
 ```
 
