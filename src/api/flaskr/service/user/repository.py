@@ -20,7 +20,6 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_UNREGISTERED,
 )
-from flaskr.service.profile.models import PROFILE_TYPE_INPUT_SELECT, UserProfile
 from flaskr.service.user.models import AuthCredential, UserInfo as UserEntity
 from flaskr.util.uuid import generate_id
 
@@ -46,14 +45,6 @@ STATE_TO_PUBLIC_STATE = {
     USER_STATE_TRAIL: 2,
     USER_STATE_PAID: 3,
 }
-
-ROLE_PROFILE_KEY_ADMIN = "sys_user_is_admin"
-ROLE_PROFILE_KEY_CREATOR = "sys_user_is_creator"
-_ROLE_PROFILE_FLAGS = {
-    ROLE_PROFILE_KEY_ADMIN: "is_admin",
-    ROLE_PROFILE_KEY_CREATOR: "is_creator",
-}
-_TRUTHY_VALUES = {"1", "true", "yes", "on"}
 
 
 @dataclass
@@ -84,7 +75,7 @@ class UserAggregate:
     created_at: datetime
     updated_at: datetime
     credentials: List[CredentialSummary] = field(default_factory=list)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    is_creator: bool = False
 
     def _preferred_identifier(
         self, provider: str, *, prefer_verified: bool = True
@@ -162,14 +153,6 @@ class UserAggregate:
     def public_state(self) -> int:
         return STATE_TO_PUBLIC_STATE.get(self.state, 0)
 
-    @property
-    def is_admin(self) -> bool:
-        return bool(self.extra.get("is_admin", False))
-
-    @property
-    def is_creator(self) -> bool:
-        return bool(self.extra.get("is_creator", False))
-
     # Compatibility accessors for legacy call sites that previously relied on
     # ``user_info`` ORM objects. They allow downstream services to keep using
     # the familiar attribute names while the underlying data now comes from the
@@ -206,7 +189,6 @@ class UserAggregate:
             wx_openid=self.wechat_open_id,
             language=self.user_language,
             user_avatar=self.avatar,
-            is_admin=self.is_admin,
             is_creator=self.is_creator,
         )
 
@@ -243,7 +225,6 @@ def _build_user_aggregate(
     entity: UserEntity,
     *,
     credentials: Optional[List[AuthCredential]] = None,
-    extra: Optional[Dict[str, Any]] = None,
 ) -> UserAggregate:
     summaries = _summarize_credentials(credentials or [])
     aggregate = UserAggregate(
@@ -258,7 +239,7 @@ def _build_user_aggregate(
         created_at=entity.created_at,
         updated_at=entity.updated_at,
         credentials=summaries,
-        extra=extra or {},
+        is_creator=bool(entity.is_creator),
     )
     return aggregate
 
@@ -284,7 +265,6 @@ def load_user_aggregate(
     *,
     include_deleted: bool = False,
     with_credentials: bool = True,
-    include_legacy_flags: bool = True,
 ) -> Optional[UserAggregate]:
     entity = get_user_entity_by_bid(user_bid, include_deleted=include_deleted)
     if not entity:
@@ -292,21 +272,13 @@ def load_user_aggregate(
     credentials: List[AuthCredential] = []
     if with_credentials:
         credentials = list_credentials(user_bid=user_bid)
-
-    extra: Dict[str, Any] = {}
-    if include_legacy_flags:
-        extra = _load_role_flags(user_bid)
-
-    return _build_user_aggregate(
-        entity, credentials=credentials, extra=extra if extra else None
-    )
+    return _build_user_aggregate(entity, credentials=credentials)
 
 
 def load_user_aggregate_by_identifier(
     identifier: str,
     *,
     providers: Optional[List[str]] = None,
-    include_legacy_flags: bool = True,
 ) -> Optional[UserAggregate]:
     normalized = identifier.strip() if identifier else ""
     if not normalized:
@@ -319,11 +291,9 @@ def load_user_aggregate_by_identifier(
         .first()
     )
     if entity:
-        extra = _load_role_flags(entity.user_bid) if include_legacy_flags else None
         return _build_user_aggregate(
             entity,
             credentials=list_credentials(user_bid=entity.user_bid),
-            extra=extra,
         )
 
     provider_candidates = providers or []
@@ -339,9 +309,7 @@ def load_user_aggregate_by_identifier(
             identifier=_normalize_identifier(provider, normalized),
         )
         if credential:
-            return load_user_aggregate(
-                credential.user_bid, include_legacy_flags=include_legacy_flags
-            )
+            return load_user_aggregate(credential.user_bid)
 
     return None
 
@@ -417,17 +385,16 @@ def ensure_user_for_identifier(
 def mark_user_roles(
     user_bid: str,
     *,
-    is_admin: Optional[bool] = None,
     is_creator: Optional[bool] = None,
 ) -> None:
-    """Persist role flags for the user using profile records."""
+    """Persist creator role flag on the canonical entity."""
 
-    if is_admin is not None:
-        _upsert_role_profile(user_bid, ROLE_PROFILE_KEY_ADMIN, is_admin)
-    if is_creator is not None:
-        _upsert_role_profile(user_bid, ROLE_PROFILE_KEY_CREATOR, is_creator)
-    if is_admin is not None or is_creator is not None:
-        db.session.flush()
+    if is_creator is None:
+        return
+
+    entity = _ensure_user_entity(user_bid)
+    entity.is_creator = 1 if is_creator else 0
+    db.session.flush()
 
 
 def create_user_entity(
@@ -555,66 +522,6 @@ def _normalize_user_state(raw_state) -> int:
     return USER_STATE_UNREGISTERED
 
 
-def _profile_value_to_bool(value: Optional[str]) -> bool:
-    if value is None:
-        return False
-    return str(value).strip().lower() in _TRUTHY_VALUES
-
-
-def _load_role_flags(user_bid: str) -> Dict[str, bool]:
-    if not user_bid:
-        return {}
-
-    query = (
-        UserProfile.query.filter(
-            UserProfile.user_id == user_bid,
-            UserProfile.profile_key.in_(_ROLE_PROFILE_FLAGS.keys()),
-            UserProfile.status != 0,
-        )
-        .order_by(UserProfile.id.desc())
-        .all()
-    )
-
-    flags = {flag: False for flag in _ROLE_PROFILE_FLAGS.values()}
-    seen: set[str] = set()
-    for record in query:
-        alias = _ROLE_PROFILE_FLAGS.get(record.profile_key)
-        if not alias or alias in seen:
-            continue
-        flags[alias] = _profile_value_to_bool(record.profile_value)
-        seen.add(alias)
-        if len(seen) == len(flags):
-            break
-    return flags
-
-
-def _encode_role_flag(active: bool) -> str:
-    return "1" if active else "0"
-
-
-def _upsert_role_profile(user_bid: str, profile_key: str, active: bool) -> None:
-    record = (
-        UserProfile.query.filter_by(user_id=user_bid, profile_key=profile_key)
-        .order_by(UserProfile.id.desc())
-        .first()
-    )
-    value = _encode_role_flag(active)
-    if record:
-        record.profile_value = value
-        record.status = 1
-        return
-
-    profile = UserProfile(
-        user_id=user_bid,
-        profile_id=generate_id(None),
-        profile_key=profile_key,
-        profile_value=value,
-        profile_type=PROFILE_TYPE_INPUT_SELECT,
-        status=1,
-    )
-    db.session.add(profile)
-
-
 @dataclass
 class UserProfileSnapshot:
     user_bid: str
@@ -641,7 +548,6 @@ def build_user_profile_snapshot_from_aggregate(
         "user_state": aggregate.state,
         "language": aggregate.user_language,
         "avatar": aggregate.avatar,
-        "is_admin": aggregate.is_admin,
         "is_creator": aggregate.is_creator,
     }
 

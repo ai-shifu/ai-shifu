@@ -127,7 +127,7 @@ def init_first_course(app: Flask, user_id: str) -> None:
         return
 
     # Always grant admin/creator to the first verified user
-    mark_user_roles(user_id, is_admin=True, is_creator=True)
+    mark_user_roles(user_id, is_creator=True)
 
     # Assign demo shifu only when there is exactly one published course
     course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()

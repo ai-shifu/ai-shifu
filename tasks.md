@@ -9,10 +9,10 @@ The refactor must shift creator role state into the canonical `user_users` table
 - [x] Verify dependent models (`UserInfo`, legacy tables) no longer rely on the admin flag.
 
 ## Task 2: Repository & Service Updates
-- [ ] Refactor `UserAggregate` loading to read/write the `is_creator` flag from `user_users` instead of `user_profile`.
-- [ ] Delete admin-role plumbing (`ROLE_PROFILE_KEY_ADMIN`, DTO fields, service helpers) and update callers.
-- [ ] Update API serializers/DTOs to drop `is_admin` and ensure responses only expose `is_creator`.
-- [ ] Audit downstream modules (`shifu`, `order`, `profile`, etc.) for admin checks and replace them with creator semantics or remove when obsolete.
+- [x] Refactor `UserAggregate` loading to read/write the `is_creator` flag from `user_users` instead of `user_profile`.
+- [x] Delete admin-role plumbing (`ROLE_PROFILE_KEY_ADMIN`, DTO fields, service helpers) and update callers.
+- [x] Update API serializers/DTOs to drop `is_admin` and ensure responses only expose `is_creator`.
+- [x] Audit downstream modules (`shifu`, `order`, `profile`, etc.) for admin checks and replace them with creator semantics or remove when obsolete.
 
 ## Task 3: Migration Authoring
 - [ ] Draft Alembic migration adding `is_creator` to `user_users` with proper defaults, indexes, and comments.
