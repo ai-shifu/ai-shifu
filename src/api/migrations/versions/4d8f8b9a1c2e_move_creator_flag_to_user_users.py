@@ -114,19 +114,6 @@ def upgrade() -> None:
         if updates:
             apply_updates(updates)
 
-    # Fall back to legacy user_info columns when present.
-    if _has_column(inspector, "user_info", "is_creator"):
-        user_info = sa.Table("user_info", metadata, autoload_with=bind)
-        result = bind.execute(sa.select(user_info.c.user_id, user_info.c.is_creator))
-        updates = [
-            row.user_id
-            for row in result
-            if row.is_creator is not None
-            and str(row.is_creator).strip().lower() in TRUTHY_VALUES
-        ]
-        if updates:
-            apply_updates(updates)
-
     with op.batch_alter_table("user_users", schema=None) as batch_op:
         batch_op.alter_column("is_creator", server_default=None)
 

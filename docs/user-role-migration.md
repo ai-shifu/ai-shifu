@@ -6,7 +6,7 @@
 - Removed `sys_user_is_admin` and `sys_user_is_creator` records from `user_profile`; role state now lives exclusively in `user_users`.
 
 ## Migration Behavior
-- Backfills the new `user_users.is_creator` column from the latest `user_profile` creator flags and falls back to the deprecated `user_info.is_creator` column when necessary.
+- Backfills the new `user_users.is_creator` column from the latest `user_profile` creator flags; no legacy `user_info` data is read.
 - Cleans up leftover `user_profile` role records after data is copied so repeated deploys remain idempotent.
 
 ## Deployment Checklist
