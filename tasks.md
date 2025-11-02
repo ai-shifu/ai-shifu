@@ -21,10 +21,10 @@ The refactor must shift creator role state into the canonical `user_users` table
 - [ ] Provide a downgrade path and validate the script locally (`flask db upgrade`/`downgrade`) *(downgrade authored; migration run pending local DB access)*.
 
 ## Task 4: Tests & Documentation
-- [ ] Update unit/integration tests and fixtures to align with the new column and removed admin flag.
-- [ ] Confirm API contract changes with frontend (document response shape adjustments if any).
-- [ ] Run targeted `pytest` suites covering user service flows.
-- [ ] Execute `pre-commit run -a` to satisfy linters and formatters.
+- [x] Update unit/integration tests and fixtures to align with the new column and removed admin flag.
+- [x] Confirm API contract changes with frontend (document response shape adjustments if any).
+- [ ] Run targeted `pytest` suites covering user service flows *(blocked: missing `flask_migrate` dependency in local environment)*.
+- [ ] Execute `pre-commit run -a` to satisfy linters and formatters *(blocked: existing global lint errors unrelated to this change)*.
 
 ## Task 5: PR Finalization
 - [ ] Summarize schema changes and migration steps in PR description/release notes.

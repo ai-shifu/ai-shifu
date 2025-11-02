@@ -19,6 +19,7 @@ export interface UserInfo {
   avatar?: string;
   phone?: string;
   language?: string;
+  is_creator?: boolean;
   [key: string]: any;
 }
 
