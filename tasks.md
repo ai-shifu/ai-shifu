@@ -11,7 +11,7 @@
 - [x] Add the `payment_channel` column to the `Order` model with sensible defaults, length 50, comment, and index if needed for query performance. Default set to `pingxx` to maintain backward compatibility.
 - [x] Generate an Alembic migration creating `order_stripe_orders` and adding `payment_channel` to `order_orders`, with downgrade logic and index definitions. See `src/api/migrations/versions/c9c92880fc67_add_stripe_payment_channel.py`.
 - [x] Backfill `payment_channel` for existing records (default to `pingxx`) inside the migration or follow-up data task to keep downstream code consistent. Performed in the same migration via SQL update.
-- [ ] Regenerate environment example files if new env vars are introduced (`python scripts/generate_env_examples.py`).
+- [x] Regenerate environment example files if new env vars are introduced (`python scripts/generate_env_examples.py`). Updated `docker/.env.example.*` with Stripe/Ping++ settings.
 
 ## Service Layer & Factory Abstraction
 - [x] Define a payment channel factory interface (e.g., `PaymentProvider`, `PaymentContext`) that encapsulates order creation, charge confirmation, refunds, and status sync. Implemented in `src/api/flaskr/service/order/payment_providers/base.py` with registry helpers in `__init__.py`.
@@ -27,7 +27,7 @@
 - [ ] Update error handling and response payloads to include payment channel context where relevant.
 
 ## Configuration & Infrastructure
-- [ ] Add Stripe configuration entries in `src/api/flaskr/common/config.py`, with validation and grouping, and update config fixtures/tests.
+- [x] Add Stripe configuration entries in `src/api/flaskr/common/config.py`, with validation and grouping, and update config fixtures/tests.
 - [ ] Document required environment variables in README/docs and ensure secrets management (local `.env`, deployment manifests) is updated.
 - [ ] Evaluate background job queue or schedulers for Stripe reconciliation (optional depending on business requirements) and plan deployment changes if needed.
 

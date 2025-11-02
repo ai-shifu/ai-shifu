@@ -18,17 +18,15 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 ## Configuration Inventory
 
 ### Ping++ Environment Keys
-- Runtime code expects `PINGXX_SECRET_KEY`, `PINGXX_PRIVATE_KEY_PATH`, and `PINGXX_APP_ID` via `get_config`, but these keys are not yet defined in the central config registry (`src/api/flaskr/common/config.py`). We should register them when we revise configuration handling for payment providers.
-- Ping++ also relies on filesystem access to a private key path; document deployment requirements when refactoring to the factory pattern.
+- `PINGXX_SECRET_KEY`, `PINGXX_PRIVATE_KEY_PATH`, and `PINGXX_APP_ID` now live in the central registry (`src/api/flaskr/common/config.py`) under the `payment` group so they flow into generated `.env` examples.
+- Ping++ still requires filesystem access to the private key path; ensure deployment artefacts include the key alongside environment configuration.
 
-### Stripe (Proposed)
-- `STRIPE_SECRET_KEY` (required, secret, group `payment`): API key used for server-side requests and webhook signature verification.
-- `STRIPE_PUBLISHABLE_KEY` (required, group `payment`): Client-facing key returned to the frontend when initializing Stripe elements or checkout sessions.
-- `STRIPE_WEBHOOK_SECRET` (required, secret, group `payment`): Signature secret for webhook verification, stored server-side only.
-- `STRIPE_API_VERSION` (optional, default to Stripe’s latest supported version): Ensures predictable behaviour across environments.
-- `STRIPE_SUCCESS_URL` and `STRIPE_CANCEL_URL` (optional, fall back to web defaults): Used when creating checkout sessions to control redirection.
+### Stripe Environment Keys
+- `STRIPE_SECRET_KEY` (secret) and `STRIPE_PUBLISHABLE_KEY` expose the core credentials for backend and frontend usage.
+- `STRIPE_WEBHOOK_SECRET` secures webhook validation; keep it server-side only.
+- Optional helpers such as `STRIPE_API_VERSION`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, and `STRIPE_DEFAULT_CURRENCY` enable consistent behaviour across environments.
 
-Additions to `config.py` will require regenerating `.env` examples and updating configuration fixtures once implementation begins.
+Remember to regenerate `.env` examples (`python scripts/generate_env_examples.py`) whenever payment configuration changes.
 
 ## Database Updates
 - `order_orders` now includes a `payment_channel` column (`VARCHAR(50)`) that defaults to `pingxx`, allowing the service layer to route through provider-specific logic.
