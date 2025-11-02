@@ -3,7 +3,7 @@
   "newChapter": "Add Chapter",
   "creationArea": {
     "description": "Describe the content you want, or leave room for the AI to improvise.",
-    "title": "Content Creation Area",
+    "title": "Creation Area",
     "modeText": "Raw",
     "modeCode": "Text"
   }

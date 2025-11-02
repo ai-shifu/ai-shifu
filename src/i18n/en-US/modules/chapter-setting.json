@@ -4,12 +4,9 @@
   "sectionSettingsTitle": "Section Settings",
   "title": "Chapter Settings",
   "learningPermission": "Learning Permission",
-  "paidChapter": "Paid Chapter",
-  "freeChapter": "Free Chapter",
-  "guestChapter": "Guest Chapter",
   "paidSection": "Paid Section",
   "freeSection": "Free Section",
-  "guestSection": "Guest Section",
+  "guestSection": "Login-free",
   "isHidden": "Visibility",
   "visibleChapter": "Visible",
   "hideChapter": "Hidden",
@@ -17,9 +14,9 @@
   "hideSection": "Hidden",
   "chapterPrompt": "Chapter Prompt",
   "chapterPromptHint": "Define the chapter's audience, tone, and guardrails",
-  "chapterPromptPlaceholder": "Describe the guidance for this chapter",
+  "chapterPromptPlaceholder": "Please enter the prompt",
   "chapterTitle": "Chapter Title",
   "sectionPrompt": "Section Prompt",
   "sectionPromptHint": "Define the section's audience, tone, and guardrails",
-  "sectionPromptPlaceholder": "Describe the guidance for this section"
+  "sectionPromptPlaceholder": "Please enter the prompt"
 }
