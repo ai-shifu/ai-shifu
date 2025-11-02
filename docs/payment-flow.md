@@ -39,6 +39,14 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 }
 ```
 
+- **Fetch Payment Detail**
+
+```json
+{
+  "order_id": "ORDER_BID"
+}
+```
+
 ### Response Snapshot
 
 ```json

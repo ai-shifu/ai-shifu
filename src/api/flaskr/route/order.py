@@ -7,6 +7,7 @@ from flaskr.service.order import (
     query_buy_record,
     init_buy_record,
     handle_stripe_webhook,
+    get_payment_details,
 )
 
 
@@ -190,6 +191,43 @@ def register_order_handler(app: Flask, path_prefix: str):
         return make_common_response(
             use_coupon_code(app, user_id, discount_code, order_id)
         )
+
+    @app.route(path_prefix + "/payment-detail", methods=["POST"])
+    def payment_detail():
+        """
+        查询支付详情
+        ---
+        tags:
+            - 订单
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    order_id:
+                        type: string
+                        description: 订单id
+        responses:
+            200:
+                description: 查询支付详情成功
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                message:
+                                    type: string
+                                data:
+                                    type: object
+        """
+
+        order_id = request.get_json().get("order_id", "")
+        if not order_id:
+            raise_param_error("order_id")
+        return make_common_response(get_payment_details(app, order_id))
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
     def stripe_webhook():

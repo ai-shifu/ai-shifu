@@ -711,6 +711,19 @@ def _stringify_payload(payload: Any) -> str:
     return json.dumps(payload)
 
 
+def _parse_json_payload(value: Any) -> Any:
+    if not value:
+        return {}
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
 def handle_stripe_webhook(
     app: Flask, raw_body: bytes, sig_header: str
 ) -> Tuple[Dict[str, Any], int]:
@@ -898,6 +911,60 @@ def refund_order_payment(
         "refund_id": result.provider_reference,
         "amount": refund_amount,
     }
+
+
+def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
+    with app.app_context():
+        order = Order.query.filter(Order.order_bid == order_bid).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
+
+        payment_channel = order.payment_channel or "pingxx"
+        if payment_channel == "stripe":
+            stripe_order = (
+                StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+                .order_by(StripeOrder.id.desc())
+                .first()
+            )
+            if not stripe_order:
+                raise_error("server.order.orderNotFound")
+            return {
+                "payment_channel": "stripe",
+                "order_bid": order_bid,
+                "payment_intent_id": stripe_order.payment_intent_id,
+                "checkout_session_id": stripe_order.checkout_session_id,
+                "latest_charge_id": stripe_order.latest_charge_id,
+                "status": stripe_order.status,
+                "receipt_url": stripe_order.receipt_url,
+                "payment_method": stripe_order.payment_method,
+                "metadata": _parse_json_payload(stripe_order.metadata_json),
+                "payment_intent_object": _parse_json_payload(
+                    stripe_order.payment_intent_object
+                ),
+                "checkout_session_object": _parse_json_payload(
+                    stripe_order.checkout_session_object
+                ),
+            }
+
+        pingxx_order = (
+            PingxxOrder.query.filter(PingxxOrder.order_bid == order.order_bid)
+            .order_by(PingxxOrder.id.desc())
+            .first()
+        )
+        if not pingxx_order:
+            raise_error("server.order.orderNotFound")
+        return {
+            "payment_channel": "pingxx",
+            "order_bid": order_bid,
+            "charge_id": pingxx_order.charge_id,
+            "transaction_no": pingxx_order.transaction_no,
+            "status": pingxx_order.status,
+            "amount": pingxx_order.amount,
+            "currency": pingxx_order.currency,
+            "channel": pingxx_order.channel,
+            "extra": pingxx_order.extra,
+            "charge_object": pingxx_order.charge_object,
+        }
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):

@@ -23,10 +23,10 @@
 
 ## API & Integration Tasks
 - [x] Extend order creation APIs/endpoints to accept and validate the desired payment channel, defaulting to existing behaviour when unspecified. `order.reqiure-to-pay` now accepts `payment_channel` and routes requests via the provider abstraction.
-- [ ] Add new endpoints or extend current ones for Stripe-specific steps (e.g., returning client secret/session ID).
+- [x] Add new endpoints or extend current ones for Stripe-specific steps (e.g., returning client secret/session ID). Added `/payment-detail` to surface provider-specific payloads.
 - [x] Implement Stripe webhook processing (signature validation, event fan-out). `/stripe/webhook` verifies signatures, updates Stripe orders, and marks core orders paid/refunded.
 - [x] Implement webhook handlers with signature validation and idempotency protections, persisting Stripe payloads into `order_stripe_orders`.
-- [ ] Update error handling and response payloads to include payment channel context where relevant.
+- [x] Update error handling and response payloads to include payment channel context where relevant. `BuyRecordDTO` now exposes `payment_channel` and structured `payment_payload` for clients.
 
 ## Configuration & Infrastructure
 - [x] Add Stripe configuration entries in `src/api/flaskr/common/config.py`, with validation and grouping, and update config fixtures/tests.

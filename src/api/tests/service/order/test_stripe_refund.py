@@ -1,6 +1,6 @@
 from flaskr.dao import db
 from flaskr.service.order.consts import ORDER_STATUS_REFUND, ORDER_STATUS_SUCCESS
-from flaskr.service.order.funs import refund_order_payment
+from flaskr.service.order.funs import refund_order_payment, get_payment_details
 from flaskr.service.order.models import Order, StripeOrder
 from flaskr.service.order.payment_providers.base import PaymentRefundResult
 
@@ -69,3 +69,46 @@ def test_refund_order_payment_updates_status(app, monkeypatch):
         assert refreshed_order.status == ORDER_STATUS_REFUND
         assert refreshed_stripe_order.status == 2
         assert "last_refund_id" in refreshed_stripe_order.metadata_json
+
+
+def test_get_payment_details_returns_stripe_payload(app):
+    with app.app_context():
+        order = Order.query.filter(Order.payment_channel == "stripe").first()
+        if not order:
+            order = Order.query.first()
+            order.payment_channel = "stripe"
+            db.session.commit()
+
+        stripe_order = (
+            StripeOrder.query.filter(StripeOrder.order_bid == order.order_bid)
+            .order_by(StripeOrder.id.desc())
+            .first()
+        )
+        if not stripe_order:
+            stripe_order = StripeOrder(
+                order_bid=order.order_bid,
+                stripe_order_bid="stripe-order",
+                user_bid=order.user_bid,
+                shifu_bid=order.shifu_bid,
+                payment_intent_id="pi_test",
+                checkout_session_id="cs_test",
+                latest_charge_id="ch_test",
+                amount=100,
+                currency="usd",
+                status=1,
+                receipt_url="",
+                payment_method="pm_test",
+                failure_code="",
+                failure_message="",
+                metadata_json="{}",
+                payment_intent_object="{}",
+                checkout_session_object="{}",
+            )
+            db.session.add(stripe_order)
+            db.session.commit()
+
+    details = get_payment_details(app, order.order_bid)
+    assert details["payment_channel"] == "stripe"
+    assert details["payment_intent_id"] == "pi_test"
+    assert details["checkout_session_id"] in {"", "cs_test"}
+    assert details["metadata"] == {}
