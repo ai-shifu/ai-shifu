@@ -148,6 +148,13 @@ class UserInfo(db.Model):
         comment="User state: 1101=unregistered, 1102=registered, 1103=trail, 1104=paid",
         index=True,
     )
+    is_creator = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Creator flag: 0=regular user, 1=creator",
+        index=True,
+    )
     deleted = Column(
         SmallInteger,
         nullable=False,
