@@ -158,6 +158,9 @@ const MinimalTreeItemComponent = React.forwardRef<
       return;
     }
 
+    // Flush pending autosave with the latest snapshot before switching
+    actions.flushAutoSaveBlocks();
+
     await actions.setCurrentNode(props.item);
     await actions.loadMdflow(props.item.bid || '', currentShifu?.bid || '');
     // await actions.loadBlocks(props.item.bid || '', currentShifu?.bid || '');

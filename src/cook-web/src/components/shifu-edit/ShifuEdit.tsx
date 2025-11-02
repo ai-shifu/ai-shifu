@@ -1,264 +1,109 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { DndProvider, useDrag, useDrop } from 'react-dnd';
-import type { DropTargetMonitor } from 'react-dnd';
-import { HTML5Backend } from 'react-dnd-html5-backend';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
-import {
-  Plus,
-  GripVertical,
-  Trash2,
-  SquarePen,
-  BugPlay,
-  Settings2,
-  ListCollapse,
-} from 'lucide-react';
+import { Plus, ListCollapse } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
 import '@mdxeditor/editor/style.css';
 import Header from '../header';
-import { BlockDTO, BlockType, ContentDTO } from '@/types/shifu';
-import RenderBlockUI from '../render-ui';
-import { MarkdownFlowEditor } from 'markdown-flow-ui';
+import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
+// import { UploadProps } from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor/uploadTypes';
+// import MarkdownFlowEditor, { EditMode } from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor/MarkdownFlowEditor';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
-import AIDebugDialog from '@/components/ai-debug';
-
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '../ui/AlertDialog';
-import AddBlock from '@/components/add-block';
+import { cn } from '@/lib/utils';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import './shifuEdit.scss';
 import Loading from '../loading';
 import { useTranslation } from 'react-i18next';
 import i18n, { normalizeLanguage } from '@/i18n';
-interface DragItem {
-  id: string;
-  index: number;
-}
+import { useEnvStore } from '@/c-store';
+import { EnvStoreState } from '@/c-types/store';
+import { getBoolEnv } from '@/c-utils/envUtils';
 
-interface DraggableBlockProps {
-  id: string;
-  type: BlockType;
-  index: number;
-  block: BlockDTO;
-  moveBlock: (dragIndex: number, hoverIndex: number) => void;
-  onClickDebug?: (id: string) => void;
-  onClickRemove?: (id: string) => void;
-  onClickChangeType?: (id: string, llm_enabled: boolean) => void;
-  children: React.ReactNode;
-  disabled?: boolean;
-  error?: string | null;
-}
+const initializeEnvData = async (): Promise<void> => {
+  const {
+    updateAppId,
+    updateCourseId,
+    updateAlwaysShowLessonTree,
+    updateUmamiWebsiteId,
+    updateUmamiScriptSrc,
+    updateEruda,
+    updateBaseURL,
+    updateLogoHorizontal,
+    updateLogoVertical,
+    updateEnableWxcode,
+    updateSiteUrl,
+  } = useEnvStore.getState() as EnvStoreState;
 
-const DraggableBlock = ({
-  id,
-  type,
-  index,
-  block,
-  moveBlock,
-  onClickDebug,
-  onClickRemove,
-  onClickChangeType,
-  children,
-  disabled = false,
-  error,
-}: DraggableBlockProps) => {
-  const { t } = useTranslation();
-  const ref = React.useRef<HTMLDivElement>(null);
+  const fetchEnvData = async (): Promise<void> => {
+    try {
+      const res = await fetch('/api/config', {
+        method: 'GET',
+        referrer: 'no-referrer',
+      });
+      if (res.ok) {
+        const data = await res.json();
 
-  const [llmEnabled, setLlmEnabled] = useState(
-    (block.properties as ContentDTO).llm_enabled,
-  );
+        // await updateCourseId(data?.courseId || '');
+        await updateAppId(data?.wechatAppId || '');
+        await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
+        await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
+        await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
+        await updateEruda(data?.enableEruda || 'false');
+        await updateBaseURL(data?.apiBaseUrl || '');
+        await updateLogoHorizontal(data?.logoHorizontal || '');
+        await updateLogoVertical(data?.logoVertical || '');
+        await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
+        await updateSiteUrl(data?.siteHost || '');
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      const { umamiWebsiteId, umamiScriptSrc } =
+        useEnvStore.getState() as EnvStoreState;
+      if (getBoolEnv('eruda')) {
+        import('eruda').then(eruda => eruda.default.init());
+      }
 
-  const [{ handlerId }, drop] = useDrop<
-    DragItem,
-    void,
-    { handlerId: string | symbol | null }
-  >({
-    accept: 'BLOCK',
-    collect(monitor) {
-      return {
-        handlerId: monitor.getHandlerId(),
+      const loadUmamiScript = (): void => {
+        if (umamiScriptSrc && umamiWebsiteId) {
+          const script = document.createElement('script');
+          script.defer = true;
+          script.src = umamiScriptSrc;
+          script.setAttribute('data-website-id', umamiWebsiteId);
+          document.head.appendChild(script);
+        }
       };
-    },
-    hover(item: DragItem, monitor: DropTargetMonitor) {
-      if (!ref.current || disabled) {
-        return;
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadUmamiScript);
+      } else {
+        loadUmamiScript();
       }
-
-      const dragIndex = item.index;
-      const hoverIndex = index;
-
-      if (dragIndex === hoverIndex) {
-        return;
-      }
-
-      const hoverBoundingRect = ref.current?.getBoundingClientRect();
-      const hoverMiddleY =
-        (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
-      const clientOffset = monitor.getClientOffset();
-      const hoverClientY = clientOffset!.y - hoverBoundingRect.top;
-
-      if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
-        return;
-      }
-      if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
-        return;
-      }
-
-      moveBlock(dragIndex, hoverIndex);
-      item.index = hoverIndex;
-    },
-  });
-
-  const [{ isDragging }, drag] = useDrag<
-    DragItem,
-    void,
-    { isDragging: boolean }
-  >({
-    type: 'BLOCK',
-    item: () => {
-      return { id, index };
-    },
-    canDrag: !disabled,
-    collect: monitor => ({
-      isDragging: monitor.isDragging(),
-    }),
-  });
-
-  const [showMenu, setShowMenu] = useState(false);
-
-  const handleMouseEnter = () => {
-    setShowMenu(true);
+    }
   };
-
-  const handleMouseLeave = () => {
-    setShowMenu(false);
-  };
-
-  const dragRef = React.useRef<HTMLDivElement>(null);
-  drop(ref);
-  drag(dragRef);
-
-  return (
-    <div
-      ref={ref}
-      style={{ opacity: isDragging ? 0.5 : 1 }}
-      data-handler-id={handlerId}
-      className='group'
-    >
-      <div
-        ref={dragRef}
-        style={{
-          border: error ? '1px solid #ff4d4f' : '1px solid #ddd',
-          padding: '1rem',
-          backgroundColor: '#fff',
-          borderRadius: '8px',
-          position: 'relative',
-        }}
-      >
-        <div
-          onMouseLeave={handleMouseLeave}
-          className='group-hover:opacity-100 opacity-0 cursor-grab'
-          style={{
-            zIndex: 100,
-            position: 'absolute',
-            top: '0',
-            left: '-56px',
-          }}
-        >
-          <div className='p-2 h-8 w-16 flex items-center justify-center border color-[#999] rounded'>
-            <SquarePen
-              className='text-gray-500'
-              onMouseEnter={handleMouseEnter}
-            />
-            <GripVertical
-              className='text-gray-500'
-              onMouseEnter={handleMouseEnter}
-            />
-          </div>
-
-          <div
-            className='shadow-md rounded-lg w-48 p-2 transition-all'
-            style={{
-              position: 'absolute',
-              left: '0px',
-              zIndex: 51,
-              display: `${showMenu ? 'block' : 'none'}`,
-              border: '1px solid #f3f4f6',
-              backgroundColor: '#fff',
-            }}
-          >
-            <div className='flex flex-col gap-2 text-sm'>
-              {type === 'content' && (
-                <div className='px-3 py-1.5 text-gray-500 text-lg'>
-                  {llmEnabled
-                    ? t('module.shifu.aiBlock')
-                    : t('module.shifu.regularBlock')}
-                </div>
-              )}
-              {type === 'content' && (
-                <div
-                  className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
-                  onClick={() => {
-                    onClickChangeType?.(id, !llmEnabled);
-                    setLlmEnabled(!llmEnabled);
-                  }}
-                >
-                  <Settings2 className='h-4 w-4' />
-                  {llmEnabled
-                    ? t('module.shifu.setAsRegularBlock')
-                    : t('module.shifu.setAsAiBlock')}
-                </div>
-              )}
-              {type === 'content' && llmEnabled && (
-                <div
-                  className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-gray-50 cursor-pointer'
-                  onClick={() => onClickDebug?.(id)}
-                >
-                  <BugPlay className='h-4 w-4' />
-                  {t('module.shifu.debug')}
-                </div>
-              )}
-              <div
-                className='flex items-center gap-2 px-3 py-1.5 rounded hover:bg-red-50 text-red-600 cursor-pointer'
-                onClick={() => onClickRemove?.(id)}
-              >
-                <Trash2 className='h-4 w-4' />
-                {t('module.shifu.delete')}
-              </div>
-            </div>
-          </div>
-        </div>
-        {error && (
-          <div
-            className='mb-2 p-2 bg-red-50 border border-red-200 rounded text-red-700 text-sm'
-            role='alert'
-            aria-live='polite'
-          >
-            {error}
-          </div>
-        )}
-        {children}
-      </div>
-    </div>
-  );
+  await fetchEnvData();
 };
 
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const profile = useUserStore(state => state.userInfo);
-  const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>(
-    {},
-  );
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
+  const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
+  const editModeOptions = useMemo(
+    () => [
+      {
+        label: t('module.shifu.creationArea.modeText'),
+        value: 'quickEdit' as EditMode,
+      },
+      {
+        label: t('module.shifu.creationArea.modeCode'),
+        value: 'codeEdit' as EditMode,
+      },
+    ],
+    [t],
+  );
 
   useEffect(() => {
     if (profile && profile.language) {
@@ -268,32 +113,24 @@ const ScriptEditor = ({ id }: { id: string }) => {
       }
     }
   }, [profile]);
+
   const {
-    blocks,
     mdflow,
     chapters,
     actions,
-    blockContentTypes,
-    blockProperties,
-    // blockUIProperties,
-    // blockUITypes,
-    currentNode,
     isLoading,
+    variables,
+    systemVariables,
     currentShifu,
-    blockErrors,
+    currentNode,
   } = useShifu();
 
-  const [debugBlockInfo, setDebugBlockInfo] = useState({
-    blockId: '',
-    visible: false,
-  });
+  const token = useUserStore(state => state.getToken());
+  const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
 
-  const [removeBlockInfo, setRemoveBlockInfo] = useState({
-    blockId: '',
-    visible: false,
-  });
-
-  const [newBlockId, setNewBlockId] = useState('');
+  useEffect(() => {
+    void initializeEnvData();
+  }, []);
 
   const onAddChapter = () => {
     actions.addChapter({
@@ -312,62 +149,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }, 800);
   };
 
-  const onDebugBlock = (id: string) => {
-    setDebugBlockInfo({ blockId: id, visible: true });
-  };
-
-  const onDebugBlockClose = () => {
-    setDebugBlockInfo({ blockId: '', visible: false });
-  };
-
-  const onRemove = async (id: string) => {
-    setRemoveBlockInfo({ blockId: id, visible: true });
-  };
-
-  const handleConfirmDelete = async (id: string | undefined) => {
-    if (!id) return;
-    try {
-      await actions.removeBlock(id, currentShifu?.bid || '');
-      setRemoveBlockInfo({ blockId: '', visible: false });
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const onAddBlock = async (index: number, type: BlockType, bid: string) => {
-    const blockId = await actions.addBlock(index, type, bid);
-    if (blockId && ['content', 'input', 'goto', 'options'].includes(type)) {
-      setNewBlockId(blockId);
-      setExpandedBlocks(prev => ({
-        ...prev,
-        [blockId]: true,
-      }));
-    }
-  };
-
-  useEffect(() => {
-    if (newBlockId && expandedBlocks[newBlockId] === false) {
-      setExpandedBlocks(prev => ({
-        ...prev,
-        [newBlockId]: true,
-      }));
-      setNewBlockId('');
-    }
-  }, [newBlockId, expandedBlocks]);
-
-  const onChangeBlockType = async (id: string, llm_enabled: boolean) => {
-    const p = blockProperties[id].properties as ContentDTO;
-    await actions.updateBlockProperties(id, {
-      ...blockProperties[id],
-      properties: {
-        ...p,
-        llm_enabled: llm_enabled,
-      },
-    });
-
-    actions.saveBlocks(currentShifu?.bid || '');
-  };
-
   useEffect(() => {
     actions.loadModels();
     if (id) {
@@ -375,10 +156,39 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id]);
 
+  const variablesList = useMemo(() => {
+    return variables.map((variable: string) => ({
+      name: variable,
+    }));
+  }, [variables]);
+
+  const systemVariablesList = useMemo(() => {
+    return systemVariables.map((variable: Record<string, string>) => ({
+      name: variable.name,
+      label: variable.label,
+    }));
+  }, [systemVariables]);
+
   const onChangeMdflow = (value: string) => {
     actions.setCurrentMdflow(value);
-    actions.autoSaveBlocks();
+    // Pass snapshot so autosave persists pre-switch content + chapter id
+    actions.autoSaveBlocks({
+      shifu_bid: currentShifu?.bid || '',
+      outline_bid: currentNode?.bid || '',
+      data: value,
+    });
   };
+
+  const uploadProps: UploadProps = useMemo(() => {
+    const endpoint = baseURL || window.location.origin;
+    return {
+      action: `${endpoint}/api/shifu/upfile`,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Token: token,
+      },
+    };
+  }, [token, baseURL]);
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
@@ -420,137 +230,57 @@ const ScriptEditor = ({ id }: { id: string }) => {
         </div>
         <div className='flex-1 overflow-auto relative text-sm'>
           <div className='p-8 gap-4 flex flex-col max-w-[900px] mx-auto h-full w-full'>
-            {
-              isLoading ? (
-                <div className='h-40 flex items-center justify-center'>
-                  <Loading />
+            {isLoading ? (
+              <div className='h-40 flex items-center justify-center'>
+                <Loading />
+              </div>
+            ) : currentNode?.depth && currentNode.depth > 0 ? (
+              <>
+                <div className='flex items-center'>
+                  <h2 className='text-base font-semibold text-foreground'>
+                    {t('module.shifu.creationArea.title')}
+                  </h2>
+                  <p className='px-2 text-xs leading-3 text-[rgba(0,0,0,0.45)]'>
+                    {t('module.shifu.creationArea.description')}
+                  </p>
+                  <Tabs
+                    value={editMode}
+                    onValueChange={value => setEditMode(value as EditMode)}
+                    className='ml-auto'
+                  >
+                    <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
+                      {editModeOptions.map(option => (
+                        <TabsTrigger
+                          key={option.value}
+                          value={option.value}
+                          className={cn(
+                            'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
+                          )}
+                        >
+                          {option.label}
+                        </TabsTrigger>
+                      ))}
+                    </TabsList>
+                  </Tabs>
                 </div>
-              ) : currentNode?.depth && currentNode.depth > 0 ? (
-                <>
-                  <div className='flex items-center'>
-                    <h2 className='text-base font-semibold text-foreground'>
-                      {t('module.shifu.creationArea.title')}
-                    </h2>
-                  </div>
-                  <MarkdownFlowEditor
-                    locale={
-                      normalizeLanguage(
-                        (i18n.resolvedLanguage ?? i18n.language) as string,
-                      ) as 'en-US' | 'zh-CN'
-                    }
-                    content={mdflow}
-                    onChange={onChangeMdflow}
-                  />
-                </>
-              ) : (
-                <></>
-              )
-              // <>
-              //   <DndProvider backend={HTML5Backend}>
-              //     {blocks.map((block, index) => (
-              //       <DraggableBlock
-              //         key={block.bid}
-              //         id={block.bid}
-              //         block={block}
-              //         type={block.type as BlockType}
-              //         index={index}
-              //         moveBlock={(dragIndex: number, hoverIndex: number) => {
-              //           const dragBlock = blocks[dragIndex];
-              //           const newBlocks = [...blocks];
-              //           newBlocks.splice(dragIndex, 1);
-              //           newBlocks.splice(hoverIndex, 0, dragBlock);
-              //           actions.setBlocks(newBlocks);
-              //           actions.autoSaveBlocks(
-              //             currentNode!.bid,
-              //             newBlocks,
-              //             blockContentTypes,
-              //             blockProperties,
-              //             currentShifu?.bid || '',
-              //           );
-              //         }}
-              //         onClickChangeType={onChangeBlockType}
-              //         onClickDebug={onDebugBlock}
-              //         onClickRemove={onRemove}
-              //         disabled={expandedBlocks[block.bid]}
-              //         error={blockErrors[block.bid]}
-              //       >
-              //         <div
-              //           id={block.bid}
-              //           className='relative flex flex-col gap-2 '
-              //         >
-              //           <RenderBlockUI
-              //             block={block}
-              //             onExpandChange={expanded => {
-              //               setExpandedBlocks(prev => ({
-              //                 ...prev,
-              //                 [block.bid]: expanded,
-              //               }));
-              //             }}
-              //             expanded={expandedBlocks[block.bid]}
-              //           />
-              //           <div>
-              //             <AddBlock
-              //               onAdd={(type: BlockType) => {
-              //                 onAddBlock(index + 1, type, id);
-              //               }}
-              //             />
-              //           </div>
-              //         </div>
-              //       </DraggableBlock>
-              //     ))}
-              //   </DndProvider>
-              //   {(currentNode?.depth || 0) > 0 && blocks.length === 0 && (
-              //     <div className='flex flex-row items-center justify-start h-6'>
-              //       <AddBlock
-              //         onAdd={(type: BlockType) => {
-              //           onAddBlock(1, type, id);
-              //         }}
-              //       />
-              //     </div>
-              //   )}
-              // </>
-            }
+                <MarkdownFlowEditor
+                  locale={
+                    normalizeLanguage(
+                      (i18n.resolvedLanguage ?? i18n.language) as string,
+                    ) as 'en-US' | 'zh-CN'
+                  }
+                  content={mdflow}
+                  variables={variablesList}
+                  systemVariables={systemVariablesList as any[]}
+                  onChange={onChangeMdflow}
+                  editMode={editMode}
+                  uploadProps={uploadProps}
+                />
+              </>
+            ) : null}
           </div>
         </div>
       </div>
-      {debugBlockInfo.visible && (
-        <AIDebugDialog
-          blockId={debugBlockInfo.blockId}
-          open={true}
-          onOpenChange={onDebugBlockClose}
-        />
-      )}
-
-      <AlertDialog
-        open={removeBlockInfo.visible}
-        onOpenChange={(visible: boolean) => {
-          setRemoveBlockInfo({
-            ...removeBlockInfo,
-            visible,
-          });
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t('module.renderBlock.confirmDelete')}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t('module.renderBlock.confirmDeleteDescription')}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t('module.renderBlock.cancel')}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleConfirmDelete(removeBlockInfo.blockId)}
-            >
-              {t('module.renderBlock.confirm')}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 };
