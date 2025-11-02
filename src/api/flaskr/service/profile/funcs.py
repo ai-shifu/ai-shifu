@@ -526,78 +526,105 @@ def update_user_profile_with_lable(
     aggregate = _ensure_user_aggregate(user_id)
     profile_items = get_profile_item_definition_list(app, course_id)
 
-    if user_info:
-        # check nickname
-        nickname = [p for p in profiles if p["key"] == "sys_user_nickname"]
-        if nickname and not check_text_content(app, user_id, nickname[0]["value"]):
-            raise_error("server.common.nicknameNotAllowed")
-        background = [p for p in profiles if p["key"] == "sys_user_background"]
-        if background and not check_text_content(app, user_id, background[0]["value"]):
-            raise_error("server.common.backgroundNotAllowed")
-        user_profiles = (
-            UserProfile.query.filter_by(user_id=user_id)
-            .order_by(UserProfile.id.desc())
-            .all()
+    if not profiles:
+        db.session.flush()
+        return True
+
+    nickname = next((p for p in profiles if p.get("key") == "sys_user_nickname"), None)
+    if nickname and not check_text_content(app, user_id, nickname.get("value")):
+        raise_error("server.common.nicknameNotAllowed")
+
+    background = next(
+        (p for p in profiles if p.get("key") == "sys_user_background"), None
+    )
+    if background and not check_text_content(app, user_id, background.get("value")):
+        raise_error("server.common.backgroundNotAllowed")
+
+    user_profiles = (
+        UserProfile.query.filter_by(user_id=user_id)
+        .order_by(UserProfile.id.desc())
+        .all()
+    )
+
+    for profile in profiles:
+        key = profile.get("key")
+        if not key:
+            continue
+        profile_value = profile.get("value")
+        profile_item = next(
+            (
+                item
+                for item in profile_items
+                if item.profile_key == key or item.profile_id == profile.get("id")
+            ),
+            None,
         )
-        app.logger.info(
-            "update user profile:{}-{}".format(profile["key"], profile["value"])
+
+        app.logger.info("update user profile:%s-%s", key, profile_value)
+
+        user_profile = next(
+            (
+                item
+                for item in user_profiles
+                if item.profile_key == key
+                or (profile_item and item.profile_id == profile_item.profile_id)
+            ),
+            None,
         )
-        user_profile_to_update = [
-            p for p in user_profiles if p.profile_key == profile["key"]
-        ]
-        user_profile = (
-            user_profile_to_update[0] if len(user_profile_to_update) > 0 else None
-        )
-        profile_lable = PROFILES_LABLES.get(profile["key"], None)
-        profile_value = profile["value"]
+
+        profile_lable = PROFILES_LABLES.get(key, None)
         default_value = profile_lable.get("default", None) if profile_lable else None
-        if profile_lable:
-            if profile_lable.get("items_mapping"):
-                for k, v in profile_lable["items_mapping"].items():
-                    if v == profile_value:
-                        profile_value = k
-            app.logger.info(
-                "default_value:{}, profile_value:{}".format(
-                    default_value, profile_value
-                )
+
+        if profile_lable and profile_lable.get("items_mapping"):
+            for source_value, mapped in profile_lable["items_mapping"].items():
+                if mapped == profile_value:
+                    profile_value = source_value
+                    break
+
+        mapping = profile_lable.get("mapping") if profile_lable else None
+        if mapping and (
+            update_all
+            or (
+                profile_value != default_value
+                and _current_core_value(aggregate, mapping) != profile_value
             )
-            mapping = profile_lable.get("mapping")
-            if mapping and (
-                update_all
-                or (
-                    (profile_value != default_value)
-                    and _current_core_value(aggregate, mapping) != profile_value
-                )
-            ):
-                app.logger.info(
-                    "update user info: {} - {}".format(profile, profile_value)
-                )
-                normalized = _apply_core_mapping(user_id, mapping, profile_value)
-                _update_aggregate_field(aggregate, mapping, normalized)
-        else:
-            app.logger.info("profile_lable not found:{}".format(profile["key"]))
+        ):
+            app.logger.info(
+                "update user info: %s - %s",
+                key,
+                profile_value,
+            )
+            normalized = _apply_core_mapping(user_id, mapping, profile_value)
+            _update_aggregate_field(aggregate, mapping, normalized)
+        elif not profile_lable:
+            app.logger.info("profile_lable not found:%s", key)
+
         if user_profile:
             if profile_item:
                 user_profile.profile_id = profile_item.profile_id
+                user_profile.profile_type = profile_item.profile_type
             else:
-                app.logger.warning("profile_item not found:{}".format(profile["key"]))
+                app.logger.warning("profile_item not found:%s", key)
             user_profile.status = 1
             if (
                 bool(profile_value)
-                and (profile_value != default_value)
+                and profile_value != default_value
                 and user_profile.profile_value != profile_value
             ):
                 user_profile.profile_value = profile_value
         elif not profile_lable or not profile_lable.get("mapping"):
-            user_profile = UserProfile(
-                user_id=user_id,
-                profile_key=profile["key"],
-                profile_value=profile_value,
-                profile_type=profile_item.profile_type if profile_item else 1,
-                profile_id=profile_item.profile_id if profile_item else "",
-                status=1,
+            profile_type = profile_item.profile_type if profile_item else 1
+            profile_id = profile_item.profile_id if profile_item else ""
+            db.session.add(
+                UserProfile(
+                    user_id=user_id,
+                    profile_key=key,
+                    profile_value=profile_value,
+                    profile_type=profile_type,
+                    profile_id=profile_id,
+                    status=1,
+                )
             )
-            db.session.add(user_profile)
     db.session.flush()
     return True
 

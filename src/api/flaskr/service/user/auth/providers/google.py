@@ -117,7 +117,7 @@ class GoogleAuthProvider(AuthProvider):
                 state_payload = json.loads(stored_state_value)
                 if isinstance(state_payload, dict):
                     redirect_uri = state_payload.get("redirect_uri")
-        except Exception:  # noqa: broad-except - defensive fallback
+        except Exception:  # noqa: BLE001 - defensive fallback
             current_app.logger.warning(
                 "Failed to parse Google OAuth state payload for key %s", storage_key
             )

@@ -11,7 +11,10 @@ from flaskr.service.user.repository import (
     load_user_aggregate_by_identifier,
     update_user_entity_fields,
 )
-from flaskr.service.common.dtos import USER_STATE_REGISTERED
+from flaskr.service.common.dtos import (
+    USER_STATE_REGISTERED,
+    USER_STATE_UNREGISTERED,
+)
 
 
 def import_user(

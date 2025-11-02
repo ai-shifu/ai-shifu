@@ -36,6 +36,7 @@ from flaskr.service.learn.plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
 from flaskr.service.user.repository import load_user_aggregate
+from flaskr.service.common import raise_error
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_outline_tree,
     get_outline_item_dto,
