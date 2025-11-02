@@ -6,7 +6,12 @@ from flask import Flask
 
 from flaskr.common.config import get_config
 
-from .base import PaymentProvider, PaymentRequest, PaymentCreationResult
+from .base import (
+    PaymentProvider,
+    PaymentRequest,
+    PaymentCreationResult,
+    PaymentNotificationResult,
+)
 from . import register_payment_provider
 
 
@@ -133,6 +138,48 @@ class StripeProvider(PaymentProvider):
                 "payment_intent_object": intent_dict,
                 "metadata": metadata,
             },
+        )
+
+    def handle_notification(
+        self, *, payload: Dict[str, Any], app: Flask
+    ) -> PaymentNotificationResult:
+        stripe = self._ensure_client(app)
+        webhook_secret = get_config("STRIPE_WEBHOOK_SECRET")
+        if not webhook_secret:
+            app.logger.error("STRIPE_WEBHOOK_SECRET configuration is missing")
+            raise RuntimeError("STRIPE_WEBHOOK_SECRET must be configured for Stripe")
+
+        raw_body = payload.get("raw_body", "")
+        if isinstance(raw_body, bytes):
+            raw_body_str = raw_body.decode("utf-8")
+        else:
+            raw_body_str = str(raw_body or "")
+        sig_header = payload.get("sig_header", "")
+        if not sig_header:
+            raise RuntimeError("Stripe signature header missing")
+
+        try:
+            event = stripe.Webhook.construct_event(
+                raw_body_str, sig_header, webhook_secret
+            )
+        except Exception as exc:  # pragma: no cover - handled in caller
+            app.logger.error("Stripe webhook signature verification failed: %s", exc)
+            raise
+
+        data_object = event.get("data", {}).get("object", {}) or {}
+        metadata = data_object.get("metadata", {}) or {}
+        order_bid = metadata.get("order_bid", "")
+        charge_id = data_object.get("latest_charge") or ""
+        if not charge_id:
+            charges = data_object.get("charges", {}).get("data", [])
+            if charges:
+                charge_id = charges[0].get("id", "")
+
+        return PaymentNotificationResult(
+            order_bid=order_bid,
+            status=event.get("type", ""),
+            provider_payload=event,
+            charge_id=charge_id,
         )
 
 

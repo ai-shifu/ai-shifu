@@ -59,9 +59,9 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 }
 ```
 
-### Webhook Status
+### Webhook Handling
 
-- POST `/api/order/stripe/webhook` currently acknowledges events (202 Accepted) and logs the request while full signature verification and event handling are implemented.
+- POST `/api/order/stripe/webhook` verifies the Stripe signature, updates the stored `StripeOrder` record, and marks the corresponding `Order` as paid/refunded/failed as applicable. Unrecognised events are acknowledged with HTTP 202 and logged for review.
 
 ## Configuration Inventory
 

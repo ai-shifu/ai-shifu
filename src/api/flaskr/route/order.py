@@ -6,6 +6,7 @@ from flaskr.service.order import (
     generate_charge,
     query_buy_record,
     init_buy_record,
+    handle_stripe_webhook,
 )
 
 
@@ -203,15 +204,9 @@ def register_order_handler(app: Flask, path_prefix: str):
         """
 
         sig_header = request.headers.get("Stripe-Signature", "")
-        app.logger.warning(
-            "Stripe webhook received but handler not implemented yet. signature=%s",
-            sig_header,
-        )
-        payload = {
-            "status": "accepted",
-            "message": "Stripe webhook handling pending implementation",
-        }
+        raw_body = request.get_data() or b""
+        payload, status_code = handle_stripe_webhook(app, raw_body, sig_header)
         body = make_common_response(payload)
-        return app.response_class(body, status=202, mimetype="application/json")
+        return app.response_class(body, status=status_code, mimetype="application/json")
 
     return app

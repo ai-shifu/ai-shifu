@@ -35,6 +35,7 @@ from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.config import get_config
 from .payment_providers import PaymentRequest, get_payment_provider
+from .payment_providers.base import PaymentNotificationResult
 
 
 @register_schema_to_swagger
@@ -704,6 +705,123 @@ def _stringify_payload(payload: Any) -> str:
     if hasattr(payload, "to_dict"):
         payload = payload.to_dict()
     return json.dumps(payload)
+
+
+def handle_stripe_webhook(
+    app: Flask, raw_body: bytes, sig_header: str
+) -> Tuple[Dict[str, Any], int]:
+    provider = get_payment_provider("stripe")
+    try:
+        notification: PaymentNotificationResult = provider.handle_notification(
+            payload={"raw_body": raw_body, "sig_header": sig_header}, app=app
+        )
+    except Exception as exc:  # pragma: no cover - verified via tests for error path
+        app.logger.exception("Stripe webhook verification failed: %s", exc)
+        return {
+            "status": "error",
+            "message": str(exc),
+        }, 400
+
+    event = notification.provider_payload or {}
+    event_type = notification.status
+    data_object = event.get("data", {}).get("object", {}) or {}
+    metadata = data_object.get("metadata", {}) or {}
+    order_bid = notification.order_bid or metadata.get("order_bid", "")
+
+    if not order_bid:
+        app.logger.warning("Stripe webhook missing order metadata. type=%s", event_type)
+        return {
+            "status": "ignored",
+            "reason": "missing order metadata",
+            "event_type": event_type,
+        }, 202
+
+    with app.app_context():
+        stripe_order: Optional[StripeOrder] = (
+            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+            .order_by(StripeOrder.id.desc())
+            .first()
+        )
+        if not stripe_order:
+            app.logger.warning("Stripe order not found for order_bid=%s", order_bid)
+            return {
+                "status": "ignored",
+                "order_bid": order_bid,
+                "reason": "stripe order not found",
+                "event_type": event_type,
+            }, 202
+
+        response_status = "acknowledged"
+        http_status = 202
+
+        if notification.charge_id:
+            stripe_order.latest_charge_id = notification.charge_id
+        payment_intent_id = data_object.get("payment_intent") or data_object.get("id")
+        if payment_intent_id and payment_intent_id.startswith("pi_"):
+            stripe_order.payment_intent_id = payment_intent_id
+        if metadata:
+            stripe_order.metadata_json = _stringify_payload(metadata)
+
+        if event_type == "checkout.session.completed":
+            stripe_order.checkout_session_id = data_object.get(
+                "id", stripe_order.checkout_session_id
+            )
+            stripe_order.checkout_session_object = _stringify_payload(data_object)
+
+        if event_type.startswith("payment_intent"):
+            stripe_order.payment_intent_object = _stringify_payload(data_object)
+            stripe_order.payment_method = data_object.get(
+                "payment_method", stripe_order.payment_method
+            )
+            charges = data_object.get("charges", {}).get("data", [])
+            if charges:
+                stripe_order.receipt_url = charges[0].get(
+                    "receipt_url", stripe_order.receipt_url
+                )
+
+        success_events = {
+            "payment_intent.succeeded",
+            "checkout.session.completed",
+        }
+        fail_events = {
+            "payment_intent.payment_failed",
+        }
+        refund_events = {
+            "charge.refunded",
+            "refund.created",
+        }
+        cancel_events = {
+            "payment_intent.canceled",
+        }
+
+        if event_type in success_events:
+            stripe_order.status = 1
+            success_buy_record(app, order_bid)
+            response_status = "paid"
+            http_status = 200
+        elif event_type in fail_events:
+            stripe_order.status = 4
+            error_info = data_object.get("last_payment_error", {}) or {}
+            stripe_order.failure_code = error_info.get("code", "")
+            stripe_order.failure_message = error_info.get("message", "")
+            response_status = "failed"
+            http_status = 200
+        elif event_type in refund_events:
+            stripe_order.status = 2
+            response_status = "refunded"
+            http_status = 200
+        elif event_type in cancel_events:
+            stripe_order.status = 3
+            response_status = "cancelled"
+            http_status = 200
+
+        db.session.commit()
+
+    return {
+        "status": response_status,
+        "order_bid": order_bid,
+        "event_type": event_type,
+    }, http_status
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
