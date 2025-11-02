@@ -325,7 +325,11 @@ class BuyRecordDTO:
 
 
 def generate_charge(
-    app: Flask, record_id: str, channel: str, client_ip: str
+    app: Flask,
+    record_id: str,
+    channel: str,
+    client_ip: str,
+    payment_channel: Optional[str] = None,
 ) -> BuyRecordDTO:
     """
     Generate charge
@@ -360,7 +364,9 @@ def generate_charge(
         body = course.course_name
         order_no = str(get_uuid(app))
         payment_channel, provider_channel = _resolve_payment_channel(
-            channel, buy_record.payment_channel
+            payment_channel_hint=payment_channel,
+            channel_hint=channel,
+            stored_channel=buy_record.payment_channel,
         )
         buy_record.payment_channel = payment_channel
         db.session.flush()
@@ -406,27 +412,51 @@ def generate_charge(
 
 
 def _resolve_payment_channel(
-    requested_channel: str, stored_channel: Optional[str]
+    *,
+    payment_channel_hint: Optional[str],
+    channel_hint: Optional[str],
+    stored_channel: Optional[str],
 ) -> Tuple[str, str]:
-    requested_value = (requested_channel or "").strip()
-    if ":" in requested_value:
-        provider, provider_channel = requested_value.split(":", 1)
-        provider = provider.strip().lower()
-        provider_channel = provider_channel.strip()
-        if provider == "stripe":
-            return "stripe", provider_channel or "payment_intent"
-        if provider == "pingxx":
-            return "pingxx", provider_channel
+    """Resolve the provider and provider-specific channel based on hints."""
 
-    lowered = requested_value.lower()
-    if lowered == "stripe":
-        return "stripe", "payment_intent"
+    requested_payment_channel = (payment_channel_hint or "").strip().lower()
+    requested_channel = (channel_hint or "").strip()
 
-    if stored_channel == "stripe":
-        fallback_channel = requested_value or "payment_intent"
-        return "stripe", fallback_channel
+    provider_from_channel = ""
+    if ":" in requested_channel:
+        provider_from_channel = requested_channel.split(":", 1)[0].strip().lower()
+    elif requested_channel.lower() in {"stripe", "pingxx"}:
+        provider_from_channel = requested_channel.lower()
 
-    return "pingxx", requested_value
+    target_provider = requested_payment_channel or provider_from_channel
+    if not target_provider:
+        target_provider = (stored_channel or "pingxx").strip().lower()
+
+    if target_provider not in {"pingxx", "stripe"}:
+        raise_error("server.pay.payChannelNotSupport")
+
+    if target_provider == "stripe":
+        normalized_channel = requested_channel.lower()
+        provider_channel = "payment_intent"
+        if ":" in normalized_channel:
+            _, provider_channel = normalized_channel.split(":", 1)
+        elif normalized_channel and normalized_channel != "stripe":
+            provider_channel = normalized_channel
+
+        provider_channel = provider_channel or "payment_intent"
+        if provider_channel in {"checkout", "checkout_session"}:
+            provider_channel = "checkout_session"
+        elif provider_channel in {"intent", "payment_intent"}:
+            provider_channel = "payment_intent"
+        else:
+            provider_channel = "payment_intent"
+        return "stripe", provider_channel
+
+    # Ping++ requires explicit channel input.
+    provider_channel = requested_channel or ""
+    if not provider_channel:
+        raise_error("server.pay.payChannelNotSupport")
+    return "pingxx", provider_channel
 
 
 def _generate_pingxx_charge(

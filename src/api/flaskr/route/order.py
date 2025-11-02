@@ -29,7 +29,10 @@ def register_order_handler(app: Flask, path_prefix: str):
                         description: 订单id
                     channel:
                         type: string
-                        description: 支付渠道,目前支持wx_pub_qr,alipay_qr
+                        description: 支付渠道。Ping++通道请输入wx_pub_qr、alipay_qr等；Stripe通道请输入stripe或stripe:checkout_session等格式
+                    payment_channel:
+                        type: string
+                        description: 目标支付提供方，可选值为pingxx或stripe（不填则沿用订单记录）
         responses:
             200:
                 description: 请求支付成功
@@ -47,10 +50,20 @@ def register_order_handler(app: Flask, path_prefix: str):
                                     $ref: "#/components/schemas/BuyRecordDTO"
 
         """
-        order_id = request.get_json().get("order_id", "")
-        channel = request.get_json().get("channel", "")
+        payload = request.get_json() or {}
+        order_id = payload.get("order_id", "")
+        channel = payload.get("channel", "")
+        payment_channel = payload.get("payment_channel")
         client_ip = request.client_ip
-        return make_common_response(generate_charge(app, order_id, channel, client_ip))
+        return make_common_response(
+            generate_charge(
+                app,
+                order_id,
+                channel,
+                client_ip,
+                payment_channel=payment_channel,
+            )
+        )
 
     @app.route(path_prefix + "/init-order", methods=["POST"])
     def init_order():

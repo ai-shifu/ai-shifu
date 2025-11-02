@@ -35,5 +35,7 @@ def test_buy_and_pay(app):
         record = query_buy_record(app, record.order_id)
         print(record.__json__())
 
-        res = generate_charge(app, record.order_id, "wx_pub_qr", "237.0.0.1")
+        res = generate_charge(
+            app, record.order_id, "wx_pub_qr", "237.0.0.1", payment_channel=None
+        )
         print(res.__json__())

@@ -14,6 +14,7 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - `generate_charge` detects the desired provider through `Order.payment_channel` (defaulting to Ping++) and optional `channel` hints (`"stripe"` or `"stripe:checkout_session"`), routing to Stripe when appropriate.
 - Newly created Stripe payments persist metadata and raw payloads inside the `StripeOrder` model, ensuring parity with the existing Ping++ audit trail.
 - Returned `BuyRecordDTO` instances surface Stripe-specific data via the existing `qr_url` field (client secret or checkout URL), pending API schema evolution later in the rollout.
+- API consumers can explicitly choose a provider by passing `payment_channel` (`pingxx` or `stripe`) when invoking `/reqiure-to-pay`; the existing `channel` field remains for provider-specific options (e.g., `wx_pub_qr`, `stripe:checkout_session`).
 
 ## Configuration Inventory
 
