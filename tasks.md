@@ -15,10 +15,10 @@ The refactor must shift creator role state into the canonical `user_users` table
 - [x] Audit downstream modules (`shifu`, `order`, `profile`, etc.) for admin checks and replace them with creator semantics or remove when obsolete.
 
 ## Task 3: Migration Authoring
-- [ ] Draft Alembic migration adding `is_creator` to `user_users` with proper defaults, indexes, and comments.
-- [ ] Backfill the new column from existing role data (e.g., `user_profile` entries) where available.
-- [ ] Drop the unused `is_admin` column/constraints from legacy tables or data stores to keep schema clean.
-- [ ] Provide a downgrade path and validate the script locally (`flask db upgrade`/`downgrade`).
+- [x] Draft Alembic migration adding `is_creator` to `user_users` with proper defaults, indexes, and comments.
+- [x] Backfill the new column from existing role data (e.g., `user_profile` entries) where available.
+- [x] Drop the unused `is_admin` column/constraints from legacy tables or data stores to keep schema clean.
+- [ ] Provide a downgrade path and validate the script locally (`flask db upgrade`/`downgrade`) *(downgrade authored; migration run pending local DB access)*.
 
 ## Task 4: Tests & Documentation
 - [ ] Update unit/integration tests and fixtures to align with the new column and removed admin flag.
