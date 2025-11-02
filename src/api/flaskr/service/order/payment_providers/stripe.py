@@ -11,6 +11,8 @@ from .base import (
     PaymentRequest,
     PaymentCreationResult,
     PaymentNotificationResult,
+    PaymentRefundRequest,
+    PaymentRefundResult,
 )
 from . import register_payment_provider
 
@@ -180,6 +182,42 @@ class StripeProvider(PaymentProvider):
             status=event.get("type", ""),
             provider_payload=event,
             charge_id=charge_id,
+        )
+
+    def refund_payment(
+        self, *, request: PaymentRefundRequest, app: Flask
+    ) -> PaymentRefundResult:
+        stripe = self._ensure_client(app)
+        params: Dict[str, Any] = {}
+        if request.amount is not None:
+            params["amount"] = request.amount
+        if request.reason:
+            params["reason"] = request.reason
+
+        metadata = request.metadata or {}
+        if hasattr(metadata, "to_dict"):
+            metadata = metadata.to_dict()
+        metadata.setdefault("order_bid", request.order_bid)
+        params["metadata"] = metadata
+
+        payment_intent_id = metadata.get("payment_intent_id")
+        charge_id = metadata.get("charge_id")
+        if payment_intent_id:
+            params["payment_intent"] = payment_intent_id
+        elif charge_id:
+            params["charge"] = charge_id
+        else:
+            raise RuntimeError(
+                "Stripe refund requires payment_intent_id or charge_id metadata"
+            )
+
+        refund = stripe.Refund.create(**params)
+        refund_dict = refund.to_dict()
+
+        return PaymentRefundResult(
+            provider_reference=refund_dict.get("id", ""),
+            raw_response=refund_dict,
+            status=refund_dict.get("status", ""),
         )
 
 

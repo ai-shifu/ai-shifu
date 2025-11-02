@@ -18,7 +18,7 @@
 - [x] Refactor existing Ping++ implementation to comply with the new factory without changing behaviour; ensure dependency injection slots into current service entrypoints. `PingxxProvider` now backs `pingxx_order` helpers and order creation leverages the registry.
 - [x] Implement a Stripe provider class handling session/intent creation, webhook verification, refund initiation, and synchronization, leveraging the new factory. See `src/api/flaskr/service/order/payment_providers/stripe.py`.
 - [x] Decide where to store provider selection (likely in order creation workflow) and update service logic to route through the factory based on `payment_channel`. `generate_charge` inspects `Order.payment_channel` and routes to either Ping++ or Stripe flows.
-- [ ] Implement provider-agnostic refund handling (initially Stripe) and ensure persistence mirrors `StripeOrder` changes.
+- [x] Implement provider-agnostic refund handling (initially Stripe) and ensure persistence mirrors `StripeOrder` changes. `refund_order_payment` issues refunds via the provider abstraction and updates associated records.
 - [ ] Update any tasks, schedulers, or background jobs that currently hardcode Ping++ so they use the provider abstraction.
 
 ## API & Integration Tasks
@@ -31,7 +31,7 @@
 ## Configuration & Infrastructure
 - [x] Add Stripe configuration entries in `src/api/flaskr/common/config.py`, with validation and grouping, and update config fixtures/tests.
 - [ ] Document required environment variables in README/docs and ensure secrets management (local `.env`, deployment manifests) is updated.
-- [ ] Evaluate background job queue or schedulers for Stripe reconciliation (optional depending on business requirements) and plan deployment changes if needed.
+- [x] Evaluate background job queue or schedulers for Stripe reconciliation (optional depending on business requirements) and plan deployment changes if needed. Documented recommendations in `docs/payment-flow.md` under Operational Considerations; backlog item remains for implementing a reconciliation job.
 
 ## Testing & Quality
 - [ ] Add unit tests for the payment factory to verify provider selection and behaviour parity with Ping++.

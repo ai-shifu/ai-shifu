@@ -15,6 +15,7 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - Newly created Stripe payments persist metadata and raw payloads inside the `StripeOrder` model, ensuring parity with the existing Ping++ audit trail.
 - Returned `BuyRecordDTO` instances include a `payment_payload` dictionary (client secret, checkout session info, etc.) so callers can distinguish Stripe flows without relying on the legacy `qr_url` field.
 - API consumers can explicitly choose a provider by passing `payment_channel` (`pingxx` or `stripe`) when invoking `/reqiure-to-pay`; the existing `channel` field remains for provider-specific options (e.g., `wx_pub_qr`, `stripe:checkout_session`).
+- Refunds can be initiated through `refund_order_payment`, which routes to the Stripe provider, creates a refund via the API, and marks both `StripeOrder` and `Order` records as refunded.
 
 ### Request Examples
 
@@ -79,3 +80,7 @@ Remember to regenerate `.env` examples (`python scripts/generate_env_examples.py
 ## Database Updates
 - `order_orders` now includes a `payment_channel` column (`VARCHAR(50)`) that defaults to `pingxx`, allowing the service layer to route through provider-specific logic.
 - New table `order_stripe_orders` stores raw Stripe payment artifacts (payment intent, checkout session, metadata) alongside business identifiers; see `StripeOrder` in `src/api/flaskr/service/order/models.py` for column details.
+
+## Operational Considerations
+- Webhooks cover the primary lifecycle transitions; if redundancy is required, schedule a background reconciliation job that calls `sync_payment_status` for orders still in `pending` states and persists any deltas. This job is not implemented yet and remains on the backlog.
+- Background workers must fan out by `payment_channel` before invoking provider-specific sync or refund logic to avoid hard-coded dependencies.

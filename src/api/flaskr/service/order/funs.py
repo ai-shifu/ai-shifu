@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_SUCCESS,
+    ORDER_STATUS_REFUND,
     ORDER_STATUS_TO_BE_PAID,
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_VALUES,
@@ -35,7 +36,10 @@ from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.config import get_config
 from .payment_providers import PaymentRequest, get_payment_provider
-from .payment_providers.base import PaymentNotificationResult
+from .payment_providers.base import (
+    PaymentNotificationResult,
+    PaymentRefundRequest,
+)
 
 
 @register_schema_to_swagger
@@ -822,6 +826,78 @@ def handle_stripe_webhook(
         "order_bid": order_bid,
         "event_type": event_type,
     }, http_status
+
+
+def refund_order_payment(
+    app: Flask,
+    order_bid: str,
+    amount: Optional[int] = None,
+    reason: Optional[str] = None,
+) -> Dict[str, Any]:
+    with app.app_context():
+        order = Order.query.filter(Order.order_bid == order_bid).first()
+        if not order:
+            raise_error("server.order.orderNotFound")
+
+        payment_channel = order.payment_channel or "pingxx"
+        provider = get_payment_provider(payment_channel)
+
+        if payment_channel != "stripe":
+            app.logger.error("Refund not implemented for channel: %s", payment_channel)
+            raise_error("server.pay.payChannelNotSupport")
+
+        stripe_order = (
+            StripeOrder.query.filter(StripeOrder.order_bid == order_bid)
+            .order_by(StripeOrder.id.desc())
+            .first()
+        )
+        if not stripe_order:
+            raise_error("server.order.orderNotFound")
+
+        refund_amount = amount if amount is not None else stripe_order.amount
+        metadata = {
+            "order_bid": order_bid,
+            "payment_intent_id": stripe_order.payment_intent_id,
+            "charge_id": stripe_order.latest_charge_id,
+        }
+
+        refund_request = PaymentRefundRequest(
+            order_bid=order_bid,
+            amount=refund_amount,
+            reason=reason,
+            metadata=metadata,
+        )
+
+        result = provider.refund_payment(request=refund_request, app=app)
+
+        metadata_dict = {}
+        if stripe_order.metadata_json:
+            try:
+                metadata_dict = json.loads(stripe_order.metadata_json)
+            except json.JSONDecodeError:
+                metadata_dict = {}
+        metadata_dict["last_refund_id"] = result.provider_reference
+        stripe_order.metadata_json = json.dumps(metadata_dict)
+        stripe_order.payment_intent_object = _stringify_payload(result.raw_response)
+
+        refund_status = (result.status or "").lower()
+        if refund_status == "succeeded":
+            stripe_order.status = 2
+            order.status = ORDER_STATUS_REFUND
+        elif refund_status in {"pending", "requires_action"}:
+            stripe_order.status = stripe_order.status or 1
+        else:
+            stripe_order.status = 4
+            stripe_order.failure_code = refund_status or stripe_order.failure_code
+
+        db.session.commit()
+
+    return {
+        "status": result.status,
+        "order_bid": order_bid,
+        "refund_id": result.provider_reference,
+        "amount": refund_amount,
+    }
 
 
 def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
