@@ -1,11 +1,11 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ComponentType,
   useContext,
+  useMemo,
 } from 'react';
 import { useLatest, useMountedState } from 'react-use';
 import { fixMarkdownStream } from '@/c-utils/markdownUtils';
@@ -36,6 +36,7 @@ import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
+import { appendCustomButtonAfterContent } from './chatUiUtils';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -152,6 +153,11 @@ function useChatLogicHook({
   const hasScrolledToBottomRef = useRef<boolean>(false);
 
   const effectivePreviewMode = previewMode ?? false;
+  const getAskButtonMarkup = useCallback(
+    () =>
+      `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+    [t],
+  );
 
   // Use react-use hooks for safer state management
   const isMounted = useMountedState();
@@ -443,9 +449,10 @@ function useChatLogicHook({
                     ) {
                       updatedList[i] = {
                         ...updatedList[i],
-                        content:
-                          (updatedList[i].content || '') +
-                          `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+                        content: appendCustomButtonAfterContent(
+                          updatedList[i].content,
+                          getAskButtonMarkup(),
+                        ),
                         isHistory: true, // Prevent AskButton from triggering typewriter
                       };
                       break;
@@ -559,13 +566,16 @@ function useChatLogicHook({
         if (item.block_type === BLOCK_TYPE.CONTENT) {
           // flush the previously cached ask entries
           flushBuffer();
+          const normalizedContent = item.content ?? '';
+          const contentWithButton = mobileStyle
+            ? appendCustomButtonAfterContent(
+                normalizedContent,
+                getAskButtonMarkup(),
+              )
+            : normalizedContent;
           result.push({
             generated_block_bid: item.generated_block_bid,
-            content:
-              item.content +
-              (!mobileStyle
-                ? ``
-                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`),
+            content: contentWithButton,
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
