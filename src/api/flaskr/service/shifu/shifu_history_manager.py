@@ -346,7 +346,8 @@ def save_outline_history(
         item = q.get()
         if item.bid == outline_bid:
             item.id = id
-            item.child_count = child_count
+            if child_count > 0:
+                item.child_count = child_count
             break
         for child in item.children:
             q.put(child)
