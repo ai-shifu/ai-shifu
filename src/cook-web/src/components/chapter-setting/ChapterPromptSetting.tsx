@@ -108,7 +108,9 @@ const ChapterPromptSetting = ({
                 onChange={event => setSystemPrompt(event.target.value)}
                 maxLength={1000}
                 rows={6}
-                placeholder={t('module.chapterSetting.chapterPromptPlaceholder')}
+                placeholder={t(
+                  'module.chapterSetting.chapterPromptPlaceholder',
+                )}
                 className='min-h-[220px]'
               />
               <div className='text-xs text-muted-foreground text-right'>
