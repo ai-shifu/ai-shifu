@@ -104,6 +104,8 @@ const nextConfig: NextConfig = {
     externalDir: true,
   },
 
+  reactStrictMode: false,
+
   turbopack: {
     rules: {
       '*.less': {

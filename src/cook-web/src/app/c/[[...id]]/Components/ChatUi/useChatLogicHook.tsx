@@ -259,7 +259,7 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
-      currentBlockIdRef.current = 'loading';
+      // currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
@@ -321,6 +321,7 @@ function useChatLogicHook({
                   item => item.generated_block_bid === 'loading',
                 )
               ) {
+                // currentBlockIdRef.current = nid;
                 // close loading
                 setTrackedContentList(pre => {
                   const newList = pre.filter(
@@ -328,11 +329,11 @@ function useChatLogicHook({
                   );
                   return newList;
                 });
-                currentBlockIdRef.current = nid;
+                // console.log('更新currentBlockIdRef', currentBlockIdRef.current)
               }
             }
-
-            const blockId = currentBlockIdRef.current;
+            const blockId = nid;
+            // const blockId = currentBlockIdRef.current;
 
             if (nid && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
               trackTrailProgress(nid);
@@ -404,7 +405,7 @@ function useChatLogicHook({
                       type: ChatContentItemType.CONTENT,
                     });
                   }
-                  // console.log('updatedList', updatedList)
+                  console.log('updatedList', updatedList)
                   return updatedList;
                 });
               }
