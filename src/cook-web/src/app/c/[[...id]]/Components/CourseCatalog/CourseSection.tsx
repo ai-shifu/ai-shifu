@@ -61,7 +61,7 @@ export const CourseSection = ({
         type === LEARNING_PERMISSION.NORMAL) &&
       !isLoggedIn
     ) {
-      window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+      window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
       return;
     }
 

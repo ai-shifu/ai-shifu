@@ -1,11 +1,11 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ComponentType,
   useContext,
+  useMemo,
 } from 'react';
 import { useLatest, useMountedState } from 'react-use';
 import { fixMarkdownStream } from '@/c-utils/markdownUtils';
@@ -36,6 +36,7 @@ import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
+import { appendCustomButtonAfterContent } from './chatUiUtils';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -152,6 +153,11 @@ function useChatLogicHook({
   const hasScrolledToBottomRef = useRef<boolean>(false);
 
   const effectivePreviewMode = previewMode ?? false;
+  const getAskButtonMarkup = useCallback(
+    () =>
+      `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+    [t],
+  );
 
   // Use react-use hooks for safer state management
   const isMounted = useMountedState();
@@ -253,7 +259,7 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
-      currentBlockIdRef.current = 'loading';
+      // currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
@@ -291,7 +297,6 @@ function useChatLogicHook({
           //       if (hasLoading) {
           //         return prev;
           //       }
-          //       console.log("=====❤️HEARTBEAT插入loading=====")
           //       const placeholderItem: ChatContentItem = {
           //         generated_block_bid: 'loading',
           //         content: '',
@@ -315,6 +320,7 @@ function useChatLogicHook({
                   item => item.generated_block_bid === 'loading',
                 )
               ) {
+                // currentBlockIdRef.current = nid;
                 // close loading
                 setTrackedContentList(pre => {
                   const newList = pre.filter(
@@ -322,11 +328,10 @@ function useChatLogicHook({
                   );
                   return newList;
                 });
-                currentBlockIdRef.current = nid;
               }
             }
-
-            const blockId = currentBlockIdRef.current;
+            const blockId = nid;
+            // const blockId = currentBlockIdRef.current;
 
             if (nid && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
               trackTrailProgress(nid);
@@ -397,7 +402,6 @@ function useChatLogicHook({
                       type: ChatContentItemType.CONTENT,
                     });
                   }
-                  // console.log('updatedList', updatedList)
                   return updatedList;
                 });
               }
@@ -443,9 +447,10 @@ function useChatLogicHook({
                     ) {
                       updatedList[i] = {
                         ...updatedList[i],
-                        content:
-                          (updatedList[i].content || '') +
-                          `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+                        content: appendCustomButtonAfterContent(
+                          updatedList[i].content,
+                          getAskButtonMarkup(),
+                        ),
                         isHistory: true, // Prevent AskButton from triggering typewriter
                       };
                       break;
@@ -559,13 +564,16 @@ function useChatLogicHook({
         if (item.block_type === BLOCK_TYPE.CONTENT) {
           // flush the previously cached ask entries
           flushBuffer();
+          const normalizedContent = item.content ?? '';
+          const contentWithButton = mobileStyle
+            ? appendCustomButtonAfterContent(
+                normalizedContent,
+                getAskButtonMarkup(),
+              )
+            : normalizedContent;
           result.push({
             generated_block_bid: item.generated_block_bid,
-            content:
-              item.content +
-              (!mobileStyle
-                ? ``
-                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`),
+            content: contentWithButton,
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
@@ -873,7 +881,9 @@ function useChatLogicHook({
       }
       if (buttonText === SYS_INTERACTION_TYPE.LOGIN) {
         if (typeof window !== 'undefined') {
-          const redirect = encodeURIComponent(window.location.pathname);
+          const redirect = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
           window.location.href = `/login?redirect=${redirect}`;
         }
         return;
