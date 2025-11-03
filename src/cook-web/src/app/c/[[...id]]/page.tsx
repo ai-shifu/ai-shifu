@@ -72,7 +72,7 @@ export default function ChatPage() {
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname+location.search)}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);

@@ -886,7 +886,7 @@ function useChatLogicHook({
       }
       if (buttonText === SYS_INTERACTION_TYPE.LOGIN) {
         if (typeof window !== 'undefined') {
-          const redirect = encodeURIComponent(window.location.pathname);
+          const redirect = encodeURIComponent(window.location.pathname+window.location.search);
           window.location.href = `/login?redirect=${redirect}`;
         }
         return;
