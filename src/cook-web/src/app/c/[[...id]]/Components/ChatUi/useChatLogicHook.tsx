@@ -351,6 +351,7 @@ function useChatLogicHook({
                   readonly: false,
                   type: ChatContentItemType.INTERACTION,
                 };
+                console.log('interactionBlock', interactionBlock)
                 const lastContent = prev[prev.length - 1];
                 if (
                   lastContent &&
@@ -463,6 +464,7 @@ function useChatLogicHook({
                 // Add interaction blocks - use captured value instead of ref
                 const lastItem = updatedList[updatedList.length - 1];
                 const gid = lastItem?.generated_block_bid || '';
+                console.log('lastItem', lastItem)
                 if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
                   updatedList.push({
                     parent_block_bid: gid,
