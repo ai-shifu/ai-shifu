@@ -148,7 +148,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-normal'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.paidSection')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'paidChapter' : 'paidSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -160,7 +164,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-trial'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.freeSection')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'freeChapter' : 'freeSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -172,7 +180,11 @@ const ChapterSettingsDialog = ({
                       htmlFor='chapter-guest'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.guestSection')}
+                      {t(
+                        `module.chapterSetting.${
+                          isChapter ? 'guestChapter' : 'guestSection'
+                        }`,
+                      )}
                     </Label>
                   </div>
                 </RadioGroup>
