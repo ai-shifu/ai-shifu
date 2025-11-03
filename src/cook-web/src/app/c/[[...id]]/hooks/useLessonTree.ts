@@ -84,7 +84,7 @@ export const useLessonTree = () => {
             lesson.type === LEARNING_PERMISSION.NORMAL) &&
           !isLoggedIn
         ) {
-          window.location.href = `/login?redirect=${encodeURIComponent(location.pathname+location.search)}`;
+          window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
           return;
         }
 

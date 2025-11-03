@@ -352,7 +352,7 @@ function useChatLogicHook({
                   readonly: false,
                   type: ChatContentItemType.INTERACTION,
                 };
-                console.log('interactionBlock', interactionBlock)
+                console.log('interactionBlock', interactionBlock);
                 const lastContent = prev[prev.length - 1];
                 if (
                   lastContent &&
@@ -405,7 +405,7 @@ function useChatLogicHook({
                       type: ChatContentItemType.CONTENT,
                     });
                   }
-                  console.log('updatedList', updatedList)
+                  console.log('updatedList', updatedList);
                   return updatedList;
                 });
               }
@@ -465,7 +465,7 @@ function useChatLogicHook({
                 // Add interaction blocks - use captured value instead of ref
                 const lastItem = updatedList[updatedList.length - 1];
                 const gid = lastItem?.generated_block_bid || '';
-                console.log('lastItem', lastItem)
+                console.log('lastItem', lastItem);
                 if (lastItem && lastItem.type === ChatContentItemType.CONTENT) {
                   updatedList.push({
                     parent_block_bid: gid,
@@ -886,7 +886,9 @@ function useChatLogicHook({
       }
       if (buttonText === SYS_INTERACTION_TYPE.LOGIN) {
         if (typeof window !== 'undefined') {
-          const redirect = encodeURIComponent(window.location.pathname+window.location.search);
+          const redirect = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
           window.location.href = `/login?redirect=${redirect}`;
         }
         return;
