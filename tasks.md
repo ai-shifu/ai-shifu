@@ -1,6 +1,6 @@
 - [ ] For each task below, finish the change in isolation, run `pre-commit run -a`, and create an atomic commit before moving on.
 - [x] Remove the deprecated `src/web/` workspace (delete the directory tree and any web-only assets that live alongside it).
-- [ ] Update repository tooling to drop `src/web` assumptions, including pruning hooks from `.pre-commit-config.yaml` and removing the scan target from `scripts/update_i18n.py`.
+- [x] Update repository tooling to drop `src/web` assumptions, including pruning hooks from `.pre-commit-config.yaml` and removing the scan target from `scripts/update_i18n.py`.
 - [ ] Capture an audit that compares HTTP usage between `src/web` and `src/cook-web` (including `src/cook-web/src/c-api`) so the backend removal scope is explicit; commit the findings under `docs/` for traceability.
 - [ ] Retire the unused `/api/course/get-course-info` route by deleting its handler and removing the course blueprint registration while keeping shared service helpers intact.
 - [ ] Retire the unused study routes `/api/study/get_lesson_tree` and `/api/study/reset-study-progress`, ensuring supporting services/tests continue to cover active flows.
