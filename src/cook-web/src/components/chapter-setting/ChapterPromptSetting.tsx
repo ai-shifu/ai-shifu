@@ -107,7 +107,8 @@ const ChapterPromptSetting = ({
                 value={systemPrompt}
                 onChange={event => setSystemPrompt(event.target.value)}
                 maxLength={20000}
-                rows={6}
+                minRows={6}
+                maxRows={30}
                 placeholder={t('module.chapterSetting.promptPlaceholder')}
                 className='min-h-[220px]'
               />
