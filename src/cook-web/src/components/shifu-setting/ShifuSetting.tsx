@@ -259,6 +259,7 @@ export default function ShifuSettingDialog({
     });
   };
 
+
   return (
     <Sheet
       open={open}
@@ -560,7 +561,8 @@ export default function ShifuSettingDialog({
                         placeholder={t(
                           'module.shifuSetting.shifuPromptPlaceholder',
                         )}
-                        rows={6}
+                        minRows={3}
+                        maxRows={30}
                       />
                     </FormControl>
                     {/* <div className='text-xs text-muted-foreground text-right'>
