@@ -812,10 +812,10 @@ class RunScriptContextV2:
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
         mdflow = MarkdownFlow(
-            run_script_info.mdflow,
+            document=run_script_info.mdflow,
             document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
-                app, llm_settings, self._trace, self._trace_args, system_prompt
+                app, llm_settings, self._trace, self._trace_args
             ),
         )
         block_list = mdflow.get_all_blocks()
