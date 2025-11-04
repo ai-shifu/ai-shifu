@@ -107,7 +107,6 @@ class RunScriptInfo:
 
 class RUNLLMProvider(LLMProvider):
     app: Flask
-    system_prompt: str
     llm_settings: LLMSettings
     trace: StatefulTraceClient
     trace_args: dict
@@ -115,13 +114,11 @@ class RUNLLMProvider(LLMProvider):
     def __init__(
         self,
         app: Flask,
-        system_prompt: str,
         llm_settings: LLMSettings,
         trace: StatefulTraceClient,
         trace_args: dict,
     ):
         self.app = app
-        self.system_prompt = system_prompt
         self.llm_settings = llm_settings
         self.trace = trace
         self.trace_args = trace_args
@@ -132,6 +129,7 @@ class RUNLLMProvider(LLMProvider):
             raise ValueError("No messages provided")
 
         # Get the last message content
+        system_prompt = messages[0].get("content", "")
         last_message = messages[-1]
         prompt = last_message.get("content", "")
 
@@ -140,7 +138,7 @@ class RUNLLMProvider(LLMProvider):
             self.trace_args.get("user_id", ""),
             self.trace,
             message=prompt,
-            system=self.system_prompt,
+            system=system_prompt,
             model=self.llm_settings.model,
             stream=False,
             generation_name="run_llm",
@@ -815,8 +813,9 @@ class RunScriptContextV2:
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
         mdflow = MarkdownFlow(
             run_script_info.mdflow,
+            document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
-                app, system_prompt, llm_settings, self._trace, self._trace_args
+                app, llm_settings, self._trace, self._trace_args, system_prompt
             ),
         )
         block_list = mdflow.get_all_blocks()
