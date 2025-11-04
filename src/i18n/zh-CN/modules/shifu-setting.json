@@ -26,7 +26,7 @@
   "selected": "已选择",
   "previewUrl": "预览地址",
   "learningUrl": "学习地址",
-  "shifuTemperature": "温度",
+  "shifuTemperature": "设定温度",
   "number": "数字",
   "temperatureHint": "设置AI的创造力(0-2)",
   "shifuPrompt": "师傅提示词",
