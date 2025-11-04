@@ -257,6 +257,7 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     if entity:
         return entity
+<<<<<<< HEAD
     identify = user_bid
     nickname: Optional[str] = None
     language: Optional[str] = None
@@ -319,6 +320,9 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
         avatar=avatar,
         birthday=birthday,
     )
+=======
+    return create_user_entity(user_bid=user_bid, identify=user_bid)
+>>>>>>> 341259be (refactor: remove legacy user info dependencies (#830))
 
 
 def load_user_aggregate(
