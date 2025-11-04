@@ -30,7 +30,7 @@
   "number": "⟦Ňųmƀēř⟧",
   "temperatureHint": "⟦Šēŧ ŧħē ćřēåŧįṽįŧŷ øƒ ŧħē ÅĪ (0-2)⟧",
   "shifuPrompt": "⟦Šħįƒų Ƥřømƥŧ⟧",
-  "shifuPromptMaxLength": "⟦Ƥřømƥŧ ćåňňøŧ ēẋćēēđ 300 ćħåřåćŧēřš⟧",
+  "shifuPromptMaxLength": "⟦Ƥřømƥŧ ćåňňøŧ ēẋćēēđ 20000 ćħåřåćŧēřš⟧",
   "shifuPromptHint": "⟦Ðēƒįņē ŧħē šħįƒų'š åųđįēņćē, ŧøņē, åņđ ǥųåřđřåįŀš⟧",
   "shifuPromptPlaceholder": "⟦Ðēšćřįƀē ŧħē øṽēřåŀŀ įňšŧřųćŧįøņš ƒøř ŧħįš šħįƒų...⟧",
   "keywords": "⟦Ķēŷŵøřđš⟧",
