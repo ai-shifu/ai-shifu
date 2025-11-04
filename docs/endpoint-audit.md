@@ -11,59 +11,44 @@
 
 ### Findings
 
-**Counts**
-- Legacy `src/web`: 29 unique endpoints.
-- Current `src/cook-web`: 33 unique endpoints.
-- Overlap: 26 endpoints (remain required for Cook Web).
+**Current Cook Web surface (post-refactor)**
+- Cook Web references 22 distinct `/api/...` endpoints today:
+  - `/api/click2cash/generate-active-order`
+  - `/api/config`
+  - `/api/i18n`
+  - `/api/learn/shifu/`
+  - `/api/order/apply-discount`
+  - `/api/order/init-order`
+  - `/api/order/query-order`
+  - `/api/order/reqiure-to-pay`
+  - `/api/shifu/upfile`
+  - `/api/study/get_lesson_study_record`
+  - `/api/study/query-script-into`
+  - `/api/study/run`
+  - `/api/study/script-content-operation`
+  - `/api/user/get_profile`
+  - `/api/user/info`
+  - `/api/user/require_tmp`
+  - `/api/user/send_sms_code`
+  - `/api/user/submit-feedback`
+  - `/api/user/update_info`
+  - `/api/user/update_openid`
+  - `/api/user/update_profile`
+  - `/api/user/upload_avatar`
+- All other `/api/...` paths previously referenced by the legacy `src/web` client have now been deleted from Cook Web.
 
-**Endpoints only used by legacy `src/web`**
-- `/api/course/get-course-info` — course metadata fetch used by the legacy learner UI.
-- `/api/study/reset-study-progress` — lesson reset endpoint triggered from the legacy learner UI.
-
-These endpoints can be retired from the backend once consumers are removed. Note: Cook Web calls `POST /user/verify_sms_code` via a relative path string (`'POST /user/verify_sms_code'`), so that login flow remains active in the unified frontend.
-
-**Endpoints still shared between Cook Web and legacy `src/web`**
-- `/api/click2cash/generate-active-order`
-- `/api/order/apply-discount`
-- `/api/order/init-order`
-- `/api/order/order-test`
-- `/api/order/query-order`
-- `/api/order/reqiure-to-pay`
-- `/api/study/get_lesson_study_record`
+**Legacy-only endpoints removed from the backend**
+- `/api/course/get-course-info`
 - `/api/study/get_lesson_tree`
-- `/api/study/query-script-into`
-- `/api/study/run`
-- `/api/study/script-content-operation`
+- `/api/study/reset-study-progress`
 - `/api/user/generate_chk_code`
-- `/api/user/get_profile`
-- `/api/user/info`
-- `/api/user/login`
 - `/api/user/register`
+- `/api/user/login`
 - `/api/user/require_reset_code`
-- `/api/user/require_tmp`
 - `/api/user/reset_password`
-- `/api/user/send_sms_code`
-- `/api/user/submit-feedback`
-- `/api/user/update_info`
-- `/api/user/update_openid`
 - `/api/user/update_password`
-- `/api/user/update_profile`
-- `/api/user/upload_avatar`
+- `/api/user/send_mail_code`
+- `/api/user/verify_mail_code`
+- `/api/order/order-test`
 
-Cook Web still depends on these API routes and the supporting services/tests must remain.
-
-**Endpoints only used by Cook Web**
-- `/api/config`
-- `/api/config/route`
-- `/api/i18n`
-- `/api/i18n/route`
-- `/api/learn/shifu/`
-- `/api/llm/debug-prompt`
-- `/api/shifu/upfile`
-
-These are unique to Cook Web and are not candidates for deletion.
-
-### Next Steps
-- Remove the legacy-only routes and associated service logic from `src/api`.
-- Update automated tests alongside removals to keep coverage intact.
-- Use this audit as the authoritative reference when reviewing backend deletions during this refactor.
+These removals eliminate the final dependencies on the deprecated `src/web` React application. Remaining endpoints listed above are still exercised by Cook Web and must be kept functional.

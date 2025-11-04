@@ -187,26 +187,3 @@ def verify_sms_code(
     )
     auth_result = provider.verify(app, request)
     return auth_result.token
-
-
-# verify mail code
-def verify_mail_code(
-    app: Flask,
-    user_id,
-    mail: str,
-    chekcode: str,
-    course_id: str = None,
-    language: str = None,
-) -> UserToken:
-    provider = get_provider("email")
-    request = VerificationRequest(
-        identifier=mail.lower(),
-        code=chekcode,
-        metadata={
-            "user_id": user_id,
-            "course_id": course_id,
-            "language": language,
-        },
-    )
-    auth_result = provider.verify(app, request)
-    return auth_result.token
