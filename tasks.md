@@ -7,7 +7,7 @@
 - [x] Clean the Docker Compose stacks (`docker/docker-compose.yml`, `docker/docker-compose.prod.yml`, `docker/docker-compose.dev.yml`) to drop the `ai-shifu-web` service and adjust dependencies/volumes appropriately.
 - [x] Update Docker build and proxy assets (`docker/dev_in_docker.sh`, `docker/nginx.conf`, `docker/nginx.dev.conf`) to eliminate `ai-shifu-web` references and serve Cook Web correctly.
 - [x] Simplify `.github/workflows/build-on-release.yml` by removing the `build-web` matrix entry and associated image variables so CI only builds API and Cook Web artifacts.
-- [ ] Scrub duplicated agent guides (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) to remove `src/web` instructions and explain Cook Web as the consolidated frontend.
+- [x] Scrub duplicated agent guides (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) to remove `src/web` instructions and explain Cook Web as the consolidated frontend.
 - [ ] Refresh onboarding and licensing docs (`INSTALL_MANUAL.md`, `LICENSE.txt`) so the two-component architecture is accurate and no `src/web` paths remain.
 - [ ] Update README materials (`README.md`, `README_ZH-CN.md`) to reflect the new Docker access pattern and emphasize Cook Web as the sole web surface.
 - [ ] After code and docs are updated, run `rg 'src/web' --glob '!**/node_modules/**'` to confirm no stale references remain and address any matches.

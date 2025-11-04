@@ -9,8 +9,7 @@ This file provides guidance to all Coding Agents such as Claude Code (claude.ai/
 | Task | Command | Location |
 |------|---------|----------|
 | Start backend dev server | `flask run` | `cd src/api` |
-| Start web frontend | `npm run start:dev` | `cd src/web` |
-| Start Cook Web (CMS) | `npm run dev` | `cd src/cook-web` |
+| Start Cook Web (frontend & CMS) | `npm run dev` | `cd src/cook-web` |
 | Run backend tests | `pytest` | `cd src/api` |
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
@@ -23,9 +22,6 @@ This file provides guidance to all Coding Agents such as Claude Code (claude.ai/
 ```bash
 # Backend (src/api/.env)
 FLASK_APP=app.py
-
-# Frontend (src/web/.env)
-REACT_APP_API_URL=http://localhost:5000
 
 # Cook Web (src/cook-web/.env.local)
 NEXT_PUBLIC_API_URL=http://localhost:5000
@@ -56,11 +52,10 @@ AI-Shifu is an AI-led chat platform that provides interactive, personalized conv
 
 ## Architecture
 
-The project follows a microservices architecture with 3 main components:
+The project follows a microservices architecture with 2 main components:
 
 - **Backend API (`src/api/`)**: Flask-based Python API with SQLAlchemy ORM
-- **Web Application (`src/web/`)**: React-based user-facing web application
-- **Cook Web (`src/cook-web/`)**: Next.js-based content management/authoring interface
+- **Cook Web (`src/cook-web/`)**: Next.js-based unified frontend and content management interface
 
 ### Backend API (`src/api/`)
 
@@ -77,10 +72,9 @@ The project follows a microservices architecture with 3 main components:
 - Database migrations managed with Alembic (`migrations/`)
 - Internationalization support with separate locale files (`i18n/`)
 
-### Web Applications
+### Frontend
 
-- **Main Web (`src/web/`)**: React with TypeScript, SCSS modules, Zustand for state management
-- **Cook Web (`src/cook-web/`)**: Next.js with TypeScript, Tailwind CSS, includes content authoring tools
+- **Cook Web (`src/cook-web/`)**: Next.js with TypeScript and Tailwind CSS, providing both the public learner experience and authoring tools
 
 ## Development Commands
 
@@ -106,22 +100,7 @@ pytest -k "test_function_name"           # Run specific test
 pytest --cov=flaskr --cov-report=html   # With coverage report
 ```
 
-### Web Application
-
-```bash
-cd src/web
-
-# Install dependencies (first time)
-npm install
-
-# Development
-npm run start:dev                        # Start dev server
-npm run build                            # Production build
-npm test                                 # Run tests
-npm run lint                             # Check linting
-```
-
-### Cook Web (Content Management)
+### Cook Web (Frontend & Content Management)
 
 ```bash
 cd src/cook-web
