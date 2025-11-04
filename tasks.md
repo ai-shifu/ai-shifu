@@ -1,4 +1,4 @@
-- [ ] For each task below, finish the change in isolation, run `pre-commit run -a`, and create an atomic commit before moving on.
+- [x] For each task below, finish the change in isolation, run `pre-commit run -a`, and create an atomic commit before moving on.
 - [x] Remove the deprecated `src/web/` workspace (delete the directory tree and any web-only assets that live alongside it).
 - [x] Update repository tooling to drop `src/web` assumptions, including pruning hooks from `.pre-commit-config.yaml` and removing the scan target from `scripts/update_i18n.py`.
 - [x] Capture an audit that compares HTTP usage between `src/web` and `src/cook-web` (including `src/cook-web/src/c-api`) so the backend removal scope is explicit; commit the findings under `docs/` for traceability.
@@ -10,5 +10,5 @@
 - [x] Scrub duplicated agent guides (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) to remove `src/web` instructions and explain Cook Web as the consolidated frontend.
 - [x] Refresh onboarding and licensing docs (`INSTALL_MANUAL.md`, `LICENSE.txt`) so the two-component architecture is accurate and no `src/web` paths remain.
 - [x] Update README materials (`README.md`, `README_ZH-CN.md`) to reflect the new Docker access pattern and emphasize Cook Web as the sole web surface.
-- [ ] After code and docs are updated, run `rg 'src/web' --glob '!**/node_modules/**'` to confirm no stale references remain and address any matches.
-- [ ] Execute project verification (backend `pytest`, Cook Web lint/build, `docker compose config`) and record the outcomes for reviewer reference.
+- [x] After code and docs are updated, run `rg 'src/web' --glob '!**/node_modules/**'` to confirm no stale references remain and address any matches.
+- [x] Execute project verification (backend `pytest`, Cook Web lint/build, `docker compose config`) and record the outcomes for reviewer reference.
