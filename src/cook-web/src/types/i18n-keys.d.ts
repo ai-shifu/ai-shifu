@@ -393,8 +393,6 @@ export type I18nKey =
   | 'server.banner.bannerPopUpContent'
   | 'server.banner.bannerPopUpTitle'
   | 'server.banner.bannerTitle'
-  | 'server.banner.lessonBannerContent'
-  | 'server.banner.lessonBannerTitle'
   | 'server.check.checkRiskControlReject'
   | 'server.common.backgroundNotAllowed'
   | 'server.common.checkcode'
