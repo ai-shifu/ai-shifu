@@ -4,7 +4,7 @@
   "creationArea": {
     "description": "Describe the content you want, or leave room for the AI to improvise.",
     "title": "Creation Area",
-    "modeText": "Raw",
-    "modeCode": "Text"
+    "modeText": "Visual",
+    "modeCode": "Raw"
   }
 }

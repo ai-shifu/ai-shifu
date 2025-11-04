@@ -86,7 +86,7 @@ export default function ShifuSettingDialog({
     model: z.string(),
     systemPrompt: z
       .string()
-      .max(300, t('module.shifuSetting.shifuPromptMaxLength')),
+      .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
       .min(1, t('module.shifuSetting.shifuPriceEmpty'))
@@ -228,7 +228,7 @@ export default function ShifuSettingDialog({
       form.reset({
         name: result.name,
         description: result.description,
-        price: result.price + '',
+        price: (result.price ?? 0).toFixed(2),
         model: result.model || '',
         previewUrl: result.preview_url,
         url: result.url,
@@ -556,16 +556,16 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Textarea
                         {...field}
-                        maxLength={300}
+                        maxLength={20000}
                         placeholder={t(
                           'module.shifuSetting.shifuPromptPlaceholder',
                         )}
                         rows={6}
                       />
                     </FormControl>
-                    <div className='text-xs text-muted-foreground text-right'>
-                      {field.value?.length ?? 0}/300
-                    </div>
+                    {/* <div className='text-xs text-muted-foreground text-right'>
+                      {field.value?.length ?? 0}/10000
+                    </div> */}
                     <FormMessage />
                   </FormItem>
                 )}
