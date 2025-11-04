@@ -2,6 +2,7 @@ from flask import Flask, request, Response
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
+from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn.learn_funcs import (
     get_shifu_info,
     get_outline_item_tree,
@@ -169,6 +170,82 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         except Exception as e:
             app.logger.error(e)
             return make_common_response(e)
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/preview/<outline_bid>",
+        methods=["POST"],
+    )
+    def preview_outline_block_api(shifu_bid: str, outline_bid: str):
+        """
+        preview a specific outline block
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: outline_bid
+              type: string
+              required: true
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    input:
+                        type: object
+                        description: input payload for preview
+                    block_index:
+                        type: integer
+                        required: true
+                        description: block index to preview
+                    prompt:
+                        type: string
+                        required: true
+                        description: preview prompt
+        responses:
+            200:
+                description: preview block success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    type: object
+                                    description: preview request echo
+        """
+        payload = request.get_json() or {}
+        block_index = payload.get("block_index")
+        prompt = payload.get("prompt")
+        if block_index is None:
+            raise_param_error("block_index is required")
+        if prompt is None:
+            raise_param_error("prompt is required")
+        user_bid = request.user.user_id
+        app.logger.info(
+            "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s",
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            block_index,
+        )
+        response_payload = {
+            "shifu_bid": shifu_bid,
+            "outline_bid": outline_bid,
+            "user_bid": user_bid,
+            "input": payload.get("input"),
+            "block_index": block_index,
+            "prompt": prompt,
+        }
+        return make_common_response(response_payload)
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>",
