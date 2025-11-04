@@ -5,7 +5,7 @@
 - [x] Retire the unused `/api/course/get-course-info` route by deleting its handler and removing the course blueprint registration while keeping shared service helpers intact.
 - [x] Retire the unused study routes `/api/study/get_lesson_tree` and `/api/study/reset-study-progress`, ensuring supporting services/tests continue to cover active flows.
 - [x] Clean the Docker Compose stacks (`docker/docker-compose.yml`, `docker/docker-compose.prod.yml`, `docker/docker-compose.dev.yml`) to drop the `ai-shifu-web` service and adjust dependencies/volumes appropriately.
-- [ ] Update Docker build and proxy assets (`docker/dev_in_docker.sh`, `docker/nginx.conf`, `docker/nginx.dev.conf`) to eliminate `ai-shifu-web` references and serve Cook Web correctly.
+- [x] Update Docker build and proxy assets (`docker/dev_in_docker.sh`, `docker/nginx.conf`, `docker/nginx.dev.conf`) to eliminate `ai-shifu-web` references and serve Cook Web correctly.
 - [ ] Simplify `.github/workflows/build-on-release.yml` by removing the `build-web` matrix entry and associated image variables so CI only builds API and Cook Web artifacts.
 - [ ] Scrub duplicated agent guides (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) to remove `src/web` instructions and explain Cook Web as the consolidated frontend.
 - [ ] Refresh onboarding and licensing docs (`INSTALL_MANUAL.md`, `LICENSE.txt`) so the two-component architecture is accurate and no `src/web` paths remain.
