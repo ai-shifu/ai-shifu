@@ -194,9 +194,7 @@ export default function InteractionBlock({
               'h-5',
               'transition-colors',
               'duration-200',
-              isLike
-                ? 'text-primary'
-                : 'text-gray-400'
+              isLike ? 'text-primary' : 'text-gray-400',
             )}
           />
         </button>
@@ -218,9 +216,7 @@ export default function InteractionBlock({
               'h-5',
               'transition-colors',
               'duration-200',
-              isDislike
-                ? 'text-primary'
-                : 'text-gray-400'
+              isDislike ? 'text-primary' : 'text-gray-400',
             )}
           />
         </button>

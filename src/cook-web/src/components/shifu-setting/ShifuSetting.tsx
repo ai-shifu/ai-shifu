@@ -259,7 +259,6 @@ export default function ShifuSettingDialog({
     });
   };
 
-
   return (
     <Sheet
       open={open}
@@ -338,7 +337,7 @@ export default function ShifuSettingDialog({
                   {t('module.shifuSetting.shifuAvatar')}
                 </p>
                 <span className='text-xs text-muted-foreground'>
-                    {t('module.shifuSetting.imageFormatHint')}
+                  {t('module.shifuSetting.imageFormatHint')}
                 </span>
                 <div className='flex flex-col gap-3'>
                   {uploadedImageUrl ? (
@@ -378,7 +377,7 @@ export default function ShifuSettingDialog({
                     onChange={handleImageUpload}
                     className='hidden'
                   />
-                
+
                   {isUploading && (
                     <div className='space-y-2 mb-4'>
                       <div className='w-full bg-muted rounded-full h-2'>

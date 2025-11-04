@@ -41,9 +41,7 @@ const PreviewSettingsModal = () => {
       disabled={loading}
       loading={loading}
     >
-      {loading ? null : (
-        <PlayIcon className='h-4 w-4' />
-      )}{' '}
+      {loading ? null : <PlayIcon className='h-4 w-4' />}{' '}
       {t('module.preview.preview')}
     </Button>
   );

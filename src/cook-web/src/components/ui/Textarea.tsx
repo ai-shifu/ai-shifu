@@ -60,8 +60,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
         parseFloat(computedStyle.borderTopWidth || '0') +
         parseFloat(computedStyle.borderBottomWidth || '0');
 
-      const minHeight =
-        (resolvedMinRows ?? 1) * lineHeight + padding + border;
+      const minHeight = (resolvedMinRows ?? 1) * lineHeight + padding + border;
       const maxHeight =
         typeof maxRows === 'number'
           ? maxRows * lineHeight + padding + border
