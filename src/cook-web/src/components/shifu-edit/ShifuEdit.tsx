@@ -216,7 +216,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </div>
 
           {!foldOutlineTree && (
-            <div className='flex-1 h-full overflow-y-auto overflow-x-hidden w-[256px]'>
+            <div className='flex-1 h-full overflow-y-auto overflow-x-hidden w-[256px] pb-10'>
               <ol className=' text-sm'>
                 <OutlineTree
                   items={chapters}
