@@ -2,8 +2,9 @@
 - [x] Remove the deprecated `src/web/` workspace (delete the directory tree and any web-only assets that live alongside it).
 - [x] Update repository tooling to drop `src/web` assumptions, including pruning hooks from `.pre-commit-config.yaml` and removing the scan target from `scripts/update_i18n.py`.
 - [x] Capture an audit that compares HTTP usage between `src/web` and `src/cook-web` (including `src/cook-web/src/c-api`) so the backend removal scope is explicit; commit the findings under `docs/` for traceability.
-- [ ] Retire the unused `/api/course/get-course-info` route by deleting its handler and removing the course blueprint registration while keeping shared service helpers intact.
+- [x] Retire the unused `/api/course/get-course-info` route by deleting its handler and removing the course blueprint registration while keeping shared service helpers intact.
 - [ ] Retire the unused study routes `/api/study/get_lesson_tree` and `/api/study/reset-study-progress`, ensuring supporting services/tests continue to cover active flows.
+- [ ] Retire the unused `/api/user/verify_sms_code` route and any helper logic that solely supports the legacy verification flow.
 - [ ] Clean the Docker Compose stacks (`docker/docker-compose.yml`, `docker/docker-compose.prod.yml`, `docker/docker-compose.dev.yml`) to drop the `ai-shifu-web` service and adjust dependencies/volumes appropriately.
 - [ ] Update Docker build and proxy assets (`docker/dev_in_docker.sh`, `docker/nginx.conf`, `docker/nginx.dev.conf`) to eliminate `ai-shifu-web` references and serve Cook Web correctly.
 - [ ] Simplify `.github/workflows/build-on-release.yml` by removing the `build-web` matrix entry and associated image variables so CI only builds API and Cook Web artifacts.
