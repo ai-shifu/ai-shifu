@@ -9,6 +9,6 @@
 - [x] Simplify `.github/workflows/build-on-release.yml` by removing the `build-web` matrix entry and associated image variables so CI only builds API and Cook Web artifacts.
 - [x] Scrub duplicated agent guides (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`) to remove `src/web` instructions and explain Cook Web as the consolidated frontend.
 - [x] Refresh onboarding and licensing docs (`INSTALL_MANUAL.md`, `LICENSE.txt`) so the two-component architecture is accurate and no `src/web` paths remain.
-- [ ] Update README materials (`README.md`, `README_ZH-CN.md`) to reflect the new Docker access pattern and emphasize Cook Web as the sole web surface.
+- [x] Update README materials (`README.md`, `README_ZH-CN.md`) to reflect the new Docker access pattern and emphasize Cook Web as the sole web surface.
 - [ ] After code and docs are updated, run `rg 'src/web' --glob '!**/node_modules/**'` to confirm no stale references remain and address any matches.
 - [ ] Execute project verification (backend `pytest`, Cook Web lint/build, `docker compose config`) and record the outcomes for reviewer reference.
