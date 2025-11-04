@@ -13,6 +13,6 @@
 - [x] After code and docs are updated, run `rg 'src/web' --glob '!**/node_modules/**'` to confirm no stale references remain and address any matches.
 - [x] Execute project verification (backend `pytest`, Cook Web lint/build, `docker compose config`) and record the outcomes for reviewer reference.
 - [x] Audit `src/cook-web/src/c-api/**` and migrate or delete legacy helpers so only actively used endpoints remain (e.g., drop unused `/api/user/register`, `/api/user/login`, `/api/user/reset_password`, `/api/user/require_reset_code`, `/api/user/update_password`, `/api/user/generate_chk_code`, `/api/order/order-test` helpers) before touching the backend.
-- [ ] Remove the matching legacy user/order routes from `src/api/flaskr/route/user.py` and `src/api/flaskr/route/order.py`, along with the supporting service functions, DTOs, and tests that become dead code.
+- [x] Remove the matching legacy user/order routes from `src/api/flaskr/route/user.py` and `src/api/flaskr/route/order.py`, along with the supporting service functions, DTOs, and tests that become dead code.
 - [ ] Prune auxiliary references left after the removals (e.g., `by_pass_login_func` entries, unused repository helpers, stale i18n keys) and ensure `docs/endpoint-audit.md` reflects the final public surface.
 - [ ] Re-run end-to-end verification (`pytest`, Cook Web lint/build, `docker compose config`) once the API cleanup is complete and capture the results for reviewers.
