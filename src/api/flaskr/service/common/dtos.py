@@ -26,7 +26,6 @@ class UserInfo:
     user_state: str
     language: str
     user_avatar: str
-    is_admin: bool
     is_creator: bool
 
     def __init__(
@@ -40,7 +39,6 @@ class UserInfo:
         wx_openid,
         language,
         user_avatar=None,
-        is_admin=False,
         is_creator=False,
     ):
         self.user_id = user_id
@@ -54,7 +52,6 @@ class UserInfo:
         self.wx_openid = wx_openid
         self.language = language
         self.user_avatar = user_avatar
-        self.is_admin = is_admin
         self.is_creator = is_creator
 
     def __json__(self):
@@ -68,7 +65,6 @@ class UserInfo:
             "openid": self.wx_openid,
             "language": self.language,
             "avatar": self.user_avatar,
-            "is_admin": self.is_admin,
             "is_creator": self.is_creator,
         }
 

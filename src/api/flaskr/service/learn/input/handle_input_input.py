@@ -22,7 +22,7 @@ from flaskr.dao import db
 from flaskr.framework.plugin.plugin_manager import extensible_generic
 import json
 from flaskr.service.learn.output.handle_output_input import _handle_output_input
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.profile.models import ProfileItem
 from flaskr.service.profile.profile_manage import get_profile_item_definition_list
 from flaskr.service.profile.dtos import ProfileToSave
@@ -45,7 +45,7 @@ def safe_get_temperature(app: Flask, profile_item: ProfileItem):
 @extensible_generic
 def _handle_input_input(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     input: str,
     outline_item_info: ShifuOutlineItemDto,

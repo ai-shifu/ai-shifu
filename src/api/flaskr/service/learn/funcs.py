@@ -35,7 +35,8 @@ from flaskr.service.learn.models import (
 from flaskr.service.learn.plugin import handle_ui
 from flaskr.api.langfuse import MockClient
 from flaskr.util.uuid import generate_id
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import load_user_aggregate
+from flaskr.service.common import raise_error
 from flaskr.service.shifu.shifu_struct_manager import (
     get_shifu_outline_tree,
     get_outline_item_dto,
@@ -353,7 +354,9 @@ def get_study_record(
             )
             for i in attend_scripts
         ]
-        user_info = User.query.filter_by(user_id=user_id).first()
+        user_info = load_user_aggregate(user_id)
+        if not user_info:
+            raise_error("USER.USER_NOT_FOUND")
         ret.records = items
         last_block_id = attend_scripts[-1].block_bid
         last_lesson_id = attend_scripts[-1].outline_item_bid

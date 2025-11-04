@@ -1,6 +1,6 @@
 from flaskr.service.learn.plugin import register_shifu_continue_handler
 from flask import Flask
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.shifu.adapter import BlockDTO
 from langfuse.client import StatefulTraceClient
@@ -11,7 +11,7 @@ from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 @register_shifu_continue_handler("payment")
 def _handle_continue_payment(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
