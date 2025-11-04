@@ -421,9 +421,9 @@ export default function ShifuSettingDialog({
                           style={{
                             color: 'var(--base-muted-foreground, #737373)',
                           }}
-                          title={field.value || 'https://ai-shifu.com/...'}
+                          title={field.value}
                         >
-                          {field.value || 'https://ai-shifu.com/...'}
+                          {field.value}
                         </span>
                         <button
                           type='button'
@@ -463,9 +463,9 @@ export default function ShifuSettingDialog({
                           style={{
                             color: 'var(--base-muted-foreground, #737373)',
                           }}
-                          title={field.value || 'https://ai-shifu.com/...'}
+                          title={field.value}
                         >
-                          {field.value || 'https://ai-shifu.com/...'}
+                          {field.value}
                         </span>
                         <button
                           type='button'
