@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from flask import Flask
 
@@ -24,13 +24,19 @@ from flaskr.service.user.consts import (
     USER_STATE_TRAIL,
     USER_STATE_PAID,
 )
-from flaskr.service.user.models import User
+from flaskr.service.user.models import UserInfo as UserEntity
 from flaskr.service.user.utils import generate_token
 from flaskr.service.user.repository import (
-    build_user_info_dto,
-    build_user_profile_snapshot,
-    list_credentials,
-    sync_user_entity_for_legacy,
+    build_user_info_from_aggregate,
+    build_user_profile_snapshot_from_aggregate,
+    ensure_user_for_identifier,
+    get_user_entity_by_bid,
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    mark_user_roles,
+    update_user_entity_fields,
+    upsert_credential,
+    upsert_wechat_credentials,
     transactional_session,
 )
 
@@ -111,16 +117,17 @@ def init_first_course(app: Flask, user_id: str) -> None:
         USER_STATE_TRAIL,
         USER_STATE_PAID,
     ]
-    user_count = User.query.filter(User.user_state.in_(verified_states)).count()
+    user_count = (
+        UserEntity.query.filter(UserEntity.deleted == 0)
+        .filter(UserEntity.state.in_(verified_states))
+        .count()
+    )
     if user_count != 1:
+        db.session.flush()
         return
 
     # Always grant admin/creator to the first verified user
-    first_user = User.query.filter(User.user_id == user_id).first()
-    if first_user:
-        first_user.is_admin = True
-        first_user.is_creator = True
-    db.session.flush()
+    mark_user_roles(user_id, is_creator=True)
 
     # Assign demo shifu only when there is exactly one published course
     course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
@@ -166,84 +173,96 @@ def verify_phone_code(
 
     redis.delete(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
 
-    user_info = (
-        User.query.filter(User.mobile == phone)
-        .order_by(User.user_state.desc())
-        .order_by(User.id.asc())
-        .first()
-    )
-
     created_new_user = False
+    normalized_phone = phone.strip()
 
     with transactional_session():
-        if not user_info and user_id:
-            user_info = (
-                User.query.filter(User.user_id == user_id)
-                .order_by(User.id.asc())
-                .first()
-            )
+        target_aggregate = load_user_aggregate_by_identifier(
+            normalized_phone, providers=["phone"]
+        )
+        origin_aggregate = load_user_aggregate(user_id) if user_id else None
+
+        if not target_aggregate and origin_aggregate:
+            target_aggregate = origin_aggregate
 
         if (
-            user_info
+            target_aggregate
             and user_id
-            and user_id != user_info.user_id
+            and target_aggregate.user_bid != user_id
             and course_id is not None
         ):
             new_profiles = get_user_profile_labels(app, user_id, course_id)
             update_user_profile_with_lable(
-                app, user_info.user_id, new_profiles, False, course_id
+                app, target_aggregate.user_bid, new_profiles, False, course_id
             )
-            origin_user = User.query.filter(User.user_id == user_id).first()
             migrate_user_study_record(
                 app,
-                origin_user.user_id if origin_user else user_id,
-                user_info.user_id,
+                origin_aggregate.user_bid if origin_aggregate else user_id,
+                target_aggregate.user_bid,
                 course_id,
             )
             if (
-                origin_user
-                and origin_user.user_open_id != user_info.user_open_id
-                and (not user_info.user_open_id)
+                origin_aggregate
+                and origin_aggregate.wechat_open_id
+                and not target_aggregate.wechat_open_id
             ):
-                user_info.user_open_id = origin_user.user_open_id
+                upsert_wechat_credentials(
+                    app,
+                    user_bid=target_aggregate.user_bid,
+                    open_id=origin_aggregate.wechat_open_id,
+                    union_id=origin_aggregate.wechat_union_id,
+                    verified=True,
+                )
 
-        if user_info is None:
-            generated_user_id = uuid.uuid4().hex
-            user_info = User(
-                user_id=generated_user_id,
-                username="",
-                name="",
-                email="",
-                mobile=phone,
+        if target_aggregate is None:
+            defaults = {
+                "user_bid": user_id or uuid.uuid4().hex,
+                "nickname": normalized_phone or user_id,
+                "language": language,
+                "state": USER_STATE_REGISTERED,
+            }
+            target_aggregate, created_new_user = ensure_user_for_identifier(
+                app,
+                provider="phone",
+                identifier=normalized_phone,
+                defaults=defaults,
             )
-            user_info.user_state = USER_STATE_REGISTERED
-            if language:
-                user_info.user_language = language
-            db.session.add(user_info)
-            init_first_course(app, user_info.user_id)
-            created_new_user = True
+            init_first_course(app, target_aggregate.user_bid)
         else:
-            # If this is the first time the user completes verification,
-            # promote state from UNREGISTERED to REGISTERED and run first-course init.
-            if user_info.user_state in (USER_STATE_UNREGISTERED, 0):
-                user_info.user_state = USER_STATE_REGISTERED
-                init_first_course(app, user_info.user_id)
-            user_info.mobile = phone
-            if language:
-                user_info.user_language = language
+            entity = get_user_entity_by_bid(
+                target_aggregate.user_bid, include_deleted=True
+            )
+            if entity:
+                updates: Dict[str, Any] = {"identify": normalized_phone}
+                promote_state = target_aggregate.state in (
+                    USER_STATE_UNREGISTERED,
+                    0,
+                )
+                if promote_state:
+                    updates["state"] = USER_STATE_REGISTERED
+                if language:
+                    updates["language"] = language
+                entity = update_user_entity_fields(entity, **updates)
+                if promote_state:
+                    init_first_course(app, entity.user_bid)
 
-        token = generate_token(app, user_id=user_info.user_id)
-        db.session.flush()
-
-        user_entity = sync_user_entity_for_legacy(app, user_info)
-        if user_entity:
-            # On phone verification, persist the phone as the user's identifier
-            user_entity.user_identify = phone
-        db.session.flush()
-        user_dto = build_user_info_dto(user_info)
-        snapshot = build_user_profile_snapshot(
-            user_info, credentials=list_credentials(user_bid=user_info.user_id)
+        upsert_credential(
+            app,
+            user_bid=target_aggregate.user_bid,
+            provider_name="phone",
+            subject_id=normalized_phone,
+            subject_format="phone",
+            identifier=normalized_phone,
+            metadata={"course_id": course_id, "language": language},
+            verified=True,
         )
+
+        refreshed = load_user_aggregate(target_aggregate.user_bid)
+        if not refreshed:
+            raise_error("USER.USER_NOT_FOUND")
+        token = generate_token(app, user_id=refreshed.user_bid)
+        user_dto = build_user_info_from_aggregate(refreshed)
+        snapshot = build_user_profile_snapshot_from_aggregate(refreshed)
 
     return (
         UserToken(userInfo=user_dto, token=token),

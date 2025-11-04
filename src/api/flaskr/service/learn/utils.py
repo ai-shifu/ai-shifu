@@ -13,7 +13,7 @@ from ...service.lesson.models import AICourse, AILesson, AILessonScript
 from ...service.profile.funcs import get_user_profiles
 from ...service.learn.dtos import ScriptDTO
 from ...service.learn.models import LearnGeneratedBlock
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from ...service.lesson.const import STATUS_PUBLISH, STATUS_DRAFT
 from flaskr.i18n import get_current_language
 from flaskr.service.shifu.dtos import LabelDTO
@@ -33,7 +33,7 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 
 def generation_attend(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,
@@ -44,7 +44,7 @@ def generation_attend(
     the attend is used to store the attend info
     Args:
         app: Flask application instance
-        user_info: User info
+        user_info: UserAggregate info
         attend_id: Attend id
         outline_item_info: Outline item info
         block_dto: Block dto
@@ -76,7 +76,7 @@ def generation_attend(
     return generated_block
 
 
-def check_phone_number(app, user_info: User, input):
+def check_phone_number(app, user_info: UserAggregate, input):
     """
     Check phone number
     """

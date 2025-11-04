@@ -2,7 +2,7 @@ from flask import Flask
 
 from flaskr.service.learn.const import INPUT_TYPE_PHONE
 from flaskr.service.learn.plugin import register_shifu_output_handler
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.learn.utils import get_script_ui_label
 from flaskr.i18n import _
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
@@ -15,7 +15,7 @@ from flaskr.service.learn.dtos import ScriptDTO
 @register_shifu_output_handler("phone")
 def _handle_output_phone(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

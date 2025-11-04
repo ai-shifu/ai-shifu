@@ -52,7 +52,7 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
 )
 
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.profile.funcs import get_user_profiles
@@ -346,7 +346,7 @@ class RunScriptContextV2:
     _q: queue.Queue
     _outline_item_info: ShifuOutlineItemDto
     _struct: HistoryItem
-    _user_info: User
+    _user_info: UserAggregate
     _is_paid: bool
     _preview_mode: bool
     _shifu_ids: list[str]
@@ -369,7 +369,7 @@ class RunScriptContextV2:
         shifu_info: ShifuInfoDto,
         struct: HistoryItem,
         outline_item_info: ShifuOutlineItemDto,
-        user_info: User,
+        user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
     ):
