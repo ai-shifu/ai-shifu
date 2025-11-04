@@ -28,7 +28,6 @@ const ChapterSettingsDialog = ({
   variant?: 'chapter' | 'lesson';
 }) => {
   const isChapter = variant === 'chapter';
-  const promptScope = isChapter ? 'chapter' : 'lesson';
   const { currentShifu } = useShifu();
   const { t } = useTranslation();
   const [learningPermission, setLearningPermission] =
@@ -113,11 +112,9 @@ const ChapterSettingsDialog = ({
         <div className='border-b border-border px-6 py-5 pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
-              {t(
-                `module.chapterSetting.${
-                  isChapter ? 'chapterSettingsTitle' : 'lessonSettingsTitle'
-                }`,
-              )}
+              {isChapter
+                ? t('module.chapterSetting.chapterSettingsTitle')
+                : t('module.chapterSetting.lessonSettingsTitle')}
             </SheetTitle>
           </SheetHeader>
         </div>
@@ -216,9 +213,11 @@ const ChapterSettingsDialog = ({
 
               <div className='space-y-2'>
                 <div className='text-sm font-medium text-foreground'>
-                  {t(`module.chapterSetting.${promptScope}Prompt`)}
+                  {isChapter
+                    ? t('module.chapterSetting.chapterPrompt')
+                    : t('module.chapterSetting.lessonPrompt')}
                 </div>
-                {promptScope === 'lesson' && (
+                {!isChapter && (
                   <div className='text-xs text-muted-foreground'>
                     {t('module.chapterSetting.lessonPromptHint')}
                   </div>
