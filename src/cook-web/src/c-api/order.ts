@@ -1,9 +1,5 @@
 import request from '@/lib/request';
 
-export const testPurchaseOrder = ({ orderId }) => {
-  return request.post('/api/order/order-test', { order_id: orderId });
-};
-
 // Create order
 export const initOrder = course_id => {
   return request.post('/api/order/init-order', { course_id });

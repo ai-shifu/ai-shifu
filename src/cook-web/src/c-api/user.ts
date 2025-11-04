@@ -2,34 +2,6 @@ import request from '@/lib/request';
 import { useSystemStore } from '@/c-store/useSystemStore';
 
 /**
- * @description User registration endpoint
- * @param {*} username
- * @param {*} password
- * @param {*} name
- * @param {*} mobile
- * @param {*} email
- * @returns
- */
-export const register = ({ username, password, mobile, email }) => {
-  return request.post('/api/user/register', {
-    username,
-    password,
-    email,
-    mobile,
-  });
-};
-
-/**
- * User login endpoint
- * @param {*} username
- * @param {*} password
- * @returns
- */
-export const login = (username, password) => {
-  return request.post('/api/user/login', { username, password });
-};
-
-/**
  * @description Fetch user information
  * @returns
  */
@@ -42,25 +14,6 @@ export const getUserInfo = () => {
  */
 export const updateUserInfo = name => {
   return request.post('/api/user/update_info', { name });
-};
-
-export const updatePassword = (old_password, new_password) => {
-  return request.post('/api/user/update_password', {
-    old_password,
-    new_password,
-  });
-};
-
-export const requireResetPasswordCode = username => {
-  return request.post('/api/user/require_reset_code', { username });
-};
-
-export const resetPassword = (username, new_password, code) => {
-  return request.post('/api/user/reset_password', {
-    username,
-    new_password,
-    code,
-  });
 };
 
 /**
@@ -92,13 +45,6 @@ export const registerTmp = ({ temp_id }) => {
 export const updateWxcode = ({ wxcode }) => {
   // const { wechatCode: wxcode } = useSystemStore.getState();
   return request.post('/api/user/update_openid', { wxcode });
-};
-
-/**
- * Request image captcha
- */
-export const genCheckCode = mobile => {
-  return request.post('/api/user/generate_chk_code', { mobile });
 };
 
 /**
