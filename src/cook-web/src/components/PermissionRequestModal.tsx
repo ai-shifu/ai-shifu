@@ -38,7 +38,7 @@ export const PermissionRequestModal = ({
   open,
   onClose,
 }: PermissionRequestModalProps) => {
-  const { t } = useTranslation('translation', { keyPrefix: 'c' });
+  const { t } = useTranslation();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const formSchema = z.object({
