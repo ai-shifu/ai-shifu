@@ -2,7 +2,7 @@
   "__namespace__": "module.shifu",
   "newChapter": "Add Chapter",
   "creationArea": {
-    "description": "Describe the chapter you want, or leave it blank and let AI take the lead.",
+    "description": "Describe the content you want, or leave room for the AI to improvise.",
     "title": "Creation Area",
     "modeText": "Raw",
     "modeCode": "Text"

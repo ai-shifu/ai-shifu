@@ -1,14 +1,17 @@
 {
   "__namespace__": "module.chapterSetting",
-  "title": "Chapter Settings",
+  "chapterSettingsTitle": "Chapter Settings",
+  "lessonSettingsTitle": "Lesson Settings",
   "learningPermission": "Learning Permission",
-  "paidChapter": "Paid Chapter",
-  "freeChapter": "Free Chapter",
-  "guestChapter": "Guest Chapter",
+  "paid": "Paid",
+  "free": "Free",
+  "guest": "Login-free",
   "isHidden": "Visibility",
-  "visibleChapter": "Visible",
-  "hideChapter": "Hidden",
-  "systemPrompt": "System Prompt",
-  "promptHint": "Optional initial instruction for this chapter",
-  "chapterTitle": "Chapter Title"
+  "visible": "Visible",
+  "hidden": "Hidden",
+  "chapterPrompt": "Chapter Prompt",
+  "chapterPromptHint": "Define the chapter's audience, tone, and guardrails",
+  "lessonPrompt": "Lesson Prompt",
+  "lessonPromptHint": "Define the lesson's audience, tone, and guardrails",
+  "promptPlaceholder": "Please enter the prompt"
 }
