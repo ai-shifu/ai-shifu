@@ -106,14 +106,14 @@ const ChapterPromptSetting = ({
               <Textarea
                 value={systemPrompt}
                 onChange={event => setSystemPrompt(event.target.value)}
-                maxLength={2000}
+                maxLength={20000}
                 rows={6}
                 placeholder={t('module.chapterSetting.promptPlaceholder')}
                 className='min-h-[220px]'
               />
-              <div className='text-xs text-muted-foreground text-right'>
-                {systemPrompt.length}/2000
-              </div>
+              {/* <div className='text-xs text-muted-foreground text-right'>
+                {systemPrompt.length}/10000
+              </div> */}
             </div>
           </div>
         )}
