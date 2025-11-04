@@ -30,7 +30,7 @@
   "number": "数字",
   "temperatureHint": "设置AI的创造力(0-2)",
   "shifuPrompt": "师傅提示词",
-  "shifuPromptMaxLength": "提示词不能超过300个字符",
+  "shifuPromptMaxLength": "提示词不能超过2000个字符",
   "shifuPromptHint": "对整个师傅的内容，进行对象、语气和注意事项等整体约束",
   "shifuPromptPlaceholder": "请输入提示词...",
   "keywords": "关键词",
