@@ -19,9 +19,8 @@
 **Endpoints only used by legacy `src/web`**
 - `/api/course/get-course-info` — course metadata fetch used by the legacy learner UI.
 - `/api/study/reset-study-progress` — lesson reset endpoint triggered from the legacy learner UI.
-- `/api/user/verify_sms_code` — SMS verification endpoint invoked during legacy login/registration.
 
-These endpoints can be retired from the backend once consumers are removed.
+These endpoints can be retired from the backend once consumers are removed. Note: Cook Web calls `POST /user/verify_sms_code` via a relative path string (`'POST /user/verify_sms_code'`), so that login flow remains active in the unified frontend.
 
 **Endpoints still shared between Cook Web and legacy `src/web`**
 - `/api/click2cash/generate-active-order`
