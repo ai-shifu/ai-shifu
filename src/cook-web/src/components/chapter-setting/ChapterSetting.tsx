@@ -138,14 +138,14 @@ const ChapterSettingsDialog = ({
                 >
                   <div className='flex items-center gap-2'>
                     <RadioGroupItem
-                      value={LEARNING_PERMISSION.NORMAL}
-                      id='chapter-normal'
+                      value={LEARNING_PERMISSION.GUEST}
+                      id='chapter-guest'
                     />
                     <Label
-                      htmlFor='chapter-normal'
+                      htmlFor='chapter-guest'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.paid')}
+                      {t('module.chapterSetting.guest')}
                     </Label>
                   </div>
                   <div className='flex items-center gap-2'>
@@ -162,14 +162,14 @@ const ChapterSettingsDialog = ({
                   </div>
                   <div className='flex items-center gap-2'>
                     <RadioGroupItem
-                      value={LEARNING_PERMISSION.GUEST}
-                      id='chapter-guest'
+                      value={LEARNING_PERMISSION.NORMAL}
+                      id='chapter-normal'
                     />
                     <Label
-                      htmlFor='chapter-guest'
+                      htmlFor='chapter-normal'
                       className='text-sm font-normal text-foreground'
                     >
-                      {t('module.chapterSetting.guest')}
+                      {t('module.chapterSetting.paid')}
                     </Label>
                   </div>
                 </RadioGroup>
@@ -228,7 +228,11 @@ const ChapterSettingsDialog = ({
                   maxLength={20000}
                   minRows={3}
                   maxRows={30}
-                  placeholder={t('module.chapterSetting.promptPlaceholder')}
+                  placeholder={
+                    !isChapter
+                      ? t('module.chapterSetting.lessonPromptPlaceholder')
+                      : t('module.chapterSetting.promptPlaceholder')
+                  }
                   className='min-h-[220px]'
                 />
                 {/* <div className='text-xs text-muted-foreground text-right'>
