@@ -29,6 +29,8 @@ const api = {
   saveShifuDetail: 'POST /shifu/shifus/{shifu_bid}/detail',
   publishShifu: 'POST /shifu/shifus/{shifu_bid}/publish',
   previewShifu: 'POST /shifu/shifus/{shifu_bid}/preview',
+  previewOutlineBlock:
+    'POST /learn/shifu/{shifu_bid}/preview/{outline_bid}',
   // shifu api end
 
   markFavoriteShifu: 'POST /shifu/mark-favorite-shifu',

@@ -205,6 +205,14 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         type: string
                         required: true
                         description: preview prompt
+                    document_prompt:
+                        type: string
+                        required: false
+                        description: document prompt
+                    variables:
+                        type: object
+                        required: false
+                        description: variables
         responses:
             200:
                 description: preview block success

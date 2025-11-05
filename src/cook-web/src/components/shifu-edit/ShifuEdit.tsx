@@ -103,6 +103,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<unknown>(null);
   const editModeOptions = useMemo(
     () => [
       {
@@ -180,9 +181,25 @@ const ScriptEditor = ({ id }: { id: string }) => {
     setIsPreviewPanelOpen(true);
     setIsPreviewLoading(true);
     setPreviewError(null);
+     setPreviewData(null);
 
     try {
-     
+      await actions.saveMdflow({
+        shifu_bid: currentShifu.bid,
+        outline_bid: currentNode.bid,
+        data: mdflow,
+      });
+
+      const response = await api.previewOutlineBlock({
+        shifu_bid: currentShifu.bid,
+        outline_bid: currentNode.bid,
+        block_index: 0,
+        prompt: mdflow,
+        input: {},
+        variables: {},
+      });
+
+      setPreviewData(response);
     } catch {
       setPreviewError(t('module.shifu.previewArea.error'));
     } finally {
@@ -370,6 +387,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   <LessonPreview
                     loading={isPreviewLoading}
                     errorMessage={previewError}
+                    data={previewData}
                   />
                 </div>
               </div>

@@ -7,11 +7,13 @@ import { FileText, Loader2 } from 'lucide-react';
 interface LessonPreviewProps {
   loading: boolean;
   errorMessage?: string | null;
+  data?: unknown;
 }
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
   errorMessage,
+  data,
 }) => {
   const { t } = useTranslation();
 
@@ -21,6 +23,16 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         <div className='flex flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
           <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />
           <span>{t('module.shifu.previewArea.loading')}</span>
+        </div>
+      );
+    }
+
+    if (data) {
+      const content =
+        typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+      return (
+        <div className='h-full w-full overflow-auto rounded-xl bg-white/70 p-4 text-left text-xs text-foreground'>
+          <pre className='whitespace-pre-wrap break-words'>{content}</pre>
         </div>
       );
     }
