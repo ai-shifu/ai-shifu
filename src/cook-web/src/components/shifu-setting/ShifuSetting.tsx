@@ -318,9 +318,7 @@ export default function ShifuSettingDialog({
                       <Textarea
                         {...field}
                         maxLength={500}
-                        placeholder={t(
-                          'module.shifuSetting.placeholder',
-                        )}
+                        placeholder={t('module.shifuSetting.placeholder')}
                         rows={4}
                       />
                     </FormControl>
@@ -519,7 +517,7 @@ export default function ShifuSettingDialog({
                     </FormLabel>
                     <p className='text-xs text-muted-foreground'>
                       {t('module.shifuSetting.temperatureHint')}
-                      <br/>
+                      <br />
                       {t('module.shifuSetting.temperatureHint2')}
                     </p>
                     <div className='flex items-center gap-2'>
