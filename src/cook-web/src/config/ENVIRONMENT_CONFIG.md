@@ -10,7 +10,7 @@
 
 | 变量名                     | 用途       | 默认值                  |
 | -------------------------- | ---------- | ----------------------- |
-| `NEXT_PUBLIC_API_BASE_URL` | API基础URL | `http://localhost:8081` |
+| `NEXT_PUBLIC_API_BASE_URL` | API基础URL | `http://localhost:8080` |
 
 ### 2. 课程配置 (Course Configuration)
 

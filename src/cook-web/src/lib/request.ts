@@ -133,10 +133,10 @@ export class Request {
       if (typeof window !== 'undefined') {
         // Client: use cached API base URL to avoid repeated requests
         const siteHost = await getDynamicApiBaseUrl();
-        fullUrl = (siteHost || 'http://localhost:8081') + url;
+        fullUrl = (siteHost || 'http://localhost:8080') + url;
       } else {
         // Fallback for server-side rendering
-        fullUrl = (getStringEnv('baseURL') || 'http://localhost:8081') + url;
+        fullUrl = (getStringEnv('baseURL') || 'http://localhost:8080') + url;
       }
     }
 

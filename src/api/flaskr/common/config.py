@@ -739,7 +739,7 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
     ),
     "SITE_HOST": EnvVar(
         name="SITE_HOST",
-        default="http://localhost:8081/",
+        default="http://localhost:8080/",
         description="Site host URL",
         group="frontend",
     ),
