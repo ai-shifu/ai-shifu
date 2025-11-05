@@ -356,8 +356,6 @@ export type I18nKey =
   | 'module.shifuSetting.inputKeywords'
   | 'module.shifuSetting.keywords'
   | 'module.shifuSetting.learningUrl'
-  | 'module.shifuSetting.limit300Characters'
-  | 'module.shifuSetting.limit20Characters'
   | 'module.shifuSetting.placeholder'
   | 'module.shifuSetting.number'
   | 'module.shifuSetting.previewUrl'
