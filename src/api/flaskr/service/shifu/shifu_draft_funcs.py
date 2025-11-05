@@ -11,7 +11,7 @@ from ...dao import db
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from ..lesson.const import STATUS_DRAFT
+from .consts import STATUS_DRAFT
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error
 from ...common.config import get_config

@@ -31,8 +31,8 @@ from ...util.uuid import generate_id as get_uuid
 from .pingxx_order import create_pingxx_order
 from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
 import pytz
-from flaskr.service.lesson.funcs import get_course_info
-from flaskr.service.lesson.funcs import AICourseDTO
+from flaskr.service.learn.learn_funcs import get_shifu_info
+from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.config import get_config
@@ -162,15 +162,15 @@ def send_order_feishu(app: Flask, record_id: str):
             order_info.user_id,
         )
         return
-    course_info: AICourseDTO = get_course_info(app, order_info.course_id)
-    if not course_info:
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order_info.course_id, False)
+    if not shifu_info:
         return
 
     title = "购买课程通知"
     msgs = []
     msgs.append("手机号：{}".format(aggregate.mobile))
     msgs.append("昵称：{}".format(aggregate.name))
-    msgs.append("课程名称：{}".format(course_info.course_name))
+    msgs.append("课程名称：{}".format(shifu_info.title))
     msgs.append("实付金额：{}".format(order_info.price))
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
@@ -224,9 +224,9 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
     with app.app_context():
         order_timeout_make_new_order = False
         find_active_id = None
-        course_info: AICourseDTO = get_course_info(app, course_id)
-        app.logger.info(f"course_info: {course_info}")
-        if not course_info:
+        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
+        app.logger.info(f"shifu_info: {shifu_info}")
+        if not shifu_info:
             raise_error("server.shifu.courseNotFound")
         origin_record = (
             Order.query.filter(
@@ -237,7 +237,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .order_by(Order.id.asc())
             .first()
         )
-        print("price: ", course_info.course_price)
+        print("price: ", shifu_info.price)
         if origin_record:
             if origin_record.status != ORDER_STATUS_SUCCESS:
                 order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
@@ -257,10 +257,10 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record = Order()
             buy_record.user_bid = user_id
             buy_record.shifu_bid = course_id
-            buy_record.payable_price = decimal.Decimal(course_info.course_price)
+            buy_record.payable_price = decimal.Decimal(shifu_info.price)
             buy_record.status = ORDER_STATUS_INIT
             buy_record.order_bid = order_id
-            buy_record.payable_price = course_info.course_price
+            buy_record.payable_price = shifu_info.price
             print("buy_record: ", buy_record.payable_price)
         else:
             buy_record = origin_record
@@ -350,9 +350,9 @@ def generate_charge(
         ).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")
-        course: AICourseDTO = get_course_info(app, buy_record.shifu_bid)
-        if not course:
-            raise_error("server.shifu.courseNotFound")
+        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
+        if not shifu_info:
+            raise_error("server.shifu.shifuNotFound")
         app.logger.info("buy record found:{}".format(buy_record))
         if buy_record.status == ORDER_STATUS_SUCCESS:
             app.logger.warning("buy record:{} status is not init".format(record_id))
@@ -365,9 +365,9 @@ def generate_charge(
             )
             # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
-        product_id = course.course_id
-        subject = course.course_name
-        body = course.course_name
+        product_id = shifu_info.bid
+        subject = shifu_info.title
+        body = shifu_info.description
         order_no = str(get_uuid(app))
         qr_url = None
         pingpp_id = get_config("PINGXX_APP_ID")

@@ -56,12 +56,6 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_CHECKCODE_VALUE,
 )
 from flaskr.service.learn.const import ROLE_TEACHER
-from flaskr.service.shifu.models import DraftBlock, PublishedBlock
-from typing import Union
-from flaskr.service.profile.profile_manage import get_profile_item_definition_list
-from flaskr.service.shifu.block_to_mdflow_adapter import convert_block_to_mdflow
-from flaskr.service.shifu.dtos import BlockDTO
-from flaskr.service.shifu.adapter import generate_block_dto_from_model_internal
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
     UNIT_TYPE_VALUE_NORMAL,
@@ -239,41 +233,10 @@ def get_outline_item_tree(
         )
 
 
-def get_mdflow(
-    app: Flask,
-    mdflow: str,
-    block: Union[DraftBlock, PublishedBlock],
-    variable_map: dict[str, str],
-) -> str:
-    # if mdflow is not json, return mdflow
-    if not mdflow.startswith("{"):
-        return mdflow
-    # if mdflow is json, parse it
-    try:
-        if not block:
-            return mdflow
-        block_dto: BlockDTO = generate_block_dto_from_model_internal(
-            block, convert_html=True
-        )
-        mdflow = convert_block_to_mdflow(block_dto, variable_map)
-        return mdflow
-
-    except Exception:
-        return mdflow
-
-
 def get_learn_record(
     app: Flask, shifu_bid: str, outline_bid: str, user_bid: str, preview_mode: bool
 ) -> LearnRecordDTO:
     with app.app_context():
-        block_model: Union[DraftBlock, PublishedBlock] = (
-            DraftBlock if preview_mode else PublishedBlock
-        )
-        variable_definitions = get_profile_item_definition_list(app, shifu_bid)
-        variable_map = {
-            variable_definition.profile_id: variable_definition.profile_key
-            for variable_definition in variable_definitions
-        }
         progress_record = LearnProgressRecord.query.filter(
             LearnProgressRecord.user_bid == user_bid,
             LearnProgressRecord.shifu_bid == shifu_bid,
@@ -325,13 +288,6 @@ def get_learn_record(
             -1: LikeStatus.DISLIKE,
             0: LikeStatus.NONE,
         }
-        block_ids = [generated_block.block_bid for generated_block in generated_blocks]
-        blocks = block_model.query.filter(
-            block_model.block_bid.in_(block_ids), block_model.deleted == 0
-        ).all()
-        block_map: dict[str, Union[DraftBlock, PublishedBlock]] = {
-            i.block_bid: i for i in blocks
-        }
         for generated_block in generated_blocks:
             block_type = BLOCK_TYPE_MAP.get(generated_block.type, BlockType.CONTENT)
             if block_type == BlockType.ASK and generated_block.role == ROLE_TEACHER:
@@ -347,12 +303,7 @@ def get_learn_record(
                     BlockType.ASK,
                     BlockType.ANSWER,
                 )
-                else get_mdflow(
-                    app,
-                    generated_block.block_content_conf,
-                    block_map.get(generated_block.block_bid, None),
-                    variable_map,
-                ),
+                else generated_block.block_content_conf,
                 LIKE_STATUS_MAP.get(generated_block.liked, LikeStatus.NONE),
                 block_type,
                 generated_block.generated_content
