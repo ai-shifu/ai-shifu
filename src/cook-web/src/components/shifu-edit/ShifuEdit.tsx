@@ -1,7 +1,14 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Plus, ListCollapse } from 'lucide-react';
+import {
+  ListCollapse,
+  Loader2,
+  PanelRightClose,
+  PanelRightOpen,
+  PlayIcon,
+  Plus,
+} from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
@@ -20,6 +27,8 @@ import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { getBoolEnv } from '@/c-utils/envUtils';
+import api from '@/api';
+import LessonPreview from '@/components/lesson-preview';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -91,6 +100,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const profile = useUserStore(state => state.userInfo);
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
+  const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
   const editModeOptions = useMemo(
     () => [
       {
@@ -156,6 +168,28 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id]);
 
+  const handleTogglePreviewPanel = () => {
+    setIsPreviewPanelOpen(prev => !prev);
+  };
+
+  const handlePreview = async () => {
+    if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
+      return;
+    }
+
+    setIsPreviewPanelOpen(true);
+    setIsPreviewLoading(true);
+    setPreviewError(null);
+
+    try {
+     
+    } catch {
+      setPreviewError(t('module.shifu.previewArea.error'));
+    } finally {
+      setIsPreviewLoading(false);
+    }
+  };
+
   const variablesList = useMemo(() => {
     return variables.map((variable: string) => ({
       name: variable,
@@ -189,6 +223,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
       },
     };
   }, [token, baseURL]);
+
+  const canPreview = Boolean(
+    currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
+  );
+
+  const previewToggleLabel = isPreviewPanelOpen
+    ? t('module.shifu.previewArea.close')
+    : t('module.shifu.previewArea.open');
+
+  const previewDisabledReason = t('module.shifu.previewArea.disabled');
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
@@ -228,55 +272,107 @@ const ScriptEditor = ({ id }: { id: string }) => {
             </div>
           )}
         </div>
-        <div className='flex-1 overflow-auto relative text-sm'>
-          <div className='p-8 gap-4 flex flex-col max-w-[900px] mx-auto h-full w-full'>
-            {isLoading ? (
-              <div className='h-40 flex items-center justify-center'>
-                <Loading />
-              </div>
-            ) : currentNode?.depth && currentNode.depth > 0 ? (
-              <>
-                <div className='flex items-baseline'>
-                  <h2 className='text-base font-semibold text-foreground'>
-                    {t('module.shifu.creationArea.title')}
-                  </h2>
-                  <p className='px-2 text-xs leading-3 text-[rgba(0,0,0,0.45)]'>
-                    {t('module.shifu.creationArea.description')}
-                  </p>
-                  <Tabs
-                    value={editMode}
-                    onValueChange={value => setEditMode(value as EditMode)}
-                    className='ml-auto'
-                  >
-                    <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
-                      {editModeOptions.map(option => (
-                        <TabsTrigger
-                          key={option.value}
-                          value={option.value}
-                          className={cn(
-                            'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
-                          )}
+        <div className='flex-1 overflow-hidden relative text-sm'>
+          <div className='flex h-full gap-4 overflow-hidden'>
+            <div className={cn('flex-1 overflow-auto', isPreviewPanelOpen ? 'pr-2' : '')}>
+              <div
+                className={cn(
+                  'p-8 gap-4 flex flex-col h-full w-full',
+                  isPreviewPanelOpen ? 'max-w-[900px]' : 'max-w-[900px] mx-auto',
+                )}
+              >
+                {isLoading ? (
+                  <div className='h-40 flex items-center justify-center'>
+                    <Loading />
+                  </div>
+                ) : currentNode?.depth && currentNode.depth > 0 ? (
+                  <>
+                    <div className='flex flex-wrap items-center gap-3'>
+                      <div className='flex min-w-[220px] items-baseline gap-2'>
+                        <h2 className='text-base font-semibold text-foreground'>
+                          {t('module.shifu.creationArea.title')}
+                        </h2>
+                        <p className='px-2 text-xs leading-3 text-[rgba(0,0,0,0.45)]'>
+                          {t('module.shifu.creationArea.description')}
+                        </p>
+                      </div>
+                      <div className='ml-auto flex flex-wrap items-center gap-2'>
+                        <Tabs
+                          value={editMode}
+                          onValueChange={value => setEditMode(value as EditMode)}
                         >
-                          {option.label}
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
+                          <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
+                            {editModeOptions.map(option => (
+                              <TabsTrigger
+                                key={option.value}
+                                value={option.value}
+                                className={cn(
+                                  'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
+                                )}
+                              >
+                                {option.label}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                        </Tabs>
+                        <Button
+                          type='button'
+                          size='sm'
+                          className='h-8 px-3 text-xs font-semibold'
+                          onClick={handlePreview}
+                          disabled={!canPreview || isPreviewLoading}
+                          title={!canPreview ? previewDisabledReason : undefined}
+                        >
+                          {isPreviewLoading ? (
+                            <Loader2 className='h-4 w-4 animate-spin' />
+                          ) : (
+                            <PlayIcon className='h-4 w-4' />
+                          )}
+                          {t('module.shifu.previewArea.action')}
+                        </Button>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          className='h-8 w-8'
+                          onClick={handleTogglePreviewPanel}
+                          aria-label={previewToggleLabel}
+                          title={previewToggleLabel}
+                        >
+                          {isPreviewPanelOpen ? (
+                            <PanelRightClose className='h-4 w-4' />
+                          ) : (
+                            <PanelRightOpen className='h-4 w-4' />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <MarkdownFlowEditor
+                      locale={
+                        normalizeLanguage(
+                          (i18n.resolvedLanguage ?? i18n.language) as string,
+                        ) as 'en-US' | 'zh-CN'
+                      }
+                      content={mdflow}
+                      variables={variablesList}
+                      systemVariables={systemVariablesList as any[]}
+                      onChange={onChangeMdflow}
+                      editMode={editMode}
+                      uploadProps={uploadProps}
+                    />
+                  </>
+                ) : null}
+              </div>
+            </div>
+            {isPreviewPanelOpen ? (
+              <div className='w-full max-w-[480px] flex-shrink-0 overflow-auto px-4 py-8'>
+                <div className='h-full'>
+                  <LessonPreview
+                    loading={isPreviewLoading}
+                    errorMessage={previewError}
+                  />
                 </div>
-                <MarkdownFlowEditor
-                  locale={
-                    normalizeLanguage(
-                      (i18n.resolvedLanguage ?? i18n.language) as string,
-                    ) as 'en-US' | 'zh-CN'
-                  }
-                  content={mdflow}
-                  variables={variablesList}
-                  systemVariables={systemVariablesList as any[]}
-                  onChange={onChangeMdflow}
-                  editMode={editMode}
-                  uploadProps={uploadProps}
-                />
-              </>
+              </div>
             ) : null}
           </div>
         </div>
