@@ -8,8 +8,7 @@ from typing import Optional
 
 from flaskr.service.user.repository import (
     UserAggregate,
-    create_user_entity,
-    get_user_entity_by_bid,
+    _ensure_user_entity as ensure_user_entity,
     load_user_aggregate,
     update_user_entity_fields,
 )
@@ -63,18 +62,11 @@ _LANGUAGE_SPECIFIC_DISPLAY = {
 _DEFAULT_LANGUAGE_DISPLAY = "English"
 
 
-def _ensure_user_entity(user_id: str):
-    entity = get_user_entity_by_bid(user_id, include_deleted=True)
-    if entity:
-        return entity
-    return create_user_entity(user_bid=user_id, identify=user_id, nickname=user_id)
-
-
 def _ensure_user_aggregate(user_id: str) -> Optional[UserAggregate]:
     aggregate = load_user_aggregate(user_id)
     if aggregate:
         return aggregate
-    _ensure_user_entity(user_id)
+    ensure_user_entity(user_id)
     return load_user_aggregate(user_id)
 
 
@@ -107,7 +99,7 @@ def _normalize_core_value(mapping: str, value):
 
 
 def _apply_core_mapping(user_id: str, mapping: str, value):
-    entity = _ensure_user_entity(user_id)
+    entity = ensure_user_entity(user_id)
     normalized = _normalize_core_value(mapping, value)
     if mapping == "name":
         update_user_entity_fields(entity, nickname=normalized)

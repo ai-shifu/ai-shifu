@@ -257,7 +257,68 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     if entity:
         return entity
-    return create_user_entity(user_bid=user_bid, identify=user_bid)
+    identify = user_bid
+    nickname: Optional[str] = None
+    language: Optional[str] = None
+    avatar: Optional[str] = None
+    birthday: Optional[date] = None
+
+    credentials = list_credentials(user_bid=user_bid)
+    if credentials:
+
+        def _credential_sort_key(cred: AuthCredential) -> tuple[int, int, int]:
+            verified_rank = 0 if cred.state == CREDENTIAL_STATE_VERIFIED else 1
+            provider_rank = {"phone": 0, "email": 1}.get(cred.provider_name, 2)
+            return (verified_rank, provider_rank, cred.id or 0)
+
+        for credential in sorted(credentials, key=_credential_sort_key):
+            candidate = (credential.identifier or "").strip()
+            if candidate:
+                identify = candidate
+                if not nickname:
+                    nickname = candidate
+                break
+
+    try:
+        from flaskr.service.profile.models import UserProfile  # type: ignore
+    except ImportError:  # pragma: no cover - defensive fallback
+        UserProfile = None  # type: ignore[assignment]
+
+    if UserProfile is not None:
+        profile_rows = (
+            UserProfile.query.filter(
+                UserProfile.user_id == user_bid,
+                UserProfile.profile_key.in_(
+                    ["sys_user_nickname", "avatar", "language", "birth"]
+                ),
+            )
+            .order_by(UserProfile.id.desc())
+            .all()
+        )
+        for row in profile_rows:
+            value = (row.profile_value or "").strip()
+            if not value:
+                continue
+            if row.profile_key == "sys_user_nickname":
+                nickname = value
+            elif row.profile_key == "avatar" and not avatar:
+                avatar = value
+            elif row.profile_key == "language" and not language:
+                language = value
+            elif row.profile_key == "birth" and not birthday:
+                try:
+                    birthday = date.fromisoformat(value)
+                except ValueError:
+                    continue
+
+    return create_user_entity(
+        user_bid=user_bid,
+        identify=identify,
+        nickname=nickname,
+        language=language,
+        avatar=avatar,
+        birthday=birthday,
+    )
 
 
 def load_user_aggregate(

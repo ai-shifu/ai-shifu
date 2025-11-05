@@ -217,7 +217,7 @@ def verify_phone_code(
         if target_aggregate is None:
             defaults = {
                 "user_bid": user_id or uuid.uuid4().hex,
-                "nickname": normalized_phone or user_id,
+                "nickname": normalized_phone or "",
                 "language": language,
                 "state": USER_STATE_REGISTERED,
             }
