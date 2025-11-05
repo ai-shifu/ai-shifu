@@ -329,12 +329,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
     setMdflow(mdflow);
     setCurrentMdflow(mdflow);
-    if (mdflow) {
-      parseMdflow(mdflow, shifuId, outlineId);
-    } else {
-      setVariables([]);
-      setSystemVariables([]);
-    }
+    // if (mdflow) {
+    parseMdflow(mdflow, shifuId, outlineId);
+    // } else {
+    // setVariables([]);
+    // setSystemVariables([]);
+    // }
     setIsLoading(false);
   };
 
@@ -1022,15 +1022,19 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       setSystemVariables(sysVariables);
 
-      const result = await api.parseMdflow({
-        shifu_bid: shifuId || currentShifu?.bid || '',
-        outline_bid: outlineId || currentNode?.bid || '',
-        data: value,
-      });
+      // const result = await api.parseMdflow({
+      //   shifu_bid: shifuId || currentShifu?.bid || '',
+      //   outline_bid: outlineId || currentNode?.bid || '',
+      //   data: value,
+      // });
 
-      const customVariables = result.variables.filter(
-        item => !sysVariables.some(sysItem => sysItem.name === item),
-      );
+      // const customVariables = result.variables.filter(
+      //   item => !sysVariables.some(sysItem => sysItem.name === item),
+      // );
+
+      const customVariables = list
+        .filter(item => item.profile_scope === 'user')
+        .map(item => item.profile_key);
 
       setVariables(customVariables || []);
     } catch (error) {
