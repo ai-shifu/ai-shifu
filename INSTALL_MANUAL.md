@@ -4,17 +4,15 @@
 
 ### Architecture Overview
 
-AI-Shifu consists of three main components:
+AI-Shifu consists of two main components:
 
 ```bash
 src/
 ├── api/          # Backend API service (Flask/Python)
-├── web/          # User frontend (React)
 └── cook-web/     # Script editor frontend (Next.js)
 ```
 
 - **api**: Backend API service built with Flask
-- **web**: User-facing frontend application built with React
 - **cook-web**: Script editor for creating and managing courses, built with Next.js
 
 ### Required Tools and Services
