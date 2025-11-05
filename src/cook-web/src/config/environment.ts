@@ -79,7 +79,7 @@ async function getClientApiBaseUrl(): Promise<string> {
     }
 
     // Fallback to the default value when fetching fails
-    cachedApiBaseUrl = 'http://localhost:8081';
+    cachedApiBaseUrl = 'http://localhost:8080';
     return cachedApiBaseUrl;
   })();
 
@@ -100,7 +100,7 @@ function getApiBaseUrl(): string {
   }
 
   // 2. Clients fall back to the build value and update dynamically later
-  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8081';
+  return process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080';
 }
 
 /**
