@@ -330,10 +330,10 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setMdflow(mdflow);
     setCurrentMdflow(mdflow);
     // if (mdflow) {
-      parseMdflow(mdflow, shifuId, outlineId);
+    parseMdflow(mdflow, shifuId, outlineId);
     // } else {
-      // setVariables([]);
-      // setSystemVariables([]);
+    // setVariables([]);
+    // setSystemVariables([]);
     // }
     setIsLoading(false);
   };
@@ -1033,8 +1033,8 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       // );
 
       const customVariables = list
-      .filter(item => item.profile_scope === 'user')
-      .map(item => item.profile_key)
+        .filter(item => item.profile_scope === 'user')
+        .map(item => item.profile_key);
 
       setVariables(customVariables || []);
     } catch (error) {
