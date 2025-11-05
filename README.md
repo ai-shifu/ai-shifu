@@ -120,20 +120,32 @@ After Docker starts:
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+=======
+>>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
 2. (Optional) `http://localhost:8081` also routes to Cook Web for compatibility with legacy tooling
 3. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
 4. The first verified user becomes Admin and Creator and will own the demo course
 >>>>>>> 9e2f5680 (refactor: remove legacy web frontend (#855))
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
 =======
 2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
 3. The first verified user becomes Admin and Creator
 >>>>>>> 63aa4c94 (fix: align nginx ports to 8080 (#866))
+<<<<<<< HEAD
 =======
 >>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+<<<<<<< HEAD
 >>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
+=======
+=======
+>>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
+>>>>>>> c5ff187b (fix: align nginx ports to 8080 (#866))
 
 ## Internationalization (i18n)
 
