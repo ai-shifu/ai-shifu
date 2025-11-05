@@ -2,11 +2,9 @@ from flask import Flask, Response, request
 from flaskr.route.common import make_common_response
 from flaskr.service.common.models import raise_param_error
 from flaskr.service.learn import (
-    get_lesson_tree_to_study,
     get_study_record,
     run_script,
     get_script_info,
-    reset_user_study_info_by_lesson,
     set_script_content_operation,
 )
 from flaskr.service.learn.const import VALID_INTERACTION_TYPES
@@ -96,46 +94,6 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
 
     # ensure the instance folder exists
 
-    @app.route(path_prefix + "/get_lesson_tree", methods=["GET"])
-    def get_lesson_tree_study():
-        """
-        获取课程树
-        ---
-        tags:
-        - 学习
-        parameters:
-        -   name: course_id
-            in: query
-            type: string
-            required: true
-            description: 课程ID
-        responses:
-            200:
-                description: 返回课程树
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: 返回码
-                                message:
-                                    type: string
-                                    description: 返回信息
-                                data:
-                                    $ref: "#/components/schemas/AICourseDTO"
-            400:
-                description: 参数错误
-        """
-        course_id = request.args.get("course_id")
-        preview_mode = request.args.get("preview_mode", "False").lower() == "true"
-        if not course_id:
-            course_id = None
-        user_id = request.user.user_id
-        return make_common_response(
-            get_lesson_tree_to_study(app, user_id, course_id, preview_mode)
-        )
-
     @app.route(path_prefix + "/get_lesson_study_record", methods=["GET"])
     def get_lesson_study_record():
         """
@@ -214,49 +172,6 @@ def register_study_handler(app: Flask, path_prefix: str) -> Flask:
         preview_mode = request.args.get("preview_mode", "False").lower() == "true"
         return make_common_response(
             get_script_info(app, user_id, script_id, preview_mode)
-        )
-
-    @app.route(path_prefix + "/reset-study-progress", methods=["POST"])
-    def reset_study_progress():
-        """
-        重置学习进度
-        ---
-        tags:
-        - 学习
-        parameters:
-            -   in: body
-                name: body
-                description: 重置学习进度的请求体
-                required: true
-                schema:
-                    type: object
-                    properties:
-                        lesson_id:
-                            type: string
-                            description: 课时id
-        responses:
-            200:
-                description: 返回重置结果
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: 返回码
-                                message:
-                                    type: string
-                                    description: 返回信息
-            400:
-                description: 参数错误
-        """
-        lesson_id = request.get_json().get("lesson_id")
-        if not lesson_id:
-            raise_param_error("lesson_id is not found")
-        preview_mode = request.get_json().get("preview_mode", False)
-        user_id = request.user.user_id
-        return make_common_response(
-            reset_user_study_info_by_lesson(app, user_id, lesson_id, preview_mode)
         )
 
     @app.route(path_prefix + "/script-content-operation", methods=["POST"])

@@ -339,12 +339,6 @@ Example: mysql://username:password@hostname:3306/database_name?charset=utf8mb4""
         description="Redis key prefix for password reset",
         group="redis",
     ),
-    "REDIS_KEY_PREFIX_CAPTCHA": EnvVar(
-        name="REDIS_KEY_PREFIX_CAPTCHA",
-        default="ai-shifu:captcha:",
-        description="Redis key prefix for captcha",
-        group="redis",
-    ),
     "REDIS_KEY_PREFIX_PHONE": EnvVar(
         name="REDIS_KEY_PREFIX_PHONE",
         default="ai-shifu:phone:",
@@ -414,13 +408,6 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default=300,
         type=int,
         description="Expire time for password reset code in seconds",
-        group="auth",
-    ),
-    "CAPTCHA_CODE_EXPIRE_TIME": EnvVar(
-        name="CAPTCHA_CODE_EXPIRE_TIME",
-        default=300,
-        type=int,
-        description="Expire time for captcha in seconds",
         group="auth",
     ),
     "PHONE_CODE_EXPIRE_TIME": EnvVar(
