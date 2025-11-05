@@ -12,18 +12,6 @@ services:
       - ai-shifu-mysql
       - ai-shifu-redis
 
-  ai-shifu-web-dev:
-    container_name:  ai-shifu-web-dev
-    image: ai-shifu-web-dev:latest
-    command: ["sh", "-c", "npm run start:dev"]
-    depends_on:
-      - ai-shifu-api-dev
-    env_file:
-      - ./.env
-    volumes:
-      - ../src/web/public:/app/public
-      - ../src/web/src:/app/src
-
   ai-shifu-cook-web-dev:
     container_name: ai-shifu-cook-web-dev
     image: ai-shifu-cook-web-dev:latest
@@ -45,7 +33,6 @@ services:
       - "8080:8080"
       - "8081:8081"
     depends_on:
-      - ai-shifu-web-dev
       - ai-shifu-cook-web-dev
       - ai-shifu-api-dev
     restart: always

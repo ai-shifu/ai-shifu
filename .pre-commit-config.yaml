@@ -5,17 +5,14 @@ repos:
     rev: v6.0.0
     hooks:
     -   id: check-yaml
-        exclude: ^src/web/pnpm-lock\.yaml$
     -   id: check-json
     -   id: check-merge-conflict
     -   id: check-symlinks
     -   id: end-of-file-fixer
-        exclude: ^src/web/pnpm-lock\.yaml$
     -   id: trailing-whitespace
-        exclude: ^src/web/pnpm-lock\.yaml$
     -   id: pretty-format-json
         args: ['--autofix', '--indent=2', '--no-ensure-ascii', '--top-keys=langName']
-        files: ^(src/web/public/locales/.*\.json|src/cook-web/public/locales/.*\.json)$
+        files: ^src/cook-web/public/locales/.*\.json$
     -   id: requirements-txt-fixer
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.2
@@ -62,13 +59,6 @@ repos:
         entry: bash -c 'cd src/cook-web && npm run lint-file -- $(echo "$@" | sed "s|src/cook-web/||g")' --
         language: system
         files: ^src/cook-web/.*\.(js|jsx|ts|tsx)$
--   repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v9.38.0
-    hooks:
-    -   id: eslint
-        name: ESLint web files (errors only)
-        files: ^src/web/.*\.(js|jsx|ts|tsx)$
-        args: [--config, src/web/eslint.config.cjs, --max-warnings=0, --fix]
 -   repo: local
     hooks:
     -   id: no-hardcoded-cjk-in-backend

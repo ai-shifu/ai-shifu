@@ -13,9 +13,6 @@ by_pass_login_func = [
     "flasgger.apidocs",
     "flasgger.static",
     "login",
-    "register",
-    "require_reset_code",
-    "reset_password",
     "invoke",
     "update_lesson",
 ]

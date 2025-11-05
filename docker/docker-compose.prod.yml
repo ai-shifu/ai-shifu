@@ -19,16 +19,6 @@ services:
       - ai-shifu-mysql
       - ai-shifu-redis
     restart: unless-stopped
-
-  ai-shifu-web:
-    container_name:  ai-shifu-web
-    image: aishifu/ai-shifu-web:v0.7.0
-    env_file:
-      - ./.env
-    depends_on:
-      - ai-shifu-api
-    restart: unless-stopped
-
   ai-shifu-cook-web:
     container_name: ai-shifu-cook-web
     image: aishifu/ai-shifu-cook-web:v0.7.0
@@ -47,7 +37,6 @@ services:
       - "8080:8080"
       - "8081:8081"
     depends_on:
-      - ai-shifu-web
       - ai-shifu-api
       - ai-shifu-cook-web
     restart: unless-stopped
