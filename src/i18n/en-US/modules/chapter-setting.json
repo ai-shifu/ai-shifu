@@ -15,5 +15,5 @@
   "lessonPrompt": "Lesson Prompt",
   "lessonPromptPlaceholder": "Please enter the prompt. If this is empty, the lesson content generation will be constrained by the chapter prompt content",
   "lessonPromptHint": "Define the lesson's content generation, audience, tone, and guardrails",
-  "promptPlaceholder": "Please enter the prompt",
+  "promptPlaceholder": "Please enter the prompt"
 }
