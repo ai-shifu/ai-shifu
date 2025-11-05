@@ -30,7 +30,6 @@ services:
     image: nginx:latest
     ports:
       - "8080:8080"
-      - "8081:8081"
     depends_on:
       - ai-shifu-api
       - ai-shifu-cook-web
