@@ -923,6 +923,62 @@ def upgrade():
         )
 
     op.create_table(
+        "resource",
+        sa.Column("id", mysql.BIGINT(), autoincrement=True, nullable=False),
+        sa.Column(
+            "resource_id", sa.String(length=36), nullable=False, comment="Resource UUID"
+        ),
+        sa.Column(
+            "name", sa.String(length=255), nullable=False, comment="Resource name"
+        ),
+        sa.Column("type", sa.Integer(), nullable=False, comment="Resource type"),
+        sa.Column(
+            "oss_bucket", sa.String(length=255), nullable=False, comment="OSS bucket"
+        ),
+        sa.Column(
+            "oss_name", sa.String(length=255), nullable=False, comment="OSS name"
+        ),
+        sa.Column("url", sa.String(length=255), nullable=False, comment="Resource URL"),
+        sa.Column("status", sa.Integer(), nullable=False, comment="Resource status"),
+        sa.Column("is_deleted", sa.Integer(), nullable=False, comment="Is deleted"),
+        sa.Column(
+            "created_by", sa.String(length=36), nullable=False, comment="Created by"
+        ),
+        sa.Column(
+            "updated_by", sa.String(length=36), nullable=False, comment="Updated by"
+        ),
+        sa.Column(
+            "created_at", sa.TIMESTAMP(), nullable=False, comment="Creation time"
+        ),
+        sa.Column("updated_at", sa.TIMESTAMP(), nullable=False, comment="Update time"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    with op.batch_alter_table("resource", schema=None) as batch_op:
+        batch_op.create_index(
+            batch_op.f("ix_resource_resource_id"), ["resource_id"], unique=False
+        )
+        batch_op.create_index(batch_op.f("ix_resource_type"), ["type"], unique=False)
+        batch_op.create_index(
+            batch_op.f("ix_resource_oss_bucket"), ["oss_bucket"], unique=False
+        )
+        batch_op.create_index(
+            batch_op.f("ix_resource_oss_name"), ["oss_name"], unique=False
+        )
+        batch_op.create_index(batch_op.f("ix_resource_url"), ["url"], unique=False)
+        batch_op.create_index(
+            batch_op.f("ix_resource_status"), ["status"], unique=False
+        )
+        batch_op.create_index(
+            batch_op.f("ix_resource_is_deleted"), ["is_deleted"], unique=False
+        )
+        batch_op.create_index(
+            batch_op.f("ix_resource_created_by"), ["created_by"], unique=False
+        )
+        batch_op.create_index(
+            batch_op.f("ix_resource_updated_by"), ["updated_by"], unique=False
+        )
+
+    op.create_table(
         "resource_usage",
         sa.Column("id", mysql.BIGINT(), autoincrement=True, nullable=False),
         sa.Column(
