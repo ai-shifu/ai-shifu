@@ -25,10 +25,10 @@ from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.order.models import Order
 from flaskr.service.order.consts import ORDER_STATUS_SUCCESS
 from flaskr.service.learn.context_v2 import RunScriptContextV2
-from flaskr.service.learn.input_funcs import BreakException
 from flaskr.service.learn.learn_dtos import GeneratedType
 import datetime
 from flaskr.common.log import thread_local as log_thread_local
+from flaskr.service.learn.exceptions import BreakException
 
 
 def run_script_inner(

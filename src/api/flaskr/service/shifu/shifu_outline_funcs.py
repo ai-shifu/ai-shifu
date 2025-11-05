@@ -26,7 +26,6 @@ from ...util import generate_id
 from ..common.models import raise_error
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
-from .adapter import convert_outline_to_reorder_outline_item_dto
 from .shifu_history_manager import (
     save_new_outline_history,
     save_outline_tree_history,
@@ -36,6 +35,27 @@ from .shifu_history_manager import (
 )
 from datetime import datetime
 from markdown_flow import MarkdownFlow
+
+
+def convert_outline_to_reorder_outline_item_dto(
+    json_array: list[dict],
+) -> ReorderOutlineItemDto:
+    """
+    convert outline to reorder outline item dto
+    Args:
+        json_array: The json array to convert
+    Returns:
+        The reorder outline item dto
+    """
+    return [
+        ReorderOutlineItemDto(
+            bid=item.get("bid"),
+            children=convert_outline_to_reorder_outline_item_dto(
+                item.get("children", [])
+            ),
+        )
+        for item in json_array
+    ]
 
 
 def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:

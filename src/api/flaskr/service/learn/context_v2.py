@@ -28,8 +28,6 @@ from flaskr.service.shifu.shifu_struct_manager import (
     get_outline_item_dto_with_mdflow,
 )
 from flaskr.service.shifu.models import (
-    DraftBlock,
-    PublishedBlock,
     DraftOutlineItem,
     PublishedOutlineItem,
     DraftShifu,
@@ -352,7 +350,6 @@ class RunScriptContextV2:
     _app: Flask
     _shifu_model: Union[DraftShifu, PublishedShifu]
     _outline_model: Union[DraftOutlineItem, PublishedOutlineItem]
-    _block_model: Union[DraftBlock, PublishedBlock]
     _trace_args: dict
     _shifu_info: ShifuInfoDto
     _trace: Union[StatefulTraceClient, MockClient]
@@ -387,11 +384,9 @@ class RunScriptContextV2:
 
         if preview_mode:
             self._outline_model = DraftOutlineItem
-            self._block_model = DraftBlock
             self._shifu_model = DraftShifu
         else:
             self._outline_model = PublishedOutlineItem
-            self._block_model = PublishedBlock
             self._shifu_model = PublishedShifu
         # get current attend
         self._q = queue.Queue()
