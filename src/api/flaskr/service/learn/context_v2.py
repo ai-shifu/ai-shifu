@@ -156,10 +156,10 @@ class RUNLLMProvider(LLMProvider):
         if not messages:
             raise ValueError("No messages provided")
 
+        system_prompt = messages[0].get("content", "")
         # Get the last message content
         last_message = messages[-1]
         prompt = last_message.get("content", "")
-        system_prompt = self.system_prompt
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
@@ -1164,6 +1164,7 @@ class RunScriptContextV2:
 
                 async def process_stream():
                     app.logger.info(f"process_stream: {run_script_info.block_position}")
+                    app.logger.info(f"variables: {user_profile}")
                     # Run in STREAM mode; mdflow.process may return a coroutine or an async generator
                     stream_or_result = mdflow.process(
                         run_script_info.block_position,
