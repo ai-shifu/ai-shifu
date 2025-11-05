@@ -1056,6 +1056,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const setCurrentMdflow = (value: string) => {
     currentMdflow.current = value;
+    setMdflow(value || '');
   };
 
   const value: ShifuContextType = {

@@ -3,7 +3,7 @@ from flaskr.service.shifu.adapter import BlockDTO, ContentDTO
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from flaskr.service.learn.plugin import register_shifu_output_handler
 from flaskr.service.learn.utils import make_script_dto
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from langfuse.client import StatefulTraceClient
 import time
 from flaskr.service.learn.utils import get_fmt_prompt
@@ -19,7 +19,7 @@ from flaskr.service.learn.models import LearnGeneratedBlock
 @register_shifu_output_handler("content")
 def handle_output_content(
     app: Flask,
-    user_info: User,
+    user_info: UserAggregate,
     attend_id: str,
     outline_item_info: ShifuOutlineItemDto,
     block_dto: BlockDTO,

@@ -1,14 +1,19 @@
 {
   "__namespace__": "⟦møđųŀē.ćħåƥŧēřŠēŧŧįňğ⟧",
-  "title": "⟦Ćħåƥŧēř Šēŧŧįňğš⟧",
+  "chapterSettingsTitle": "⟦Ćħåƥŧēř Šēŧŧįňğš⟧",
+  "lessonSettingsTitle": "⟦Ļēššøņ Šēŧŧįňğš⟧",
   "learningPermission": "⟦Ŀēåřňįňğ Ƥēřmįššįøň⟧",
-  "paidChapter": "⟦Ƥåįđ Ćħåƥŧēř⟧",
-  "freeChapter": "⟦Ƒřēē Ćħåƥŧēř⟧",
-  "guestChapter": "⟦Ǥųēšŧ Ćħåƥŧēř⟧",
+  "paid": "⟦Ƥåįđ⟧",
+  "free": "⟦Ŧřēē⟧",
+  "guest": "⟦Ļøǥįņ-ƒřēē⟧",
   "isHidden": "⟦Ṽįšįƀįŀįŧŷ⟧",
-  "visibleChapter": "⟦Ṽįšįƀŀē⟧",
-  "hideChapter": "⟦Ħįđđēň⟧",
-  "systemPrompt": "⟦Šŷšŧēm Ƥřømƥŧ⟧",
-  "promptHint": "⟦Øƥŧįøňåŀ įňįŧįåŀ įňšŧřųćŧįøň ƒøř ŧħįš ćħåƥŧēř⟧",
-  "chapterTitle": "⟦Ćħåƥŧēř Ŧįŧŀē⟧"
+  "visible": "⟦Ṽįšįƀŀē⟧",
+  "hidden": "⟦Ħįđđēņ⟧",
+  "chapterPrompt": "⟦Ćħåƥŧēř Ƥřømƥŧ⟧",
+  "chapterPromptHint": "⟦Ðēƒįņē ŧħē ćħåƥŧēř'š ċōñţėɴţ ŀįśţ, ŧøņē, åņđ ǥųåřđřåįŀš⟧",
+  "chapterPromptPlaceholder": "⟦Ƥŀēåšē ēňŧēř ŧħē ƥřømƥŧ. Īƒ ŧħēśē ćåñţ ćåñţ ēšţåŵ, ŵįŀŀ ćħåƥŧēř ċōñţėɴţ ŀįśţ ĺįśţ ĺįśţ ŀįśţ⟧",
+  "lessonPrompt": "⟦Ļēššøņ Ƥřømƥŧ⟧",
+  "lessonPromptPlaceholder": "⟦Ƥŀēåšē ēňŧēř ŧħē ƥřømƥŧ. Īƒ ŧħēśē ćåñţ ćåñţ ēšţåŵ, ŵįŀŀ ŀēššøņ ċōñţėɴţ ŀįśţ ĺįśţ ĺįśţ ŀįśţ⟧",
+  "lessonPromptHint": "⟦Ðēƒįņē ŧħē ŀēššøņ'š ċōñţėɴţ ŀįśţ, ŧøņē, åņđ ǥųåřđřåįŀš⟧",
+  "promptPlaceholder": "⟦Ƥŀēåšē ēņŧēř ŧħē ƥřømƥŧ⟧"
 }

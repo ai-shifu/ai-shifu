@@ -78,15 +78,15 @@ export default function ShifuSettingDialog({
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
-      .max(50, t('module.shifuSetting.shifuNameMaxLength')),
+      .max(100, t('module.shifuSetting.shifuNameMaxLength')),
     description: z
       .string()
       .min(1, t('module.shifuSetting.shifuDescriptionEmpty'))
-      .max(300, t('module.shifuSetting.shifuDescriptionMaxLength')),
+      .max(500, t('module.shifuSetting.shifuDescriptionMaxLength')),
     model: z.string(),
     systemPrompt: z
       .string()
-      .max(300, t('module.shifuSetting.systemPromptMaxLength')),
+      .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
       .min(1, t('module.shifuSetting.shifuPriceEmpty'))
@@ -228,7 +228,7 @@ export default function ShifuSettingDialog({
       form.reset({
         name: result.name,
         description: result.description,
-        price: result.price + '',
+        price: (result.price ?? 0).toFixed(2),
         model: result.model || '',
         previewUrl: result.preview_url,
         url: result.url,
@@ -294,8 +294,8 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Input
                         {...field}
-                        maxLength={20}
-                        placeholder={t('module.shifuSetting.limit20Characters')}
+                        maxLength={100}
+                        placeholder={t('module.shifuSetting.placeholder')}
                       />
                     </FormControl>
                     {/* <div className='text-xs text-muted-foreground text-right'>
@@ -317,10 +317,8 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Textarea
                         {...field}
-                        maxLength={300}
-                        placeholder={t(
-                          'module.shifuSetting.limit300Characters',
-                        )}
+                        maxLength={500}
+                        placeholder={t('module.shifuSetting.placeholder')}
                         rows={4}
                       />
                     </FormControl>
@@ -333,8 +331,11 @@ export default function ShifuSettingDialog({
               />
 
               <div className='space-y-3 mb-4'>
-                <span className='text-sm font-medium text-foreground'>
+                <p className='text-sm font-medium text-foreground'>
                   {t('module.shifuSetting.shifuAvatar')}
+                </p>
+                <span className='text-xs text-muted-foreground'>
+                  {t('module.shifuSetting.imageFormatHint')}
                 </span>
                 <div className='flex flex-col gap-3'>
                   {uploadedImageUrl ? (
@@ -374,9 +375,7 @@ export default function ShifuSettingDialog({
                     onChange={handleImageUpload}
                     className='hidden'
                   />
-                  <p className='text-xs text-muted-foreground'>
-                    {t('module.shifuSetting.imageFormatHint')}
-                  </p>
+
                   {isUploading && (
                     <div className='space-y-2 mb-4'>
                       <div className='w-full bg-muted rounded-full h-2'>
@@ -409,26 +408,35 @@ export default function ShifuSettingDialog({
                     <FormLabel className='text-sm font-medium text-foreground'>
                       {t('module.shifuSetting.previewUrl')}
                     </FormLabel>
-                    <div className='flex items-center gap-2'>
-                      <FormControl>
-                        <Input
+                    <FormControl>
+                      <div className='flex items-center gap-2'>
+                        <input
+                          type='hidden'
                           {...field}
-                          placeholder='https://ai-shifu.com/...'
                         />
-                      </FormControl>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='icon'
-                        onClick={() => handleCopy('previewUrl')}
-                      >
-                        {copying.previewUrl ? (
-                          <Check className='h-4 w-4' />
-                        ) : (
-                          <Copy className='h-4 w-4' />
-                        )}
-                      </Button>
-                    </div>
+                        <span
+                          className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
+                          style={{
+                            color: 'var(--base-muted-foreground, #737373)',
+                          }}
+                          title={field.value}
+                        >
+                          {field.value}
+                        </span>
+                        <button
+                          type='button'
+                          onClick={() => handleCopy('previewUrl')}
+                          className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
+                          style={{ width: 20, height: 20 }}
+                        >
+                          {copying.previewUrl ? (
+                            <Check className='w-[14px] h-[14px]' />
+                          ) : (
+                            <Copy className='w-[14px] h-[14px]' />
+                          )}
+                        </button>
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -442,26 +450,35 @@ export default function ShifuSettingDialog({
                     <FormLabel className='text-sm font-medium text-foreground'>
                       {t('module.shifuSetting.learningUrl')}
                     </FormLabel>
-                    <div className='flex items-center gap-2'>
-                      <FormControl>
-                        <Input
+                    <FormControl>
+                      <div className='flex items-center gap-2'>
+                        <input
+                          type='hidden'
                           {...field}
-                          placeholder='https://ai-shifu.com/...'
                         />
-                      </FormControl>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='icon'
-                        onClick={() => handleCopy('url')}
-                      >
-                        {copying.url ? (
-                          <Check className='h-4 w-4' />
-                        ) : (
-                          <Copy className='h-4 w-4' />
-                        )}
-                      </Button>
-                    </div>
+                        <span
+                          className='flex-1 text-sm underline whitespace-nowrap overflow-hidden text-ellipsis'
+                          style={{
+                            color: 'var(--base-muted-foreground, #737373)',
+                          }}
+                          title={field.value}
+                        >
+                          {field.value}
+                        </span>
+                        <button
+                          type='button'
+                          onClick={() => handleCopy('url')}
+                          className='flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none'
+                          style={{ width: 20, height: 20 }}
+                        >
+                          {copying.url ? (
+                            <Check className='w-[14px] h-[14px]' />
+                          ) : (
+                            <Copy className='w-[14px] h-[14px]' />
+                          )}
+                        </button>
+                      </div>
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -475,8 +492,12 @@ export default function ShifuSettingDialog({
                     <FormLabel className='text-sm font-medium text-foreground'>
                       {t('common.core.selectModel')}
                     </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.selectModelHint')}
+                    </p>
                     <FormControl>
                       <ModelList
+                        className='h-9'
                         value={field.value}
                         onChange={field.onChange}
                       />
@@ -494,40 +515,44 @@ export default function ShifuSettingDialog({
                     <FormLabel className='text-sm font-medium text-foreground'>
                       {t('module.shifuSetting.shifuTemperature')}
                     </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.temperatureHint')}
+                      <br />
+                      {t('module.shifuSetting.temperatureHint2')}
+                    </p>
                     <div className='flex items-center gap-2'>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='icon'
-                        onClick={() => adjustTemperature(-0.1)}
-                      >
-                        <Minus className='h-4 w-4' />
-                      </Button>
-                      <FormControl>
+                      <FormControl className='flex-1'>
                         <Input
                           {...field}
                           value={field.value}
                           onChange={field.onChange}
-                          className='text-center'
-                          type='number'
-                          step='0.1'
-                          min={0}
-                          max={2}
+                          type='text'
+                          inputMode='decimal'
                           placeholder={t('module.shifuSetting.number')}
+                          className='h-9'
                         />
                       </FormControl>
-                      <Button
-                        type='button'
-                        variant='outline'
-                        size='icon'
-                        onClick={() => adjustTemperature(0.1)}
-                      >
-                        <Plus className='h-4 w-4' />
-                      </Button>
+                      <div className='flex items-center gap-2'>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          onClick={() => adjustTemperature(-0.1)}
+                          className='h-9 w-9'
+                        >
+                          <Minus className='h-4 w-4' />
+                        </Button>
+                        <Button
+                          type='button'
+                          variant='outline'
+                          size='icon'
+                          onClick={() => adjustTemperature(0.1)}
+                          className='h-9 w-9'
+                        >
+                          <Plus className='h-4 w-4' />
+                        </Button>
+                      </div>
                     </div>
-                    <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.temperatureHint')}
-                    </p>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -540,32 +565,33 @@ export default function ShifuSettingDialog({
                   <FormItem className='space-y-2 mb-4'>
                     <div className='flex items-center gap-2'>
                       <FormLabel className='text-sm font-medium text-foreground'>
-                        {t('module.shifuSetting.systemPrompt')}
+                        {t('module.shifuSetting.shifuPrompt')}
                       </FormLabel>
-                      <a
+                      {/* <a
                         href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2'
                         target='_blank'
                         rel='noopener noreferrer'
                       >
                         <CircleHelp className='h-4 w-4 text-muted-foreground' />
-                      </a>
+                      </a> */}
                     </div>
                     <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.systemPromptHint')}
+                      {t('module.shifuSetting.shifuPromptHint')}
                     </p>
                     <FormControl>
                       <Textarea
                         {...field}
-                        maxLength={300}
+                        maxLength={20000}
                         placeholder={t(
-                          'module.shifuSetting.systemPromptPlaceholder',
+                          'module.shifuSetting.shifuPromptPlaceholder',
                         )}
-                        rows={6}
+                        minRows={3}
+                        maxRows={30}
                       />
                     </FormControl>
-                    <div className='text-xs text-muted-foreground text-right'>
-                      {field.value?.length ?? 0}/300
-                    </div>
+                    {/* <div className='text-xs text-muted-foreground text-right'>
+                      {field.value?.length ?? 0}/10000
+                    </div> */}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -597,7 +623,7 @@ export default function ShifuSettingDialog({
                   <Input
                     id='keywordInput'
                     placeholder={t('module.shifuSetting.inputKeywords')}
-                    className='flex-1'
+                    className='flex-1 h-9'
                   />
                   <Button
                     type='button'
@@ -620,6 +646,7 @@ export default function ShifuSettingDialog({
                     </FormLabel>
                     <FormControl>
                       <Input
+                        className='h-9'
                         {...field}
                         placeholder={t('module.shifuSetting.number')}
                       />

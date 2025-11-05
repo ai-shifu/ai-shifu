@@ -15,14 +15,9 @@ from flaskr.service.user.auth.factory import (
     has_provider,
     register_provider,
 )
-from flaskr.service.user.repository import (
-    ensure_user_entity,
-    sync_user_entity_from_legacy,
-    upsert_credential,
-)
+from flaskr.service.user.repository import find_credential, load_user_aggregate
 from flaskr.service.user.phone_flow import verify_phone_code
 from flaskr.service.user.utils import send_sms_code
-from flaskr.service.user.models import User
 
 
 class PhoneAuthProvider(AuthProvider):
@@ -50,33 +45,25 @@ class PhoneAuthProvider(AuthProvider):
             language=request.metadata.get("language"),
         )
 
-        legacy_user = User.query.filter_by(user_id=user_token.userInfo.user_id).first()
-        if not legacy_user:
-            raise RuntimeError("Legacy user record missing after phone verification")
+        aggregate = load_user_aggregate(user_token.userInfo.user_id)
+        if not aggregate:
+            raise RuntimeError("User aggregate missing after phone verification")
 
-        user_entity, created_entity = ensure_user_entity(app, legacy_user)
-        sync_user_entity_from_legacy(user_entity, legacy_user)
-        credential = upsert_credential(
-            app,
-            user_bid=user_entity.user_bid,
+        credential = find_credential(
             provider_name="phone",
-            subject_id=request.identifier,
-            subject_format="phone",
-            identifier=request.identifier,
-            metadata={
-                "course_id": context.get("course_id"),
-                "language": context.get("language"),
-                "ip": request.metadata.get("ip"),
-            },
-            verified=True,
+            identifier=request.identifier.strip(),
+            user_bid=aggregate.user_bid,
         )
 
         return AuthResult(
             user=user_token.userInfo,
             token=user_token,
             credential=credential,
-            is_new_user=created_user or created_entity,
-            metadata={"user_bid": user_entity.user_bid},
+            is_new_user=created_user,
+            metadata={
+                "user_bid": aggregate.user_bid,
+                **{k: v for k, v in context.items() if v is not None},
+            },
         )
 
 

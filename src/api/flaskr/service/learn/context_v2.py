@@ -52,7 +52,7 @@ from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_NORMAL,
 )
 
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.util import generate_id
 from flaskr.service.profile.funcs import get_user_profiles
@@ -107,7 +107,6 @@ class RunScriptInfo:
 
 class RUNLLMProvider(LLMProvider):
     app: Flask
-    system_prompt: str
     llm_settings: LLMSettings
     trace: StatefulTraceClient
     trace_args: dict
@@ -115,13 +114,11 @@ class RUNLLMProvider(LLMProvider):
     def __init__(
         self,
         app: Flask,
-        system_prompt: str,
         llm_settings: LLMSettings,
         trace: StatefulTraceClient,
         trace_args: dict,
     ):
         self.app = app
-        self.system_prompt = system_prompt
         self.llm_settings = llm_settings
         self.trace = trace
         self.trace_args = trace_args
@@ -132,6 +129,7 @@ class RUNLLMProvider(LLMProvider):
             raise ValueError("No messages provided")
 
         # Get the last message content
+        system_prompt = messages[0].get("content", "")
         last_message = messages[-1]
         prompt = last_message.get("content", "")
 
@@ -140,7 +138,7 @@ class RUNLLMProvider(LLMProvider):
             self.trace_args.get("user_id", ""),
             self.trace,
             message=prompt,
-            system=self.system_prompt,
+            system=system_prompt,
             model=self.llm_settings.model,
             stream=False,
             generation_name="run_llm",
@@ -158,10 +156,10 @@ class RUNLLMProvider(LLMProvider):
         if not messages:
             raise ValueError("No messages provided")
 
+        system_prompt = messages[0].get("content", "")
         # Get the last message content
         last_message = messages[-1]
         prompt = last_message.get("content", "")
-        system_prompt = self.system_prompt
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
@@ -346,7 +344,7 @@ class RunScriptContextV2:
     _q: queue.Queue
     _outline_item_info: ShifuOutlineItemDto
     _struct: HistoryItem
-    _user_info: User
+    _user_info: UserAggregate
     _is_paid: bool
     _preview_mode: bool
     _shifu_ids: list[str]
@@ -369,7 +367,7 @@ class RunScriptContextV2:
         shifu_info: ShifuInfoDto,
         struct: HistoryItem,
         outline_item_info: ShifuOutlineItemDto,
-        user_info: User,
+        user_info: UserAggregate,
         is_paid: bool,
         preview_mode: bool,
     ):
@@ -814,9 +812,10 @@ class RunScriptContextV2:
         llm_settings = self.get_llm_settings(run_script_info.outline_bid)
         system_prompt = self.get_system_prompt(run_script_info.outline_bid)
         mdflow = MarkdownFlow(
-            run_script_info.mdflow,
+            document=run_script_info.mdflow,
+            document_prompt=system_prompt,
             llm_provider=RUNLLMProvider(
-                app, system_prompt, llm_settings, self._trace, self._trace_args
+                app, llm_settings, self._trace, self._trace_args
             ),
         )
         block_list = mdflow.get_all_blocks()
@@ -1165,6 +1164,7 @@ class RunScriptContextV2:
 
                 async def process_stream():
                     app.logger.info(f"process_stream: {run_script_info.block_position}")
+                    app.logger.info(f"variables: {user_profile}")
                     # Run in STREAM mode; mdflow.process may return a coroutine or an async generator
                     stream_or_result = mdflow.process(
                         run_script_info.block_position,

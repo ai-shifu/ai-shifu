@@ -1,14 +1,19 @@
 {
   "__namespace__": "module.chapterSetting",
-  "title": "Chapter Settings",
+  "chapterSettingsTitle": "Chapter Settings",
+  "lessonSettingsTitle": "Lesson Settings",
   "learningPermission": "Learning Permission",
-  "paidChapter": "Paid Chapter",
-  "freeChapter": "Free Chapter",
-  "guestChapter": "Guest Chapter",
+  "paid": "Paid",
+  "free": "Free",
+  "guest": "Login-free",
   "isHidden": "Visibility",
-  "visibleChapter": "Visible",
-  "hideChapter": "Hidden",
-  "systemPrompt": "System Prompt",
-  "promptHint": "Optional initial instruction for this chapter",
-  "chapterTitle": "Chapter Title"
+  "visible": "Visible",
+  "hidden": "Hidden",
+  "chapterPrompt": "Chapter Prompt",
+  "chapterPromptHint": "Define the chapter's content generation, audience, tone, and guardrails",
+  "chapterPromptPlaceholder": "Please enter the prompt. If this is empty, the chapter content generation will be constrained by the shifu prompt content",
+  "lessonPrompt": "Lesson Prompt",
+  "lessonPromptPlaceholder": "Please enter the prompt. If this is empty, the lesson content generation will be constrained by the chapter prompt content",
+  "lessonPromptHint": "Define the lesson's content generation, audience, tone, and guardrails",
+  "promptPlaceholder": "Please enter the prompt"
 }

@@ -105,6 +105,7 @@ const MinimalTreeItemComponent = React.forwardRef<
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [chapterSettingsOpen, setChapterSettingsOpen] = useState(false);
   const { t } = useTranslation();
+  const outlineVariant = (props.item?.depth ?? 0) <= 0 ? 'chapter' : 'lesson';
   const alert = useAlert();
   const onNodeChange = async (value: string) => {
     if (!value || value.trim() === '') {
@@ -353,8 +354,9 @@ const MinimalTreeItemComponent = React.forwardRef<
         outlineBid={props.item.bid}
         open={settingsDialogOpen}
         onOpenChange={setSettingsDialogOpen}
+        variant={outlineVariant}
       />
-      {(props.item?.depth ?? 0) <= 0 && props.item.id !== 'new_chapter' && (
+      {outlineVariant === 'chapter' && props.item.id !== 'new_chapter' && (
         <ChapterPromptSetting
           outlineBid={props.item.bid}
           open={chapterSettingsOpen}

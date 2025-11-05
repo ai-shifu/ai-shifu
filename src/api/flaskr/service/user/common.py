@@ -5,26 +5,33 @@ import random
 import string
 from flask import Flask
 
+from typing import Optional
+
 import jwt
 
-from flaskr.service.user.models import User
 from flaskr.api.sms.aliyun import send_sms_code_ali
+from flaskr.i18n import get_i18n_list
 from ..common.dtos import UserInfo, UserToken
 from ..common.models import raise_error
 from ...dao import redis_client as redis, db
-from flaskr.i18n import get_i18n_list
 from .auth import get_provider
 from .auth.base import VerificationRequest
 from .repository import (
-    build_user_info_dto,
-    load_user_with_entity,
-    sync_user_entity_for_legacy,
+    build_user_info_from_aggregate,
+    get_user_entity_by_bid,
+    load_user_aggregate,
+    update_user_entity_fields,
+    upsert_credential,
 )
+from ..profile.funcs import save_user_profiles
+from ..profile.dtos import ProfileToSave
 
 
-def _user_info_from_legacy(app: Flask, legacy_user: User) -> UserInfo:
-    sync_user_entity_for_legacy(app, legacy_user)
-    return build_user_info_dto(legacy_user)
+def _load_user_info(app: Flask, user_bid: str) -> UserInfo:
+    aggregate = load_user_aggregate(user_bid)
+    if not aggregate:
+        raise_error("USER.USER_NOT_FOUND")
+    return build_user_info_from_aggregate(aggregate)
 
 
 def validate_user(app: Flask, token: str) -> UserInfo:
@@ -33,11 +40,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
             raise_error("server.user.userNotLogin")
         try:
             if app.config.get("ENVERIMENT", "prod") == "dev":
-                user_id = token
-                user = User.query.filter_by(user_id=user_id).first()
-
-                if user:
-                    return _user_info_from_legacy(app, user)
+                return _load_user_info(app, token)
             else:
                 user_id = jwt.decode(
                     token, app.config["SECRET_KEY"], algorithms=["HS256"]
@@ -53,11 +56,7 @@ def validate_user(app: Flask, token: str) -> UserInfo:
                 encoding="utf-8",
             )
             if set_user_id == user_id:
-                legacy_user, _ = load_user_with_entity(app, user_id)
-                if legacy_user:
-                    return _user_info_from_legacy(app, legacy_user)
-                else:
-                    raise_error("server.user.userTokenExpired")
+                return _load_user_info(app, user_id)
             else:
                 raise_error("server.user.userTokenExpired")
         except jwt.exceptions.ExpiredSignatureError:
@@ -80,40 +79,87 @@ def update_user_info(
             raise_error("server.user.userNotFound")
 
         app.logger.info("update_user_info %s %s %s %s", name, email, mobile, language)
-        legacy_user = User.query.filter_by(user_id=user.user_id).first()
-        if not legacy_user:
+        aggregate = load_user_aggregate(user.user_id)
+        if not aggregate:
             raise_error("server.user.userNotFound")
 
-        legacy_user.name = name
-        if email is not None:
-            legacy_user.email = email
-        if mobile is not None:
-            legacy_user.mobile = mobile
+        updates = {}
+        updates_profile = {}
+        update_profile = False
+        if name is not None:
+            updates = {"nickname": name}
+            updates_profile = {"sys_user_nickname": name}
+            update_profile = True
         if language is not None:
             if language in get_i18n_list(app):
-                legacy_user.user_language = language
+                updates["language"] = language
+                updates_profile = {"sys_user_language": language}
+                update_profile = True
             else:
-                raise_error("server.user.languageNotFound")
+                raise_error("USER.LANGUAGE_NOT_FOUND")
+        if avatar is not None:
+            updates["avatar"] = avatar
 
-        sync_user_entity_for_legacy(app, legacy_user)
+        entity = get_user_entity_by_bid(user.user_id, include_deleted=True)
+        if not entity:
+            raise_error("server.user.languageNotFound")
+        entity = update_user_entity_fields(entity, **updates)
+        if update_profile:
+            save_user_profiles(
+                app,
+                user.user_id,
+                "",
+                [
+                    ProfileToSave(key=key, value=value, bid=None)
+                    for key, value in updates_profile.items()
+                ],
+            )
+
+        if email is not None:
+            normalized_email = email.lower() if email else ""
+            if normalized_email:
+                upsert_credential(
+                    app,
+                    user_bid=entity.user_bid,
+                    provider_name="email",
+                    subject_id=normalized_email,
+                    subject_format="email",
+                    identifier=normalized_email,
+                    metadata={},
+                    verified=False,
+                )
+        if mobile is not None:
+            normalized_phone = mobile.strip() if mobile else ""
+            if normalized_phone:
+                upsert_credential(
+                    app,
+                    user_bid=entity.user_bid,
+                    provider_name="phone",
+                    subject_id=normalized_phone,
+                    subject_format="phone",
+                    identifier=normalized_phone,
+                    metadata={},
+                    verified=False,
+                )
+
         db.session.commit()
-        return build_user_info_dto(legacy_user)
+        refreshed = load_user_aggregate(user.user_id)
+        if not refreshed:
+            raise_error("USER.USER_NOT_FOUND")
+        return build_user_info_from_aggregate(refreshed)
 
 
 def get_user_info(app: Flask, user_id: str) -> UserInfo:
     with app.app_context():
-        legacy_user, _ = load_user_with_entity(app, user_id)
-        if not legacy_user:
-            raise_error("server.user.userNotFound")
-        return build_user_info_dto(legacy_user)
+        return _load_user_info(app, user_id)
 
 
 def get_sms_code_info(app: Flask, user_id: str, resend: bool):
     with app.app_context():
         phone = redis.get(app.config["REDIS_KEY_PREFIX_PHONE"] + user_id)
         if phone is None:
-            user = User.query.filter(User.user_id == user_id).first()
-            phone = user.mobile
+            aggregate = load_user_aggregate(user_id)
+            phone = aggregate.mobile if aggregate else ""
         else:
             phone = str(phone, encoding="utf-8")
         ttl = redis.ttl(app.config["REDIS_KEY_PREFIX_PHONE_CODE"] + phone)
@@ -122,13 +168,17 @@ def get_sms_code_info(app: Flask, user_id: str, resend: bool):
         return {"expire_in": ttl, "phone": phone}
 
 
-def send_sms_code_without_check(app: Flask, user_info: User, phone: str):
-    user_info.mobile = phone
+def send_sms_code_without_check(app: Flask, user_info: object, phone: str):
+    user_bid = getattr(user_info, "user_id", None) or getattr(
+        user_info, "user_bid", None
+    )
+    if not user_bid:
+        raise_error("USER.USER_NOT_FOUND")
     characters = string.digits
     random_string = "".join(random.choices(characters, k=4))
     # 发送短信验证码
     redis.set(
-        app.config["REDIS_KEY_PREFIX_PHONE"] + user_info.user_id,
+        app.config["REDIS_KEY_PREFIX_PHONE"] + user_bid,
         phone,
         ex=app.config.get("PHONE_EXPIRE_TIME", 60 * 30),
     )
@@ -143,26 +193,23 @@ def send_sms_code_without_check(app: Flask, user_info: User, phone: str):
 
 
 def verify_sms_code_without_phone(
-    app: Flask, user_info: User, checkcode, course_id: str = None
+    app: Flask, user_info: object, checkcode, course_id: Optional[str] = None
 ) -> UserToken:
     with app.app_context():
-        phone = redis.get(app.config["REDIS_KEY_PREFIX_PHONE"] + user_info.user_id)
+        user_bid = getattr(user_info, "user_id", None) or getattr(
+            user_info, "user_bid", None
+        )
+        if not user_bid:
+            raise_error("USER.USER_NOT_FOUND")
+
+        phone = redis.get(app.config["REDIS_KEY_PREFIX_PHONE"] + user_bid)
         if phone is None:
-            app.logger.info("cache user_id:" + user_info.user_id + " phone is None")
-            user = (
-                User.query.filter(User.user_id == user_info.user_id)
-                .order_by(User.id.asc())
-                .first()
-            )
-            phone = user.mobile
+            app.logger.info("cache user_id:%s phone is None", user_bid)
+            aggregate = load_user_aggregate(user_bid)
+            phone = aggregate.mobile if aggregate else ""
         else:
             phone = str(phone, encoding="utf-8")
-            user = (
-                User.query.filter(User.mobile == phone).order_by(User.id.asc()).first()
-            )
-            if user:
-                user_id = user.user_id
-        ret = verify_sms_code(app, user_id, phone, checkcode, course_id)
+        ret = verify_sms_code(app, user_bid, phone, checkcode, course_id)
         db.session.commit()
         return ret
 
