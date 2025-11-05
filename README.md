@@ -100,10 +100,40 @@ cp .env.example.full .env      # For full configuration
 ### Access
 
 After Docker starts:
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
+=======
+>>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+>>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
 3. The first verified user becomes Admin and Creator
+<<<<<<< HEAD
+=======
+=======
+1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+2. (Optional) `http://localhost:8081` also routes to Cook Web for compatibility with legacy tooling
+3. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
+4. The first verified user becomes Admin and Creator and will own the demo course
+>>>>>>> 9e2f5680 (refactor: remove legacy web frontend (#855))
+<<<<<<< HEAD
+=======
+2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
+3. The first verified user becomes Admin and Creator
+>>>>>>> 63aa4c94 (fix: align nginx ports to 8080 (#866))
+=======
+>>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+>>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
 
 ## Internationalization (i18n)
 
