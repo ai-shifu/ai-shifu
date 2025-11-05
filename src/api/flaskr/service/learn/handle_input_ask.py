@@ -5,18 +5,16 @@ from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 
 from flaskr.service.learn.models import LearnGeneratedBlock
 from flaskr.framework.plugin.plugin_manager import extensible_generic
-from flaskr.service.learn.utils import (
-    get_fmt_prompt,
-    get_follow_up_info_v2,
-)
-from flaskr.service.profile.funcs import get_user_profiles
-from flaskr.service.llm.funcs import format_script_prompt
 from flaskr.dao import db
 from flaskr.service.learn.check_text import check_text_with_llm_response
 from flaskr.service.user.repository import UserAggregate
 from flaskr.service.shifu.shifu_struct_manager import ShifuOutlineItemDto
 from langfuse.client import StatefulTraceClient
-from flaskr.service.learn.utils_v2 import init_generated_block
+from flaskr.service.learn.utils_v2 import (
+    init_generated_block,
+    get_fmt_prompt,
+    get_follow_up_info_v2,
+)
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDASK_VALUE,
     BLOCK_TYPE_MDANSWER_VALUE,
@@ -84,21 +82,7 @@ def handle_input_ask(
         )
     )
 
-    # Obtain user configuration information to replace system variables
-    user_profiles = get_user_profiles(
-        app, user_info.user_id, outline_item_info.shifu_bid
-    )
-
-    # Format the system prompt and replace the variables within it
-    system_message = (
-        format_script_prompt(system_prompt, user_profiles) if system_prompt else ""
-    )
-
-    # Format shifu Q&A prompt, insert system prompt
-    system_message = follow_up_info.ask_prompt.replace(
-        "{shifu_system_message}", system_message
-    )
-    messages.append({"role": "system", "content": system_message})  # Add system message
+    messages.append({"role": "system", "content": system_prompt})  # Add system message
 
     # Add historical conversation records to system messages
     for script in history_scripts:
