@@ -23,6 +23,8 @@ from .repository import (
     update_user_entity_fields,
     upsert_credential,
 )
+from ..profile.funcs import save_user_profiles
+from ..profile.dtos import ProfileToSave
 
 
 def _load_user_info(app: Flask, user_bid: str) -> UserInfo:
@@ -81,10 +83,18 @@ def update_user_info(
         if not aggregate:
             raise_error("server.user.userNotFound")
 
-        updates = {"nickname": name}
+        updates = {}
+        updates_profile = {}
+        update_profile = False
+        if name is not None:
+            updates = {"nickname": name}
+            updates_profile = {"sys_user_nickname": name}
+            update_profile = True
         if language is not None:
             if language in get_i18n_list(app):
                 updates["language"] = language
+                updates_profile = {"sys_user_language": language}
+                update_profile = True
             else:
                 raise_error("USER.LANGUAGE_NOT_FOUND")
         if avatar is not None:
@@ -94,6 +104,16 @@ def update_user_info(
         if not entity:
             raise_error("server.user.languageNotFound")
         entity = update_user_entity_fields(entity, **updates)
+        if update_profile:
+            save_user_profiles(
+                app,
+                user.user_id,
+                "",
+                [
+                    ProfileToSave(key=key, value=value, bid=None)
+                    for key, value in updates_profile.items()
+                ],
+            )
 
         if email is not None:
             normalized_email = email.lower() if email else ""
