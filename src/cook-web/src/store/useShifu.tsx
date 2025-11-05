@@ -329,12 +329,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
     setMdflow(mdflow);
     setCurrentMdflow(mdflow);
-    if (mdflow) {
+    // if (mdflow) {
       parseMdflow(mdflow, shifuId, outlineId);
-    } else {
+    // } else {
       setVariables([]);
       setSystemVariables([]);
-    }
+    // }
     setIsLoading(false);
   };
 
