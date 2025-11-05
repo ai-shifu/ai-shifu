@@ -10,8 +10,10 @@
   "visible": "可见",
   "hidden": "隐藏",
   "chapterPrompt": "章提示词",
-  "chapterPromptHint": "对本章的整体内容,进行对象、语气和注意事项等约束",
+  "chapterPromptHint": "对本章的整体内容生成，进行对象、语气和注意事项等约束",
+  "chapterPromptPlaceholder": "请输入提示词。如果此处为空，则本章内容生成将通过师傅提示词进行约束",
   "lessonPrompt": "节提示词",
-  "lessonPromptHint": "对本节的整体内容,进行对象、语气和注意事项等约束",
+  "lessonPromptHint": "对本节的整体内容生成，进行对象、语气和注意事项等约束",
+  "lessonPromptPlaceholder": "请输入提示词。如果此处为空，则本节内容生成将通过所属章的章提示词内容进行约束",
   "promptPlaceholder": "请输入提示词"
 }

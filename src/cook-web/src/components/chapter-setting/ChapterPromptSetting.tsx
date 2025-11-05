@@ -109,7 +109,9 @@ const ChapterPromptSetting = ({
                 maxLength={20000}
                 minRows={6}
                 maxRows={30}
-                placeholder={t('module.chapterSetting.promptPlaceholder')}
+                placeholder={t(
+                  'module.chapterSetting.chapterPromptPlaceholder',
+                )}
                 className='min-h-[220px]'
               />
               {/* <div className='text-xs text-muted-foreground text-right'>
