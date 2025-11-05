@@ -78,11 +78,11 @@ export default function ShifuSettingDialog({
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
-      .max(50, t('module.shifuSetting.shifuNameMaxLength')),
+      .max(100, t('module.shifuSetting.shifuNameMaxLength')),
     description: z
       .string()
       .min(1, t('module.shifuSetting.shifuDescriptionEmpty'))
-      .max(300, t('module.shifuSetting.shifuDescriptionMaxLength')),
+      .max(500, t('module.shifuSetting.shifuDescriptionMaxLength')),
     model: z.string(),
     systemPrompt: z
       .string()
@@ -294,8 +294,8 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Input
                         {...field}
-                        maxLength={20}
-                        placeholder={t('module.shifuSetting.limit20Characters')}
+                        maxLength={100}
+                        placeholder={t('module.shifuSetting.placeholder')}
                       />
                     </FormControl>
                     {/* <div className='text-xs text-muted-foreground text-right'>
@@ -317,9 +317,9 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Textarea
                         {...field}
-                        maxLength={300}
+                        maxLength={500}
                         placeholder={t(
-                          'module.shifuSetting.limit300Characters',
+                          'module.shifuSetting.placeholder',
                         )}
                         rows={4}
                       />
@@ -494,6 +494,9 @@ export default function ShifuSettingDialog({
                     <FormLabel className='text-sm font-medium text-foreground'>
                       {t('common.core.selectModel')}
                     </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.selectModelHint')}
+                    </p>
                     <FormControl>
                       <ModelList
                         className='h-9'
@@ -516,6 +519,8 @@ export default function ShifuSettingDialog({
                     </FormLabel>
                     <p className='text-xs text-muted-foreground'>
                       {t('module.shifuSetting.temperatureHint')}
+                      <br/>
+                      {t('module.shifuSetting.temperatureHint2')}
                     </p>
                     <div className='flex items-center gap-2'>
                       <FormControl className='flex-1'>
@@ -564,13 +569,13 @@ export default function ShifuSettingDialog({
                       <FormLabel className='text-sm font-medium text-foreground'>
                         {t('module.shifuSetting.shifuPrompt')}
                       </FormLabel>
-                      <a
+                      {/* <a
                         href='https://markdownflow.ai/docs/zh/specification/how-it-works/#2'
                         target='_blank'
                         rel='noopener noreferrer'
                       >
                         <CircleHelp className='h-4 w-4 text-muted-foreground' />
-                      </a>
+                      </a> */}
                     </div>
                     <p className='text-xs text-muted-foreground'>
                       {t('module.shifuSetting.shifuPromptHint')}

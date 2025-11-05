@@ -10,8 +10,10 @@
   "visible": "Visible",
   "hidden": "Hidden",
   "chapterPrompt": "Chapter Prompt",
-  "chapterPromptHint": "Define the chapter's audience, tone, and guardrails",
+  "chapterPromptHint": "Define the chapter's content generation, audience, tone, and guardrails",
+  "chapterPromptPlaceholder": "Please enter the prompt. If this is empty, the chapter content generation will be constrained by the shifu prompt content",
   "lessonPrompt": "Lesson Prompt",
-  "lessonPromptHint": "Define the lesson's audience, tone, and guardrails",
-  "promptPlaceholder": "Please enter the prompt"
+  "lessonPromptPlaceholder": "Please enter the prompt. If this is empty, the lesson content generation will be constrained by the chapter prompt content",
+  "lessonPromptHint": "Define the lesson's content generation, audience, tone, and guardrails",
+  "promptPlaceholder": "Please enter the prompt",
 }
