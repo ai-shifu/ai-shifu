@@ -219,7 +219,7 @@ export default function ShifuSettingDialog({
     if (onSave) {
       await onSave();
     }
-    if(needClose){
+    if (needClose) {
       setOpen(false);
     }
   };
@@ -329,7 +329,7 @@ export default function ShifuSettingDialog({
         <div className='h-px w-full bg-border' />
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((data) => onSubmit(data, true))}
+            onSubmit={form.handleSubmit(data => onSubmit(data, true))}
             className='flex-1 flex flex-col overflow-hidden'
           >
             <div className='flex-1 overflow-y-auto px-6'>
