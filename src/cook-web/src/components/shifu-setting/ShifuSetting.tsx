@@ -69,7 +69,6 @@ export default function ShifuSettingDialog({
     previewUrl: false,
     url: false,
   });
-  // Initialize the form with react-hook-form and zod resolver
 
   // Define the validation schema using Zod
   const shifuSchema = z.object({
@@ -118,6 +117,8 @@ export default function ShifuSettingDialog({
       temperature: '',
     },
   });
+
+  const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
   // Handle copy to clipboard
   const handleCopy = field => {
@@ -201,7 +202,7 @@ export default function ShifuSettingDialog({
   };
 
   // Handle form submission
-  const onSubmit = async data => {
+  const onSubmit = async (data: any, needClose: boolean | undefined = true) => {
     await api.saveShifuDetail({
       description: data.description,
       shifu_bid: shifuId,
@@ -217,7 +218,9 @@ export default function ShifuSettingDialog({
     if (onSave) {
       await onSave();
     }
-    setOpen(false);
+    if(needClose){
+      setOpen(false);
+    }
   };
   const init = async () => {
     const result = (await api.getShifuDetail({
@@ -245,6 +248,26 @@ export default function ShifuSettingDialog({
     }
     init();
   }, [shifuId, open]);
+
+  useEffect(() => {
+    const subscription = form.watch((value: any) => {
+      setFormSnapshot(value);
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    if (!form.formState.isDirty) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      onSubmit(form.getValues(), false);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [formSnapshot, open, form]);
 
   const adjustTemperature = (delta: number) => {
     const currentValue = parseFloat(form.getValues('temperature') || '0');
