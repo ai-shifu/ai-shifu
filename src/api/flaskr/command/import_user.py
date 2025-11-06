@@ -1,7 +1,7 @@
 from flask import Flask
 import uuid
 
-from flaskr.service.user import generate_temp_user
+from flaskr.service.user.user import generate_temp_user
 from flaskr.service.order import init_buy_record
 from flaskr.service.order.coupon_funcs import use_coupon_code
 from flaskr.service.user.repository import (
