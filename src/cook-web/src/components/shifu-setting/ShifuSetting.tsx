@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Copy,
   Check,
@@ -117,6 +117,7 @@ export default function ShifuSettingDialog({
       temperature: '',
     },
   });
+  const isDirty = form.formState.isDirty;
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
@@ -256,18 +257,44 @@ export default function ShifuSettingDialog({
     return () => subscription.unsubscribe();
   }, [form]);
 
+  const submitForm = useCallback(
+    async (needClose = true) => {
+      const isNameValid = await form.trigger('name');
+      if (!isNameValid) {
+        if (needClose) {
+          setOpen(true);
+        }
+        return false;
+      }
+      await onSubmit(form.getValues(), needClose);
+      return true;
+    },
+    [form, onSubmit, setOpen],
+  );
+
   useEffect(() => {
     if (!open) {
       return;
     }
-    if (!form.formState.isDirty) {
+    if (!isDirty) {
       return;
     }
     const timer = setTimeout(() => {
-      onSubmit(form.getValues(), false);
+      submitForm(false);
     }, 3000);
     return () => clearTimeout(timer);
-  }, [formSnapshot, open, form]);
+  }, [formSnapshot, open, submitForm, isDirty]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        submitForm(true);
+        return;
+      }
+      setOpen(true);
+    },
+    [submitForm, setOpen],
+  );
 
   const adjustTemperature = (delta: number) => {
     const currentValue = parseFloat(form.getValues('temperature') || '0');
@@ -285,7 +312,7 @@ export default function ShifuSettingDialog({
   return (
     <Sheet
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
     >
       <SheetTrigger asChild>
         <SlidersVertical className='cursor-pointer h-4 w-4 text-gray-500' />
@@ -293,12 +320,6 @@ export default function ShifuSettingDialog({
       <SheetContent
         side='right'
         className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
-        onInteractOutside={() => {
-          onSubmit(form.getValues());
-        }}
-        onCloseIconClick={() => {
-          onSubmit(form.getValues());
-        }}
       >
         <SheetHeader className='px-6 pt-6'>
           <SheetTitle className='text-lg font-medium'>
