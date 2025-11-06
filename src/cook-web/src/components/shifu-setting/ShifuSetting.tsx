@@ -320,12 +320,6 @@ export default function ShifuSettingDialog({
       <SheetContent
         side='right'
         className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
-        onInteractOutside={() => {
-          onSubmit(form.getValues());
-        }}
-        onCloseIconClick={() => {
-          onSubmit(form.getValues());
-        }}
       >
         <SheetHeader className='px-6 pt-6'>
           <SheetTitle className='text-lg font-medium'>
