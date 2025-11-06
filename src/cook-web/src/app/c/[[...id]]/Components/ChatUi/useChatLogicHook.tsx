@@ -74,7 +74,7 @@ export interface UseChatSessionParams {
   chapterId?: string;
   previewMode?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
-  trackTrailProgress: (generatedBlockBid: string) => void;
+  trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -333,8 +333,8 @@ function useChatLogicHook({
             const blockId = nid;
             // const blockId = currentBlockIdRef.current;
 
-            if (nid && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
-              trackTrailProgress(nid);
+            if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
+              trackTrailProgress(shifuBid, blockId);
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {

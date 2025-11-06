@@ -9,6 +9,7 @@ from flaskr.service.learn.learn_funcs import (
     get_learn_record,
     handle_reaction,
     reset_learn_record,
+    get_generated_content,
 )
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
 
@@ -415,6 +416,51 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         )
         return make_common_response(
             handle_reaction(app, shifu_bid, user_bid, generated_block_bid, action)
+        )
+
+    @app.route(
+        path_prefix + "/shifu/<shifu_bid>/generated-contents/<generated_block_bid>",
+        methods=["GET"],
+    )
+    def get_generated_content_api(shifu_bid: str, generated_block_bid: str):
+        """
+        get the content of the generated block
+        ---
+        tags:
+            - learn
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+            - name: generated_block_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: get the content of the generated block success
+                content:
+                    application/json:
+                        schema:
+                            properties:
+                                code:
+                                    type: integer
+                                    description: code
+                                message:
+                                    type: string
+                                    description: message
+                                data:
+                                    $ref: "#/components/schemas/GeneratedInfoDTO"
+        """
+        user_bid = request.user.user_id
+        preview_mode = request.args.get("preview_mode", "False")
+        app.logger.info(
+            f"get generated content, shifu_bid: {shifu_bid}, generated_block_bid: {generated_block_bid}, preview_mode: {preview_mode}"
+        )
+        preview_mode = preview_mode.lower() == "true"
+        return make_common_response(
+            get_generated_content(
+                app, shifu_bid, generated_block_bid, user_bid, preview_mode
+            )
         )
 
     return app
