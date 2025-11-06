@@ -14,8 +14,6 @@
   "regenerate": "Regenerate",
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
-  "startAutoSkip": "Start Auto-skip",
-  "stopAutoSkip": "Stop Auto-skip",
   "thinking": "Thinking...",
   "invalidSmsCode": "Please enter a 4-digit SMS code"
 }

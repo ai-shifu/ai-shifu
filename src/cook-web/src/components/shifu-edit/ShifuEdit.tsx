@@ -125,6 +125,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     currentNode,
   } = useShifu();
 
+  useEffect(() => {
+    const baseTitle = t('common.core.adminTitle');
+    const suffix = currentShifu?.name ? ` - ${currentShifu.name}` : '';
+    document.title = `${baseTitle}${suffix}`;
+  }, [t, currentShifu?.name]);
+
   const token = useUserStore(state => state.getToken());
   const baseURL = useEnvStore((state: EnvStoreState) => state.baseURL);
 

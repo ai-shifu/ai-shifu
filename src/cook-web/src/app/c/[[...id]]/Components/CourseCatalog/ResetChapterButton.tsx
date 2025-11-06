@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useState, useContext } from 'react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
@@ -7,6 +7,7 @@ import { useCourseStore } from '@/c-store/useCourseStore';
 
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { shifu } from '@/c-service/Shifu';
+import { AppContext } from '../AppContext';
 
 import { Button } from '@/components/ui/Button';
 import {
@@ -28,6 +29,7 @@ export const ResetChapterButton = ({
 }) => {
   const { t } = useTranslation();
   const { trackEvent } = useTracking();
+  const { mobileStyle } = useContext(AppContext);
 
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -94,7 +96,12 @@ export const ResetChapterButton = ({
     <>
       <Button
         size='sm'
-        className={cn(className, 'size-max', 'px-2', 'rounded-full')}
+        className={cn(
+          className,
+          'size-max px-2 rounded-full',
+          mobileStyle &&
+            'bg-white text-primary border border-primary shadow-none hover:bg-white hover:text-primary focus-visible:shadow-none',
+        )}
         onClick={onButtonClick}
       >
         {t('module.lesson.reset.title')}
