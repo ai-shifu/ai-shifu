@@ -29,7 +29,6 @@ import useChatLogicHook, {
 import AskBlock from './AskBlock';
 import InteractionBlockM from './InteractionBlockM';
 import ContentBlock from './ContentBlock';
-import { OnSendContentParams } from 'markdown-flow-ui';
 
 export const NewChatComponents = ({
   className,
