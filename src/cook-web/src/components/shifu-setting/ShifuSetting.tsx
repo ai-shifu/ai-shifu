@@ -202,7 +202,7 @@ export default function ShifuSettingDialog({
   };
 
   // Handle form submission
-  const onSubmit = async (data: any, needClose: boolean | undefined = true) => {
+  const onSubmit = async (data: any, needClose = true) => {
     await api.saveShifuDetail({
       description: data.description,
       shifu_bid: shifuId,
