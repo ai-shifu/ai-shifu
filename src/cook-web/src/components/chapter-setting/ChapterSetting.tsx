@@ -1,12 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  Sheet,
-  SheetContent,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/Sheet';
-import { Button } from '@/components/button';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/Sheet';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import { Label } from '@/components/ui/Label';
 import { Textarea } from '@/components/ui/Textarea';
@@ -35,6 +28,7 @@ const ChapterSettingsDialog = ({
   const [systemPrompt, setSystemPrompt] = useState('');
   const [hideChapter, setHideChapter] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
@@ -54,39 +48,79 @@ const ChapterSettingsDialog = ({
       setSystemPrompt(result.system_prompt ?? '');
       const normalizedHidden = result.is_hidden ?? false;
       setHideChapter(normalizedHidden);
+      setIsDirty(false);
     } finally {
       setLoading(false);
     }
   }, [outlineBid, currentShifu?.bid]);
 
-  const onConfirm = async () => {
-    const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
-    const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+  const onConfirm = useCallback(
+    async (needClose = true) => {
+      if (!outlineBid) {
+        return;
+      }
 
-    await api.modifyOutline({
-      outline_bid: outlineBid,
-      shifu_bid: currentShifu?.bid,
-      type: learningPermission,
-      is_hidden: hideChapter,
-      system_prompt: systemPrompt,
-      is_paid: isPaid,
-      require_login: requiresLogin,
-      need_login: requiresLogin,
-      login_required: requiresLogin,
-    });
-    onOpenChange?.(false);
-  };
+      const isPaid = learningPermission === LEARNING_PERMISSION.NORMAL;
+      const requiresLogin = learningPermission !== LEARNING_PERMISSION.GUEST;
+
+      await api.modifyOutline({
+        outline_bid: outlineBid,
+        shifu_bid: currentShifu?.bid,
+        type: learningPermission,
+        is_hidden: hideChapter,
+        system_prompt: systemPrompt,
+        is_paid: isPaid,
+        require_login: requiresLogin,
+        need_login: requiresLogin,
+        login_required: requiresLogin,
+      });
+
+      setIsDirty(false);
+      if (needClose) {
+        onOpenChange?.(false);
+      }
+    },
+    [
+      outlineBid,
+      learningPermission,
+      hideChapter,
+      systemPrompt,
+      currentShifu?.bid,
+      onOpenChange,
+    ],
+  );
 
   useEffect(() => {
     if (!open) {
       setLearningPermission(LEARNING_PERMISSION.NORMAL);
       setSystemPrompt('');
       setHideChapter(false);
+      setIsDirty(false);
     } else {
       fetchOutlineInfo();
     }
     onOpenChange?.(open);
   }, [open, outlineBid, onOpenChange, fetchOutlineInfo]);
+
+  useEffect(() => {
+    if (!open || loading || !isDirty) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      onConfirm(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [
+    open,
+    loading,
+    isDirty,
+    learningPermission,
+    hideChapter,
+    systemPrompt,
+    onConfirm,
+  ]);
 
   return (
     <Sheet
@@ -105,8 +139,11 @@ const ChapterSettingsDialog = ({
       <SheetContent
         side='right'
         className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
-        onPointerDown={event => {
-          event.stopPropagation();
+        onInteractOutside={() => {
+          onConfirm();
+        }}
+        onCloseIconClick={() => {
+          onConfirm();
         }}
       >
         <div className='border-b border-border px-6 py-5 pr-12'>
@@ -131,9 +168,10 @@ const ChapterSettingsDialog = ({
                 </div>
                 <RadioGroup
                   value={learningPermission}
-                  onValueChange={value =>
-                    setLearningPermission(value as LearningPermission)
-                  }
+                  onValueChange={value => {
+                    setLearningPermission(value as LearningPermission);
+                    setIsDirty(true);
+                  }}
                   className='flex flex-row flex-wrap gap-x-10 gap-y-2'
                 >
                   <div className='flex items-center gap-2'>
@@ -181,7 +219,10 @@ const ChapterSettingsDialog = ({
                 </div>
                 <RadioGroup
                   value={hideChapter ? 'hidden' : 'visible'}
-                  onValueChange={value => setHideChapter(value === 'hidden')}
+                  onValueChange={value => {
+                    setHideChapter(value === 'hidden');
+                    setIsDirty(true);
+                  }}
                   className='flex flex-row flex-wrap gap-x-10 gap-y-2'
                 >
                   <div className='flex items-center gap-2'>
@@ -224,7 +265,10 @@ const ChapterSettingsDialog = ({
                 )}
                 <Textarea
                   value={systemPrompt}
-                  onChange={event => setSystemPrompt(event.target.value)}
+                  onChange={event => {
+                    setSystemPrompt(event.target.value);
+                    setIsDirty(true);
+                  }}
                   maxLength={20000}
                   minRows={3}
                   maxRows={30}
@@ -242,20 +286,6 @@ const ChapterSettingsDialog = ({
             </div>
           </div>
         )}
-        <SheetFooter className='border-t border-border bg-white px-6 py-4 sm:flex-row sm:justify-end sm:space-x-4'>
-          <Button
-            variant='outline'
-            onClick={() => onOpenChange?.(false)}
-          >
-            {t('common.core.cancel')}
-          </Button>
-          <Button
-            disabled={loading}
-            onClick={onConfirm}
-          >
-            {t('common.core.confirm')}
-          </Button>
-        </SheetFooter>
       </SheetContent>
     </Sheet>
   );
