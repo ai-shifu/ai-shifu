@@ -1,5 +1,5 @@
 'use client';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
@@ -14,7 +14,10 @@ const MainInterface = ({
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  useEffect(() => {
+    document.title = t('common.core.adminTitle');
+  }, [t, i18n.language]);
   const menuItems: {
     type?: string;
     icon?: React.ReactNode;
