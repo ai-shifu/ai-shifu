@@ -1,8 +1,6 @@
 {
   "__namespace__": "module.shifuSetting",
-  "cancel": "Cancel",
   "fileSizeLimit": "File size cannot exceed 2MB",
-  "save": "Save",
   "shifuDescriptionEmpty": "Description cannot be empty",
   "shifuDescriptionMaxLength": "Description cannot exceed 500 characters",
   "shifuNameEmpty": "Name cannot be empty",

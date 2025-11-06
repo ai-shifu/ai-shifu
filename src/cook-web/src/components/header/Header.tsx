@@ -20,7 +20,7 @@ const Header = () => {
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
   const onShifuSave = async () => {
     if (currentShifu) {
-      await actions.loadShifu(currentShifu.bid);
+      await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
   const publish = async () => {
