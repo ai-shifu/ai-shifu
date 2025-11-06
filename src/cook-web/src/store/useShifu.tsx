@@ -104,11 +104,18 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   // const UITypes = useUITypes()
   const ContentTypes = useContentTypes();
 
-  const loadShifu = async (shifuId: string) => {
-    setBlockUITypes({});
-    setBlockContentTypes({});
+  const loadShifu = async (
+    shifuId: string,
+    options?: {
+      silent?: boolean;
+    },
+  ) => {
+    const silent = options?.silent ?? false;
+
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       setError(null);
       const shifu = await api.getShifuDetail({
         shifu_bid: shifuId,
@@ -118,7 +125,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       console.error(error);
       setError('Failed to load shifu');
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
   const recursiveCataData = (cataTree: Outline[]): any => {
