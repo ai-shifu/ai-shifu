@@ -62,10 +62,14 @@
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
 <<<<<<< HEAD
+<<<<<<< HEAD
     "markdown-flow-ui": "^0.1.25",
 =======
     "markdown-flow-ui": "^0.1.24",
 >>>>>>> 1f51454d (feat: update mdf-ui verison (#877))
+=======
+    "markdown-flow-ui": "^0.1.25",
+>>>>>>> 6963bae4 (feat: update mdf-ui version (#879))
     "next": "^15.5.3",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
