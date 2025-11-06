@@ -381,3 +381,31 @@ class RunStatusDTO(BaseModel):
             "is_running": self.is_running,
             "running_time": self.running_time,
         }
+
+
+@register_schema_to_swagger
+class GeneratedInfoDTO(BaseModel):
+    position: int = Field(..., description="generated block position", required=False)
+    outline_name: str = Field(..., description="outline item name", required=False)
+    is_trial_lesson: bool = Field(
+        ..., description="whether the outline item is a trial lesson", required=False
+    )
+
+    def __init__(
+        self,
+        position: int,
+        outline_name: str,
+        is_trial_lesson: bool,
+    ):
+        super().__init__(
+            position=position,
+            outline_name=outline_name,
+            is_trial_lesson=is_trial_lesson,
+        )
+
+    def __json__(self):
+        return {
+            "position": self.position,
+            "outline_name": self.outline_name,
+            "is_trial_lesson": self.is_trial_lesson,
+        }
