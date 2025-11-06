@@ -30,18 +30,13 @@ export const ChatUi = ({
   getNextLessonId,
 }) => {
   const { frameLayout } = useUiLayoutStore(state => state);
-  const { skip, updateSkip, previewMode } = useSystemStore(
+  const { previewMode } = useSystemStore(
     useShallow(state => ({
       skip: state.skip,
       updateSkip: state.updateSkip,
       previewMode: state.previewMode,
     })),
   );
-  const { t } = useTranslation();
-
-  const handlePreviewModeClick = () => {
-    updateSkip(!skip);
-  };
 
   return (
     <div
@@ -77,18 +72,6 @@ export const ChatUi = ({
       )}
 
       <GlobalInfoButton className={styles.globalInfoButton} />
-      {/* {previewMode && (
-        <div className={styles.previewMode}>
-          <button
-            className={cn(styles.previewModeButton, { [styles.active]: skip })}
-            onClick={handlePreviewModeClick}
-          >
-            {skip
-              ? t('module.chat.stopAutoSkip')
-              : t('module.chat.startAutoSkip')}
-          </button>
-        </div>
-      )} */}
     </div>
   );
 };
