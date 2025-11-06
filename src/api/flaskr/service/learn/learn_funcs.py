@@ -13,6 +13,7 @@ from flaskr.service.learn.learn_dtos import (
     LearnOutlineItemsWithBannerInfoDTO,
     LearnBannerInfoDTO,
     OutlineType,
+    GeneratedInfoDTO,
 )
 from flaskr.service.shifu.models import (
     DraftShifu,
@@ -390,3 +391,55 @@ def handle_reaction(
             generated_block.liked = 0
         db.session.commit()
         return True
+
+
+def get_generated_content(
+    app: Flask,
+    shifu_bid: str,
+    generated_block_bid: str,
+    user_bid: str,
+    preview_mode: bool,
+) -> GeneratedInfoDTO:
+    with app.app_context():
+        generated_block = LearnGeneratedBlock.query.filter(
+            LearnGeneratedBlock.user_bid == user_bid,
+            LearnGeneratedBlock.shifu_bid == shifu_bid,
+            LearnGeneratedBlock.generated_block_bid == generated_block_bid,
+            LearnGeneratedBlock.deleted == 0,
+            LearnGeneratedBlock.status == 1,
+        ).first()
+        if not generated_block:
+            return GeneratedInfoDTO(
+                position=0,
+                outline_name="",
+                is_trial_lesson=False,
+            )
+        if preview_mode:
+            outline_item = (
+                DraftOutlineItem.query.filter(
+                    DraftOutlineItem.outline_item_bid
+                    == generated_block.outline_item_bid,
+                    DraftOutlineItem.deleted == 0,
+                )
+                .order_by(DraftOutlineItem.position.asc())
+                .first()
+            )
+        else:
+            outline_item = (
+                PublishedOutlineItem.query.filter(
+                    PublishedOutlineItem.outline_item_bid
+                    == generated_block.outline_item_bid,
+                    PublishedOutlineItem.deleted == 0,
+                )
+                .order_by(PublishedOutlineItem.position.asc())
+                .first()
+            )
+        outline_title = outline_item.title if outline_item else ""
+        is_trial_lesson = (
+            outline_item.type == UNIT_TYPE_VALUE_TRIAL if outline_item else False
+        )
+        return GeneratedInfoDTO(
+            position=generated_block.position,
+            outline_name=outline_title,
+            is_trial_lesson=is_trial_lesson,
+        )
