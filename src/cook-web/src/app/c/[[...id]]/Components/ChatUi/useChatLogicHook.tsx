@@ -478,7 +478,7 @@ function useChatLogicHook({
                 return updatedList;
               });
             } else if (response.type === SSE_OUTPUT_TYPE.VARIABLE_UPDATE) {
-              if(response.content.variable_name === 'sys_user_nickname') {
+              if (response.content.variable_name === 'sys_user_nickname') {
                 updateUserInfo({
                   name: response.content.variable_value,
                 });

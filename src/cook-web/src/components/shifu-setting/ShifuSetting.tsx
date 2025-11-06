@@ -218,7 +218,7 @@ export default function ShifuSettingDialog({
     if (onSave) {
       await onSave();
     }
-    if(needClose){
+    if (needClose) {
       setOpen(false);
     }
   };
