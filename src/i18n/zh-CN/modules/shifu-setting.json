@@ -1,8 +1,6 @@
 {
   "__namespace__": "module.shifuSetting",
-  "cancel": "取消",
   "fileSizeLimit": "文件大小不能超过2MB",
-  "save": "保存",
   "shifuDescriptionEmpty": "简介不能为空",
   "shifuDescriptionMaxLength": "简介不能超过500个字符",
   "shifuNameEmpty": "名称不能为空",
