@@ -9,10 +9,10 @@ export const getLessonTree = async (courseId: string, previewMode: boolean) => {
   );
 };
 
-export const getScriptInfo = async (scriptId: string) => {
+export const getScriptInfo = async (courseId: string, scriptId: string) => {
   const preview_mode = useSystemStore.getState().previewMode;
   return request.get(
-    `/api/study/query-script-into?script_id=${scriptId}&preview_mode=${preview_mode}`,
+    `/api/learn/shifu/${courseId}/generated-contents/${scriptId}?preview_mode=${preview_mode}`,
   );
 };
 

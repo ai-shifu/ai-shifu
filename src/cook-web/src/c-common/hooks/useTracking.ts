@@ -108,9 +108,9 @@ export const useTracking = () => {
   );
 
   const trackTrailProgress = useCallback(
-    async scriptId => {
+    async (courseId: string, scriptId: string) => {
       try {
-        const { data: scriptInfo } = await getScriptInfo(scriptId);
+        const { data: scriptInfo } = await getScriptInfo(courseId, scriptId);
 
         // Check whether this script is part of a trial lesson
         if (!scriptInfo?.is_trial_lesson) {
@@ -118,8 +118,8 @@ export const useTracking = () => {
         }
 
         trackEvent(EVENT_NAMES.TRIAL_PROGRESS, {
-          progress_no: scriptInfo.script_index,
-          progress_desc: scriptInfo.script_name,
+          progress_no: scriptInfo.position,
+          progress_desc: scriptInfo.outline_name,
         });
       } catch {}
     },
