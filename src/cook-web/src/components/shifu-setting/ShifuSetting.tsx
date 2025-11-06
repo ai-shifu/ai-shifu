@@ -121,8 +121,6 @@ export default function ShifuSettingDialog({
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
-  const [formSnapshot, setFormSnapshot] = useState(form.getValues());
-
   // Handle copy to clipboard
   const handleCopy = field => {
     navigator.clipboard.writeText(form.getValues(field));
