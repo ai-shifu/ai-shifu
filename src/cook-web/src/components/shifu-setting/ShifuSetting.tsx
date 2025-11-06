@@ -81,7 +81,7 @@ export default function ShifuSettingDialog({
       .max(100, t('module.shifuSetting.shifuNameMaxLength')),
     description: z
       .string()
-      .min(1, t('module.shifuSetting.shifuDescriptionEmpty'))
+      .min(0, t('module.shifuSetting.shifuDescriptionEmpty'))
       .max(500, t('module.shifuSetting.shifuDescriptionMaxLength')),
     model: z.string(),
     systemPrompt: z
@@ -270,6 +270,12 @@ export default function ShifuSettingDialog({
       <SheetContent
         side='right'
         className='w-full sm:w-[420px] md:w-[480px] h-full flex flex-col p-0'
+        onInteractOutside={() => {
+          onSubmit(form.getValues());
+        }}
+        onCloseIconClick={() => {
+          onSubmit(form.getValues());
+        }}
       >
         <SheetHeader className='px-6 pt-6'>
           <SheetTitle className='text-lg font-medium'>
@@ -657,24 +663,6 @@ export default function ShifuSettingDialog({
               />
             </div>
             <div className='h-px w-full bg-border' />
-            <SheetFooter className='flex-shrink-0 px-6 py-4'>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={() => setOpen(false)}
-              >
-                {t('module.shifuSetting.cancel')}
-              </Button>
-              <Button
-                type='submit'
-                className='bg-primary hover:bg-primary-lighter text-white'
-                onClick={() => {
-                  onSubmit(form.getValues());
-                }}
-              >
-                {t('module.shifuSetting.save')}
-              </Button>
-            </SheetFooter>
           </form>
         </Form>
       </SheetContent>
