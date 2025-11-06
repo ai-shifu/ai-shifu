@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Copy,
   Check,
@@ -117,6 +117,9 @@ export default function ShifuSettingDialog({
       temperature: '',
     },
   });
+  const isDirty = form.formState.isDirty;
+
+  const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
   const [formSnapshot, setFormSnapshot] = useState(form.getValues());
 
@@ -202,7 +205,7 @@ export default function ShifuSettingDialog({
   };
 
   // Handle form submission
-  const onSubmit = async (data: any, needClose: boolean | undefined = true) => {
+  const onSubmit = async (data: any, needClose = true) => {
     await api.saveShifuDetail({
       description: data.description,
       shifu_bid: shifuId,
@@ -218,7 +221,7 @@ export default function ShifuSettingDialog({
     if (onSave) {
       await onSave();
     }
-    if(needClose){
+    if (needClose) {
       setOpen(false);
     }
   };
@@ -256,18 +259,44 @@ export default function ShifuSettingDialog({
     return () => subscription.unsubscribe();
   }, [form]);
 
+  const submitForm = useCallback(
+    async (needClose = true) => {
+      const isNameValid = await form.trigger('name');
+      if (!isNameValid) {
+        if (needClose) {
+          setOpen(true);
+        }
+        return false;
+      }
+      await onSubmit(form.getValues(), needClose);
+      return true;
+    },
+    [form, onSubmit, setOpen],
+  );
+
   useEffect(() => {
     if (!open) {
       return;
     }
-    if (!form.formState.isDirty) {
+    if (!isDirty) {
       return;
     }
     const timer = setTimeout(() => {
-      onSubmit(form.getValues(), false);
+      submitForm(false);
     }, 3000);
     return () => clearTimeout(timer);
-  }, [formSnapshot, open, form]);
+  }, [formSnapshot, open, submitForm, isDirty]);
+
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (!nextOpen) {
+        submitForm(true);
+        return;
+      }
+      setOpen(true);
+    },
+    [submitForm, setOpen],
+  );
 
   const adjustTemperature = (delta: number) => {
     const currentValue = parseFloat(form.getValues('temperature') || '0');
@@ -285,7 +314,7 @@ export default function ShifuSettingDialog({
   return (
     <Sheet
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={handleOpenChange}
     >
       <SheetTrigger asChild>
         <SlidersVertical className='cursor-pointer h-4 w-4 text-gray-500' />
@@ -308,7 +337,7 @@ export default function ShifuSettingDialog({
         <div className='h-px w-full bg-border' />
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            onSubmit={form.handleSubmit(data => onSubmit(data, true))}
             className='flex-1 flex flex-col overflow-hidden'
           >
             <div className='flex-1 overflow-y-auto px-6'>
