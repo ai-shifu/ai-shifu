@@ -1,13 +1,14 @@
 <div align="center">
   <img src="assets/logo_en.png" width=256></img>
-<p><strong>Write Once,Teach Personally.</strong></p>
+<p><strong>Write Once, Teach Personally</strong></p>
 
 English | [简体中文](README_ZH-CN.md)
 
 </div>
-AI-Shifu is designed for creators, instructors, and training/education teams, offering a scalable one-on-one teaching agent. Provide your expertise and teaching intent once，AI-Shifu will expand it into complete, personalized learning experiences. It adapts in real time to each learner’s profile with tailored explanations, interactive probing, assessments, and a full feedback loop—amplifying both your efficiency and the learner’s experience.
+AI-Shifu is designed for creators, instructors, and training/education teams, offering a scalable one-on-one teaching agent. Provide your expertise and teaching intent once, AI-Shifu will expand it into complete, personalized learning experiences. It adapts in real time to each learner’s profile with tailored explanations, interactive probing, assessments, and a full feedback loop—amplifying both your efficiency and the learner’s experience.
 
 # Core Capabilities
+
 - **Personalized explanation engine** — Generates learning paths and tone based on learner background, goals, and level.
 - **Interactive Q&A & probing** — Decomposes questions, asks clarifiers, and suggests next actions during sessions.
 - **Rapid course assembly** — Author with high-level frameworks and intent; AI-Shifu elaborates into lessons, activities, and assessments.
@@ -15,10 +16,10 @@ AI-Shifu is designed for creators, instructors, and training/education teams, of
 - **Multi-channel integration** — Embeddable in websites, course platforms, and enterprise training portals.
 
 # Use Cases
+
 - **Course creators** — Hand a single lesson framework to AI-Shifu; learners receive personalized explanations and real-time interaction.
 - **Enterprise training** — Input training content once; employees get role- and background-specific learning paths.
 - **Educators** — Provide a syllabus to generate personalized coaching content plus a Q&A assistant.
-
 
 # Roadmap
 
@@ -52,6 +53,7 @@ docker compose up -d
 ```
 
 Notes
+
 - First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
 - Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
 
@@ -98,6 +100,7 @@ cp .env.example.full .env      # For full configuration
 ### Access
 
 After Docker starts:
+
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
 3. The first verified user becomes Admin and Creator
@@ -109,4 +112,5 @@ After Docker starts:
 - Frontend language list only exposes `en-US` and `zh-CN`; the pseudo-locale `qps-ploc` is available for validation but hidden from the UI.
 
 Cook Web requirements
+
 - Node.js `22.16.0` (see `src/cook-web/package.json#engines`)
