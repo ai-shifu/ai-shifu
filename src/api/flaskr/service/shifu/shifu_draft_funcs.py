@@ -14,7 +14,6 @@ from ...util import generate_id
 from .consts import STATUS_DRAFT
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error
-from ...common.config import get_config
 from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
@@ -44,14 +43,22 @@ def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
     return shifu_draft
 
 
-def return_shifu_draft_dto(shifu_draft: DraftShifu) -> ShifuDetailDto:
+def return_shifu_draft_dto(shifu_draft: DraftShifu, base_url: str) -> ShifuDetailDto:
     """
     Return shifu draft dto
     Args:
         shifu_draft: Shifu draft
+        base_url: Base URL to build shifu links
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
+    normalized_base = base_url.rstrip("/") if base_url else ""
+    shifu_path = f"/c/{shifu_draft.shifu_bid}"
+    shifu_url = f"{normalized_base}{shifu_path}" if normalized_base else shifu_path
+    shifu_preview_url = (
+        f"{shifu_url}?preview=true" if normalized_base else f"{shifu_path}?preview=true"
+    )
+
     return ShifuDetailDto(
         shifu_id=shifu_draft.shifu_bid,
         shifu_name=shifu_draft.title,
@@ -63,11 +70,8 @@ def return_shifu_draft_dto(shifu_draft: DraftShifu) -> ShifuDetailDto:
         shifu_model=shifu_draft.llm,
         shifu_temperature=shifu_draft.llm_temperature,
         shifu_price=shifu_draft.price,
-        shifu_url=get_config("WEB_URL") + "/c/" + shifu_draft.shifu_bid,
-        shifu_preview_url=get_config("WEB_URL")
-        + "/c/"
-        + shifu_draft.shifu_bid
-        + "?preview=true",
+        shifu_url=shifu_url,
+        shifu_preview_url=shifu_preview_url,
         shifu_system_prompt=shifu_draft.llm_system_prompt,
     )
 
@@ -158,13 +162,16 @@ def create_shifu_draft(
         )
 
 
-def get_shifu_draft_info(app, user_id: str, shifu_id: str) -> ShifuDetailDto:
+def get_shifu_draft_info(
+    app, user_id: str, shifu_id: str, base_url: str
+) -> ShifuDetailDto:
     """
     Get shifu draft info
     Args:
         app: Flask application instance
         user_id: User ID
         shifu_id: Shifu ID
+        base_url: Base URL to build shifu links
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -172,7 +179,7 @@ def get_shifu_draft_info(app, user_id: str, shifu_id: str) -> ShifuDetailDto:
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
-        return return_shifu_draft_dto(shifu_draft)
+        return return_shifu_draft_dto(shifu_draft, base_url)
 
 
 def save_shifu_draft_info(
@@ -187,6 +194,7 @@ def save_shifu_draft_info(
     shifu_temperature: float,
     shifu_price: float,
     shifu_system_prompt: str,
+    base_url: str,
 ):
     """
     Save shifu draft info
@@ -202,6 +210,7 @@ def save_shifu_draft_info(
         shifu_temperature: Shifu temperature
         shifu_price: Shifu price
         shifu_system_prompt: Shifu system prompt
+        base_url: Base URL to build shifu links
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -251,7 +260,7 @@ def save_shifu_draft_info(
                 save_shifu_history(app, user_id, shifu_id, new_shifu_draft.id)
                 db.session.commit()
                 shifu_draft = new_shifu_draft
-        return return_shifu_draft_dto(shifu_draft)
+        return return_shifu_draft_dto(shifu_draft, base_url)
 
 
 def get_shifu_draft_list(
@@ -346,6 +355,7 @@ def save_shifu_draft_detail(
     shifu_model: str,
     shifu_price: float,
     shifu_temperature: float,
+    base_url: str,
 ):
     """
     Save shifu draft detail
@@ -360,6 +370,7 @@ def save_shifu_draft_detail(
         shifu_model: Shifu model
         shifu_price: Shifu price
         shifu_temperature: Shifu temperature
+        base_url: Base URL to build shifu links
     Returns:
         ShifuDetailDto: Shifu detail dto
     """
@@ -386,4 +397,4 @@ def save_shifu_draft_detail(
                 db.session.flush()
                 save_shifu_history(app, user_id, shifu_id, new_shifu.id)
             db.session.commit()
-            return return_shifu_draft_dto(new_shifu)
+            return return_shifu_draft_dto(new_shifu, base_url)
