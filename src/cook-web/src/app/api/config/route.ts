@@ -31,6 +31,9 @@ export async function GET(request: NextRequest) {
     loginMethodsEnabled: environment.loginMethodsEnabled,
     defaultLoginMethod: environment.defaultLoginMethod,
     googleOauthRedirect: `${origin.replace(/\/$/, '')}/login/google-callback`,
+
+    // ===== Redirect =====
+    homeUrl: environment.homeUrl,
   };
 
   return NextResponse.json(config);
