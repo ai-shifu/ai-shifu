@@ -16,11 +16,6 @@ from .factory import (
     registered_providers,
 )
 
-# Ensure built-in providers are registered on import.
-from .providers import phone as _phone_provider
-from .providers import email as _email_provider
-from .providers import google as _google_provider
-
 __all__ = [
     "AuthProvider",
     "AuthResult",
@@ -33,7 +28,13 @@ __all__ = [
     "has_provider",
     "register_provider",
     "registered_providers",
-    "_phone_provider",
-    "_email_provider",
-    "_google_provider",
+    "register_builtin_providers",
 ]
+
+
+def register_builtin_providers() -> None:
+    """Ensure built-in providers are loaded and registered."""
+    from importlib import import_module
+
+    for module_name in ("phone", "email", "google"):
+        import_module(f"{__name__}.providers.{module_name}")
