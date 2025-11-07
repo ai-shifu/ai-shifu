@@ -1,10 +1,6 @@
 import queue
 import threading
-import asyncio
-import inspect
-import contextvars
-from asyncio import events as asyncio_events
-from typing import Generator, Union, AsyncGenerator, Callable, Awaitable, Any
+from typing import Generator, Union
 from enum import Enum
 from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
 from flaskr.service.shifu.consts import (
@@ -74,7 +70,6 @@ from flaskr.service.learn.utils_v2 import init_generated_block
 from flaskr.service.learn.exceptions import PaidException
 from flaskr.i18n import _
 from flaskr.service.user.exceptions import UserNotLoginException
-from flaskr.common.log import thread_local as log_thread_local
 
 context_local = threading.local()
 
@@ -121,7 +116,12 @@ class RUNLLMProvider(LLMProvider):
         self.trace = trace
         self.trace_args = trace_args
 
-    async def complete(self, messages: list[dict[str, str]]) -> str:
+    def complete(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> str:
         # Extract the last message content as the main prompt
         if not messages:
             raise ValueError("No messages provided")
@@ -131,16 +131,22 @@ class RUNLLMProvider(LLMProvider):
         last_message = messages[-1]
         prompt = last_message.get("content", "")
 
+        # Use provided model/temperature or fall back to settings
+        actual_model = model or self.llm_settings.model
+        actual_temperature = (
+            temperature if temperature is not None else self.llm_settings.temperature
+        )
+
         res = invoke_llm(
             self.app,
             self.trace_args.get("user_id", ""),
             self.trace,
             message=prompt,
             system=system_prompt,
-            model=self.llm_settings.model,
+            model=actual_model,
             stream=False,
             generation_name="run_llm",
-            temperature=self.llm_settings.temperature,
+            temperature=actual_temperature,
         )
         # Collect all stream responses and concatenate the results
         content_parts = []
@@ -149,7 +155,12 @@ class RUNLLMProvider(LLMProvider):
                 content_parts.append(response.result)
         return "".join(content_parts)
 
-    async def stream(self, messages: list[dict[str, str]]) -> AsyncGenerator[str, None]:
+    def stream(
+        self,
+        messages: list[dict[str, str]],
+        model: str | None = None,
+        temperature: float | None = None,
+    ) -> Generator[str, None, None]:
         # Extract the last message content as the main prompt
         if not messages:
             raise ValueError("No messages provided")
@@ -158,6 +169,12 @@ class RUNLLMProvider(LLMProvider):
         # Get the last message content
         last_message = messages[-1]
         prompt = last_message.get("content", "")
+
+        # Use provided model/temperature or fall back to settings
+        actual_model = model or self.llm_settings.model
+        actual_temperature = (
+            temperature if temperature is not None else self.llm_settings.temperature
+        )
 
         # Check if there's a system message
         self.app.logger.info("stream invoke_llm begin")
@@ -167,10 +184,10 @@ class RUNLLMProvider(LLMProvider):
             self.trace,
             message=prompt,
             system=system_prompt,
-            model=self.llm_settings.model,
+            model=actual_model,
             stream=True,
             generation_name="run_llm",
-            temperature=self.llm_settings.temperature,
+            temperature=actual_temperature,
         )
         self.app.logger.info(f"stream invoke_llm res: {res}")
         first_result = False
@@ -187,156 +204,6 @@ class RunScriptContextV2:
     user_id: str
     attend_id: str
     is_paid: bool
-
-    def _collect_async_generator(self, async_gen_factory: Callable[[], AsyncGenerator]):
-        """Bridge an async generator to a sync generator for streaming.
-
-        Runs the async producer in a background thread and yields items as they
-        arrive via a thread-safe queue, avoiding buffering the entire stream.
-        """
-
-        if not callable(async_gen_factory):
-            raise TypeError(
-                "async_gen_factory must be a callable returning an async generator or awaitable"
-            )
-
-        import threading as _threading
-
-        ctx = contextvars.copy_context()
-        q: queue.Queue = queue.Queue()
-        _SENTINEL = object()
-        _ERROR = object()
-        error_box = {"err": None}
-
-        async def _produce():
-            try:
-                gen_or_result = async_gen_factory()
-                if inspect.isawaitable(gen_or_result):
-                    gen_or_result = await gen_or_result
-
-                # If it's an async generator, stream items
-                if inspect.isasyncgen(gen_or_result):
-                    async for item in gen_or_result:
-                        q.put(item)
-                    q.put(_SENTINEL)
-                    return
-
-                # Otherwise treat it as a single result and finish
-                q.put(gen_or_result)
-                q.put(_SENTINEL)
-            except Exception as e:  # noqa: E722
-                error_box["err"] = e
-                q.put(_ERROR)
-                q.put(_SENTINEL)
-
-        def _runner():
-            try:
-                asyncio.run(ctx.run(_produce))
-            except RuntimeError as exc:
-                if "asyncio.run()" not in str(exc):
-                    raise
-                previous_loop = (
-                    asyncio_events._get_running_loop()
-                    if hasattr(asyncio_events, "_get_running_loop")
-                    else None
-                )
-                try:
-                    if hasattr(asyncio_events, "_set_running_loop"):
-                        asyncio_events._set_running_loop(None)
-                    asyncio.run(ctx.run(_produce))
-                finally:
-                    if hasattr(asyncio_events, "_set_running_loop"):
-                        asyncio_events._set_running_loop(previous_loop)
-
-        # Always run producer in a dedicated thread to allow consuming while producing
-        t = _threading.Thread(target=_runner, daemon=True)
-
-        # Capture logging thread-local from the caller thread and propagate
-        parent_request_id = getattr(log_thread_local, "request_id", None)
-        parent_url = getattr(log_thread_local, "url", None)
-        parent_client_ip = getattr(log_thread_local, "client_ip", None)
-
-        def _start_thread():
-            if parent_request_id:
-                log_thread_local.request_id = parent_request_id
-            if parent_url:
-                log_thread_local.url = parent_url
-            if parent_client_ip:
-                log_thread_local.client_ip = parent_client_ip
-            t.start()
-
-        _start_thread()
-
-        # Consume from queue and yield to caller
-        while True:
-            item = q.get()
-            if item is _SENTINEL:
-                break
-            if item is _ERROR:
-                # Raise the stored exception after producer signals an error
-                raise error_box["err"]
-            yield item
-
-        # Ensure producer thread finished
-        t.join(timeout=0)
-
-    def _run_async_in_safe_context(
-        self, coro_factory: Callable[[], Awaitable[Any] | Any]
-    ):
-        """Run an async coroutine safely regardless of surrounding event loops."""
-
-        if not callable(coro_factory):
-            raise TypeError("coro_factory must be a callable returning a coroutine")
-
-        ctx = contextvars.copy_context()
-
-        def run_with_asyncio_run():
-            result = ctx.run(coro_factory)
-            if not inspect.isawaitable(result):
-                return result
-            try:
-                return asyncio.run(result)
-            except RuntimeError as exc:
-                if "asyncio.run()" not in str(exc):
-                    raise
-                previous_loop = (
-                    asyncio_events._get_running_loop()
-                    if hasattr(asyncio_events, "_get_running_loop")
-                    else None
-                )
-                try:
-                    if hasattr(asyncio_events, "_set_running_loop"):
-                        asyncio_events._set_running_loop(None)
-                    return asyncio.run(ctx.run(coro_factory))
-                finally:
-                    if hasattr(asyncio_events, "_set_running_loop"):
-                        asyncio_events._set_running_loop(previous_loop)
-
-        try:
-            asyncio.get_running_loop()
-        except RuntimeError:
-            return run_with_asyncio_run()
-        else:
-            import concurrent.futures
-
-            # Capture logging thread-local from the caller thread
-            parent_request_id = getattr(log_thread_local, "request_id", None)
-            parent_url = getattr(log_thread_local, "url", None)
-            parent_client_ip = getattr(log_thread_local, "client_ip", None)
-
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-
-                def _task():
-                    if parent_request_id:
-                        log_thread_local.request_id = parent_request_id
-                    if parent_url:
-                        log_thread_local.url = parent_url
-                    if parent_client_ip:
-                        log_thread_local.client_ip = parent_client_ip
-                    return run_with_asyncio_run()
-
-                future = executor.submit(_task)
-                return future.result()
 
     preview_mode: bool
     _q: queue.Queue
@@ -706,7 +573,16 @@ class RunScriptContextV2:
             temperature=float(self.app.config.get("DEFAULT_LLM_TEMPERATURE")),
         )
 
-    def set_input(self, input: str, input_type: str):
+    def set_input(self, input: str | dict, input_type: str):
+        """
+        Set user input.
+
+        Args:
+            input: User input, can be:
+                   - str: legacy format (e.g., "Python")
+                   - dict: new format from markdown-flow 0.2.27+ (e.g., {"lang": ["Python"]})
+            input_type: Input type
+        """
         self._trace_args["input"] = input
         self._trace_args["input_type"] = input_type
         self._input_type = input_type
@@ -948,7 +824,21 @@ class RunScriptContextV2:
                 db.session.add(generated_block)
                 db.session.flush()
                 return
-            generated_block.generated_content = self._input
+            # Convert dict to string for database storage (markdown-flow 0.2.27+ sends dict)
+            if isinstance(self._input, dict):
+                # Convert {"var": ["val1", "val2"]} to "val1,val2" or just "val1"
+                values = []
+                for v in self._input.values():
+                    if isinstance(v, list):
+                        # Filter out None and convert to string
+                        values.extend([str(item) for item in v if item is not None])
+                    elif v is not None:
+                        values.append(str(v))
+                generated_block.generated_content = ",".join(values) if values else ""
+            else:
+                generated_block.generated_content = (
+                    str(self._input) if self._input is not None else ""
+                )
             generated_block.role = ROLE_STUDENT
             generated_block.position = run_script_info.block_position
             generated_block.block_content_conf = block.content
@@ -958,7 +848,7 @@ class RunScriptContextV2:
                 app,
                 self._user_info,
                 generated_block,
-                self._input,
+                generated_block.generated_content,  # Use converted string value
                 self._trace,
                 self._outline_item_info.bid,
                 self._outline_item_info.position,
@@ -1004,12 +894,32 @@ class RunScriptContextV2:
                 self._current_attend.block_position += 1
                 db.session.flush()
                 return
-            validate_result = self._run_async_in_safe_context(
-                lambda: mdflow.process(
-                    run_script_info.block_position,
-                    ProcessMode.COMPLETE,
-                    user_input=self._input,
-                )
+            # Direct synchronous call - no async wrapper needed (markdown-flow 0.2.27+)
+            # Prepare user_input based on input type
+            if isinstance(self._input, dict):
+                # Already in dict format from frontend, but need to filter out None values
+                user_input_param = {}
+                for key, value in self._input.items():
+                    if isinstance(value, list):
+                        # Filter out None values and ensure all are strings
+                        cleaned = [str(v) for v in value if v is not None]
+                        if cleaned:  # Only add if there are non-None values
+                            user_input_param[key] = cleaned
+                    elif value is not None:
+                        user_input_param[key] = [str(value)]
+            else:
+                # Legacy string format, wrap it
+                if self._input is not None:
+                    user_input_param = {
+                        parsed_interaction.get("variable", "input"): [str(self._input)]
+                    }
+                else:
+                    user_input_param = {}
+
+            validate_result = mdflow.process(
+                run_script_info.block_position,
+                ProcessMode.COMPLETE,
+                user_input=user_input_param,
             )
 
             if (
@@ -1019,7 +929,15 @@ class RunScriptContextV2:
                 profile_to_save: list[ProfileToSave] = []
                 for key, value in validate_result.variables.items():
                     profile_id = variable_definition_key_id_map.get(key, "")
-                    profile_to_save.append(ProfileToSave(key, value, profile_id))
+                    # Convert list to string (markdown-flow 0.2.27+ returns list[str] for multi-select)
+                    if isinstance(value, list):
+                        # Filter out None and convert to string
+                        value_str = ",".join(
+                            [str(item) for item in value if item is not None]
+                        )
+                    else:
+                        value_str = str(value) if value is not None else ""
+                    profile_to_save.append(ProfileToSave(key, value_str, profile_id))
 
                 save_user_profiles(
                     app,
@@ -1157,58 +1075,52 @@ class RunScriptContextV2:
                 generated_block.type = BLOCK_TYPE_MDCONTENT_VALUE
                 generated_content = ""
 
-                async def process_stream():
-                    app.logger.info(f"process_stream: {run_script_info.block_position}")
-                    app.logger.info(f"variables: {user_profile}")
-                    # Run in STREAM mode; mdflow.process may return a coroutine or an async generator
-                    stream_or_result = mdflow.process(
-                        run_script_info.block_position,
-                        ProcessMode.STREAM,
-                        variables=user_profile,
-                        user_input=self._input,
-                    )
-                    # Await if it's awaitable (coroutine returning either a result or an async generator)
-                    if inspect.isawaitable(stream_or_result):
-                        stream_or_result = await stream_or_result
-                    # If it's an async generator, yield chunks from it
-                    if inspect.isasyncgen(stream_or_result):
-                        async for chunk in stream_or_result:
-                            # chunk may be a simple string or an object with content/result/text
-                            if isinstance(chunk, str):
-                                yield chunk
-                            elif hasattr(chunk, "content") and chunk.content:
-                                yield chunk.content
-                            elif hasattr(chunk, "result") and chunk.result:
-                                yield chunk.result
-                            elif hasattr(chunk, "text") and chunk.text:
-                                yield chunk.text
-                            else:
-                                yield str(chunk)
-                        return
+                # Direct synchronous stream processing (markdown-flow 0.2.27+)
+                app.logger.info(f"process_stream: {run_script_info.block_position}")
+                app.logger.info(f"variables: {user_profile}")
 
-                    # Otherwise, handle a single result object
-                    result = stream_or_result
-                    if isinstance(result, str):
-                        yield result
-                    elif hasattr(result, "content") and result.content:
-                        yield result.content
-                    elif hasattr(result, "result") and result.result:
-                        yield result.result
-                    elif hasattr(result, "text") and result.text:
-                        yield result.text
-                    else:
-                        # Fallback: convert to string to avoid leaking object reprs
-                        yield str(result) if result else ""
+                # For CONTENT blocks, no user_input is needed (only INTERACTION blocks have user input)
+                stream_result = mdflow.process(
+                    run_script_info.block_position,
+                    ProcessMode.STREAM,
+                    variables=user_profile,
+                )
 
-                res = self._collect_async_generator(process_stream)
-                for i in res:
-                    generated_content += i
-                    yield RunMarkdownFlowDTO(
-                        outline_bid=run_script_info.outline_bid,
-                        generated_block_bid=generated_block.generated_block_bid,
-                        type=GeneratedType.CONTENT,
-                        content=i,  # i is now a string, not an object with content attribute
+                # Handle both Generator and single LLMResult (markdown-flow 0.2.27+)
+                # In some edge cases (e.g., no LLM provider), returns a single LLMResult instead of Generator
+                import inspect
+
+                if inspect.isgenerator(stream_result):
+                    # It's a generator, iterate normally
+                    for llm_result in stream_result:
+                        chunk_content = (
+                            llm_result.content
+                            if hasattr(llm_result, "content")
+                            else str(llm_result)
+                        )
+                        if chunk_content:
+                            generated_content += chunk_content
+                            yield RunMarkdownFlowDTO(
+                                outline_bid=run_script_info.outline_bid,
+                                generated_block_bid=generated_block.generated_block_bid,
+                                type=GeneratedType.CONTENT,
+                                content=chunk_content,
+                            )
+                else:
+                    # It's a single LLMResult object (edge case)
+                    chunk_content = (
+                        stream_result.content
+                        if hasattr(stream_result, "content")
+                        else str(stream_result)
                     )
+                    if chunk_content:
+                        generated_content += chunk_content
+                        yield RunMarkdownFlowDTO(
+                            outline_bid=run_script_info.outline_bid,
+                            generated_block_bid=generated_block.generated_block_bid,
+                            type=GeneratedType.CONTENT,
+                            content=chunk_content,
+                        )
                 yield RunMarkdownFlowDTO(
                     outline_bid=run_script_info.outline_bid,
                     generated_block_bid=generated_block.generated_block_bid,

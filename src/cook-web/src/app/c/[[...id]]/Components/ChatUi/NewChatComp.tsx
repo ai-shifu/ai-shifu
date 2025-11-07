@@ -254,6 +254,7 @@ export const NewChatComponents = ({
                 item={item}
                 mobileStyle={mobileStyle}
                 blockBid={item.generated_block_bid}
+                confirmButtonText={t('module.renderUi.core.confirm')}
                 onClickCustomButtonAfterContent={handleClickAskButton}
                 onSend={memoizedOnSend}
                 onLongPress={handleLongPress}
