@@ -22,7 +22,6 @@ from flaskr.service.shifu.shifu_outline_funcs import (
 )
 from flaskr.service.shifu.shifu_history_manager import HistoryItem
 from flaskr.service.shifu.shifu_struct_manager import get_shifu_outline_tree
-from flaskr.common import get_config
 from flaskr.util import generate_id
 from datetime import datetime
 import threading
@@ -40,7 +39,18 @@ from markdown_flow import (
 )
 
 
-def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict):
+def _build_frontend_url(base_url: str, path: str) -> str:
+    """
+    Build a frontend URL based on the provided base URL.
+    """
+    normalized_base = base_url.rstrip("/") if base_url else ""
+    cleaned_path = path if path.startswith("/") else f"/{path}"
+    return f"{normalized_base}{cleaned_path}" if normalized_base else cleaned_path
+
+
+def preview_shifu_draft(
+    app, user_id: str, shifu_id: str, variables: dict, base_url: str
+):
     """
     Preview shifu draft
     Args:
@@ -48,17 +58,17 @@ def preview_shifu_draft(app, user_id: str, shifu_id: str, variables: dict):
         user_id: User ID
         shifu_id: Shifu ID
         variables: Variables
-        skip: Skip
+        base_url: Base URL to build preview link
     """
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if not shifu_draft:
             raise_error("server.shifu.shifuNotFound")
 
-        return get_config("WEB_URL") + "/c/" + shifu_id + "?preview=true"
+        return _build_frontend_url(base_url, f"/c/{shifu_id}?preview=true")
 
 
-def publish_shifu_draft(app, user_id: str, shifu_id: str):
+def publish_shifu_draft(app, user_id: str, shifu_id: str, base_url: str):
     """
     Publish shifu draft
     will copy all draft data to published data
@@ -69,6 +79,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
         app: Flask application instance
         user_id: User ID
         shifu_id: Shifu ID
+        base_url: Base URL to build published link
     Returns:
         str: Shifu published URL
     """
@@ -158,7 +169,7 @@ def publish_shifu_draft(app, user_id: str, shifu_id: str):
         thread.daemon = True  # Ensure thread doesn't prevent app shutdown
         thread.start()
         db.session.commit()
-        return get_config("WEB_URL") + "/c/" + shifu_id
+        return _build_frontend_url(base_url, f"/c/{shifu_id}")
 
 
 def _run_summary_with_error_handling(app, shifu_id):
