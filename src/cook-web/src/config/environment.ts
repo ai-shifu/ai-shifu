@@ -33,6 +33,9 @@ interface EnvironmentConfig {
   // Authentication Configuration
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
+
+  // Redirect Configuration
+  homeUrl: string;
 }
 
 /**
@@ -268,6 +271,13 @@ function getBooleanValue(
 }
 
 /**
+ * Gets home URL
+ */
+function getHomeUrl(): string {
+  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/admin';
+}
+
+/**
  * Environment configuration instance with new organized structure
  */
 export const environment: EnvironmentConfig = {
@@ -296,6 +306,9 @@ export const environment: EnvironmentConfig = {
   // Authentication Configuration
   loginMethodsEnabled: getLoginMethodsEnabled(),
   defaultLoginMethod: getDefaultLoginMethod(),
+
+  // Redirect Configuration
+  homeUrl: getHomeUrl(),
 };
 
 export default environment;
