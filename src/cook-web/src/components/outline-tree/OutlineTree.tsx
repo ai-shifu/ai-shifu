@@ -80,9 +80,7 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
       items={items}
       indentationWidth={20}
       onItemsChanged={onItemsChanged}
-      TreeItemComponent={props => {
-        return <MinimalTreeItemComponent {...props} />;
-      }}
+      TreeItemComponent={MinimalTreeItemComponent}
       dropAnimation={null}
     />
   );
