@@ -95,7 +95,7 @@ const nextConfig: NextConfig = {
     return [
       { source: '/', destination, permanent: false },
       { source: '/main', destination: '/admin', permanent: true },
-      { source: '/c', destination, permanent: true },
+      { source: '/c', destination, permanent: false },
     ];
   },
 
