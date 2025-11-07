@@ -10,10 +10,6 @@ from flask import Flask
 from flaskr.dao import redis_client as redis
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
-from flaskr.service.profile.funcs import (
-    get_user_profile_labels,
-    update_user_profile_with_lable,
-)
 from flaskr.service.user.phone_flow import migrate_user_study_record, init_first_course
 from flaskr.service.user.consts import USER_STATE_REGISTERED, USER_STATE_UNREGISTERED
 from flaskr.service.user.utils import generate_token
@@ -46,6 +42,12 @@ def verify_email_code(
     course_id: Optional[str] = None,
     language: Optional[str] = None,
 ) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    # Local import avoids circular dependency during module initialization.
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
     if FIX_CHECK_CODE is None:
         configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
 

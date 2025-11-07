@@ -21,7 +21,7 @@ def test_create_active(app):
 def test_create_order_with_active(app):
     from flaskr.service.lesson.models import AICourse
     from flaskr.service.order import init_buy_record
-    from flaskr.service.user import generate_temp_user
+    from flaskr.service.user.user import generate_temp_user
     from flaskr.util import generate_id
     from flaskr.service.order.models import DiscountRecord
     from flaskr.service.order.discount import use_discount_code

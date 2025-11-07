@@ -7,15 +7,13 @@ from flaskr.service.profile.funcs import (
     get_user_profile_labels,
     update_user_profile_with_lable,
 )
-from ..service.user import (
-    validate_user,
-    update_user_info,
+from ..service.user.common import validate_user, update_user_info, verify_sms_code
+from ..service.user.user import (
     generate_temp_user,
-    send_sms_code,
-    verify_sms_code,
-    upload_user_avatar,
     update_user_open_id,
+    upload_user_avatar,
 )
+from ..service.user.utils import send_sms_code
 from ..service.feedback.funs import submit_feedback
 from ..service.user.auth import get_provider
 from ..service.user.auth.base import OAuthCallbackRequest
