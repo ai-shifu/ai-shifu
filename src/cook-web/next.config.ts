@@ -91,7 +91,12 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   async redirects() {
-    return [{ source: '/', destination: '/admin', permanent: false }];
+    const destination = process.env.ROOT_REDIRECT_URL || '/admin';
+    return [
+      { source: '/', destination, permanent: false },
+      { source: '/main', destination: '/admin', permanent: true },
+      { source: '/c', destination, permanent: true },
+    ];
   },
 
   // Disable image optimization to avoid Sharp dependency
