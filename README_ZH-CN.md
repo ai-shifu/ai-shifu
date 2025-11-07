@@ -106,11 +106,19 @@ Docker 启动后：
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
 =======
 >>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+<<<<<<< HEAD
 >>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
+=======
+=======
+=======
+>>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
+>>>>>>> 5c331cb4 (docs: tidy readme formatting (#895))
+>>>>>>> 961a409f (docs: tidy readme formatting (#895))
 
 1. 用浏览器打开 `http://localhost:8080`，访问 Cook Web（学习端与内容管理界面）
 2. 登录时可使用任意手机号，默认万能验证码为 **1024**（仅用于演示/测试，生产环境务必修改或禁用）

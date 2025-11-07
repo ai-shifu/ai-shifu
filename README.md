@@ -105,11 +105,19 @@ After Docker starts:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
 =======
 >>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
+<<<<<<< HEAD
 >>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
+=======
+=======
+=======
+>>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
+>>>>>>> 5c331cb4 (docs: tidy readme formatting (#895))
+>>>>>>> 961a409f (docs: tidy readme formatting (#895))
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
