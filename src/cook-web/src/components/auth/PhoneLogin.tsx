@@ -98,6 +98,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
     } catch {
       // Error already handled in sendSmsCode
     } finally {
+      setShowOtpInput(true);
       setIsLoading(false);
     }
   };
