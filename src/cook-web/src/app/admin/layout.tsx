@@ -28,7 +28,7 @@ const MainInterface = ({
     {
       icon: <DocumentIcon className='w-4 h-4' />,
       label: t('common.core.shifu'),
-      href: '/main',
+      href: '/admin',
     },
   ];
 
