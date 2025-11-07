@@ -91,7 +91,7 @@ const nextConfig: NextConfig = {
   output: 'standalone',
 
   async redirects() {
-    return [{ source: '/', destination: '/admin', permanent: true }];
+    return [{ source: '/', destination: '/admin', permanent: false }];
   },
 
   // Disable image optimization to avoid Sharp dependency
