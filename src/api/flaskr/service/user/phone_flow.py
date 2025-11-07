@@ -13,10 +13,6 @@ from sqlalchemy import text
 from flaskr.service.common.dtos import UserToken
 from flaskr.service.common.models import raise_error
 from flaskr.service.order.consts import LEARN_STATUS_RESET
-from flaskr.service.profile.funcs import (
-    get_user_profile_labels,
-    update_user_profile_with_lable,
-)
 from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 from flaskr.service.user.consts import (
     USER_STATE_REGISTERED,
@@ -160,6 +156,12 @@ def verify_phone_code(
     course_id: Optional[str] = None,
     language: Optional[str] = None,
 ) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
+    # Local import avoids circular dependency during module initialization.
+    from flaskr.service.profile.funcs import (
+        get_user_profile_labels,
+        update_user_profile_with_lable,
+    )
+
     if FIX_CHECK_CODE is None:
         configure_fix_check_code(app.config.get("UNIVERSAL_VERIFICATION_CODE"))
 
