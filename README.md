@@ -101,6 +101,9 @@ cp .env.example.full .env      # For full configuration
 
 After Docker starts:
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
