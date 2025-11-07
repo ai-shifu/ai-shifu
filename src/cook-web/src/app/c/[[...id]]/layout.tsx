@@ -21,6 +21,7 @@ import {
 
 import { useEnvStore, useCourseStore } from '@/c-store';
 import { UserProvider, useUserStore } from '@/store';
+import { redirectToHomeUrlIfRootPath } from '@/lib/utils';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -45,6 +46,9 @@ const initializeEnvData = async (): Promise<void> => {
       });
       if (res.ok) {
         const data = await res.json();
+        if (redirectToHomeUrlIfRootPath(data?.homeUrl)) {
+          return;
+        }
 
         // await updateCourseId(data?.courseId || '');
         await updateAppId(data?.wechatAppId || '');
