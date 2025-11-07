@@ -58,7 +58,6 @@ def preview_shifu_draft(
         user_id: User ID
         shifu_id: Shifu ID
         variables: Variables
-        skip: Skip
         base_url: Base URL to build preview link
     """
     with app.app_context():
