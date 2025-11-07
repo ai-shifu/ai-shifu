@@ -1,6 +1,10 @@
 {
   "name": "cook-web",
+<<<<<<< HEAD
   "version": "1.0.2",
+=======
+  "version": "1.0.1",
+>>>>>>> beac6331 (chore: flow version to v1.0.1 (#893))
   "private": true,
   "engines": {
     "node": "22.16.0"
