@@ -19,7 +19,7 @@ export function TermsCheckbox({
   return (
     <div
       className={cn(
-        'flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:gap-2 sm:text-left',
+        'flex flex-row items-center gap-2 text-left',
         className,
       )}
     >
@@ -31,7 +31,7 @@ export function TermsCheckbox({
       />
       <label
         htmlFor='terms'
-        className='block text-center text-sm font-medium leading-snug peer-disabled:cursor-not-allowed peer-disabled:opacity-70 sm:text-left'
+        className='block text-left text-sm font-medium leading-snug peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
       >
         <Trans
           i18nKey='module.auth.readAndAgree'
