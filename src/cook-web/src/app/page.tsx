@@ -18,6 +18,7 @@ export default function Home() {
         redirectToHomeUrlIfRootPath(data?.homeUrl);
       } catch (error) {
         console.error(error);
+        redirectToHomeUrlIfRootPath('/admin');
       }
     };
 

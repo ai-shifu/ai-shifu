@@ -11,7 +11,7 @@ import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
 // import { UploadProps } from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor/uploadTypes';
 // import MarkdownFlowEditor, { EditMode } from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor/MarkdownFlowEditor';
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
-import { cn, redirectToHomeUrlIfRootPath } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';
 import Loading from '../loading';
@@ -44,9 +44,6 @@ const initializeEnvData = async (): Promise<void> => {
       });
       if (res.ok) {
         const data = await res.json();
-        if (redirectToHomeUrlIfRootPath(data?.homeUrl)) {
-          return;
-        }
 
         // await updateCourseId(data?.courseId || '');
         await updateAppId(data?.wechatAppId || '');
