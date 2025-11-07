@@ -8,6 +8,7 @@ interface ContentBlockProps {
   item: ChatContentItem;
   mobileStyle: boolean;
   blockBid: string;
+  confirmButtonText?: string;
   onClickCustomButtonAfterContent: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
@@ -18,6 +19,7 @@ const ContentBlock = memo(
     item,
     mobileStyle,
     blockBid,
+    confirmButtonText,
     onClickCustomButtonAfterContent,
     onSend,
     onLongPress,
@@ -60,21 +62,26 @@ const ContentBlock = memo(
           customRenderBar={item.customRenderBar}
           defaultButtonText={item.defaultButtonText}
           defaultInputText={item.defaultInputText}
+          defaultSelectedValues={item.defaultSelectedValues}
           readonly={item.readonly}
+          confirmButtonText={confirmButtonText}
           onSend={_onSend}
         />
       </div>
     );
   },
   (prevProps, nextProps) => {
-    // Only re-render if item, mobileStyle, or blockBid changes
+    // Only re-render if item, mobileStyle, blockBid, or confirmButtonText changes
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
       prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
+      prevProps.item.defaultSelectedValues ===
+        nextProps.item.defaultSelectedValues &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
-      prevProps.blockBid === nextProps.blockBid
+      prevProps.blockBid === nextProps.blockBid &&
+      prevProps.confirmButtonText === nextProps.confirmButtonText
     );
   },
 );
