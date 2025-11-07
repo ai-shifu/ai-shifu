@@ -128,7 +128,7 @@ export default function AuthPage() {
   const resolveRedirectPath = useCallback(() => {
     let redirect = searchParams.get('redirect');
     if (!redirect || redirect.charAt(0) !== '/') {
-      redirect = '/main';
+      redirect = '/admin';
     }
     return redirect;
   }, [searchParams]);
