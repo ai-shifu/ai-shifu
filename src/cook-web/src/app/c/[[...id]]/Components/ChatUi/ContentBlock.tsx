@@ -1,5 +1,6 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
+import { isEqual } from 'lodash';
 import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
@@ -75,8 +76,10 @@ const ContentBlock = memo(
     return (
       prevProps.item.defaultButtonText === nextProps.item.defaultButtonText &&
       prevProps.item.defaultInputText === nextProps.item.defaultInputText &&
-      prevProps.item.defaultSelectedValues ===
-        nextProps.item.defaultSelectedValues &&
+      isEqual(
+        prevProps.item.defaultSelectedValues,
+        nextProps.item.defaultSelectedValues,
+      ) &&
       prevProps.item.readonly === nextProps.item.readonly &&
       prevProps.item.content === nextProps.item.content &&
       prevProps.mobileStyle === nextProps.mobileStyle &&
