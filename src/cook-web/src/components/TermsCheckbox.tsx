@@ -18,10 +18,7 @@ export function TermsCheckbox({
   const { t } = useTranslation();
   return (
     <div
-      className={cn(
-        'flex flex-row items-center gap-2 text-left',
-        className,
-      )}
+      className={cn('flex flex-row items-center gap-2 text-left', className)}
     >
       <Checkbox
         id='terms'
