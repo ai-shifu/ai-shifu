@@ -30,6 +30,7 @@ Date: 2025-08-07
 """
 
 from flask import Flask, request, current_app
+from urllib.parse import urlsplit
 from .funcs import (
     mark_or_unmark_favorite_shifu,
     upload_file,
@@ -131,6 +132,21 @@ class ShifuTokenValidation:
             return f(*args, **kwargs)
 
         return decorated_function
+
+
+def _get_request_base_url() -> str:
+    """
+    Determine the base URL based on the incoming request headers.
+    """
+    origin = request.headers.get("Origin")
+    if origin:
+        return origin.rstrip("/")
+    referer = request.headers.get("Referer")
+    if referer:
+        parsed_referer = urlsplit(referer)
+        if parsed_referer.scheme and parsed_referer.netloc:
+            return f"{parsed_referer.scheme}://{parsed_referer.netloc}"
+    return request.url_root.rstrip("/")
 
 
 @inject
@@ -279,8 +295,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
+        base_url = _get_request_base_url()
         app.logger.info(f"get shifu detail, user_id: {user_id}, shifu_bid: {shifu_bid}")
-        return make_common_response(get_shifu_draft_info(app, user_id, shifu_bid))
+        return make_common_response(
+            get_shifu_draft_info(app, user_id, shifu_bid, base_url)
+        )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
@@ -350,6 +369,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_price = request.get_json().get("price")
         shifu_temperature = request.get_json().get("temperature")
         shifu_system_prompt = request.get_json().get("system_prompt", None)
+        base_url = _get_request_base_url()
         return make_common_response(
             save_shifu_draft_info(
                 app,
@@ -363,6 +383,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_temperature,
                 shifu_price,
                 shifu_system_prompt,
+                base_url,
             )
         )
 
@@ -447,7 +468,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: publish url
         """
         user_id = request.user.user_id
-        return make_common_response(publish_shifu_draft(app, user_id, shifu_bid))
+        base_url = _get_request_base_url()
+        return make_common_response(
+            publish_shifu_draft(app, user_id, shifu_bid, base_url)
+        )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
@@ -489,8 +513,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
+        base_url = _get_request_base_url()
         return make_common_response(
-            preview_shifu_draft(app, user_id, shifu_bid, variables)
+            preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
