@@ -694,12 +694,21 @@ class RunScriptContextV2:
         if self._input_type == "ask":
             if self._last_position == -1:
                 self._last_position = run_script_info.block_position
+            ask_input = self._input
+            app.logger.info(f"ask_input: {ask_input}")
+            if isinstance(ask_input, dict):
+                ask_input = ask_input.get("input", "")
+            else:
+                ask_input = ask_input
+            if isinstance(ask_input, list):
+                ask_input = ",".join(ask_input)
+            app.logger.info(f"ask_input: {ask_input}")
             res = handle_input_ask(
                 app,
                 self,
                 self._user_info,
                 self._current_attend.progress_record_bid,
-                self._input,
+                ask_input,
                 self._outline_item_info,
                 self._trace_args,
                 self._trace,
