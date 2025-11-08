@@ -159,6 +159,7 @@ else:
 # special model glm
 GLM_PREFIX = "glm/"
 glm_enabled = False
+GLM_MODELS = []
 if get_config("BIGMODEL_API_KEY"):
     glm_enabled = True
     glm_client = openai.Client(
