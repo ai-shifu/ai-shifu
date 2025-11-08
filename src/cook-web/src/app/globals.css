@@ -133,6 +133,10 @@ html {
       var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
       var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
   }
+  .markdown-body input::selection {
+    background-color: #d6e4ff; 
+    color: #111;
+  }
   .markdown-body [type='button'] {
     border-radius: var(--border-radius-rounded-md, 8px);
     color: var(--base-foreground, #0a0a0a);
