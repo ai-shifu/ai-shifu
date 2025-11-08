@@ -40,8 +40,6 @@ services:
       MYSQL_ROOT_PASSWORD: ai-shifu
       MYSQL_DATABASE: ai-shifu
     image: mysql:8.0
-    ports:
-      - "3306:3306"
     restart: unless-stopped
     volumes:
       - ./mysql_data:/var/lib/mysql
@@ -49,8 +47,6 @@ services:
   ai-shifu-redis:
     container_name: ai-shifu-redis
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     restart: unless-stopped
     volumes:
       - ./redis_data:/data

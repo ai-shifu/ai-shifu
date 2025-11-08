@@ -43,13 +43,13 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ai-shifu
       MYSQL_DATABASE: ai-shifu
-    image: mysql:latest
+    image: mysql:8.0
     restart: always
     volumes:
       - ./mysql_data:/var/lib/mysql
 
   ai-shifu-redis:
     container_name: ai-shifu-redis
-    image: redis:latest
+    image: redis:7-alpine
     volumes:
       - ./redis_data:/data
