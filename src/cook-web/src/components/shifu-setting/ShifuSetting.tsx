@@ -35,6 +35,7 @@ import { useTranslation } from 'react-i18next';
 import api from '@/api';
 
 import ModelList from '@/components/model-list';
+import { useEnvStore } from '@/c-store';
 
 interface Shifu {
   description: string;
@@ -59,6 +60,14 @@ export default function ShifuSettingDialog({
 }) {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
+  const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
+  const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
+  const resolvedDefaultModel = defaultLlmModel || t('common.core.default');
+  const isCjk = /[\u4e00-\u9fff]/.test(baseSelectModelHint);
+  const defatultLlmModel = isCjk
+    ? `（${resolvedDefaultModel}）`
+    : ` (${resolvedDefaultModel})`;
+  const selectModelHint = `${baseSelectModelHint}${defatultLlmModel}`;
   const [keywords, setKeywords] = useState(['AIGC']);
   const [shifuImage, setShifuImage] = useState<File | null>(null);
   const [imageError, setImageError] = useState('');
@@ -543,7 +552,7 @@ export default function ShifuSettingDialog({
                       {t('common.core.selectModel')}
                     </FormLabel>
                     <p className='text-xs text-muted-foreground'>
-                      {t('module.shifuSetting.selectModelHint')}
+                      {selectModelHint}
                     </p>
                     <FormControl>
                       <ModelList
