@@ -8,7 +8,10 @@ import {
   useMemo,
 } from 'react';
 import { useLatest, useMountedState } from 'react-use';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import {
+  fixMarkdownStream,
+  maskIncompleteMermaidBlock,
+} from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -374,6 +377,7 @@ function useChatLogicHook({
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
+              const displayText = maskIncompleteMermaidBlock(nextText);
               if (blockId) {
                 setTrackedContentList(prevState => {
                   let hasItem = false;
@@ -382,7 +386,7 @@ function useChatLogicHook({
                       hasItem = true;
                       return {
                         ...item,
-                        content: nextText,
+                        content: displayText,
                         customRenderBar: () => null,
                       };
                     }
@@ -391,7 +395,7 @@ function useChatLogicHook({
                   if (!hasItem) {
                     updatedList.push({
                       generated_block_bid: blockId,
-                      content: nextText,
+                      content: displayText,
                       defaultButtonText: '',
                       defaultInputText: '',
                       readonly: false,
