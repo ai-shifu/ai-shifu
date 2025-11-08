@@ -20,8 +20,6 @@ export const fixCodeStream = (text, curr) => {
   return curr;
 };
 
-
-
 const MERMAID_FENCE = '```mermaid';
 const MERMAID_PLACEHOLDER = '```mermaid_streaming';
 
