@@ -62,11 +62,13 @@ export default function ShifuSettingDialog({
   const { t } = useTranslation();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
-  const resolvedDefaultModel = defaultLlmModel || t('common.core.default');
+  const resolvedDefaultModel = defaultLlmModel;
   const isCjk = /[\u4e00-\u9fff]/.test(baseSelectModelHint);
-  const defatultLlmModel = isCjk
-    ? `（${resolvedDefaultModel}）`
-    : ` (${resolvedDefaultModel})`;
+  const defatultLlmModel = defaultLlmModel
+    ? isCjk
+      ? `（${resolvedDefaultModel}）`
+      : ` (${resolvedDefaultModel})`
+    : '';
   const selectModelHint = `${baseSelectModelHint}${defatultLlmModel}`;
   const [keywords, setKeywords] = useState(['AIGC']);
   const [shifuImage, setShifuImage] = useState<File | null>(null);
