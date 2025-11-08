@@ -34,6 +34,7 @@ const initializeEnvData = async (): Promise<void> => {
   const {
     updateAppId,
     updateCourseId,
+    updateDefaultLlmModel,
     updateAlwaysShowLessonTree,
     updateUmamiWebsiteId,
     updateUmamiScriptSrc,
@@ -56,6 +57,7 @@ const initializeEnvData = async (): Promise<void> => {
 
         // await updateCourseId(data?.courseId || '');
         await updateAppId(data?.wechatAppId || '');
+        await updateDefaultLlmModel(data?.defaultLlmModel || '');
         await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
         await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
         await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
