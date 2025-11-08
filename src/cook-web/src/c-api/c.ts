@@ -29,8 +29,8 @@ export const RunScript = (
       if (onMessage) {
         onMessage(response);
       }
-    } catch (e) {
-      console.log(e);
+    } catch {
+      // ignore malformed SSE payloads
     }
   };
   source.onerror = () => {};
