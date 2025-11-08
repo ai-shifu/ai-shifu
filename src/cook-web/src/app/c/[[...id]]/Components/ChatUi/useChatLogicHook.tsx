@@ -7,6 +7,7 @@ import {
   useContext,
   useMemo,
 } from 'react';
+import React from 'react';
 import { useLatest, useMountedState } from 'react-use';
 import {
   fixMarkdownStream,
@@ -53,6 +54,7 @@ export interface ChatContentItem {
   customRenderBar?: (() => JSX.Element | null) | ComponentType<any>;
   defaultButtonText?: string;
   defaultInputText?: string;
+  defaultSelectedValues?: string[]; // for multi-select interactions
   readonly?: boolean;
   isHistory?: boolean;
   generated_block_bid: string;
@@ -342,7 +344,8 @@ function useChatLogicHook({
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
               setTrackedContentList((prev: ChatContentItem[]) => {
-                const interactionBlock = {
+                // Use markdown-flow-ui default rendering for all interactions
+                const interactionBlock: ChatContentItem = {
                   generated_block_bid: nid,
                   content: response.content,
                   customRenderBar: () => null,
@@ -599,14 +602,22 @@ function useChatLogicHook({
           // accumulate ask entries
           buffer.push(item);
         } else {
-          // flush and handle other types
+          // flush and handle other types (including INTERACTION)
           flushBuffer();
+
+          // Use markdown-flow-ui default rendering for all interactions
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: item.content,
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
+            defaultSelectedValues: item.user_input
+              ? item.user_input
+                  .split(',')
+                  .map(v => v.trim())
+                  .filter(v => v)
+              : undefined,
             readonly: false,
             isHistory: true,
             type: item.block_type,
@@ -618,7 +629,7 @@ function useChatLogicHook({
       flushBuffer();
       return result;
     },
-    [mobileStyle],
+    [mobileStyle, t],
   );
 
   /**
@@ -807,6 +818,7 @@ function useChatLogicHook({
           readonly: false,
           defaultButtonText: params.buttonText || '',
           defaultInputText: params.inputText || '',
+          defaultSelectedValues: params.selectedValues,
         };
         newList.length = needChangeItemIndex + 1;
         setTrackedContentList(newList);
@@ -917,9 +929,26 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       // scrollToBottom();
+
+      // Build values array from user input (following playground pattern)
+      let values: string[] = [];
+      if (content.selectedValues && content.selectedValues.length > 0) {
+        // Multi-select mode: combine selected values with optional input text
+        values = [...content.selectedValues];
+        if (inputText) {
+          values.push(inputText);
+        }
+      } else if (inputText) {
+        // Single-select mode: use input text
+        values = [inputText];
+      } else if (buttonText) {
+        // Single-select mode: use button text
+        values = [buttonText];
+      }
+
       runRef.current?.({
         input: {
-          [variableName as string]: buttonText || inputText,
+          [variableName as string]: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid:
