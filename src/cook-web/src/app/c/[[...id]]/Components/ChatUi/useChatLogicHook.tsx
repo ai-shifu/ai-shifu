@@ -343,8 +343,6 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-              // console.log('🔵 Received INTERACTION type:', response);
-
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
@@ -373,7 +371,6 @@ function useChatLogicHook({
                   return [...prev, interactionBlock];
                 }
               });
-              // console.log('🔵 Set lastInteractionBlockRef.current:', interactionBlock);
             } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
               if (isEnd) {
                 return;
@@ -436,8 +433,6 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
-              // console.log('🟢 Received TEXT_END/BREAK, type:', response.type);
-              // console.log('🟢 lastInteractionBlockRef.current:', lastInteractionBlockRef.current);
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
                   item => item.generated_block_bid !== 'loading',
@@ -632,7 +627,6 @@ function useChatLogicHook({
 
       // final flush
       flushBuffer();
-      // console.log('result:', result);
       return result;
     },
     [mobileStyle, t],
