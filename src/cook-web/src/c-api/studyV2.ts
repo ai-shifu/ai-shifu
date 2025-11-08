@@ -128,8 +128,19 @@ export const getRunMessage = (
     baseURL = window.location.origin;
   }
 
-  // TODO: MOCK
-  payload.input = Object.values(body.input).join('');
+  // Convert input values to array format for markdown-flow 0.2.27+
+  // Backend expects: { "variableName": ["value1", "value2"] }
+  if (typeof body.input === 'object' && body.input !== null) {
+    payload.input = Object.fromEntries(
+      Object.entries(body.input).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value : [value],
+      ]),
+    );
+  } else if (typeof body.input === 'string') {
+    // If input is string, use default 'input' as key
+    payload.input = { input: [body.input] };
+  }
   const source = new SSE(
     `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
     {
