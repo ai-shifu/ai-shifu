@@ -30,6 +30,6 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   updateLogoVertical: async (logoVertical: string) => set({ logoVertical }),
   enableWxcode: environment.enableWechatCode.toString(),
   updateEnableWxcode: async (enableWxcode: string) => set({ enableWxcode }),
-  siteUrl: environment.apiBaseUrl,
-  updateSiteUrl: async (siteUrl: string) => set({ siteUrl }),
+  homeUrl: environment.homeUrl,
+  updateHomeUrl: async (homeUrl: string) => set({ homeUrl }),
 }));
