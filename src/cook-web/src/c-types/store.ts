@@ -12,7 +12,7 @@ export interface EnvStoreState {
   logoHorizontal: string;
   logoVertical: string;
   enableWxcode: string;
-  siteUrl: string;
+  homeUrl: string;
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
   updateAppId: (appId: string) => Promise<void>;
@@ -24,7 +24,7 @@ export interface EnvStoreState {
   updateLogoHorizontal: (logo: string) => Promise<void>;
   updateLogoVertical: (logo: string) => Promise<void>;
   updateEnableWxcode: (value: string) => Promise<void>;
-  updateSiteUrl: (url: string) => Promise<void>;
+  updateHomeUrl: (url: string) => Promise<void>;
 }
 
 export interface SystemStoreState {
