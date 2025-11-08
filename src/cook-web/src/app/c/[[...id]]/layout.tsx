@@ -241,7 +241,6 @@ export default function ChatLayout({
             window.location.href = '/404';
           }
         } catch (error) {
-          console.log(error);
           window.location.href = '/404';
         }
       }
