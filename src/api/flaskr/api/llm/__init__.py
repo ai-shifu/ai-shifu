@@ -1,6 +1,5 @@
 from typing import Generator
 from .ernie import get_ernie_response, get_erine_models, chat_ernie
-from .glm import get_zhipu_models, invoke_glm
 import openai
 from flask import Flask
 from langfuse.client import StatefulSpanClient
@@ -158,9 +157,16 @@ else:
 
 
 # special model glm
+GLM_PREFIX = "glm/"
 glm_enabled = False
-if get_config("GLM_API_KEY"):
+if get_config("BIGMODEL_API_KEY"):
     glm_enabled = True
+    glm_client = openai.Client(
+        api_key=get_config("BIGMODEL_API_KEY"),
+        base_url="https://open.bigmodel.cn/api/paas/v4",
+    )
+    GLM_MODELS = [GLM_PREFIX + i.id for i in glm_client.models.list().data]
+    current_app.logger.info(f"GLM_MODELS: {GLM_MODELS}")
 else:
     current_app.logger.warning("GLM_API_KEY not configured")
 if (
@@ -194,7 +200,6 @@ else:
     silicon_client = None
 
 ERNIE_MODELS = get_erine_models(Flask(__name__))
-GLM_MODELS = get_zhipu_models(Flask(__name__))
 DEEP_SEEK_MODELS = ["deepseek-chat"]
 
 DIFY_MODELS = []
@@ -233,6 +238,7 @@ def get_openai_client_and_model(model: str):
         or model in SILICON_MODELS
         or model in ERNIE_V2_MODELS
         or model in ARK_MODELS
+        or model in GLM_MODELS
     ):
         if model in OPENAI_MODELS or model.startswith("gpt"):
             client = openai_client
@@ -285,6 +291,15 @@ def get_openai_client_and_model(model: str):
                     "server.llm.specifiedLlmNotConfigured",
                     model=model,
                     config_var="ARK_ACCESS_KEY_ID,ARK_SECRET_ACCESS_KEY",
+                )
+        elif model in GLM_MODELS:
+            client = glm_client
+            model = model.replace(GLM_PREFIX, "")
+            if not client:
+                raise_error_with_args(
+                    "server.llm.specifiedLlmNotConfigured",
+                    model=model,
+                    config_var="BIGMODEL_API_KEY",
                 )
     return client, model
 
@@ -381,39 +396,6 @@ def invoke_llm(
                 res.result,
                 res.finish_reason,
                 res.usage.__dict__,
-            )
-    elif model.lower() in GLM_MODELS:
-        if not glm_enabled:
-            raise_error_with_args(
-                "server.llm.specifiedLlmNotConfigured",
-                model=model,
-                config_var="GLM_API_KEY",
-            )
-        if kwargs.get("temperature", None) is not None:
-            kwargs["temperature"] = str(kwargs["temperature"])
-        messages = []
-        if system:
-            messages.append({"content": system, "role": "system"})
-        messages.append({"content": message, "role": "user"})
-        response = invoke_glm(app, model.lower(), messages, **kwargs)
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            response_text += res.result
-            if res.usage:
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
-                )
-            yield LLMStreamResponse(
-                res.id,
-                True if res.choices[0].finish_reason else False,
-                False,
-                res.choices[0].delta.content,
-                res.choices[0].finish_reason,
-                None,
             )
     elif model in DIFY_MODELS:
         response = dify_chat_message(app, message, user_id)
@@ -523,35 +505,6 @@ def chat_llm(
                 res.result,
                 res.finish_reason,
                 res.usage.__dict__,
-            )
-    elif model.lower() in GLM_MODELS:
-        if not glm_enabled:
-            raise_error_with_args(
-                "server.llm.specifiedLlmNotConfigured",
-                model=model,
-                config_var="GLM_API_KEY",
-            )
-        if kwargs.get("temperature", None) is not None:
-            kwargs["temperature"] = str(kwargs["temperature"])
-        response = invoke_glm(app, model.lower(), messages, **kwargs)
-        for res in response:
-            if start_completion_time is None:
-                start_completion_time = datetime.now()
-            response_text += res.choices[0].delta.content
-            if res.usage:
-                usage = ModelUsage(
-                    unit="TOKENS",
-                    input=res.usage.prompt_tokens,
-                    output=res.usage.completion_tokens,
-                    total=res.usage.total_tokens,
-                )
-            yield LLMStreamResponse(
-                res.id,
-                True if res.choices[0].finish_reason else False,
-                False,
-                res.choices[0].delta.content,
-                res.choices[0].finish_reason,
-                None,
             )
     elif model in DIFY_MODELS:
         response: Generator[DifyChunkChatCompletionResponse, None, None] = (
