@@ -136,9 +136,7 @@ function getCourseId(): string {
  */
 function getDefaultLlmModel(): string {
   return (
-    getRuntimeEnv('DEFAULT_LLM_MODEL') ||
-    process.env.DEFAULT_LLM_MODEL ||
-    ''
+    getRuntimeEnv('DEFAULT_LLM_MODEL') || process.env.DEFAULT_LLM_MODEL || ''
   );
 }
 
