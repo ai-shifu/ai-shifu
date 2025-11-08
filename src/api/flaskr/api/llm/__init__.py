@@ -168,7 +168,7 @@ if get_config("BIGMODEL_API_KEY"):
     GLM_MODELS = [GLM_PREFIX + i.id for i in glm_client.models.list().data]
     current_app.logger.info(f"GLM_MODELS: {GLM_MODELS}")
 else:
-    current_app.logger.warning("GLM_API_KEY not configured")
+    current_app.logger.warning("BIGMODEL_API_KEY not configured")
 if (
     openai_enabled
     or deepseek_enabled
