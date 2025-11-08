@@ -338,7 +338,6 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const interactionBlock = {
                   generated_block_bid: nid,
