@@ -1,4 +1,5 @@
 import inspect
+import json
 from decimal import Decimal
 from typing import Dict, Generator, Iterable, Optional, Tuple
 
@@ -68,6 +69,19 @@ class MarkdownFlowPreviewService:
             LLMSettings(model=model, temperature=temperature),
             trace,
             trace_args,
+        )
+
+        final_payload = preview_request.model_dump()
+        final_payload["content"] = document
+        final_payload["document_prompt"] = document_prompt
+        final_payload["model"] = model
+        final_payload["temperature"] = temperature
+        self.app.logger.info(
+            "preview final payload | shifu_bid=%s | outline_bid=%s | user_bid=%s | payload=%s",
+            shifu_bid,
+            outline_bid,
+            user_bid,
+            json.dumps(final_payload, ensure_ascii=False),
         )
 
         mf = MarkdownFlow(
@@ -182,8 +196,6 @@ class MarkdownFlowPreviewService:
             return preview_request.document_prompt
         if outline and outline.llm_system_prompt:
             return outline.llm_system_prompt
-        if shifu and getattr(shifu, "llm_system_prompt", ""):
-            return shifu.llm_system_prompt
         return None
 
     def _resolve_llm_settings(

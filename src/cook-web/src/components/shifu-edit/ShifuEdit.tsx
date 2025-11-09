@@ -205,8 +205,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
         shifu_bid: currentShifu.bid,
         outline_bid: currentNode.bid,
         block_index: 0,
-        prompt: mdflow,
-        input: {},
+        content: mdflow,
+        user_input: {},
         variables: {},
       });
 
