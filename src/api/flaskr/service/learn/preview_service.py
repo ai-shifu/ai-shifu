@@ -122,6 +122,15 @@ class MarkdownFlowPreviewService:
                 )
                 if message:
                     yield message
+                    if message.type == PreviewSSEMessageType.INTERACTION:
+                        break
+            yield self._convert_to_sse_message(
+                LLMResult(content=""),
+                True,
+                current_block,
+                is_user_input_validation,
+                block_index,
+            )
         else:
             message = self._convert_to_sse_message(
                 result,
@@ -132,14 +141,13 @@ class MarkdownFlowPreviewService:
             )
             if message:
                 yield message
-
-        yield self._convert_to_sse_message(
-            LLMResult(content=""),
-            True,
-            current_block,
-            is_user_input_validation,
-            block_index,
-        )
+            yield self._convert_to_sse_message(
+                LLMResult(content=""),
+                True,
+                current_block,
+                is_user_input_validation,
+                block_index,
+            )
         trace.update(**trace_args)
 
     def _convert_to_sse_message(
@@ -185,7 +193,9 @@ class MarkdownFlowPreviewService:
                     )
                 return None
 
-            rendered_content = content if content else current_block.content
+            rendered_content = (
+                getattr(current_block, "content", None) or content or ""
+            )
             variable_name = (
                 current_block.variables[0]
                 if getattr(current_block, "variables", None)

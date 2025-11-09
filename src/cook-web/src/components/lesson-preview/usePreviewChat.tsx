@@ -85,7 +85,7 @@ export function usePreviewChat() {
         {
           generated_block_bid: blockId,
           content: '',
-          readonly: true,
+          readonly: false,
           type: ChatContentItemType.CONTENT,
         },
       ]);
@@ -114,7 +114,7 @@ export function usePreviewChat() {
             const interactionBlock: ChatContentItem = {
               generated_block_bid: blockId,
               content: response.data?.mdflow ?? '',
-              readonly: true,
+              readonly: false,
               type: ChatContentItemType.INTERACTION,
             };
             const lastContent = prev[prev.length - 1];
