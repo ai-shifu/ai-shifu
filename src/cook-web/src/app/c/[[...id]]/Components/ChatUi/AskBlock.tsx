@@ -138,7 +138,6 @@ export default function AskBlock({
       },
       async response => {
         try {
-          console.log('SSE response:', response);
           if (response.type === SSE_OUTPUT_TYPE.HEARTBEAT) {
             return;
           }
@@ -167,7 +166,6 @@ export default function AskBlock({
             });
           } else {
             // Streaming finished
-            console.log('SSE end, close sse:', response);
             isStreamingRef.current = false;
             setDisplayList(prev => {
               const newList = [...prev];
@@ -185,8 +183,7 @@ export default function AskBlock({
             });
             sseRef.current?.close();
           }
-        } catch (error) {
-          console.warn('SSE handling error:', error);
+        } catch {
           isStreamingRef.current = false;
         }
       },
@@ -194,7 +191,6 @@ export default function AskBlock({
 
     // Add error and close listeners to ensure the state resets
     source.addEventListener('error', () => {
-      console.log('SSE error');
       isStreamingRef.current = false;
       setDisplayList(prev => {
         const newList = [...prev];

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
 
     // ===== Course Configuration =====
     courseId: environment.courseId,
+    defaultLlmModel: environment.defaultLlmModel,
 
     // ===== WeChat Integration =====
     wechatAppId: environment.wechatAppId,

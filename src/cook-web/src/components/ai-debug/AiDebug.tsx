@@ -67,7 +67,6 @@ async function* makeTextSteamLineIterator(reader: ReadableStreamDefaultReader) {
 }
 
 const AIModelDialog = ({ blockId, open, onOpenChange }) => {
-  console.log('AIModelDialog', blockId);
   const { t } = useTranslation();
   const SITE_HOST = environment.apiBaseUrl;
   const { getToken } = useUserStore();
@@ -249,10 +248,6 @@ const AIModelDialog = ({ blockId, open, onOpenChange }) => {
     });
   };
   const updateBlock = async () => {
-    console.log('updateBlock', blockProperties[blockId].properties);
-    console.log('updateBlock', userPrompt);
-    console.log('updateBlock', models[0].model);
-    console.log('updateBlock', models[0].temperature);
     actions.updateBlockProperties(blockId, {
       ...blockProperties[blockId],
       properties: {

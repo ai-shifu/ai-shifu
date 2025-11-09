@@ -5,6 +5,9 @@ import { environment } from '@/config/environment';
 export const useEnvStore = create<EnvStoreState>(set => ({
   courseId: environment.courseId,
   updateCourseId: async (courseId: string) => set({ courseId }),
+  defaultLlmModel: environment.defaultLlmModel,
+  updateDefaultLlmModel: async (defaultLlmModel: string) =>
+    set({ defaultLlmModel }),
   appId: environment.wechatAppId,
   updateAppId: async (appId: string) => set({ appId }),
   alwaysShowLessonTree: environment.alwaysShowLessonTree.toString(),
@@ -27,6 +30,6 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   updateLogoVertical: async (logoVertical: string) => set({ logoVertical }),
   enableWxcode: environment.enableWechatCode.toString(),
   updateEnableWxcode: async (enableWxcode: string) => set({ enableWxcode }),
-  siteUrl: environment.apiBaseUrl,
-  updateSiteUrl: async (siteUrl: string) => set({ siteUrl }),
+  homeUrl: environment.homeUrl,
+  updateHomeUrl: async (homeUrl: string) => set({ homeUrl }),
 }));

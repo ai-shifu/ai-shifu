@@ -9,7 +9,10 @@ import {
 } from 'react';
 import React from 'react';
 import { useLatest, useMountedState } from 'react-use';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import {
+  fixMarkdownStream,
+  maskIncompleteMermaidBlock,
+} from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -340,8 +343,6 @@ function useChatLogicHook({
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-              // console.log('🔵 Received INTERACTION type:', response);
-
               setTrackedContentList((prev: ChatContentItem[]) => {
                 // Use markdown-flow-ui default rendering for all interactions
                 const interactionBlock: ChatContentItem = {
@@ -370,7 +371,6 @@ function useChatLogicHook({
                   return [...prev, interactionBlock];
                 }
               });
-              // console.log('🔵 Set lastInteractionBlockRef.current:', interactionBlock);
             } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
               if (isEnd) {
                 return;
@@ -380,6 +380,7 @@ function useChatLogicHook({
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
+              const displayText = maskIncompleteMermaidBlock(nextText);
               if (blockId) {
                 setTrackedContentList(prevState => {
                   let hasItem = false;
@@ -388,7 +389,7 @@ function useChatLogicHook({
                       hasItem = true;
                       return {
                         ...item,
-                        content: nextText,
+                        content: displayText,
                         customRenderBar: () => null,
                       };
                     }
@@ -397,7 +398,7 @@ function useChatLogicHook({
                   if (!hasItem) {
                     updatedList.push({
                       generated_block_bid: blockId,
-                      content: nextText,
+                      content: displayText,
                       defaultButtonText: '',
                       defaultInputText: '',
                       readonly: false,
@@ -432,8 +433,6 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
-              // console.log('🟢 Received TEXT_END/BREAK, type:', response.type);
-              // console.log('🟢 lastInteractionBlockRef.current:', lastInteractionBlockRef.current);
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
                   item => item.generated_block_bid !== 'loading',
@@ -628,7 +627,6 @@ function useChatLogicHook({
 
       // final flush
       flushBuffer();
-      // console.log('result:', result);
       return result;
     },
     [mobileStyle, t],

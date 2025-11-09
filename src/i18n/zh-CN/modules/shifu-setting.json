@@ -24,7 +24,7 @@
   "previewUrl": "预览地址",
   "learningUrl": "学习地址",
   "shifuTemperature": "温度",
-  "selectModelHint": "推荐使用默认模型（DeepSeek V3.2）",
+  "selectModelHint": "推荐使用默认模型",
   "number": "数字",
   "temperatureHint": "设置 AI 输出的创造力（0-2）",
   "temperatureHint2": "数字越小，输出越严谨，数字越大，输出越发散",

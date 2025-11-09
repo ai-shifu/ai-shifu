@@ -81,9 +81,10 @@ def handle_input_ask(
             system_prompt_template,
         )
     )
-
-    messages.append({"role": "system", "content": system_prompt})  # Add system message
-
+    system_prompt = follow_up_info.ask_prompt.replace(
+        "{shifu_system_message}", system_prompt if system_prompt else ""
+    )
+    messages.append({"role": "system", "content": system_prompt})
     # Add historical conversation records to system messages
     for script in history_scripts:
         if script.role == ROLE_STUDENT:

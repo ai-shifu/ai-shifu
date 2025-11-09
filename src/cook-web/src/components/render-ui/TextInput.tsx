@@ -61,7 +61,6 @@ function TextInput(props: UIBlockDTO) {
   };
 
   const handleProfileChange = (value: string[]) => {
-    console.log('handleProfileChange', value);
     // Ensure that both `profiles` (nested) and `profile_ids` (top-level) are updated in sync
     setTempProperties({
       ...tempProperties,

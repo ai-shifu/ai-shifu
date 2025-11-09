@@ -453,7 +453,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       if (isLoading) {
         return;
       }
-      console.log('saveBlocks', blockPropertiesRef.current);
       const list = buildBlockListWithAllInfo(
         blocks,
         blockTypes,

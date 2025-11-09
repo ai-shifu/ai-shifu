@@ -27,6 +27,7 @@ const initializeEnvData = async (): Promise<void> => {
   const {
     updateAppId,
     updateCourseId,
+    updateDefaultLlmModel,
     updateAlwaysShowLessonTree,
     updateUmamiWebsiteId,
     updateUmamiScriptSrc,
@@ -35,7 +36,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoHorizontal,
     updateLogoVertical,
     updateEnableWxcode,
-    updateSiteUrl,
+    updateHomeUrl,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -60,7 +61,8 @@ const initializeEnvData = async (): Promise<void> => {
         await updateLogoHorizontal(data?.logoHorizontal || '');
         await updateLogoVertical(data?.logoVertical || '');
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
-        await updateSiteUrl(data?.siteHost || '');
+        await updateDefaultLlmModel(data?.defaultLlmModel || '');
+        await updateHomeUrl(data?.homeUrl || '');
       }
     } catch (error) {
       console.error(error);
@@ -241,7 +243,6 @@ export default function ChatLayout({
             window.location.href = '/404';
           }
         } catch (error) {
-          console.log(error);
           window.location.href = '/404';
         }
       }
