@@ -10,6 +10,8 @@ from markdown_flow.llm import LLMResult
 
 from flaskr.api.langfuse import langfuse_client as langfuse
 from flaskr.service.learn.context_v2 import RUNLLMProvider
+from flaskr.service.shifu.shifu_struct_manager import get_shifu_struct
+from flaskr.service.shifu.struct_utils import find_node_with_parents
 from flaskr.service.learn.learn_dtos import (
     PlaygroundPreviewRequest,
     PreviewContentSSEData,
@@ -45,7 +47,13 @@ class MarkdownFlowPreviewService:
         outline = self._get_outline_record(shifu_bid, outline_bid)
         shifu = self._get_shifu_record(shifu_bid, outline is not None)
         document_prompt = self._resolve_document_prompt(
-            preview_request, outline, shifu
+            preview_request, outline, shifu, shifu_bid, outline_bid
+        )
+        self.app.logger.info(
+            "preview document prompt | shifu_bid=%s | outline_bid=%s | prompt=%s",
+            shifu_bid,
+            outline_bid,
+            (document_prompt or "").strip(),
         )
         model, temperature = self._resolve_llm_settings(
             preview_request, outline, shifu
@@ -206,12 +214,99 @@ class MarkdownFlowPreviewService:
         preview_request: PlaygroundPreviewRequest,
         outline: Optional[DraftOutlineItem | PublishedOutlineItem],
         shifu: Optional[DraftShifu | PublishedShifu],
+        shifu_bid: str,
+        outline_bid: str,
     ) -> Optional[str]:
         if preview_request.document_prompt:
-            return preview_request.document_prompt
-        if outline and outline.llm_system_prompt:
-            return outline.llm_system_prompt
+            prompt = preview_request.document_prompt.strip()
+            if prompt:
+                return prompt
+
+        prompt = self._resolve_prompt_from_outline_chain(
+            shifu_bid=shifu_bid,
+            outline_bid=outline_bid,
+            outline_record=outline,
+        )
+        if prompt:
+            return prompt
+
+        if shifu:
+            prompt = (
+                getattr(shifu, "llm_system_prompt", None) or ""
+            ).strip()
+            if prompt:
+                return prompt
         return None
+
+    def _resolve_prompt_from_outline_chain(
+        self,
+        shifu_bid: str,
+        outline_bid: str,
+        outline_record: Optional[DraftOutlineItem | PublishedOutlineItem],
+    ) -> Optional[str]:
+        target_bid = outline_record.outline_item_bid if outline_record else outline_bid
+        if not target_bid:
+            return None
+
+        preferred_is_draft = isinstance(outline_record, DraftOutlineItem)
+        visited_bids = set()
+
+        if outline_record:
+            prompt = (outline_record.llm_system_prompt or "").strip()
+            if prompt:
+                return prompt
+            visited_bids.add(outline_record.outline_item_bid)
+
+        hierarchy_records = self._load_outline_hierarchy_records(
+            shifu_bid=shifu_bid,
+            outline_bid=target_bid,
+            prefer_draft=preferred_is_draft,
+        )
+        for record in hierarchy_records:
+            if not record or record.outline_item_bid in visited_bids:
+                continue
+            prompt = (record.llm_system_prompt or "").strip()
+            if prompt:
+                return prompt
+            visited_bids.add(record.outline_item_bid)
+        return None
+
+    def _load_outline_hierarchy_records(
+        self,
+        shifu_bid: str,
+        outline_bid: str,
+        prefer_draft: bool,
+    ) -> list[DraftOutlineItem | PublishedOutlineItem]:
+        records: list[DraftOutlineItem | PublishedOutlineItem] = []
+        struct_modes = [prefer_draft, not prefer_draft] if prefer_draft in (True, False) else [True, False]
+        # ensure unique boolean list
+        struct_modes = list(dict.fromkeys(struct_modes))
+
+        for is_preview in struct_modes:
+            try:
+                struct = get_shifu_struct(self.app, shifu_bid, is_preview)
+            except Exception:
+                continue
+            path = find_node_with_parents(struct, outline_bid)
+            if not path:
+                continue
+            path = list(reversed(path))
+            outline_ids = [item.id for item in path if item.type == "outline"]
+            if not outline_ids:
+                continue
+            outline_model = DraftOutlineItem if is_preview else PublishedOutlineItem
+            outline_items = outline_model.query.filter(
+                outline_model.id.in_(outline_ids),
+                outline_model.deleted == 0,
+            ).all()
+            outline_map = {item.id: item for item in outline_items}
+            for oid in outline_ids:
+                record = outline_map.get(oid)
+                if record:
+                    records.append(record)
+            if records:
+                break
+        return records
 
     def _resolve_llm_settings(
         self,
@@ -250,18 +345,26 @@ class MarkdownFlowPreviewService:
     def _get_outline_record(
         self, shifu_bid: str, outline_bid: str
     ) -> Optional[DraftOutlineItem | PublishedOutlineItem]:
-        outline = DraftOutlineItem.query.filter(
-            DraftOutlineItem.shifu_bid == shifu_bid,
-            DraftOutlineItem.outline_item_bid == outline_bid,
-            DraftOutlineItem.deleted == 0,
-        ).first()
+        outline = (
+            DraftOutlineItem.query.filter(
+                DraftOutlineItem.shifu_bid == shifu_bid,
+                DraftOutlineItem.outline_item_bid == outline_bid,
+                DraftOutlineItem.deleted == 0,
+            )
+            .order_by(DraftOutlineItem.id.desc())
+            .first()
+        )
         if outline:
             return outline
-        return PublishedOutlineItem.query.filter(
-            PublishedOutlineItem.shifu_bid == shifu_bid,
-            PublishedOutlineItem.outline_item_bid == outline_bid,
-            PublishedOutlineItem.deleted == 0,
-        ).first()
+        return (
+            PublishedOutlineItem.query.filter(
+                PublishedOutlineItem.shifu_bid == shifu_bid,
+                PublishedOutlineItem.outline_item_bid == outline_bid,
+                PublishedOutlineItem.deleted == 0,
+            )
+            .order_by(PublishedOutlineItem.id.desc())
+            .first()
+        )
 
     def _get_shifu_record(
         self, shifu_bid: str, has_draft_outline: bool
@@ -300,3 +403,6 @@ class MarkdownFlowPreviewService:
             return float(value)
         except (TypeError, ValueError):
             return None
+        document_prompt = self._resolve_document_prompt(
+            preview_request, outline, shifu, shifu_bid, outline_bid
+        )

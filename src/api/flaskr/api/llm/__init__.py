@@ -51,19 +51,23 @@ qwen_enabled = False
 QWEN_MODELS = []
 QWEN_PREFIX = "qwen/"
 if get_config("QWEN_API_KEY"):
-    qwen_enabled = True
-    qwen_client = openai.Client(
-        api_key=get_config("QWEN_API_KEY"),
-        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-    )
-    # get_config("QWEN_API_URL")
-    # )
-    QWEN_MODELS = [QWEN_PREFIX + i.id for i in qwen_client.models.list().data]
-    QWEN_MODELS = QWEN_MODELS + [
-        QWEN_PREFIX + "deepseek-r1",
-        QWEN_PREFIX + "deepseek-v3",
-    ]
-    current_app.logger.info(f"qwen models: {QWEN_MODELS}")
+    try:
+        qwen_enabled = True
+        qwen_client = openai.Client(
+            api_key=get_config("QWEN_API_KEY"),
+            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        )
+        QWEN_MODELS = [QWEN_PREFIX + i.id for i in qwen_client.models.list().data]
+        QWEN_MODELS = QWEN_MODELS + [
+            QWEN_PREFIX + "deepseek-r1",
+            QWEN_PREFIX + "deepseek-v3",
+        ]
+        current_app.logger.info(f"qwen models: {QWEN_MODELS}")
+    except Exception as e:
+        current_app.logger.warning(f"load qwen models error: {e}")
+        qwen_enabled = False
+        qwen_client = None
+        QWEN_MODELS = []
 else:
     current_app.logger.warning("QWEN_API_KEY not configured")
     qwen_client = None
@@ -95,12 +99,17 @@ ERNIE_V2_MODELS = [
     "deepseek-r1",
 ]
 if get_config("ERNIE_API_KEY"):
-    ernie_v2_enabled = True
-    ernie_v2_client = openai.Client(
-        api_key=get_config("ERNIE_API_KEY"), base_url="https://qianfan.baidubce.com/v2"
-    )
-    ERNIE_V2_MODELS = [ERNIE_V2_PREFIX + i for i in ERNIE_V2_MODELS]
-    current_app.logger.info(f"ernie v2 models: {ERNIE_V2_MODELS}")
+    try:
+        ernie_v2_enabled = True
+        ernie_v2_client = openai.Client(
+            api_key=get_config("ERNIE_API_KEY"),
+            base_url="https://qianfan.baidubce.com/v2",
+        )
+        ERNIE_V2_MODELS = [ERNIE_V2_PREFIX + i for i in ERNIE_V2_MODELS]
+        current_app.logger.info(f"ernie v2 models: {ERNIE_V2_MODELS}")
+    except Exception as e:
+        current_app.logger.warning(f"load ernie v2 models error: {e}")
+        ernie_v2_enabled = False
 else:
     current_app.logger.warning("ERNIE_API_TOKEN not configured")
 
@@ -109,8 +118,13 @@ ernie_enabled = False
 ERNIE_MODELS = []
 
 if get_config("ERNIE_API_ID") and get_config("ERNIE_API_SECRET"):
-    ernie_enabled = True
-    ERNIE_MODELS = get_erine_models(current_app)
+    try:
+        ernie_enabled = True
+        ERNIE_MODELS = get_erine_models(current_app)
+    except Exception as e:
+        current_app.logger.warning(f"load ernie models error: {e}")
+        ernie_enabled = False
+        ERNIE_MODELS = []
 else:
     current_app.logger.warning("ERNIE_API_ID and ERNIE_API_SECRET not configured")
 
@@ -122,36 +136,44 @@ ARK_MODELS = []
 ARK_PREFIX = "ark/"
 ARK_MODELS_MAP = {}
 if get_config("ARK_ACCESS_KEY_ID") and get_config("ARK_SECRET_ACCESS_KEY"):
-    ark_list_endpoints = request(
-        "POST",
-        datetime.now(),
-        {},
-        {},
-        get_config("ARK_ACCESS_KEY_ID"),
-        get_config("ARK_SECRET_ACCESS_KEY"),
-        "ListEndpoints",
-        None,
-    )
-    current_app.logger.info(ark_list_endpoints)
-    ark_enabled = True
-    current_app.logger.info("ARK CONFIGURED")
-    ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
-    if ark_endpoints and len(ark_endpoints) > 0:
-        for endpoint in ark_endpoints:
-            endpoint_id = endpoint.get("Id")
-            model_name = (
-                endpoint.get("ModelReference", {})
-                .get("FoundationModel", {})
-                .get("Name", "")
-            )
-            current_app.logger.info(f"ark endpoint: {endpoint_id}, model: {model_name}")
-            ARK_MODELS.append(ARK_PREFIX + model_name)
-            ARK_MODELS_MAP[ARK_PREFIX + model_name] = endpoint_id
-    ark_client = openai.Client(
-        api_key=get_config("ARK_API_KEY"),
-        base_url="https://ark.cn-beijing.volces.com/api/v3",
-    )
-    current_app.logger.info(f"ark models: {ARK_MODELS}")
+    try:
+        ark_list_endpoints = request(
+            "POST",
+            datetime.now(),
+            {},
+            {},
+            get_config("ARK_ACCESS_KEY_ID"),
+            get_config("ARK_SECRET_ACCESS_KEY"),
+            "ListEndpoints",
+            None,
+        )
+        current_app.logger.info(ark_list_endpoints)
+        ark_enabled = True
+        current_app.logger.info("ARK CONFIGURED")
+        ark_endpoints = ark_list_endpoints.get("Result", {}).get("Items", [])
+        if ark_endpoints and len(ark_endpoints) > 0:
+            for endpoint in ark_endpoints:
+                endpoint_id = endpoint.get("Id")
+                model_name = (
+                    endpoint.get("ModelReference", {})
+                    .get("FoundationModel", {})
+                    .get("Name", "")
+                )
+                current_app.logger.info(
+                    f"ark endpoint: {endpoint_id}, model: {model_name}"
+                )
+                ARK_MODELS.append(ARK_PREFIX + model_name)
+                ARK_MODELS_MAP[ARK_PREFIX + model_name] = endpoint_id
+        ark_client = openai.Client(
+            api_key=get_config("ARK_API_KEY"),
+            base_url="https://ark.cn-beijing.volces.com/api/v3",
+        )
+        current_app.logger.info(f"ark models: {ARK_MODELS}")
+    except Exception as e:
+        current_app.logger.warning(f"load ark models error: {e}")
+        ark_enabled = False
+        ARK_MODELS = []
+        ARK_MODELS_MAP = {}
 else:
     current_app.logger.warning("ARK_API_KEY not configured")
 
@@ -161,13 +183,18 @@ GLM_PREFIX = "glm/"
 glm_enabled = False
 GLM_MODELS = []
 if get_config("BIGMODEL_API_KEY"):
-    glm_enabled = True
-    glm_client = openai.Client(
-        api_key=get_config("BIGMODEL_API_KEY"),
-        base_url="https://open.bigmodel.cn/api/paas/v4",
-    )
-    GLM_MODELS = [GLM_PREFIX + i.id for i in glm_client.models.list().data]
-    current_app.logger.info(f"GLM_MODELS: {GLM_MODELS}")
+    try:
+        glm_enabled = True
+        glm_client = openai.Client(
+            api_key=get_config("BIGMODEL_API_KEY"),
+            base_url="https://open.bigmodel.cn/api/paas/v4",
+        )
+        GLM_MODELS = [GLM_PREFIX + i.id for i in glm_client.models.list().data]
+        current_app.logger.info(f"GLM_MODELS: {GLM_MODELS}")
+    except Exception as e:
+        current_app.logger.warning(f"load glm models error: {e}")
+        glm_enabled = False
+        GLM_MODELS = []
 else:
     current_app.logger.warning("BIGMODEL_API_KEY not configured")
 if (
@@ -188,14 +215,20 @@ silicon_enabled = False
 SILICON_MODELS = []
 SILICON_PREFIX = "silicon/"
 if get_config("SILICON_API_KEY"):
-    silicon_enabled = True
-    current_app.logger.info("SILICON CONFIGURED")
-    silicon_client = openai.Client(
-        api_key=get_config("SILICON_API_KEY"), base_url="https://api.siliconflow.cn/v1"
-    )
-
-    SILICON_MODELS = [SILICON_PREFIX + i.id for i in silicon_client.models.list().data]
-    current_app.logger.info(f"SILICON_MODELS: {SILICON_MODELS}")
+    try:
+        silicon_enabled = True
+        current_app.logger.info("SILICON CONFIGURED")
+        silicon_client = openai.Client(
+            api_key=get_config("SILICON_API_KEY"), base_url="https://api.siliconflow.cn/v1"
+        )
+        SILICON_MODELS = [
+            SILICON_PREFIX + i.id for i in silicon_client.models.list().data
+        ]
+        current_app.logger.info(f"SILICON_MODELS: {SILICON_MODELS}")
+    except Exception as e:
+        current_app.logger.warning(f"load silicon models error: {e}")
+        silicon_enabled = False
+        SILICON_MODELS = []
 else:
     current_app.logger.warning("SILICON_API_KEY not configured")
     silicon_client = None
