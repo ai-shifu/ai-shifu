@@ -15,9 +15,9 @@
 
 ## Backend – Records & APIs
 - [x] Re-enable and modernize the fallback logic in `get_learn_record` so completed lessons that existed before this feature still append a virtual `_sys_next_chapter` interaction when no persisted block is found. (`generate_id` + `server.learn.nextChapterButton` fallback)
-- [ ] Make sure `GET /api/learn/shifu/<bid>/records/<outline_bid>` serializes the new block with `block_type=interaction` so Cook Web history loads it.
-- [ ] Verify `run_script` SSE responses stream the interaction chunk-by-chunk (CONTENT → BREAK → INTERACTION) so the UI can display the button without waiting for a new request.
-- [ ] Consider a backfill job or admin script if existing learners need the record inserted into `learn_generated_blocks`; document the approach if we decide not to backfill.
+- [x] Make sure `GET /api/learn/shifu/<bid>/records/<outline_bid>` serializes the new block with `block_type=interaction` so Cook Web history loads it. (Records now include persisted or fallback `_sys_next_chapter` entries.)
+- [x] Verify `run_script` SSE responses stream the interaction chunk-by-chunk (CONTENT → BREAK → INTERACTION) so the UI can display the button without waiting for a new request. (New `_emit_next_chapter_interaction` yields the button inside the SSE loop.)
+- [x] Consider a backfill job or admin script if existing learners need the record inserted into `learn_generated_blocks`; document the approach if we decide not to backfill. (Decided to skip backfill because `get_learn_record` fallback keeps legacy data functional.)
 
 ## Backend – Testing & Tooling
 - [ ] Add unit/functional tests around `RunScriptContextV2` (or a slimmer service seam) that simulate completion and assert one `_sys_next_chapter` block is persisted and streamed.
