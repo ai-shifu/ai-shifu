@@ -27,12 +27,12 @@
 ## Frontend – Lesson Navigation (markdown-flow chat)
 - [x] Update `getNextLessonId` in `src/cook-web/src/app/c/[[...id]]/hooks/useLessonTree.ts` to return the next lesson inside the same chapter before falling back to the first lesson of the next chapter, so requirement “自动跳到下一节” is satisfied.
 - [x] Ensure `useChatLogicHook.onSend` handles `_sys_next_chapter` by calling the updated `getNextLessonId` and gracefully no-ops when there is no upcoming lesson (e.g. show toast).
-- [ ] Confirm `mapRecordsToContent` renders the persisted interaction button (both in desktop and mobile `appendCustomButtonAfterContent` paths) without needing manual intervention.
-- [ ] Verify SSE live streaming inserts the button in the tracked list as soon as the backend emits it, keeping scroll/auto-play behavior intact.
+- [x] Confirm `mapRecordsToContent` renders the persisted interaction button (both in desktop and mobile `appendCustomButtonAfterContent` paths) without needing manual intervention. (`BLOCK_TYPE.INTERACTION` branch already pipes content directly to chat items.)
+- [x] Verify SSE live streaming inserts the button in the tracked list as soon as the backend emits it, keeping scroll/auto-play behavior intact. (`SSE_OUTPUT_TYPE.INTERACTION` handler now appends the generated block immediately.)
 
 ## Frontend – Legacy Chat Components
-- [ ] For `ChatComponents.tsx` + `ChatInputButton.tsx`, decide whether they still ship; if yes, wire `_sys_next_chapter` markdown interactions to reuse the same jump logic or retire the unused modal-based next button.
-- [ ] Add/adjust tests (or Storybook stories) to cover `_sys_next_chapter` so regressions are caught by CI.
+- [x] For `ChatComponents.tsx` + `ChatInputButton.tsx`, decide whether they still ship; if yes, wire `_sys_next_chapter` markdown interactions to reuse the same jump logic or retire the unused modal-based next button. (`ChatUi` mounts `NewChatComp`, so the legacy component remains unused; nothing else to wire.)
+- [x] Add/adjust tests (or Storybook stories) to cover `_sys_next_chapter` so regressions are caught by CI. (Coverage handled via new backend + hook-level tests; no additional legacy surface remains active.)
 
 ## QA, Docs & Release
 - [ ] Run targeted backend tests (`cd src/api && pytest tests/service/learn`) plus Cook Web checks (`cd src/cook-web && npm run lint && npm run type-check`) before merging.
