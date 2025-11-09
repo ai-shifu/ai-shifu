@@ -46,7 +46,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   };
 
   return (
-    <div className='flex h-full flex-col rounded-xl border bg-white p-6 text-sm'>
+    <div className='flex flex-col h-full text-sm'>
       <div className='flex flex-wrap items-baseline gap-2'>
         <h2 className='text-base font-semibold text-foreground'>
           {t('module.shifu.previewArea.title')}
@@ -55,7 +55,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
-      <div className='mt-4 flex-1 overflow-hidden rounded-xl border bg-muted/30'>
+      <div className='mt-4 flex-1 overflow-hidden rounded-xl border bg-muted/30 bg-white'>
         {renderContent()}
       </div>
       {errorMessage ? (

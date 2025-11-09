@@ -1,4 +1,8 @@
-from flask import Flask, request, Response
+import json
+import uuid
+
+from flask import Flask, Response, request, stream_with_context
+from pydantic import ValidationError
 
 from flaskr.framework.plugin.inject import inject
 from flaskr.route.common import make_common_response, bypass_token_validation
@@ -12,6 +16,29 @@ from flaskr.service.learn.learn_funcs import (
     get_generated_content,
 )
 from flaskr.service.learn.runscript_v2 import run_script, get_run_status
+from flaskr.service.learn.learn_dtos import PlaygroundPreviewRequest
+from flaskr.service.learn.preview_service import MarkdownFlowPreviewService
+
+
+def _normalize_user_input(value):
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        normalized = {}
+        for key, raw in value.items():
+            if raw is None:
+                continue
+            if isinstance(raw, list):
+                cleaned = [str(item) for item in raw if item is not None]
+            else:
+                cleaned = [str(raw)]
+            if cleaned:
+                normalized[str(key)] = cleaned
+        return normalized or None
+    if isinstance(value, list):
+        cleaned = [str(item) for item in value if item is not None]
+        return {"user_input": cleaned} if cleaned else None
+    return {"user_input": [str(value)]}
 
 
 @inject
@@ -20,6 +47,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
     register learn routes
     """
     app.logger.info(f"register learn routes {path_prefix}")
+    preview_service = MarkdownFlowPreviewService(app)
 
     @app.route(path_prefix + "/shifu/<shifu_bid>", methods=["GET"])
     @bypass_token_validation
@@ -195,17 +223,20 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
               schema:
                 type: object
                 properties:
-                    input:
-                        type: object
-                        description: input payload for preview
+                    content:
+                        type: string
+                        required: true
+                        description: Markdown-Flow document content (legacy alias: prompt)
                     block_index:
                         type: integer
                         required: true
                         description: block index to preview
-                    prompt:
-                        type: string
-                        required: true
-                        description: preview prompt
+                    context:
+                        type: array
+                        required: false
+                        description: chat context forwarded to LLM
+                        items:
+                            type: object
                     document_prompt:
                         type: string
                         required: false
@@ -214,47 +245,100 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                         type: object
                         required: false
                         description: variables
+                    user_input:
+                        type: object
+                        required: false
+                        description: user input map (legacy alias: input)
+                    interaction_prompt:
+                        type: string
+                        required: false
+                        description: override interaction render prompt
+                    interaction_error_prompt:
+                        type: string
+                        required: false
+                        description: override interaction error prompt
+                    model:
+                        type: string
+                        required: false
+                        description: override LLM model
+                    temperature:
+                        type: number
+                        required: false
+                        description: override LLM temperature (0.0-2.0)
         responses:
             200:
-                description: preview block success
+                description: stream preview block success
                 content:
-                    application/json:
+                    text/event-stream:
                         schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    description: preview request echo
+                            type: string
+                            example: 'data: {"type":"content","data":{"mdflow":"..."}}'
         """
-        payload = request.get_json() or {}
-        block_index = payload.get("block_index")
-        prompt = payload.get("prompt")
-        if block_index is None:
-            raise_param_error("block_index is required")
-        if prompt is None:
-            raise_param_error("prompt is required")
+        payload = request.get_json(silent=True) or {}
+        normalized_user_input = payload.get("user_input")
+        if normalized_user_input is None and "input" in payload:
+            normalized_user_input = _normalize_user_input(payload.get("input"))
+        preview_payload = {
+            "content": payload.get("content") or payload.get("prompt"),
+            "block_index": payload.get("block_index"),
+            "context": payload.get("context"),
+            "variables": payload.get("variables"),
+            "user_input": normalized_user_input,
+            "document_prompt": payload.get("document_prompt"),
+            "interaction_prompt": payload.get("interaction_prompt"),
+            "interaction_error_prompt": payload.get("interaction_error_prompt"),
+            "model": payload.get("model"),
+            "temperature": payload.get("temperature"),
+        }
+        try:
+            preview_request = PlaygroundPreviewRequest(**preview_payload)
+        except ValidationError as exc:
+            raise_param_error(str(exc))
+
         user_bid = request.user.user_id
+        session_id = (
+            request.headers.get("Session-Id")
+            or f"preview-{uuid.uuid4().hex[:8]}"
+        )
         app.logger.info(
             "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s",
             shifu_bid,
             outline_bid,
             user_bid,
-            block_index,
+            preview_request.block_index,
         )
-        response_payload = {
-            "shifu_bid": shifu_bid,
-            "outline_bid": outline_bid,
-            "user_bid": user_bid,
-            "input": payload.get("input"),
-            "block_index": block_index,
-            "prompt": prompt,
-        }
-        return make_common_response(response_payload)
+
+        def event_stream():
+            try:
+                for message in preview_service.stream_preview(
+                    preview_request=preview_request,
+                    shifu_bid=shifu_bid,
+                    outline_bid=outline_bid,
+                    user_bid=user_bid,
+                    session_id=session_id,
+                ):
+                    payload = (
+                        message.__json__()
+                        if hasattr(message, "__json__")
+                        else message
+                    )
+                    yield (
+                        "data: "
+                        + json.dumps(payload, ensure_ascii=False)
+                        + "\n\n".encode("utf-8").decode("utf-8")
+                    )
+            except GeneratorExit:
+                app.logger.info("client closed preview stream early")
+                raise
+            except Exception as exc:
+                app.logger.error("preview outline block failed", exc_info=True)
+                yield f"data: [ERROR] {str(exc)}\n\n"
+
+        return Response(
+            stream_with_context(event_stream()),
+            headers={"Cache-Control": "no-cache"},
+            mimetype="text/event-stream",
+        )
 
     @app.route(
         path_prefix + "/shifu/<shifu_bid>/run/<outline_bid>",

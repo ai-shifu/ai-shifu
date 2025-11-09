@@ -9,7 +9,7 @@
   },
   "previewArea": {
     "title": "Preview Area",
-    "description": "Every run can differ. Use preview to see the rendered experience.",
+    "description": "Different results for each run.",
     "empty": "Add content on the left, then click “Preview” to create a result.",
     "loading": "Generating preview...",
     "error": "Unable to generate a preview. Please try again.",

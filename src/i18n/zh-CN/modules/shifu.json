@@ -9,7 +9,7 @@
   },
   "previewArea": {
     "title": "预览区",
-    "description": "每人每次效果不同，在这里查看渲染结果",
+    "description": "每人每次，效果不同",
     "empty": "请在左侧输入内容，然后点击“预览”按钮开始",
     "loading": "正在生成预览...",
     "error": "预览失败，请稍后重试",

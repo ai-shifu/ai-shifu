@@ -2,12 +2,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
+  Columns2,
   ListCollapse,
   Loader2,
   PanelRightClose,
   PanelRightOpen,
   PlayIcon,
   Plus,
+  Sparkle,
+  Sparkles,
 } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
@@ -356,7 +359,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           {isPreviewLoading ? (
                             <Loader2 className='h-4 w-4 animate-spin' />
                           ) : (
-                            <PlayIcon className='h-4 w-4' />
+                            <Sparkles className='h-4 w-4' />
                           )}
                           {t('module.shifu.previewArea.action')}
                         </Button>
@@ -369,11 +372,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           aria-label={previewToggleLabel}
                           title={previewToggleLabel}
                         >
-                          {isPreviewPanelOpen ? (
-                            <PanelRightClose className='h-4 w-4' />
-                          ) : (
-                            <PanelRightOpen className='h-4 w-4' />
-                          )}
+                          <Columns2 className='h-4 w-4' />
                         </Button>
                       </div>
                     </div>
