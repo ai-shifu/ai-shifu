@@ -115,7 +115,3 @@ Docker 启动后：
 Cook Web 环境要求
 
 - Node.js `22.16.0`（参见 `src/cook-web/package.json#engines`）
-
-## 作者指引
-
-- 每个单元学习完成后系统会自动输出 `_sys_next_chapter`（“下一章”）按钮，因此无需再在 Markdown Flow 中手动添加跳转按钮。

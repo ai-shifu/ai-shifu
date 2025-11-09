@@ -114,7 +114,3 @@ After Docker starts:
 Cook Web requirements
 
 - Node.js `22.16.0` (see `src/cook-web/package.json#engines`)
-
-## Authoring Guidance
-
-- Lesson flows automatically emit a `_sys_next_chapter` interaction when a section completes, so you no longer need to insert manual “Next Chapter” buttons in Markdown Flow content.
