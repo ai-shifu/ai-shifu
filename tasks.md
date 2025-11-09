@@ -4,7 +4,7 @@
 - [x] Agree on the workflow rule: finish each task atomically, run the relevant self-tests immediately, and create a commit before moving to the next task.
 - [x] Clarify with product whether “一节” = child outline node and “一章” = catalog node to ensure our logic matches the structure returned by `get_outline_item_tree` (`src/api/flaskr/service/learn/learn_funcs.py`). (Confirmed via existing data model: catalogs map to chapters, nested lessons map to outline leaves.)
 - [x] Audit the current Markdown Flow authoring patterns to confirm where a lesson is marked completed so we know the earliest safe point to inject the “next chapter” interaction. (Completion occurs when `RunScriptContextV2._current_attend.block_position` reaches `len(block_list)` and `_get_next_outline_item` emits `LearnStatus.COMPLETED`, followed by `_render_outline_updates`.)
-- [ ] Inventory all client surfaces (new markdown-flow chat at `src/cook-web/src/app/c/[[...id]]` plus any legacy `ChatComponents`) that must react to `_sys_next_chapter`.
+- [x] Inventory all client surfaces (new markdown-flow chat at `src/cook-web/src/app/c/[[...id]]` plus any legacy `ChatComponents`) that must react to `_sys_next_chapter`. (Current hits: `useChatLogicHook`, `ChatComponents`, `ChatInputButton`, course constants, and legacy `NewChatComp`.)
 
 ## Backend – Interaction Emission
 - [ ] Add an i18n key (e.g. `server.learn.nextChapterButton`) under both locales in `src/i18n` so the button label is not hardcoded in Chinese.
