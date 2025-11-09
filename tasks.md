@@ -20,9 +20,9 @@
 - [x] Consider a backfill job or admin script if existing learners need the record inserted into `learn_generated_blocks`; document the approach if we decide not to backfill. (Decided to skip backfill because `get_learn_record` fallback keeps legacy data functional.)
 
 ## Backend – Testing & Tooling
-- [ ] Add unit/functional tests around `RunScriptContextV2` (or a slimmer service seam) that simulate completion and assert one `_sys_next_chapter` block is persisted and streamed.
-- [ ] Add tests for `get_learn_record` ensuring the fallback interaction appears only when progress status is `LEARN_STATUS_COMPLETED`.
-- [ ] Update or add fixtures covering the new i18n key and any markdown-flow snapshots touched by the change.
+- [x] Add unit/functional tests around `RunScriptContextV2` (or a slimmer service seam) that simulate completion and assert one `_sys_next_chapter` block is persisted and streamed. (`NextChapterInteractionTests` in `test_context_v2.py`)
+- [x] Add tests for `get_learn_record` ensuring the fallback interaction appears only when progress status is `LEARN_STATUS_COMPLETED`. (`LearnRecordFallbackTests`)
+- [x] Update or add fixtures covering the new i18n key and any markdown-flow snapshots touched by the change. (New tests now reference `server.learn.nextChapterButton`, and `i18n-keys.d.ts` already includes the key.)
 
 ## Frontend – Lesson Navigation (markdown-flow chat)
 - [ ] Update `getNextLessonId` in `src/cook-web/src/app/c/[[...id]]/hooks/useLessonTree.ts` to return the next lesson inside the same chapter before falling back to the first lesson of the next chapter, so requirement “自动跳到下一节” is satisfied.
