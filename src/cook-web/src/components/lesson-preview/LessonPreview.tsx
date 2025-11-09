@@ -17,6 +17,8 @@ interface LessonPreviewProps {
   errorMessage?: string | null;
   items: ChatContentItem[];
   shifuBid: string;
+  onRefresh: (generatedBlockBid: string) => void;
+  onSend: (content: OnSendContentParams, blockBid: string) => void;
 }
 
 const noop = () => {};
@@ -28,10 +30,11 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   errorMessage,
   items,
   shifuBid,
+  onRefresh,
+  onSend,
 }) => {
   const { t } = useTranslation();
   const showEmpty = !loading && items.length === 0;
-  console.log('items', items);
   return (
     <div className='flex h-full flex-col text-sm'>
       <div className='flex flex-wrap items-baseline gap-2'>
@@ -63,9 +66,10 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     shifu_bid={shifuBid}
                     generated_block_bid={item.parent_block_bid || ''}
                     like_status={item.like_status}
-                    readonly
-                    onRefresh={noop}
+                    onRefresh={onRefresh}
                     onToggleAskExpanded={noop}
+                    disableAskButton={true}
+                    disableInteractionButtons={true}
                   />
                 );
               }
@@ -80,7 +84,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     blockBid={item.generated_block_bid}
                     confirmButtonText={t('module.renderUi.core.confirm')}
                     onClickCustomButtonAfterContent={noop}
-                    onSend={noopSend}
+                    onSend={onSend}
                   />
                 </div>
               );

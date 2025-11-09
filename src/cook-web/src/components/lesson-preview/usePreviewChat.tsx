@@ -147,21 +147,9 @@ export function usePreviewChat() {
             ),
           );
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.TEXT_END) {
-          // if (currentContentIdRef.current) {
-          //   if (!currentContentIdRef.current) return;
-          //   setTrackedContentList((prev: ChatContentItem[]) => [
-          //     ...prev,
-          //     {
-          //       parent_block_bid: currentContentIdRef.current || '',
-          //       generated_block_bid: `${currentContentIdRef.current}-feedback`,
-          //       like_status: LIKE_STATUS.NONE,
-          //       type: ChatContentItemType.LIKE_STATUS as ChatContentItemType,
-          //     } as ChatContentItem,
-          //   ]);
-          // }
-          // currentContentIdRef.current = null;
-          // currentContentRef.current = '';
-          // stopPreview();
+          currentContentIdRef.current = null;
+          currentContentRef.current = '';
+          stopPreview();
 
           setTrackedContentList((prev: ChatContentItem[]) => {
             const updatedList = [...prev].filter(
@@ -345,11 +333,16 @@ export function usePreviewChat() {
         return;
       }
 
+      const parsedBlockIndex = Number.parseInt(generatedBlockBid, 10);
+      const nextBlockIndex = Number.isNaN(parsedBlockIndex)
+        ? needChangeItemIndex
+        : parsedBlockIndex;
+
       newList.length = needChangeItemIndex;
       setTrackedContentList(newList);
       startPreview({
         ...sseParams.current,
-        block_index: (sseParams.current.block_index || 0) + 1,
+        block_index: nextBlockIndex,
       });
     },
     [setTrackedContentList, startPreview],
