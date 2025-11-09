@@ -344,26 +344,28 @@ const ScriptEditor = ({ id }: { id: string }) => {
           )}
         </div>
         <div className='flex-1 overflow-hidden relative text-sm'>
-          <div className='flex h-full gap-4 overflow-hidden'>
-            <div className={cn('flex-1 overflow-auto', isPreviewPanelOpen ? 'pr-2' : '')}>
+          <div className='flex h-full overflow-hidden'>
+            <div className={cn('flex-1 overflow-auto', !isPreviewPanelOpen && 'relative')}>
               <div
-                className={cn(
-                  'p-8 gap-4 flex flex-col h-full w-full',
-                  isPreviewPanelOpen ? 'max-w-[900px]' : 'max-w-[900px] mx-auto',
-                )}
+              className={cn(
+                'pt-5 px-6 pb-10 flex flex-col h-full w-full',
+                isPreviewPanelOpen
+                  ? 'max-w-[900px] pr-0'
+                  : 'max-w-[900px] mx-auto relative',
+              )}
               >
                 {currentNode?.depth && currentNode.depth > 0 ? (
                   <>
-                    <div className='flex flex-wrap items-center gap-3'>
-                      <div className='flex min-w-[220px] items-baseline gap-2'>
-                        <h2 className='text-base font-semibold text-foreground'>
+                    <div className='flex flex-wrap items-center gap-3 pb-2'>
+                      <div className='flex flex-1 min-w-[220px] items-baseline gap-2'>
+                        <h2 className='text-base font-semibold text-foreground break-keep'>
                           {t('module.shifu.creationArea.title')}
                         </h2>
-                        <p className='px-2 text-xs leading-3 text-[rgba(0,0,0,0.45)]'>
+                        <p className='text-xs leading-3 text-[rgba(0,0,0,0.45)] whitespace-nowrap overflow-hidden text-ellipsis'>
                           {t('module.shifu.creationArea.description')}
                         </p>
                       </div>
-                      <div className='ml-auto flex flex-wrap items-center gap-2'>
+                      <div className='ml-auto flex flex-wrap items-center gap-2 relative'>
                         <Tabs
                           value={editMode}
                           onValueChange={value => setEditMode(value as EditMode)}
@@ -385,7 +387,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         <Button
                           type='button'
                           size='sm'
-                          className='h-8 px-3 text-xs font-semibold'
+                          className='h-8 px-3 text-xs font-semibold text-[14px]'
                           onClick={handlePreview}
                           disabled={!canPreview || previewLoading}
                           title={!canPreview ? previewDisabledReason : undefined}
@@ -397,19 +399,21 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           )}
                           {t('module.shifu.previewArea.action')}
                         </Button>
-                        <Button
-                          type='button'
-                          variant='outline'
-                          size='icon'
-                          className='h-8 w-8'
-                          onClick={handleTogglePreviewPanel}
-                          aria-label={previewToggleLabel}
-                          title={previewToggleLabel}
-                        >
-                          <Columns2 className='h-4 w-4' />
-                        </Button>
                       </div>
                     </div>
+                    {!isPreviewPanelOpen && (
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon'
+                    className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
+                        onClick={handleTogglePreviewPanel}
+                        aria-label={previewToggleLabel}
+                        title={previewToggleLabel}
+                      >
+                        <Columns2 className='h-4 w-4' />
+                      </Button>
+                    )}
                     {isLoading ? (
                       <div className='h-40 flex items-center justify-center'>
                         <Loading />
@@ -433,7 +437,22 @@ const ScriptEditor = ({ id }: { id: string }) => {
               </div>
             </div>
             {isPreviewPanelOpen ? (
-              <div className='w-full max-w-[480px] flex-shrink-0 overflow-auto px-4 py-8'>
+              <div className='shrink-0 px-1 pt-[60px]'>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='icon'
+                  className='h-8 w-8'
+                  onClick={handleTogglePreviewPanel}
+                  aria-label={previewToggleLabel}
+                  title={previewToggleLabel}
+                >
+                  <Columns2 className='h-4 w-4' />
+                </Button>
+              </div>
+            ) : null}
+            {isPreviewPanelOpen ? (
+              <div className='flex-1 overflow-auto pt-5 px-6 pb-10 pl-0'>
                 <div className='h-full'>
                   <LessonPreview
                     loading={previewLoading}

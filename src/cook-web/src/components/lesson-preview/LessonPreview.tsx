@@ -2,7 +2,9 @@
 
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import ScrollText from './ScrollText.svg';
+import Image from 'next/image';
 import ContentBlock from '@/app/c/[[...id]]/Components/ChatUi/ContentBlock';
 import InteractionBlock from '@/app/c/[[...id]]/Components/ChatUi/InteractionBlock';
 import {
@@ -41,7 +43,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         <h2 className='text-base font-semibold text-foreground'>
           {t('module.shifu.previewArea.title')}
         </h2>
-        <p className='text-xs text-muted-foreground'>
+        <p className='text-xs text-muted-foreground text-[rgba(0,0,0,0.45)]'>
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
@@ -52,8 +54,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             <span>{t('module.shifu.previewArea.loading')}</span>
           </div>
         ) : showEmpty ? (
-          <div className='flex h-full flex-col items-center justify-center gap-3 px-8 text-center text-xs text-muted-foreground'>
-            <FileText className='h-8 w-8 text-muted-foreground' />
+          <div className='flex h-full flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
+            <Image src={ScrollText.src} alt='scroll-text' width={64} height={64} />
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (
