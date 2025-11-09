@@ -26,7 +26,7 @@
 
 ## Frontend – Lesson Navigation (markdown-flow chat)
 - [x] Update `getNextLessonId` in `src/cook-web/src/app/c/[[...id]]/hooks/useLessonTree.ts` to return the next lesson inside the same chapter before falling back to the first lesson of the next chapter, so requirement “自动跳到下一节” is satisfied.
-- [ ] Ensure `useChatLogicHook.onSend` handles `_sys_next_chapter` by calling the updated `getNextLessonId` and gracefully no-ops when there is no upcoming lesson (e.g. show toast).
+- [x] Ensure `useChatLogicHook.onSend` handles `_sys_next_chapter` by calling the updated `getNextLessonId` and gracefully no-ops when there is no upcoming lesson (e.g. show toast).
 - [ ] Confirm `mapRecordsToContent` renders the persisted interaction button (both in desktop and mobile `appendCustomButtonAfterContent` paths) without needing manual intervention.
 - [ ] Verify SSE live streaming inserts the button in the tracked list as soon as the backend emits it, keeping scroll/auto-play behavior intact.
 

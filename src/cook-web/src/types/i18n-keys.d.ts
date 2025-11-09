@@ -203,6 +203,7 @@ export type I18nKey =
   | 'module.chat.like'
   | 'module.chat.loginSuccess'
   | 'module.chat.outputInProgress'
+  | 'module.chat.noMoreLessons'
   | 'module.chat.regenerate'
   | 'module.chat.regenerateConfirmDescription'
   | 'module.chat.regenerateConfirmTitle'
