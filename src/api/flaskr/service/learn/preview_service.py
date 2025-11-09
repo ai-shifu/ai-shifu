@@ -55,10 +55,10 @@ class MarkdownFlowPreviewService:
             outline_bid,
             (document_prompt or "").strip(),
         )
-        model, temperature = self._resolve_llm_settings(
-            preview_request, outline, shifu
+        model, temperature = self._resolve_llm_settings(preview_request, outline, shifu)
+        document = preview_request.get_document() or (
+            outline.content if outline else ""
         )
-        document = preview_request.get_document() or (outline.content if outline else "")
         if not document:
             raise ValueError("Markdown-Flow content is empty")
 
@@ -193,9 +193,7 @@ class MarkdownFlowPreviewService:
                     )
                 return None
 
-            rendered_content = (
-                getattr(current_block, "content", None) or content or ""
-            )
+            rendered_content = getattr(current_block, "content", None) or content or ""
             variable_name = (
                 current_block.variables[0]
                 if getattr(current_block, "variables", None)
@@ -241,9 +239,7 @@ class MarkdownFlowPreviewService:
             return prompt
 
         if shifu:
-            prompt = (
-                getattr(shifu, "llm_system_prompt", None) or ""
-            ).strip()
+            prompt = (getattr(shifu, "llm_system_prompt", None) or "").strip()
             if prompt:
                 return prompt
         return None
@@ -288,7 +284,11 @@ class MarkdownFlowPreviewService:
         prefer_draft: bool,
     ) -> list[DraftOutlineItem | PublishedOutlineItem]:
         records: list[DraftOutlineItem | PublishedOutlineItem] = []
-        struct_modes = [prefer_draft, not prefer_draft] if prefer_draft in (True, False) else [True, False]
+        struct_modes = (
+            [prefer_draft, not prefer_draft]
+            if prefer_draft in (True, False)
+            else [True, False]
+        )
         # ensure unique boolean list
         struct_modes = list(dict.fromkeys(struct_modes))
 

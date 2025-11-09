@@ -11,7 +11,10 @@ import {
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { LIKE_STATUS } from '@/c-api/studyV2';
 import { getStringEnv } from '@/c-utils/envUtils';
-import { fixMarkdownStream, maskIncompleteMermaidBlock } from '@/c-utils/markdownUtils';
+import {
+  fixMarkdownStream,
+  maskIncompleteMermaidBlock,
+} from '@/c-utils/markdownUtils';
 import { useUserStore } from '@/store';
 
 interface StartPreviewParams {
@@ -118,7 +121,10 @@ export function usePreviewChat() {
               type: ChatContentItemType.INTERACTION,
             };
             const lastContent = prev[prev.length - 1];
-            if (lastContent && lastContent.type === ChatContentItemType.CONTENT) {
+            if (
+              lastContent &&
+              lastContent.type === ChatContentItemType.CONTENT
+            ) {
               return [
                 ...prev,
                 {
@@ -135,7 +141,10 @@ export function usePreviewChat() {
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
           const contentId = ensureContentItem(blockId);
           const prevText = currentContentRef.current || '';
-          const delta = fixMarkdownStream(prevText, response.data?.mdflow || '');
+          const delta = fixMarkdownStream(
+            prevText,
+            response.data?.mdflow || '',
+          );
           const nextText = prevText + delta;
           currentContentRef.current = nextText;
           const displayText = maskIncompleteMermaidBlock(nextText);

@@ -219,7 +219,8 @@ if get_config("SILICON_API_KEY"):
         silicon_enabled = True
         current_app.logger.info("SILICON CONFIGURED")
         silicon_client = openai.Client(
-            api_key=get_config("SILICON_API_KEY"), base_url="https://api.siliconflow.cn/v1"
+            api_key=get_config("SILICON_API_KEY"),
+            base_url="https://api.siliconflow.cn/v1",
         )
         SILICON_MODELS = [
             SILICON_PREFIX + i.id for i in silicon_client.models.list().data

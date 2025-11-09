@@ -300,8 +300,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
 
         user_bid = request.user.user_id
         session_id = (
-            request.headers.get("Session-Id")
-            or f"preview-{uuid.uuid4().hex[:8]}"
+            request.headers.get("Session-Id") or f"preview-{uuid.uuid4().hex[:8]}"
         )
         app.logger.info(
             "preview outline block, shifu_bid: %s, outline_bid: %s, user_bid: %s, block_index: %s",
@@ -321,9 +320,7 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
                     session_id=session_id,
                 ):
                     payload = (
-                        message.__json__()
-                        if hasattr(message, "__json__")
-                        else message
+                        message.__json__() if hasattr(message, "__json__") else message
                     )
                     yield (
                         "data: "

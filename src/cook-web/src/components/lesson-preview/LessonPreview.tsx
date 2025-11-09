@@ -55,7 +55,12 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           </div>
         ) : showEmpty ? (
           <div className='flex h-full flex-col items-center justify-center gap-[13px] px-8 text-center text-[14px] leading-5 text-[rgba(10,10,10,0.45)]'>
-            <Image src={ScrollText.src} alt='scroll-text' width={64} height={64} />
+            <Image
+              src={ScrollText.src}
+              alt='scroll-text'
+              width={64}
+              height={64}
+            />
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (

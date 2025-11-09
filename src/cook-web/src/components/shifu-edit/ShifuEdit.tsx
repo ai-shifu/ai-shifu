@@ -228,15 +228,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
         currentShifu.bid,
         currentNode.bid,
       );
-      const previewVariablesMap = parsedVariables.reduce<Record<string, string>>(
-        (acc, key) => {
-          if (key && !(key in acc)) {
-            acc[key] = '';
-          }
-          return acc;
-        },
-        {},
-      );
+      const previewVariablesMap = parsedVariables.reduce<
+        Record<string, string>
+      >((acc, key) => {
+        if (key && !(key in acc)) {
+          acc[key] = '';
+        }
+        return acc;
+      }, {});
       void startPreview({
         shifuBid: currentShifu.bid,
         outlineBid: currentNode.bid,
@@ -345,14 +344,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
         </div>
         <div className='flex-1 overflow-hidden relative text-sm'>
           <div className='flex h-full overflow-hidden'>
-            <div className={cn('flex-1 overflow-auto', !isPreviewPanelOpen && 'relative')}>
-              <div
+            <div
               className={cn(
-                'pt-5 px-6 pb-10 flex flex-col h-full w-full',
-                isPreviewPanelOpen
-                  ? 'max-w-[900px] pr-0'
-                  : 'max-w-[900px] mx-auto relative',
+                'flex-1 overflow-auto',
+                !isPreviewPanelOpen && 'relative',
               )}
+            >
+              <div
+                className={cn(
+                  'pt-5 px-6 pb-10 flex flex-col h-full w-full',
+                  isPreviewPanelOpen
+                    ? 'max-w-[900px] pr-0'
+                    : 'max-w-[900px] mx-auto relative',
+                )}
               >
                 {currentNode?.depth && currentNode.depth > 0 ? (
                   <>
@@ -368,7 +372,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       <div className='ml-auto flex flex-wrap items-center gap-2 relative'>
                         <Tabs
                           value={editMode}
-                          onValueChange={value => setEditMode(value as EditMode)}
+                          onValueChange={value =>
+                            setEditMode(value as EditMode)
+                          }
                         >
                           <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
                             {editModeOptions.map(option => (
@@ -390,7 +396,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           className='h-8 px-3 text-xs font-semibold text-[14px]'
                           onClick={handlePreview}
                           disabled={!canPreview || previewLoading}
-                          title={!canPreview ? previewDisabledReason : undefined}
+                          title={
+                            !canPreview ? previewDisabledReason : undefined
+                          }
                         >
                           {previewLoading ? (
                             <Loader2 className='h-4 w-4 animate-spin' />
@@ -406,7 +414,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         type='button'
                         variant='outline'
                         size='icon'
-                    className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
+                        className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
                         onClick={handleTogglePreviewPanel}
                         aria-label={previewToggleLabel}
                         title={previewToggleLabel}
@@ -418,20 +426,21 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       <div className='h-40 flex items-center justify-center'>
                         <Loading />
                       </div>
-                    ) :
-                    <MarkdownFlowEditor
-                      locale={
-                        normalizeLanguage(
-                          (i18n.resolvedLanguage ?? i18n.language) as string,
-                        ) as 'en-US' | 'zh-CN'
-                      }
-                      content={mdflow}
-                      variables={variablesList}
-                      systemVariables={systemVariablesList as any[]}
-                      onChange={onChangeMdflow}
-                      editMode={editMode}
-                      uploadProps={uploadProps}
-                    />}
+                    ) : (
+                      <MarkdownFlowEditor
+                        locale={
+                          normalizeLanguage(
+                            (i18n.resolvedLanguage ?? i18n.language) as string,
+                          ) as 'en-US' | 'zh-CN'
+                        }
+                        content={mdflow}
+                        variables={variablesList}
+                        systemVariables={systemVariablesList as any[]}
+                        onChange={onChangeMdflow}
+                        editMode={editMode}
+                        uploadProps={uploadProps}
+                      />
+                    )}
                   </>
                 ) : null}
               </div>

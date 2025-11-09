@@ -141,7 +141,7 @@ export default function InteractionBlock({
   return (
     <div className={cn(['interaction-block'], className)}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button
+        <button
           onClick={handleChangeAskPanel}
           type='button'
           className={cn(
@@ -221,8 +221,8 @@ export default function InteractionBlock({
               'duration-200',
               isDislike ? 'text-primary' : 'text-gray-400',
             )}
-            />
-          </button>
+          />
+        </button>
       </div>
 
       <Dialog
