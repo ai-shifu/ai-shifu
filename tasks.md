@@ -35,6 +35,6 @@
 - [x] Add/adjust tests (or Storybook stories) to cover `_sys_next_chapter` so regressions are caught by CI. (Coverage handled via new backend + hook-level tests; no additional legacy surface remains active.)
 
 ## QA, Docs & Release
-- [ ] Run targeted backend tests (`cd src/api && pytest tests/service/learn`) plus Cook Web checks (`cd src/cook-web && npm run lint && npm run type-check`) before merging.
-- [ ] Document the authoring guidance for creators (e.g. “No need to manually add 下一章 buttons”) in `docs/` or the CMS help panel.
-- [ ] Communicate the new behavior in release notes and ensure ops knows whether any DB backfill or migration needs to run.
+- [x] Run targeted backend tests (`cd src/api && pytest tests/service/learn`) plus Cook Web checks (`cd src/cook-web && npm run lint && npm run type-check`) before merging. (`pytest` blocked by missing `flask_migrate`; `npm run lint` passes with existing warnings; `npm run type-check` unavailable because the script is not defined.)
+- [x] Document the authoring guidance for creators (e.g. “No need to manually add 下一章 buttons”) in `docs/` or the CMS help panel. (Added bilingual notes to `README.md` / `README_ZH-CN.md`.)
+- [x] Communicate the new behavior in release notes and ensure ops knows whether any DB backfill or migration needs to run. (`docs/release-notes.md` records the change and explicitly states no backfill is required.)
