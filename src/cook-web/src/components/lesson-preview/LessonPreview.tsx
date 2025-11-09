@@ -45,7 +45,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
-      <div className='mt-4 flex-1 overflow-hidden rounded-xl border bg-muted/30'>
+      <div className='mt-4 flex-1 overflow-hidden rounded-xl border bg-white'>
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />

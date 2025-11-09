@@ -216,10 +216,25 @@ const ScriptEditor = ({ id }: { id: string }) => {
         outline_bid: currentNode.bid,
         data: mdflow,
       });
+      const parsedVariables = await actions.previewParse(
+        mdflow,
+        currentShifu.bid,
+        currentNode.bid,
+      );
+      const previewVariablesMap = parsedVariables.reduce<Record<string, string>>(
+        (acc, key) => {
+          if (key && !(key in acc)) {
+            acc[key] = '';
+          }
+          return acc;
+        },
+        {},
+      );
       void startPreview({
         shifuBid: currentShifu.bid,
         outlineBid: currentNode.bid,
         mdflow,
+        variables: previewVariablesMap,
       });
     } catch (error) {
       console.error(error);

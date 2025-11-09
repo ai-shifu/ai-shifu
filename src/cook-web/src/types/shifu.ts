@@ -172,6 +172,11 @@ export interface ShifuActions {
     shifuId: string,
     outlineId: string,
   ) => Promise<void>;
+  previewParse: (
+    value: string,
+    shifuId: string,
+    outlineId: string,
+  ) => Promise<string[]>;
 }
 
 export interface ShifuContextType extends ShifuState {

@@ -7,6 +7,7 @@ import hmac
 import json
 from hashlib import sha256 as sha256
 from urllib.request import Request, urlopen
+from urllib.error import URLError
 from flask import Flask
 from .dto import (
     CheckResultDTO,
@@ -82,7 +83,17 @@ def ilivedata_check(
     signature = base64.b64encode(
         hmac.new(secret_key, parameter.encode("utf-8"), digestmod=sha256).digest()
     )
-    ret = send(query_body, signature, now_date, pid)
+    try:
+        ret = send(query_body, signature, now_date, pid)
+    except URLError as err:
+        app.logger.error("ilivedata request failed: %s", err)
+        return CheckResultDTO(
+            check_result=CHECK_RESULT_UNKNOWN,
+            risk_labels=[],
+            risk_label_ids=[],
+            provider=PROVIDER,
+            raw_data={"error": str(err)},
+        )
 
     if ret.get("errorCode") == 0:
         return CheckResultDTO(
