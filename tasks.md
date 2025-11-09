@@ -1,7 +1,7 @@
 # Next Chapter Auto-Advance Tasks
 
 ## Discovery & Alignment
-- [ ] Agree on the workflow rule: finish each task atomically, run the relevant self-tests immediately, and create a commit before moving to the next task.
+- [x] Agree on the workflow rule: finish each task atomically, run the relevant self-tests immediately, and create a commit before moving to the next task.
 - [ ] Clarify with product whether “一节” = child outline node and “一章” = catalog node to ensure our logic matches the structure returned by `get_outline_item_tree` (`src/api/flaskr/service/learn/learn_funcs.py`).
 - [ ] Audit the current Markdown Flow authoring patterns to confirm where a lesson is marked completed so we know the earliest safe point to inject the “next chapter” interaction.
 - [ ] Inventory all client surfaces (new markdown-flow chat at `src/cook-web/src/app/c/[[...id]]` plus any legacy `ChatComponents`) that must react to `_sys_next_chapter`.
