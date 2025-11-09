@@ -167,6 +167,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
       resetPreview();
     };
   }, [resetPreview, stopPreview]);
+  useEffect(() => {
+    if (!currentNode?.bid) {
+      return;
+    }
+    stopPreview();
+    resetPreview();
+  }, [currentNode?.bid, resetPreview, stopPreview]);
 
   const onAddChapter = () => {
     actions.addChapter({
@@ -275,6 +282,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
     };
   }, [token, baseURL]);
 
+  useEffect(() => {
+    if (!currentNode?.bid) {
+      return;
+    }
+    stopPreview();
+    resetPreview();
+  }, [currentNode?.bid, resetPreview, stopPreview]);
+
   const canPreview = Boolean(
     currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
   );
@@ -337,11 +352,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   isPreviewPanelOpen ? 'max-w-[900px]' : 'max-w-[900px] mx-auto',
                 )}
               >
-                {isLoading ? (
-                  <div className='h-40 flex items-center justify-center'>
-                    <Loading />
-                  </div>
-                ) : currentNode?.depth && currentNode.depth > 0 ? (
+                {currentNode?.depth && currentNode.depth > 0 ? (
                   <>
                     <div className='flex flex-wrap items-center gap-3'>
                       <div className='flex min-w-[220px] items-baseline gap-2'>
@@ -399,6 +410,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         </Button>
                       </div>
                     </div>
+                    {isLoading ? (
+                      <div className='h-40 flex items-center justify-center'>
+                        <Loading />
+                      </div>
+                    ) :
                     <MarkdownFlowEditor
                       locale={
                         normalizeLanguage(
@@ -411,7 +427,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       onChange={onChangeMdflow}
                       editMode={editMode}
                       uploadProps={uploadProps}
-                    />
+                    />}
                   </>
                 ) : null}
               </div>
