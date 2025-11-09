@@ -92,26 +92,35 @@ class MarkdownFlowPreviewService:
             interaction_error_prompt=preview_request.interaction_error_prompt,
         )
 
+        block_index = preview_request.block_index
         result = mf.process(
-            block_index=preview_request.block_index,
+            block_index=block_index,
             mode=ProcessMode.STREAM,
             context=self._convert_context_to_dict(preview_request.context),
             variables=preview_request.variables,
             user_input=preview_request.user_input,
         )
-        current_block = mf.get_block(preview_request.block_index)
+        current_block = mf.get_block(block_index)
         is_user_input_validation = bool(preview_request.user_input)
 
         if inspect.isgenerator(result):
             for chunk in result:
                 message = self._convert_to_sse_message(
-                    chunk, False, current_block, is_user_input_validation
+                    chunk,
+                    False,
+                    current_block,
+                    is_user_input_validation,
+                    block_index,
                 )
                 if message:
                     yield message
         else:
             message = self._convert_to_sse_message(
-                result, False, current_block, is_user_input_validation
+                result,
+                False,
+                current_block,
+                is_user_input_validation,
+                block_index,
             )
             if message:
                 yield message
@@ -121,6 +130,7 @@ class MarkdownFlowPreviewService:
             True,
             current_block,
             is_user_input_validation,
+            block_index,
         )
         trace.update(**trace_args)
 
@@ -130,9 +140,11 @@ class MarkdownFlowPreviewService:
         finished: bool,
         current_block,
         is_user_input_validation: bool,
+        block_index: int,
     ) -> PreviewSSEMessage | None:
         if finished:
             return PreviewSSEMessage(
+                generated_block_bid=str(block_index),
                 type=PreviewSSEMessageType.TEXT_END,
                 data=PreviewTextEndSSEData(),
             )
@@ -159,6 +171,7 @@ class MarkdownFlowPreviewService:
             if is_user_input_validation:
                 if content.strip():
                     return PreviewSSEMessage(
+                        generated_block_bid=str(block_index),
                         type=PreviewSSEMessageType.CONTENT,
                         data=PreviewContentSSEData(mdflow=content),
                     )
@@ -171,6 +184,7 @@ class MarkdownFlowPreviewService:
                 else "user_input"
             )
             return PreviewSSEMessage(
+                generated_block_bid=str(block_index),
                 type=PreviewSSEMessageType.INTERACTION,
                 data=PreviewInteractionSSEData(
                     mdflow=rendered_content,
@@ -182,6 +196,7 @@ class MarkdownFlowPreviewService:
             return None
 
         return PreviewSSEMessage(
+            generated_block_bid=str(block_index),
             type=PreviewSSEMessageType.CONTENT,
             data=PreviewContentSSEData(mdflow=content),
         )

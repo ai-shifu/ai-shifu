@@ -406,6 +406,9 @@ class PreviewTextEndSSEData(BaseModel):
 
 
 class PreviewSSEMessage(BaseModel):
+    generated_block_bid: str = Field(
+        ..., description="client-side identifier of the block", required=True
+    )
     type: PreviewSSEMessageType = Field(..., description="SSE message type")
     data: PreviewContentSSEData | PreviewInteractionSSEData | PreviewTextEndSSEData
 

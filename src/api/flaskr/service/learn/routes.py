@@ -278,9 +278,12 @@ def register_learn_routes(app: Flask, path_prefix: str = "/api/learn") -> Flask:
         normalized_user_input = payload.get("user_input")
         if normalized_user_input is None and "input" in payload:
             normalized_user_input = _normalize_user_input(payload.get("input"))
+        block_index = payload.get("block_index")
+        if block_index is None:
+            block_index = payload.get("blockIndex")
         preview_payload = {
             "content": payload.get("content") or payload.get("prompt"),
-            "block_index": payload.get("block_index"),
+            "block_index": block_index,
             "context": payload.get("context"),
             "variables": payload.get("variables"),
             "user_input": normalized_user_input,
