@@ -106,6 +106,7 @@ After Docker starts:
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
 =======
@@ -117,13 +118,21 @@ After Docker starts:
 =======
 >>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
 >>>>>>> 5c331cb4 (docs: tidy readme formatting (#895))
+<<<<<<< HEAD
 >>>>>>> 961a409f (docs: tidy readme formatting (#895))
+=======
+=======
+>>>>>>> 2e67621f (fix: merge conflict)
+>>>>>>> 034b9e06 (fix: merge conflict)
 
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 2. Use any phone number for login; the default universal verification code is **1024** (for demo/testing only — change or disable in production)
 3. The first verified user becomes Admin and Creator
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 034b9e06 (fix: merge conflict)
 =======
 1. Open `http://localhost:8080` in your browser to access Cook Web (learner interface and authoring console)
 <<<<<<< HEAD
@@ -153,7 +162,12 @@ After Docker starts:
 =======
 =======
 >>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
+<<<<<<< HEAD
 >>>>>>> c5ff187b (fix: align nginx ports to 8080 (#866))
+=======
+=======
+>>>>>>> 2e67621f (fix: merge conflict)
+>>>>>>> 034b9e06 (fix: merge conflict)
 
 ## Internationalization (i18n)
 
