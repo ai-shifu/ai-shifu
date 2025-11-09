@@ -23,11 +23,9 @@ from .consts import (
 from .models import DraftOutlineItem
 from ...dao import db
 from ...util import generate_id
-from .adapter import html_2_markdown, markdown_2_html
 from ..common.models import raise_error
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
 from decimal import Decimal
-from .adapter import convert_outline_to_reorder_outline_item_dto
 from .shifu_history_manager import (
     save_new_outline_history,
     save_outline_tree_history,
@@ -37,6 +35,27 @@ from .shifu_history_manager import (
 )
 from datetime import datetime
 from markdown_flow import MarkdownFlow
+
+
+def convert_outline_to_reorder_outline_item_dto(
+    json_array: list[dict],
+) -> ReorderOutlineItemDto:
+    """
+    convert outline to reorder outline item dto
+    Args:
+        json_array: The json array to convert
+    Returns:
+        The reorder outline item dto
+    """
+    return [
+        ReorderOutlineItemDto(
+            bid=item.get("bid"),
+            children=convert_outline_to_reorder_outline_item_dto(
+                item.get("children", [])
+            ),
+        )
+        for item in json_array
+    ]
 
 
 def __get_existing_outline_items(shifu_bid: str) -> list[DraftOutlineItem]:
@@ -510,9 +529,9 @@ def get_unit_by_id(app, user_id: str, unit_id: str):
             description=unit.title,
             index=unit.position,
             type=unit_type,
-            system_prompt=markdown_2_html(
-                unit.llm_system_prompt if unit.llm_system_prompt is not None else "", []
-            ),
+            system_prompt=unit.llm_system_prompt
+            if unit.llm_system_prompt is not None
+            else "",
             is_hidden=is_hidden,
         )
 
@@ -572,7 +591,7 @@ def modify_unit(
         if unit_name:
             new_unit.title = unit_name
         if unit_system_prompt is not None:
-            new_unit.llm_system_prompt = html_2_markdown(unit_system_prompt, [])
+            new_unit.llm_system_prompt = unit_system_prompt
         if unit_is_hidden is True:
             new_unit.hidden = 1
         elif unit_is_hidden is False:
@@ -604,7 +623,7 @@ def modify_unit(
             description=unit_description or "",
             type=unit_type,
             index=int(existing_unit.position),
-            system_prompt=markdown_2_html(existing_unit.llm_system_prompt or "", []),
+            system_prompt=existing_unit.llm_system_prompt or "",
             is_hidden=unit_is_hidden,
         )
 

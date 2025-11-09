@@ -1,7 +1,6 @@
 from flask import Flask
 import jwt
 import time
-import base64
 import string
 import random
 import smtplib
@@ -11,10 +10,8 @@ from flaskr.i18n import _
 
 from ..common.models import raise_error
 from ...dao import redis_client as redis, db
-from captcha.image import ImageCaptcha
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from .models import UserVerifyCode
-from io import BytesIO
 
 
 def get_user_openid(user):
@@ -78,36 +75,6 @@ def generate_token(app: Flask, user_id: str) -> str:
             ex=app.config["TOKEN_EXPIRE_TIME"],
         )
         return token
-
-
-# generate image captcha
-# author: yfge
-def generation_img_chk(app: Flask, identifying_account: str):
-    with app.app_context():
-        image_captcha = ImageCaptcha()
-        characters = string.ascii_uppercase + string.digits
-        # Generate a random string of length 4
-        random_string = "".join(random.choices(characters, k=4))
-        captcha_image = image_captcha.generate_image(random_string)
-        # Save the image to a BytesIO object
-        buffered = BytesIO()
-        captcha_image.save(buffered, format="PNG")
-        app.logger.info(
-            "identifying_account:"
-            + identifying_account
-            + " random_string:"
-            + random_string
-        )
-        # Encode the image to base64
-        img_base64 = "data:image/png;base64," + base64.b64encode(
-            buffered.getvalue()
-        ).decode("utf-8")
-        redis.set(
-            app.config["REDIS_KEY_PREFIX_CAPTCHA"] + identifying_account,
-            random_string,
-            ex=app.config["CAPTCHA_CODE_EXPIRE_TIME"],
-        )
-        return {"img": img_base64, "expire_in": app.config["CAPTCHA_CODE_EXPIRE_TIME"]}
 
 
 # send sms code

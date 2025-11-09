@@ -128,8 +128,19 @@ export const getRunMessage = (
     baseURL = window.location.origin;
   }
 
-  // TODO: MOCK
-  payload.input = Object.values(body.input).join('');
+  // Convert input values to array format for markdown-flow 0.2.27+
+  // Backend expects: { "variableName": ["value1", "value2"] }
+  if (typeof body.input === 'object' && body.input !== null) {
+    payload.input = Object.fromEntries(
+      Object.entries(body.input).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value : [value],
+      ]),
+    );
+  } else if (typeof body.input === 'string') {
+    // If input is string, use default 'input' as key
+    payload.input = { input: [body.input] };
+  }
   const source = new SSE(
     `${baseURL}/api/learn/shifu/${shifu_bid}/run/${outline_bid}?preview_mode=${preview_mode}`,
     {
@@ -147,27 +158,16 @@ export const getRunMessage = (
   source.addEventListener('message', event => {
     try {
       const response = JSON.parse(event.data);
-      console.log('[SSE response]', response);
       if (onMessage) {
         onMessage(response);
       }
-    } catch (e) {
-      console.log(e);
+    } catch {
+      // ignore malformed SSE payloads
     }
   });
 
   source.addEventListener('error', e => {
     console.error('[SSE error]', e);
-  });
-
-  // sse.js may not support 'close' event, use readystatechange instead
-  source.addEventListener('readystatechange', () => {
-    // readyState: 0=CONNECTING, 1=OPEN, 2=CLOSED
-    if (source.readyState === 2) {
-      console.log('[SSE connection close]');
-    } else if (source.readyState === 1) {
-      console.log('[SSE connection open]');
-    }
   });
 
   source.stream();

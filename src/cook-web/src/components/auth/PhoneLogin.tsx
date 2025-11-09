@@ -13,6 +13,7 @@ import { isValidPhoneNumber } from '@/lib/validators';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/lib/utils';
 
 import type { UserInfo } from '@/c-types';
 import { tokenTool } from '@/c-service/storeUtil';
@@ -97,6 +98,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
     } catch {
       // Error already handled in sendSmsCode
     } finally {
+      setShowOtpInput(true);
       setIsLoading(false);
     }
   };
@@ -148,11 +150,11 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
           value={phoneNumber}
           onChange={handlePhoneChange}
           disabled={isLoading}
-          className={
-            phoneError
-              ? 'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground'
-              : ''
-          }
+          className={cn(
+            'text-base sm:text-sm',
+            phoneError &&
+              'border-red-500 focus-visible:ring-red-500 placeholder:text-muted-foreground',
+          )}
         />
         {phoneError && <p className='text-xs text-red-500'>{phoneError}</p>}
       </div>
@@ -166,6 +168,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
             onChange={e => setPhoneOtp(e.target.value)}
             onKeyDown={handleOtpKeyDown}
             disabled={isLoading || !showOtpInput}
+            className='text-base sm:text-sm'
           />
         </div>
         <Button

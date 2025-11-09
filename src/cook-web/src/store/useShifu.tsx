@@ -104,11 +104,18 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
   // const UITypes = useUITypes()
   const ContentTypes = useContentTypes();
 
-  const loadShifu = async (shifuId: string) => {
-    setBlockUITypes({});
-    setBlockContentTypes({});
+  const loadShifu = async (
+    shifuId: string,
+    options?: {
+      silent?: boolean;
+    },
+  ) => {
+    const silent = options?.silent ?? false;
+
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       setError(null);
       const shifu = await api.getShifuDetail({
         shifu_bid: shifuId,
@@ -118,7 +125,9 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       console.error(error);
       setError('Failed to load shifu');
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
   const recursiveCataData = (cataTree: Outline[]): any => {
@@ -329,12 +338,12 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     });
     setMdflow(mdflow);
     setCurrentMdflow(mdflow);
-    if (mdflow) {
-      parseMdflow(mdflow, shifuId, outlineId);
-    } else {
-      setVariables([]);
-      setSystemVariables([]);
-    }
+    // if (mdflow) {
+    parseMdflow(mdflow, shifuId, outlineId);
+    // } else {
+    // setVariables([]);
+    // setSystemVariables([]);
+    // }
     setIsLoading(false);
   };
 
@@ -444,7 +453,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       if (isLoading) {
         return;
       }
-      console.log('saveBlocks', blockPropertiesRef.current);
       const list = buildBlockListWithAllInfo(
         blocks,
         blockTypes,
@@ -1022,15 +1030,19 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       setSystemVariables(sysVariables);
 
-      const result = await api.parseMdflow({
-        shifu_bid: shifuId || currentShifu?.bid || '',
-        outline_bid: outlineId || currentNode?.bid || '',
-        data: value,
-      });
+      // const result = await api.parseMdflow({
+      //   shifu_bid: shifuId || currentShifu?.bid || '',
+      //   outline_bid: outlineId || currentNode?.bid || '',
+      //   data: value,
+      // });
 
-      const customVariables = result.variables.filter(
-        item => !sysVariables.some(sysItem => sysItem.name === item),
-      );
+      // const customVariables = result.variables.filter(
+      //   item => !sysVariables.some(sysItem => sysItem.name === item),
+      // );
+
+      const customVariables = list
+        .filter(item => item.profile_scope === 'user')
+        .map(item => item.profile_key);
 
       setVariables(customVariables || []);
     } catch (error) {
@@ -1056,6 +1068,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
   const setCurrentMdflow = (value: string) => {
     currentMdflow.current = value;
+    setMdflow(value || '');
   };
 
   const value: ShifuContextType = {

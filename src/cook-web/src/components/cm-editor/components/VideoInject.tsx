@@ -61,8 +61,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
       .then(res => {
         setTitle(res.title);
       })
-      .catch(err => {
-        console.log('err', err);
+      .catch(() => {
         setErrorTips(t('common.core.inputValidBilibiliUrl'));
       });
 
@@ -78,8 +77,7 @@ const VideoInject: React.FC<VideoInjectProps> = ({ value, onSelect }) => {
           resourceUrl: returnUrlObj.origin + returnUrlObj.pathname,
           resourceTitle: title,
         });
-      } catch (error) {
-        console.log('error', error);
+      } catch {
         onSelect({ resourceUrl: inputUrl, resourceTitle: title });
       }
     }

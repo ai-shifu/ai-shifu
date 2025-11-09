@@ -1,14 +1,18 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ComponentType,
   useContext,
+  useMemo,
 } from 'react';
+import React from 'react';
 import { useLatest, useMountedState } from 'react-use';
-import { fixMarkdownStream } from '@/c-utils/markdownUtils';
+import {
+  fixMarkdownStream,
+  maskIncompleteMermaidBlock,
+} from '@/c-utils/markdownUtils';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useUserStore } from '@/store';
 import { useShallow } from 'zustand/react/shallow';
@@ -36,6 +40,7 @@ import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
+import { appendCustomButtonAfterContent } from './chatUiUtils';
 
 export enum ChatContentItemType {
   CONTENT = 'content',
@@ -49,6 +54,7 @@ export interface ChatContentItem {
   customRenderBar?: (() => JSX.Element | null) | ComponentType<any>;
   defaultButtonText?: string;
   defaultInputText?: string;
+  defaultSelectedValues?: string[]; // for multi-select interactions
   readonly?: boolean;
   isHistory?: boolean;
   generated_block_bid: string;
@@ -73,7 +79,7 @@ export interface UseChatSessionParams {
   chapterId?: string;
   previewMode?: boolean;
   trackEvent: (name: string, payload?: Record<string, any>) => void;
-  trackTrailProgress: (generatedBlockBid: string) => void;
+  trackTrailProgress: (courseId: string, generatedBlockBid: string) => void;
   lessonUpdate?: (params: Record<string, any>) => void;
   chapterUpdate?: (params: Record<string, any>) => void;
   updateSelectedLesson: (lessonId: string, forceExpand?: boolean) => void;
@@ -152,6 +158,11 @@ function useChatLogicHook({
   const hasScrolledToBottomRef = useRef<boolean>(false);
 
   const effectivePreviewMode = previewMode ?? false;
+  const getAskButtonMarkup = useCallback(
+    () =>
+      `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+    [t],
+  );
 
   // Use react-use hooks for safer state management
   const isMounted = useMountedState();
@@ -253,7 +264,7 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       isInitHistoryRef.current = false;
-      currentBlockIdRef.current = 'loading';
+      // currentBlockIdRef.current = 'loading';
       currentContentRef.current = '';
       // setLastInteractionBlock(null);
       lastInteractionBlockRef.current = null;
@@ -291,7 +302,6 @@ function useChatLogicHook({
           //       if (hasLoading) {
           //         return prev;
           //       }
-          //       console.log("=====❤️HEARTBEAT插入loading=====")
           //       const placeholderItem: ChatContentItem = {
           //         generated_block_bid: 'loading',
           //         content: '',
@@ -315,6 +325,7 @@ function useChatLogicHook({
                   item => item.generated_block_bid === 'loading',
                 )
               ) {
+                // currentBlockIdRef.current = nid;
                 // close loading
                 setTrackedContentList(pre => {
                   const newList = pre.filter(
@@ -322,21 +333,19 @@ function useChatLogicHook({
                   );
                   return newList;
                 });
-                currentBlockIdRef.current = nid;
               }
             }
+            const blockId = nid;
+            // const blockId = currentBlockIdRef.current;
 
-            const blockId = currentBlockIdRef.current;
-
-            if (nid && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
-              trackTrailProgress(nid);
+            if (blockId && [SSE_OUTPUT_TYPE.BREAK].includes(response.type)) {
+              trackTrailProgress(shifuBid, blockId);
             }
 
             if (response.type === SSE_OUTPUT_TYPE.INTERACTION) {
-              // console.log('🔵 Received INTERACTION type:', response);
-
               setTrackedContentList((prev: ChatContentItem[]) => {
-                const interactionBlock = {
+                // Use markdown-flow-ui default rendering for all interactions
+                const interactionBlock: ChatContentItem = {
                   generated_block_bid: nid,
                   content: response.content,
                   customRenderBar: () => null,
@@ -362,7 +371,6 @@ function useChatLogicHook({
                   return [...prev, interactionBlock];
                 }
               });
-              // console.log('🔵 Set lastInteractionBlockRef.current:', interactionBlock);
             } else if (response.type === SSE_OUTPUT_TYPE.CONTENT) {
               if (isEnd) {
                 return;
@@ -372,6 +380,7 @@ function useChatLogicHook({
               const delta = fixMarkdownStream(prevText, response.content || '');
               const nextText = prevText + delta;
               currentContentRef.current = nextText;
+              const displayText = maskIncompleteMermaidBlock(nextText);
               if (blockId) {
                 setTrackedContentList(prevState => {
                   let hasItem = false;
@@ -380,7 +389,7 @@ function useChatLogicHook({
                       hasItem = true;
                       return {
                         ...item,
-                        content: nextText,
+                        content: displayText,
                         customRenderBar: () => null,
                       };
                     }
@@ -389,7 +398,7 @@ function useChatLogicHook({
                   if (!hasItem) {
                     updatedList.push({
                       generated_block_bid: blockId,
-                      content: nextText,
+                      content: displayText,
                       defaultButtonText: '',
                       defaultInputText: '',
                       readonly: false,
@@ -397,7 +406,6 @@ function useChatLogicHook({
                       type: ChatContentItemType.CONTENT,
                     });
                   }
-                  // console.log('updatedList', updatedList)
                   return updatedList;
                 });
               }
@@ -425,8 +433,6 @@ function useChatLogicHook({
               // response.type === SSE_OUTPUT_TYPE.BREAK ||
               response.type === SSE_OUTPUT_TYPE.TEXT_END
             ) {
-              // console.log('🟢 Received TEXT_END/BREAK, type:', response.type);
-              // console.log('🟢 lastInteractionBlockRef.current:', lastInteractionBlockRef.current);
               setTrackedContentList((prev: ChatContentItem[]) => {
                 const updatedList = [...prev].filter(
                   item => item.generated_block_bid !== 'loading',
@@ -443,9 +449,10 @@ function useChatLogicHook({
                     ) {
                       updatedList[i] = {
                         ...updatedList[i],
-                        content:
-                          (updatedList[i].content || '') +
-                          `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`,
+                        content: appendCustomButtonAfterContent(
+                          updatedList[i].content,
+                          getAskButtonMarkup(),
+                        ),
                         isHistory: true, // Prevent AskButton from triggering typewriter
                       };
                       break;
@@ -472,10 +479,12 @@ function useChatLogicHook({
                 }
                 return updatedList;
               });
-            } else if (response.type === SSE_OUTPUT_TYPE.PROFILE_UPDATE) {
-              updateUserInfo({
-                [response.content.key]: response.content.value,
-              });
+            } else if (response.type === SSE_OUTPUT_TYPE.VARIABLE_UPDATE) {
+              if (response.content.variable_name === 'sys_user_nickname') {
+                updateUserInfo({
+                  name: response.content.variable_value,
+                });
+              }
             }
           } catch (error) {
             console.warn('SSE handling error:', error);
@@ -559,13 +568,16 @@ function useChatLogicHook({
         if (item.block_type === BLOCK_TYPE.CONTENT) {
           // flush the previously cached ask entries
           flushBuffer();
+          const normalizedContent = item.content ?? '';
+          const contentWithButton = mobileStyle
+            ? appendCustomButtonAfterContent(
+                normalizedContent,
+                getAskButtonMarkup(),
+              )
+            : normalizedContent;
           result.push({
             generated_block_bid: item.generated_block_bid,
-            content:
-              item.content +
-              (!mobileStyle
-                ? ``
-                : `<custom-button-after-content><img src="${AskIcon.src}" alt="ask" width="14" height="14" /><span>${t('module.chat.ask')}</span></custom-button-after-content>`),
+            content: contentWithButton,
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
@@ -590,14 +602,22 @@ function useChatLogicHook({
           // accumulate ask entries
           buffer.push(item);
         } else {
-          // flush and handle other types
+          // flush and handle other types (including INTERACTION)
           flushBuffer();
+
+          // Use markdown-flow-ui default rendering for all interactions
           result.push({
             generated_block_bid: item.generated_block_bid,
             content: item.content,
             customRenderBar: () => null,
             defaultButtonText: item.user_input || '',
             defaultInputText: item.user_input || '',
+            defaultSelectedValues: item.user_input
+              ? item.user_input
+                  .split(',')
+                  .map(v => v.trim())
+                  .filter(v => v)
+              : undefined,
             readonly: false,
             isHistory: true,
             type: item.block_type,
@@ -607,10 +627,9 @@ function useChatLogicHook({
 
       // final flush
       flushBuffer();
-      // console.log('result:', result);
       return result;
     },
-    [mobileStyle],
+    [mobileStyle, t],
   );
 
   /**
@@ -799,6 +818,7 @@ function useChatLogicHook({
           readonly: false,
           defaultButtonText: params.buttonText || '',
           defaultInputText: params.inputText || '',
+          defaultSelectedValues: params.selectedValues,
         };
         newList.length = needChangeItemIndex + 1;
         setTrackedContentList(newList);
@@ -873,7 +893,9 @@ function useChatLogicHook({
       }
       if (buttonText === SYS_INTERACTION_TYPE.LOGIN) {
         if (typeof window !== 'undefined') {
-          const redirect = encodeURIComponent(window.location.pathname);
+          const redirect = encodeURIComponent(
+            window.location.pathname + window.location.search,
+          );
           window.location.href = `/login?redirect=${redirect}`;
         }
         return;
@@ -907,9 +929,26 @@ function useChatLogicHook({
       // setIsTypeFinished(false);
       isTypeFinishedRef.current = false;
       // scrollToBottom();
+
+      // Build values array from user input (following playground pattern)
+      let values: string[] = [];
+      if (content.selectedValues && content.selectedValues.length > 0) {
+        // Multi-select mode: combine selected values with optional input text
+        values = [...content.selectedValues];
+        if (inputText) {
+          values.push(inputText);
+        }
+      } else if (inputText) {
+        // Single-select mode: use input text
+        values = [inputText];
+      } else if (buttonText) {
+        // Single-select mode: use button text
+        values = [buttonText];
+      }
+
       runRef.current?.({
         input: {
-          [variableName as string]: buttonText || inputText,
+          [variableName as string]: values,
         },
         input_type: SSE_INPUT_TYPE.NORMAL,
         reload_generated_block_bid:

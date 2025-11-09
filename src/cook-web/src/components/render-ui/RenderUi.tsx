@@ -241,9 +241,7 @@ export const RenderBlockUI = memo(
       }
     };
 
-    const onPropertiesChange = properties => {
-      console.log('onPropertiesChange', properties);
-    };
+    const onPropertiesChange = () => {};
 
     const handleBlockEditChange = (isEdit: boolean) => {
       setExpand(isEdit);

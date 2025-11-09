@@ -2,13 +2,13 @@ from flask import Flask
 from .models import FeedBack
 from ...dao import db
 from flaskr.api.doc.feishu import send_notify
-from flaskr.service.user.models import User
+from flaskr.service.user.repository import load_user_aggregate
 
 
 def submit_feedback(app: Flask, user_id: str, feedback: str, mail: str):
     with app.app_context():
         feedback_item = FeedBack(user_id=user_id, feedback=feedback)
-        user = User.query.filter(User.user_id == user_id).first()
+        user = load_user_aggregate(user_id)
         if user:
             send_notify(
                 app,

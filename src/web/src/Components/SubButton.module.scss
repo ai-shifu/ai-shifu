@@ -1,7 +1,0 @@
-:global(.ant-btn).subButton  {
-  position: static;
-
-  &:not(:disabled):not(.ant-btn-disabled):hover {
-    position: static;
-  }
-}

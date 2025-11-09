@@ -34,7 +34,7 @@ from .models import (
 )
 
 # from datetime import datetime
-from flaskr.service.lesson.models import AICourse
+from flaskr.service.shifu.models import PublishedShifu, DraftShifu
 
 
 # get color setting
@@ -490,7 +490,17 @@ def save_profile_item_defination(
     if profile is None:
         app.logger.info("profile is None")
         return
-    scenario = AICourse.query.filter(AICourse.course_id == scenario_id).first()
+    scenario = (
+        PublishedShifu.query.filter(PublishedShifu.shifu_bid == scenario_id)
+        .order_by(PublishedShifu.id.desc())
+        .first()
+    )
+    if scenario is None:
+        scenario = (
+            DraftShifu.query.filter(DraftShifu.shifu_bid == scenario_id)
+            .order_by(DraftShifu.id.desc())
+            .first()
+        )
     if scenario is None:
         raise_error("server.scenario.notFound")
     if isinstance(profile, TextProfileDto):

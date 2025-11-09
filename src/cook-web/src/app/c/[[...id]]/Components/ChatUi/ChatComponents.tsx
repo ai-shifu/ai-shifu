@@ -368,7 +368,7 @@ export const ChatComponents = forwardRef<any, any>(
               RESP_EVENT_TYPE.REQUIRE_LOGIN,
             ].includes(response.type)
           ) {
-            trackTrailProgress(scriptId);
+            trackTrailProgress(courseId, scriptId);
           }
 
           try {
@@ -528,8 +528,8 @@ export const ChatComponents = forwardRef<any, any>(
                 visible: content.visible,
               });
             }
-          } catch (e) {
-            console.log(e);
+          } catch {
+            // swallow SSE parse errors
           }
         });
       },

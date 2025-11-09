@@ -8,7 +8,7 @@ a. Host more than 5 shifus: Unless explicitly authorized by AI-Shifu in writing,
     - Shifu Definition: Within the context of AI-Shifu, one shifu corresponds to one course, regardless of the purpose of the course. The course provides a separated script and has a unique ID.
 
 b. LOGO and copyright information: In the process of using AI-Shifu's frontend, you may not remove or modify the LOGO or copyright information in the AI-Shifu console or applications. This restriction is inapplicable to uses of AI-Shifu that do not involve its frontend.
-    - Frontend Definition: For the purposes of this license, the "frontend" of AI-Shifu includes all components located in the `src/web/`, `src/cook-web/`, and `src/admin-web` directory when running AI-Shifu from the raw source code, or the `ai-shifu-web` and `ai-shifu-cook-web` images when running AI-Shifu with Docker.
+    - Frontend Definition: For the purposes of this license, the "frontend" of AI-Shifu includes all components located in the `src/cook-web/` and `src/admin-web` directories when running AI-Shifu from the raw source code, or the `ai-shifu-cook-web` image when running AI-Shifu with Docker.
 
 Please contact business@ai-shifu.com by email to inquire about licensing matters.
 

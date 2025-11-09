@@ -1,14 +1,19 @@
 {
   "__namespace__": "module.chapterSetting",
-  "title": "章节设置",
+  "chapterSettingsTitle": "章设置",
+  "lessonSettingsTitle": "节设置",
   "learningPermission": "学习权限",
-  "paidChapter": "付费章节",
-  "freeChapter": "免费章节",
-  "guestChapter": "游客章节",
+  "paid": "付费",
+  "free": "免费",
+  "guest": "免登录",
   "isHidden": "可见性",
-  "visibleChapter": "可见",
-  "hideChapter": "隐藏",
-  "systemPrompt": "系统提示词",
-  "promptHint": "该章节的初始指令（可选）",
-  "chapterTitle": "章节标题"
+  "visible": "可见",
+  "hidden": "隐藏",
+  "chapterPrompt": "章提示词",
+  "chapterPromptHint": "对本章的整体内容生成，进行对象、语气和注意事项等约束",
+  "chapterPromptPlaceholder": "请输入提示词。如果此处为空，则本章内容生成将通过师傅提示词进行约束",
+  "lessonPrompt": "节提示词",
+  "lessonPromptHint": "对本节的整体内容生成，进行对象、语气和注意事项等约束",
+  "lessonPromptPlaceholder": "请输入提示词。如果此处为空，则本节内容生成将通过所属章的章提示词内容进行约束",
+  "promptPlaceholder": "请输入提示词"
 }

@@ -2,7 +2,7 @@
 """Update shared i18n JSON files based on key usage across backend and frontends.
 
 Default behavior:
-- Scans src/api (Flask) and src/cook-web + src/web (React/Next.js) for translation key usage
+- Scans src/api (Flask) and src/cook-web (Next.js) for translation key usage
 - Computes keys missing from src/i18n across locales
 - For namespaces that already exist (based on en-US mapping), inserts placeholder values for missing keys
 - Does NOT prune by default; use --prune-unused to remove keys not referenced in code
@@ -23,7 +23,6 @@ ROOT = Path(__file__).resolve().parents[1]
 I18N_DIR = ROOT / "src" / "i18n"
 BACKEND_DIR = ROOT / "src" / "api"
 COOK_WEB_DIR = ROOT / "src" / "cook-web"
-WEB_DIR = ROOT / "src" / "web"
 
 
 def load_json(path: Path):
@@ -126,19 +125,18 @@ BACKEND_PATTERNS = [
 def collect_frontend_keys() -> Set[str]:
     used: Set[str] = set()
     extensions = {".ts", ".tsx", ".js", ".jsx"}
-    for root in (COOK_WEB_DIR, WEB_DIR):
-        if not root.exists():
+    if not COOK_WEB_DIR.exists():
+        return used
+    for path in COOK_WEB_DIR.rglob("*"):
+        if path.suffix not in extensions:
             continue
-        for path in root.rglob("*"):
-            if path.suffix not in extensions:
-                continue
-            try:
-                text = path.read_text(encoding="utf-8", errors="ignore")
-            except Exception:
-                continue
-            for pat in FRONTEND_PATTERNS:
-                for m in pat.findall(text):
-                    used.add(m)
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except Exception:
+            continue
+        for pat in FRONTEND_PATTERNS:
+            for m in pat.findall(text):
+                used.add(m)
     return used
 
 

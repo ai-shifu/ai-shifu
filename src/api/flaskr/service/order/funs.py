@@ -13,7 +13,8 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_VALUES,
 )
 from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
-from flaskr.service.user.models import User, UserConversion
+from flaskr.service.user.models import UserConversion
+from flaskr.service.user.repository import load_user_aggregate, set_user_state
 from flaskr.service.active import (
     query_active_record,
     query_and_join_active,
@@ -30,8 +31,8 @@ from ..common.models import (
 from ...util.uuid import generate_id as get_uuid
 from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
 import pytz
-from flaskr.service.lesson.funcs import get_course_info
-from flaskr.service.lesson.funcs import AICourseDTO
+from flaskr.service.learn.learn_funcs import get_shifu_info
+from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.config import get_config
@@ -40,6 +41,8 @@ from .payment_providers.base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
 )
+from flaskr.service.user.repository import load_user_aggregate_by_identifier
+from flaskr.service.user.models import UserInfo as UserEntity
 
 
 @register_schema_to_swagger
@@ -159,18 +162,22 @@ def send_order_feishu(app: Flask, record_id: str):
     order_info = query_buy_record(app, record_id)
     if order_info is None:
         return
-    user_info: User = User.query.filter(User.user_id == order_info.user_id).first()
-    if not user_info:
+    aggregate = load_user_aggregate(order_info.user_id)
+    if not aggregate:
+        app.logger.warning(
+            "order notify skipped: user aggregate missing for %s",
+            order_info.user_id,
+        )
         return
-    course_info: AICourseDTO = get_course_info(app, order_info.course_id)
-    if not course_info:
+    shifu_info: LearnShifuInfoDTO = get_shifu_info(app, order_info.course_id, False)
+    if not shifu_info:
         return
 
     title = "购买课程通知"
     msgs = []
-    msgs.append("手机号：{}".format(user_info.mobile))
-    msgs.append("昵称：{}".format(user_info.name))
-    msgs.append("课程名称：{}".format(course_info.course_name))
+    msgs.append("手机号：{}".format(aggregate.mobile))
+    msgs.append("昵称：{}".format(aggregate.name))
+    msgs.append("课程名称：{}".format(shifu_info.title))
     msgs.append("实付金额：{}".format(order_info.price))
     user_convertion = UserConversion.query.filter(
         UserConversion.user_id == order_info.user_id
@@ -183,11 +190,15 @@ def send_order_feishu(app: Flask, record_id: str):
         msgs.append("{}-{}-{}".format(item.name, item.price_name, item.price))
         if item.is_discount:
             msgs.append("优惠码：{}".format(item.discount_code))
-    user_count = User.query.filter(User.user_state == USER_STATE_PAID).count()
+    user_count = UserEntity.query.filter(
+        UserEntity.state == USER_STATE_PAID, UserEntity.deleted == 0
+    ).count()
     msgs.append("总付费用户数：{}".format(user_count))
-    user_reg_count = User.query.filter(User.user_state >= USER_STATE_REGISTERED).count()
+    user_reg_count = UserEntity.query.filter(
+        UserEntity.state >= USER_STATE_REGISTERED, UserEntity.deleted == 0
+    ).count()
     msgs.append("总注册用户数：{}".format(user_reg_count))
-    user_total_count = User.query.count()
+    user_total_count = UserEntity.query.filter(UserEntity.deleted == 0).count()
     msgs.append("总访客数：{}".format(user_total_count))
     send_notify(app, title, msgs)
 
@@ -220,9 +231,9 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
     with app.app_context():
         order_timeout_make_new_order = False
         find_active_id = None
-        course_info: AICourseDTO = get_course_info(app, course_id)
-        app.logger.info(f"course_info: {course_info}")
-        if not course_info:
+        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, course_id, False)
+        app.logger.info(f"shifu_info: {shifu_info}")
+        if not shifu_info:
             raise_error("server.shifu.courseNotFound")
         origin_record = (
             Order.query.filter(
@@ -233,7 +244,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             .order_by(Order.id.asc())
             .first()
         )
-        print("price: ", course_info.course_price)
+        print("price: ", shifu_info.price)
         if origin_record:
             if origin_record.status != ORDER_STATUS_SUCCESS:
                 order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
@@ -253,10 +264,10 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record = Order()
             buy_record.user_bid = user_id
             buy_record.shifu_bid = course_id
-            buy_record.payable_price = decimal.Decimal(course_info.course_price)
+            buy_record.payable_price = decimal.Decimal(shifu_info.price)
             buy_record.status = ORDER_STATUS_INIT
             buy_record.order_bid = order_id
-            buy_record.payable_price = course_info.course_price
+            buy_record.payable_price = shifu_info.price
             print("buy_record: ", buy_record.payable_price)
         else:
             buy_record = origin_record
@@ -363,9 +374,9 @@ def generate_charge(
         ).first()
         if not buy_record:
             raise_error("server.order.orderNotFound")
-        course: AICourseDTO = get_course_info(app, buy_record.shifu_bid)
-        if not course:
-            raise_error("server.shifu.courseNotFound")
+        shifu_info: LearnShifuInfoDTO = get_shifu_info(app, buy_record.shifu_bid, False)
+        if not shifu_info:
+            raise_error("server.shifu.shifuNotFound")
         app.logger.info("buy record found:{}".format(buy_record))
         if buy_record.status == ORDER_STATUS_SUCCESS:
             app.logger.warning("buy record:{} status is not init".format(record_id))
@@ -379,8 +390,8 @@ def generate_charge(
             )
             # raise_error("server.order.orderHasPaid")
         amount = int(buy_record.paid_price * 100)
-        subject = course.course_name
-        body = course.course_name
+        subject = shifu_info.title
+        body = shifu_info.description
         order_no = str(get_uuid(app))
         payment_channel, provider_channel = _resolve_payment_channel(
             payment_channel_hint=payment_channel,
@@ -408,7 +419,7 @@ def generate_charge(
             return _generate_pingxx_charge(
                 app=app,
                 buy_record=buy_record,
-                course=course,
+                course=shifu_info,
                 channel=provider_channel,
                 client_ip=client_ip,
                 amount=amount,
@@ -421,7 +432,7 @@ def generate_charge(
             return _generate_stripe_charge(
                 app=app,
                 buy_record=buy_record,
-                course=course,
+                course=shifu_info,
                 channel=provider_channel,
                 client_ip=client_ip,
                 amount=amount,
@@ -496,7 +507,7 @@ def _generate_pingxx_charge(
     *,
     app: Flask,
     buy_record: Order,
-    course: AICourseDTO,
+    course: LearnShifuInfoDTO,
     channel: str,
     client_ip: str,
     amount: int,
@@ -509,7 +520,7 @@ def _generate_pingxx_charge(
     provider_options: Dict[str, Any] = {"app_id": pingpp_id}
     charge_extra: Dict[str, Any] = {}
     qr_url_key: Optional[str] = None
-    product_id = course.course_id
+    product_id = course.bid
 
     if channel == "wx_pub_qr":  # wxpay scan
         charge_extra = {"product_id": product_id}
@@ -518,8 +529,8 @@ def _generate_pingxx_charge(
         charge_extra = {}
         qr_url_key = "alipay_qr"
     elif channel == "wx_pub":  # wxpay JSAPI
-        user = User.query.filter(User.user_id == buy_record.user_bid).first()
-        charge_extra = {"open_id": user.user_open_id} if user else {}
+        user = load_user_aggregate_by_identifier(buy_record.user_bid)
+        charge_extra = {"open_id": user.wechat_open_id} if user else {}
         qr_url_key = "wx_pub"
     elif channel == "wx_wap":  # wxpay H5
         charge_extra = {}
@@ -584,7 +595,7 @@ def _generate_stripe_charge(
     *,
     app: Flask,
     buy_record: Order,
-    course: AICourseDTO,
+    course: LearnShifuInfoDTO,
     channel: str,
     client_ip: str,
     amount: int,
@@ -1006,17 +1017,9 @@ def success_buy_record_from_pingxx(app: Flask, charge_id: str, body: dict):
 
                     if buy_record and buy_record.status == ORDER_STATUS_TO_BE_PAID:
                         try:
-                            user_info = User.query.filter(
-                                User.user_id == buy_record.user_bid
-                            ).first()
-                            if not user_info:
-                                app.logger.error(
-                                    "user:{} not found".format(buy_record.user_bid)
-                                )
-                            else:
-                                user_info.user_state = USER_STATE_PAID
+                            set_user_state(buy_record.user_bid, USER_STATE_PAID)
                         except Exception as e:
-                            app.logger.error("update user state error:{}".format(e))
+                            app.logger.error("update user state error:%s", e)
                         buy_record.status = ORDER_STATUS_SUCCESS
                         db.session.commit()
                         send_order_feishu(app, buy_record.order_bid)
@@ -1046,11 +1049,10 @@ def success_buy_record(app: Flask, record_id: str):
         app.logger.info('success buy record:"{}"'.format(record_id))
         buy_record = Order.query.filter(Order.order_bid == record_id).first()
         if buy_record:
-            user_info = User.query.filter(User.user_id == buy_record.user_bid).first()
-            if not user_info:
-                app.logger.error("user:{} not found".format(buy_record.user_bid))
-            else:
-                user_info.user_state = USER_STATE_PAID
+            try:
+                set_user_state(buy_record.user_bid, USER_STATE_PAID)
+            except Exception as e:
+                app.logger.error("update user state error:%s", e)
             buy_record.status = ORDER_STATUS_SUCCESS
             db.session.commit()
             send_order_feishu(app, buy_record.order_bid)

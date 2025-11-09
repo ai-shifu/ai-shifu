@@ -4,17 +4,15 @@
 
 ### Architecture Overview
 
-AI-Shifu consists of three main components:
+AI-Shifu consists of two main components:
 
 ```bash
 src/
 ├── api/          # Backend API service (Flask/Python)
-├── web/          # User frontend (React)
 └── cook-web/     # Script editor frontend (Next.js)
 ```
 
 - **api**: Backend API service built with Flask
-- **web**: User-facing frontend application built with React
 - **cook-web**: Script editor for creating and managing courses, built with Next.js
 
 ### Required Tools and Services
@@ -147,23 +145,7 @@ flask db upgrade
 gunicorn -w 4 -b 0.0.0.0:5800 'app:app' --timeout 300 --log-level debug
 ```
 
-#### Step 4.4: Start User Frontend
-
-```bash
-cd src/web
-# Copy the environment configuration from docker directory
-cp ../../docker/.env .env
-
-# Install Node.js dependencies
-npm install  # or use pnpm install
-
-# Start development server
-npm run start:dev
-```
-
-The user frontend will be available at `http://localhost:3000`.
-
-#### Step 4.5: Start Script Editor Frontend
+#### Step 4.4: Start Cook Web Frontend & CMS
 
 ```bash
 cd src/cook-web
@@ -177,7 +159,7 @@ npm install  # or use pnpm install
 npm run dev
 ```
 
-The script editor will be available at `http://localhost:3001`.
+Cook Web (which now serves both the learner experience and authoring console) will be available at `http://localhost:3000`.
 
 ## Troubleshooting
 

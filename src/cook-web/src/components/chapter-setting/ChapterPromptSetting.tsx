@@ -2,11 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   Sheet,
   SheetContent,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/Sheet';
-import { Button } from '@/components/button';
 import { Textarea } from '@/components/ui/Textarea';
 import api from '@/api';
 import Loading from '../loading';
@@ -26,6 +24,7 @@ const ChapterPromptSetting = ({
   const { t } = useTranslation();
   const [systemPrompt, setSystemPrompt] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   const fetchOutlineInfo = useCallback(async () => {
     if (!outlineBid) {
@@ -39,29 +38,54 @@ const ChapterPromptSetting = ({
       });
       if (result) {
         setSystemPrompt(result.system_prompt ?? '');
+        setIsDirty(false);
       }
     } finally {
       setLoading(false);
     }
   }, [outlineBid, currentShifu?.bid]);
 
-  const onConfirm = async () => {
-    await api.modifyOutline({
-      outline_bid: outlineBid,
-      shifu_bid: currentShifu?.bid,
-      system_prompt: systemPrompt,
-    });
-    onOpenChange?.(false);
-  };
+  const onConfirm = useCallback(
+    async (needClose = true) => {
+      if (!outlineBid) {
+        return;
+      }
+
+      await api.modifyOutline({
+        outline_bid: outlineBid,
+        shifu_bid: currentShifu?.bid,
+        system_prompt: systemPrompt,
+      });
+
+      setIsDirty(false);
+      if (needClose) {
+        onOpenChange?.(false);
+      }
+    },
+    [outlineBid, currentShifu?.bid, systemPrompt, onOpenChange],
+  );
 
   useEffect(() => {
     if (!open) {
       setSystemPrompt('');
+      setIsDirty(false);
     } else {
       fetchOutlineInfo();
     }
     onOpenChange?.(open);
   }, [open, outlineBid, onOpenChange, fetchOutlineInfo]);
+
+  useEffect(() => {
+    if (!open || loading || !isDirty) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      onConfirm(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [open, loading, isDirty, systemPrompt, onConfirm]);
 
   return (
     <Sheet
@@ -79,14 +103,17 @@ const ChapterPromptSetting = ({
       <SheetContent
         side='right'
         className='flex w-full flex-col overflow-hidden border-l border-border bg-white p-0 sm:w-[360px] md:w-[420px] lg:w-[480px]'
-        onPointerDown={event => {
-          event.stopPropagation();
+        onInteractOutside={() => {
+          onConfirm();
+        }}
+        onCloseIconClick={() => {
+          onConfirm();
         }}
       >
         <div className='border-b border-border px-6 py-5 pr-12'>
           <SheetHeader className='space-y-1 text-left'>
             <SheetTitle className='text-lg font-medium text-foreground'>
-              {t('module.chapterSetting.chapterTitle')}
+              {t('module.chapterSetting.chapterSettingsTitle')}
             </SheetTitle>
           </SheetHeader>
         </div>
@@ -98,39 +125,31 @@ const ChapterPromptSetting = ({
           <div className='flex-1 overflow-y-auto px-6 py-6'>
             <div className='space-y-3'>
               <div className='text-sm font-medium text-foreground'>
-                {t('module.chapterSetting.systemPrompt')}
+                {t('module.chapterSetting.chapterPrompt')}
               </div>
               <div className='text-xs text-muted-foreground'>
-                {t('module.chapterSetting.promptHint')}
+                {t('module.chapterSetting.chapterPromptHint')}
               </div>
               <Textarea
                 value={systemPrompt}
-                onChange={event => setSystemPrompt(event.target.value)}
-                maxLength={1000}
-                rows={6}
-                placeholder={t('module.chapterSetting.promptHint')}
+                onChange={event => {
+                  setSystemPrompt(event.target.value);
+                  setIsDirty(true);
+                }}
+                maxLength={20000}
+                minRows={6}
+                maxRows={30}
+                placeholder={t(
+                  'module.chapterSetting.chapterPromptPlaceholder',
+                )}
                 className='min-h-[220px]'
               />
-              <div className='text-xs text-muted-foreground text-right'>
-                {systemPrompt.length}/1000
-              </div>
+              {/* <div className='text-xs text-muted-foreground text-right'>
+                {systemPrompt.length}/10000
+              </div> */}
             </div>
           </div>
         )}
-        <SheetFooter className='border-t border-border bg-white px-6 py-4 sm:flex-row sm:justify-end sm:space-x-4'>
-          <Button
-            variant='outline'
-            onClick={() => onOpenChange?.(false)}
-          >
-            {t('common.core.cancel')}
-          </Button>
-          <Button
-            disabled={loading}
-            onClick={onConfirm}
-          >
-            {t('common.core.confirm')}
-          </Button>
-        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

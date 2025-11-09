@@ -30,6 +30,7 @@ Date: 2025-08-07
 """
 
 from flask import Flask, request, current_app
+from urllib.parse import urlsplit
 from .funcs import (
     mark_or_unmark_favorite_shifu,
     upload_file,
@@ -62,11 +63,6 @@ from flaskr.service.shifu.shifu_outline_funcs import (
     get_unit_by_id,
     delete_unit,
     get_outline_tree,
-)
-from flaskr.service.shifu.shifu_block_funcs import (
-    get_block_list,
-    save_shifu_block_list,
-    add_block,
 )
 from flaskr.service.shifu.shifu_mdflow_funcs import (
     get_shifu_mdflow,
@@ -136,6 +132,21 @@ class ShifuTokenValidation:
             return f(*args, **kwargs)
 
         return decorated_function
+
+
+def _get_request_base_url() -> str:
+    """
+    Determine the base URL based on the incoming request headers.
+    """
+    origin = request.headers.get("Origin")
+    if origin:
+        return origin.rstrip("/")
+    referer = request.headers.get("Referer")
+    if referer:
+        parsed_referer = urlsplit(referer)
+        if parsed_referer.scheme and parsed_referer.netloc:
+            return f"{parsed_referer.scheme}://{parsed_referer.netloc}"
+    return request.url_root.rstrip("/")
 
 
 @inject
@@ -284,8 +295,11 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     $ref: "#/components/schemas/ShifuDetailDto"
         """
         user_id = request.user.user_id
+        base_url = _get_request_base_url()
         app.logger.info(f"get shifu detail, user_id: {user_id}, shifu_bid: {shifu_bid}")
-        return make_common_response(get_shifu_draft_info(app, user_id, shifu_bid))
+        return make_common_response(
+            get_shifu_draft_info(app, user_id, shifu_bid, base_url)
+        )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/detail", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.EDIT)
@@ -355,6 +369,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         shifu_price = request.get_json().get("price")
         shifu_temperature = request.get_json().get("temperature")
         shifu_system_prompt = request.get_json().get("system_prompt", None)
+        base_url = _get_request_base_url()
         return make_common_response(
             save_shifu_draft_info(
                 app,
@@ -368,6 +383,7 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                 shifu_temperature,
                 shifu_price,
                 shifu_system_prompt,
+                base_url,
             )
         )
 
@@ -452,7 +468,10 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
                                     description: publish url
         """
         user_id = request.user.user_id
-        return make_common_response(publish_shifu_draft(app, user_id, shifu_bid))
+        base_url = _get_request_base_url()
+        return make_common_response(
+            publish_shifu_draft(app, user_id, shifu_bid, base_url)
+        )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/preview", methods=["POST"])
     @ShifuTokenValidation(ShifuPermission.VIEW)
@@ -494,8 +513,9 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         variables = request.get_json().get("variables")
+        base_url = _get_request_base_url()
         return make_common_response(
-            preview_shifu_draft(app, user_id, shifu_bid, variables)
+            preview_shifu_draft(app, user_id, shifu_bid, variables, base_url)
         )
 
     @app.route(path_prefix + "/shifus/<shifu_bid>/outlines/reorder", methods=["PATCH"])
@@ -951,148 +971,6 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         """
         user_id = request.user.user_id
         return make_common_response(get_outline_tree(app, user_id, shifu_bid))
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/blocks",
-        methods=["GET"],
-    )
-    @ShifuTokenValidation(ShifuPermission.VIEW)
-    def get_block_list_api(shifu_bid: str, outline_bid: str):
-        """
-        get block list
-        ---
-        tags:
-            - shifu
-        parameters:
-            - name: outline_id
-              type: string
-              required: true
-        responses:
-            200:
-                description: get block list success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/BlockDto"
-        """
-        user_id = request.user.user_id
-        return make_common_response(get_block_list(app, user_id, outline_bid))
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/blocks",
-        methods=["POST"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    def save_blocks_api(shifu_bid: str, outline_bid: str):
-        """
-        save blocks
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    outline_id:
-                        type: string
-                        description: outline id
-                    blocks:
-                        type: array
-                        items:
-                            $ref: "#/components/schemas/BlockDto"
-        responses:
-            200:
-                description: save blocks success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: array
-                                    items:
-                                        $ref: "#/components/schemas/BlockDto"
-        """
-        user_id = request.user.user_id
-        blocks = request.get_json().get("blocks")
-        return make_common_response(
-            save_shifu_block_list(app, user_id, outline_bid, blocks)
-        )
-
-    @app.route(
-        path_prefix + "/shifus/<shifu_bid>/outlines/<outline_bid>/blocks",
-        methods=["PUT"],
-    )
-    @ShifuTokenValidation(ShifuPermission.EDIT)
-    def add_block_api(shifu_bid: str, outline_bid: str):
-        """
-        add block
-        ---
-        tags:
-            - shifu
-        parameters:
-            - in: body
-              name: body
-              required: true
-              schema:
-                type: object
-                properties:
-                    outline_bid:
-                        type: string
-                        description: outline bid
-                    block:
-                        type: object
-                        $ref: "#/components/schemas/BlockDto"
-                    block_index:
-                        type: integer
-                        description: block index
-        responses:
-            200:
-                description: add block success
-                content:
-                    application/json:
-                        schema:
-                            properties:
-                                code:
-                                    type: integer
-                                    description: code
-                                message:
-                                    type: string
-                                    description: message
-                                data:
-                                    type: object
-                                    $ref: "#/components/schemas/BlockDto"
-        """
-        user_id = request.user.user_id
-        block = request.get_json().get("block")
-        block_index = request.get_json().get("block_index")
-        if block is None:
-            raise_param_error("block is required")
-        if block_index is None:
-            raise_param_error("block_index is required")
-        if not block.get("type"):
-            raise_param_error("block type is required")
-        return make_common_response(
-            add_block(app, user_id, outline_bid, block, block_index)
-        )
 
     @app.route(path_prefix + "/upfile", methods=["POST"])
     def upfile_api():

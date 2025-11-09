@@ -5,7 +5,6 @@ from sqlalchemy import (
     TIMESTAMP,
     Date,
     Text,
-    Boolean,
     SmallInteger,
     DateTime,
 )
@@ -13,65 +12,6 @@ from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.sql import func
 from ...dao import db
 from .consts import USER_STATE_UNREGISTERED, CREDENTIAL_STATE_UNVERIFIED
-
-
-class User(db.Model):
-    __tablename__ = "user_info"
-
-    id = Column(BIGINT, primary_key=True, comment="Unique ID", autoincrement=True)
-    user_id = Column(
-        String(36), nullable=False, index=True, default="", comment="User UUID"
-    )
-    username = Column(String(255), nullable=False, default="", comment="Login username")
-    name = Column(String(255), nullable=False, default="", comment="User real name")
-    email = Column(String(255), nullable=False, default="", comment="Email")
-    mobile = Column(
-        String(20), nullable=False, index=True, default="", comment="Mobile"
-    )
-    created = Column(
-        TIMESTAMP, nullable=False, default=func.now(), comment="Creation time"
-    )
-    updated = Column(
-        TIMESTAMP,
-        nullable=False,
-        onupdate=func.now(),
-        default=func.now(),
-        comment="Update time",
-    )
-    user_state = Column(Integer, nullable=True, default=0, comment="User_state")
-    user_sex = Column(Integer, nullable=True, default=0, comment="user sex")
-    user_birth = Column(Date, nullable=True, default="2003-1-1", comment="user birth")
-    user_avatar = Column(String(255), nullable=True, default="", comment="user avatar")
-    user_open_id = Column(
-        String(255), nullable=True, index=True, default="", comment="user open id"
-    )
-    user_unicon_id = Column(
-        String(255), nullable=True, index=True, default="", comment="user unicon id"
-    )
-    user_language = Column(
-        String(30), nullable=True, default="en-US", comment="user language"
-    )
-    is_admin = Column(Boolean, nullable=False, default=False, comment="is admin")
-    is_creator = Column(Boolean, nullable=False, default=False, comment="is creator")
-    extra_data = Column(Text, nullable=True, default="", comment="extra_data")
-
-    def __init__(
-        self,
-        user_id,
-        username="",
-        name="",
-        email="",
-        mobile="",
-        user_state=0,
-        language="en-US",
-    ):
-        self.user_id = user_id
-        self.username = username
-        self.name = name
-        self.email = email
-        self.mobile = mobile
-        self.user_state = user_state
-        self.user_language = language
 
 
 class UserConversion(db.Model):
@@ -206,6 +146,13 @@ class UserInfo(db.Model):
         nullable=False,
         default=USER_STATE_UNREGISTERED,
         comment="User state: 1101=unregistered, 1102=registered, 1103=trail, 1104=paid",
+        index=True,
+    )
+    is_creator = Column(
+        SmallInteger,
+        nullable=False,
+        default=0,
+        comment="Creator flag: 0=regular user, 1=creator",
         index=True,
     )
     deleted = Column(

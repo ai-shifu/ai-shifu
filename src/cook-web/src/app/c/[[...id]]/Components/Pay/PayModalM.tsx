@@ -122,8 +122,7 @@ export const PayModalM = ({
         });
         setIsCompleted(true);
         onOk();
-      } catch (e) {
-        console.log(e);
+      } catch {
         toast({
           title: t('module.pay.payFailed'),
           variant: 'destructive',

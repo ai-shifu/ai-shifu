@@ -155,8 +155,8 @@
     }
   }
 
-  &.available:hover,
-  &.available:focus-within {
+  &:not(.mobile).available:hover,
+  &:not(.mobile).available:focus-within {
     cursor: pointer;
 
     .textArea {

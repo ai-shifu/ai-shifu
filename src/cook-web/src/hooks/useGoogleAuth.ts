@@ -102,7 +102,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           throw new Error('Google OAuth requires a browser environment.');
         }
 
-        const redirectTarget = redirectPath || '/main';
+        const redirectTarget = redirectPath || '/admin';
         setGoogleOAuthRedirect(redirectTarget);
 
         const redirectUri = buildRedirectUri(redirectUriOverride);
@@ -168,7 +168,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         await login(payload.userInfo, payload.token);
 
         const redirectTarget =
-          fallbackRedirect || getGoogleOAuthRedirect() || '/main';
+          fallbackRedirect || getGoogleOAuthRedirect() || '/admin';
 
         options.onSuccess?.(payload.userInfo, redirectTarget);
         toast({ title: t('module.auth.success') });

@@ -52,6 +52,10 @@ def create_app() -> Flask:
     # init redis
     dao.init_redis(app)
 
+    from flaskr.service.user.auth import register_builtin_providers
+
+    register_builtin_providers()
+
     # Init LLM
     with app.app_context():
         from flaskr.api import llm  # noqa

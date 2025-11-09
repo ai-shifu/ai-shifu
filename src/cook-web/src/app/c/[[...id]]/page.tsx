@@ -43,7 +43,7 @@ import PayModal from './Components/Pay/PayModal';
 
 // the main page of course learning
 export default function ChatPage() {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   /**
    * User info and init part
@@ -52,8 +52,11 @@ export default function ChatPage() {
   const { isLoggedIn, initUser } = useUserStore(state => state);
   const [initialized, setInitialized] = useState(false);
 
-  const { wechatCode } = useSystemStore(
-    useShallow(state => ({ wechatCode: state.wechatCode })),
+  const { wechatCode, previewMode } = useSystemStore(
+    useShallow(state => ({
+      wechatCode: state.wechatCode,
+      previewMode: state.previewMode,
+    })),
   );
 
   const initAndCheckLogin = useCallback(async () => {
@@ -72,7 +75,7 @@ export default function ChatPage() {
 
   // NOTE: User-related features should be organized into one module
   function gotoLogin() {
-    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+    window.location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
   }
   // NOTE: Probably don't need this.
   // const [loginModalOpen, setLoginModalOpen] = useState(false);
@@ -161,6 +164,17 @@ export default function ChatPage() {
         updateChapterId: state.updateChapterId,
       })),
     );
+
+  useEffect(() => {
+    if (!courseName) {
+      return;
+    }
+    if (previewMode) {
+      document.title = `${t('module.preview.preview')} - ${courseName}`;
+      return;
+    }
+    document.title = courseName;
+  }, [courseName, previewMode, t]);
 
   useEffect(() => {
     if (selectedLessonId) {

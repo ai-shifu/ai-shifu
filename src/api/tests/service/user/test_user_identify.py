@@ -7,7 +7,7 @@ class _FakeRedis:
 
 
 def test_phone_flow_sets_user_identify(app):
-    from flaskr.service.user import phone_flow
+    import flaskr.service.user.phone_flow as phone_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
     # Bypass code storage by using universal code
@@ -29,7 +29,7 @@ def test_phone_flow_sets_user_identify(app):
 
 
 def test_email_flow_sets_user_identify(app):
-    from flaskr.service.user import email_flow
+    import flaskr.service.user.email_flow as email_flow
     from flaskr.service.user.models import UserInfo as UserEntity
 
     with app.app_context():

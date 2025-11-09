@@ -20,7 +20,7 @@ const Header = () => {
   const { isSaving, lastSaveTime, currentShifu, error, actions } = useShifu();
   const onShifuSave = async () => {
     if (currentShifu) {
-      await actions.loadShifu(currentShifu.bid);
+      await actions.loadShifu(currentShifu.bid, { silent: true });
     }
   };
   const publish = async () => {
@@ -67,7 +67,7 @@ const Header = () => {
     <div className='flex items-center w-full h-16 px-2 py-2 bg-white border-b border-gray-200'>
       <div className='flex items-center space-x-4'>
         <Link
-          href={'/main'}
+          href={'/admin'}
           // className='flex items-center space-x-2 px-2 py-2 rounded-lg hover:bg-gray-100'
         >
           <Button
@@ -141,7 +141,6 @@ const Header = () => {
           size='sm'
           className='h-8 ml-1 bg-primary hover:bg-primary-lighter text-xs font-normal'
           onClick={publish}
-          disabled
         >
           {publishing && <Loading className='h-4 w-4 mr-1' />}
           {!publishing && <TrendingUp />}
