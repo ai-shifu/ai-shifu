@@ -441,7 +441,6 @@ export type I18nKey =
   | 'server.file.videoUrlRequired'
   | 'server.learn.generatedBlockNotFound'
   | 'server.learn.invalidAction'
-  | 'server.learn.nextChapter'
   | 'server.llm.modelNotSupported'
   | 'server.llm.noDefaultLlm'
   | 'server.llm.specifiedLlmNotConfigured'

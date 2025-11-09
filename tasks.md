@@ -14,7 +14,7 @@
 - [x] Update `_render_outline_updates` (or a helper) so that when the current outline completes and the returned update list already triggers a chapter switch, we still emit the button before handing control back to the client. (Button emission occurs before `_get_next_outline_item` is processed.)
 
 ## Backend – Records & APIs
-- [ ] Re-enable and modernize the fallback logic in `get_learn_record` so completed lessons that existed before this feature still append a virtual `_sys_next_chapter` interaction when no persisted block is found.
+- [x] Re-enable and modernize the fallback logic in `get_learn_record` so completed lessons that existed before this feature still append a virtual `_sys_next_chapter` interaction when no persisted block is found. (`generate_id` + `server.learn.nextChapterButton` fallback)
 - [ ] Make sure `GET /api/learn/shifu/<bid>/records/<outline_bid>` serializes the new block with `block_type=interaction` so Cook Web history loads it.
 - [ ] Verify `run_script` SSE responses stream the interaction chunk-by-chunk (CONTENT → BREAK → INTERACTION) so the UI can display the button without waiting for a new request.
 - [ ] Consider a backfill job or admin script if existing learners need the record inserted into `learn_generated_blocks`; document the approach if we decide not to backfill.

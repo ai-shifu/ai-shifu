@@ -56,12 +56,13 @@ from flaskr.service.shifu.consts import (
     BLOCK_TYPE_PHONE_VALUE,
     BLOCK_TYPE_CHECKCODE_VALUE,
 )
-from flaskr.service.learn.const import ROLE_TEACHER
+from flaskr.service.learn.const import ROLE_TEACHER, CONTEXT_INTERACTION_NEXT
 from flaskr.service.shifu.consts import (
     UNIT_TYPE_VALUE_TRIAL,
     UNIT_TYPE_VALUE_NORMAL,
     UNIT_TYPE_VALUE_GUEST,
 )
+from flaskr.util import generate_id
 
 STATUS_MAP = {
     LEARN_STATUS_LOCKED: LearnStatus.LOCKED,
@@ -327,23 +328,28 @@ def get_learn_record(
                         if button.get("value") == "_sys_login":
                             if bool(request.user.mobile):
                                 records.remove(last_record)
-        # if progress_record.status == LEARN_STATUS_COMPLETED and interaction == "":
-        #     interaction = (
-        #         "?["
-        #         + _("server.learn.nextChapter")
-        #         + "//"
-        #         + CONTEXT_INTERACTION_NEXT
-        #         + "]"
-        #     )
-        #     records.append(
-        #         GeneratedBlockDTO(
-        #             "next",
-        #             interaction,
-        #             LikeStatus.NONE,
-        #             BlockType.INTERACTION,
-        #             "",
-        #         )
-        #     )
+        has_next_chapter_button = any(
+            record.block_type == BlockType.INTERACTION
+            and CONTEXT_INTERACTION_NEXT in record.content
+            for record in records
+        )
+        if (
+            progress_record.status == LEARN_STATUS_COMPLETED
+            and not has_next_chapter_button
+        ):
+            button_label = _("server.learn.nextChapterButton")
+            fallback_content = (
+                f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]({button_label})"
+            )
+            records.append(
+                GeneratedBlockDTO(
+                    generate_id(app),
+                    fallback_content,
+                    LikeStatus.NONE,
+                    BlockType.INTERACTION,
+                    "",
+                )
+            )
         return LearnRecordDTO(
             records=records,
             interaction=interaction,
