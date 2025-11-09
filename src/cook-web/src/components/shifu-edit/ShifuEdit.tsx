@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   Columns2,
@@ -7,9 +7,7 @@ import {
   Loader2,
   PanelRightClose,
   PanelRightOpen,
-  PlayIcon,
   Plus,
-  Sparkle,
   Sparkles,
 } from 'lucide-react';
 import { useShifu } from '@/store';
@@ -30,8 +28,10 @@ import i18n, { normalizeLanguage } from '@/i18n';
 import { useEnvStore } from '@/c-store';
 import { EnvStoreState } from '@/c-types/store';
 import { getBoolEnv } from '@/c-utils/envUtils';
-import api from '@/api';
-import LessonPreview from '@/components/lesson-preview';
+import LessonPreview, {
+  PreviewMessage,
+} from '@/components/lesson-preview';
+import request from '@/lib/request';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -108,7 +108,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [previewData, setPreviewData] = useState<unknown>(null);
+  const [previewMessages, setPreviewMessages] = useState<PreviewMessage[]>([]);
+  const previewStopRef = useRef<(() => void) | null>(null);
+  const previewMessageIdRef = useRef(0);
+  const getPreviewMessageId = useCallback(() => {
+    previewMessageIdRef.current += 1;
+    return `preview-${previewMessageIdRef.current}`;
+  }, []);
   const editModeOptions = useMemo(
     () => [
       {
@@ -155,6 +161,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
   useEffect(() => {
     void initializeEnvData();
   }, []);
+  useEffect(() => {
+    return () => {
+      previewStopRef.current?.();
+    };
+  }, []);
 
   const onAddChapter = () => {
     actions.addChapter({
@@ -180,6 +191,81 @@ const ScriptEditor = ({ id }: { id: string }) => {
     }
   }, [id]);
 
+  const appendContentChunk = useCallback(
+    (chunk: string) => {
+      if (!chunk) {
+        return;
+      }
+      setPreviewMessages(prev => {
+        if (!prev.length || prev[prev.length - 1].type !== 'content') {
+          return [
+            ...prev,
+            { id: getPreviewMessageId(), type: 'content', content: chunk },
+          ];
+        }
+        const next = [...prev];
+        const last = next[next.length - 1];
+        next[next.length - 1] = {
+          ...last,
+          content: `${last.content}${chunk}`,
+        };
+        return next;
+      });
+    },
+    [getPreviewMessageId],
+  );
+
+  const pushInteractionMessage = useCallback(
+    (content: string, variable?: string) => {
+      if (!content && !variable) {
+        return;
+      }
+      setPreviewMessages(prev => [
+        ...prev,
+        {
+          id: getPreviewMessageId(),
+          type: 'interaction',
+          content,
+          variable,
+        },
+      ]);
+    },
+    [getPreviewMessageId],
+  );
+
+  const handlePreviewPayload = useCallback(
+    (payload: string) => {
+      if (payload.startsWith('[ERROR]')) {
+        const message =
+          payload.replace('[ERROR]', '').trim() ||
+          t('module.shifu.previewArea.error');
+        setPreviewError(message);
+        previewStopRef.current?.();
+        setIsPreviewLoading(false);
+        return;
+      }
+      try {
+        const parsed = JSON.parse(payload);
+        if (!parsed?.type) {
+          return;
+        }
+        if (parsed.type === 'content') {
+          appendContentChunk(parsed.data?.mdflow || '');
+        } else if (parsed.type === 'interaction') {
+          pushInteractionMessage(
+            parsed.data?.mdflow || '',
+            parsed.data?.variable,
+          );
+        } else if (parsed.type === 'text_end') {
+          setIsPreviewLoading(false);
+        }
+      } catch (error) {
+        console.error('preview stream parse error', error);
+      }
+    },
+    [appendContentChunk, pushInteractionMessage, t],
+  );
+
   const handleTogglePreviewPanel = () => {
     setIsPreviewPanelOpen(prev => !prev);
   };
@@ -188,11 +274,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
       return;
     }
-
+    previewStopRef.current?.();
+    setPreviewMessages([]);
     setIsPreviewPanelOpen(true);
     setIsPreviewLoading(true);
     setPreviewError(null);
-     setPreviewData(null);
+    previewStopRef.current = null;
 
     try {
       await actions.saveMdflow({
@@ -201,19 +288,44 @@ const ScriptEditor = ({ id }: { id: string }) => {
         data: mdflow,
       });
 
-      const response = await api.previewOutlineBlock({
-        shifu_bid: currentShifu.bid,
-        outline_bid: currentNode.bid,
-        block_index: 0,
-        content: mdflow,
-        user_input: {},
-        variables: {},
-      });
-
-      setPreviewData(response);
-    } catch {
+      await request.streamLine(
+        `/api/learn/shifu/${currentShifu.bid}/preview/${currentNode.bid}`,
+        {
+          block_index: 0,
+          content: mdflow,
+          user_input: {},
+          variables: {},
+        },
+        {},
+        (done, line, stop) => {
+          previewStopRef.current = stop;
+          const trimmedLine = line.trim();
+          if (!trimmedLine) {
+            if (done) {
+              setIsPreviewLoading(false);
+              previewStopRef.current = null;
+            }
+            return;
+          }
+          if (!trimmedLine.startsWith('data:')) {
+            return;
+          }
+          const payload = trimmedLine.replace(/^data:\s*/, '').trim();
+          if (!payload) {
+            return;
+          }
+          handlePreviewPayload(payload);
+          if (done) {
+            setIsPreviewLoading(false);
+            previewStopRef.current = null;
+          }
+        },
+      );
+    } catch (error) {
+      console.error(error);
       setPreviewError(t('module.shifu.previewArea.error'));
     } finally {
+      previewStopRef.current = null;
       setIsPreviewLoading(false);
     }
   };
@@ -397,9 +509,10 @@ const ScriptEditor = ({ id }: { id: string }) => {
               <div className='w-full max-w-[480px] flex-shrink-0 overflow-auto px-4 py-8'>
                 <div className='h-full'>
                   <LessonPreview
-                    loading={isPreviewLoading}
+                    loading={isPreviewLoading && previewMessages.length === 0}
+                    isStreaming={isPreviewLoading}
                     errorMessage={previewError}
-                    data={previewData}
+                    messages={previewMessages}
                   />
                 </div>
               </div>
