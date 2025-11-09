@@ -7,11 +7,11 @@
 - [x] Inventory all client surfaces (new markdown-flow chat at `src/cook-web/src/app/c/[[...id]]` plus any legacy `ChatComponents`) that must react to `_sys_next_chapter`. (Current hits: `useChatLogicHook`, `ChatComponents`, `ChatInputButton`, course constants, and legacy `NewChatComp`.)
 
 ## Backend – Interaction Emission
-- [ ] Add an i18n key (e.g. `server.learn.nextChapterButton`) under both locales in `src/i18n` so the button label is not hardcoded in Chinese.
-- [ ] Extend `RunScriptContextV2` (`src/api/flaskr/service/learn/context_v2.py`) to detect when a leaf outline item finishes (either via `_get_next_outline_item` returning the next sibling or `LEARN_STATUS_COMPLETED`) and enqueue a `GeneratedType.INTERACTION` event whose markdown is `?[{label}//_sys_next_chapter]({label})`.
-- [ ] Ensure the injected interaction persists by creating a `LearnGeneratedBlock` row via `init_generated_block` with `type=BLOCK_TYPE_MDINTERACTION_VALUE`, `block_content_conf` set to the markdown button, and a deterministic `position` (e.g. last block index + 1) so history queries stay ordered.
-- [ ] Guard against duplicates on re-run/reload by checking whether the latest active `LearnGeneratedBlock` for that outline already contains `_sys_next_chapter` before inserting a new one.
-- [ ] Update `_render_outline_updates` (or a helper) so that when the current outline completes and the returned update list already triggers a chapter switch, we still emit the button before handing control back to the client.
+- [x] Add an i18n key (e.g. `server.learn.nextChapterButton`) under both locales in `src/i18n` so the button label is not hardcoded in Chinese. (`src/i18n/en-US/modules/backend/learn.json` + `zh-CN/modules/backend/learn.json`)
+- [x] Extend `RunScriptContextV2` (`src/api/flaskr/service/learn/context_v2.py`) to detect when a leaf outline item finishes (either via `_get_next_outline_item` returning the next sibling or `LEARN_STATUS_COMPLETED`) and enqueue a `GeneratedType.INTERACTION` event whose markdown is `?[{label}//_sys_next_chapter]({label})`. (Implemented `_emit_next_chapter_interaction` and call it before outline updates.)
+- [x] Ensure the injected interaction persists by creating a `LearnGeneratedBlock` row via `init_generated_block` with `type=BLOCK_TYPE_MDINTERACTION_VALUE`, `block_content_conf` set to the markdown button, and a deterministic `position` (e.g. last block index + 1) so history queries stay ordered. (Helper now initializes and flushes the block.)
+- [x] Guard against duplicates on re-run/reload by checking whether the latest active `LearnGeneratedBlock` for that outline already contains `_sys_next_chapter` before inserting a new one. (Helper performs a query scoped to `progress_record_bid` + content.)
+- [x] Update `_render_outline_updates` (or a helper) so that when the current outline completes and the returned update list already triggers a chapter switch, we still emit the button before handing control back to the client. (Button emission occurs before `_get_next_outline_item` is processed.)
 
 ## Backend – Records & APIs
 - [ ] Re-enable and modernize the fallback logic in `get_learn_record` so completed lessons that existed before this feature still append a virtual `_sys_next_chapter` interaction when no persisted block is found.
