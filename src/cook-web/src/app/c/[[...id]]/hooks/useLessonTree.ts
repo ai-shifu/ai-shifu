@@ -364,6 +364,17 @@ export const useLessonTree = () => {
         }
 
         for (
+          let nextLessonIndex = lessonIndex + 1;
+          nextLessonIndex < catalog.lessons.length;
+          nextLessonIndex += 1
+        ) {
+          const nextLesson = catalog.lessons[nextLessonIndex];
+          if (nextLesson) {
+            return nextLesson.id ?? null;
+          }
+        }
+
+        for (
           let nextCatalogIndex = catalogIndex + 1;
           nextCatalogIndex < tree.catalogs.length;
           nextCatalogIndex += 1
