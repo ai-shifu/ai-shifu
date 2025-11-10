@@ -38,6 +38,7 @@ import { EVENT_NAMES } from '@/c-common/hooks/useTracking';
 import { OnSendContentParams } from 'markdown-flow-ui';
 import LoadingBar from './LoadingBar';
 import { useTranslation } from 'react-i18next';
+import { show as showToast } from '@/hooks/useToast';
 import AskIcon from '@/c-assets/newchat/light/icon_ask.svg';
 import { AppContext } from '../AppContext';
 import { appendCustomButtonAfterContent } from './chatUiUtils';
@@ -906,6 +907,8 @@ function useChatLogicHook({
           updateSelectedLesson(nextLessonId, true);
           onGoChapter(nextLessonId);
           scrollToLesson(nextLessonId);
+        } else {
+          showToast(t('module.chat.noMoreLessons'));
         }
         return;
       }
@@ -969,6 +972,7 @@ function useChatLogicHook({
       trackEvent,
       updateContentListWithUserOperate,
       updateSelectedLesson,
+      t,
     ],
   );
 
