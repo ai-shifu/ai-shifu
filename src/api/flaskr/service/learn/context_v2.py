@@ -581,6 +581,7 @@ class RunScriptContextV2:
         """
         if not progress_record or not self._outline_item_info:
             return
+
         button_label = _("server.learn.nextChapterButton")
         button_md = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
         existing_block = (
