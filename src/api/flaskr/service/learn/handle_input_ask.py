@@ -81,22 +81,10 @@ def handle_input_ask(
             system_prompt_template,
         )
     )
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> f28932bb (feat: upgrade markdown-flow to 0.2.27 and restructure the interaction… (#896))
     system_prompt = follow_up_info.ask_prompt.replace(
         "{shifu_system_message}", system_prompt if system_prompt else ""
     )
     messages.append({"role": "system", "content": system_prompt})
-<<<<<<< HEAD
-=======
-
-    messages.append({"role": "system", "content": system_prompt})  # Add system message
-
->>>>>>> d19b1f80 (chore: clean up unused legacy code and recreate initial migration (#865))
-=======
->>>>>>> f28932bb (feat: upgrade markdown-flow to 0.2.27 and restructure the interaction… (#896))
     # Add historical conversation records to system messages
     for script in history_scripts:
         if script.role == ROLE_STUDENT:

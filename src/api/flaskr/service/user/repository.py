@@ -257,10 +257,6 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     entity = get_user_entity_by_bid(user_bid, include_deleted=True)
     if entity:
         return entity
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7f496e70 (fix: preserve cook nickname on ensure-user (#860))
     identify = user_bid
     nickname: Optional[str] = None
     language: Optional[str] = None
@@ -323,12 +319,6 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
         avatar=avatar,
         birthday=birthday,
     )
-<<<<<<< HEAD
-=======
-    return create_user_entity(user_bid=user_bid, identify=user_bid)
->>>>>>> 341259be (refactor: remove legacy user info dependencies (#830))
-=======
->>>>>>> 7f496e70 (fix: preserve cook nickname on ensure-user (#860))
 
 
 def load_user_aggregate(
