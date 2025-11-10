@@ -2,7 +2,11 @@ import queue
 import threading
 from typing import Generator, Union
 from enum import Enum
-from flaskr.service.learn.const import ROLE_STUDENT, ROLE_TEACHER
+from flaskr.service.learn.const import (
+    ROLE_STUDENT,
+    ROLE_TEACHER,
+    CONTEXT_INTERACTION_NEXT,
+)
 from flaskr.service.shifu.consts import (
     BLOCK_TYPE_MDINTERACTION_VALUE,
     BLOCK_TYPE_MDCONTENT_VALUE,
@@ -567,6 +571,57 @@ class RunScriptContextV2:
                     content=update,
                 )
 
+    def _emit_next_chapter_interaction(
+        self,
+        progress_record: LearnProgressRecord,
+    ) -> Generator[RunMarkdownFlowDTO, None, None]:
+        """
+        Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
+        completes so the frontend can advance automatically.
+        """
+        if not progress_record or not self._outline_item_info:
+            return
+
+        button_label = _("server.learn.nextChapterButton")
+        button_md = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
+        existing_block = (
+            LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == progress_record.progress_record_bid,
+                LearnGeneratedBlock.outline_item_bid
+                == progress_record.outline_item_bid,
+                LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
+                LearnGeneratedBlock.status == 1,
+                LearnGeneratedBlock.deleted == 0,
+                LearnGeneratedBlock.block_content_conf == button_md,
+            )
+            .order_by(LearnGeneratedBlock.id.desc())
+            .first()
+        )
+        if existing_block:
+            return
+        generated_block: LearnGeneratedBlock = init_generated_block(
+            self.app,
+            shifu_bid=progress_record.shifu_bid,
+            outline_item_bid=progress_record.outline_item_bid,
+            progress_record_bid=progress_record.progress_record_bid,
+            user_bid=self._user_info.user_id,
+            block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
+            mdflow=button_md,
+            block_index=progress_record.block_position,
+        )
+        generated_block.role = ROLE_TEACHER
+        generated_block.block_content_conf = button_md
+        db.session.add(generated_block)
+        db.session.flush()
+        yield RunMarkdownFlowDTO(
+            outline_bid=progress_record.outline_item_bid,
+            generated_block_bid=generated_block.generated_block_bid,
+            type=GeneratedType.INTERACTION,
+            content=button_md,
+        )
+
     def _get_default_llm_settings(self) -> LLMSettings:
         return LLMSettings(
             model=self.app.config.get("DEFAULT_LLM_MODEL"),
@@ -671,6 +726,7 @@ class RunScriptContextV2:
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
         if run_script_info is None:
             self.app.logger.warning("run script is none")
+            yield from self._emit_next_chapter_interaction()
             self._can_continue = False
             outline_updates = self._get_next_outline_item()
             if len(outline_updates) > 0:
@@ -1142,9 +1198,12 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
+
+        progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
+            yield from self._emit_next_chapter_interaction(progress_record)
             self._can_continue = False
             db.session.flush()
         self._trace.update(**self._trace_args)
@@ -1251,6 +1310,7 @@ class RunScriptContextV2:
             generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
             ).first()
+
             current_attend = self._get_current_attend(generated_block.outline_item_bid)
             self._can_continue = False
             if generated_block:
@@ -1258,21 +1318,26 @@ class RunScriptContextV2:
                     app.logger.info(
                         f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
                     )
-                    updated_blocks = LearnGeneratedBlock.query.filter(
-                        LearnGeneratedBlock.progress_record_bid
-                        == generated_block.progress_record_bid,
-                        LearnGeneratedBlock.outline_item_bid
-                        == generated_block.outline_item_bid,
-                        LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                        LearnGeneratedBlock.id >= generated_block.id,
-                        LearnGeneratedBlock.position >= generated_block.position,
-                    ).all()
-                    for updated_block in updated_blocks:
-                        app.logger.info(
-                            f"updated_block: {updated_block.id}, {updated_block.position}"
-                        )
-                        updated_block.status = 0
-
+                    if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == generated_block.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == generated_block.outline_item_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.id >= generated_block.id,
+                            LearnGeneratedBlock.position >= generated_block.position,
+                        ).update({LearnGeneratedBlock.status: 0})
+                    if generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == generated_block.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == generated_block.outline_item_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.id > generated_block.id,
+                            LearnGeneratedBlock.position > generated_block.position,
+                        ).update({LearnGeneratedBlock.status: 0})
                     current_attend.block_position = generated_block.position
                     current_attend.status = LEARN_STATUS_IN_PROGRESS
                     db.session.commit()
