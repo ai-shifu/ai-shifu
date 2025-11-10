@@ -29,6 +29,7 @@ from flaskr.service.learn.learn_dtos import GeneratedType
 import datetime
 from flaskr.common.log import thread_local as log_thread_local
 from flaskr.service.learn.exceptions import BreakException
+from flaskr.i18n import get_current_language, set_language
 
 
 def run_script_inner(
@@ -172,6 +173,8 @@ def run_script(
         parent_request_id = getattr(log_thread_local, "request_id", None)
         parent_url = getattr(log_thread_local, "url", None)
         parent_client_ip = getattr(log_thread_local, "client_ip", None)
+        # Capture language context from the request thread so i18n works in the producer thread
+        parent_language = get_current_language()
         res = run_script_inner(
             app=app,
             user_bid=user_bid,
@@ -192,6 +195,8 @@ def run_script(
                 log_thread_local.url = parent_url
             if parent_client_ip:
                 log_thread_local.client_ip = parent_client_ip
+            # Propagate language context into this background thread
+            set_language(parent_language)
             try:
                 for item in res:
                     if stop_event.is_set():

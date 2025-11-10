@@ -11,6 +11,7 @@
   "like": "Like",
   "loginSuccess": "Login successful",
   "outputInProgress": "Content is still generating. Please wait before retrying.",
+  "noMoreLessons": "You’ve completed all available sections.",
   "regenerate": "Regenerate",
   "regenerateConfirmDescription": "Regenerating will replace this content and all subsequent content. The current content will be cleared.",
   "regenerateConfirmTitle": "Confirm regenerate this content?",
