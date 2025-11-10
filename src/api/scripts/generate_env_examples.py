@@ -1,15 +1,11 @@
 #!/usr/bin/env python3
 """
-Generate .env.example files for AI-Shifu configuration.
-
-This script generates two types of environment configuration files:
-1. .env.example.minimal - Contains only required environment variables
-2. .env.example.full - Contains all available environment variables
+Generate the .env.example.full file for AI-Shifu configuration.
 
 Usage:
     python scripts/generate_env_examples.py
 
-The generated files will be created in the docker directory.
+The generated file will be created in the docker directory.
 """
 
 import sys
@@ -22,7 +18,7 @@ from flaskr.common.config import ENV_VARS, EnhancedConfig  # noqa: E402
 
 
 def generate_env_examples():
-    """Generate both minimal and full .env.example files."""
+    """Generate the .env.example.full file."""
     # Create EnhancedConfig instance
     config = EnhancedConfig(ENV_VARS)
 
@@ -37,18 +33,9 @@ def generate_env_examples():
     # Make sure docker directory exists
     output_dir.mkdir(exist_ok=True)
 
-    # Generate minimal configuration (required variables only)
-    minimal_file = output_dir / ".env.example.minimal"
-    minimal_content = config.export_env_example_filtered(filter_type="required")
-
     # Generate full configuration (all variables)
     full_file = output_dir / ".env.example.full"
     full_content = config.export_env_example_filtered(filter_type="all")
-
-    # Write minimal configuration
-    with open(minimal_file, "w", encoding="utf-8") as f:
-        f.write(minimal_content)
-    print(f"✅ Generated minimal configuration: {minimal_file}")
 
     # Write full configuration
     with open(full_file, "w", encoding="utf-8") as f:
@@ -86,10 +73,11 @@ def generate_env_examples():
             print(f"      {desc_lines[0]}")
 
     print("\n📝 Instructions:")
-    print("  1. Copy .env.example.minimal to .env for a minimal setup")
-    print("  2. Or copy .env.example.full to .env for full control")
-    print("  3. Edit the .env file and configure all required variables")
-    print("  4. Never commit .env to version control")
+    print(
+        "  1. Copy docker/.env.example.full to docker/.env (or the root .env you prefer)"
+    )
+    print("  2. Configure at least one LLM API key and other required secrets")
+    print("  3. Keep .env files out of version control")
 
     print("\n✨ Environment configuration files generated successfully!")
 
