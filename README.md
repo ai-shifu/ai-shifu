@@ -83,6 +83,7 @@ docker compose -f docker-compose.latest.yml up -d  # Use -f docker-compose.yml f
 
 ### Development mode (dev_in_docker.sh)
 
+
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
@@ -113,7 +114,3 @@ After Docker starts:
 - Shared translations live in `src/i18n/<locale>/**/*.json` and are consumed by both Backend and Cook Web.
 - See the consolidated guide for conventions, scripts, and CI checks: `docs/i18n.md`.
 - Frontend language list only exposes `en-US` and `zh-CN`; the pseudo-locale `qps-ploc` is available for validation but hidden from the UI.
-
-Cook Web requirements
-
-- Node.js `22.16.0` (see `src/cook-web/package.json#engines`)

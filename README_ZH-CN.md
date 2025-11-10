@@ -81,7 +81,9 @@ cp .env.example.full .env
 docker compose -f docker-compose.latest.yml up -d  # 若需固定版本可改用 docker-compose.yml
 ```
 
+
 ### 开发模式（dev_in_docker.sh）
+
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
@@ -113,7 +115,3 @@ Docker 启动后：
 - 共享翻译位于 `src/i18n/<locale>/**/*.json`，后端与 Cook Web 共用。
 - 统一指南（规范、脚本、CI 校验）：`docs/i18n.md`。
 - 前端语言列表只展示 `en-US` 与 `zh-CN`；伪语言 `qps-ploc` 仅用于校验，不在 UI 中显示。
-
-Cook Web 环境要求
-
-- Node.js `22.16.0`（参见 `src/cook-web/package.json#engines`）
