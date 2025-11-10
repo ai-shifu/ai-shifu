@@ -390,7 +390,7 @@ export function usePreviewChat() {
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
       if (isStreamingRef.current) {
-        showOutputInProgressToast()
+        showOutputInProgressToast();
         return;
       }
 
