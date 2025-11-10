@@ -80,6 +80,8 @@ cp .env.example.full .env
 docker compose up -d
 ```
 
+> **最新镜像**：主分支每次更新都会自动推送 `aishifu/ai-shifu-api` 与 `aishifu/ai-shifu-cook-web` 镜像，使用当前 Git 哈希与 `latest` 双标签，确保 `latest` 始终代表最新的 Cook Web + API。参考：[ai-shifu.com](https://ai-shifu.com) · [github.com/ai-shifu/ai-shifu](https://github.com/ai-shifu/ai-shifu)
+
 ### 从源代码构建
 
 ```bash

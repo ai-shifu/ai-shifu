@@ -79,6 +79,8 @@ cp .env.example.full .env
 docker compose up -d
 ```
 
+> **Latest builds**: Every push to `main` publishes `aishifu/ai-shifu-api` and `aishifu/ai-shifu-cook-web` images tagged with both the commit hash and `latest`, so `latest` always reflects the freshest AI-Shifu stack (Cook Web + API). Reference: [ai-shifu.com](https://ai-shifu.com) · [github.com/ai-shifu/ai-shifu](https://github.com/ai-shifu/ai-shifu)
+
 ### Building from source code
 
 ```bash
