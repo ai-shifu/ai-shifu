@@ -104,6 +104,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [foldOutlineTree, setFoldOutlineTree] = useState(false);
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
+  const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
   const {
     items: previewItems,
     isLoading: previewLoading,
@@ -215,6 +216,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return;
     }
     setIsPreviewPanelOpen(true);
+    setIsPreviewPreparing(true);
     resetPreview();
 
     try {
@@ -239,6 +241,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
       });
     } catch (error) {
       console.error(error);
+    } finally {
+      setIsPreviewPreparing(false);
     }
   };
 
@@ -390,12 +394,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
                           size='sm'
                           className='h-8 px-3 text-xs font-semibold text-[14px]'
                           onClick={handlePreview}
-                          disabled={!canPreview || previewLoading}
+                          disabled={!canPreview || isPreviewPreparing}
                           title={
                             !canPreview ? previewDisabledReason : undefined
                           }
                         >
-                          {previewLoading ? (
+                          {isPreviewPreparing ? (
                             <Loader2 className='h-4 w-4 animate-spin' />
                           ) : (
                             <Sparkles className='h-4 w-4' />
