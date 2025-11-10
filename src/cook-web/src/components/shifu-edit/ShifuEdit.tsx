@@ -224,11 +224,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
         data: mdflow,
       });
       const { variables: parsedVariables, blocksCount } =
-        await actions.previewParse(
-        mdflow,
-        currentShifu.bid,
-        currentNode.bid,
-      );
+        await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
       const previewVariablesMap = parsedVariables.reduce<
         Record<string, string>
       >((acc, key) => {
