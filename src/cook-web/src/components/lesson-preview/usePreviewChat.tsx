@@ -247,11 +247,28 @@ export function usePreviewChat() {
         }
 
         if (response.type === PREVIEW_SSE_OUTPUT_TYPE.INTERACTION) {
+          const interactionContent = response.data?.mdflow ?? '';
+          const interactionInfo = parseInteractionBlock(interactionContent);
+          const variableName = interactionInfo?.variableName;
+          const currentVariables = (sseParams.current.variables ||
+            {}) as PreviewVariablesMap;
+          const rawValue =
+            variableName && currentVariables
+              ? currentVariables[variableName]
+              : undefined;
+          const autoParams =
+            rawValue && interactionInfo
+              ? buildAutoSendParams(interactionInfo, rawValue)
+              : null;
+
           setTrackedContentList((prev: ChatContentItem[]) => {
             const interactionBlock: ChatContentItem = {
               generated_block_bid: blockId,
-              content: response.data?.mdflow ?? '',
+              content: interactionContent,
               readonly: false,
+              defaultButtonText: autoParams?.buttonText || '',
+              defaultInputText: autoParams?.inputText || '',
+              defaultSelectedValues: autoParams?.selectedValues,
               type: ChatContentItemType.INTERACTION,
             };
             const lastContent = prev[prev.length - 1];
@@ -274,7 +291,7 @@ export function usePreviewChat() {
           });
           tryAutoSubmitInteractionRef.current(
             blockId,
-            response.data?.mdflow ?? '',
+            interactionContent,
           );
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
           const contentId = ensureContentItem(blockId);
@@ -499,6 +516,25 @@ export function usePreviewChat() {
     [setTrackedContentList],
   );
 
+  const prefillInteractionBlock = useCallback(
+    (blockBid: string, params: OnSendContentParams) => {
+      setTrackedContentList(prev =>
+        prev.map(item =>
+          item.generated_block_bid === blockBid
+            ? {
+                ...item,
+                readonly: false,
+                defaultButtonText: params.buttonText || '',
+                defaultInputText: params.inputText || '',
+                defaultSelectedValues: params.selectedValues,
+              }
+            : item,
+        ),
+      );
+    },
+    [setTrackedContentList],
+  );
+
   const performSend = useCallback(
     (
       content: OnSendContentParams,
@@ -521,14 +557,15 @@ export function usePreviewChat() {
         isReGenerate =
           blockBid !== currentList[currentList.length - 1].generated_block_bid;
       }
+      const { newList, needChangeItemIndex } =
+      updateContentListWithUserOperate(content, blockBid);
 
-      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
-        content,
-        blockBid,
-      );
-
-      if (needChangeItemIndex === -1) {
-        setTrackedContentList(newList);
+      if (!options?.skipStreamCheck) {
+        if (needChangeItemIndex === -1) {
+          setTrackedContentList(newList);
+        }
+      } else {
+        prefillInteractionBlock(blockBid, content);
       }
 
       let values: string[] = [];
@@ -571,12 +608,7 @@ export function usePreviewChat() {
       });
       return true;
     },
-    [
-      setTrackedContentList,
-      showOutputInProgressToast,
-      startPreview,
-      updateContentListWithUserOperate,
-    ],
+    [setTrackedContentList, showOutputInProgressToast, startPreview, updateContentListWithUserOperate, prefillInteractionBlock],
   );
 
   const onRefresh = useCallback(
@@ -642,7 +674,7 @@ export function usePreviewChat() {
         performSend(sendParams, blockId, { skipStreamCheck: true });
       }, delay);
     },
-    [buildAutoSendParams, parseInteractionBlock, performSend],
+    [buildAutoSendParams, parseInteractionBlock, performSend, prefillInteractionBlock],
   );
 
   useEffect(() => {
