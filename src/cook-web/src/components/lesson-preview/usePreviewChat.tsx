@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SSE } from 'sse.js';
 import { v4 as uuidv4 } from 'uuid';
 import { OnSendContentParams } from 'markdown-flow-ui';
+import { createInteractionParser } from 'remark-flow';
 import LoadingBar from '@/app/c/[[...id]]/Components/ChatUi/LoadingBar';
 import {
   ChatContentItem,
@@ -19,6 +20,14 @@ import { useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
 import { PreviewVariablesMap, savePreviewVariables } from './variableStorage';
+
+interface InteractionParseResult {
+  variableName?: string;
+  buttonTexts?: string[];
+  buttonValues?: string[];
+  placeholder?: string;
+  isMultiSelect?: boolean;
+}
 
 interface StartPreviewParams {
   shifuBid?: string;
@@ -48,6 +57,11 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
   const isStreamingRef = useRef(false);
+  const interactionParserRef = useRef(createInteractionParser());
+  const autoSubmittedBlocksRef = useRef<Set<string>>(new Set());
+  const tryAutoSubmitInteractionRef = useRef<
+    (blockId: string, content?: string | null) => void
+  >(() => {});
   const showOutputInProgressToast = useCallback(() => {
     toast({
       title: t('module.chat.outputInProgress'),
@@ -71,6 +85,115 @@ export function usePreviewChat() {
     [],
   );
 
+  const parseInteractionBlock = useCallback(
+    (content?: string | null): InteractionParseResult | null => {
+      if (!content) {
+        return null;
+      }
+      try {
+        return interactionParserRef.current.parseToRemarkFormat(
+          content,
+        ) as InteractionParseResult;
+      } catch (error) {
+        console.warn('Failed to parse interaction block', error);
+        return null;
+      }
+    },
+    [],
+  );
+
+  const normalizeButtonValue = useCallback(
+    (
+      token: string,
+      info: InteractionParseResult,
+    ): { value: string; display?: string } | null => {
+      if (!token) {
+        return null;
+      }
+      const cleaned = token.trim();
+      const buttonValues = info.buttonValues || [];
+      const buttonTexts = info.buttonTexts || [];
+      const valueIndex = buttonValues.indexOf(cleaned);
+      if (valueIndex > -1) {
+        return {
+          value: buttonValues[valueIndex],
+          display: buttonTexts[valueIndex],
+        };
+      }
+      const textIndex = buttonTexts.indexOf(cleaned);
+      if (textIndex > -1) {
+        return {
+          value: buttonValues[textIndex] || buttonTexts[textIndex],
+          display: buttonTexts[textIndex],
+        };
+      }
+      return null;
+    },
+    [],
+  );
+
+  const splitPresetValues = useCallback((raw: string) => {
+    return raw
+      .split(/[,，\n]/)
+      .map(item => item.trim())
+      .filter(Boolean);
+  }, []);
+
+  const buildAutoSendParams = useCallback(
+    (
+      info: InteractionParseResult | null,
+      rawValue: string,
+    ): OnSendContentParams | null => {
+      if (!info?.variableName) {
+        return null;
+      }
+      const normalized = (rawValue ?? '').toString().trim();
+      if (!normalized) {
+        return null;
+      }
+
+      if (info.isMultiSelect) {
+        const tokens = splitPresetValues(normalized);
+        if (!tokens.length) {
+          return null;
+        }
+        const selectedValues: string[] = [];
+        for (const token of tokens) {
+          const mapped = normalizeButtonValue(token, info);
+          if (!mapped) {
+            return null;
+          }
+          selectedValues.push(mapped.value);
+        }
+        if (!selectedValues.length) {
+          return null;
+        }
+        return {
+          variableName: info.variableName,
+          selectedValues,
+        };
+      }
+
+      const mapped = normalizeButtonValue(normalized, info);
+      if (mapped) {
+        return {
+          variableName: info.variableName,
+          buttonText: mapped.display || normalized,
+          selectedValues: [mapped.value],
+        };
+      }
+
+      if (info.placeholder) {
+        return {
+          variableName: info.variableName,
+          inputText: normalized,
+        };
+      }
+      return null;
+    },
+    [normalizeButtonValue, splitPresetValues],
+  );
+
   const stopPreview = useCallback(() => {
     if (sseRef.current) {
       sseRef.current.close();
@@ -85,6 +208,7 @@ export function usePreviewChat() {
     setError(null);
     currentContentRef.current = '';
     currentContentIdRef.current = null;
+    autoSubmittedBlocksRef.current.clear();
   }, [stopPreview, setTrackedContentList]);
 
   const ensureContentItem = useCallback(
@@ -148,6 +272,10 @@ export function usePreviewChat() {
             }
             return [...prev, interactionBlock];
           });
+          tryAutoSubmitInteractionRef.current(
+            blockId,
+            response.data?.mdflow ?? '',
+          );
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
           const contentId = ensureContentItem(blockId);
           const prevText = currentContentRef.current || '';
@@ -371,6 +499,86 @@ export function usePreviewChat() {
     [setTrackedContentList],
   );
 
+  const performSend = useCallback(
+    (
+      content: OnSendContentParams,
+      blockBid: string,
+      options?: { skipStreamCheck?: boolean },
+    ) => {
+      if (!options?.skipStreamCheck && isStreamingRef.current) {
+        showOutputInProgressToast();
+        return false;
+      }
+
+      const { variableName, buttonText, inputText } = content;
+      if (!variableName) {
+        return false;
+      }
+
+      let isReGenerate = false;
+      const currentList = contentListRef.current;
+      if (currentList.length > 0) {
+        isReGenerate =
+          blockBid !== currentList[currentList.length - 1].generated_block_bid;
+      }
+
+      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
+        content,
+        blockBid,
+      );
+
+      if (needChangeItemIndex === -1) {
+        setTrackedContentList(newList);
+      }
+
+      let values: string[] = [];
+      if (content.selectedValues && content.selectedValues.length > 0) {
+        values = [...content.selectedValues];
+        if (inputText) {
+          values.push(inputText);
+        }
+      } else if (inputText) {
+        values = [inputText];
+      } else if (buttonText) {
+        values = [buttonText];
+      }
+
+      if (!values.length) {
+        return false;
+      }
+
+      const nextValue = values.join(',');
+      const nextVariables: PreviewVariablesMap = {
+        ...(sseParams.current.variables as PreviewVariablesMap),
+        [variableName]: nextValue,
+      };
+      sseParams.current.variables = nextVariables;
+      savePreviewVariables(
+        sseParams.current.shifuBid,
+        { [variableName]: nextValue },
+        sseParams.current.systemVariableKeys || [],
+      );
+
+      startPreview({
+        ...sseParams.current,
+        user_input: {
+          [variableName]: values,
+        },
+        block_index:
+          isReGenerate && needChangeItemIndex !== -1
+            ? Number(newList[needChangeItemIndex].generated_block_bid)
+            : (sseParams.current.block_index || 0) + 1,
+      });
+      return true;
+    },
+    [
+      setTrackedContentList,
+      showOutputInProgressToast,
+      startPreview,
+      updateContentListWithUserOperate,
+    ],
+  );
+
   const onRefresh = useCallback(
     async (generatedBlockBid: string) => {
       if (isStreamingRef.current) {
@@ -403,67 +611,43 @@ export function usePreviewChat() {
 
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
-      if (isStreamingRef.current) {
-        showOutputInProgressToast();
+      performSend(content, blockBid);
+    },
+    [performSend],
+  );
+
+  const tryAutoSubmitInteraction = useCallback(
+    (blockId: string, content?: string | null) => {
+      if (!content || autoSubmittedBlocksRef.current.has(blockId)) {
         return;
       }
-
-      const { variableName, buttonText, inputText } = content;
-      let isReGenerate = false;
-      const currentList = contentListRef.current;
-      if (currentList.length > 0) {
-        isReGenerate =
-          blockBid !== currentList[currentList.length - 1].generated_block_bid;
+      const parsedInfo = parseInteractionBlock(content);
+      const variableName = parsedInfo?.variableName;
+      if (!variableName) {
+        return;
       }
-
-      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
-        content,
-        blockBid,
-      );
-
-      if (needChangeItemIndex === -1) {
-        setTrackedContentList(newList);
+      const currentVariables = (sseParams.current.variables ||
+        {}) as PreviewVariablesMap;
+      const rawValue = currentVariables[variableName];
+      if (!rawValue) {
+        return;
       }
-
-      let values: string[] = [];
-      if (content.selectedValues && content.selectedValues.length > 0) {
-        values = [...content.selectedValues];
-        if (inputText) {
-          values.push(inputText);
-        }
-      } else if (inputText) {
-        values = [inputText];
-      } else if (buttonText) {
-        values = [buttonText];
+      const sendParams = buildAutoSendParams(parsedInfo, rawValue);
+      if (!sendParams) {
+        return;
       }
-
-      if (variableName && values.length > 0) {
-        const nextValue = values[values.length - 1] ?? '';
-        const nextVariables: PreviewVariablesMap = {
-          ...(sseParams.current.variables as PreviewVariablesMap),
-          [variableName]: nextValue,
-        };
-        sseParams.current.variables = nextVariables;
-        savePreviewVariables(
-          sseParams.current.shifuBid,
-          { [variableName]: nextValue },
-          sseParams.current.systemVariableKeys || [],
-        );
-      }
-
-      startPreview({
-        ...sseParams.current,
-        user_input: {
-          [variableName as string]: values,
-        },
-        block_index:
-          isReGenerate && needChangeItemIndex !== -1
-            ? Number(newList[needChangeItemIndex].generated_block_bid)
-            : (sseParams.current.block_index || 0) + 1,
-      });
+      autoSubmittedBlocksRef.current.add(blockId);
+      const delay = parsedInfo?.isMultiSelect ? 1000 : 600;
+      setTimeout(() => {
+        performSend(sendParams, blockId, { skipStreamCheck: true });
+      }, delay);
     },
-    [startPreview, setTrackedContentList, updateContentListWithUserOperate],
+    [buildAutoSendParams, parseInteractionBlock, performSend],
   );
+
+  useEffect(() => {
+    tryAutoSubmitInteractionRef.current = tryAutoSubmitInteraction;
+  }, [tryAutoSubmitInteraction]);
 
   const nullRenderBar = useCallback(() => null, []);
 
