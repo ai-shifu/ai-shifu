@@ -227,8 +227,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
         variables: parsedVariablesMap,
         blocksCount,
         systemVariableKeys,
-      } =
-        await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
+      } = await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
       const previewVariablesMap = { ...parsedVariablesMap };
       void startPreview({
         shifuBid: currentShifu.bid,
