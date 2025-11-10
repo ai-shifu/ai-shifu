@@ -4,14 +4,11 @@ This directory contains utility scripts for managing AI-Shifu configuration.
 
 ## generate_env_examples.py
 
-Generates environment configuration example files from the application's configuration definitions.
+Generates the environment configuration example file from the application's configuration definitions.
 
 ### Purpose
 
-This script automatically generates two types of `.env.example` files:
-
-1. **`.env.example.minimal`** - Contains only the required environment variables that MUST be configured
-2. **`.env.example.full`** - Contains all available environment variables with their defaults and descriptions
+This script automatically generates `.env.example.full`, which contains every environment variable with defaults and documentation. Copy it to `.env` and set at least one LLM API key before starting Docker.
 
 ### Usage
 
@@ -23,10 +20,9 @@ python scripts/generate_env_examples.py
 
 ### Output
 
-The script generates two files in the `docker` directory:
+The script generates one file in the `docker` directory:
 
-- `.env.example.minimal` - Minimal configuration with only required variables
-- `.env.example.full` - Complete configuration reference
+- `.env.example.full` - Complete configuration reference used by Docker deployments
 
 ### Features
 
@@ -40,19 +36,17 @@ The script generates two files in the `docker` directory:
 
 ### When to Use
 
-Run this script:
+Run this script when:
 
-- After adding new environment variables to `config.py`
-- When updating variable descriptions or requirements
-- To generate fresh example files for documentation
-- When onboarding new developers who need configuration templates
+- Adding or editing environment variables in `config.py`
+- Updating variable descriptions or requirements
+- Refreshing the example template for onboarding/docs
 
 ### Example Output
 
 The script provides helpful output:
 
 ```
-✅ Generated minimal configuration: .env.example.minimal
 ✅ Generated full configuration: .env.example.full
 
 📊 Summary:
@@ -70,9 +64,7 @@ The script provides helpful output:
 
 ### Configuration Workflow
 
-1. Run the generation script
-2. Copy the appropriate example file:
-   - For minimal setup: `cp .env.example.minimal .env`
-   - For full control: `cp .env.example.full .env`
-3. Edit `.env` and configure all required variables
-4. Never commit `.env` to version control
+1. Run the generation script.
+2. Copy `docker/.env.example.full` to `docker/.env`.
+3. Edit `.env` and configure at least one LLM API key plus any other secrets you need.
+4. Never commit `.env` to version control.
