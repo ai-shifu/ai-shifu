@@ -43,7 +43,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
         <h2 className='text-base font-semibold text-foreground'>
           {t('module.shifu.previewArea.title')}
         </h2>
-        <p className='text-xs text-muted-foreground text-[rgba(0,0,0,0.45)]'>
+        <p className='text-xs text-[rgba(0,0,0,0.45)]'>
           {t('module.shifu.previewArea.description')}
         </p>
       </div>

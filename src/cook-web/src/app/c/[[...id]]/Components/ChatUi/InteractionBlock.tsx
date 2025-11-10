@@ -64,9 +64,9 @@ export default function InteractionBlock({
       justifyContent: 'center',
       width: 14,
       height: 14,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
-    [disabled],
+    [disabled, disableInteractionButtons],
   );
 
   const dislikeBtnStyle = useMemo(
@@ -76,9 +76,9 @@ export default function InteractionBlock({
       justifyContent: 'center',
       width: 14,
       height: 14,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
-    [disabled],
+    [disabled, disableInteractionButtons],
   );
 
   const refreshBtnStyle = useMemo(
