@@ -46,16 +46,20 @@ git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
 # Use Docker-ready defaults (matches bundled MySQL/Redis services)
-cp .env.example.minimal .env
+cp .env.example.full .env
+
+# Only required change: edit .env and set at least one LLM API key
+# (e.g., OPENAI_API_KEY=sk-..., ERNIE_API_KEY=..., etc.)
 
 # Start all services
-docker compose up -d
+docker compose -f docker-compose.latest.yml up -d
 ```
 
 Notes
 
 - First verified user is automatically promoted to Admin and Creator; the bundled demo course is assigned to this user.
 - Default universal verification code for demos is 1024 (change via `UNIVERSAL_VERIFICATION_CODE`).
+- `docker-compose.latest.yml` pulls the freshest `:latest` images (or your own locally built `latest` tags). Use `docker-compose.yml` when you need pinned release tags for reproducible environments.
 
 ### Using Docker Hub image (customize)
 
@@ -63,41 +67,39 @@ Notes
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# For minimal setup (only required variables):
-cp .env.example.minimal .env
-
-# Or for full configuration options:
+# Copy the full template (contains defaults for Docker usage)
 cp .env.example.full .env
 
-# Edit .env if you need to customize (optional for quick start):
+# Edit .env and customize as needed (only mandatory change is an LLM key):
+# - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
 # - SQLALCHEMY_DATABASE_URI: Defaults to docker MySQL service
 # - REDIS_HOST: Defaults to docker Redis service
 # - SECRET_KEY: Defaults to a demo value; change for production (generate with: python -c "import secrets; print(secrets.token_urlsafe(32))")
 # - UNIVERSAL_VERIFICATION_CODE: Test verification code (remove/empty in production)
-# - LLM API keys (OPENAI_API_KEY, ERNIE_API_KEY, etc.) for model access
+# - Any other optional integrations
 
-docker compose up -d
+docker compose -f docker-compose.latest.yml up -d  # Use -f docker-compose.yml for pinned versions
 ```
 
-> **Latest builds**: Every push to `main` publishes `aishifu/ai-shifu-api` and `aishifu/ai-shifu-cook-web` images tagged with both the commit hash and `latest`, so `latest` always reflects the freshest AI-Shifu stack (Cook Web + API). Reference: [ai-shifu.com](https://ai-shifu.com) · [github.com/ai-shifu/ai-shifu](https://github.com/ai-shifu/ai-shifu)
+### Development mode (dev_in_docker.sh)
 
-### Building from source code
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# Choose configuration template:
-cp .env.example.minimal .env  # For minimal setup
-# OR
-cp .env.example.full .env      # For full configuration
-
-# Configure the required variables in .env file
-# See .env.example.minimal for required variables
-# See .env.example.full for all available options
+cp .env.example.full .env
+# Edit .env and set your preferred LLM API key(s)
 
 ./dev_in_docker.sh
 ```
+
+`dev_in_docker.sh` builds the backend and frontend images from your local source tree and then launches `docker-compose.dev.yml` (hot reload + bind mounts). Use it whenever you need to iterate on code without managing Python/Node runtimes locally.
+
+### Compose files
+
+- `docker-compose.latest.yml`: tracks the `:latest` tags for `aishifu/ai-shifu-api` and `aishifu/ai-shifu-cook-web`. Use this when you want the freshest container build (either from Docker Hub or after running your own `docker build ... -t aishifu/...:latest`).
+- `docker-compose.yml`: pins each image to a specific release tag for reproducible deployments (recommended for staging/prod mirrors or CI).
 
 ### Access
 
@@ -113,6 +115,3 @@ After Docker starts:
 - See the consolidated guide for conventions, scripts, and CI checks: `docs/i18n.md`.
 - Frontend language list only exposes `en-US` and `zh-CN`; the pseudo-locale `qps-ploc` is available for validation but hidden from the UI.
 
-Cook Web requirements
-
-- Node.js `22.16.0` (see `src/cook-web/package.json#engines`)

@@ -46,17 +46,21 @@ AI师傅面向创作者、讲师、培训与教育团队，提供“可扩展的
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# 使用与 docker-compose 一致的默认配置
-cp .env.example.minimal .env
+# 直接使用 Docker 模板配置
+cp .env.example.full .env
+
+# 唯一需要改动的内容：在 .env 中填写至少一个大模型 API Key
+# 例如：OPENAI_API_KEY=sk-xxx 或 ERNIE_API_KEY=xxx
 
 # 启动全部服务
-docker compose up -d
+docker compose -f docker-compose.latest.yml up -d
 ```
 
 说明
 
 - 第一个完成验证登录的用户会自动成为管理员和创作者；并获得内置 Demo 课程的所有权。
 - 默认通用验证码为 1024（仅用于演示/测试，生产环境请修改或禁用）。
+- `docker-compose.latest.yml` 使用 `:latest` 镜像标签，适合希望获取最新构建的场景（或在本地构建 `:latest` 镜像后启动）; 如需固定版本，可使用 `docker-compose.yml`。
 
 ### 使用 Docker Hub 镜像（需定制时）
 
@@ -64,41 +68,39 @@ docker compose up -d
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# 最小化配置（仅必需变量）：
-cp .env.example.minimal .env
-
-# 或选择完整配置选项：
+# 复制完整模板（已包含 Docker 默认值）
 cp .env.example.full .env
 
-# 如需自定义（快速启动不需要立即修改）：
+# 按需修改 .env（快速启动仅需填写 LLM Key）：
+# - OPENAI_API_KEY / ERNIE_API_KEY / GLM_API_KEY / ...
 # - SQLALCHEMY_DATABASE_URI：默认指向 docker 中的 MySQL 服务
 # - REDIS_HOST：默认指向 docker 中的 Redis 服务
 # - SECRET_KEY：示例值，仅用于演示；生产环境请替换（生成：python -c "import secrets; print(secrets.token_urlsafe(32))"）
 # - UNIVERSAL_VERIFICATION_CODE：测试验证码（生产环境请清空/禁用）
-# - 至少一个大模型 API key（OPENAI_API_KEY、ERNIE_API_KEY 等）
 
-docker compose up -d
+docker compose -f docker-compose.latest.yml up -d  # 若需固定版本可改用 docker-compose.yml
 ```
 
-> **最新镜像**：主分支每次更新都会自动推送 `aishifu/ai-shifu-api` 与 `aishifu/ai-shifu-cook-web` 镜像，使用当前 Git 哈希与 `latest` 双标签，确保 `latest` 始终代表最新的 Cook Web + API。参考：[ai-shifu.com](https://ai-shifu.com) · [github.com/ai-shifu/ai-shifu](https://github.com/ai-shifu/ai-shifu)
 
-### 从源代码构建
+### 开发模式（dev_in_docker.sh）
+
 
 ```bash
 git clone https://github.com/ai-shifu/ai-shifu.git
 cd ai-shifu/docker
 
-# 选择配置模板：
-cp .env.example.minimal .env  # 最小化配置
-# 或
-cp .env.example.full .env      # 完整配置
-
-# 在 .env 文件中配置必需的变量
-# 参考 .env.example.minimal 了解必需变量
-# 参考 .env.example.full 了解所有可用选项
+cp .env.example.full .env
+# 在 .env 中填入至少一个大模型 API Key
 
 ./dev_in_docker.sh
 ```
+
+`dev_in_docker.sh` 会从本地源码构建后端与前端镜像，并启动 `docker-compose.dev.yml`（包含热更新和挂载代码目录），适合日常开发迭代。
+
+### Compose 文件的区别
+
+- `docker-compose.latest.yml`：跟随 `:latest` 镜像标签，获取最新构建（或你本地打的 `latest` 镜像），适合快速验证。
+- `docker-compose.yml`：固定到具体版本号，便于构建可复现的预发布/生产环境。
 
 ### 访问
 
@@ -113,7 +115,3 @@ Docker 启动后：
 - 共享翻译位于 `src/i18n/<locale>/**/*.json`，后端与 Cook Web 共用。
 - 统一指南（规范、脚本、CI 校验）：`docs/i18n.md`。
 - 前端语言列表只展示 `en-US` 与 `zh-CN`；伪语言 `qps-ploc` 仅用于校验，不在 UI 中显示。
-
-Cook Web 环境要求
-
-- Node.js `22.16.0`（参见 `src/cook-web/package.json#engines`）

@@ -14,7 +14,8 @@ This file provides guidance to all Coding Agents such as Claude Code (claude.ai/
 | Generate DB migration | `FLASK_APP=app.py flask db migrate -m "message"` | `cd src/api` |
 | Apply DB migration | `FLASK_APP=app.py flask db upgrade` | `cd src/api` |
 | Check code quality | `pre-commit run -a` | Root directory |
-| Start all services (Docker) | `docker compose up -d` | `cd docker` |
+| Start all services (Docker) | `docker compose -f docker-compose.latest.yml up -d` | `cd docker` |
+| Start Docker dev stack (build local latest) | `./dev_in_docker.sh` | `cd docker` |
 | Build Cook Web image (includes i18n) | `./build-cook-web.sh` | `cd docker` |
 
 ### Essential Environment Variables
@@ -120,13 +121,16 @@ npm run type-check                       # TypeScript check
 ```bash
 cd docker
 
-# Start all services
+# Start stack tracking :latest tags (after setting an LLM key in .env)
+docker compose -f docker-compose.latest.yml up -d
+
+# Start stack with pinned release tags for reproducible environments
 docker compose up -d
 
 # Stop all services
 docker compose down
 
-# Build from source
+# Development workflow: build local dev images + run docker-compose.dev.yml
 ./dev_in_docker.sh
 
 # View logs
@@ -135,6 +139,10 @@ docker compose logs -f [service_name]
 # Access container
 docker compose exec [service_name] bash
 ```
+
+- `docker-compose.latest.yml` pulls/picks any `:latest` images (or your freshly built ones) so you always test the newest bits.
+- `docker-compose.yml` pins images to known release tags for reproducible QA or production mirrors.
+- Regardless of the compose file, copy `docker/.env.example.full` to `docker/.env` and set at least one LLM API key (for Docker usage this is the only mandatory change).
 
 ## Database
 
@@ -414,7 +422,7 @@ Environment variables are managed through `.env` files:
 - Docker: `docker/.env`
 - Local development: individual `.env` files in component directories
 - Key configurations: LLM API keys, database connections, Redis settings
-- Example files: `docker/.env.example.minimal` (required only) and `docker/.env.example.full` (all variables)
+- Example file: `docker/.env.example.full` (copy to `docker/.env`, then set at least one LLM API key before starting Docker)
 
 ### Managing Environment Variables
 
@@ -445,9 +453,7 @@ When you need to add or modify environment variables:
    python scripts/generate_env_examples.py
    ```
 
-   This will update:
-   - `docker/.env.example.minimal` - Only required variables
-   - `docker/.env.example.full` - All available variables
+   This updates `docker/.env.example.full`, which already contains sane defaults for Docker usage.
 
 3. **Update tests if needed**:
    - Add to test fixtures in `src/api/tests/common/fixtures/config_data.py`
