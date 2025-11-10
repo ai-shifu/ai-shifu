@@ -18,6 +18,10 @@ import {
 import { useUserStore } from '@/store';
 import { toast } from '@/hooks/useToast';
 import { useTranslation } from 'react-i18next';
+import {
+  PreviewVariablesMap,
+  savePreviewVariables,
+} from './variableStorage';
 
 interface StartPreviewParams {
   shifuBid?: string;
@@ -421,6 +425,20 @@ export function usePreviewChat() {
         values = [inputText];
       } else if (buttonText) {
         values = [buttonText];
+      }
+
+      if (variableName && values.length > 0) {
+        const nextValue = values[values.length - 1] ?? '';
+        const nextVariables: PreviewVariablesMap = {
+          ...(sseParams.current.variables as PreviewVariablesMap),
+          [variableName]: nextValue,
+        };
+        sseParams.current.variables = nextVariables;
+        savePreviewVariables(
+          sseParams.current.shifuBid,
+          sseParams.current.outlineBid,
+          nextVariables,
+        );
       }
 
       startPreview({

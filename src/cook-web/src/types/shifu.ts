@@ -1,3 +1,5 @@
+import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+
 export type BlockType =
   | 'content'
   | 'button'
@@ -176,7 +178,7 @@ export interface ShifuActions {
     value: string,
     shifuId: string,
     outlineId: string,
-  ) => Promise<{ variables: string[]; blocksCount: number }>;
+  ) => Promise<{ variables: PreviewVariablesMap; blocksCount: number }>;
 }
 
 export interface ShifuContextType extends ShifuState {

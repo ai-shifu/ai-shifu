@@ -28,6 +28,12 @@ import {
   useRef,
 } from 'react';
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import {
+  getStoredPreviewVariables,
+  mapKeysToStoredVariables,
+  PreviewVariablesMap,
+  savePreviewVariables,
+} from '@/components/lesson-preview/variableStorage';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -1048,20 +1054,32 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     value: string,
     shifuId: string,
     outlineId: string,
-  ): Promise<{ variables: string[]; blocksCount: number }> => {
+  ): Promise<{ variables: PreviewVariablesMap; blocksCount: number }> => {
     try {
+      const resolvedShifuId = shifuId || currentShifu?.bid || '';
+      const resolvedOutlineId = outlineId || currentNode?.bid || '';
       const result = await api.parseMdflow({
-        shifu_bid: shifuId || currentShifu?.bid || '',
-        outline_bid: outlineId || currentNode?.bid || '',
+        shifu_bid: resolvedShifuId,
+        outline_bid: resolvedOutlineId,
         data: value,
       });
+      const variableKeys = result?.variables || [];
+      const storedVariables = getStoredPreviewVariables(
+        resolvedShifuId,
+        resolvedOutlineId,
+      );
+      const variablesMap = mapKeysToStoredVariables(
+        variableKeys,
+        storedVariables,
+      );
+      savePreviewVariables(resolvedShifuId, resolvedOutlineId, variablesMap);
       return {
-        variables: result?.variables || [],
+        variables: variablesMap,
         blocksCount: result?.blocks_count ?? 0,
       };
     } catch (error) {
       console.error(error);
-      return { variables: [], blocksCount: 0 };
+      return { variables: {}, blocksCount: 0 };
     }
   };
 
