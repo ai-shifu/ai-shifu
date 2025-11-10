@@ -16,6 +16,8 @@ import {
   maskIncompleteMermaidBlock,
 } from '@/c-utils/markdownUtils';
 import { useUserStore } from '@/store';
+import { toast } from '@/hooks/useToast';
+import { useTranslation } from 'react-i18next';
 
 interface StartPreviewParams {
   shifuBid?: string;
@@ -34,6 +36,7 @@ enum PREVIEW_SSE_OUTPUT_TYPE {
 }
 
 export function usePreviewChat() {
+  const { t } = useTranslation();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const contentListRef = useRef<ChatContentItem[]>([]);
@@ -43,7 +46,11 @@ export function usePreviewChat() {
   const sseParams = useRef<StartPreviewParams>({});
   const sseRef = useRef<any>(null);
   const isStreamingRef = useRef(false);
-
+  const showOutputInProgressToast = useCallback(() => {
+    toast({
+      title: t('module.chat.outputInProgress'),
+    });
+  }, [t]);
   const setTrackedContentList = useCallback(
     (
       updater:
@@ -353,6 +360,7 @@ export function usePreviewChat() {
   const onRefresh = useCallback(
     async (generatedBlockBid: string) => {
       if (isStreamingRef.current) {
+        showOutputInProgressToast();
         return;
       }
 
@@ -382,6 +390,7 @@ export function usePreviewChat() {
   const onSend = useCallback(
     (content: OnSendContentParams, blockBid: string) => {
       if (isStreamingRef.current) {
+        showOutputInProgressToast()
         return;
       }
 
