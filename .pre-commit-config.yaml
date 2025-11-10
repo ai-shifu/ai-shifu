@@ -14,6 +14,7 @@ repos:
         args: ['--autofix', '--indent=2', '--no-ensure-ascii', '--top-keys=langName']
         files: ^src/cook-web/public/locales/.*\.json$
     -   id: requirements-txt-fixer
+        exclude: ^src/api/requirements\.txt$
 -   repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.2
     hooks:
