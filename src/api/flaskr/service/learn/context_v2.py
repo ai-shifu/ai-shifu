@@ -726,7 +726,7 @@ class RunScriptContextV2:
         run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
         if run_script_info is None:
             self.app.logger.warning("run script is none")
-            yield from self._emit_next_chapter_interaction()
+            yield from self._emit_next_chapter_interaction(self._current_attend)
             self._can_continue = False
             outline_updates = self._get_next_outline_item()
             if len(outline_updates) > 0:
