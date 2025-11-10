@@ -222,13 +222,21 @@ export function usePreviewChat() {
       max_block_count,
       systemVariableKeys,
     }: StartPreviewParams) => {
-      const mergedParams = {
+      const normalizedUserInput =
+        user_input &&
+        Object.values(user_input).some(value =>
+          Array.isArray(value)
+            ? value.length > 0
+            : value !== undefined && value !== null && `${value}`.trim() !== '',
+        )
+          ? user_input
+          : {};
+      const mergedParams: StartPreviewParams = {
         ...sseParams.current,
         shifuBid,
         outlineBid,
         mdflow,
         block_index,
-        user_input,
         variables,
         max_block_count,
         systemVariableKeys,
@@ -238,7 +246,6 @@ export function usePreviewChat() {
         outlineBid: finalOutlineBid,
         mdflow: finalMdflow,
         block_index: finalBlockIndex = 0,
-        user_input: finalUserInput = {},
         variables: finalVariables = {},
         max_block_count: finalMaxBlockCount,
       } = mergedParams;
@@ -287,16 +294,19 @@ export function usePreviewChat() {
           headers.Authorization = `Bearer ${tokenValue}`;
           headers.Token = tokenValue;
         }
+        const payload: Record<string, unknown> = {
+          block_index: finalBlockIndex,
+          content: finalMdflow,
+          variables: finalVariables,
+        };
+        if (normalizedUserInput) {
+          payload.user_input = normalizedUserInput;
+        }
         const source = new SSE(
           `${baseURL}/api/learn/shifu/${finalShifuBid}/preview/${finalOutlineBid}`,
           {
             headers,
-            payload: JSON.stringify({
-              block_index: finalBlockIndex,
-              content: finalMdflow,
-              user_input: finalUserInput,
-              variables: finalVariables,
-            }),
+            payload: JSON.stringify(payload),
             method: 'POST',
           },
         );
