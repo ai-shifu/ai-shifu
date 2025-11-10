@@ -223,7 +223,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
         outline_bid: currentNode.bid,
         data: mdflow,
       });
-      const { variables: parsedVariablesMap, blocksCount } =
+      const {
+        variables: parsedVariablesMap,
+        blocksCount,
+        systemVariableKeys,
+      } =
         await actions.previewParse(mdflow, currentShifu.bid, currentNode.bid);
       const previewVariablesMap = { ...parsedVariablesMap };
       void startPreview({
@@ -232,6 +236,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
         mdflow,
         variables: previewVariablesMap,
         max_block_count: blocksCount,
+        systemVariableKeys,
       });
     } catch (error) {
       console.error(error);

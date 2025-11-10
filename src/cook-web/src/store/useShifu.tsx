@@ -33,6 +33,7 @@ import {
   mapKeysToStoredVariables,
   PreviewVariablesMap,
   savePreviewVariables,
+  StoredVariablesByScope,
 } from '@/components/lesson-preview/variableStorage';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
@@ -1054,7 +1055,11 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     value: string,
     shifuId: string,
     outlineId: string,
-  ): Promise<{ variables: PreviewVariablesMap; blocksCount: number }> => {
+  ): Promise<{
+    variables: PreviewVariablesMap;
+    blocksCount: number;
+    systemVariableKeys: string[];
+  }> => {
     try {
       const resolvedShifuId = shifuId || currentShifu?.bid || '';
       const resolvedOutlineId = outlineId || currentNode?.bid || '';
@@ -1064,22 +1069,24 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
         data: value,
       });
       const variableKeys = result?.variables || [];
-      const storedVariables = getStoredPreviewVariables(
-        resolvedShifuId,
-        resolvedOutlineId,
-      );
+      const systemVariableKeys =
+        systemVariables?.map(variable => variable.name).filter(Boolean) || [];
+      const storedVariables: StoredVariablesByScope =
+        getStoredPreviewVariables(resolvedShifuId);
       const variablesMap = mapKeysToStoredVariables(
         variableKeys,
         storedVariables,
+        systemVariableKeys,
       );
-      savePreviewVariables(resolvedShifuId, resolvedOutlineId, variablesMap);
+      savePreviewVariables(resolvedShifuId, variablesMap, systemVariableKeys);
       return {
         variables: variablesMap,
         blocksCount: result?.blocks_count ?? 0,
+        systemVariableKeys,
       };
     } catch (error) {
       console.error(error);
-      return { variables: {}, blocksCount: 0 };
+      return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
     }
   };
 

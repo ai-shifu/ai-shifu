@@ -28,6 +28,7 @@ interface StartPreviewParams {
   variables?: Record<string, any>;
   block_index?: number;
   max_block_count?: number;
+  systemVariableKeys?: string[];
 }
 
 enum PREVIEW_SSE_OUTPUT_TYPE {
@@ -219,6 +220,7 @@ export function usePreviewChat() {
       user_input,
       variables,
       max_block_count,
+      systemVariableKeys,
     }: StartPreviewParams) => {
       const mergedParams = {
         ...sseParams.current,
@@ -229,6 +231,7 @@ export function usePreviewChat() {
         user_input,
         variables,
         max_block_count,
+        systemVariableKeys,
       };
       const {
         shifuBid: finalShifuBid,
@@ -433,8 +436,8 @@ export function usePreviewChat() {
         sseParams.current.variables = nextVariables;
         savePreviewVariables(
           sseParams.current.shifuBid,
-          sseParams.current.outlineBid,
-          nextVariables,
+          { [variableName]: nextValue },
+          sseParams.current.systemVariableKeys || [],
         );
       }
 
