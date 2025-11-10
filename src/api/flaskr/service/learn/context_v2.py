@@ -1310,6 +1310,7 @@ class RunScriptContextV2:
             generated_block: LearnGeneratedBlock = LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.generated_block_bid == reload_generated_block_bid,
             ).first()
+
             current_attend = self._get_current_attend(generated_block.outline_item_bid)
             self._can_continue = False
             if generated_block:
@@ -1317,21 +1318,26 @@ class RunScriptContextV2:
                     app.logger.info(
                         f"reload generated_block: {generated_block.id},block_position: {generated_block.position}"
                     )
-                    updated_blocks = LearnGeneratedBlock.query.filter(
-                        LearnGeneratedBlock.progress_record_bid
-                        == generated_block.progress_record_bid,
-                        LearnGeneratedBlock.outline_item_bid
-                        == generated_block.outline_item_bid,
-                        LearnGeneratedBlock.user_bid == self._user_info.user_id,
-                        LearnGeneratedBlock.id >= generated_block.id,
-                        LearnGeneratedBlock.position >= generated_block.position,
-                    ).all()
-                    for updated_block in updated_blocks:
-                        app.logger.info(
-                            f"updated_block: {updated_block.id}, {updated_block.position}"
-                        )
-                        updated_block.status = 0
-
+                    if generated_block.type == BLOCK_TYPE_MDCONTENT_VALUE:
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == generated_block.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == generated_block.outline_item_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.id >= generated_block.id,
+                            LearnGeneratedBlock.position >= generated_block.position,
+                        ).update({LearnGeneratedBlock.status: 0})
+                    if generated_block.type == BLOCK_TYPE_MDINTERACTION_VALUE:
+                        LearnGeneratedBlock.query.filter(
+                            LearnGeneratedBlock.progress_record_bid
+                            == generated_block.progress_record_bid,
+                            LearnGeneratedBlock.outline_item_bid
+                            == generated_block.outline_item_bid,
+                            LearnGeneratedBlock.user_bid == self._user_info.user_id,
+                            LearnGeneratedBlock.id > generated_block.id,
+                            LearnGeneratedBlock.position > generated_block.position,
+                        ).update({LearnGeneratedBlock.status: 0})
                     current_attend.block_position = generated_block.position
                     current_attend.status = LEARN_STATUS_IN_PROGRESS
                     db.session.commit()
