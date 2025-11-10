@@ -1,7 +1,7 @@
 {
   "__namespace__": "server.learn",
   "__flat__": {
-    "nextChapterButton": "Next Chapter",
+    "nextChapterButton": "Next",
     "generatedBlockNotFound": "Generated block not found",
     "invalidAction": "Invalid action"
   }
