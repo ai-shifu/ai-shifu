@@ -289,10 +289,7 @@ export function usePreviewChat() {
             }
             return [...prev, interactionBlock];
           });
-          tryAutoSubmitInteractionRef.current(
-            blockId,
-            interactionContent,
-          );
+          tryAutoSubmitInteractionRef.current(blockId, interactionContent);
         } else if (response.type === PREVIEW_SSE_OUTPUT_TYPE.CONTENT) {
           const contentId = ensureContentItem(blockId);
           const prevText = currentContentRef.current || '';
@@ -557,8 +554,10 @@ export function usePreviewChat() {
         isReGenerate =
           blockBid !== currentList[currentList.length - 1].generated_block_bid;
       }
-      const { newList, needChangeItemIndex } =
-      updateContentListWithUserOperate(content, blockBid);
+      const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
+        content,
+        blockBid,
+      );
 
       if (!options?.skipStreamCheck) {
         if (needChangeItemIndex === -1) {
@@ -608,7 +607,13 @@ export function usePreviewChat() {
       });
       return true;
     },
-    [setTrackedContentList, showOutputInProgressToast, startPreview, updateContentListWithUserOperate, prefillInteractionBlock],
+    [
+      setTrackedContentList,
+      showOutputInProgressToast,
+      startPreview,
+      updateContentListWithUserOperate,
+      prefillInteractionBlock,
+    ],
   );
 
   const onRefresh = useCallback(
@@ -674,7 +679,12 @@ export function usePreviewChat() {
         performSend(sendParams, blockId, { skipStreamCheck: true });
       }, delay);
     },
-    [buildAutoSendParams, parseInteractionBlock, performSend, prefillInteractionBlock],
+    [
+      buildAutoSendParams,
+      parseInteractionBlock,
+      performSend,
+      prefillInteractionBlock,
+    ],
   );
 
   useEffect(() => {
