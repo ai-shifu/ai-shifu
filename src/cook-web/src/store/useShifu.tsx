@@ -1048,17 +1048,20 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     value: string,
     shifuId: string,
     outlineId: string,
-  ): Promise<string[]> => {
+  ): Promise<{ variables: string[]; blocksCount: number }> => {
     try {
       const result = await api.parseMdflow({
         shifu_bid: shifuId || currentShifu?.bid || '',
         outline_bid: outlineId || currentNode?.bid || '',
         data: value,
       });
-      return result?.variables || [];
+      return {
+        variables: result?.variables || [],
+        blocksCount: result?.blocks_count ?? 0,
+      };
     } catch (error) {
       console.error(error);
-      return [];
+      return { variables: [], blocksCount: 0 };
     }
   };
 

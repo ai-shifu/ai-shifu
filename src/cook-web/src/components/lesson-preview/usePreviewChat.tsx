@@ -24,6 +24,7 @@ interface StartPreviewParams {
   user_input?: Record<string, any>;
   variables?: Record<string, any>;
   block_index?: number;
+  max_block_count?: number;
 }
 
 enum PREVIEW_SSE_OUTPUT_TYPE {
@@ -176,11 +177,20 @@ export function usePreviewChat() {
                 like_status: LIKE_STATUS.NONE,
                 type: ChatContentItemType.LIKE_STATUS,
               });
-              // sseRef.current?.close();
-              startPreview({
-                ...sseParams.current,
-                block_index: (sseParams.current?.block_index || 0) + 1,
-              });
+              const nextIndex = (sseParams.current?.block_index || 0) + 1;
+              const totalBlocks = sseParams.current?.max_block_count;
+              if (
+                typeof totalBlocks !== 'number' ||
+                totalBlocks < 0 ||
+                nextIndex < totalBlocks
+              ) {
+                startPreview({
+                  ...sseParams.current,
+                  block_index: nextIndex,
+                });
+              } else {
+                stopPreview();
+              }
             }
             return updatedList;
           });
@@ -200,6 +210,7 @@ export function usePreviewChat() {
       block_index,
       user_input,
       variables,
+      max_block_count,
     }: StartPreviewParams) => {
       const mergedParams = {
         ...sseParams.current,
@@ -209,6 +220,7 @@ export function usePreviewChat() {
         block_index,
         user_input,
         variables,
+        max_block_count,
       };
       const {
         shifuBid: finalShifuBid,
@@ -217,11 +229,21 @@ export function usePreviewChat() {
         block_index: finalBlockIndex = 0,
         user_input: finalUserInput = {},
         variables: finalVariables = {},
+        max_block_count: finalMaxBlockCount,
       } = mergedParams;
       sseParams.current = mergedParams;
 
       if (!finalShifuBid || !finalOutlineBid) {
         setError('Invalid preview params');
+        return;
+      }
+
+      if (
+        typeof finalMaxBlockCount === 'number' &&
+        finalMaxBlockCount >= 0 &&
+        finalBlockIndex >= finalMaxBlockCount
+      ) {
+        stopPreview();
         return;
       }
 

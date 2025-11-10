@@ -176,7 +176,7 @@ export interface ShifuActions {
     value: string,
     shifuId: string,
     outlineId: string,
-  ) => Promise<string[]>;
+  ) => Promise<{ variables: string[]; blocksCount: number }>;
 }
 
 export interface ShifuContextType extends ShifuState {
