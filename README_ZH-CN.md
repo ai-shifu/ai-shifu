@@ -101,74 +101,10 @@ cp .env.example.full .env      # 完整配置
 ### 访问
 
 Docker 启动后：
-<<<<<<< HEAD
-=======
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
-=======
->>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
-<<<<<<< HEAD
->>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
-=======
-=======
-=======
->>>>>>> 1ce97d5b (docs: tidy readme formatting (#895))
->>>>>>> 5c331cb4 (docs: tidy readme formatting (#895))
-<<<<<<< HEAD
->>>>>>> 961a409f (docs: tidy readme formatting (#895))
-=======
-=======
->>>>>>> 2e67621f (fix: merge conflict)
->>>>>>> 034b9e06 (fix: merge conflict)
 
 1. 用浏览器打开 `http://localhost:8080`，访问 Cook Web（学习端与内容管理界面）
 2. 登录时可使用任意手机号，默认万能验证码为 **1024**（仅用于演示/测试，生产环境务必修改或禁用）
 3. 第一个验证通过的用户会成为管理员与创作者
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> 034b9e06 (fix: merge conflict)
-=======
-1. 用浏览器打开 `http://localhost:8080`，访问 Cook Web（学习端与内容管理界面）
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
-=======
->>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
-2. （可选）`http://localhost:8081` 同样指向 Cook Web，兼容历史工具入口
-3. 登录时可使用任意手机号，默认万能验证码为 **1024**（仅用于演示/测试，生产环境务必修改或禁用）
-4. 第一个验证通过的用户会成为管理员与创作者，并获得 Demo 课程所有权
->>>>>>> 9e2f5680 (refactor: remove legacy web frontend (#855))
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
-=======
-2. 登录时可使用任意手机号，默认万能验证码为 **1024**（仅用于演示/测试，生产环境务必修改或禁用）
-3. 第一个验证通过的用户会成为管理员与创作者
->>>>>>> 63aa4c94 (fix: align nginx ports to 8080 (#866))
-<<<<<<< HEAD
-=======
->>>>>>> 64ae0f50 (refactor: remove legacy web frontend (#855))
-<<<<<<< HEAD
->>>>>>> a202bfbd (refactor: remove legacy web frontend (#855))
-=======
-=======
->>>>>>> c52a48f5 (fix: align nginx ports to 8080 (#866))
-<<<<<<< HEAD
->>>>>>> c5ff187b (fix: align nginx ports to 8080 (#866))
-=======
-=======
->>>>>>> 2e67621f (fix: merge conflict)
->>>>>>> 034b9e06 (fix: merge conflict)
 
 ## 国际化（i18n）
 
