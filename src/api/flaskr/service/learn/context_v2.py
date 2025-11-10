@@ -573,21 +573,22 @@ class RunScriptContextV2:
 
     def _emit_next_chapter_interaction(
         self,
+        progress_record: LearnProgressRecord,
     ) -> Generator[RunMarkdownFlowDTO, None, None]:
         """
         Persist and emit the standardized `_sys_next_chapter` interaction when a lesson
         completes so the frontend can advance automatically.
         """
-        if not self._current_attend or not self._outline_item_info:
+        if not progress_record or not self._outline_item_info:
             return
         button_label = _("server.learn.nextChapterButton")
-        button_md = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]({button_label})"
+        button_md = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
         existing_block = (
             LearnGeneratedBlock.query.filter(
                 LearnGeneratedBlock.progress_record_bid
-                == self._current_attend.progress_record_bid,
+                == progress_record.progress_record_bid,
                 LearnGeneratedBlock.outline_item_bid
-                == self._current_attend.outline_item_bid,
+                == progress_record.outline_item_bid,
                 LearnGeneratedBlock.user_bid == self._user_info.user_id,
                 LearnGeneratedBlock.type == BLOCK_TYPE_MDINTERACTION_VALUE,
                 LearnGeneratedBlock.status == 1,
@@ -601,20 +602,20 @@ class RunScriptContextV2:
             return
         generated_block: LearnGeneratedBlock = init_generated_block(
             self.app,
-            shifu_bid=self._current_attend.shifu_bid,
-            outline_item_bid=self._current_attend.outline_item_bid,
-            progress_record_bid=self._current_attend.progress_record_bid,
+            shifu_bid=progress_record.shifu_bid,
+            outline_item_bid=progress_record.outline_item_bid,
+            progress_record_bid=progress_record.progress_record_bid,
             user_bid=self._user_info.user_id,
             block_type=BLOCK_TYPE_MDINTERACTION_VALUE,
             mdflow=button_md,
-            block_index=self._current_attend.block_position,
+            block_index=progress_record.block_position,
         )
         generated_block.role = ROLE_TEACHER
         generated_block.block_content_conf = button_md
         db.session.add(generated_block)
         db.session.flush()
         yield RunMarkdownFlowDTO(
-            outline_bid=self._current_attend.outline_item_bid,
+            outline_bid=progress_record.outline_item_bid,
             generated_block_bid=generated_block.generated_block_bid,
             type=GeneratedType.INTERACTION,
             content=button_md,
@@ -1196,9 +1197,12 @@ class RunScriptContextV2:
                 self._current_attend.status = LEARN_STATUS_IN_PROGRESS
                 self._current_attend.block_position += 1
                 db.session.flush()
+
+        progress_record = self._current_attend
         outline_updates = self._get_next_outline_item()
         if len(outline_updates) > 0:
             yield from self._render_outline_updates(outline_updates, new_chapter=True)
+            yield from self._emit_next_chapter_interaction(progress_record)
             self._can_continue = False
             db.session.flush()
         self._trace.update(**self._trace_args)

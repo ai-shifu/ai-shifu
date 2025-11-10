@@ -338,9 +338,7 @@ def get_learn_record(
             and not has_next_chapter_button
         ):
             button_label = _("server.learn.nextChapterButton")
-            fallback_content = (
-                f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]({button_label})"
-            )
+            fallback_content = f"?[{button_label}//{CONTEXT_INTERACTION_NEXT}]"
             records.append(
                 GeneratedBlockDTO(
                     generate_id(app),
