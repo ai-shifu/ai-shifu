@@ -429,7 +429,7 @@ def ensure_user_for_identifier(
     user_bid = defaults.get("user_bid") or generate_id(app)
     create_defaults = {
         "identify": normalized or defaults.get("identify", user_bid),
-        "nickname": defaults.get("nickname", normalized or user_bid),
+        "nickname": defaults.get("nickname", normalized or ""),
         "avatar": defaults.get("avatar"),
         "language": defaults.get("language"),
         "state": defaults.get("state"),
