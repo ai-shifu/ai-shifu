@@ -174,7 +174,7 @@ class GoogleAuthProvider(AuthProvider):
             else:
                 defaults = {
                     "user_bid": secrets.token_hex(16),
-                    "nickname": profile.get("name") or email,
+                    "nickname": profile.get("name") or "",
                     "avatar": profile.get("picture"),
                     "language": None,
                     "state": USER_STATE_REGISTERED,
