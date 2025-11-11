@@ -365,7 +365,9 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
-    user_info: UserEntity = UserEntity.query.filter_by(user_id=user_id).first()
+    user_info: UserEntity = UserEntity.query.filter(
+        UserEntity.user_bid == user_id
+    ).first()
     result = {}
     for profile_item in profiles_items:
         user_profile = next(
