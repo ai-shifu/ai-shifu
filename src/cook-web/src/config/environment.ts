@@ -13,6 +13,7 @@ interface EnvironmentConfig {
 
   // Content & Course Configuration
   courseId: string;
+  defaultLlmModel: string;
 
   // WeChat Integration
   wechatAppId: string;
@@ -33,6 +34,9 @@ interface EnvironmentConfig {
   // Authentication Configuration
   loginMethodsEnabled: string[];
   defaultLoginMethod: string;
+
+  // Redirect Configuration
+  homeUrl: string;
 }
 
 /**
@@ -125,6 +129,15 @@ function getCourseId(): string {
     return runtimeCourseId;
   }
   return process.env.NEXT_PUBLIC_DEFAULT_COURSE_ID || '';
+}
+
+/**
+ * Gets default LLM model
+ */
+function getDefaultLlmModel(): string {
+  return (
+    getRuntimeEnv('DEFAULT_LLM_MODEL') || process.env.DEFAULT_LLM_MODEL || ''
+  );
 }
 
 /**
@@ -268,6 +281,13 @@ function getBooleanValue(
 }
 
 /**
+ * Gets home URL
+ */
+function getHomeUrl(): string {
+  return getRuntimeEnv('HOME_URL') || process.env.HOME_URL || '/admin';
+}
+
+/**
  * Environment configuration instance with new organized structure
  */
 export const environment: EnvironmentConfig = {
@@ -276,6 +296,7 @@ export const environment: EnvironmentConfig = {
 
   // Content & Course Configuration
   courseId: getCourseId(),
+  defaultLlmModel: getDefaultLlmModel(),
 
   // WeChat Integration
   wechatAppId: getWeChatAppId(),
@@ -296,6 +317,9 @@ export const environment: EnvironmentConfig = {
   // Authentication Configuration
   loginMethodsEnabled: getLoginMethodsEnabled(),
   defaultLoginMethod: getDefaultLoginMethod(),
+
+  // Redirect Configuration
+  homeUrl: getHomeUrl(),
 };
 
 export default environment;

@@ -471,7 +471,7 @@ def create_user_entity(
     entity = UserEntity(
         user_bid=user_bid,
         user_identify=_normalize_identifier("", identify) or user_bid,
-        nickname=nickname or identify or user_bid,
+        nickname=nickname or "",
         avatar=avatar or "",
         birthday=birthday,
         language=language or "en-US",

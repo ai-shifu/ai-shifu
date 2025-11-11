@@ -25,6 +25,7 @@ const initializeEnvData = async (): Promise<void> => {
   const {
     updateAppId,
     updateCourseId,
+    updateDefaultLlmModel,
     updateAlwaysShowLessonTree,
     updateUmamiWebsiteId,
     updateUmamiScriptSrc,
@@ -33,7 +34,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoHorizontal,
     updateLogoVertical,
     updateEnableWxcode,
-    updateSiteUrl,
+    updateHomeUrl,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -47,6 +48,7 @@ const initializeEnvData = async (): Promise<void> => {
 
         // await updateCourseId(data?.courseId || '');
         await updateAppId(data?.wechatAppId || '');
+        await updateDefaultLlmModel(data?.defaultLlmModel || '');
         await updateAlwaysShowLessonTree(data?.alwaysShowLessonTree || 'false');
         await updateUmamiWebsiteId(data?.umamiWebsiteId || '');
         await updateUmamiScriptSrc(data?.umamiScriptSrc || '');
@@ -55,7 +57,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateLogoHorizontal(data?.logoHorizontal || '');
         await updateLogoVertical(data?.logoVertical || '');
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
-        await updateSiteUrl(data?.siteHost || '');
+        await updateHomeUrl(data?.homeUrl || '');
       }
     } catch (error) {
       console.error(error);
@@ -200,7 +202,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
     <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
       <div className='flex-1 flex overflow-hidden scroll-y'>
-        <div className='p-4 bg-white'>
+        <div
+          className={cn(
+            'p-4 bg-white flex flex-col h-full transition-[width] duration-200',
+            foldOutlineTree ? 'w-auto' : 'w-[256px]',
+          )}
+        >
           <div className='flex items-center justify-between gap-3'>
             <div
               onClick={() => setFoldOutlineTree(!foldOutlineTree)}
@@ -222,8 +229,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
           </div>
 
           {!foldOutlineTree && (
-            <div className='flex-1 h-full overflow-y-auto overflow-x-hidden w-[256px] pb-10'>
-              <ol className=' text-sm'>
+            <div className='mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-10'>
+              <ol className='text-sm'>
                 <OutlineTree
                   items={chapters}
                   onChange={newChapters => {

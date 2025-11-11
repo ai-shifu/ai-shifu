@@ -84,7 +84,7 @@ def generate_temp_user(
             new_entity = create_user_entity(
                 user_bid=user_id,
                 identify=user_id,
-                nickname=user_id,
+                nickname="",
                 language=language,
                 state=USER_STATE_UNREGISTERED,
             )

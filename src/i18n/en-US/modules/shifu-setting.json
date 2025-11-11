@@ -24,7 +24,7 @@
   "previewUrl": "Preview URL",
   "learningUrl": "Learning URL",
   "shifuTemperature": "Temperature",
-  "selectModelHint": "Recommended to use the default model (DeepSeek V3.2)",
+  "selectModelHint": "Recommended to use the default model",
   "number": "Number",
   "temperatureHint": "Set the creativity of the AI output (0-2)",
   "temperatureHint2": "The lower the temperature, the more stable the output, but the lower the creativity; the higher the temperature, the more unstable the output, but the higher the creativity",

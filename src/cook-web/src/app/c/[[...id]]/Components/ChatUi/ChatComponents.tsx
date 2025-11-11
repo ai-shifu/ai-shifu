@@ -528,8 +528,8 @@ export const ChatComponents = forwardRef<any, any>(
                 visible: content.visible,
               });
             }
-          } catch (e) {
-            console.log(e);
+          } catch {
+            // swallow SSE parse errors
           }
         });
       },
