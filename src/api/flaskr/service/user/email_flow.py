@@ -106,7 +106,7 @@ def verify_email_code(
         if target_aggregate is None:
             defaults = {
                 "user_bid": user_id or uuid.uuid4().hex,
-                "nickname": normalized_email or user_id,
+                "nickname": "",
                 "language": language,
                 "state": USER_STATE_REGISTERED,
             }

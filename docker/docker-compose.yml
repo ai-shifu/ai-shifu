@@ -1,3 +1,5 @@
+# docker-compose.yml pins services to a tested release for reproducible deployments.
+# Use docker-compose.latest.yml if you prefer to track the :latest container tags.
 x-environment: &default-env
   REDIS_HOST: ai-shifu-redis
   SQLALCHEMY_DATABASE_URI: mysql://root:ai-shifu@ai-shifu-mysql:3306/ai-shifu?charset=utf8mb4

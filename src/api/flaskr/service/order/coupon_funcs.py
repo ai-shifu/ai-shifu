@@ -15,6 +15,7 @@ from datetime import datetime
 import json
 from .feishu_funcs import send_feishu_coupon_code
 from flaskr.dao import db
+import decimal
 
 
 def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
@@ -118,14 +119,17 @@ def use_coupon_code(app: Flask, user_id, coupon_code, order_id):
         coupon_usage.order_bid = order_id
         if coupon.discount_type == COUPON_TYPE_FIXED:
             buy_record.paid_price = (
-                buy_record.paid_price - coupon_usage.value  # noqa W503
+                decimal.Decimal(buy_record.paid_price)
+                - decimal.Decimal(coupon_usage.value)  # noqa W503
             )
         elif coupon.discount_type == COUPON_TYPE_PERCENT:
             buy_record.paid_price = (
-                buy_record.paid_price - buy_record.payable_price * coupon_usage.value  # noqa W503
+                decimal.Decimal(buy_record.paid_price)
+                - decimal.Decimal(buy_record.payable_price)
+                * decimal.Decimal(coupon_usage.value)  # noqa W503
             )
-        if buy_record.paid_price < 0:
-            buy_record.paid_price = 0
+        if decimal.Decimal(buy_record.paid_price) < 0:
+            buy_record.paid_price = decimal.Decimal(0)
         buy_record.updated_at = now
         coupon_usage.updated_at = now
         if not user_coupon_useage:
