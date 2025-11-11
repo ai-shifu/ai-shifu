@@ -81,7 +81,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
     <div className={cn('inline-block w-full', className)}>
       {isEditing ? (
         <Input
-          maxLength={20}
+          maxLength={100}
           ref={inputRef}
           value={inputValue}
           onChange={handleChange}
