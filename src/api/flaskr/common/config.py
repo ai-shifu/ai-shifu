@@ -935,15 +935,15 @@ class EnhancedConfig:
         """
         if filter_type == "required":
             header_lines = [
-                "# AI-Shifu Environment Configuration - MINIMAL REQUIRED SET",
-                "# This file contains only the required environment variables that MUST be set",
-                "# For the complete list of configurable options, see .env.example.full\n",
+                "# AI-Shifu Environment Configuration - REQUIRED VARIABLES",
+                "# These are the bare minimum values that must be set.",
+                "# Start from docker/.env.example.full and configure at least one LLM API key.\n",
             ]
         else:
             header_lines = [
                 "# AI-Shifu Environment Configuration - COMPLETE SET",
-                "# This file contains all available environment variables with their defaults",
-                "# For a minimal setup, see .env.example.minimal\n",
+                "# Copy this file to .env for Docker usage and update at least one LLM API key",
+                "# Example keys: OPENAI_API_KEY, ERNIE_API_KEY, GLM_API_KEY, etc.\n",
             ]
 
         lines = header_lines

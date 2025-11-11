@@ -29,6 +29,9 @@ if "flaskr.api.llm" not in sys.modules:
     sys.modules["flaskr.api.llm"] = llm_stub
 
 from flaskr.service.learn.context_v2 import RunScriptContextV2
+from flaskr.service.learn.const import CONTEXT_INTERACTION_NEXT
+from flaskr.service.learn.learn_dtos import GeneratedType
+from flaskr.service.learn.models import LearnGeneratedBlock
 
 
 def _make_context() -> RunScriptContextV2:
@@ -86,6 +89,61 @@ class RunAsyncInSafeContextTests(unittest.TestCase):
             )
 
         asyncio.run(runner())
+
+
+class NextChapterInteractionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = Flask("next-chapter-tests")
+        cls.app.config.update(
+            SQLALCHEMY_DATABASE_URI="sqlite:///:memory:",
+            SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        )
+        dao.db.init_app(cls.app)
+        with cls.app.app_context():
+            dao.db.create_all()
+
+    def setUp(self):
+        self.app = self.__class__.app
+        self.ctx = _make_context()
+        self.ctx.app = self.app
+        self.ctx._outline_item_info = types.SimpleNamespace(bid="outline-1")
+        self.ctx._current_attend = types.SimpleNamespace(
+            progress_record_bid="progress-1",
+            outline_item_bid="outline-1",
+            shifu_bid="shifu-1",
+            block_position=2,
+        )
+        self.ctx._user_info = types.SimpleNamespace(user_id="user-1")
+        with self.app.app_context():
+            LearnGeneratedBlock.query.delete()
+            dao.db.session.commit()
+
+    def test_emits_and_persists_button_once(self):
+        with self.app.app_context():
+            events = list(self.ctx._emit_next_chapter_interaction())
+            self.assertEqual(len(events), 1)
+            next_event = events[0]
+            self.assertEqual(next_event.type, GeneratedType.INTERACTION)
+            self.assertIn(CONTEXT_INTERACTION_NEXT, next_event.content)
+
+            stored_blocks = LearnGeneratedBlock.query.filter(
+                LearnGeneratedBlock.progress_record_bid
+                == self.ctx._current_attend.progress_record_bid
+            ).all()
+            self.assertEqual(len(stored_blocks), 1)
+
+            self.assertEqual(
+                list(self.ctx._emit_next_chapter_interaction()),
+                [],
+            )
+            self.assertEqual(
+                LearnGeneratedBlock.query.filter(
+                    LearnGeneratedBlock.progress_record_bid
+                    == self.ctx._current_attend.progress_record_bid
+                ).count(),
+                1,
+            )
 
 
 if __name__ == "__main__":

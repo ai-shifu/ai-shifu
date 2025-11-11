@@ -11,6 +11,7 @@
   "like": "点赞",
   "loginSuccess": "已经登录成功了",
   "outputInProgress": "正在有内容输出中，请等待输出结束后再重试",
+  "noMoreLessons": "已学习完所有章节",
   "regenerate": "重新生成",
   "regenerateConfirmDescription": "选择重新生成后，此内容及其以后的内容将会重新生成，当前的内容将被清空。",
   "regenerateConfirmTitle": "确定重新生成此内容？",
