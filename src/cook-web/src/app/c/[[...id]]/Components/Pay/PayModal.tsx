@@ -318,11 +318,9 @@ export const PayModal = ({
                             key={index}
                           >
                             <div className={styles.priceItemName}>
-                              {/* @ts-expect-error EXPECT */}
                               {item.price_name}
                             </div>
                             <div className={styles.priceItemPrice}>
-                              {/* @ts-expect-error EXPECT */}
                               {item.price}
                             </div>
                           </div>
@@ -336,7 +334,6 @@ export const PayModal = ({
                         <div className={styles.channelSwitchWrapper}>
                           <PayChannelSwitch
                             channel={payChannel}
-                            // @ts-expect-error EXPECT
                             onChange={onPayChannelSelectChange}
                           />
                         </div>

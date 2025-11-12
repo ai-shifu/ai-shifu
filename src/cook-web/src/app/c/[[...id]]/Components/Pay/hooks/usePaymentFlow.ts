@@ -12,6 +12,12 @@ import {
 } from '@/c-api/order';
 import { ORDER_STATUS } from '../constans';
 
+interface PriceItem {
+  price_name: string;
+  price: string;
+  is_discount?: boolean;
+}
+
 const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
 
@@ -35,7 +41,7 @@ interface OrderSnapshot {
   order_id: string;
   price: string;
   value_to_pay: string;
-  price_item?: any[];
+  price_item?: PriceItem[];
   status: number;
 }
 
@@ -78,7 +84,7 @@ export const usePaymentFlow = ({
 
   const [price, setPrice] = useState('0');
   const [originalPrice, setOriginalPrice] = useState('');
-  const [priceItems, setPriceItems] = useState<any[]>([]);
+  const [priceItems, setPriceItems] = useState<PriceItem[]>([]);
   const [couponCode, setCouponCode] = useState('');
   const [paymentInfo, setPaymentInfo] =
     useState<PaymentInfoState>(defaultPaymentInfo);
@@ -101,7 +107,7 @@ export const usePaymentFlow = ({
       setPrice(snapshot.value_to_pay);
       setOriginalPrice(snapshot.price);
       setPriceItems(
-        snapshot.price_item?.filter(item => item.is_discount) || [],
+        snapshot.price_item?.filter(item => item?.is_discount) || [],
       );
       if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
         setIsCompleted(true);
