@@ -16,13 +16,6 @@ import { Button } from '@/components/ui/Button';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
 import { ORDER_STATUS, PAY_CHANNEL_WECHAT } from './constans';
-import {
-  getPayUrl,
-  initOrder,
-  initActiveOrder,
-  queryOrder,
-  applyDiscountCode,
-} from '@/c-api/order';
 
 import PayModalFooter from './PayModalFooter';
 import PayChannelSwitch from './PayChannelSwitch';
@@ -31,14 +24,12 @@ import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 import { getCourseInfo } from '@/c-api/course';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { useInterval } from 'react-use';
+import { usePaymentFlow } from './hooks/usePaymentFlow';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
 import payInfoBg from '@/c-assets/newchat/pay-info-bg.png';
 
 const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
-const MAX_TIMEOUT = 1000 * 60 * 3;
-const COUNTDOWN_INTERVAL = 1000;
 
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
@@ -66,21 +57,40 @@ export const PayModal = ({
   payload = {},
 }) => {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
-  const [initLoading, setInitLoading] = useState(true);
-  const [isTimeout, setIsTimeout] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-
-  const [price, setPrice] = useState('');
-  const [qrUrl, setQrUrl] = useState(DEFAULT_QRCODE);
   const [payChannel, setPayChannel] = useState(PAY_CHANNEL_WECHAT);
-  const [interval, setInterval] = useState(null);
-  const [orderId, setOrderId] = useState('');
-  const [countDwon, setCountDown] = useState(MAX_TIMEOUT);
+  const [previewPrice, setPreviewPrice] = useState('0');
+  const [previewInitLoading, setPreviewInitLoading] = useState(true);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
-  const [couponCode, setCouponCode] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [priceItems, setPriceItems] = useState([]);
+  const courseId = getStringEnv('courseId');
+
+  const {
+    price,
+    originalPrice,
+    priceItems,
+    couponCode,
+    paymentInfo,
+    isLoading,
+    initLoading,
+    isTimeout,
+    isCompleted,
+    initializeOrder,
+    refreshPayment,
+    applyCoupon,
+  } = usePaymentFlow({
+    type,
+    payload,
+    courseId,
+    isLoggedIn,
+    onOrderPaid: () => {
+      onOk?.();
+    },
+  });
+
+  const displayPrice = isLoggedIn ? price : previewPrice;
+  const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
+  const effectiveLoading = isLoggedIn ? isLoading : previewLoading;
+  const ready = isLoggedIn ? !initLoading : !previewInitLoading;
 
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
@@ -88,111 +98,28 @@ export const PayModal = ({
     useShallow(state => ({ previewMode: state.previewMode })),
   );
 
-  const initOrderUniform = useCallback(
-    async courseId => {
-      if (type === 'active') {
-        // @ts-expect-error EXPECT
-        return initActiveOrder({
-          courseId,
-          ...payload,
-        });
-      } else {
-        return initOrder(courseId);
-      }
-    },
-    [payload, type],
-  );
-
-  useInterval(
-    async () => {
-      if (countDwon <= 0) {
-        setIsTimeout(true);
-        setInterval(null);
-      }
-      setCountDown(countDwon - COUNTDOWN_INTERVAL);
-
-      const resp = await queryOrder({ orderId });
-
-      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-        setIsCompleted(true);
-        setInterval(null);
-        onOk?.();
-        return;
-      }
-
-      setOriginalPrice(resp.price);
-      setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
-      setPrice(resp.value_to_pay);
-    },
-    isLoggedIn ? interval : null,
-  );
-
-  const refreshOrderQrcode = useCallback(
-    async orderId => {
-      if (orderId) {
-        const qrcodeResp = await getPayUrl({
-          channel: payChannel,
-          orderId,
-        });
-        setQrUrl(qrcodeResp.qr_url);
-        if (qrcodeResp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-          setIsCompleted(true);
-          setInterval(null);
-        } else {
-          setCountDown(MAX_TIMEOUT);
-          // @ts-expect-error EXPECT
-          setInterval(COUNTDOWN_INTERVAL);
-        }
-      }
-    },
-    [payChannel],
-  );
-
-  const courseId = getStringEnv('courseId');
   const loadPayInfo = useCallback(async () => {
-    setIsLoading(true);
-    setIsTimeout(false);
-    setQrUrl(DEFAULT_QRCODE);
-    setPrice('0');
-    setOrderId('');
-    setInterval(null);
-    setCouponCode('');
-    setOriginalPrice('');
-    const resp = await initOrderUniform(courseId);
-    setPrice(resp.value_to_pay);
-    setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
-    const orderId = resp.order_id;
-    setOrderId(orderId);
-    setOriginalPrice(resp.price);
-
+    const snapshot = await initializeOrder();
     if (
-      resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
-      resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
+      snapshot &&
+      (snapshot.status === ORDER_STATUS.BUY_STATUS_INIT ||
+        snapshot.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID)
     ) {
-      await refreshOrderQrcode(orderId);
+      await refreshPayment({ channel: payChannel });
     }
-
-    if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-      setIsCompleted(true);
-    }
-
-    setIsLoading(false);
-  }, [courseId, initOrderUniform, refreshOrderQrcode]);
+  }, [initializeOrder, payChannel, refreshPayment]);
 
   const loadCourseInfo = useCallback(async () => {
-    setIsLoading(true);
-    setIsTimeout(false);
-    setQrUrl(DEFAULT_QRCODE);
-    setPrice('0');
-    setOrderId('');
-    setInterval(null);
-    setCouponCode('');
-    setOriginalPrice('');
-
-    const resp = await getCourseInfo(courseId, previewMode);
-    setPrice(resp?.course_price);
-
-    setIsLoading(false);
+    setPreviewLoading(true);
+    setPreviewInitLoading(true);
+    setPreviewPrice('0');
+    try {
+      const resp = await getCourseInfo(courseId, previewMode);
+      setPreviewPrice(resp?.course_price);
+    } finally {
+      setPreviewLoading(false);
+      setPreviewInitLoading(false);
+    }
   }, [courseId, previewMode]);
 
   const onQrcodeRefresh = useCallback(() => {
@@ -200,7 +127,7 @@ export const PayModal = ({
   }, [loadPayInfo]);
 
   let qrcodeStatus = 'active';
-  if (isLoading) {
+  if (effectiveLoading) {
     qrcodeStatus = 'loading';
   } else if (isTimeout) {
     qrcodeStatus = 'expired';
@@ -223,13 +150,13 @@ export const PayModal = ({
 
   const onCouponCodeOk = useCallback(
     async values => {
-      const { couponCode } = values;
-      setCouponCode(couponCode);
-      const resp = await applyDiscountCode({ orderId, code: couponCode });
-      refreshOrderQrcode(resp.order_id);
+      await applyCoupon({
+        code: values.couponCode,
+        channel: payChannel,
+      });
       onCouponCodeModalClose();
     },
-    [onCouponCodeModalClose, orderId, refreshOrderQrcode],
+    [applyCoupon, onCouponCodeModalClose, payChannel],
   );
 
   const onPayChannelSelectChange = useCallback(e => {
@@ -241,15 +168,14 @@ export const PayModal = ({
       return;
     }
     loadPayInfo();
-    setInitLoading(false);
   }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      loadCourseInfo();
-      setInitLoading(false);
+    if (!open || isLoggedIn) {
+      return;
     }
-  }, [isLoggedIn, loadCourseInfo]);
+    loadCourseInfo();
+  }, [isLoggedIn, loadCourseInfo, open]);
 
   function handleOpenChange(open: boolean) {
     if (!open) {
@@ -270,7 +196,7 @@ export const PayModal = ({
           <DialogTitle className='sr-only'>
             {t('module.pay.dialogTitle')}
           </DialogTitle>
-          {!initLoading && (
+          {ready && (
             <div className={styles.payModalContent}>
               <div
                 className={styles.introSection}
@@ -285,23 +211,25 @@ export const PayModal = ({
                     <div
                       className={cn(
                         styles.price,
-                        (isLoading || isTimeout) && styles.disabled,
+                        (effectiveLoading || isTimeout) && styles.disabled,
                       )}
                     >
                       <span className={styles.priceSign}>￥</span>
-                      <span className={styles.priceNumber}>{price}</span>
+                      <span className={styles.priceNumber}>{displayPrice}</span>
                     </div>
                   </div>
-                  {originalPrice && (
+                  {displayOriginalPrice && (
                     <div
                       className={styles.originalPriceWrapper}
                       style={{
                         visibility:
-                          originalPrice === price ? 'hidden' : 'visible',
+                          displayOriginalPrice === displayPrice
+                            ? 'hidden'
+                            : 'visible',
                       }}
                     >
                       <div className={styles.originalPrice}>
-                        {originalPrice}
+                        {displayOriginalPrice}
                       </div>
                     </div>
                   )}
@@ -330,7 +258,7 @@ export const PayModal = ({
                     <>
                       <div className={cn(styles.qrcodeWrapper, 'relative')}>
                         <QRCodeSVG
-                          value={qrUrl}
+                          value={paymentInfo.qrUrl || DEFAULT_QRCODE}
                           size={175}
                           level={'M'}
                         />

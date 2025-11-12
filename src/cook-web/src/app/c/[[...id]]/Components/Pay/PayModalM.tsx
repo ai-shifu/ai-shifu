@@ -26,12 +26,7 @@ import {
 } from './constans';
 import MainButtonM from '@/c-components/m/MainButtonM';
 
-import {
-  getPayUrl,
-  initOrder,
-  initActiveOrder,
-  applyDiscountCode,
-} from '@/c-api/order';
+import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useWechat } from '@/c-common/hooks/useWechat';
 
 import { toast } from '@/hooks/useToast';
@@ -71,16 +66,39 @@ export const PayModalM = ({
   type = '',
   payload = {},
 }) => {
-  const [initLoading, setInitLoading] = useState(true);
-  const [price, setPrice] = useState('0.00');
   const [payChannel, setPayChannel] = useState(
     inWechat() ? PAY_CHANNEL_WECHAT_JSAPI : PAY_CHANNEL_ZHIFUBAO,
   );
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [orderId, setOrderId] = useState('');
-  const [couponCode, setCouponCode] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [priceItems, setPriceItems] = useState([]);
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [previewPrice, setPreviewPrice] = useState('0');
+  const [previewInitLoading, setPreviewInitLoading] = useState(true);
+
+  const courseId = getStringEnv('courseId');
+
+  const {
+    price,
+    originalPrice,
+    priceItems,
+    couponCode: appliedCouponCode,
+    isLoading,
+    initLoading: hookInitLoading,
+    isCompleted,
+    initializeOrder,
+    refreshPayment,
+    applyCoupon,
+  } = usePaymentFlow({
+    type,
+    payload,
+    courseId,
+    isLoggedIn,
+    onOrderPaid: () => {
+      onOk?.();
+    },
+  });
+
+  const displayPrice = isLoggedIn ? price : previewPrice;
+  const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
+  const ready = isLoggedIn ? !hookInitLoading : !previewInitLoading;
 
   const { t } = useTranslation();
   const { payByJsApi } = useWechat();
@@ -93,34 +111,35 @@ export const PayModalM = ({
   const courseId = getStringEnv('courseId');
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
-  const initOrderUniform = useCallback(
-    async courseId => {
-      if (type === 'active') {
-        // @ts-expect-error EXPECT
-        return initActiveOrder({
-          courseId,
-          ...payload,
-        });
-      } else {
-        return initOrder(courseId);
-      }
-    },
-    [payload, type],
-  );
+  const loadPayInfo = useCallback(async () => {
+    if (!isLoggedIn) {
+      return;
+    }
+    await initializeOrder();
+  }, [initializeOrder, isLoggedIn]);
+
+  const loadCourseInfo = useCallback(async () => {
+    setPreviewInitLoading(true);
+    try {
+      const resp = await getCourseInfo(courseId, previewMode);
+      setPreviewPrice(resp?.course_price);
+    } finally {
+      setPreviewInitLoading(false);
+    }
+  }, [courseId, previewMode]);
 
   const handlePay = useCallback(async () => {
-    const qrcodeResp = await getPayUrl({
-      channel: payChannel,
-      orderId,
-    });
+    const payload = await refreshPayment({ channel: payChannel });
+    if (!payload) {
+      return;
+    }
 
     if (payChannel === PAY_CHANNEL_WECHAT_JSAPI) {
       try {
-        await payByJsApi(qrcodeResp.qr_url);
+        await payByJsApi(payload.qr_url);
         toast({
           title: t('module.pay.paySuccess'),
         });
-        setIsCompleted(true);
         onOk();
       } catch {
         toast({
@@ -129,9 +148,9 @@ export const PayModalM = ({
         });
       }
     } else {
-      window.open(qrcodeResp.qr_url);
+      window.open(payload.qr_url);
     }
-  }, [onOk, orderId, payByJsApi, payChannel]);
+  }, [onOk, payByJsApi, payChannel, refreshPayment, t]);
 
   const onPayChannelChange = useCallback(value => {
     setPayChannel(value);
@@ -150,15 +169,16 @@ export const PayModalM = ({
   }, [onCouponCodeModalOpen]);
 
   const onCouponCodeOkClick = useCallback(async () => {
-    const resp = await applyDiscountCode({ orderId, code: couponCode });
-
-    onCouponCodeModalClose();
-
-    if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-      setIsCompleted(true);
-      onOk();
+    if (!couponCodeInput) {
+      return;
     }
-  }, [couponCode, onCouponCodeModalClose, onOk, orderId]);
+    await applyCoupon({
+      code: couponCodeInput,
+      channel: payChannel,
+    });
+    setCouponCodeInput('');
+    onCouponCodeModalClose();
+  }, [applyCoupon, couponCodeInput, onCouponCodeModalClose, payChannel]);
 
   const onLoginButtonClick = useCallback(() => {
     onCancel?.();
@@ -166,20 +186,18 @@ export const PayModalM = ({
   }, [onCancel]);
 
   useEffect(() => {
-    (async () => {
-      const resp = await initOrderUniform(courseId);
-      const orderId = resp.order_id;
-      setOrderId(orderId);
-      setOriginalPrice(resp.price);
-      setPrice(resp.value_to_pay);
-      setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
-      setInitLoading(false);
+    if (!open || !isLoggedIn) {
+      return;
+    }
+    loadPayInfo();
+  }, [isLoggedIn, loadPayInfo, open]);
 
-      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-        setIsCompleted(true);
-      }
-    })();
-  }, [courseId, initOrderUniform]);
+  useEffect(() => {
+    if (!open || isLoggedIn) {
+      return;
+    }
+    loadCourseInfo();
+  }, [isLoggedIn, loadCourseInfo, open]);
 
   function handleCancel(open: boolean) {
     if (!open) {
@@ -202,7 +220,7 @@ export const PayModalM = ({
               <CompletedSection />
             ) : (
               <>
-                {!initLoading ? (
+                {ready ? (
                   <>
                     <div className={styles.payInfoTitle}>
                       {t('module.pay.finalPrice')}
@@ -210,20 +228,24 @@ export const PayModalM = ({
                     <div className={styles.priceWrapper}>
                       <div className={cn(styles.price)}>
                         <span className={styles.priceSign}>￥</span>
-                        <span className={styles.priceNumber}>{price}</span>
+                        <span className={styles.priceNumber}>
+                          {displayPrice}
+                        </span>
                       </div>
                     </div>
 
-                    {originalPrice && (
+                    {displayOriginalPrice && (
                       <div
                         className={styles.originalPriceWrapper}
                         style={{
                           visibility:
-                            originalPrice === price ? 'hidden' : 'visible',
+                            displayOriginalPrice === displayPrice
+                              ? 'hidden'
+                              : 'visible',
                         }}
                       >
                         <div className={styles.originalPrice}>
-                          {originalPrice}
+                          {displayOriginalPrice}
                         </div>
                       </div>
                     )}
@@ -323,7 +345,7 @@ export const PayModalM = ({
                             fill='none'
                             onClick={onCouponCodeButtonClick}
                           >
-                            {!couponCode
+                            {!appliedCouponCode
                               ? t('module.groupon.useOtherPayment')
                               : t('module.groupon.modify')}
                           </MainButtonM>
@@ -368,7 +390,7 @@ export const PayModalM = ({
               {/* @ts-expect-error EXPECT */}
               <SettingInputM
                 title={t('module.groupon.title')}
-                onChange={e => setCouponCode(e)}
+                onChange={value => setCouponCodeInput(value)}
               />
             </div>
             <div className={styles.buttonWrapper}>
