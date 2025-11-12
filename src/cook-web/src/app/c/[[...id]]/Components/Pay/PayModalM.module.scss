@@ -108,6 +108,36 @@
     }
   }
 
+  .stripeSelector {
+    margin-top: 12px;
+    display: flex;
+    justify-content: center;
+
+    .stripeButton {
+      width: 100%;
+    }
+
+    .stripeButtonActive {
+      background-color: var(--color-4);
+    }
+  }
+
+  .stripePanel {
+    margin-top: 20px;
+  }
+
+  .stripeCheckoutBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .stripeHint {
+    font-size: var(--font-size-5);
+    color: var(--color-8);
+    text-align: center;
+  }
+
   .buttonWrapper {
     margin-top: 40px;
     display: flex;

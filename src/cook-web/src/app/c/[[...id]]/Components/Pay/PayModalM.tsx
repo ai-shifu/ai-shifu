@@ -2,6 +2,7 @@ import styles from './PayModalM.module.scss';
 
 import { memo, useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useShallow } from 'zustand/react/shallow';
 
 import { cn } from '@/lib/utils';
 
@@ -22,9 +23,11 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/RadioGroup';
 import {
   PAY_CHANNEL_WECHAT_JSAPI,
   PAY_CHANNEL_ZHIFUBAO,
+  PAY_CHANNEL_STRIPE,
   ORDER_STATUS,
 } from './constans';
 import MainButtonM from '@/c-components/m/MainButtonM';
+import StripeCardForm from './StripeCardForm';
 
 import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useWechat } from '@/c-common/hooks/useWechat';
@@ -39,6 +42,9 @@ import PayModalFooter from './PayModalFooter';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
+import { useEnvStore } from '@/c-store/envStore';
+import { useSystemStore } from '@/c-store/useSystemStore';
+import type { StripePaymentPayload } from '@/c-api/order';
 
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
@@ -74,18 +80,32 @@ export const PayModalM = ({
   const [previewInitLoading, setPreviewInitLoading] = useState(true);
 
   const courseId = getStringEnv('courseId');
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const { t } = useTranslation();
+  const { payByJsApi } = useWechat();
+  const {
+    open: couponCodeModalOpen,
+    onClose: onCouponCodeModalClose,
+    onOpen: onCouponCodeModalOpen,
+  } = useDisclosure();
+  const { previewMode } = useSystemStore(
+    useShallow(state => ({ previewMode: state.previewMode })),
+  );
 
   const {
+    orderId,
     price,
     originalPrice,
     priceItems,
     couponCode: appliedCouponCode,
+    paymentInfo,
     isLoading,
     initLoading: hookInitLoading,
     isCompleted,
     initializeOrder,
     refreshPayment,
     applyCoupon,
+    syncOrderStatus,
   } = usePaymentFlow({
     type,
     payload,
@@ -99,24 +119,35 @@ export const PayModalM = ({
   const displayPrice = isLoggedIn ? price : previewPrice;
   const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
   const ready = isLoggedIn ? !hookInitLoading : !previewInitLoading;
-
-  const { t } = useTranslation();
-  const { payByJsApi } = useWechat();
-
-  const {
-    open: couponCodeModalOpen,
-    onClose: onCouponCodeModalClose,
-    onOpen: onCouponCodeModalOpen,
-  } = useDisclosure();
-  const courseId = getStringEnv('courseId');
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const { stripePublishableKey, stripeEnabled } = useEnvStore(
+    useShallow(state => ({
+      stripePublishableKey: state.stripePublishableKey,
+      stripeEnabled: state.stripeEnabled,
+    })),
+  );
+  const isStripeAvailable =
+    stripeEnabled === 'true' && Boolean(stripePublishableKey);
+  const isStripeSelected = payChannel.startsWith('stripe');
+  const stripePayload = (paymentInfo?.paymentPayload ||
+    {}) as StripePaymentPayload;
+  const stripeMode = (stripePayload.mode || '').toLowerCase();
 
   const loadPayInfo = useCallback(async () => {
     if (!isLoggedIn) {
       return;
     }
-    await initializeOrder();
-  }, [initializeOrder, isLoggedIn]);
+    const snapshot = await initializeOrder();
+    if (
+      snapshot &&
+      (snapshot.status === ORDER_STATUS.BUY_STATUS_INIT ||
+        snapshot.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID)
+    ) {
+      await refreshPayment({
+        channel: payChannel,
+        paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
+      });
+    }
+  }, [initializeOrder, isLoggedIn, payChannel, refreshPayment]);
 
   const loadCourseInfo = useCallback(async () => {
     setPreviewInitLoading(true);
@@ -129,6 +160,9 @@ export const PayModalM = ({
   }, [courseId, previewMode]);
 
   const handlePay = useCallback(async () => {
+    if (isStripeSelected) {
+      return;
+    }
     const payload = await refreshPayment({ channel: payChannel });
     if (!payload) {
       return;
@@ -150,23 +184,55 @@ export const PayModalM = ({
     } else {
       window.open(payload.qr_url);
     }
-  }, [onOk, payByJsApi, payChannel, refreshPayment, t]);
+  }, [isStripeSelected, onOk, payByJsApi, payChannel, refreshPayment, t]);
 
-  const onPayChannelChange = useCallback(value => {
-    setPayChannel(value);
-  }, []);
+  const onPayChannelChange = useCallback(
+    (value: string) => {
+      setPayChannel(value);
+      if (!orderId) {
+        return;
+      }
+      refreshPayment({
+        channel: value,
+        paymentChannel: value.startsWith('stripe') ? 'stripe' : undefined,
+      });
+    },
+    [orderId, refreshPayment],
+  );
 
   const onPayChannelWechatClick = useCallback(() => {
-    setPayChannel(PAY_CHANNEL_WECHAT_JSAPI);
-  }, []);
+    onPayChannelChange(PAY_CHANNEL_WECHAT_JSAPI);
+  }, [onPayChannelChange]);
 
   const onPayChannelZhifubaoClick = useCallback(() => {
-    setPayChannel(PAY_CHANNEL_ZHIFUBAO);
-  }, []);
+    onPayChannelChange(PAY_CHANNEL_ZHIFUBAO);
+  }, [onPayChannelChange]);
 
   const onCouponCodeButtonClick = useCallback(() => {
     onCouponCodeModalOpen();
   }, [onCouponCodeModalOpen]);
+
+  const onStripeChannelClick = useCallback(() => {
+    onPayChannelChange(PAY_CHANNEL_STRIPE);
+  }, [onPayChannelChange]);
+
+  const handleStripeSuccess = useCallback(async () => {
+    await syncOrderStatus();
+    toast({ title: t('module.pay.paySuccess') });
+  }, [syncOrderStatus, t]);
+
+  const handleStripeError = useCallback((message: string) => {
+    toast({
+      title: message,
+      variant: 'destructive',
+    });
+  }, []);
+
+  const handleStripeCheckout = useCallback(() => {
+    if (stripePayload.checkout_session_url) {
+      window.location.href = stripePayload.checkout_session_url;
+    }
+  }, [stripePayload.checkout_session_url]);
 
   const onCouponCodeOkClick = useCallback(async () => {
     if (!couponCodeInput) {
@@ -175,6 +241,7 @@ export const PayModalM = ({
     await applyCoupon({
       code: couponCodeInput,
       channel: payChannel,
+      paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
     });
     setCouponCodeInput('');
     onCouponCodeModalClose();
@@ -329,15 +396,58 @@ export const PayModalM = ({
                             )}
                           </RadioGroup>
                         </div>
-                        <div className={styles.buttonWrapper}>
-                          {/* @ts-expect-error EXPECT */}
-                          <MainButtonM
-                            className={styles.payButton}
-                            onClick={handlePay}
-                          >
-                            {t('module.pay.pay')}
-                          </MainButtonM>
-                        </div>
+                        {isStripeAvailable ? (
+                          <div className={styles.stripeSelector}>
+                            {/* @ts-expect-error EXPECT */}
+                            <MainButtonM
+                              className={cn(
+                                styles.stripeButton,
+                                isStripeSelected && styles.stripeButtonActive,
+                              )}
+                              fill={isStripeSelected ? 'solid' : 'none'}
+                              onClick={onStripeChannelClick}
+                            >
+                              {t('module.pay.payChannelStripeCard')}
+                            </MainButtonM>
+                          </div>
+                        ) : null}
+                        {isStripeSelected ? (
+                          <div className={styles.stripePanel}>
+                            {stripeMode === 'checkout_session' ||
+                            !stripePayload.client_secret ? (
+                              <div className={styles.stripeCheckoutBlock}>
+                                <p className={styles.stripeHint}>
+                                  {t('module.pay.stripeCheckoutHint')}
+                                </p>
+                                {/* @ts-expect-error EXPECT */}
+                                <MainButtonM
+                                  className={styles.payButton}
+                                  onClick={handleStripeCheckout}
+                                  disabled={!stripePayload.checkout_session_url}
+                                >
+                                  {t('module.pay.goToStripeCheckout')}
+                                </MainButtonM>
+                              </div>
+                            ) : (
+                              <StripeCardForm
+                                clientSecret={stripePayload.client_secret}
+                                publishableKey={stripePublishableKey || ''}
+                                onConfirmSuccess={handleStripeSuccess}
+                                onError={handleStripeError}
+                              />
+                            )}
+                          </div>
+                        ) : (
+                          <div className={styles.buttonWrapper}>
+                            {/* @ts-expect-error EXPECT */}
+                            <MainButtonM
+                              className={styles.payButton}
+                              onClick={handlePay}
+                            >
+                              {t('module.pay.pay')}
+                            </MainButtonM>
+                          </div>
+                        )}
                         <div className={styles.couponCodeWrapper}>
                           {/* @ts-expect-error EXPECT */}
                           <MainButtonM
