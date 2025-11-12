@@ -46,7 +46,7 @@ import { useEnvStore } from '@/c-store/envStore';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import type { StripePaymentPayload } from '@/c-api/order';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
-
+import { getCourseInfo } from '@/c-api/course';
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
   return (
@@ -336,11 +336,9 @@ export const PayModalM = ({
                               key={index}
                             >
                               <div className={styles.priceItemName}>
-                                {/* @ts-expect-error EXPECT */}
                                 {item.price_name}
                               </div>
                               <div className={styles.priceItemPrice}>
-                                {/* @ts-expect-error EXPECT */}
                                 {item.price}
                               </div>
                             </div>
@@ -353,7 +351,7 @@ export const PayModalM = ({
                         <div className={styles.payChannelWrapper}>
                           <RadioGroup
                             value={payChannel}
-                            onChange={onPayChannelChange}
+                            onValueChange={onPayChannelChange}
                           >
                             {inWechat() && (
                               <div
@@ -409,7 +407,6 @@ export const PayModalM = ({
                         </div>
                         {isStripeAvailable ? (
                           <div className={styles.stripeSelector}>
-                            {/* @ts-expect-error EXPECT */}
                             <MainButtonM
                               className={cn(
                                 styles.stripeButton,
@@ -430,7 +427,6 @@ export const PayModalM = ({
                                 <p className={styles.stripeHint}>
                                   {t('module.pay.stripeCheckoutHint')}
                                 </p>
-                                {/* @ts-expect-error EXPECT */}
                                 <MainButtonM
                                   className={styles.payButton}
                                   onClick={handleStripeCheckout}
@@ -450,7 +446,6 @@ export const PayModalM = ({
                           </div>
                         ) : (
                           <div className={styles.buttonWrapper}>
-                            {/* @ts-expect-error EXPECT */}
                             <MainButtonM
                               className={styles.payButton}
                               onClick={handlePay}
@@ -460,7 +455,6 @@ export const PayModalM = ({
                           </div>
                         )}
                         <div className={styles.couponCodeWrapper}>
-                          {/* @ts-expect-error EXPECT */}
                           <MainButtonM
                             className={styles.couponCodeButton}
                             fill='none'
@@ -475,7 +469,6 @@ export const PayModalM = ({
                       </>
                     ) : (
                       <div className={styles.loginButtonWrapper}>
-                        {/* @ts-expect-error EXPECT */}
                         <MainButtonM onClick={onLoginButtonClick}>
                           {t('module.auth.login')}
                         </MainButtonM>
@@ -508,14 +501,12 @@ export const PayModalM = ({
               <DialogTitle>{t('module.groupon.title')}</DialogTitle>
             </DialogHeader>
             <div className={styles.couponCodeInputWrapper}>
-              {/* @ts-expect-error EXPECT */}
               <SettingInputM
                 title={t('module.groupon.title')}
                 onChange={value => setCouponCodeInput(value)}
               />
             </div>
             <div className={styles.buttonWrapper}>
-              {/* @ts-expect-error EXPECT */}
               <MainButtonM
                 onClick={onCouponCodeOkClick}
                 className={styles.okButton}
