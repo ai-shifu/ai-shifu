@@ -361,7 +361,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                   <>
                     <div className='flex flex-wrap items-center gap-3 pb-2'>
                       <div className='flex flex-1 min-w-[220px] items-baseline gap-2'>
-                        <h2 className='text-base font-semibold text-foreground break-keep'>
+                        <h2 className='text-base font-semibold text-foreground whitespace-nowrap'>
                           {t('module.shifu.creationArea.title')}
                         </h2>
                         <p className='text-xs leading-3 text-[rgba(0,0,0,0.45)] whitespace-nowrap overflow-hidden text-ellipsis'>
