@@ -25,7 +25,6 @@ def _get_fernet_key(app: Flask) -> bytes:
         if not secret_key:
             raise ValueError("SECRET_KEY is not configured")
 
-        # Use SHA256 to get a 32-byte key from SECRET_KEY
         key_bytes = hashlib.sha256(secret_key.encode()).digest()
         return base64.urlsafe_b64encode(key_bytes)
 
@@ -127,7 +126,7 @@ def get_config(app: Flask, key: str) -> str:
                     lock.release()
                     return None
                 raw_value = config.value
-                if config.is_encrypted == 1:
+                if bool(config.is_encrypted):
                     value = _decrypt_config(app, raw_value)
                 else:
                     value = raw_value
