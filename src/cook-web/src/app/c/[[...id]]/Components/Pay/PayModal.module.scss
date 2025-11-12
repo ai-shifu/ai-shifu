@@ -147,6 +147,33 @@
       }
     }
 
+    .channelSelectors {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .stripeSelector {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+    }
+
+    .stripePanel {
+      margin-top: 20px;
+      width: 100%;
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .stripeHint {
+      font-size: var(--font-size-5);
+      color: var(--color-8);
+    }
+
     .couponCodeWrapper {
       display: flex;
       justify-content: center;

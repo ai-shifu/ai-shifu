@@ -235,6 +235,18 @@ export const usePaymentFlow = ({
     isLoggedIn && pollingActive ? COUNTDOWN_INTERVAL : null,
   );
 
+  const syncOrderStatus = useCallback(async () => {
+    if (!orderIdRef.current) {
+      return null;
+    }
+    const resp = await queryOrder({ orderId: orderIdRef.current });
+    if (!mountedRef.current || !resp) {
+      return resp;
+    }
+    updateFromOrder(resp as OrderSnapshot);
+    return resp;
+  }, [updateFromOrder]);
+
   const resetState = useCallback(() => {
     setOrderId('');
     setPrice('0');
@@ -264,6 +276,7 @@ export const usePaymentFlow = ({
     initializeOrder,
     refreshPayment,
     applyCoupon,
+    syncOrderStatus,
     resetState,
   };
 };

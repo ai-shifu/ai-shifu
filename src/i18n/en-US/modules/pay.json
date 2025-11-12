@@ -6,13 +6,22 @@
   "modelServiceAgreement": "Model Service Agreement",
   "pay": "Pay",
   "payChannelAlipay": "Alipay",
+  "payChannelStripeCard": "Card (Stripe)",
   "payChannelWechat": "WeChat",
   "payFailed": "Payment Failed",
   "paySuccess": "Payment Successful",
+  "processing": "Processing…",
   "title": "Payment",
   "userPrivacyPolicy": "User Privacy Policy",
   "virtualProductDesc": "Note:",
   "virtualProductPoint1": "1. Purchase indicates you have read and agreed to {{modelServiceAgreement}} and {{userPrivacyPolicy}}.",
   "virtualProductPoint2": "2. Virtual products are non-refundable and non-transferable.",
-  "wechatPay": "WeChat Pay"
+  "wechatPay": "WeChat Pay",
+  "stripeCheckoutHint": "We could not create a card payment in this environment. Continue in Stripe Checkout instead.",
+  "goToStripeCheckout": "Continue in Stripe Checkout",
+  "stripeError": "Unable to confirm the payment. Please try again.",
+  "stripeProcessing": "Payment is still processing. We will update the order shortly.",
+  "stripeRequiresMethod": "The payment method was declined. Please try a different card.",
+  "stripeMissingPublishableKey": "Stripe publishable key is not configured.",
+  "stripeAwaitingIntent": "Generating a secure payment form…"
 }

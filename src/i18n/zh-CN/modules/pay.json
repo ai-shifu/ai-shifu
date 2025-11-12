@@ -6,13 +6,22 @@
   "modelServiceAgreement": "模型服务协议",
   "pay": "支付",
   "payChannelAlipay": "支付宝",
+  "payChannelStripeCard": "信用卡（Stripe）",
   "payChannelWechat": "微信",
   "payFailed": "支付失败",
   "paySuccess": "支付成功",
+  "processing": "处理中…",
   "title": "支付",
   "userPrivacyPolicy": "用户隐私协议",
   "virtualProductDesc": "说明：",
   "virtualProductPoint1": "1. 购买即表示已阅读并同意{{modelServiceAgreement}}和{{userPrivacyPolicy}}。",
   "virtualProductPoint2": "2. 你购买的商品为虚拟商品，购买后不支持退订、转让。",
-  "wechatPay": "微信支付"
+  "wechatPay": "微信支付",
+  "stripeCheckoutHint": "当前环境无法创建卡支付，请改用 Stripe Checkout 完成付款。",
+  "goToStripeCheckout": "前往 Stripe Checkout",
+  "stripeError": "支付确认失败，请稍后重试",
+  "stripeProcessing": "支付仍在处理，我们会尽快更新订单状态",
+  "stripeRequiresMethod": "支付方式被拒绝，请尝试其他银行卡",
+  "stripeMissingPublishableKey": "未配置 Stripe Publishable Key",
+  "stripeAwaitingIntent": "正在生成安全支付表单…"
 }
