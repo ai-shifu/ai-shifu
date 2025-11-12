@@ -1,7 +1,7 @@
 """add stripe payment channel
 
 Revision ID: c9c92880fc67
-Revises: 6abcf5af2758
+Revises: 6b603528dac8
 Create Date: 2025-10-29 00:00:00.000000
 
 """
@@ -12,7 +12,7 @@ from sqlalchemy.dialects import mysql
 
 # revision identifiers, used by Alembic.
 revision = "c9c92880fc67"
-down_revision = "6abcf5af2758"
+down_revision = "6b603528dac8"
 branch_labels = None
 depends_on = None
 
