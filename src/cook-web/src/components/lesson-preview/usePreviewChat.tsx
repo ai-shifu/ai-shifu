@@ -389,7 +389,7 @@ export function usePreviewChat() {
             : value !== undefined && value !== null && `${value}`.trim() !== '',
         )
           ? user_input
-          : {};
+          : undefined;
       const mergedParams: StartPreviewParams = {
         ...sseParams.current,
         shifuBid,
@@ -504,6 +504,8 @@ export function usePreviewChat() {
       let needChangeItemIndex = newList.findIndex(item =>
         item.content?.includes(params.variableName || ''),
       );
+
+      console.log('needChangeItemIndex', needChangeItemIndex, newList,params.variableName);
       const sameVariableValueItems =
         newList.filter(item =>
           item.content?.includes(params.variableName || ''),
@@ -561,9 +563,13 @@ export function usePreviewChat() {
       }
 
       const { variableName, buttonText, inputText } = content;
-      if (!variableName) {
-        return false;
-      }
+      const normalizedVariableName =
+        typeof variableName === 'string' ? variableName : '';
+      const hasVariableName = Boolean(normalizedVariableName);
+      const listUpdateContent =
+        typeof variableName === 'string'
+          ? content
+          : { ...content, variableName: normalizedVariableName };
 
       let isReGenerate = false;
       const currentList = contentListRef.current.slice();
@@ -572,7 +578,7 @@ export function usePreviewChat() {
           blockBid !== currentList[currentList.length - 1].generated_block_bid;
       }
       const { newList, needChangeItemIndex } = updateContentListWithUserOperate(
-        content,
+        listUpdateContent,
         blockBid,
       );
 
@@ -601,16 +607,23 @@ export function usePreviewChat() {
       }
 
       const nextValue = values.join(',');
-      const nextVariables: PreviewVariablesMap = {
-        ...(sseParams.current.variables as PreviewVariablesMap),
-        [variableName]: nextValue,
-      };
-      sseParams.current.variables = nextVariables;
-      savePreviewVariables(
-        sseParams.current.shifuBid,
-        { [variableName]: nextValue },
-        sseParams.current.systemVariableKeys || [],
-      );
+
+      if (hasVariableName) {
+        const nextVariables: PreviewVariablesMap = {
+          ...(sseParams.current.variables as PreviewVariablesMap),
+          [normalizedVariableName]: nextValue,
+        };
+        sseParams.current.variables = nextVariables;
+        savePreviewVariables(
+          sseParams.current.shifuBid,
+          { [normalizedVariableName]: nextValue },
+          sseParams.current.systemVariableKeys || [],
+        );
+      }
+
+      const userInputPayload = hasVariableName
+        ? { [normalizedVariableName]: values }
+        : undefined;
 
       const needReGenerate = isReGenerate && needChangeItemIndex !== -1;
       if (needReGenerate) {
@@ -623,15 +636,18 @@ export function usePreviewChat() {
         }
       }
 
-      startPreview({
+      const nextParams: StartPreviewParams = {
         ...sseParams.current,
-        user_input: {
-          [variableName]: values,
-        },
         block_index: needReGenerate
           ? (Number(newList[needChangeItemIndex].generated_block_bid) || 0) + 1
           : (sseParams.current.block_index || 0) + 1,
-      });
+      };
+      if (userInputPayload) {
+        nextParams.user_input = userInputPayload;
+      } else if ('user_input' in nextParams) {
+        delete nextParams.user_input;
+      }
+      startPreview(nextParams);
       return true;
     },
     [
@@ -697,7 +713,6 @@ export function usePreviewChat() {
 
   const tryAutoSubmitInteraction = useCallback(
     (blockId: string, content?: string | null) => {
-      debugger;
       if (!content || autoSubmittedBlocksRef.current.has(blockId)) {
         return;
       }
