@@ -505,7 +505,12 @@ export function usePreviewChat() {
         item.content?.includes(params.variableName || ''),
       );
 
-      console.log('needChangeItemIndex', needChangeItemIndex, newList,params.variableName);
+      console.log(
+        'needChangeItemIndex',
+        needChangeItemIndex,
+        newList,
+        params.variableName,
+      );
       const sameVariableValueItems =
         newList.filter(item =>
           item.content?.includes(params.variableName || ''),
