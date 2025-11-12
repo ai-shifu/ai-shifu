@@ -87,6 +87,15 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` supplies the publishable key for initializing Stripe.js on the frontend. This should match the backend `STRIPE_PUBLISHABLE_KEY` but can be scoped per environment.
 - `NEXT_PUBLIC_STRIPE_ENABLED` toggles the Stripe UI so we can progressively roll out the new flow without rebuilding the backend.
 
+### Frontend Flow & QA Notes
+- The Cook Web payment modals now expose a "Stripe" option whenever `NEXT_PUBLIC_STRIPE_ENABLED=true` and the publishable key is configured. Selecting Stripe renders a Payment Element backed by the newly created Payment Intent. If the backend requests a Checkout Session instead, the UI guides the user through a redirect flow.
+- Stripe Checkout redirects must target `/payment/stripe/result` so the SPA can recover the order context. Point `STRIPE_SUCCESS_URL` and `STRIPE_CANCEL_URL` to `${APP_URL}/payment/stripe/result?session_id={CHECKOUT_SESSION_ID}`. The frontend also keeps a short-lived `session_id -> order_id` mapping during the redirect.
+- Manual QA checklist:
+  1. Ping++ WeChat or Alipay QR flow (creation, timeout refresh, coupon application).
+  2. Stripe card payment (Payment Intent) with a test card such as `4242 4242 4242 4242`.
+  3. Stripe Checkout fallback (temporarily disable card creation, verify the result page surfaces status and the user can jump back into `/c`).
+  4. Mobile modal parity (WeChat JSAPI vs Stripe card vs Stripe Checkout).
+
 Remember to regenerate `.env` examples (`python scripts/generate_env_examples.py`) whenever payment configuration changes.
 
 ## Database Updates
