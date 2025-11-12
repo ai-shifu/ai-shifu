@@ -23,5 +23,12 @@
   "stripeProcessing": "Payment is still processing. We will update the order shortly.",
   "stripeRequiresMethod": "The payment method was declined. Please try a different card.",
   "stripeMissingPublishableKey": "Stripe publishable key is not configured.",
-  "stripeAwaitingIntent": "Generating a secure payment form…"
+  "stripeAwaitingIntent": "Generating a secure payment form…",
+  "stripeResultSuccessTitle": "Payment confirmed",
+  "stripeResultPendingTitle": "Payment pending",
+  "stripeResultErrorTitle": "Unable to verify payment",
+  "stripeResultPending": "We will sync your order once Stripe finishes processing.",
+  "stripeResultMissingOrder": "We couldn't find the matching order. Please reopen the chat or contact support.",
+  "stripeResultBackToChat": "Return to chat",
+  "stripeResultHome": "Back to home"
 }

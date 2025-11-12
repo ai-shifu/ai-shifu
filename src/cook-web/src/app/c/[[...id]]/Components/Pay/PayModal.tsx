@@ -33,6 +33,7 @@ import { useSystemStore } from '@/c-store/useSystemStore';
 import { useEnvStore } from '@/c-store/envStore';
 import { usePaymentFlow } from './hooks/usePaymentFlow';
 import { useToast } from '@/hooks/useToast';
+import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
 import payInfoBg from '@/c-assets/newchat/pay-info-bg.png';
@@ -200,9 +201,19 @@ export const PayModal = ({
 
   const handleStripeCheckout = useCallback(() => {
     if (stripePayload.checkout_session_url) {
+      if (stripePayload.checkout_session_id && orderId) {
+        rememberStripeCheckoutSession(
+          stripePayload.checkout_session_id,
+          orderId,
+        );
+      }
       window.location.href = stripePayload.checkout_session_url;
     }
-  }, [stripePayload.checkout_session_url]);
+  }, [
+    orderId,
+    stripePayload.checkout_session_id,
+    stripePayload.checkout_session_url,
+  ]);
 
   const handleStripeError = useCallback(
     (message: string) => {

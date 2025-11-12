@@ -45,6 +45,7 @@ import { shifu } from '@/c-service/Shifu';
 import { useEnvStore } from '@/c-store/envStore';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import type { StripePaymentPayload } from '@/c-api/order';
+import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
@@ -230,9 +231,19 @@ export const PayModalM = ({
 
   const handleStripeCheckout = useCallback(() => {
     if (stripePayload.checkout_session_url) {
+      if (stripePayload.checkout_session_id && orderId) {
+        rememberStripeCheckoutSession(
+          stripePayload.checkout_session_id,
+          orderId,
+        );
+      }
       window.location.href = stripePayload.checkout_session_url;
     }
-  }, [stripePayload.checkout_session_url]);
+  }, [
+    orderId,
+    stripePayload.checkout_session_id,
+    stripePayload.checkout_session_url,
+  ]);
 
   const onCouponCodeOkClick = useCallback(async () => {
     if (!couponCodeInput) {

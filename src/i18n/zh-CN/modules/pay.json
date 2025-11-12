@@ -23,5 +23,12 @@
   "stripeProcessing": "支付仍在处理，我们会尽快更新订单状态",
   "stripeRequiresMethod": "支付方式被拒绝，请尝试其他银行卡",
   "stripeMissingPublishableKey": "未配置 Stripe Publishable Key",
-  "stripeAwaitingIntent": "正在生成安全支付表单…"
+  "stripeAwaitingIntent": "正在生成安全支付表单…",
+  "stripeResultSuccessTitle": "支付已确认",
+  "stripeResultPendingTitle": "支付处理中",
+  "stripeResultErrorTitle": "暂时无法确认支付",
+  "stripeResultPending": "Stripe 仍在处理，我们会尽快同步订单状态。",
+  "stripeResultMissingOrder": "未找到对应订单，请重新进入课程或联系支持。",
+  "stripeResultBackToChat": "返回课程",
+  "stripeResultHome": "返回首页"
 }

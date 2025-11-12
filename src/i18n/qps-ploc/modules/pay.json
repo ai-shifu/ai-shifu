@@ -23,5 +23,12 @@
   "stripeProcessing": "⟦Ƥåŷmēňŧ įš šŧįŀŀ ƥřøćēššįňğ. Ŵē'ŀŀ ūƥđåŧē ŧħē øřđēř šħøřŧŀŷ.⟧",
   "stripeRequiresMethod": "⟦Ŧħē ćåřđ ŵåš đēčłįňēđ. Ŧřŷ å đįƒƒēřēňŧ øņē.⟧",
   "stripeMissingPublishableKey": "⟦Šŧřįƥē ƥųƀłįšħåƀŀē ķēŷ įš ṃįššįňğ.⟧",
-  "stripeAwaitingIntent": "⟦Ģēňēřåŧįňğ å šēćųřē ƥåŷmēňŧ ƒøřm…⟧"
+  "stripeAwaitingIntent": "⟦Ģēňēřåŧįňğ å šēćųřē ƥåŷmēňŧ ƒøřm…⟧",
+  "stripeResultSuccessTitle": "⟦Ƥåŷmēňŧ čøňƒįřṃēđ⟧",
+  "stripeResultPendingTitle": "⟦Ƥåŷmēňŧ ƥēňđįňğ⟧",
+  "stripeResultErrorTitle": "⟦Čåň'ŧ ƈøňƒįřṃ ƥåŷmēňŧ⟧",
+  "stripeResultPending": "⟦Ŵē'ŀŀ šŷñč ẏøųř øřđēř øňçē Šŧřįƥē ƒįñįšħēš ƥřøćēššįňğ.⟧",
+  "stripeResultMissingOrder": "⟦Ŵē čøųŀđ ŉøŧ ƒįňđ ŧħē måŧçħįňğ øřđēř. Řēøƥēň ŧħē čħåŧ øř čøňŧåçŧ šųƥƥøřŧ.⟧",
+  "stripeResultBackToChat": "⟦Řēŧűřň ŧø čħåŧ⟧",
+  "stripeResultHome": "⟦Ɓåčķ ŧø ħøṃē⟧"
 }
