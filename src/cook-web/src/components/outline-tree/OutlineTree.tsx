@@ -238,7 +238,7 @@ const MinimalTreeItemComponent = React.forwardRef<
                   >
                     <DropdownMenuItem onClick={editNode}>
                       <Edit className='mr-2 h-4 w-4' />
-                      <span>{t('component.outlineTree.edit')}</span>
+                      <span>{t('component.outlineTree.rename')}</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={e => {
@@ -298,7 +298,7 @@ const MinimalTreeItemComponent = React.forwardRef<
                     >
                       <DropdownMenuItem onClick={editNode}>
                         <Edit className='mr-2 h-4 w-4' />
-                        <span>{t('component.outlineTree.edit')}</span>
+                        <span>{t('component.outlineTree.rename')}</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={e => {
