@@ -67,6 +67,17 @@ export function usePreviewChat() {
       title: t('module.chat.outputInProgress'),
     });
   }, [t]);
+
+  const removeAutoSubmittedBlocks = useCallback((blockIds: string[]) => {
+    if (!blockIds?.length) {
+      return;
+    }
+    blockIds.forEach(id => {
+      if (id) {
+        autoSubmittedBlocksRef.current.delete(id);
+      }
+    });
+  }, []);
   const setTrackedContentList = useCallback(
     (
       updater:
@@ -350,7 +361,7 @@ export function usePreviewChat() {
         console.warn('preview SSE handling error:', err);
       }
     },
-    [ensureContentItem, setTrackedContentList, stopPreview],
+    [buildAutoSendParams, ensureContentItem, parseInteractionBlock, setTrackedContentList, stopPreview],
   );
 
   const startPreview = useCallback(
@@ -549,7 +560,7 @@ export function usePreviewChat() {
       }
 
       let isReGenerate = false;
-      const currentList = contentListRef.current;
+      const currentList = contentListRef.current.slice();
       if (currentList.length > 0) {
         isReGenerate =
           blockBid !== currentList[currentList.length - 1].generated_block_bid;
@@ -595,19 +606,30 @@ export function usePreviewChat() {
         sseParams.current.systemVariableKeys || [],
       );
 
+      const needReGenerate = isReGenerate && needChangeItemIndex !== -1;
+      if (needReGenerate) {
+        const removedBlockIds = currentList
+          .slice(needChangeItemIndex)
+          .map(item => item.generated_block_bid)
+          .filter(Boolean);
+        if (removedBlockIds.length) {
+          removeAutoSubmittedBlocks(removedBlockIds);
+        }
+      }
+
       startPreview({
         ...sseParams.current,
         user_input: {
           [variableName]: values,
         },
         block_index:
-          isReGenerate && needChangeItemIndex !== -1
-            ? Number(newList[needChangeItemIndex].generated_block_bid)
+          needReGenerate ? (Number(newList[needChangeItemIndex].generated_block_bid) || 0) + 1
             : (sseParams.current.block_index || 0) + 1,
       });
       return true;
     },
     [
+      removeAutoSubmittedBlocks,
       setTrackedContentList,
       showOutputInProgressToast,
       startPreview,
@@ -623,7 +645,8 @@ export function usePreviewChat() {
         return;
       }
 
-      const newList = [...contentListRef.current];
+      const originalList = [...contentListRef.current];
+      const newList = [...originalList];
       const needChangeItemIndex = newList.findIndex(
         item => item.generated_block_bid === generatedBlockBid,
       );
@@ -636,6 +659,14 @@ export function usePreviewChat() {
         ? needChangeItemIndex
         : parsedBlockIndex;
 
+      const removedBlockIds = originalList
+        .slice(needChangeItemIndex)
+        .map(item => item.generated_block_bid)
+        .filter(Boolean);
+      if (removedBlockIds.length) {
+        removeAutoSubmittedBlocks(removedBlockIds);
+      }
+
       newList.length = needChangeItemIndex;
       setTrackedContentList(newList);
       startPreview({
@@ -643,7 +674,12 @@ export function usePreviewChat() {
         block_index: nextBlockIndex,
       });
     },
-    [setTrackedContentList, startPreview],
+    [
+      removeAutoSubmittedBlocks,
+      setTrackedContentList,
+      showOutputInProgressToast,
+      startPreview,
+    ],
   );
 
   const onSend = useCallback(
@@ -655,6 +691,7 @@ export function usePreviewChat() {
 
   const tryAutoSubmitInteraction = useCallback(
     (blockId: string, content?: string | null) => {
+      debugger
       if (!content || autoSubmittedBlocksRef.current.has(blockId)) {
         return;
       }
@@ -679,12 +716,7 @@ export function usePreviewChat() {
         performSend(sendParams, blockId, { skipStreamCheck: true });
       }, delay);
     },
-    [
-      buildAutoSendParams,
-      parseInteractionBlock,
-      performSend,
-      prefillInteractionBlock,
-    ],
+    [buildAutoSendParams, parseInteractionBlock, performSend],
   );
 
   useEffect(() => {

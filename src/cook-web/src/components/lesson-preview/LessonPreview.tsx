@@ -24,12 +24,9 @@ interface LessonPreviewProps {
 }
 
 const noop = () => {};
-const noopSend = (_content: OnSendContentParams, _blockBid: string) => {};
 
 const LessonPreview: React.FC<LessonPreviewProps> = ({
   loading,
-  isStreaming = false,
-  errorMessage,
   items,
   shifuBid,
   onRefresh,
@@ -90,7 +87,6 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     mobileStyle={false}
                     blockBid={item.generated_block_bid}
                     confirmButtonText={t('module.renderUi.core.confirm')}
-                    onClickCustomButtonAfterContent={noop}
                     onSend={onSend}
                   />
                 </div>
