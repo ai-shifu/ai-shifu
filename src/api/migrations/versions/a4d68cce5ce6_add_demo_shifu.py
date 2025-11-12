@@ -9,8 +9,8 @@ Create Date: 2025-11-12 14:41:07.381333
 import os
 from io import BytesIO
 from werkzeug.datastructures import FileStorage
-from flaskr.service.user.models import User
-from flaskr.common.dao import db
+from flaskr.service.user.models import UserInfo
+from flaskr.dao import db
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.util import generate_id
 
@@ -44,7 +44,7 @@ def upgrade():
 
         shifu_bid = import_shifu(app, None, file_storage, "system")
 
-        users = User.query.filter(User.is_creator == 1).all()
+        users = UserInfo.query.filter(UserInfo.is_creator == 1).all()
         for user in users:
             auth = AiCourseAuth.query.filter(
                 AiCourseAuth.user_id == user.user_id,
@@ -59,7 +59,7 @@ def upgrade():
                     status=1,
                 )
                 db.session.add(auth)
-        db.session.commit()
+
         add_config(
             app,
             "DEMO_SHIFU_BID",
@@ -67,6 +67,7 @@ def upgrade():
             is_secret=False,
             remark="Demo shifu business identifier",
         )
+        db.session.commit()
 
 
 def downgrade():
