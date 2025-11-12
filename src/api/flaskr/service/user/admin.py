@@ -79,7 +79,7 @@ def get_user_list(app: Flask, page: int = 1, page_size: int = 20, query=None):
         for user in users:
             aggregate = load_user_aggregate(user.user_bid)
             mobile = aggregate.mobile if aggregate else ""
-            nickname = aggregate.name if aggregate else user.user_identify
+            nickname = aggregate.name if aggregate else ""
             sex = _resolve_user_sex(user.user_bid)
             birth = _resolve_user_birthday(aggregate)
             items.append(UserItemDTO(user.user_bid, mobile, nickname, sex, birth))

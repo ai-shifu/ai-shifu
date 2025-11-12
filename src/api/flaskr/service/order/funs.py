@@ -267,7 +267,7 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record.payable_price = decimal.Decimal(shifu_info.price)
             buy_record.status = ORDER_STATUS_INIT
             buy_record.order_bid = order_id
-            buy_record.payable_price = shifu_info.price
+            buy_record.payable_price = decimal.Decimal(shifu_info.price)
             print("buy_record: ", buy_record.payable_price)
         else:
             buy_record = origin_record
@@ -297,7 +297,9 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                     )
                 )
         print("discount_value: ", discount_value)
-        buy_record.paid_price = buy_record.payable_price - discount_value
+        buy_record.paid_price = decimal.Decimal(
+            buy_record.payable_price
+        ) - decimal.Decimal(discount_value)
         db.session.merge(buy_record)
         db.session.commit()
         return AICourseBuyRecordDTO(
@@ -1160,9 +1162,9 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                         "update discount value for buy record:{}".format(record_id)
                     )
                     # buy_record.payable_price = discount_info.discount_value
-                    buy_record.paid_price = (
-                        buy_record.payable_price - discount_info.discount_value
-                    )
+                    buy_record.paid_price = decimal.Decimal(
+                        buy_record.payable_price
+                    ) - decimal.Decimal(discount_info.discount_value)
                     buy_record.updated_at = datetime.datetime.now()
                     db.session.commit()
                 item = discount_info.items
@@ -1173,7 +1175,8 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
                 buy_record.shifu_bid,
                 buy_record.payable_price,
                 buy_record.status,
-                buy_record.payable_price - buy_record.paid_price,
+                decimal.Decimal(buy_record.payable_price)
+                - decimal.Decimal(buy_record.paid_price),
                 item,
             )
 

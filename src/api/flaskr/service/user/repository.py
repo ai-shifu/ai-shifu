@@ -139,11 +139,7 @@ class UserAggregate:
 
     @property
     def display_name(self) -> str:
-        if self.nickname:
-            return self.nickname
-        if self.username:
-            return self.username
-        return self.user_bid
+        return self.nickname
 
     @property
     def user_language(self) -> str:
@@ -262,22 +258,6 @@ def _ensure_user_entity(user_bid: str) -> UserEntity:
     language: Optional[str] = None
     avatar: Optional[str] = None
     birthday: Optional[date] = None
-
-    credentials = list_credentials(user_bid=user_bid)
-    if credentials:
-
-        def _credential_sort_key(cred: AuthCredential) -> tuple[int, int, int]:
-            verified_rank = 0 if cred.state == CREDENTIAL_STATE_VERIFIED else 1
-            provider_rank = {"phone": 0, "email": 1}.get(cred.provider_name, 2)
-            return (verified_rank, provider_rank, cred.id or 0)
-
-        for credential in sorted(credentials, key=_credential_sort_key):
-            candidate = (credential.identifier or "").strip()
-            if candidate:
-                identify = candidate
-                if not nickname:
-                    nickname = candidate
-                break
 
     try:
         from flaskr.service.profile.models import UserProfile  # type: ignore
@@ -429,7 +409,7 @@ def ensure_user_for_identifier(
     user_bid = defaults.get("user_bid") or generate_id(app)
     create_defaults = {
         "identify": normalized or defaults.get("identify", user_bid),
-        "nickname": defaults.get("nickname", normalized or user_bid),
+        "nickname": defaults.get("nickname", ""),
         "avatar": defaults.get("avatar"),
         "language": defaults.get("language"),
         "state": defaults.get("state"),
@@ -471,7 +451,7 @@ def create_user_entity(
     entity = UserEntity(
         user_bid=user_bid,
         user_identify=_normalize_identifier("", identify) or user_bid,
-        nickname=nickname or identify or user_bid,
+        nickname=nickname or "",
         avatar=avatar or "",
         birthday=birthday,
         language=language or "en-US",

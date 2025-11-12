@@ -1,0 +1,142 @@
+name: Build Latest Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DEFAULT_DOCKERHUB_USER: aishifu
+  PUSH_LATEST_IMAGES: ${{ vars.PUSH_LATEST_IMAGES || 'true' }}
+
+jobs:
+  build-latest:
+    name: Build latest (${{ matrix.service_name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service_name: api
+            image_name_env: AI_SHIFU_API_IMAGE_NAME
+            context: .
+            dockerfile: src/api/Dockerfile
+          - service_name: cook-web
+            image_name_env: AI_SHIFU_COOK_WEB_IMAGE_NAME
+            context: .
+            dockerfile: src/cook-web/Dockerfile
+
+    env:
+      DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      ALIYUN_DOCKER_REGISTRY: ${{ vars.ALIYUN_DOCKER_REGISTRY || 'registry.cn-beijing.aliyuncs.com' }}
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_USER }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_TOKEN }}
+      AI_SHIFU_API_IMAGE_NAME: ${{ vars.AI_SHIFU_API_IMAGE_NAME || 'ai-shifu-api' }}
+      AI_SHIFU_COOK_WEB_IMAGE_NAME: ${{ vars.AI_SHIFU_COOK_WEB_IMAGE_NAME || 'ai-shifu-cook-web' }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Prepare build metadata
+        run: |
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-12)
+          echo "GIT_SHA=${GITHUB_SHA}" >> $GITHUB_ENV
+          echo "GIT_SHA_SHORT=$SHORT_SHA" >> $GITHUB_ENV
+          echo "TRIGGER_REF=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+          echo "🔖 Building commit ${GITHUB_SHA} (${SHORT_SHA}) from ${GITHUB_REF_NAME}"
+
+      - name: Decide push mode
+        run: |
+          DEFAULT_PUSH="${PUSH_LATEST_IMAGES:-true}"
+          if [ -n "${OVERRIDE_PUSH_IMAGES:-}" ]; then
+            PUSH_IMAGES="$OVERRIDE_PUSH_IMAGES"
+            echo "Using OVERRIDE_PUSH_IMAGES=$OVERRIDE_PUSH_IMAGES"
+          else
+            PUSH_IMAGES="$DEFAULT_PUSH"
+          fi
+          echo "PUSH_IMAGES=$PUSH_IMAGES" >> $GITHUB_ENV
+          if [ "$PUSH_IMAGES" = "true" ]; then
+            echo "🛳️ Images will be pushed to registries"
+          else
+            echo "🧪 Dry run: images will be loaded locally only"
+          fi
+
+      - name: Login to Docker Hub
+        if: env.DOCKERHUB_USER && env.DOCKERHUB_TOKEN
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKERHUB_USER }}
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - name: Login to Aliyun Docker Registry
+        if: env.ALIYUN_DOCKER_USERNAME && env.ALIYUN_DOCKER_PASSWORD
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.ALIYUN_DOCKER_USERNAME }}
+          password: ${{ env.ALIYUN_DOCKER_PASSWORD }}
+          registry: ${{ env.ALIYUN_DOCKER_REGISTRY }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.DOCKERHUB_USER && format('{0}/{1}', env.DOCKERHUB_USER, env[matrix.image_name_env]) || '' }}
+            ${{ env.ALIYUN_DOCKER_USERNAME && format('{0}/ai-shifu/{1}', env.ALIYUN_DOCKER_REGISTRY, env[matrix.image_name_env]) || '' }}
+          tags: |
+            type=raw,value=${{ env.GIT_SHA }}
+            type=raw,value=latest
+          labels: |
+            org.opencontainers.image.title=AI-Shifu ${{ matrix.service_name }}
+            org.opencontainers.image.description=Latest main build for AI-Shifu (${{ matrix.service_name }})
+            org.opencontainers.image.vendor=AI-Shifu Team
+            org.opencontainers.image.licenses=Apache-2.0 WITH Commercial-Use-Conditions
+            org.opencontainers.image.source=https://github.com/ai-shifu/ai-shifu
+            org.opencontainers.image.documentation=https://github.com/ai-shifu/ai-shifu/blob/main/README.md
+            org.opencontainers.image.url=https://ai-shifu.com
+            org.opencontainers.image.revision=${{ env.GIT_SHA }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: ${{ env.PUSH_IMAGES == 'true' }}
+          load: ${{ env.PUSH_IMAGES != 'true' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build summary
+        run: |
+          echo "### ✅ Built latest image for ${{ matrix.service_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Commit: \`${{ env.GIT_SHA }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Tags: \`${{ env.GIT_SHA }}\`, \`latest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Push: \`${{ env.PUSH_IMAGES }}\`" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ env.DOCKERHUB_USER }}" ]; then
+            echo "- Docker Hub: \`${{ env.DOCKERHUB_USER }}/${{ env[matrix.image_name_env] }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Docker Hub: (skipped - credentials unavailable)" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ -n "${{ env.ALIYUN_DOCKER_USERNAME }}" ]; then
+            echo "- Aliyun: \`${{ env.ALIYUN_DOCKER_REGISTRY }}/ai-shifu/${{ env[matrix.image_name_env] }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
