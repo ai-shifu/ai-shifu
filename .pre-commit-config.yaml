@@ -40,17 +40,17 @@ repos:
     hooks:
     -   id: check-shared-translations
         name: Validate shared translation parity
-        entry: python scripts/check_translations.py
+        entry: python3 scripts/check_translations.py
         language: system
         pass_filenames: false
     -   id: check-translation-usage
         name: Validate translation key usage
-        entry: python scripts/check_translation_usage.py --fail-on-unused
+        entry: python3 scripts/check_translation_usage.py --fail-on-unused
         language: system
         pass_filenames: false
     -   id: generate-languages-check
         name: Validate locales metadata up to date
-        entry: bash -lc 'python scripts/generate_languages.py && git diff --exit-code -- src/i18n/locales.json'
+        entry: bash -lc 'python3 scripts/generate_languages.py && git diff --exit-code -- src/i18n/locales.json'
         language: system
         pass_filenames: false
 -   repo: local
