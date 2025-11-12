@@ -134,7 +134,7 @@ def get_config(app: Flask, key: str) -> str:
                 redis.set(
                     cache_key,
                     ConfigCache(
-                        is_encrypted=config.is_encrypted == config.is_encrypted,
+                        is_encrypted=bool(config.is_encrypted),
                         value=raw_value,
                     ).model_dump_json(),
                     ex=86400 + random.randint(0, 3600),
