@@ -53,6 +53,13 @@
 | `NEXT_PUBLIC_LOGIN_METHODS_ENABLED` | 启用的登录方式 | `"phone"` | `"phone"`, `"email"`, `"google"`, `"phone,email"`, `"phone,google"`, `"phone,email,google"` |
 | `NEXT_PUBLIC_DEFAULT_LOGIN_METHOD`  | 默认登录方式   | `"phone"` | `"phone"`, `"email"`, `"google"`                                                            |
 
+### 8. 支付配置 (Payment Configuration)
+
+| 变量名                               | 用途                              | 默认值   |
+| ------------------------------------ | --------------------------------- | -------- |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe前端可公开的Publishable Key | 空字符串 |
+| `NEXT_PUBLIC_STRIPE_ENABLED`         | 是否启用Stripe前端支付入口        | `false`  |
+
 ## 使用方式
 
 ### 在组件中使用
@@ -110,7 +117,9 @@ export async function GET() {
   "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
   "enableEruda": "false",
   "loginMethodsEnabled": ["phone"],
-  "defaultLoginMethod": "phone"
+  "defaultLoginMethod": "phone",
+  "stripePublishableKey": "pk_test_xxx",
+  "stripeEnabled": false
 }
 ```
 
@@ -289,6 +298,8 @@ NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 # ===== Authentication Configuration =====
 NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
 NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_xxx
+NEXT_PUBLIC_STRIPE_ENABLED=false
 ```
 
 ### 生产环境 (docker.env.example)
@@ -319,6 +330,8 @@ NEXT_PUBLIC_DEBUG_ERUDA_ENABLED=false
 # ===== Authentication Configuration =====
 NEXT_PUBLIC_LOGIN_METHODS_ENABLED=phone
 NEXT_PUBLIC_DEFAULT_LOGIN_METHOD=phone
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_xxx
+NEXT_PUBLIC_STRIPE_ENABLED=true
 
 # ===== Docker Specific Configuration =====
 PORT=3000

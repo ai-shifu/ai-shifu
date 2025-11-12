@@ -83,6 +83,10 @@ These touch points will guide the upcoming payment factory abstraction; each cal
 - `STRIPE_WEBHOOK_SECRET` secures webhook validation; keep it server-side only.
 - Optional helpers such as `STRIPE_API_VERSION`, `STRIPE_SUCCESS_URL`, `STRIPE_CANCEL_URL`, and `STRIPE_DEFAULT_CURRENCY` enable consistent behaviour across environments.
 
+### Cook Web Environment Keys
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` supplies the publishable key for initializing Stripe.js on the frontend. This should match the backend `STRIPE_PUBLISHABLE_KEY` but can be scoped per environment.
+- `NEXT_PUBLIC_STRIPE_ENABLED` toggles the Stripe UI so we can progressively roll out the new flow without rebuilding the backend.
+
 Remember to regenerate `.env` examples (`python scripts/generate_env_examples.py`) whenever payment configuration changes.
 
 ## Database Updates

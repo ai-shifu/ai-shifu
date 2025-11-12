@@ -19,6 +19,10 @@ interface EnvironmentConfig {
   wechatAppId: string;
   enableWechatCode: boolean;
 
+  // Payment Configuration
+  stripePublishableKey: string;
+  stripeEnabled: boolean;
+
   // UI Configuration
   alwaysShowLessonTree: boolean;
   logoHorizontal: string;
@@ -164,6 +168,29 @@ function getWeChatCodeEnabled(): boolean {
 }
 
 /**
+ * Gets Stripe publishable key
+ */
+function getStripePublishableKey(): string {
+  const runtimeKey = getRuntimeEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+  if (runtimeKey) {
+    return runtimeKey;
+  }
+  return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+}
+
+/**
+ * Gets Stripe enable flag
+ */
+function getStripeEnabled(): boolean {
+  const runtimeEnabled = getRuntimeEnv('NEXT_PUBLIC_STRIPE_ENABLED');
+  if (runtimeEnabled !== undefined) {
+    return getBooleanValue(runtimeEnabled, false);
+  }
+  const value = process.env.NEXT_PUBLIC_STRIPE_ENABLED;
+  return getBooleanValue(value, false);
+}
+
+/**
  * Gets UI always show lesson tree
  */
 function getUIAlwaysShowLessonTree(): boolean {
@@ -301,6 +328,10 @@ export const environment: EnvironmentConfig = {
   // WeChat Integration
   wechatAppId: getWeChatAppId(),
   enableWechatCode: getWeChatCodeEnabled(),
+
+  // Payment Configuration
+  stripePublishableKey: getStripePublishableKey(),
+  stripeEnabled: getStripeEnabled(),
 
   // UI Configuration
   alwaysShowLessonTree: getUIAlwaysShowLessonTree(),

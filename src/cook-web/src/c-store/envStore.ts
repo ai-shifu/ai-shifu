@@ -32,4 +32,9 @@ export const useEnvStore = create<EnvStoreState>(set => ({
   updateEnableWxcode: async (enableWxcode: string) => set({ enableWxcode }),
   homeUrl: environment.homeUrl,
   updateHomeUrl: async (homeUrl: string) => set({ homeUrl }),
+  stripePublishableKey: environment.stripePublishableKey,
+  updateStripePublishableKey: async (stripePublishableKey: string) =>
+    set({ stripePublishableKey }),
+  stripeEnabled: environment.stripeEnabled.toString(),
+  updateStripeEnabled: async (stripeEnabled: string) => set({ stripeEnabled }),
 }));

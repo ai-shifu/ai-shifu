@@ -37,6 +37,8 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoVertical,
     updateEnableWxcode,
     updateHomeUrl,
+    updateStripePublishableKey,
+    updateStripeEnabled,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -63,6 +65,12 @@ const initializeEnvData = async (): Promise<void> => {
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateDefaultLlmModel(data?.defaultLlmModel || '');
         await updateHomeUrl(data?.homeUrl || '');
+        await updateStripePublishableKey(data?.stripePublishableKey || '');
+        await updateStripeEnabled(
+          data?.stripeEnabled !== undefined
+            ? data.stripeEnabled.toString()
+            : 'false',
+        );
       }
     } catch (error) {
       console.error(error);
