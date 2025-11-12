@@ -199,7 +199,7 @@ def get_shifu_summary(app, shifu_id: str):
             .first()
         )
         if not shifu:
-            app.logger.error(f"get_shifu_summary shifu_id: {shifu_id} not found")
+            app.logger.warning(f"get_shifu_summary shifu_id: {shifu_id} not found")
             return
 
         # Get the prompt word template
