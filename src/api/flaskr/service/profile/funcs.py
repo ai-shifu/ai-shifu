@@ -1,7 +1,7 @@
 from flask import Flask
 
 
-from .constants import SYS_USER_LANGUAGE
+from .constants import SYS_USER_LANGUAGE, SYS_USER_NICKNAME
 from .models import UserProfile
 from ...dao import db
 from typing import Optional
@@ -30,6 +30,7 @@ from flaskr.service.profile.models import (
 )
 from flaskr.service.profile.dtos import ProfileToSave
 from flaskr.service.user.dtos import UserProfileLabelDTO, UserProfileLabelItemDTO
+from flaskr.service.user.repository import UserEntity
 
 _LANGUAGE_BASE_DISPLAY = {
     "en": "English",
@@ -364,12 +365,10 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
     """
     profiles_items = get_profile_item_definition_list(app, course_id)
     user_profiles = UserProfile.query.filter_by(user_id=user_id).all()
-    aggregate = load_user_aggregate(user_id)
+    user_info: UserEntity = UserEntity.query.filter(
+        UserEntity.user_bid == user_id
+    ).first()
     result = {}
-
-    language_code = aggregate.user_language if aggregate else None
-    result[SYS_USER_LANGUAGE] = _language_display_value(language_code)
-
     for profile_item in profiles_items:
         user_profile = next(
             (
@@ -390,6 +389,13 @@ def get_user_profiles(app: Flask, user_id: str, course_id: str) -> dict:
             )
         if user_profile:
             result[profile_item.profile_key] = user_profile.profile_value
+    if result.get(SYS_USER_LANGUAGE, None) is None:
+        result[SYS_USER_LANGUAGE] = user_info.language if user_info else "en-US"
+    if (
+        result.get(SYS_USER_NICKNAME, None) is None
+        or result.get(SYS_USER_NICKNAME, None) == ""
+    ):
+        result[SYS_USER_NICKNAME] = user_info.nickname if user_info else ""
     return result
 
 
