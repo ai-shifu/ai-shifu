@@ -361,7 +361,13 @@ export function usePreviewChat() {
         console.warn('preview SSE handling error:', err);
       }
     },
-    [buildAutoSendParams, ensureContentItem, parseInteractionBlock, setTrackedContentList, stopPreview],
+    [
+      buildAutoSendParams,
+      ensureContentItem,
+      parseInteractionBlock,
+      setTrackedContentList,
+      stopPreview,
+    ],
   );
 
   const startPreview = useCallback(
@@ -622,9 +628,9 @@ export function usePreviewChat() {
         user_input: {
           [variableName]: values,
         },
-        block_index:
-          needReGenerate ? (Number(newList[needChangeItemIndex].generated_block_bid) || 0) + 1
-            : (sseParams.current.block_index || 0) + 1,
+        block_index: needReGenerate
+          ? (Number(newList[needChangeItemIndex].generated_block_bid) || 0) + 1
+          : (sseParams.current.block_index || 0) + 1,
       });
       return true;
     },
@@ -691,7 +697,7 @@ export function usePreviewChat() {
 
   const tryAutoSubmitInteraction = useCallback(
     (blockId: string, content?: string | null) => {
-      debugger
+      debugger;
       if (!content || autoSubmittedBlocksRef.current.has(blockId)) {
         return;
       }
