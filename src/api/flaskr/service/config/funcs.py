@@ -169,8 +169,8 @@ def add_config(
                 config_bid=generate_id(app),
                 key=key,
                 value=value,
-                is_deleted=0,
-                is_secret=is_secret,
+                deleted=0,
+                is_encrypted=is_secret,
                 remark=remark,
                 updated_by="",
             )
