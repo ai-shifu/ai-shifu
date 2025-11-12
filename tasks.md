@@ -39,6 +39,7 @@
 - [x] Handle Stripe Checkout redirects. Add a Next.js route (e.g., `/payment/stripe/result`) that reads `session_id`, calls `/api/order/payment-detail`, updates the store, and guides users back into the chat. Align backend `STRIPE_SUCCESS_URL`/`STRIPE_CANCEL_URL` with this route and show user-friendly messaging when users cancel or when we cannot recover a session.
 - [x] Add i18n copy and assets for the new card-payment UI (button labels, error toasts, helper text). Update both `en-US` and `zh-CN` locale JSON plus any shared constants so we stay compliant with the English-only code policy.
 - [x] Document and test the Cook Web flow: update `docs/payment-flow.md`, `src/cook-web/src/config/ENVIRONMENT_CONFIG.md`, and the project README with frontend setup steps, then cover the new logic with unit tests (where possible) and a manual QA checklist (Ping++, Stripe Payment Intent, Stripe Checkout, coupon application, success/timeout states).
+- [x] Resolve Next.js build regressions caused by the Stripe UI refactor (fix `usePaymentFlow` imports/types and PayModal hook ordering) and confirm `npm run build` passes.
 
 ## Configuration & Infrastructure
 - [x] Add Stripe configuration entries in `src/api/flaskr/common/config.py`, with validation and grouping, and update config fixtures/tests.

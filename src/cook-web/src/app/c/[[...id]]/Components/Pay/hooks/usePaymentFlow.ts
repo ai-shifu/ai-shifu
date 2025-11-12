@@ -10,7 +10,7 @@ import {
   type PayUrlResponse,
   type PaymentChannel,
 } from '@/c-api/order';
-import { ORDER_STATUS } from '../../constans';
+import { ORDER_STATUS } from '../constans';
 
 const MAX_TIMEOUT = 1000 * 60 * 3;
 const COUNTDOWN_INTERVAL = 1000;
@@ -114,9 +114,14 @@ export const usePaymentFlow = ({
 
   const initOrderUniform = useCallback(async () => {
     if (type === 'active') {
+      const { recordId = '', action = '' } = (payload || {}) as {
+        recordId?: string;
+        action?: string;
+      };
       return initActiveOrder({
         courseId,
-        ...(payload || {}),
+        recordId,
+        action,
       });
     }
     return initOrder(courseId);

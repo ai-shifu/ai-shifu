@@ -73,6 +73,8 @@ export const PayModal = ({
 
   const courseId = getStringEnv('courseId');
 
+  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+
   const {
     orderId,
     price,
@@ -116,8 +118,6 @@ export const PayModal = ({
   const stripePayload = (paymentInfo.paymentPayload ||
     {}) as StripePaymentPayload;
   const stripeMode = (stripePayload.mode || '').toLowerCase();
-
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
 
   const { previewMode } = useSystemStore(
     useShallow(state => ({ previewMode: state.previewMode })),
