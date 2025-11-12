@@ -49,7 +49,7 @@
 - [x] Add unit tests for the payment factory to verify provider selection and behaviour parity with Ping++. Covered in `src/api/tests/service/order/test_payment_channel_resolution.py` and associated DTO tests.
 - [x] Create integration tests (or service-level tests) covering Stripe charge creation, webhook handling, and refund flows using mocked Stripe SDK responses. Added service-layer tests in `tests/service/order/test_stripe_webhook.py` and `test_stripe_refund.py` using stubbed providers.
 - [x] Update existing Ping++ tests affected by the factory refactor to ensure no regressions. Legacy tests now supply the optional `payment_channel` argument.
-- [ ] Run full backend test suite (`pytest`) once implementation is complete. (Partial runs for Stripe tests currently blocked by missing optional dependencies such as `flask_migrate` in the test environment.)
+- [ ] Run full backend test suite (`pytest`) once implementation is complete. (Still blocked locally because `flask_migrate` is unavailable in the sandbox environment.)
 
 ## Documentation & Rollout
 - [x] Update developer documentation with payment architecture overview and instructions for adding new providers. Expanded `docs/payment-flow.md` with provider selection flow and request samples.
