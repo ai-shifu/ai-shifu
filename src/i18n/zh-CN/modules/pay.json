@@ -28,6 +28,7 @@
   "stripeResultPendingTitle": "支付处理中",
   "stripeResultErrorTitle": "暂时无法确认支付",
   "stripeResultPending": "Stripe 仍在处理，我们会尽快同步订单状态。",
+  "stripeResultRedirectCountDown": "将在 {{count}} 秒后返回课程...",
   "stripeResultMissingOrder": "未找到对应订单，请重新进入课程或联系支持。",
   "stripeResultBackToChat": "返回课程",
   "stripeResultHome": "返回首页"
