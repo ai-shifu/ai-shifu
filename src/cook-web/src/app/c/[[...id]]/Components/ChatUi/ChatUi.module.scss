@@ -45,7 +45,7 @@
     .footerText {
       color: rgba(10, 10, 10, 0.45);
       text-align: center;
-      font-family: "PingFang SC";
+      font-family: 'PingFang SC';
       font-size: 12px;
       font-style: normal;
       font-weight: 400;
@@ -57,7 +57,7 @@
     width: 100%;
     padding-top: 80px;
     padding-bottom: max(80px, calc(40px + env(safe-area-inset-bottom, 0px)));
-    .chatComponents{
+    .chatComponents {
       padding-top: 0;
     }
   }
@@ -74,10 +74,7 @@
     padding-top: 64px;
     padding-bottom: 40px;
     box-sizing: border-box;
-
   }
-
-
 
   .chatComponentsHidden {
     overflow-y: hidden;

@@ -245,7 +245,11 @@ export const NewChatComponents = ({
           return (
             <div
               key={`${idx}-content`}
-              style={{ position: 'relative', margin: '0 auto', maxWidth: '1000px',  }}
+              style={{
+                position: 'relative',
+                margin: '0 auto',
+                maxWidth: '1000px',
+              }}
             >
               {isLongPressed && mobileStyle && (
                 <div className='long-press-overlay' />
