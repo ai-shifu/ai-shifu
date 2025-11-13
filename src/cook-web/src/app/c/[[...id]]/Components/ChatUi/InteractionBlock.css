@@ -1,6 +1,8 @@
 .interaction-block {
   padding-left: 20px;
   padding-bottom: 5px;
+  margin: 0 auto;
+  max-width: 1000px;
 }
 .interaction-block button svg:hover {
   color: hsl(var(--primary));
