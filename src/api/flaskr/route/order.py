@@ -8,6 +8,7 @@ from flaskr.service.order import (
     init_buy_record,
     handle_stripe_webhook,
     get_payment_details,
+    sync_stripe_checkout_session,
 )
 
 
@@ -228,6 +229,46 @@ def register_order_handler(app: Flask, path_prefix: str):
         if not order_id:
             raise_param_error("order_id")
         return make_common_response(get_payment_details(app, order_id))
+
+    @app.route(path_prefix + "/stripe/sync", methods=["POST"])
+    def stripe_sync():
+        """
+        同步 Stripe 支付状态
+        ---
+        tags:
+            - 订单
+        parameters:
+            - in: body
+              name: body
+              required: true
+              schema:
+                type: object
+                properties:
+                    order_id:
+                        type: string
+                        description: 订单id
+                    session_id:
+                        type: string
+                        description: Stripe checkout session id
+        responses:
+            200:
+                description: 同步成功
+        """
+
+        payload = request.get_json() or {}
+        order_id = payload.get("order_id", "")
+        if not order_id:
+            raise_param_error("order_id")
+        session_id = payload.get("session_id")
+        user_id = request.user.user_id
+        return make_common_response(
+            sync_stripe_checkout_session(
+                app,
+                order_id,
+                session_id=session_id,
+                expected_user=user_id,
+            )
+        )
 
     @app.route(path_prefix + "/stripe/webhook", methods=["POST"])
     def stripe_webhook():

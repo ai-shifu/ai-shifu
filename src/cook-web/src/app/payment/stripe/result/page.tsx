@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
-import { getPaymentDetail } from '@/c-api/order';
+import { getPaymentDetail, syncStripeCheckout } from '@/c-api/order';
 import { consumeStripeCheckoutSession } from '@/lib/stripe-storage';
 
 interface StripeResultState {
@@ -21,6 +21,7 @@ export default function StripeResultPage() {
     status: 'loading',
     message: '',
   });
+  const syncAttemptedRef = useRef(false);
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id') || '';
@@ -41,7 +42,17 @@ export default function StripeResultPage() {
 
     (async () => {
       try {
-        const detail = await getPaymentDetail({ orderId });
+        let detail = await getPaymentDetail({ orderId });
+        if (
+          detail.payment_channel === 'stripe' &&
+          detail.status !== 1 &&
+          sessionId
+        ) {
+          if (!syncAttemptedRef.current) {
+            syncAttemptedRef.current = true;
+            detail = await syncStripeCheckout({ orderId, sessionId });
+          }
+        }
         if (detail.payment_channel === 'stripe' && detail.status === 1) {
           setState({
             status: 'success',

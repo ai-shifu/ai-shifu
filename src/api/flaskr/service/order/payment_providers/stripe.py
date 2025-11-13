@@ -142,6 +142,16 @@ class StripeProvider(PaymentProvider):
             },
         )
 
+    def retrieve_checkout_session(
+        self, *, session_id: str, app: Flask
+    ) -> Dict[str, Any]:
+        stripe = self._ensure_client(app)
+        return stripe.checkout.Session.retrieve(session_id)
+
+    def retrieve_payment_intent(self, *, intent_id: str, app: Flask) -> Dict[str, Any]:
+        stripe = self._ensure_client(app)
+        return stripe.PaymentIntent.retrieve(intent_id)
+
     def handle_notification(
         self, *, payload: Dict[str, Any], app: Flask
     ) -> PaymentNotificationResult:

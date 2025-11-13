@@ -36,6 +36,8 @@ from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
 from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
 from flaskr.common.config import get_config
+from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
+
 from .payment_providers import PaymentRequest, get_payment_provider
 from .payment_providers.base import (
     PaymentNotificationResult,
@@ -630,9 +632,13 @@ def _generate_stripe_charge(
         success_url = get_config("STRIPE_SUCCESS_URL")
         cancel_url = get_config("STRIPE_CANCEL_URL")
         if success_url:
-            provider_options["success_url"] = success_url
+            provider_options["success_url"] = _inject_order_query(
+                success_url, buy_record.order_bid
+            )
         if cancel_url:
-            provider_options["cancel_url"] = cancel_url
+            provider_options["cancel_url"] = _inject_order_query(
+                cancel_url, buy_record.order_bid
+            )
         provider_options["line_items"] = [
             {
                 "price_data": {
@@ -715,6 +721,137 @@ def _generate_stripe_charge(
         qr_value,
         payment_channel="stripe",
         payment_payload=payment_payload,
+    )
+
+
+def sync_stripe_checkout_session(
+    app: Flask,
+    order_id: str,
+    session_id: Optional[str] = None,
+    expected_user: Optional[str] = None,
+):
+    with app.app_context():
+        order = (
+            Order.query.filter(
+                Order.order_bid == order_id,
+                Order.deleted == 0,
+            )
+            .order_by(Order.id.desc())
+            .first()
+        )
+        if not order:
+            raise_error("server.order.orderNotFound")
+        if expected_user and order.user_bid != expected_user:
+            raise_error("server.order.orderNotFound")
+
+        if order.payment_channel != "stripe":
+            raise_error("server.pay.payChannelNotSupport")
+
+        stripe_order = (
+            StripeOrder.query.filter(
+                StripeOrder.order_bid == order.order_bid,
+                StripeOrder.deleted == 0,
+            )
+            .order_by(StripeOrder.id.desc())
+            .first()
+        )
+        if not stripe_order:
+            raise_error("server.order.orderNotFound")
+
+        resolved_session_id = session_id or stripe_order.checkout_session_id
+        if resolved_session_id and isinstance(resolved_session_id, str):
+            placeholder = resolved_session_id.strip().strip("{}").upper()
+            if placeholder in {"CHECKOUT_SESSION_ID", "SESSION_ID"}:
+                resolved_session_id = stripe_order.checkout_session_id
+
+        if not resolved_session_id:
+            raise_error("server.order.orderNotFound")
+
+        provider = get_payment_provider("stripe")
+        session = provider.retrieve_checkout_session(
+            session_id=resolved_session_id, app=app
+        )
+        intent = None
+        intent_id = session.get("payment_intent") or stripe_order.payment_intent_id
+        if intent_id:
+            intent = provider.retrieve_payment_intent(intent_id=intent_id, app=app)
+
+        _update_stripe_order_snapshot(
+            stripe_order=stripe_order, session=session, intent=intent
+        )
+        paid = _is_stripe_payment_successful(session=session, intent=intent)
+
+        if paid and order.status != ORDER_STATUS_SUCCESS:
+            success_buy_record(app, order.order_bid)
+
+        db.session.commit()
+        return get_payment_details(app, order.order_bid)
+
+
+def _update_stripe_order_snapshot(
+    *,
+    stripe_order: StripeOrder,
+    session: Dict[str, Any],
+    intent: Optional[Dict[str, Any]],
+):
+    if session:
+        stripe_order.checkout_session_id = session.get(
+            "id", stripe_order.checkout_session_id
+        )
+        stripe_order.checkout_session_object = _stringify_payload(session)
+        payment_status = session.get("payment_status")
+        status = session.get("status")
+        if payment_status == "paid" or status == "complete":
+            stripe_order.status = 1
+        elif status == "expired":
+            stripe_order.status = 3
+        else:
+            stripe_order.status = 0
+
+    if intent:
+        stripe_order.payment_intent_id = intent.get(
+            "id", stripe_order.payment_intent_id
+        )
+        stripe_order.payment_intent_object = _stringify_payload(intent)
+        latest_charge = intent.get("latest_charge")
+        if latest_charge:
+            stripe_order.latest_charge_id = latest_charge
+        charges = intent.get("charges", {}).get("data", [])
+        if charges:
+            receipt_url = charges[0].get("receipt_url")
+            if receipt_url:
+                stripe_order.receipt_url = receipt_url
+
+
+def _is_stripe_payment_successful(
+    *, session: Optional[Dict[str, Any]], intent: Optional[Dict[str, Any]]
+) -> bool:
+    if session:
+        if session.get("payment_status") == "paid":
+            return True
+        if session.get("status") == "complete":
+            return True
+    if intent and intent.get("status") == "succeeded":
+        return True
+    return False
+
+
+def _inject_order_query(url: str, order_id: str) -> str:
+    if not url:
+        return url
+    parsed = urlsplit(url)
+    query_items = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    if "order_id" not in query_items:
+        query_items["order_id"] = order_id
+    new_query = urlencode(query_items, doseq=True)
+    return urlunsplit(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            new_query,
+            parsed.fragment,
+        )
     )
 
 

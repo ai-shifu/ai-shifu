@@ -106,3 +106,16 @@ export const initActiveOrder = ({ recordId, action, courseId }) => {
     record_id: recordId,
   });
 };
+
+export const syncStripeCheckout = ({
+  orderId,
+  sessionId,
+}: {
+  orderId: string;
+  sessionId?: string;
+}): Promise<PaymentDetailResponse> => {
+  return request.post('/api/order/stripe/sync', {
+    order_id: orderId,
+    session_id: sessionId,
+  }) as Promise<PaymentDetailResponse>;
+};
