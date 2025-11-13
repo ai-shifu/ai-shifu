@@ -14,6 +14,7 @@
     "shifuNameAlreadyExists": "同名师傅已存在",
     "outlineNotFound": "大纲不存在",
     "shifuNameTooLong": "师傅名称不能超过20个字符",
-    "shifuDescriptionTooLong": "师傅描述不能超过500个字符"
+    "shifuDescriptionTooLong": "师傅描述不能超过500个字符",
+    "importFileInvalid": "导入文件无效"
   }
 }

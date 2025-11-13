@@ -14,6 +14,7 @@
     "shifuNameAlreadyExists": "⟦Šħįƒų ňåmē åŀřēåđŷ ēẋįšŧš⟧",
     "outlineNotFound": "⟦Øųŧŀįňē ňøŧ ƒøųňđ⟧",
     "shifuNameTooLong": "⟦Šħįƒų ňåmē įš ŧøø ŀøňǥ (måẋ 20 ćħåřåćŧēřš)⟧",
-    "shifuDescriptionTooLong": "⟦Šħįƒų đēšćřįƥŧįøň įš ŧøø ŀøňǥ (måẋ 500 ćħåřåćŧēřš)⟧"
+    "shifuDescriptionTooLong": "⟦Šħįƒų đēšćřįƥŧįøň įš ŧøø ŀøňǥ (måẋ 500 ćħåřåćŧēřš)⟧",
+    "importFileInvalid": "⟦Īňƥųŧ ēɱǥ ŀøňǥ įš įɴƥųŧ⟧"
   }
 }
