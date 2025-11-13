@@ -359,21 +359,22 @@ const ScriptEditor = ({ id }: { id: string }) => {
               >
                 {currentNode?.depth && currentNode.depth > 0 ? (
                   <>
-                    <div className='flex flex-wrap items-center gap-3 pb-2'>
-                      <div className='flex flex-1 min-w-[220px] items-baseline gap-2'>
-                        <h2 className='text-base font-semibold text-foreground whitespace-nowrap'>
+                    <div className='flex items-center gap-3 pb-2'>
+                      <div className='flex flex-1 min-w-0 items-baseline gap-2'>
+                        <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
                           {t('module.shifu.creationArea.title')}
                         </h2>
-                        <p className='text-xs leading-3 text-[rgba(0,0,0,0.45)] whitespace-nowrap overflow-hidden text-ellipsis'>
+                        <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
                           {t('module.shifu.creationArea.description')}
                         </p>
                       </div>
-                      <div className='ml-auto flex flex-wrap items-center gap-2 relative'>
+                      <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
                         <Tabs
                           value={editMode}
                           onValueChange={value =>
                             setEditMode(value as EditMode)
                           }
+                          className='shrink-0'
                         >
                           <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
                             {editModeOptions.map(option => (
@@ -392,7 +393,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                         <Button
                           type='button'
                           size='sm'
-                          className='h-8 px-3 text-xs font-semibold text-[14px]'
+                          className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
                           onClick={handlePreview}
                           disabled={!canPreview || isPreviewPreparing}
                           title={
