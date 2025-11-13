@@ -2,9 +2,13 @@ from flask import Flask
 import click
 import asyncio
 import logging
+import os
+from io import BytesIO
 from sqlalchemy import create_engine, text
+from werkzeug.datastructures import FileStorage
 from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
+from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
 
 
 def setup_migration_logging():
@@ -294,3 +298,93 @@ def enable_commands(app: Flask):
         finally:
             if "migration_task" in locals():
                 migration_task.close()
+
+    @console.command(name="export_shifu")
+    @click.argument("shifu_id")
+    @click.argument("file_path")
+    def export_shifu_command(shifu_id, file_path):
+        """Export a shifu to a JSON file
+
+        Args:
+            shifu_id: Shifu business identifier
+            file_path: Path to save the JSON file
+        """
+        try:
+            click.echo(f"Exporting shifu {shifu_id} to {file_path}...")
+            result = export_shifu(app, shifu_id, file_path)
+            if result == "success":
+                click.echo(
+                    click.style(
+                        f"✅ Shifu exported successfully to {file_path}", fg="green"
+                    )
+                )
+            else:
+                click.echo(
+                    click.style(
+                        f"⚠️  Export completed with message: {result}", fg="yellow"
+                    )
+                )
+        except Exception as e:
+            click.echo(click.style(f"❌ Export failed: {e}", fg="red"))
+            raise click.ClickException(f"Export failed: {e}")
+
+    @console.command(name="import_shifu")
+    @click.argument("file_path")
+    @click.option(
+        "--shifu-id",
+        default=None,
+        help="Optional shifu business identifier. If provided and exists, will update existing shifu.",
+    )
+    @click.option(
+        "--user-id", required=True, help="User ID for creating/updating the shifu"
+    )
+    def import_shifu_command(file_path, shifu_id, user_id):
+        """Import a shifu from a JSON file
+
+        Args:
+            file_path: Path to the JSON file to import
+            shifu_id: Optional shifu business identifier. If provided and exists, will update existing shifu.
+            user_id: User ID for creating/updating the shifu
+        """
+        try:
+            # Check if file exists
+            if not os.path.exists(file_path):
+                raise click.ClickException(f"File not found: {file_path}")
+
+            click.echo(f"Importing shifu from {file_path}...")
+            if shifu_id:
+                click.echo(f"Target shifu ID: {shifu_id} (will update if exists)")
+            else:
+                click.echo("Creating new shifu (no shifu_id provided)")
+
+            # Create FileStorage object from file path
+            # Read file content first, then create FileStorage
+            with open(file_path, "rb") as f:
+                file_content = f.read()
+
+            # Create FileStorage from bytes
+            file_storage = FileStorage(
+                stream=BytesIO(file_content),
+                filename=os.path.basename(file_path),
+                name="file",
+            )
+
+            result_shifu_id = import_shifu(app, shifu_id, file_storage, user_id)
+
+            if shifu_id and result_shifu_id == shifu_id:
+                click.echo(
+                    click.style(
+                        f"✅ Shifu {result_shifu_id} updated successfully", fg="green"
+                    )
+                )
+            else:
+                click.echo(
+                    click.style(
+                        f"✅ New shifu {result_shifu_id} created successfully",
+                        fg="green",
+                    )
+                )
+
+        except Exception as e:
+            click.echo(click.style(f"❌ Import failed: {e}", fg="red"))
+            raise click.ClickException(f"Import failed: {e}")
