@@ -1082,6 +1082,7 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
                 raise_error("server.order.orderNotFound")
             return {
                 "payment_channel": "stripe",
+                "course_id": order.shifu_bid,
                 "order_bid": order_bid,
                 "payment_intent_id": stripe_order.payment_intent_id,
                 "checkout_session_id": stripe_order.checkout_session_id,
@@ -1107,6 +1108,7 @@ def get_payment_details(app: Flask, order_bid: str) -> Dict[str, Any]:
             raise_error("server.order.orderNotFound")
         return {
             "payment_channel": "pingxx",
+            "course_id": order.shifu_bid,
             "order_bid": order_bid,
             "charge_id": pingxx_order.charge_id,
             "transaction_no": pingxx_order.transaction_no,
