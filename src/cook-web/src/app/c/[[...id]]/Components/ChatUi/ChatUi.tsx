@@ -1,6 +1,6 @@
 import styles from './ChatUi.module.scss';
 
-import { useContext, memo } from 'react';
+import { memo } from 'react';
 import { cn } from '@/lib/utils';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +29,7 @@ export const ChatUi = ({
   updateSelectedLesson,
   getNextLessonId,
 }) => {
+  const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
   const { previewMode } = useSystemStore(
     useShallow(state => ({
@@ -76,7 +77,9 @@ export const ChatUi = ({
 
       <GlobalInfoButton className={styles.globalInfoButton} />
       <div className={styles.footer}>
-        <span className={styles.footerText}>内容由 AI 在人类指导下生成</span>
+        <span className={styles.footerText}>
+          {t('module.chat.aiGenerated')}
+        </span>
       </div>
     </div>
   );
