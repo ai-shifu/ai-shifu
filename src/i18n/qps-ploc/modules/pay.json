@@ -28,7 +28,7 @@
   "stripeResultPendingTitle": "⟦Ƥåŷmēňŧ ƥēňđįňğ⟧",
   "stripeResultErrorTitle": "⟦Čåň'ŧ ƈøňƒįřṃ ƥåŷmēňŧ⟧",
   "stripeResultPending": "⟦Ŵē'ŀŀ šŷñč ẏøųř øřđēř øňçē Šŧřįƥē ƒįñįšħēš ƥřøćēššįňğ.⟧",
-  "stripeResultRedirectCountDown": "⟦Řēđįřēčŧįňğ įň {{count}}š...⟧",
+  "stripeResultRedirectCountDown": "⟦Řēđįřēčŧįňğ įň {{seconds}}š...⟧",
   "stripeResultMissingOrder": "⟦Ŵē čøųŀđ ŉøŧ ƒįňđ ŧħē måŧçħįňğ øřđēř. Řēøƥēň ŧħē čħåŧ øř čøňŧåçŧ šųƥƥøřŧ.⟧",
   "stripeResultBackToChat": "⟦Řēŧűřň ŧø čħåŧ⟧",
   "stripeResultHome": "⟦Ɓåčķ ŧø ħøṃē⟧"

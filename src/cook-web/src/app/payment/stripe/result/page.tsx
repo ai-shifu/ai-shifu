@@ -144,7 +144,7 @@ export default function StripeResultPage() {
         {state.status === 'success' && state.courseId ? (
           <p className='text-sm text-muted-foreground'>
             {t('module.pay.stripeResultRedirectCountDown', {
-              count: redirectCountdown,
+              seconds: redirectCountdown,
             })}
           </p>
         ) : null}

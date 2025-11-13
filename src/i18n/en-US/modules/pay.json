@@ -28,7 +28,7 @@
   "stripeResultPendingTitle": "Payment pending",
   "stripeResultErrorTitle": "Unable to verify payment",
   "stripeResultPending": "We will sync your order once Stripe finishes processing.",
-  "stripeResultRedirectCountDown": "Taking you back to the course in {{count}}s...",
+  "stripeResultRedirectCountDown": "Taking you back to the course in {{seconds}}s...",
   "stripeResultMissingOrder": "We couldn't find the matching order. Please reopen the chat or contact support.",
   "stripeResultBackToChat": "Return to chat",
   "stripeResultHome": "Back to home"
