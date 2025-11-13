@@ -1,6 +1,6 @@
 import styles from './PayModal.module.scss';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -105,37 +105,103 @@ export const PayModal = ({
   const effectiveLoading = isLoggedIn ? isLoading : previewLoading;
   const ready = isLoggedIn ? !initLoading : !previewInitLoading;
   const { toast } = useToast();
+  const initialPaymentRequestedRef = useRef(false);
 
-  const { stripePublishableKey, stripeEnabled } = useEnvStore(
+  const { stripePublishableKey, stripeEnabled, paymentChannels } = useEnvStore(
     useShallow(state => ({
       stripePublishableKey: state.stripePublishableKey,
       stripeEnabled: state.stripeEnabled,
+      paymentChannels: state.paymentChannels,
     })),
   );
+  const normalizedPaymentChannels = useMemo(
+    () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
+    [paymentChannels],
+  );
+  const pingxxChannelEnabled = normalizedPaymentChannels.includes('pingxx');
+  const stripeChannelEnabled = normalizedPaymentChannels.includes('stripe');
   const isStripeAvailable =
-    stripeEnabled === 'true' && Boolean(stripePublishableKey);
+    stripeChannelEnabled &&
+    stripeEnabled === 'true' &&
+    Boolean(stripePublishableKey);
   const isStripeSelected = payChannel.startsWith('stripe');
   const stripePayload = (paymentInfo.paymentPayload ||
     {}) as StripePaymentPayload;
+  const stripeCheckoutUrl =
+    stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
 
   const { previewMode } = useSystemStore(
     useShallow(state => ({ previewMode: state.previewMode })),
   );
 
-  const loadPayInfo = useCallback(async () => {
-    const snapshot = await initializeOrder();
-    if (
-      snapshot &&
-      (snapshot.status === ORDER_STATUS.BUY_STATUS_INIT ||
-        snapshot.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID)
-    ) {
-      await refreshPayment({
-        channel: payChannel,
-        paymentChannel: isStripeSelected ? 'stripe' : undefined,
-      });
+  const resolveDefaultChannel = useCallback(() => {
+    if (pingxxChannelEnabled) {
+      return PAY_CHANNEL_WECHAT;
     }
-  }, [initializeOrder, isStripeSelected, payChannel, refreshPayment]);
+    if (isStripeAvailable) {
+      return PAY_CHANNEL_STRIPE;
+    }
+    return PAY_CHANNEL_WECHAT;
+  }, [pingxxChannelEnabled, isStripeAvailable]);
+
+  useEffect(() => {
+    const isCurrentSupported =
+      (isStripeSelected && isStripeAvailable) ||
+      (!isStripeSelected && pingxxChannelEnabled);
+    if (isCurrentSupported) {
+      return;
+    }
+    const fallbackChannel = resolveDefaultChannel();
+    if (fallbackChannel && fallbackChannel !== payChannel) {
+      setPayChannel(fallbackChannel);
+      if (orderId) {
+        refreshPayment({
+          channel: fallbackChannel,
+          paymentChannel: fallbackChannel.startsWith('stripe')
+            ? 'stripe'
+            : undefined,
+        });
+      }
+    }
+  }, [
+    isStripeSelected,
+    isStripeAvailable,
+    pingxxChannelEnabled,
+    resolveDefaultChannel,
+    payChannel,
+    orderId,
+    refreshPayment,
+  ]);
+
+  const loadPayInfo = useCallback(async () => {
+    let nextOrderId = orderId;
+    if (!nextOrderId) {
+      const snapshot = await initializeOrder();
+      nextOrderId = snapshot?.order_id || '';
+    }
+    if (!nextOrderId) {
+      return;
+    }
+    let nextChannel = payChannel;
+    if (!pingxxChannelEnabled && isStripeAvailable) {
+      nextChannel = PAY_CHANNEL_STRIPE;
+      if (nextChannel !== payChannel) {
+        setPayChannel(nextChannel);
+      }
+    }
+    await refreshPayment({
+      channel: nextChannel,
+      paymentChannel: nextChannel.startsWith('stripe') ? 'stripe' : undefined,
+    });
+  }, [
+    initializeOrder,
+    isStripeAvailable,
+    orderId,
+    payChannel,
+    pingxxChannelEnabled,
+    refreshPayment,
+  ]);
 
   const loadCourseInfo = useCallback(async () => {
     setPreviewLoading(true);
@@ -200,20 +266,16 @@ export const PayModal = ({
   }, [syncOrderStatus, t, toast]);
 
   const handleStripeCheckout = useCallback(() => {
-    if (stripePayload.checkout_session_url) {
+    if (stripeCheckoutUrl) {
       if (stripePayload.checkout_session_id && orderId) {
         rememberStripeCheckoutSession(
           stripePayload.checkout_session_id,
           orderId,
         );
       }
-      window.location.href = stripePayload.checkout_session_url;
+      window.location.href = stripeCheckoutUrl;
     }
-  }, [
-    orderId,
-    stripePayload.checkout_session_id,
-    stripePayload.checkout_session_url,
-  ]);
+  }, [orderId, stripePayload.checkout_session_id, stripeCheckoutUrl]);
 
   const handleStripeError = useCallback(
     (message: string) => {
@@ -241,10 +303,21 @@ export const PayModal = ({
 
   useEffect(() => {
     if (!open || !isLoggedIn) {
+      initialPaymentRequestedRef.current = false;
       return;
     }
+    if (initialPaymentRequestedRef.current) {
+      return;
+    }
+    initialPaymentRequestedRef.current = true;
     loadPayInfo();
   }, [isLoggedIn, loadPayInfo, open]);
+
+  useEffect(() => {
+    if (!orderId) {
+      initialPaymentRequestedRef.current = false;
+    }
+  }, [orderId]);
 
   useEffect(() => {
     if (!open || isLoggedIn) {
@@ -255,6 +328,7 @@ export const PayModal = ({
 
   function handleOpenChange(open: boolean) {
     if (!open) {
+      initialPaymentRequestedRef.current = false;
       onCancel?.();
     }
   }
@@ -331,12 +405,14 @@ export const PayModal = ({
                   {isLoggedIn ? (
                     <>
                       <div className={styles.channelSelectors}>
-                        <div className={styles.channelSwitchWrapper}>
-                          <PayChannelSwitch
-                            channel={payChannel}
-                            onChange={onPayChannelSelectChange}
-                          />
-                        </div>
+                        {pingxxChannelEnabled ? (
+                          <div className={styles.channelSwitchWrapper}>
+                            <PayChannelSwitch
+                              channel={payChannel}
+                              onChange={onPayChannelSelectChange}
+                            />
+                          </div>
+                        ) : null}
                         {isStripeAvailable ? (
                           <div className={styles.stripeSelector}>
                             <Button
@@ -363,7 +439,7 @@ export const PayModal = ({
                               <Button
                                 className='w-full'
                                 onClick={handleStripeCheckout}
-                                disabled={!stripePayload.checkout_session_url}
+                                disabled={!stripeCheckoutUrl}
                               >
                                 {t('module.pay.goToStripeCheckout')}
                               </Button>
@@ -377,7 +453,7 @@ export const PayModal = ({
                             />
                           )}
                         </div>
-                      ) : (
+                      ) : pingxxChannelEnabled ? (
                         <div className={cn(styles.qrcodeWrapper, 'relative')}>
                           <QRCodeSVG
                             value={paymentInfo.qrUrl || DEFAULT_QRCODE}
@@ -406,6 +482,10 @@ export const PayModal = ({
                               ) : null}
                             </div>
                           ) : null}
+                        </div>
+                      ) : (
+                        <div className={styles.stripeHint}>
+                          {t('module.pay.stripeError')}
                         </div>
                       )}
                       <div className={styles.couponCodeWrapper}>

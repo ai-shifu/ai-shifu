@@ -1,6 +1,6 @@
 import styles from './PayModalM.module.scss';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -66,6 +66,10 @@ const CompletedSection = memo(() => {
 
 CompletedSection.displayName = 'CompletedSection';
 
+const pingxxDefaultChannel = inWechat()
+  ? PAY_CHANNEL_WECHAT_JSAPI
+  : PAY_CHANNEL_ZHIFUBAO;
+
 export const PayModalM = ({
   open = false,
   onCancel,
@@ -73,9 +77,7 @@ export const PayModalM = ({
   type = '',
   payload = {},
 }) => {
-  const [payChannel, setPayChannel] = useState(
-    inWechat() ? PAY_CHANNEL_WECHAT_JSAPI : PAY_CHANNEL_ZHIFUBAO,
-  );
+  const [payChannel, setPayChannel] = useState(pingxxDefaultChannel);
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [previewPrice, setPreviewPrice] = useState('0');
   const [previewInitLoading, setPreviewInitLoading] = useState(true);
@@ -120,35 +122,102 @@ export const PayModalM = ({
   const displayPrice = isLoggedIn ? price : previewPrice;
   const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
   const ready = isLoggedIn ? !hookInitLoading : !previewInitLoading;
-  const { stripePublishableKey, stripeEnabled } = useEnvStore(
+  const { stripePublishableKey, stripeEnabled, paymentChannels } = useEnvStore(
     useShallow(state => ({
       stripePublishableKey: state.stripePublishableKey,
       stripeEnabled: state.stripeEnabled,
+      paymentChannels: state.paymentChannels,
     })),
   );
+  const initialPaymentRequestedRef = useRef(false);
+  const normalizedPaymentChannels = useMemo(
+    () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
+    [paymentChannels],
+  );
+  const pingxxChannelEnabled = normalizedPaymentChannels.includes('pingxx');
+  const stripeChannelEnabled = normalizedPaymentChannels.includes('stripe');
   const isStripeAvailable =
-    stripeEnabled === 'true' && Boolean(stripePublishableKey);
+    stripeChannelEnabled &&
+    stripeEnabled === 'true' &&
+    Boolean(stripePublishableKey);
   const isStripeSelected = payChannel.startsWith('stripe');
   const stripePayload = (paymentInfo?.paymentPayload ||
     {}) as StripePaymentPayload;
+  const stripeCheckoutUrl =
+    stripePayload.checkout_session_url || paymentInfo?.qrUrl || '';
   const stripeMode = (stripePayload.mode || '').toLowerCase();
+
+  const resolveDefaultChannel = useCallback(() => {
+    if (pingxxChannelEnabled) {
+      return pingxxDefaultChannel;
+    }
+    if (isStripeAvailable) {
+      return PAY_CHANNEL_STRIPE;
+    }
+    return pingxxDefaultChannel;
+  }, [pingxxChannelEnabled, isStripeAvailable, pingxxDefaultChannel]);
+
+  useEffect(() => {
+    const isCurrentSupported =
+      (isStripeSelected && isStripeAvailable) ||
+      (!isStripeSelected && pingxxChannelEnabled);
+    if (isCurrentSupported) {
+      return;
+    }
+    const fallbackChannel = resolveDefaultChannel();
+    if (fallbackChannel && fallbackChannel !== payChannel) {
+      setPayChannel(fallbackChannel);
+      if (orderId) {
+        refreshPayment({
+          channel: fallbackChannel,
+          paymentChannel: fallbackChannel.startsWith('stripe')
+            ? 'stripe'
+            : undefined,
+        });
+      }
+    }
+  }, [
+    isStripeSelected,
+    isStripeAvailable,
+    pingxxChannelEnabled,
+    resolveDefaultChannel,
+    payChannel,
+    orderId,
+    refreshPayment,
+  ]);
 
   const loadPayInfo = useCallback(async () => {
     if (!isLoggedIn) {
       return;
     }
-    const snapshot = await initializeOrder();
-    if (
-      snapshot &&
-      (snapshot.status === ORDER_STATUS.BUY_STATUS_INIT ||
-        snapshot.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID)
-    ) {
-      await refreshPayment({
-        channel: payChannel,
-        paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
-      });
+    let nextOrderId = orderId;
+    if (!nextOrderId) {
+      const snapshot = await initializeOrder();
+      nextOrderId = snapshot?.order_id || '';
     }
-  }, [initializeOrder, isLoggedIn, payChannel, refreshPayment]);
+    if (!nextOrderId) {
+      return;
+    }
+    let nextChannel = payChannel;
+    if (!pingxxChannelEnabled && isStripeAvailable) {
+      nextChannel = PAY_CHANNEL_STRIPE;
+      if (nextChannel !== payChannel) {
+        setPayChannel(nextChannel);
+      }
+    }
+    await refreshPayment({
+      channel: nextChannel,
+      paymentChannel: nextChannel.startsWith('stripe') ? 'stripe' : undefined,
+    });
+  }, [
+    initializeOrder,
+    isLoggedIn,
+    isStripeAvailable,
+    orderId,
+    payChannel,
+    pingxxChannelEnabled,
+    refreshPayment,
+  ]);
 
   const loadCourseInfo = useCallback(async () => {
     setPreviewInitLoading(true);
@@ -230,20 +299,16 @@ export const PayModalM = ({
   }, []);
 
   const handleStripeCheckout = useCallback(() => {
-    if (stripePayload.checkout_session_url) {
+    if (stripeCheckoutUrl) {
       if (stripePayload.checkout_session_id && orderId) {
         rememberStripeCheckoutSession(
           stripePayload.checkout_session_id,
           orderId,
         );
       }
-      window.location.href = stripePayload.checkout_session_url;
+      window.location.href = stripeCheckoutUrl;
     }
-  }, [
-    orderId,
-    stripePayload.checkout_session_id,
-    stripePayload.checkout_session_url,
-  ]);
+  }, [orderId, stripePayload.checkout_session_id, stripeCheckoutUrl]);
 
   const onCouponCodeOkClick = useCallback(async () => {
     if (!couponCodeInput) {
@@ -265,10 +330,21 @@ export const PayModalM = ({
 
   useEffect(() => {
     if (!open || !isLoggedIn) {
+      initialPaymentRequestedRef.current = false;
       return;
     }
+    if (initialPaymentRequestedRef.current) {
+      return;
+    }
+    initialPaymentRequestedRef.current = true;
     loadPayInfo();
   }, [isLoggedIn, loadPayInfo, open]);
+
+  useEffect(() => {
+    if (!orderId) {
+      initialPaymentRequestedRef.current = false;
+    }
+  }, [orderId]);
 
   useEffect(() => {
     if (!open || isLoggedIn) {
@@ -279,6 +355,7 @@ export const PayModalM = ({
 
   function handleCancel(open: boolean) {
     if (!open) {
+      initialPaymentRequestedRef.current = false;
       onCancel?.();
     }
   }
@@ -348,63 +425,65 @@ export const PayModalM = ({
                     )}
                     {isLoggedIn ? (
                       <>
-                        <div className={styles.payChannelWrapper}>
-                          <RadioGroup
-                            value={payChannel}
-                            onValueChange={onPayChannelChange}
-                          >
-                            {inWechat() && (
-                              <div
-                                className={cn(
-                                  styles.payChannelRow,
-                                  payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
-                                    styles.selected,
-                                )}
-                                onClick={onPayChannelWechatClick}
-                              >
-                                <div className={styles.payChannelBasic}>
-                                  <Image
-                                    className={styles.payChannelIcon}
-                                    src={weixinIcon}
-                                    alt={t('module.pay.wechatPay')}
+                        {pingxxChannelEnabled ? (
+                          <div className={styles.payChannelWrapper}>
+                            <RadioGroup
+                              value={payChannel}
+                              onValueChange={onPayChannelChange}
+                            >
+                              {inWechat() && (
+                                <div
+                                  className={cn(
+                                    styles.payChannelRow,
+                                    payChannel === PAY_CHANNEL_WECHAT_JSAPI &&
+                                      styles.selected,
+                                  )}
+                                  onClick={onPayChannelWechatClick}
+                                >
+                                  <div className={styles.payChannelBasic}>
+                                    <Image
+                                      className={styles.payChannelIcon}
+                                      src={weixinIcon}
+                                      alt={t('module.pay.wechatPay')}
+                                    />
+                                    <span className={styles.payChannelTitle}>
+                                      {t('module.pay.wechatPay')}
+                                    </span>
+                                  </div>
+                                  <RadioGroupItem
+                                    value={PAY_CHANNEL_WECHAT_JSAPI}
+                                    className={styles.payChannelRadio}
                                   />
-                                  <span className={styles.payChannelTitle}>
-                                    {t('module.pay.wechatPay')}
-                                  </span>
                                 </div>
-                                <RadioGroupItem
-                                  value={PAY_CHANNEL_WECHAT_JSAPI}
-                                  className={styles.payChannelRadio}
-                                />
-                              </div>
-                            )}
-                            {!inWechat() && (
-                              <div
-                                className={cn(
-                                  styles.payChannelRow,
-                                  payChannel === PAY_CHANNEL_ZHIFUBAO &&
-                                    styles.selected,
-                                )}
-                                onClick={onPayChannelZhifubaoClick}
-                              >
-                                <div className={styles.payChannelBasic}>
-                                  <Image
-                                    className={styles.payChannelIcon}
-                                    src={zhifuboIcon}
-                                    alt={t('module.pay.alipay')}
+                              )}
+                              {!inWechat() && (
+                                <div
+                                  className={cn(
+                                    styles.payChannelRow,
+                                    payChannel === PAY_CHANNEL_ZHIFUBAO &&
+                                      styles.selected,
+                                  )}
+                                  onClick={onPayChannelZhifubaoClick}
+                                >
+                                  <div className={styles.payChannelBasic}>
+                                    <Image
+                                      className={styles.payChannelIcon}
+                                      src={zhifuboIcon}
+                                      alt={t('module.pay.alipay')}
+                                    />
+                                    <span className={styles.payChannelTitle}>
+                                      {t('module.pay.alipay')}
+                                    </span>
+                                  </div>
+                                  <RadioGroupItem
+                                    value={PAY_CHANNEL_ZHIFUBAO}
+                                    className={styles.payChannelRadio}
                                   />
-                                  <span className={styles.payChannelTitle}>
-                                    {t('module.pay.alipay')}
-                                  </span>
                                 </div>
-                                <RadioGroupItem
-                                  value={PAY_CHANNEL_ZHIFUBAO}
-                                  className={styles.payChannelRadio}
-                                />
-                              </div>
-                            )}
-                          </RadioGroup>
-                        </div>
+                              )}
+                            </RadioGroup>
+                          </div>
+                        ) : null}
                         {isStripeAvailable ? (
                           <div className={styles.stripeSelector}>
                             <MainButtonM
@@ -430,7 +509,7 @@ export const PayModalM = ({
                                 <MainButtonM
                                   className={styles.payButton}
                                   onClick={handleStripeCheckout}
-                                  disabled={!stripePayload.checkout_session_url}
+                                  disabled={!stripeCheckoutUrl}
                                 >
                                   {t('module.pay.goToStripeCheckout')}
                                 </MainButtonM>
@@ -444,7 +523,7 @@ export const PayModalM = ({
                               />
                             )}
                           </div>
-                        ) : (
+                        ) : pingxxChannelEnabled ? (
                           <div className={styles.buttonWrapper}>
                             <MainButtonM
                               className={styles.payButton}
@@ -452,6 +531,10 @@ export const PayModalM = ({
                             >
                               {t('module.pay.pay')}
                             </MainButtonM>
+                          </div>
+                        ) : (
+                          <div className={styles.stripeHint}>
+                            {t('module.pay.stripeError')}
                           </div>
                         )}
                         <div className={styles.couponCodeWrapper}>

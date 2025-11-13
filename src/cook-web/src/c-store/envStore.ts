@@ -37,4 +37,7 @@ export const useEnvStore = create<EnvStoreState>(set => ({
     set({ stripePublishableKey }),
   stripeEnabled: environment.stripeEnabled.toString(),
   updateStripeEnabled: async (stripeEnabled: string) => set({ stripeEnabled }),
+  paymentChannels: environment.paymentChannels,
+  updatePaymentChannels: async (paymentChannels: string[]) =>
+    set({ paymentChannels }),
 }));

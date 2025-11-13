@@ -560,6 +560,19 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Default currency code used for Stripe payments",
         group="payment",
     ),
+    "PAYMENT_CHANNELS_ENABLED": EnvVar(
+        name="PAYMENT_CHANNELS_ENABLED",
+        default="pingxx,stripe",
+        description="Comma-separated list of enabled payment providers (e.g., pingxx,stripe)",
+        group="payment",
+    ),
+    "PAY_ORDER_EXPIRE_TIME": EnvVar(
+        name="PAY_ORDER_EXPIRE_TIME",
+        default=600,
+        type=int,
+        description="Order expiration time in seconds before a new order is created",
+        group="payment",
+    ),
     # Alibaba Cloud Configuration
     "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID": EnvVar(
         name="ALIBABA_CLOUD_SMS_ACCESS_KEY_ID",

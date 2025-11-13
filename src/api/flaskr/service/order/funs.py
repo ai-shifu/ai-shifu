@@ -204,20 +204,22 @@ def send_order_feishu(app: Flask, record_id: str):
 
 
 def is_order_has_timeout(app: Flask, origin_record: Order):
-    pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME")
+    pay_order_expire_time = app.config.get("PAY_ORDER_EXPIRE_TIME", 10 * 60)
     if pay_order_expire_time is None:
         return False
     pay_order_expire_time = int(pay_order_expire_time)
-    bj_time = pytz.timezone("Asia/Shanghai")
-    aware_created = bj_time.localize(origin_record.created_at)
-    created_timestamp = int(aware_created.timestamp())
-    current_timestamp = int(datetime.datetime.now().timestamp())
-    if current_timestamp > (created_timestamp + pay_order_expire_time):
+
+    created_at = origin_record.created_at
+    if created_at.tzinfo is None:
+        created_at = pytz.UTC.localize(created_at)
+    else:
+        created_at = created_at.astimezone(pytz.UTC)
+
+    current_time = datetime.datetime.now(pytz.UTC)
+    if current_time > created_at + datetime.timedelta(seconds=pay_order_expire_time):
         # Order timeout
-        # Update the order status
         origin_record.status = ORDER_STATUS_TIMEOUT
         db.session.commit()
-        # Check if there are discount coupons in the order. If there are, rollback the discount coupons
         from flaskr.service.promo.funcs import timeout_coupon_code_rollback
 
         timeout_coupon_code_rollback(

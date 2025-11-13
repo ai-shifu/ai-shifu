@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
     // ===== Payment Configuration =====
     stripePublishableKey: environment.stripePublishableKey,
     stripeEnabled: environment.stripeEnabled,
+    paymentChannels: environment.paymentChannels,
 
     // ===== UI Configuration =====
     alwaysShowLessonTree: environment.alwaysShowLessonTree,

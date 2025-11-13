@@ -22,6 +22,7 @@ interface EnvironmentConfig {
   // Payment Configuration
   stripePublishableKey: string;
   stripeEnabled: boolean;
+  paymentChannels: string[];
 
   // UI Configuration
   alwaysShowLessonTree: boolean;
@@ -190,6 +191,28 @@ function getStripeEnabled(): boolean {
   return getBooleanValue(value, false);
 }
 
+function parsePaymentChannels(value?: string): string[] {
+  if (!value) return ['pingxx', 'stripe'];
+  const channels = value
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+  return channels.length > 0 ? channels : ['pingxx', 'stripe'];
+}
+
+function getPaymentChannels(): string[] {
+  const runtime =
+    getRuntimeEnv('PAYMENT_CHANNELS_ENABLED') ||
+    getRuntimeEnv('NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED');
+  if (runtime) {
+    return parsePaymentChannels(runtime);
+  }
+  const buildValue =
+    process.env.PAYMENT_CHANNELS_ENABLED ||
+    process.env.NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED;
+  return parsePaymentChannels(buildValue);
+}
+
 /**
  * Gets UI always show lesson tree
  */
@@ -332,6 +355,7 @@ export const environment: EnvironmentConfig = {
   // Payment Configuration
   stripePublishableKey: getStripePublishableKey(),
   stripeEnabled: getStripeEnabled(),
+  paymentChannels: getPaymentChannels(),
 
   // UI Configuration
   alwaysShowLessonTree: getUIAlwaysShowLessonTree(),

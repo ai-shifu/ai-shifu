@@ -15,6 +15,7 @@ export interface EnvStoreState {
   homeUrl: string;
   stripePublishableKey: string;
   stripeEnabled: string;
+  paymentChannels: string[];
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
   updateAppId: (appId: string) => Promise<void>;
@@ -29,6 +30,7 @@ export interface EnvStoreState {
   updateHomeUrl: (url: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
+  updatePaymentChannels: (channels: string[]) => Promise<void>;
 }
 
 export interface SystemStoreState {

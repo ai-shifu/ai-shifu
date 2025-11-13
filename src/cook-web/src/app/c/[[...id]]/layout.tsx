@@ -39,6 +39,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateHomeUrl,
     updateStripePublishableKey,
     updateStripeEnabled,
+    updatePaymentChannels,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -70,6 +71,12 @@ const initializeEnvData = async (): Promise<void> => {
           data?.stripeEnabled !== undefined
             ? data.stripeEnabled.toString()
             : 'false',
+        );
+        await updatePaymentChannels(
+          Array.isArray(data?.paymentChannels) &&
+            data.paymentChannels.length > 0
+            ? data.paymentChannels
+            : (useEnvStore.getState() as EnvStoreState).paymentChannels,
         );
       }
     } catch (error) {

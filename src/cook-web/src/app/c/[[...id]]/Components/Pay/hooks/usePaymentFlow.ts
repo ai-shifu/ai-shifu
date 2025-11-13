@@ -76,11 +76,12 @@ export const usePaymentFlow = ({
     };
   }, []);
 
-  const [orderId, setOrderId] = useState('');
+  const [orderId, setOrderIdState] = useState('');
   const orderIdRef = useRef('');
-  useEffect(() => {
-    orderIdRef.current = orderId;
-  }, [orderId]);
+  const updateOrderId = useCallback((value: string) => {
+    orderIdRef.current = value;
+    setOrderIdState(value);
+  }, []);
 
   const [price, setPrice] = useState('0');
   const [originalPrice, setOriginalPrice] = useState('');
@@ -146,7 +147,7 @@ export const usePaymentFlow = ({
       if (!mountedRef.current || !snapshot) {
         return snapshot;
       }
-      setOrderId(snapshot.order_id);
+      updateOrderId(snapshot.order_id);
       setCouponCode('');
       setIsCompleted(
         snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS ? true : false,
@@ -159,7 +160,7 @@ export const usePaymentFlow = ({
         setInitLoading(false);
       }
     }
-  }, [initOrderUniform, isLoggedIn, updateFromOrder]);
+  }, [initOrderUniform, isLoggedIn, updateFromOrder, updateOrderId]);
 
   const refreshPayment = useCallback(
     async ({ channel, paymentChannel }: PaymentActionParams) => {
@@ -259,7 +260,7 @@ export const usePaymentFlow = ({
   }, [updateFromOrder]);
 
   const resetState = useCallback(() => {
-    setOrderId('');
+    updateOrderId('');
     setPrice('0');
     setOriginalPrice('');
     setPriceItems([]);
@@ -269,7 +270,7 @@ export const usePaymentFlow = ({
     setIsCompleted(false);
     setCountDownMs(MAX_TIMEOUT);
     setPollingActive(false);
-  }, []);
+  }, [updateOrderId]);
 
   return {
     orderId,
