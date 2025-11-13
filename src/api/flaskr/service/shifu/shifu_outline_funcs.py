@@ -113,7 +113,7 @@ def build_outline_tree(app, shifu_bid: str) -> list[ShifuOutlineTreeNode]:
                 if node not in parent_node.children:
                     parent_node.add_child(node)
             else:
-                app.logger.warning(f"Parent node not found for position: {position}")
+                app.logger.error(f"Parent node not found for position: {position}")
 
     return outline_tree
 
