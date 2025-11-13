@@ -247,7 +247,7 @@ export const NewChatComponents = ({
               key={`${idx}-content`}
               style={{
                 position: 'relative',
-                margin: '0 auto',
+                margin: !idx || item.type === ChatContentItemType.INTERACTION ? '0 auto':'40px auto 0 auto',
                 maxWidth: '1000px',
               }}
             >

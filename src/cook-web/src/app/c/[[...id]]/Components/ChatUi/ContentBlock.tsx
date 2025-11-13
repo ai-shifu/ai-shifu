@@ -1,7 +1,8 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
-import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
+import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
+import type { OnSendContentParams } from 'markdown-flow-ui';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
 
