@@ -31,6 +31,7 @@ export type PayUrlRequest = {
 export interface StripePaymentDetail {
   payment_channel: 'stripe';
   order_bid: string;
+  course_id: string;
   payment_intent_id: string;
   checkout_session_id: string;
   latest_charge_id: string;
@@ -45,6 +46,7 @@ export interface StripePaymentDetail {
 export interface PingxxPaymentDetail {
   payment_channel: 'pingxx';
   order_bid: string;
+  course_id: string;
   charge_id: string;
   transaction_no: string;
   status: number;
