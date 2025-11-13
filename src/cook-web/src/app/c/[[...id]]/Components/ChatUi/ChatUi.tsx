@@ -45,6 +45,7 @@ export const ChatUi = ({
         frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
       )}
     >
+      {frameLayout !== FRAME_LAYOUT_MOBILE && <div className={styles.header}></div>}
       {
         <ChatComponents
           chapterId={chapterId}
@@ -72,6 +73,9 @@ export const ChatUi = ({
       )}
 
       <GlobalInfoButton className={styles.globalInfoButton} />
+      <div className={styles.footer}>
+        <span className={styles.footerText}>内容由 AI 在人类指导下生成</span>
+      </div>
     </div>
   );
 };
