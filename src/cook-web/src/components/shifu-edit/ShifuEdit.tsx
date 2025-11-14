@@ -331,12 +331,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
         >
           <div className='p-4 flex flex-col h-full'>
             <div className='flex items-center justify-between gap-3'>
-              <div
+              <button
                 onClick={handleToggleLeftPanel}
-                className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
+                className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-ring'
+                aria-label='Toggle chapter list'
               >
                 <ListCollapse className='h-5 w-5' />
-              </div>
+              </button>
               {!foldOutlineTree && (
                 <Button
                   variant='outline'
