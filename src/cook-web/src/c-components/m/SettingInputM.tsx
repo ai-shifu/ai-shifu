@@ -10,15 +10,21 @@ export const SettingInputM = ({
   onChange,
   rules = [],
 }) => {
-  const [_value, setValue] = useState(value);
+  const [_value, setValue] = useState<string>(value ?? '');
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    setValue(value);
+    setValue(value ?? '');
   }, [value]);
 
-  const _onChange = val => {
+  const _onChange = (e: any) => {
+    const val =
+      typeof e === 'string'
+        ? e
+        : e?.target?.value !== undefined
+          ? e.target.value
+          : '';
     setIsError(false);
     setValue(val);
     onChange?.(val);
@@ -54,7 +60,7 @@ export const SettingInputM = ({
       <div className={styles.inputWrapper}>
         <Input
           className={styles.inputElement}
-          value={value}
+          value={_value}
           onChange={_onChange}
           onBlur={_onBlur}
           placeholder={placeholder || title}

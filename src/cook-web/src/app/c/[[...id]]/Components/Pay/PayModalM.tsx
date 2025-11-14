@@ -150,13 +150,22 @@ export const PayModalM = ({
   }, [onCouponCodeModalOpen]);
 
   const onCouponCodeOkClick = useCallback(async () => {
-    const resp = await applyDiscountCode({ orderId, code: couponCode });
+    try {
+      const resp = await applyDiscountCode({ orderId, code: couponCode });
 
-    onCouponCodeModalClose();
+      // Update price display and discount items immediately
+      setOriginalPrice(resp.price);
+      setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
+      setPrice(resp.value_to_pay);
 
-    if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-      setIsCompleted(true);
-      onOk();
+      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+        setIsCompleted(true);
+        onOk();
+      }
+
+      onCouponCodeModalClose();
+    } catch (e) {
+      // Error toast handled in request; keep modal open for correction
     }
   }, [couponCode, onCouponCodeModalClose, onOk, orderId]);
 
