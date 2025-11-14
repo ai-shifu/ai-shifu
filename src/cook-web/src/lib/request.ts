@@ -262,12 +262,16 @@ export class Request {
     config: StreamRequestConfig = {},
     callback?: StreamCallback,
   ) {
-    const { url: fullUrl } = await this.prepareConfig(url, config);
+    const { url: fullUrl, config: preparedConfig } = await this.prepareConfig(
+      url,
+      config,
+    );
 
     try {
       const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
+        ...preparedConfig,
         ...rest,
         method: 'POST',
         body: JSON.stringify(body),
@@ -329,12 +333,16 @@ export class Request {
     config: StreamRequestConfig = {},
     callback?: StreamCallback,
   ) {
-    const { url: fullUrl } = await this.prepareConfig(url, config);
+    const { url: fullUrl, config: preparedConfig } = await this.prepareConfig(
+      url,
+      config,
+    );
 
     try {
       const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
+        ...preparedConfig,
         ...rest,
         method: 'POST',
         body: JSON.stringify(body),

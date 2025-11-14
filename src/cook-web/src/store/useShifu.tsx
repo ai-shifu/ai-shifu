@@ -28,6 +28,13 @@ import {
   useRef,
 } from 'react';
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
+import {
+  getStoredPreviewVariables,
+  mapKeysToStoredVariables,
+  PreviewVariablesMap,
+  savePreviewVariables,
+  StoredVariablesByScope,
+} from '@/components/lesson-preview/variableStorage';
 
 const ShifuContext = createContext<ShifuContextType | undefined>(undefined);
 
@@ -339,7 +346,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
     setMdflow(mdflow);
     setCurrentMdflow(mdflow);
     // if (mdflow) {
-    parseMdflow(mdflow, shifuId, outlineId);
+    await parseMdflow(mdflow, shifuId, outlineId);
     // } else {
     // setVariables([]);
     // setSystemVariables([]);
@@ -1030,16 +1037,6 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
 
       setSystemVariables(sysVariables);
 
-      // const result = await api.parseMdflow({
-      //   shifu_bid: shifuId || currentShifu?.bid || '',
-      //   outline_bid: outlineId || currentNode?.bid || '',
-      //   data: value,
-      // });
-
-      // const customVariables = result.variables.filter(
-      //   item => !sysVariables.some(sysItem => sysItem.name === item),
-      // );
-
       const customVariables = list
         .filter(item => item.profile_scope === 'user')
         .map(item => item.profile_key);
@@ -1051,6 +1048,45 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       setVariables([]);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const previewParse = async (
+    value: string,
+    shifuId: string,
+    outlineId: string,
+  ): Promise<{
+    variables: PreviewVariablesMap;
+    blocksCount: number;
+    systemVariableKeys: string[];
+  }> => {
+    try {
+      const resolvedShifuId = shifuId || currentShifu?.bid || '';
+      const resolvedOutlineId = outlineId || currentNode?.bid || '';
+      const result = await api.parseMdflow({
+        shifu_bid: resolvedShifuId,
+        outline_bid: resolvedOutlineId,
+        data: value,
+      });
+      const variableKeys = result?.variables || [];
+      const systemVariableKeys =
+        systemVariables?.map(variable => variable.name).filter(Boolean) || [];
+      const storedVariables: StoredVariablesByScope =
+        getStoredPreviewVariables(resolvedShifuId);
+      const variablesMap = mapKeysToStoredVariables(
+        variableKeys,
+        storedVariables,
+        systemVariableKeys,
+      );
+      savePreviewVariables(resolvedShifuId, variablesMap, systemVariableKeys);
+      return {
+        variables: variablesMap,
+        blocksCount: result?.blocks_count ?? 0,
+        systemVariableKeys,
+      };
+    } catch (error) {
+      console.error(error);
+      return { variables: {}, blocksCount: 0, systemVariableKeys: [] };
     }
   };
 
@@ -1132,6 +1168,7 @@ export const ShifuProvider: React.FC<{ children: ReactNode }> = ({
       loadMdflow,
       saveMdflow,
       parseMdflow,
+      previewParse,
       setCurrentMdflow,
       flushAutoSaveBlocks,
       cancelAutoSaveBlocks,

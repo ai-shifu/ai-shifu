@@ -6,5 +6,15 @@
     "title": "Creation Area",
     "modeText": "Visual",
     "modeCode": "Raw"
+  },
+  "previewArea": {
+    "title": "Preview Area",
+    "description": "Different results for each run.",
+    "empty": "Add content on the left, then click “Preview” to create a result.",
+    "loading": "Generating preview...",
+    "action": "Preview",
+    "open": "Show preview panel",
+    "close": "Hide preview panel",
+    "disabled": "Select a unit before previewing."
   }
 }

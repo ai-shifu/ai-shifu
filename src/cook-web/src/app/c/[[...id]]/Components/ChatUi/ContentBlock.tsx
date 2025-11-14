@@ -11,7 +11,7 @@ interface ContentBlockProps {
   mobileStyle: boolean;
   blockBid: string;
   confirmButtonText?: string;
-  onClickCustomButtonAfterContent: (blockBid: string) => void;
+  onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
 }
@@ -27,7 +27,7 @@ const ContentBlock = memo(
     onLongPress,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
-      onClickCustomButtonAfterContent(blockBid);
+      onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
 
     const handleLongPress = useCallback(
