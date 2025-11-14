@@ -379,22 +379,16 @@ const ScriptEditor = ({ id }: { id: string }) => {
             <Panel
               defaultSize={50}
               minSize={30}
-              className='overflow-hidden'
+              className='overflow-auto relative'
             >
               <div
                 className={cn(
-                  'flex-1 overflow-auto relative text-sm h-full',
-                  !isPreviewPanelOpen && 'relative',
+                  'pt-5 px-6 pb-10 flex flex-col h-full w-full',
+                  isPreviewPanelOpen
+                    ? 'max-w-[900px] pr-0'
+                    : 'max-w-[900px] mx-auto relative',
                 )}
               >
-                <div
-                  className={cn(
-                    'pt-5 px-6 pb-10 flex flex-col h-full w-full',
-                    isPreviewPanelOpen
-                      ? 'max-w-[900px] pr-0'
-                      : 'max-w-[900px] mx-auto relative',
-                  )}
-                >
                   {currentNode?.depth && currentNode.depth > 0 ? (
                     <>
                       <div className='flex items-center gap-3 pb-2'>
@@ -482,7 +476,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
                       )}
                     </>
                   ) : null}
-                </div>
               </div>
             </Panel>
 
