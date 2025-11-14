@@ -4,9 +4,9 @@
   display: flex;
   align-items: center;
   background: #fff;
+  -webkit-backdrop-filter: blur(15px);
   backdrop-filter: blur(15px);
 }
-
 .clickable {
   cursor: pointer;
 }

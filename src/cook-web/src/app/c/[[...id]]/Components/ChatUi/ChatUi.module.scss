@@ -14,9 +14,9 @@
     justify-content: center;
     background: linear-gradient(
       180deg,
-      #f8fbfc 0%,
-      #f8fbfc 62.5%,
-      rgba(248, 251, 252, 0.8) 100%
+      #fff 0%,
+      #fff 62.5%,
+      rgba(255, 255, 255, 0.8) 100%
     );
     z-index: 10;
     font-size: 14px;
@@ -36,9 +36,9 @@
     padding: 0 16px;
     background: linear-gradient(
       0deg,
-      #f8fbfc 0%,
-      #f8fbfc 62.5%,
-      rgba(248, 251, 252, 0.8) 100%
+      #fff 0%,
+      #fff 62.5%,
+      rgba(255, 255, 255, 0.8) 100%
     );
     z-index: 10;
 
@@ -67,7 +67,7 @@
 
     height: 100%;
     min-height: 100vh;
-    background: #f8fbfc;
+    background: #fff;
     flex: 1 1 auto;
     justify-content: center;
     overflow-y: auto;
@@ -78,6 +78,7 @@
 
   .chatComponentsHidden {
     overflow-y: hidden;
+    display: none;
   }
 
   .UserSettings {
@@ -85,6 +86,7 @@
     width: 100%;
     height: 100%;
     z-index: 2;
+    margin-top: 64px;
   }
 }
 

@@ -263,16 +263,16 @@ export const UserSettings = ({
                 );
               })}
             </div>
-          </div>
-        </div>
-        <div className={styles.settingFooter}>
-          <div className={styles.centerWrapper}>
-            <Button
-              className={styles.saveBtn}
-              onClick={onSaveSettingsClick}
-            >
-              保存
-            </Button>
+            <div className={styles.settingFooter}>
+              <div className={styles.centerWrapper}>
+                <Button
+                  className={styles.saveBtn}
+                  onClick={onSaveSettingsClick}
+                >
+                  {t('module.settings.save')}
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

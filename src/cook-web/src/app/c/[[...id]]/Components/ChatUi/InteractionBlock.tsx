@@ -62,8 +62,11 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: 14,
-      height: 14,
+      width: 22,
+      height: 22,
+      padding: 3,
+      borderRadius: 4,
+      transition: 'background-color 0.2s ease',
       cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
     [disabled, disableInteractionButtons],
@@ -74,8 +77,11 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: 14,
-      height: 14,
+      width: 22,
+      height: 22,
+      padding: 3,
+      borderRadius: 4,
+      transition: 'background-color 0.2s ease',
       cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
     [disabled, disableInteractionButtons],
@@ -86,8 +92,11 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: 14,
-      height: 14,
+      width: 22,
+      height: 22,
+      padding: 3,
+      borderRadius: 4,
+      transition: 'background-color 0.2s ease',
       cursor: disabled ? 'not-allowed' : 'pointer',
     }),
     [disabled],
@@ -140,7 +149,7 @@ export default function InteractionBlock({
 
   return (
     <div className={cn(['interaction-block'], className)}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <button
           onClick={handleChangeAskPanel}
           type='button'
@@ -168,14 +177,14 @@ export default function InteractionBlock({
           style={refreshBtnStyle}
           disabled={disabled || readonly}
           onClick={handleRefreshClick}
-          className={cn(canHover && 'group')}
+          className={cn('interaction-icon-btn', canHover && 'group')}
         >
           <RefreshCcw
-            size={14}
+            size={16}
             className={cn(
-              'text-gray-400',
-              'w-5',
-              'h-5',
+              'text-[#55575E]',
+              'w-4',
+              'h-4',
               'transition-colors',
               'duration-200',
             )}
@@ -189,16 +198,19 @@ export default function InteractionBlock({
           onClick={onLike}
           title='Like'
           style={likeBtnStyle}
-          className={cn(canHover && 'group')}
+          className={cn('interaction-icon-btn', canHover && 'group')}
         >
           <ThumbsUp
-            size={14}
+            size={16}
+            strokeWidth={isLike ? 0 : 2}
+            stroke='currentColor'
+            fill={isLike ? 'currentColor' : 'none'}
             className={cn(
-              'w-5',
-              'h-5',
+              'w-4',
+              'h-4',
               'transition-colors',
               'duration-200',
-              isLike ? 'text-primary' : 'text-gray-400',
+              'text-[#55575E]',
             )}
           />
         </button>
@@ -210,16 +222,19 @@ export default function InteractionBlock({
           onClick={onDislike}
           title='Dislike'
           style={dislikeBtnStyle}
-          className={cn(canHover && 'group')}
+          className={cn('interaction-icon-btn', canHover && 'group')}
         >
           <ThumbsDown
-            size={14}
+            size={16}
+            strokeWidth={isDislike ? 0 : 2}
+            stroke='currentColor'
+            fill={isDislike ? 'currentColor' : 'none'}
             className={cn(
-              'w-5',
-              'h-5',
+              'w-4',
+              'h-4',
               'transition-colors',
               'duration-200',
-              isDislike ? 'text-primary' : 'text-gray-400',
+              'text-[#55575E]',
             )}
           />
         </button>

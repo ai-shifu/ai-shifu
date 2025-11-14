@@ -14,5 +14,6 @@
   "nicknamePersonal": "Nickname (also as personal info)",
   "nicknamePlaceholder": "Please enter nickname",
   "personalInfo": "Personal Settings",
-  "settingTitle": "Personal Info"
+  "settingTitle": "Personal Info",
+  "save": "Save"
 }
