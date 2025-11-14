@@ -1,0 +1,10 @@
+.lessonPreview {
+  :global(.content-render) {
+    :global(.custom-variable-container) {
+      width: 100%;
+    }
+    :global(.input-container) {
+      width: 100%;
+    }
+  }
+}
