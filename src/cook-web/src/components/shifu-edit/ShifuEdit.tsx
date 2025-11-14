@@ -162,7 +162,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   useEffect(() => {
     void initializeEnvData();
   }, []);
-  
+
   useEffect(() => {
     return () => {
       stopPreview();
