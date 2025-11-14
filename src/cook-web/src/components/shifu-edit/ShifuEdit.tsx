@@ -10,7 +10,8 @@ import Header from '../header';
 import { UploadProps, MarkdownFlowEditor, EditMode } from 'markdown-flow-ui';
 // import { UploadProps } from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor/uploadTypes';
 // import MarkdownFlowEditor, { EditMode } from '../../../../../../markdown-flow-ui/src/components/MarkdownFlowEditor/MarkdownFlowEditor';
-import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+// TODO@XJL
+// import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import './shifuEdit.scss';

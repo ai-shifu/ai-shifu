@@ -1,5 +1,6 @@
 import './ForkChatUI/styles/index.scss';
-import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+// TODO@XJL
+// import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
   useContext,
@@ -248,7 +249,8 @@ export const NewChatComponents = ({
               style={{
                 position: 'relative',
                 margin: !idx || item.type === ChatContentItemType.INTERACTION ? '0 auto':'40px auto 0 auto',
-                maxWidth: '1000px',
+                maxWidth: mobileStyle ? '100%' : '1000px',
+                padding: '0 20px',
               }}
             >
               {isLongPressed && mobileStyle && (

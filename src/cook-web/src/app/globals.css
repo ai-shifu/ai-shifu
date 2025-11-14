@@ -136,4 +136,21 @@ html {
     background-color: rgba(26, 104, 235, var(--tw-bg-opacity, 1));
     color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
   }
+
+  &.mobile {
+    .custom-variable-container {
+      width: 100%;
+      > span {
+        width: 100%;
+      }
+    }
+    .content-render .input-container{
+      width: 100%;
+    }
+    .markdown-body textarea {
+      min-width: 0;
+      width: 100%;
+    }
+  }
+
 }
