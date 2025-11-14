@@ -207,7 +207,13 @@ export class Request {
       requestConfig.headers = headers;
       requestConfig.body = body;
     } else {
-      requestConfig.body = JSON.stringify(body ?? {});
+      try {
+        requestConfig.body = JSON.stringify(body ?? {});
+      } catch (e) {
+        // Payload serialization failed (often due to passing event objects)
+        handleApiError(new ErrorWithCode('Invalid request payload', -1));
+        throw e;
+      }
       requestConfig.headers = {
         'Content-Type': 'application/json',
         ...headers,
