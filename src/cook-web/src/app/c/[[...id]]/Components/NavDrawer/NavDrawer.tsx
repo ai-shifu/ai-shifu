@@ -48,7 +48,7 @@ export const POPUP_WINDOW_STATE_THEME = 2;
 export const POPUP_WINDOW_STATE_SETTING = 3;
 export const POPUP_WINDOW_STATE_FILING = 1;
 
-const NAV_DRAWER_MAX_WIDTH = '240px';
+const NAV_DRAWER_MAX_WIDTH = '280px';
 const NAV_DRAWER_COLLAPSE_WIDTH = '64px';
 
 const calcNavWidth = frameLayout => {

@@ -307,6 +307,7 @@ export default function ChatPage() {
   // const [loginOkHandlerData, setLoginOkHandlerData] = useState(null);
 
   const onGoToSettingBasic = useCallback(() => {
+    console.log('2')
     setUserSettingBasicInfo(true);
     setShowUserSettings(true);
     if (mobileStyle) {

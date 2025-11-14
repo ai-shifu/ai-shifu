@@ -32,6 +32,7 @@ export const UserSettings = ({
   onClose,
   isBasicInfo = false,
 }) => {
+  console.log('3')
   const courseId = useEnvStore(state => state.courseId);
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({
@@ -263,18 +264,19 @@ export const UserSettings = ({
                 );
               })}
             </div>
+            <div className={styles.settingFooter}>
+              <div className={styles.centerWrapper}>
+                <Button
+                  className={styles.saveBtn}
+                  onClick={onSaveSettingsClick}
+                >
+                  保存
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
-        <div className={styles.settingFooter}>
-          <div className={styles.centerWrapper}>
-            <Button
-              className={styles.saveBtn}
-              onClick={onSaveSettingsClick}
-            >
-              保存
-            </Button>
-          </div>
-        </div>
+        
       </div>
       <BirthdaySettingModal
         open={birthModalOpen}
