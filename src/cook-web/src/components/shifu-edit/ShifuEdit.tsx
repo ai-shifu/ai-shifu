@@ -203,12 +203,12 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const handleToggleLeftPanel = () => {
     const panel = leftPanelRef.current;
-    if (panel) {
-      if (foldOutlineTree) {
-        panel.expand();
-      } else {
-        panel.collapse();
-      }
+    if (!panel) return;
+
+    if (panel.isCollapsed()) {
+      panel.expand();
+    } else {
+      panel.collapse();
     }
   };
 
