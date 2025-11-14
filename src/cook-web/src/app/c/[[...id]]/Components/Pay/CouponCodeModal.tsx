@@ -100,7 +100,7 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
                 onClick={() => form.handleSubmit(_onOk)()}
                 form='coupon-code-form'
               >
-                提交
+                {t('common.core.ok')}
               </Button>
             </DialogFooter>
           </DialogContent>
