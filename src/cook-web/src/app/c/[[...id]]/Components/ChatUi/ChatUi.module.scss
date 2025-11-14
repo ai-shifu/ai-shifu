@@ -12,7 +12,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(180deg, #FFF 0%, #FFF 62.5%, rgba(255, 255, 255, 0.80) 100%);
+    background: linear-gradient(
+      180deg,
+      #fff 0%,
+      #fff 62.5%,
+      rgba(255, 255, 255, 0.8) 100%
+    );
     z-index: 10;
     font-size: 14px;
     color: rgba(0, 0, 0, 0.65);
@@ -29,7 +34,12 @@
     align-items: center;
     justify-content: center;
     padding: 0 16px;
-    background: linear-gradient(0deg, #FFF 0%, #FFF 62.5%, rgba(255, 255, 255, 0.80) 100%);
+    background: linear-gradient(
+      0deg,
+      #fff 0%,
+      #fff 62.5%,
+      rgba(255, 255, 255, 0.8) 100%
+    );
     z-index: 10;
 
     .footerText {

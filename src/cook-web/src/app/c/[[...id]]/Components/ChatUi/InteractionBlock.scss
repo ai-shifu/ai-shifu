@@ -11,7 +11,7 @@
   }
 }
 .ask-button {
-  background: #55575E;
+  background: #55575e;
   color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
   width: 54px;
   height: 22px;
@@ -37,6 +37,6 @@
   transition: background-color 0.2s ease;
 
   &:hover:not(:disabled) {
-    background: #EAEAEA;
+    background: #eaeaea;
   }
 }

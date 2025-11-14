@@ -275,7 +275,6 @@ export const UserSettings = ({
             </div>
           </div>
         </div>
-        
       </div>
       <BirthdaySettingModal
         open={birthModalOpen}

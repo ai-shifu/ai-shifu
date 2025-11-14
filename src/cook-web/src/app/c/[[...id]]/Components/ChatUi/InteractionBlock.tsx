@@ -67,7 +67,7 @@ export default function InteractionBlock({
       padding: 3,
       borderRadius: 4,
       transition: 'background-color 0.2s ease',
-      cursor: disabled  || disableInteractionButtons ? 'not-allowed' : 'pointer',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
     [disabled, disableInteractionButtons],
   );

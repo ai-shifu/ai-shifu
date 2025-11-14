@@ -1,1 +1,12 @@
-.settingHeader{height:60px;padding:0 30px;display:flex;align-items:center;background:#fff;-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px)}.clickable{cursor:pointer}
+.settingHeader {
+  height: 60px;
+  padding: 0 30px;
+  display: flex;
+  align-items: center;
+  background: #fff;
+  -webkit-backdrop-filter: blur(15px);
+  backdrop-filter: blur(15px);
+}
+.clickable {
+  cursor: pointer;
+}

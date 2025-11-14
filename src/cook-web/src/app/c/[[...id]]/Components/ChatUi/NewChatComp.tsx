@@ -243,7 +243,11 @@ export const NewChatComponents = ({
             return mobileStyle ? null : (
               <div
                 key={`${idx}-interaction`}
-                style={{ margin: '0 auto', maxWidth: '1000px', padding: '0px 20px' }}
+                style={{
+                  margin: '0 auto',
+                  maxWidth: '1000px',
+                  padding: '0px 20px',
+                }}
               >
                 <InteractionBlock
                   shifu_bid={shifuBid}
@@ -262,7 +266,10 @@ export const NewChatComponents = ({
               key={`${idx}-content`}
               style={{
                 position: 'relative',
-                margin: !idx || item.type === ChatContentItemType.INTERACTION ? '0 auto':'40px auto 0 auto',
+                margin:
+                  !idx || item.type === ChatContentItemType.INTERACTION
+                    ? '0 auto'
+                    : '40px auto 0 auto',
                 maxWidth: mobileStyle ? '100%' : '1000px',
                 padding: '0 20px',
               }}

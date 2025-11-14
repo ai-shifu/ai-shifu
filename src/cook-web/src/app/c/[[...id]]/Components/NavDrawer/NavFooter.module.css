@@ -1,1 +1,66 @@
-.navFooter{padding:15px 0;display:flex;flex-flow:row nowrap;border-top:1px solid #e5e5e5;font-size:var(--font-size-5)}.navFooter .userSection{padding:0 18px;display:flex;align-items:center;cursor:pointer;width:100%}.navFooter .userSection .userAvatar{width:32px;height:32px}.navFooter .userSection .userName{margin-left:8px;color:var(--font-color-2);font-size:var(--font-size-3)}.navFooter.collapse .userSection{padding:0 14px}.navFooter.collapse .userSection .userName{display:none}.navFooter2{padding:25px 30px;display:flex;flex-flow:row nowrap;justify-content:space-between;background-color:var(--color-5-1);font-size:var(--font-size-5)}.navFooter2.collapse{padding-left:0;padding-right:0;width:56px;flex-flow:column nowrap}.navFooter2.collapse .settingBtn{margin-top:20px;-webkit-user-select:none;-moz-user-select:none;user-select:none}.navFooter2.collapse .settingBtn .btnText{display:none}.navFooter2 .settingBtn{display:flex;flex-flow:column nowrap;align-items:center}.navFooter2 .settingBtn:hover{cursor:pointer}.navFooter2 .settingBtn .icon{width:16px}.navFooter2 .settingBtn .btnText{margin-top:8px}
+.navFooter {
+  padding: 15px 0;
+  display: flex;
+  flex-flow: row nowrap;
+  border-top: 1px solid #e5e5e5;
+  font-size: var(--font-size-5);
+}
+.navFooter .userSection {
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  width: 100%;
+}
+.navFooter .userSection .userAvatar {
+  width: 32px;
+  height: 32px;
+}
+.navFooter .userSection .userName {
+  margin-left: 8px;
+  color: var(--font-color-2);
+  font-size: var(--font-size-3);
+}
+.navFooter.collapse .userSection {
+  padding: 0 14px;
+}
+.navFooter.collapse .userSection .userName {
+  display: none;
+}
+.navFooter2 {
+  padding: 25px 30px;
+  display: flex;
+  flex-flow: row nowrap;
+  justify-content: space-between;
+  background-color: var(--color-5-1);
+  font-size: var(--font-size-5);
+}
+.navFooter2.collapse {
+  padding-left: 0;
+  padding-right: 0;
+  width: 56px;
+  flex-flow: column nowrap;
+}
+.navFooter2.collapse .settingBtn {
+  margin-top: 20px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  user-select: none;
+}
+.navFooter2.collapse .settingBtn .btnText {
+  display: none;
+}
+.navFooter2 .settingBtn {
+  display: flex;
+  flex-flow: column nowrap;
+  align-items: center;
+}
+.navFooter2 .settingBtn:hover {
+  cursor: pointer;
+}
+.navFooter2 .settingBtn .icon {
+  width: 16px;
+}
+.navFooter2 .settingBtn .btnText {
+  margin-top: 8px;
+}

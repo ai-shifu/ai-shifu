@@ -39,13 +39,13 @@
   &.selected {
     .textArea {
       border-radius: var(--border-radius-rounded-md, 8px);
-      background: #E5E5E5;
+      background: #e5e5e5;
 
       .courseTitle {
         display: block;
         overflow: hidden;
-        color: #0A0A0A;
-        font-family: "PingFang SC";
+        color: #0a0a0a;
+        font-family: 'PingFang SC';
         font-size: var(--text-sm-font-size, 14px);
         font-style: normal;
         font-weight: 600;
@@ -137,7 +137,7 @@
       .courseTitle {
         display: inline;
         overflow: hidden;
-        color: var(--base-sidebar-foreground, #0A0A0A);
+        color: var(--base-sidebar-foreground, #0a0a0a);
 
         /* text-sm/leading-none/normal */
         font-family: var(--font-font-sans, Geist);
