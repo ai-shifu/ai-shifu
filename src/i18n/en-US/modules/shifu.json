@@ -12,7 +12,6 @@
     "description": "Different results for each run.",
     "empty": "Add content on the left, then click “Preview” to create a result.",
     "loading": "Generating preview...",
-    "error": "Unable to generate a preview. Please try again.",
     "action": "Preview",
     "open": "Show preview panel",
     "close": "Hide preview panel",
