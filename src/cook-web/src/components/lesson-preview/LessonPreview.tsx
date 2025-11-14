@@ -12,7 +12,8 @@ import {
   ChatContentItemType,
 } from '@/app/c/[[...id]]/Components/ChatUi/useChatLogicHook';
 import { OnSendContentParams } from 'markdown-flow-ui';
-
+import styles from './LessonPreview.module.scss';
+import { cn } from '@/lib/utils';
 interface LessonPreviewProps {
   loading: boolean;
   isStreaming?: boolean;
@@ -35,7 +36,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const { t } = useTranslation();
   const showEmpty = !loading && items.length === 0;
   return (
-    <div className='flex h-full flex-col text-sm'>
+    <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
       <div className='flex flex-wrap items-baseline gap-2'>
         <h2 className='text-base font-semibold text-foreground'>
           {t('module.shifu.previewArea.title')}
@@ -61,12 +62,18 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
             <span>{t('module.shifu.previewArea.empty')}</span>
           </div>
         ) : (
-          <div className='flex h-full flex-col gap-3 overflow-y-auto px-4 py-4'>
+          <div className='flex h-full flex-col overflow-y-auto p-6'>
             {items.map((item, idx) => {
               if (item.type === ChatContentItemType.LIKE_STATUS) {
                 return (
+                  <div
+                  key={`${idx}-interaction`}
+                  style={{
+                    maxWidth: '100%',
+                    padding: '0',
+                  }}
+                >
                   <InteractionBlock
-                    key={`${idx}-interaction`}
                     shifu_bid={shifuBid}
                     generated_block_bid={item.parent_block_bid || ''}
                     like_status={item.like_status}
@@ -75,12 +82,21 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     disableAskButton={true}
                     disableInteractionButtons={true}
                   />
+                </div>
                 );
               }
               return (
                 <div
                   key={`${idx}-content`}
-                  style={{ position: 'relative' }}
+                  style={{ 
+                    position: 'relative',
+                    maxWidth: '100%',
+                    padding: '0',
+                    margin:
+                      !idx || item.type === ChatContentItemType.INTERACTION
+                        ? '0'
+                        : '40px auto 0px auto',
+                   }}
                 >
                   <ContentBlock
                     item={item}
