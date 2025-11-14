@@ -34,13 +34,14 @@
 
   &.collapse {
     padding: 15px 0;
-    width: 60px;
+    width: 64px;
     flex-flow: column nowrap;
 
     .actionBtn {
       .icon {
         transform: rotate(0deg);
       }
+      margin-top: 20px;
       margin-bottom: 20px;
     }
   }
