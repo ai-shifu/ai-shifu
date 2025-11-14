@@ -370,6 +370,12 @@ export function usePreviewChat() {
     ],
   );
 
+  useEffect(() => {
+    return () => {
+      stopPreview();
+    };
+  }, [stopPreview]);
+
   const startPreview = useCallback(
     ({
       shifuBid,

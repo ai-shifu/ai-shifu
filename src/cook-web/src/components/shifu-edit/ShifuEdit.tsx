@@ -162,12 +162,14 @@ const ScriptEditor = ({ id }: { id: string }) => {
   useEffect(() => {
     void initializeEnvData();
   }, []);
+  
   useEffect(() => {
     return () => {
       stopPreview();
       resetPreview();
     };
   }, [resetPreview, stopPreview]);
+
   useEffect(() => {
     if (!currentNode?.bid) {
       return;
@@ -279,14 +281,6 @@ const ScriptEditor = ({ id }: { id: string }) => {
       },
     };
   }, [token, baseURL]);
-
-  useEffect(() => {
-    if (!currentNode?.bid) {
-      return;
-    }
-    stopPreview();
-    resetPreview();
-  }, [currentNode?.bid, resetPreview, stopPreview]);
 
   const canPreview = Boolean(
     currentNode?.depth && currentNode.depth > 0 && currentShifu?.bid,
