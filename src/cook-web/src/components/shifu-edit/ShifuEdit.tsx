@@ -389,93 +389,92 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     : 'max-w-[900px] mx-auto relative',
                 )}
               >
-                  {currentNode?.depth && currentNode.depth > 0 ? (
-                    <>
-                      <div className='flex items-center gap-3 pb-2'>
-                        <div className='flex flex-1 min-w-0 items-baseline gap-2'>
-                          <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
-                            {t('module.shifu.creationArea.title')}
-                          </h2>
-                          <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
-                            {t('module.shifu.creationArea.description')}
-                          </p>
-                        </div>
-                        <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
-                          <Tabs
-                            value={editMode}
-                            onValueChange={value =>
-                              setEditMode(value as EditMode)
-                            }
-                            className='shrink-0'
-                          >
-                            <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
-                              {editModeOptions.map(option => (
-                                <TabsTrigger
-                                  key={option.value}
-                                  value={option.value}
-                                  className={cn(
-                                    'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
-                                  )}
-                                >
-                                  {option.label}
-                                </TabsTrigger>
-                              ))}
-                            </TabsList>
-                          </Tabs>
-                          <Button
-                            type='button'
-                            size='sm'
-                            className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
-                            onClick={handlePreview}
-                            disabled={!canPreview || isPreviewPreparing}
-                            title={
-                              !canPreview ? previewDisabledReason : undefined
-                            }
-                          >
-                            {isPreviewPreparing ? (
-                              <Loader2 className='h-4 w-4 animate-spin' />
-                            ) : (
-                              <Sparkles className='h-4 w-4' />
-                            )}
-                            {t('module.shifu.previewArea.action')}
-                          </Button>
-                        </div>
+                {currentNode?.depth && currentNode.depth > 0 ? (
+                  <>
+                    <div className='flex items-center gap-3 pb-2'>
+                      <div className='flex flex-1 min-w-0 items-baseline gap-2'>
+                        <h2 className='text-base font-semibold text-foreground whitespace-nowrap shrink-0'>
+                          {t('module.shifu.creationArea.title')}
+                        </h2>
+                        <p className='flex-1 min-w-0 text-xs leading-3 text-[rgba(0,0,0,0.45)] truncate'>
+                          {t('module.shifu.creationArea.description')}
+                        </p>
                       </div>
-                      {!isPreviewPanelOpen && (
+                      <div className='ml-auto flex flex-nowrap items-center gap-2 relative shrink-0'>
+                        <Tabs
+                          value={editMode}
+                          onValueChange={value =>
+                            setEditMode(value as EditMode)
+                          }
+                          className='shrink-0'
+                        >
+                          <TabsList className='h-8 rounded-full bg-muted/60 p-0 text-xs'>
+                            {editModeOptions.map(option => (
+                              <TabsTrigger
+                                key={option.value}
+                                value={option.value}
+                                className={cn(
+                                  'mode-btn rounded-full px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:text-foreground',
+                                )}
+                              >
+                                {option.label}
+                              </TabsTrigger>
+                            ))}
+                          </TabsList>
+                        </Tabs>
                         <Button
                           type='button'
-                          variant='outline'
-                          size='icon'
-                          className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
-                          onClick={handleTogglePreviewPanel}
-                          aria-label={previewToggleLabel}
-                          title={previewToggleLabel}
-                        >
-                          <Columns2 className='h-4 w-4' />
-                        </Button>
-                      )}
-                      {isLoading ? (
-                        <div className='h-40 flex items-center justify-center'>
-                          <Loading />
-                        </div>
-                      ) : (
-                        <MarkdownFlowEditor
-                          locale={
-                            normalizeLanguage(
-                              (i18n.resolvedLanguage ??
-                                i18n.language) as string,
-                            ) as 'en-US' | 'zh-CN'
+                          size='sm'
+                          className='h-8 px-3 text-xs font-semibold text-[14px] shrink-0'
+                          onClick={handlePreview}
+                          disabled={!canPreview || isPreviewPreparing}
+                          title={
+                            !canPreview ? previewDisabledReason : undefined
                           }
-                          content={mdflow}
-                          variables={variablesList}
-                          systemVariables={systemVariablesList as any[]}
-                          onChange={onChangeMdflow}
-                          editMode={editMode}
-                          uploadProps={uploadProps}
-                        />
-                      )}
-                    </>
-                  ) : null}
+                        >
+                          {isPreviewPreparing ? (
+                            <Loader2 className='h-4 w-4 animate-spin' />
+                          ) : (
+                            <Sparkles className='h-4 w-4' />
+                          )}
+                          {t('module.shifu.previewArea.action')}
+                        </Button>
+                      </div>
+                    </div>
+                    {!isPreviewPanelOpen && (
+                      <Button
+                        type='button'
+                        variant='outline'
+                        size='icon'
+                        className='h-8 w-8 absolute top-[60px] right-[-13px] z-10'
+                        onClick={handleTogglePreviewPanel}
+                        aria-label={previewToggleLabel}
+                        title={previewToggleLabel}
+                      >
+                        <Columns2 className='h-4 w-4' />
+                      </Button>
+                    )}
+                    {isLoading ? (
+                      <div className='h-40 flex items-center justify-center'>
+                        <Loading />
+                      </div>
+                    ) : (
+                      <MarkdownFlowEditor
+                        locale={
+                          normalizeLanguage(
+                            (i18n.resolvedLanguage ?? i18n.language) as string,
+                          ) as 'en-US' | 'zh-CN'
+                        }
+                        content={mdflow}
+                        variables={variablesList}
+                        systemVariables={systemVariablesList as any[]}
+                        onChange={onChangeMdflow}
+                        editMode={editMode}
+                        uploadProps={uploadProps}
+                      />
+                    )}
+                  </>
+                ) : null}
               </div>
             </Panel>
 
