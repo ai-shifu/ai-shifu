@@ -32,7 +32,6 @@ export const UserSettings = ({
   onClose,
   isBasicInfo = false,
 }) => {
-  console.log('3')
   const courseId = useEnvStore(state => state.courseId);
   const { refreshUserInfo } = useUserStore(
     useShallow(state => ({

@@ -59,7 +59,6 @@ const MainMenuModal = ({
       shifu.loginTools.openLogin();
       return;
     }
-    console.log('1');
     onBasicInfoClick?.();
   };
 
