@@ -28,6 +28,8 @@ export interface InteractionBlockProps {
   className?: string;
   onToggleAskExpanded?: (generated_block_bid: string) => void;
   onRefresh?: (generated_block_bid: string) => void;
+  disableAskButton?: boolean;
+  disableInteractionButtons?: boolean;
 }
 
 /**
@@ -40,6 +42,8 @@ export default function InteractionBlock({
   like_status = LIKE_STATUS.NONE,
   readonly = false,
   disabled = false,
+  disableAskButton = false,
+  disableInteractionButtons = false,
   className,
   onRefresh,
   onToggleAskExpanded,
@@ -58,11 +62,14 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: 14,
-      height: 14,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      width: 22,
+      height: 22,
+      padding: 3,
+      borderRadius: 4,
+      transition: 'background-color 0.2s ease',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
-    [disabled],
+    [disabled, disableInteractionButtons],
   );
 
   const dislikeBtnStyle = useMemo(
@@ -70,11 +77,14 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: 14,
-      height: 14,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      width: 22,
+      height: 22,
+      padding: 3,
+      borderRadius: 4,
+      transition: 'background-color 0.2s ease',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
-    [disabled],
+    [disabled, disableInteractionButtons],
   );
 
   const refreshBtnStyle = useMemo(
@@ -82,8 +92,11 @@ export default function InteractionBlock({
       display: 'inline-flex',
       alignItems: 'center',
       justifyContent: 'center',
-      width: 14,
-      height: 14,
+      width: 22,
+      height: 22,
+      padding: 3,
+      borderRadius: 4,
+      transition: 'background-color 0.2s ease',
       cursor: disabled ? 'not-allowed' : 'pointer',
     }),
     [disabled],
@@ -136,7 +149,7 @@ export default function InteractionBlock({
 
   return (
     <div className={cn(['interaction-block'], className)}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
         <button
           onClick={handleChangeAskPanel}
           type='button'
@@ -147,7 +160,7 @@ export default function InteractionBlock({
             'transition-colors',
             'disabled:opacity-50 disabled:cursor-not-allowed',
           )}
-          disabled={disabled || readonly}
+          disabled={disabled || readonly || disableAskButton}
         >
           <Image
             src={AskIcon.src}
@@ -164,14 +177,14 @@ export default function InteractionBlock({
           style={refreshBtnStyle}
           disabled={disabled || readonly}
           onClick={handleRefreshClick}
-          className={cn(canHover && 'group')}
+          className={cn('interaction-icon-btn', canHover && 'group')}
         >
           <RefreshCcw
-            size={14}
+            size={16}
             className={cn(
-              'text-gray-400',
-              'w-5',
-              'h-5',
+              'text-[#55575E]',
+              'w-4',
+              'h-4',
               'transition-colors',
               'duration-200',
             )}
@@ -181,42 +194,47 @@ export default function InteractionBlock({
           type='button'
           aria-label='Like'
           aria-pressed={isLike}
-          disabled={disabled || readonly}
+          disabled={disabled || readonly || disableInteractionButtons}
           onClick={onLike}
           title='Like'
           style={likeBtnStyle}
-          className={cn(canHover && 'group')}
+          className={cn('interaction-icon-btn', canHover && 'group')}
         >
           <ThumbsUp
-            size={14}
+            size={16}
+            strokeWidth={isLike ? 0 : 2}
+            stroke='currentColor'
+            fill={isLike ? 'currentColor' : 'none'}
             className={cn(
-              'w-5',
-              'h-5',
+              'w-4',
+              'h-4',
               'transition-colors',
               'duration-200',
-              isLike ? 'text-primary' : 'text-gray-400',
+              'text-[#55575E]',
             )}
           />
         </button>
-
         <button
           type='button'
           aria-label='Dislike'
           aria-pressed={isDislike}
-          disabled={disabled || readonly}
+          disabled={disabled || readonly || disableInteractionButtons}
           onClick={onDislike}
           title='Dislike'
           style={dislikeBtnStyle}
-          className={cn(canHover && 'group')}
+          className={cn('interaction-icon-btn', canHover && 'group')}
         >
           <ThumbsDown
-            size={14}
+            size={16}
+            strokeWidth={isDislike ? 0 : 2}
+            stroke='currentColor'
+            fill={isDislike ? 'currentColor' : 'none'}
             className={cn(
-              'w-5',
-              'h-5',
+              'w-4',
+              'h-4',
               'transition-colors',
               'duration-200',
-              isDislike ? 'text-primary' : 'text-gray-400',
+              'text-[#55575E]',
             )}
           />
         </button>

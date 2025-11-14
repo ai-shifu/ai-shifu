@@ -1,3 +1,4 @@
+'use client';
 import styles from './CouponCodeModal.module.scss';
 
 import { useCallback, memo } from 'react';
@@ -45,8 +46,10 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
   const _onOk = useCallback(
     async (values: z.infer<typeof formSchema>) => {
       try {
-        onOk?.(values);
-      } catch {}
+        await onOk?.(values);
+      } catch {
+        // errors handled by request layer toasts
+      }
     },
     [onOk],
   );
@@ -63,7 +66,10 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
       onOpenChange={handleOpenChange}
     >
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(_onOk)}>
+        <form
+          id='coupon-code-form'
+          onSubmit={form.handleSubmit(_onOk)}
+        >
           <DialogContent
             className={cn(styles.couponCodeModal, 'w-96')}
             onPointerDownOutside={evt => evt.preventDefault()}
@@ -89,7 +95,13 @@ export const CouponCodeModal = ({ open = false, onCancel, onOk }) => {
             />
 
             <DialogFooter>
-              <Button type='submit'>提交</Button>
+              <Button
+                type='button'
+                onClick={() => form.handleSubmit(_onOk)()}
+                form='coupon-code-form'
+              >
+                {t('common.core.ok')}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </form>

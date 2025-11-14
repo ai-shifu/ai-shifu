@@ -40,8 +40,15 @@
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
-    color: var(--font-color-main);
     height: 24px;
+    overflow: hidden;
+    color: var(--base-sidebar-foreground, #0a0a0a);
+    text-overflow: ellipsis;
+    font-family: var(--font-font-sans, Geist);
+    font-size: var(--text-sm-font-size, 14px);
+    font-style: normal;
+    font-weight: var(--font-weight-medium, 500);
+    line-height: 100%; /* 14px */
 
     .collapseBtn {
       width: 16px;
@@ -50,6 +57,9 @@
 
     .leftSection {
       flex: 1 1 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .rightSection {
       flex: 0 0 auto;

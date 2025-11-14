@@ -1,4 +1,5 @@
 import './ForkChatUI/styles/index.scss';
+// TODO@XJL
 import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
@@ -215,37 +216,62 @@ export const NewChatComponents = ({
 
           if (item.type === ChatContentItemType.ASK) {
             return (
-              <AskBlock
-                isExpanded={item.isAskExpanded}
-                shifu_bid={shifuBid}
-                outline_bid={lessonId}
-                preview_mode={previewMode}
-                generated_block_bid={item.parent_block_bid || ''}
-                onToggleAskExpanded={toggleAskExpanded}
+              <div
                 key={`${idx}-ask`}
-                askList={(item.ask_list || []) as any[]}
-              />
+                style={{
+                  position: 'relative',
+                  margin: '0 auto',
+                  maxWidth: mobileStyle ? '100%' : '1000px',
+                  padding: '0 20px',
+                }}
+              >
+                <AskBlock
+                  isExpanded={item.isAskExpanded}
+                  shifu_bid={shifuBid}
+                  outline_bid={lessonId}
+                  preview_mode={previewMode}
+                  generated_block_bid={item.parent_block_bid || ''}
+                  onToggleAskExpanded={toggleAskExpanded}
+                  askList={(item.ask_list || []) as any[]}
+                />
+              </div>
             );
           }
 
           if (item.type === ChatContentItemType.LIKE_STATUS) {
             return mobileStyle ? null : (
-              <InteractionBlock
+              <div
                 key={`${idx}-interaction`}
-                shifu_bid={shifuBid}
-                generated_block_bid={item.parent_block_bid || ''}
-                like_status={item.like_status}
-                readonly={item.readonly}
-                onRefresh={onRefresh}
-                onToggleAskExpanded={toggleAskExpanded}
-              />
+                style={{
+                  margin: '0 auto',
+                  maxWidth: '1000px',
+                  padding: '0px 20px',
+                }}
+              >
+                <InteractionBlock
+                  shifu_bid={shifuBid}
+                  generated_block_bid={item.parent_block_bid || ''}
+                  like_status={item.like_status}
+                  readonly={item.readonly}
+                  onRefresh={onRefresh}
+                  onToggleAskExpanded={toggleAskExpanded}
+                />
+              </div>
             );
           }
 
           return (
             <div
               key={`${idx}-content`}
-              style={{ position: 'relative' }}
+              style={{
+                position: 'relative',
+                margin:
+                  !idx || item.type === ChatContentItemType.INTERACTION
+                    ? '0 auto'
+                    : '40px auto 0 auto',
+                maxWidth: mobileStyle ? '100%' : '1000px',
+                padding: '0 20px',
+              }}
             >
               {isLongPressed && mobileStyle && (
                 <div className='long-press-overlay' />

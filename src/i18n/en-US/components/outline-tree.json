@@ -5,7 +5,7 @@
   "confirmDelete": "Confirm Delete",
   "confirmDeleteDescription": "This action cannot be undone. Are you sure you want to delete?",
   "delete": "Delete",
-  "edit": "Edit",
   "nameRequired": "Chapter name cannot be empty",
+  "rename": "Rename",
   "setting": "Settings"
 }

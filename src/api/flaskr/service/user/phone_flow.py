@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 from flask import Flask
 
@@ -125,23 +125,27 @@ def init_first_course(app: Flask, user_id: str) -> None:
     # Always grant admin/creator to the first verified user
     mark_user_roles(user_id, is_creator=True)
 
+    ShifuModel: Union[PublishedShifu, DraftShifu] = PublishedShifu
     # Assign demo shifu only when there is exactly one published course
     course_count = PublishedShifu.query.filter(PublishedShifu.deleted == 0).count()
+    if course_count == 0:
+        course_count = DraftShifu.query.filter(DraftShifu.deleted == 0).count()
+        ShifuModel = DraftShifu
     if course_count != 1:
         db.session.flush()
         return
 
     course = (
-        PublishedShifu.query.filter(PublishedShifu.deleted == 0)
-        .order_by(PublishedShifu.id.asc())
+        ShifuModel.query.filter(ShifuModel.deleted == 0)
+        .order_by(ShifuModel.id.asc())
         .first()
     )
     if course:
         # Persist creator on the published record
         course.created_user_bid = user_id
         # Also persist creator on the corresponding draft (used by permission checks)
-        draft = DraftShifu.query.filter(
-            DraftShifu.shifu_bid == course.shifu_bid
+        draft = ShifuModel.query.filter(
+            ShifuModel.shifu_bid == course.shifu_bid
         ).first()
         if draft:
             draft.created_user_bid = user_id

@@ -224,10 +224,28 @@ export const PayModal = ({
   const onCouponCodeOk = useCallback(
     async values => {
       const { couponCode } = values;
-      setCouponCode(couponCode);
-      const resp = await applyDiscountCode({ orderId, code: couponCode });
-      refreshOrderQrcode(resp.order_id);
-      onCouponCodeModalClose();
+      try {
+        setCouponCode(couponCode);
+        const resp = await applyDiscountCode({ orderId, code: couponCode });
+
+        // Update price info immediately
+        setOriginalPrice(resp.price);
+        setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
+        setPrice(resp.value_to_pay);
+
+        // If fully discounted, mark as completed; otherwise refresh QR
+        if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+          setIsCompleted(true);
+          setInterval(null);
+          onOk?.();
+        } else {
+          await refreshOrderQrcode(resp.order_id);
+        }
+
+        onCouponCodeModalClose();
+      } catch (e) {
+        // Error toast handled in request; keep modal open for correction
+      }
     },
     [onCouponCodeModalClose, orderId, refreshOrderQrcode],
   );
