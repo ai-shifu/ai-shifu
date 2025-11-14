@@ -506,16 +506,18 @@ const ScriptEditor = ({ id }: { id: string }) => {
                 minSize={30}
                 className='overflow-auto'
               >
-                <div className='pt-5 px-6 pb-10 pl-0 h-full'>
-                  <LessonPreview
-                    loading={previewLoading}
-                    isStreaming={previewStreaming}
-                    errorMessage={previewError || undefined}
-                    items={previewItems}
-                    shifuBid={currentShifu?.bid || ''}
-                    onRefresh={onRefresh}
-                    onSend={onSend}
-                  />
+                <div className='pt-5 px-6 pb-10 pl-0'>
+                  <div className='h-full'>
+                    <LessonPreview
+                      loading={previewLoading}
+                      isStreaming={previewStreaming}
+                      errorMessage={previewError || undefined}
+                      items={previewItems}
+                      shifuBid={currentShifu?.bid || ''}
+                      onRefresh={onRefresh}
+                      onSend={onSend}
+                    />
+                  </div>
                 </div>
               </Panel>
             )}
