@@ -4,19 +4,9 @@
   margin: 0 auto;
   max-width: 1000px;
 
-  .ask-button svg:hover {
-    color: hsl(var(--primary));
-    padding-left: 20px;
-    padding-bottom: 5px;
-  }
-  
   button {
     &:disabled {
       cursor: not-allowed;
-    }
-
-    &:not(:disabled) svg:hover {
-      color: hsl(var(--primary));
     }
   }
 }

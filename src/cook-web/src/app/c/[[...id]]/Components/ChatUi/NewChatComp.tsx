@@ -1,6 +1,6 @@
 import './ForkChatUI/styles/index.scss';
 // TODO@XJL
-// import 'markdown-flow-ui/dist/markdown-flow-ui.css';
+import 'markdown-flow-ui/dist/markdown-flow-ui.css';
 import styles from './ChatComponents.module.scss';
 import {
   useContext,
@@ -216,16 +216,26 @@ export const NewChatComponents = ({
 
           if (item.type === ChatContentItemType.ASK) {
             return (
-              <AskBlock
-                isExpanded={item.isAskExpanded}
-                shifu_bid={shifuBid}
-                outline_bid={lessonId}
-                preview_mode={previewMode}
-                generated_block_bid={item.parent_block_bid || ''}
-                onToggleAskExpanded={toggleAskExpanded}
+              <div
                 key={`${idx}-ask`}
-                askList={(item.ask_list || []) as any[]}
-              />
+                style={{
+                  position: 'relative',
+                  margin: '0 auto',
+                  maxWidth: mobileStyle ? '100%' : '1000px',
+                  padding: '0 20px',
+                }}
+              >
+                <AskBlock
+                  isExpanded={item.isAskExpanded}
+                  shifu_bid={shifuBid}
+                  outline_bid={lessonId}
+                  preview_mode={previewMode}
+                  generated_block_bid={item.parent_block_bid || ''}
+                  onToggleAskExpanded={toggleAskExpanded}
+                  key={`${idx}-ask`}
+                  askList={(item.ask_list || []) as any[]}
+                />
+              </div>
             );
           }
 
@@ -233,7 +243,7 @@ export const NewChatComponents = ({
             return mobileStyle ? null : (
               <div
                 key={`${idx}-interaction`}
-                style={{ margin: '0 auto', maxWidth: '1000px' }}
+                style={{ margin: '0 auto', maxWidth: '1000px', padding: '0px 20px' }}
               >
                 <InteractionBlock
                   shifu_bid={shifuBid}
