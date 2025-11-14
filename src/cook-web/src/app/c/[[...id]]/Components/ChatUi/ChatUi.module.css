@@ -1,19 +1,69 @@
 .ChatUi {
-  display: flex;
-  height: 100%;
-  background: #f8fbfc;
-  flex: 1 1 auto;
-  justify-content: center;
   position: relative;
-  overflow-y: auto;
+  flex: 1;
+}
+.ChatUi .header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+    180deg,
+    #fff 0%,
+    #fff 62.5%,
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  z-index: 10;
+  font-size: 14px;
+  color: rgba(0, 0, 0, 0.65);
+  line-height: 20px;
+}
+.ChatUi .footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.95);
+  z-index: 10;
+}
+.ChatUi .footer .footerText {
+  color: rgba(10, 10, 10, 0.45);
+  text-align: center;
+  font-family: 'PingFang SC';
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 24px;
 }
 .ChatUi.mobile {
   width: 100%;
   padding-top: 80px;
+  padding-bottom: max(80px, 40px + env(safe-area-inset-bottom, 0px));
+}
+.ChatUi.mobile .chatComponents {
+  padding-top: 0;
 }
 .ChatUi .chatComponents {
   width: 100%;
-  max-width: 1000px;
+  height: 100%;
+  min-height: 100vh;
+  background: #f8fbfc;
+  flex: 1 1 auto;
+  justify-content: center;
+  overflow-y: auto;
+  padding-top: 64px;
+  padding-bottom: 40px;
+  box-sizing: border-box;
 }
 .ChatUi .chatComponentsHidden {
   overflow-y: hidden;

@@ -190,6 +190,7 @@ export type I18nKey =
   | 'module.chapterSetting.visible'
   | 'module.chat.ask'
   | 'module.chat.askContent'
+  | 'module.chat.aiGenerated'
   | 'module.chat.chatInputPlaceholder'
   | 'module.chat.chatInputWarn'
   | 'module.chat.chatTips'
