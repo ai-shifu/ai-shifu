@@ -269,7 +269,7 @@ export const UserSettings = ({
                   className={styles.saveBtn}
                   onClick={onSaveSettingsClick}
                 >
-                  保存
+                  {t('module.settings.save')}
                 </Button>
               </div>
             </div>

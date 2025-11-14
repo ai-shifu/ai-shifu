@@ -232,7 +232,6 @@ export const NewChatComponents = ({
                   preview_mode={previewMode}
                   generated_block_bid={item.parent_block_bid || ''}
                   onToggleAskExpanded={toggleAskExpanded}
-                  key={`${idx}-ask`}
                   askList={(item.ask_list || []) as any[]}
                 />
               </div>
