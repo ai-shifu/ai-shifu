@@ -375,7 +375,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
             autoSaveId='shifu-editor-content'
           >
             {/* Creation Area */}
-            <Panel defaultSize={50} minSize={30} className='overflow-hidden'>
+            <Panel
+              defaultSize={50}
+              minSize={30}
+              className='overflow-hidden'
+            >
               <div
                 className={cn(
                   'flex-1 overflow-auto relative text-sm h-full',
@@ -504,7 +508,11 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
             {/* Preview Area */}
             {isPreviewPanelOpen && (
-              <Panel defaultSize={50} minSize={30} className='overflow-auto'>
+              <Panel
+                defaultSize={50}
+                minSize={30}
+                className='overflow-auto'
+              >
                 <div className='pt-5 px-6 pb-10 pl-0 h-full'>
                   <LessonPreview
                     loading={previewLoading}
