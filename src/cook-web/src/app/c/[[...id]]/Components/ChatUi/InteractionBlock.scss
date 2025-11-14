@@ -1,10 +1,15 @@
 .interaction-block {
   padding-left: 20px;
   padding-bottom: 5px;
-  margin: 0 auto;
-  max-width: 1000px;
-  button svg:hover {
-    color: hsl(var(--primary));
+
+  button {
+    &:disabled {
+      cursor: not-allowed;
+    }
+
+    &:not(:disabled) svg:hover {
+      color: hsl(var(--primary));
+    }
   }
 }
 .ask-button {
@@ -17,7 +22,12 @@
   line-height: 1;
   border-radius: 24px;
   box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  &:hover {
+
+  &:not(:disabled):hover {
     background: hsl(var(--primary));
+  }
+
+  &:disabled {
+    cursor: not-allowed;
   }
 }

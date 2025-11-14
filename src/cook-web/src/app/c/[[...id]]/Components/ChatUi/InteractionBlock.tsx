@@ -28,6 +28,8 @@ export interface InteractionBlockProps {
   className?: string;
   onToggleAskExpanded?: (generated_block_bid: string) => void;
   onRefresh?: (generated_block_bid: string) => void;
+  disableAskButton?: boolean;
+  disableInteractionButtons?: boolean;
 }
 
 /**
@@ -40,6 +42,8 @@ export default function InteractionBlock({
   like_status = LIKE_STATUS.NONE,
   readonly = false,
   disabled = false,
+  disableAskButton = false,
+  disableInteractionButtons = false,
   className,
   onRefresh,
   onToggleAskExpanded,
@@ -60,9 +64,9 @@ export default function InteractionBlock({
       justifyContent: 'center',
       width: 14,
       height: 14,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
-    [disabled],
+    [disabled, disableInteractionButtons],
   );
 
   const dislikeBtnStyle = useMemo(
@@ -72,9 +76,9 @@ export default function InteractionBlock({
       justifyContent: 'center',
       width: 14,
       height: 14,
-      cursor: disabled ? 'not-allowed' : 'pointer',
+      cursor: disabled || disableInteractionButtons ? 'not-allowed' : 'pointer',
     }),
-    [disabled],
+    [disabled, disableInteractionButtons],
   );
 
   const refreshBtnStyle = useMemo(
@@ -147,7 +151,7 @@ export default function InteractionBlock({
             'transition-colors',
             'disabled:opacity-50 disabled:cursor-not-allowed',
           )}
-          disabled={disabled || readonly}
+          disabled={disabled || readonly || disableAskButton}
         >
           <Image
             src={AskIcon.src}
@@ -181,7 +185,7 @@ export default function InteractionBlock({
           type='button'
           aria-label='Like'
           aria-pressed={isLike}
-          disabled={disabled || readonly}
+          disabled={disabled || readonly || disableInteractionButtons}
           onClick={onLike}
           title='Like'
           style={likeBtnStyle}
@@ -198,12 +202,11 @@ export default function InteractionBlock({
             )}
           />
         </button>
-
         <button
           type='button'
           aria-label='Dislike'
           aria-pressed={isDislike}
-          disabled={disabled || readonly}
+          disabled={disabled || readonly || disableInteractionButtons}
           onClick={onDislike}
           title='Dislike'
           style={dislikeBtnStyle}

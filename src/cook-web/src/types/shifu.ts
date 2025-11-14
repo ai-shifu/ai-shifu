@@ -1,3 +1,5 @@
+import type { PreviewVariablesMap } from '@/components/lesson-preview/variableStorage';
+
 export type BlockType =
   | 'content'
   | 'button'
@@ -46,6 +48,7 @@ export interface ProfileItem {
   profile_key: string;
   color_setting: ColorSetting;
   profile_type: string;
+  profile_scope?: string;
 }
 
 export interface ProfileItemDefination {
@@ -172,6 +175,15 @@ export interface ShifuActions {
     shifuId: string,
     outlineId: string,
   ) => Promise<void>;
+  previewParse: (
+    value: string,
+    shifuId: string,
+    outlineId: string,
+  ) => Promise<{
+    variables: PreviewVariablesMap;
+    blocksCount: number;
+    systemVariableKeys: string[];
+  }>;
 }
 
 export interface ShifuContextType extends ShifuState {
