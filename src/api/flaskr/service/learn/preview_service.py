@@ -413,6 +413,3 @@ class MarkdownFlowPreviewService:
             return float(value)
         except (TypeError, ValueError):
             return None
-        document_prompt = self._resolve_document_prompt(
-            preview_request, outline, shifu, shifu_bid, outline_bid
-        )
