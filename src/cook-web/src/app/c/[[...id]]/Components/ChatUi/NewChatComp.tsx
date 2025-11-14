@@ -230,7 +230,10 @@ export const NewChatComponents = ({
 
           if (item.type === ChatContentItemType.LIKE_STATUS) {
             return mobileStyle ? null : (
-              <div  key={`${idx}-interaction`} style={{ margin: '0 auto',  maxWidth: '1000px', }}>
+              <div
+                key={`${idx}-interaction`}
+                style={{ margin: '0 auto', maxWidth: '1000px' }}
+              >
                 <InteractionBlock
                   shifu_bid={shifuBid}
                   generated_block_bid={item.parent_block_bid || ''}
