@@ -16,13 +16,13 @@ repos:
     -   id: requirements-txt-fixer
         exclude: ^src/api/requirements\.txt$
 -   repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.2
+    rev: v0.14.4
     hooks:
     -   id: ruff-check
         args: [ --fix ]
     -   id: ruff-format
 -   repo: https://github.com/commitizen-tools/commitizen
-    rev: v4.9.1  # use latest stable version
+    rev: v4.10.0  # use latest stable version
     hooks:
     -   id: commitizen
         stages: [commit-msg]
@@ -40,17 +40,17 @@ repos:
     hooks:
     -   id: check-shared-translations
         name: Validate shared translation parity
-        entry: python scripts/check_translations.py
+        entry: python3 scripts/check_translations.py
         language: system
         pass_filenames: false
     -   id: check-translation-usage
         name: Validate translation key usage
-        entry: python scripts/check_translation_usage.py --fail-on-unused
+        entry: python3 scripts/check_translation_usage.py --fail-on-unused
         language: system
         pass_filenames: false
     -   id: generate-languages-check
         name: Validate locales metadata up to date
-        entry: bash -lc 'python scripts/generate_languages.py && git diff --exit-code -- src/i18n/locales.json'
+        entry: bash -lc 'python3 scripts/generate_languages.py && git diff --exit-code -- src/i18n/locales.json'
         language: system
         pass_filenames: false
 -   repo: local
