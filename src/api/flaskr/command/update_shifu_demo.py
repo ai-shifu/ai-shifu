@@ -9,6 +9,8 @@ from flaskr.util import generate_id
 from flaskr.service.config.funcs import add_config, get_config, update_config
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 
+import json
+
 
 def _process_demo_shifu(
     app: Flask, demo_file: str, config_key: str, config_remark: str
@@ -89,10 +91,14 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
                 course_auth_id=generate_id(app),
                 user_id=user.user_bid,
                 course_id=shifu_bid,
-                auth_type="['view', 'edit', 'publish']",
+                auth_type=json.dumps(["view", "edit", "publish"]),
                 status=1,
             )
             db.session.add(auth)
+        else:
+            auth.auth_type = json.dumps(["view", "edit", "publish"])
+            auth.status = 1
+        db.session.commit()
 
 
 def update_demo_shifu(app: Flask):
