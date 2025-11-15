@@ -75,7 +75,6 @@ const SidebarContent = ({
           })}
         </nav>
       </div>
-      <div className='p-2 relative'>
         <NavFooter
           ref={footerRef}
           // @ts-expect-error EXPECT
@@ -88,7 +87,6 @@ const SidebarContent = ({
           className={userMenuClassName}
           isAdmin
         />
-      </div>
     </div>
   );
 };
