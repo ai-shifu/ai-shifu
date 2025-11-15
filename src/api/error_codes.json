@@ -42,7 +42,7 @@
   "server.shifu.lessonCannotBeReset": 4002,
   "server.shifu.lessonNotFound": 4003,
   "server.shifu.lessonNotFoundInCourse": 4004,
-
+  "server.shifu.shifuPriceTooLow": 4005,
   "server.pay.payChannelNotSupport": 5001,
 
   "server.file.fileUploadError": 6001,

@@ -833,6 +833,14 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         description="Django settings module for testing",
         group="testing",
     ),
+    # Minimum Shifu Price
+    "MIN_SHIFU_PRICE": EnvVar(
+        name="MIN_SHIFU_PRICE",
+        default=0.5,
+        type=float,
+        description="Minimum price of shifu",
+        group="shifu",
+    ),
 }
 
 

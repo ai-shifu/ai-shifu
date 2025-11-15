@@ -13,7 +13,7 @@ from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
 from .consts import STATUS_DRAFT
 from ..check_risk.funcs import check_text_with_risk_control
-from ..common.models import raise_error
+from ..common.models import raise_error, raise_error_with_args
 from .utils import (
     get_shifu_res_url,
     parse_shifu_res_bid,
@@ -22,6 +22,7 @@ from .utils import (
 from .models import DraftShifu, AiCourseAuth
 from .shifu_history_manager import save_shifu_history
 from ..common.dtos import PageNationDTO
+from ...common.config import get_config
 
 
 def get_latest_shifu_draft(shifu_id: str) -> DraftShifu:
@@ -216,6 +217,11 @@ def save_shifu_draft_info(
     """
     with app.app_context():
         shifu_draft = get_latest_shifu_draft(shifu_id)
+        min_shifu_price = get_config("MIN_SHIFU_PRICE")
+        if shifu_price > 0 and shifu_price < min_shifu_price:
+            raise_error_with_args(
+                "server.shifu.shifuPriceTooLow", {"min_shifu_price": min_shifu_price}
+            )
         if not shifu_draft:
             shifu_draft: DraftShifu = DraftShifu(
                 shifu_bid=shifu_id,
