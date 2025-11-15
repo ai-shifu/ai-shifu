@@ -405,6 +405,8 @@ def generate_charge(
         amount = int(buy_record.paid_price * 100)
         subject = shifu_info.title
         body = shifu_info.description
+        if body is None or body == "":
+            body = shifu_info.title
         order_no = str(get_uuid(app))
         payment_channel, provider_channel = _resolve_payment_channel(
             payment_channel_hint=payment_channel,
