@@ -75,6 +75,7 @@ const SidebarContent = ({
           })}
         </nav>
       </div>
+      <div className='p-2 relative'>
         <NavFooter
           ref={footerRef}
           onClick={onFooterClick}
@@ -83,7 +84,9 @@ const SidebarContent = ({
           open={userMenuOpen}
           onClose={onUserMenuClose}
           className={userMenuClassName}
+          isAdmin
         />
+      </div>
     </div>
   );
 };

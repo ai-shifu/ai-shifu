@@ -39,6 +39,7 @@ const MainMenuModal = ({
   className = '',
   onBasicInfoClick,
   onPersonalInfoClick,
+  isAdmin = false,
 }) => {
   const { t } = useTranslation();
 
@@ -129,9 +130,11 @@ const MainMenuModal = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel>
+              {t('common.core.cancel')}
+            </AlertDialogCancel>
             <AlertDialogAction onClick={onLogoutConfirm}>
-              确认
+              {t('common.core.ok')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -151,36 +154,40 @@ const MainMenuModal = ({
           className={styles.mainMenuModal}
           ref={htmlRef}
         >
-          <div
-            className={cn(styles.mainMenuModalRow, 'px-2.5')}
-            onClick={onUserInfoClick}
-          >
-            <Image
-              className={styles.rowIcon}
-              width={16}
-              height={16}
-              src={imgUserInfo.src}
-              alt=''
-            />
-            <div className={styles.rowTitle}>
-              {t('component.menus.navigationMenus.basicInfo')}
-            </div>
-          </div>
-          <div
-            className={cn(styles.mainMenuModalRow, 'px-2.5')}
-            onClick={_onPersonalInfoClick}
-          >
-            <Image
-              className={styles.rowIcon}
-              width={16}
-              height={16}
-              src={imgPersonal.src}
-              alt=''
-            />
-            <div className={styles.rowTitle}>
-              {t('component.menus.navigationMenus.personalInfo')}
-            </div>
-          </div>
+          {!isAdmin && (
+            <>
+              <div
+                className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                onClick={onUserInfoClick}
+              >
+                <Image
+                  className={styles.rowIcon}
+                  width={16}
+                  height={16}
+                  src={imgUserInfo.src}
+                  alt=''
+                />
+                <div className={styles.rowTitle}>
+                  {t('component.menus.navigationMenus.basicInfo')}
+                </div>
+              </div>
+              <div
+                className={cn(styles.mainMenuModalRow, 'px-2.5')}
+                onClick={_onPersonalInfoClick}
+              >
+                <Image
+                  className={styles.rowIcon}
+                  width={16}
+                  height={16}
+                  src={imgPersonal.src}
+                  alt=''
+                />
+                <div className={styles.rowTitle}>
+                  {t('component.menus.navigationMenus.personalInfo')}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className={styles.languageRow}>
             <div
