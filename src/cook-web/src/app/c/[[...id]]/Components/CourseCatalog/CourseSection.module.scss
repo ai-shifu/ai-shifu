@@ -108,8 +108,8 @@
       }
 
       .bigIcon {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
       }
     }
 
@@ -133,7 +133,11 @@
 
     .leftSection {
       flex: 1 1 0;
-
+      &.notPaid {
+        .courseTitle {
+          color: rgba(10, 10, 10, 0.45);
+        }
+      }
       .courseTitle {
         display: inline;
         overflow: hidden;

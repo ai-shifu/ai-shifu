@@ -56,9 +56,17 @@
   &.mobile {
     width: 100%;
     padding-top: 80px;
-    padding-bottom: max(80px, calc(40px + env(safe-area-inset-bottom, 0px)));
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px));
     .chatComponents {
       padding-top: 0;
+      padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+    }
+    .footer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
   }
 

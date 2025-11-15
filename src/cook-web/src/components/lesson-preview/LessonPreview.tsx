@@ -95,8 +95,8 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
                     margin:
                       !idx || item.type === ChatContentItemType.INTERACTION
                         ? '0'
-                        : '40px auto 0px auto',
-                  }}
+                        : '40px 0 0 0',
+                   }}
                 >
                   <ContentBlock
                     item={item}
