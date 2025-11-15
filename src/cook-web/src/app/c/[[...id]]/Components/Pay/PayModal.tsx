@@ -36,7 +36,8 @@ import { useToast } from '@/hooks/useToast';
 import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
-import payInfoBg from '@/c-assets/newchat/pay-info-bg.png';
+import payInfoBgCn from '@/c-assets/newchat/pay-info-bg-cn.png';
+import payInfoBgEn from '@/c-assets/newchat/pay-info-bg-en.png';
 
 const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
 
@@ -73,7 +74,12 @@ export const PayModal = ({
 
   const courseId = getStringEnv('courseId');
 
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const { isLoggedIn, userInfo } = useUserStore(
+    useShallow(state => ({
+      isLoggedIn: state.isLoggedIn,
+      userInfo: state.userInfo,
+    })),
+  );
 
   const {
     orderId,
@@ -333,6 +339,8 @@ export const PayModal = ({
     }
   }
 
+  const payInfoBg = userInfo?.language === 'en-US' ? payInfoBgEn : payInfoBgCn;
+
   return (
     <>
       <Dialog
@@ -356,7 +364,7 @@ export const PayModal = ({
                 <CompletedSection />
               ) : (
                 <div className={styles.paySection}>
-                  <div className={styles.payInfoTitle}>到手价格</div>
+                  <div className={styles.payInfoTitle}>{t('module.pay.finalPrice')}</div>
                   <div className={styles.priceWrapper}>
                     <div
                       className={cn(
@@ -372,10 +380,10 @@ export const PayModal = ({
                     <div
                       className={styles.originalPriceWrapper}
                       style={{
-                        visibility:
+                        display:
                           displayOriginalPrice === displayPrice
-                            ? 'hidden'
-                            : 'visible',
+                            ? 'none'
+                            : 'block',
                       }}
                     >
                       <div className={styles.originalPrice}>
@@ -404,7 +412,7 @@ export const PayModal = ({
                   )}
                   {isLoggedIn ? (
                     <>
-                      <div className={styles.channelSelectors}>
+                      <div className={`${styles.channelSelectors} ${pingxxChannelEnabled ? styles.pingxxSelected : ''}`}>
                         {pingxxChannelEnabled ? (
                           <div className={styles.channelSwitchWrapper}>
                             <PayChannelSwitch
@@ -415,8 +423,7 @@ export const PayModal = ({
                         ) : null}
                         {isStripeAvailable ? (
                           <div className={styles.stripeSelector}>
-                            <Button
-                              variant={isStripeSelected ? 'default' : 'outline'}
+                            <div
                               onClick={() =>
                                 onPayChannelSelectChange({
                                   channel: PAY_CHANNEL_STRIPE,
@@ -424,7 +431,7 @@ export const PayModal = ({
                               }
                             >
                               {t('module.pay.payChannelStripeCard')}
-                            </Button>
+                            </div>
                           </div>
                         ) : null}
                       </div>
@@ -437,7 +444,7 @@ export const PayModal = ({
                                 {t('module.pay.stripeCheckoutHint')}
                               </p>
                               <Button
-                                className='w-full'
+                                className={styles.stripeCheckoutButton}
                                 onClick={handleStripeCheckout}
                                 disabled={!stripeCheckoutUrl}
                               >
@@ -477,7 +484,7 @@ export const PayModal = ({
                                   onClick={onQrcodeRefresh}
                                 >
                                   <LoaderCircleIcon />
-                                  点击刷新
+                                  {t('module.pay.clickRefresh')}
                                 </Button>
                               ) : null}
                             </div>
@@ -502,7 +509,7 @@ export const PayModal = ({
                     </>
                   ) : (
                     <div className={styles.loginButtonWrapper}>
-                      <Button onClick={onLoginButtonClick}>登录</Button>
+                      <Button onClick={onLoginButtonClick}>{t('module.pay.login')}</Button>
                     </div>
                   )}
                   <PayModalFooter className={styles.payModalFooter} />

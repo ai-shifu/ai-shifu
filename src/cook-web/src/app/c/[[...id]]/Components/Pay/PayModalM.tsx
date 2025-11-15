@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import Image from 'next/image';
 import weixinIcon from '@/c-assets/newchat/weixin.png';
 import zhifuboIcon from '@/c-assets/newchat/zhifubao.png';
-import payInfoBg from '@/c-assets/newchat/pay-info-bg-m.png';
 import paySuccessBg from '@/c-assets/newchat/pay-success@2x.png';
 
 import {

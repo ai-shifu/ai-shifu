@@ -6,7 +6,7 @@
   "modelServiceAgreement": "Model Service Agreement",
   "pay": "Pay",
   "payChannelAlipay": "Alipay",
-  "payChannelStripeCard": "Card (Stripe)",
+  "payChannelStripeCard": "Credit Card",
   "payChannelWechat": "WeChat",
   "payFailed": "Payment Failed",
   "paySuccess": "Payment Successful",

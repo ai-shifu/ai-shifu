@@ -6,7 +6,7 @@
   "modelServiceAgreement": "模型服务协议",
   "pay": "支付",
   "payChannelAlipay": "支付宝",
-  "payChannelStripeCard": "信用卡（Stripe）",
+  "payChannelStripeCard": "信用卡",
   "payChannelWechat": "微信",
   "payFailed": "支付失败",
   "paySuccess": "支付成功",

@@ -2,8 +2,14 @@
   color: var(--color-20);
 
   .payInfoTitle {
-    font-size: var(--font-size-2);
+    color: #87532D;
+    font-family: Geist;
+    font-size: 20px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 100%; /* 20px */
     text-align: center;
+    padding-bottom: 20px;
   }
 
   .priceWrapper {
@@ -18,12 +24,21 @@
       }
 
       .priceSign {
-        font-size: var(--font-size-1);
+        color: #7C502F;
+        font-family: Arial;
+        font-size: 32px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 100%; /* 32px */
       }
 
       .priceNumber {
-        font-size: var(--font-size-20);
-        font-weight: bold;
+        color: #7C502F;
+        font-family: Arial;
+        font-size: 40px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: 100%;
       }
     }
   }
@@ -147,19 +162,43 @@
 
     .payButton {
       width: 100%;
+      display: flex;
+      height: var(--height-h-9, 36px);
+      padding: var(--spacing-2, 8px) var(--spacing-4, 16px);
+      justify-content: center;
+      align-items: center;
+      gap: var(--spacing-2, 8px);
+      flex-shrink: 0;
+      border-radius: var(--border-radius-rounded-md, 8px);
+      background: var(--base-primary, #171717);
+      color: var(--base-primary-foreground, #FAFAFA);
+
+      /* text-sm/leading-normal/medium */
+      font-family: var(--font-font-sans, Geist);
+      font-size: var(--text-sm-font-size, 14px);
+      font-style: normal;
+      font-weight: var(--font-weight-medium, 500);
+      line-height: var(--text-sm-line-height, 20px); /* 142.857% */
+      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
     }
   }
 
   .couponCodeWrapper {
-    margin-top: 30px;
+    margin-top: 20px;
     display: flex;
     flex-flow: row nowrap;
     justify-content: center;
     align-items: center;
 
     .couponCodeButton {
-      --adm-font-size-9: var(--font-size-5);
-      color: var(--color-8);
+      background: transparent;
+      color: rgba(0, 0, 0, 0.65);
+      text-align: center;
+      font-family: Geist;
+      font-size: 14px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 100%; /* 14px */
     }
   }
 
@@ -174,24 +213,19 @@
 
   .virtualProductDesc {
     margin-top: 20px;
-    padding: 15px;
-    background-color: rgba(var(--color-1-rgb), 0.05);
-    border-radius: 10px;
-    font-size: var(--font-size-5);
-    color: var(--color-8);
+    color: rgba(0, 0, 0, 0.45);
+    font-family: Geist;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 18px; /* 150% */
 
     .descTitle {
       font-weight: bold;
-      margin-bottom: 10px;
     }
 
     .descPoint {
-      margin-bottom: 8px;
       line-height: 1.5;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
     }
   }
 
