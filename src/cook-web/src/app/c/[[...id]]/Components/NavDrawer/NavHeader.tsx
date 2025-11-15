@@ -60,7 +60,10 @@ export const NavHeader = ({
           onClick={onToggleButtonClick}
           style={{ cursor: 'pointer', zIndex: 10 }}
         >
-          <PanelLeft className={styles.icon} size={16} />
+          <PanelLeft
+            className={styles.icon}
+            size={16}
+          />
         </div>
       )}
       {showCloseBtn && (

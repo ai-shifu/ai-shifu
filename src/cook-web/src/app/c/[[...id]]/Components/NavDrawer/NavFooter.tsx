@@ -43,8 +43,10 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
               : t('module.user.notLogin')}
           </div>
         </div>
-        <ChevronsUpDown size={16} color="#0A0A0A" />
-
+        <ChevronsUpDown
+          size={16}
+          color='#0A0A0A'
+        />
       </div>
     </div>
   );

@@ -5,7 +5,7 @@
   border-top: 1px solid #e5e5e5;
   font-size: var(--font-size-5);
   align-items: center;
-  
+
   .userInfo {
     display: flex;
     align-items: center;
@@ -27,7 +27,7 @@
     .userName {
       margin-left: 8px;
       overflow: hidden;
-      color: var(--base-sidebar-foreground, #0A0A0A);
+      color: var(--base-sidebar-foreground, #0a0a0a);
       text-overflow: ellipsis;
 
       /* text-sm/leading-none/semibold */

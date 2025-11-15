@@ -95,10 +95,7 @@ export const ResetChapterButton = ({
     <>
       <Button
         size='sm'
-        className={cn(
-          styles.resetChapterButton,
-          className,
-        )}
+        className={cn(styles.resetChapterButton, className)}
         onClick={onButtonClick}
       >
         {t('module.lesson.reset.title')}

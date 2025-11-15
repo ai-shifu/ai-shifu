@@ -39,8 +39,7 @@ export const ChatUi = ({
       previewMode: state.previewMode,
     })),
   );
-  const hideMobileFooter =
-    frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
+  const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
 
   return (
     <div

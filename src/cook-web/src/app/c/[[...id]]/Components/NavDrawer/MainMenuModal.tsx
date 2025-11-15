@@ -130,9 +130,7 @@ const MainMenuModal = ({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>
-              {t('common.core.cancel')}
-            </AlertDialogCancel>
+            <AlertDialogCancel>{t('common.core.cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={onLogoutConfirm}>
               {t('common.core.ok')}
             </AlertDialogAction>
