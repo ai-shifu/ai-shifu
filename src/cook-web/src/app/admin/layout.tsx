@@ -1,45 +1,52 @@
 'use client';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/Sheet';
 import { Bars3Icon, DocumentIcon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import Link from 'next/link';
-import UserProfile from '@/components/user-profile';
+import NavFooter from '@/app/c/[[...id]]/Components/NavDrawer/NavFooter';
+import MainMenuModal from '@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal';
+import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTranslation } from 'react-i18next';
-import logo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
+import logo from '@/c-assets/logos/ai-shifu-logo-black.svg';
+import adminSidebarStyles from './AdminSidebar.module.scss';
+import styles from './layout.module.scss';
+import { cn } from '@/lib/utils';
 
-const MainInterface = ({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) => {
-  const { t, i18n } = useTranslation();
-  useEffect(() => {
-    document.title = t('common.core.adminTitle');
-  }, [t, i18n.language]);
-  const menuItems: {
-    type?: string;
-    icon?: React.ReactNode;
-    label?: string;
-    href?: string;
-    id?: string;
-  }[] = [
-    {
-      icon: <DocumentIcon className='w-4 h-4' />,
-      label: t('common.core.shifu'),
-      href: '/admin',
-    },
-  ];
+type MenuItem = {
+  type?: string;
+  icon?: React.ReactNode;
+  label?: string;
+  href?: string;
+  id?: string;
+};
 
-  const SidebarContent = () => (
-    <div className='flex flex-col h-full relative bg-background'>
-      <h1 className='text-xl font-bold p-4'>
+type SidebarContentProps = {
+  menuItems: MenuItem[];
+  footerRef: React.MutableRefObject<any>;
+  userMenuOpen: boolean;
+  onFooterClick: () => void;
+  onUserMenuClose: (e?: Event | React.MouseEvent) => void;
+  userMenuClassName?: string;
+};
+
+const SidebarContent = ({
+  menuItems,
+  footerRef,
+  userMenuOpen,
+  onFooterClick,
+  onUserMenuClose,
+  userMenuClassName,
+}: SidebarContentProps) => {
+  return (
+    <div className={cn('flex flex-col h-full relative', styles.adminLayout)}>
+      <h1 className={cn('text-xl font-bold p-4', styles.adminLogo)}>
         <Image
           className='dark:invert'
           src={logo}
           alt='AI-Shifu'
-          width={140}
+          width={117}
           height={32}
           priority
         />
@@ -68,19 +75,92 @@ const MainInterface = ({
           })}
         </nav>
       </div>
-
-      <div className='p-2 relative'>
-        <UserProfile />
-      </div>
+        <NavFooter
+          ref={footerRef}
+          onClick={onFooterClick}
+        />
+        <MainMenuModal
+          open={userMenuOpen}
+          onClose={onUserMenuClose}
+          className={userMenuClassName}
+        />
     </div>
   );
+};
+
+const MainInterface = ({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) => {
+  const { t, i18n } = useTranslation();
+  useEffect(() => {
+    document.title = t('common.core.adminTitle');
+  }, [t, i18n.language]);
+
+  const desktopFooterRef = useRef<any>(null);
+  const {
+    open: desktopMenuOpen,
+    onToggle: toggleDesktopMenu,
+    onClose: closeDesktopMenu,
+  } = useDisclosure();
+
+  const mobileFooterRef = useRef<any>(null);
+  const {
+    open: mobileMenuOpen,
+    onToggle: toggleMobileMenu,
+    onClose: closeMobileMenu,
+  } = useDisclosure();
+
+  const onDesktopFooterClick = useCallback(() => {
+    toggleDesktopMenu();
+  }, [toggleDesktopMenu]);
+
+  const onMobileFooterClick = useCallback(() => {
+    toggleMobileMenu();
+  }, [toggleMobileMenu]);
+
+  const handleDesktopMenuClose = useCallback(
+    (e?: Event | React.MouseEvent) => {
+      if (desktopFooterRef.current?.containElement?.(e?.target)) {
+        return;
+      }
+      closeDesktopMenu();
+    },
+    [closeDesktopMenu],
+  );
+
+  const handleMobileMenuClose = useCallback(
+    (e?: Event | React.MouseEvent) => {
+      if (mobileFooterRef.current?.containElement?.(e?.target)) {
+        return;
+      }
+      closeMobileMenu();
+    },
+    [closeMobileMenu],
+  );
+
+  const menuItems: MenuItem[] = [
+    {
+      icon: <DocumentIcon className='w-4 h-4' />,
+      label: t('common.core.shifu'),
+      href: '/admin',
+    },
+  ];
 
   return (
     <div className='h-screen flex bg-stone-50'>
-      <div className='w-64'>
-        <SidebarContent />
+      <div className='w-[280px]'>
+        <SidebarContent
+          menuItems={menuItems}
+          footerRef={desktopFooterRef}
+          userMenuOpen={desktopMenuOpen}
+          onFooterClick={onDesktopFooterClick}
+          onUserMenuClose={handleDesktopMenuClose}
+          userMenuClassName={adminSidebarStyles.navMenuPopup}
+        />
       </div>
-      <div className='flex-1 p-5  overflow-hidden'>
+      <div className='flex-1 p-5  overflow-hidden bg-background'>
         <div className='max-w-6xl mx-auto h-full overflow-hidden'>
           {children}
         </div>
@@ -100,7 +180,14 @@ const MainInterface = ({
               side='left'
               className='w-64 p-0'
             >
-              <SidebarContent />
+              <SidebarContent
+                menuItems={menuItems}
+                footerRef={mobileFooterRef}
+                userMenuOpen={mobileMenuOpen}
+                onFooterClick={onMobileFooterClick}
+                onUserMenuClose={handleMobileMenuClose}
+                userMenuClassName={adminSidebarStyles.navMenuPopup}
+              />
             </SheetContent>
           </Sheet>
           <h1 className='text-xl font-bold'>{t('common.core.home')}</h1>

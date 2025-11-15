@@ -1,0 +1,1 @@
+.adminLayout{border-right:var(--border-width-border, 1px) solid var(--base-border, #E5E5E5);background:linear-gradient(0deg, var(--alpha-40, rgba(255, 255, 255, 0.6)) 0%, var(--alpha-40, rgba(255, 255, 255, 0.6)) 100%),var(--base-muted, #F5F5F5)}.adminLayout .adminLogo{border-bottom:var(--border-width-border, 1px) solid var(--base-border, #E5E5E5)}
