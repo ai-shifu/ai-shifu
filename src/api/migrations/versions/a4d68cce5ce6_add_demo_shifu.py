@@ -29,7 +29,7 @@ def upgrade():
 
     with app.app_context():
         demo_shifu_file = (
-            os.path.abspath(os.path.dirname(__file__)) + "/demo_shifu.json"
+            os.path.abspath(os.path.dirname(__file__)) + "/../cn_demo.json"
         )
         # Read file content first, then create FileStorage
         with open(demo_shifu_file, "rb") as f:

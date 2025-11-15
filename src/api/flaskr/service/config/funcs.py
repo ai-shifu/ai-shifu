@@ -123,7 +123,6 @@ def get_config(app: Flask, key: str) -> str:
                     .first()
                 )
                 if not config:
-                    lock.release()
                     return None
                 raw_value = config.value
                 if bool(config.is_encrypted):
@@ -151,17 +150,38 @@ def add_config(
     Add config to database.
     """
     with app.app_context():
+        app.logger.info(
+            f"Adding config: {key}, value: {value}, is_secret: {is_secret}, remark: {remark}"
+        )
         env_value = get_config_from_common(key, None)
         if env_value:
             return
-        cache_key = _get_config_cache_key(app, key)
-        cache = redis.get(cache_key)
-        if cache:
-            cache_config = ConfigCache.model_validate_json(cache)
-            if cache_config.is_encrypted:
-                value = _decrypt_config(app, cache_config.value)
-            else:
-                value = cache_config.value
+        # Check if config already exists in database
+        existing_config = (
+            Config.query.filter(
+                Config.key == key,
+                Config.deleted == 0,
+            )
+            .order_by(Config.created_at.desc())
+            .first()
+        )
+        if existing_config:
+            # Config already exists, update it instead
+            if is_secret:
+                value = _encrypt_config(app, value)
+            existing_config.value = value
+            existing_config.is_encrypted = is_secret
+            existing_config.remark = remark
+            existing_config.updated_by = "system"
+            db.session.commit()
+            cache_key = _get_config_cache_key(app, key)
+            redis.set(
+                cache_key,
+                ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
+                ex=86400 + random.randint(0, 3600),
+            )
+            return True
+        # Config doesn't exist, add new one
         if value:
             if is_secret:
                 value = _encrypt_config(app, value)
@@ -176,6 +196,7 @@ def add_config(
             )
             db.session.add(config)
             db.session.commit()
+            cache_key = _get_config_cache_key(app, key)
             redis.set(
                 cache_key,
                 ConfigCache(is_encrypted=is_secret, value=value).model_dump_json(),
@@ -215,11 +236,21 @@ def update_config(
                 .first()
             )
             if not config:
-                return False
-            config.value = value
-            config.is_secret = is_secret
-            config.remark = remark
-            config.updated_by = "system"
+                config = Config(
+                    config_bid=generate_id(app),
+                    key=key,
+                    value=value,
+                    deleted=0,
+                    is_encrypted=is_secret,
+                    remark=remark,
+                    updated_by="system",
+                )
+                db.session.add(config)
+            else:
+                config.value = value
+                config.is_encrypted = is_secret
+                config.remark = remark
+                config.updated_by = "system"
             db.session.commit()
             redis.set(
                 cache_key,
