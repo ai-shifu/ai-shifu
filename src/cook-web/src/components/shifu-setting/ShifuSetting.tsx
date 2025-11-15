@@ -261,7 +261,7 @@ export default function ShifuSettingDialog({
       return;
     }
     init();
-  }, [shifuId, open, init]);
+  }, [shifuId, open]);
 
   useEffect(() => {
     const subscription = form.watch((value: any) => {
@@ -274,6 +274,7 @@ export default function ShifuSettingDialog({
     async (needClose = true) => {
       const isNameValid = await form.trigger('name');
       const isPriceValid = await form.trigger('price');
+      console.log('isPriceValid', isPriceValid);
       if (!isPriceValid) {
         if (needClose) {
           setOpen(true);
@@ -281,6 +282,7 @@ export default function ShifuSettingDialog({
         return false;
       }
       const priceValue = parseFloat(form.getValues('price') || '0');
+      console.log('priceValue', priceValue);
       if (!Number.isNaN(priceValue) && priceValue < MIN_SHIFU_PRICE) {
         form.setError('price', {
           type: 'manual',
@@ -302,7 +304,7 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose);
       return true;
     },
-    [form, onSubmit, setOpen, t],
+    [form, onSubmit, setOpen],
   );
 
   useEffect(() => {
