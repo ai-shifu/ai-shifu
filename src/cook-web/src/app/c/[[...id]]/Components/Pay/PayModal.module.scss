@@ -28,7 +28,7 @@
       color: var(--color-20);
 
       .payInfoTitle {
-        color: #87532D;
+        color: #87532d;
         font-family: Geist;
         font-size: 20px;
         font-style: normal;
@@ -51,7 +51,7 @@
         }
 
         .priceSign {
-          color: #7C502F;
+          color: #7c502f;
           font-family: Arial;
           font-size: 32px;
           font-style: normal;
@@ -60,7 +60,7 @@
         }
 
         .priceNumber {
-          color: #7C502F;
+          color: #7c502f;
           font-family: Arial;
           font-size: 40px;
           font-style: normal;
@@ -204,7 +204,7 @@
       text-align: left;
     }
 
-    .stripeCheckoutButton{
+    .stripeCheckoutButton {
       margin: 32px auto auto auto;
       display: flex;
       width: 230px;
@@ -216,8 +216,10 @@
       flex-shrink: 0;
       border-radius: var(--border-radius-rounded-md, 8px);
       background: var(--base-primary, #171717);
-      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
-      color: var(--base-primary-foreground, #FAFAFA);
+      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+        var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+        var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+      color: var(--base-primary-foreground, #fafafa);
 
       /* text-sm/leading-normal/medium */
       font-family: var(--font-font-sans, Geist);

@@ -364,7 +364,9 @@ export const PayModal = ({
                 <CompletedSection />
               ) : (
                 <div className={styles.paySection}>
-                  <div className={styles.payInfoTitle}>{t('module.pay.finalPrice')}</div>
+                  <div className={styles.payInfoTitle}>
+                    {t('module.pay.finalPrice')}
+                  </div>
                   <div className={styles.priceWrapper}>
                     <div
                       className={cn(
@@ -412,7 +414,9 @@ export const PayModal = ({
                   )}
                   {isLoggedIn ? (
                     <>
-                      <div className={`${styles.channelSelectors} ${pingxxChannelEnabled ? styles.pingxxSelected : ''}`}>
+                      <div
+                        className={`${styles.channelSelectors} ${pingxxChannelEnabled ? styles.pingxxSelected : ''}`}
+                      >
                         {pingxxChannelEnabled ? (
                           <div className={styles.channelSwitchWrapper}>
                             <PayChannelSwitch
@@ -509,7 +513,9 @@ export const PayModal = ({
                     </>
                   ) : (
                     <div className={styles.loginButtonWrapper}>
-                      <Button onClick={onLoginButtonClick}>{t('module.pay.login')}</Button>
+                      <Button onClick={onLoginButtonClick}>
+                        {t('module.pay.login')}
+                      </Button>
                     </div>
                   )}
                   <PayModalFooter className={styles.payModalFooter} />

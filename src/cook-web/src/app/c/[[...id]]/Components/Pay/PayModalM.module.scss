@@ -2,7 +2,7 @@
   color: var(--color-20);
 
   .payInfoTitle {
-    color: #87532D;
+    color: #87532d;
     font-family: Geist;
     font-size: 20px;
     font-style: normal;
@@ -24,7 +24,7 @@
       }
 
       .priceSign {
-        color: #7C502F;
+        color: #7c502f;
         font-family: Arial;
         font-size: 32px;
         font-style: normal;
@@ -33,7 +33,7 @@
       }
 
       .priceNumber {
-        color: #7C502F;
+        color: #7c502f;
         font-family: Arial;
         font-size: 40px;
         font-style: normal;
@@ -171,7 +171,7 @@
       flex-shrink: 0;
       border-radius: var(--border-radius-rounded-md, 8px);
       background: var(--base-primary, #171717);
-      color: var(--base-primary-foreground, #FAFAFA);
+      color: var(--base-primary-foreground, #fafafa);
 
       /* text-sm/leading-normal/medium */
       font-family: var(--font-font-sans, Geist);
@@ -179,7 +179,9 @@
       font-style: normal;
       font-weight: var(--font-weight-medium, 500);
       line-height: var(--text-sm-line-height, 20px); /* 142.857% */
-      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px) var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0) var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+        var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+        var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
     }
   }
 
