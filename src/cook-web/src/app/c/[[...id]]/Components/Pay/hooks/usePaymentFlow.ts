@@ -110,13 +110,16 @@ export const usePaymentFlow = ({
       setPriceItems(
         snapshot.price_item?.filter(item => item?.is_discount) || [],
       );
-      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
+      const valueToPayNumber = Number(snapshot.value_to_pay);
+      const isFreeOrder =
+        !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
+      if (snapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS || isFreeOrder) {
         setIsCompleted(true);
         setPollingActive(false);
         onOrderPaid?.();
       }
     },
-    [onOrderPaid],
+    [onOrderPaid, updateFromOrder],
   );
 
   const initOrderUniform = useCallback(async () => {
@@ -167,6 +170,21 @@ export const usePaymentFlow = ({
       if (!orderIdRef.current) return null;
       setIsLoading(true);
       try {
+        const current = await queryOrder({ orderId: orderIdRef.current });
+        if (!mountedRef.current || !current) {
+          return current;
+        }
+        updateFromOrder(current as OrderSnapshot);
+        const currentSnapshot = current as OrderSnapshot;
+        const valueToPayNumber = Number(currentSnapshot.value_to_pay);
+        const isFreeOrder =
+          !Number.isNaN(valueToPayNumber) && valueToPayNumber <= 0;
+        if (
+          currentSnapshot.status === ORDER_STATUS.BUY_STATUS_SUCCESS ||
+          isFreeOrder
+        ) {
+          return current;
+        }
         const payload = await getPayUrl({
           channel,
           orderId: orderIdRef.current,
