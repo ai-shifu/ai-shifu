@@ -1,0 +1,126 @@
+{
+  "version": "1.0",
+  "exported_at": "2025-11-15T06:51:43.197568",
+  "shifu": {
+    "shifu_bid": "c2f25d53f3a84e049d768c7b367bcd3f",
+    "title": "AI-Shifu Creation Guide",
+    "keywords": "",
+    "description": "How to create on the AI-Shifu platform",
+    "avatar_res_bid": "eb85d985c0444580a8ff348c3dfd3df6",
+    "llm": "",
+    "llm_temperature": 0.3,
+    "llm_system_prompt": "You are an expert in AI-Shifu.\n# Content Output Style\n- Output in English \n- Ensure smooth and coherent phrasing  \n- Output using Markdown format  \n- Use **bold** text to highlight key points  \n- If the user requests a flowchart or comparison chart, it should typically be created using Mermaid.\n\n# Important Background\n- **AI-Shifu** is a generative-AI–powered online teaching platform that enables instructors to quickly turn their knowledge into an online AI-driven course. These AI courses provide learners with highly personalized teaching, similar to one-on-one tutoring.\n- The content-creation workflow on the AI-Shifu platform operates as follows:\n  - The instructor creates prompts **for the AI model**, essentially writing a “teaching guide” for the AI.\n  - The AI then generates the final content delivered to the learners.",
+    "ask_enabled_status": 5101,
+    "ask_llm": "",
+    "ask_llm_temperature": 0.0,
+    "ask_llm_system_prompt": "",
+    "price": 0.0
+  },
+  "outline_items": [
+    {
+      "outline_item_bid": "55caad2f122e43dca600603fab7b6a82",
+      "title": "Quick start",
+      "type": 400,
+      "hidden": 0,
+      "parent_bid": "",
+      "position": "01",
+      "prerequisite_item_bids": "",
+      "llm": "",
+      "llm_temperature": 0.3,
+      "llm_system_prompt": "",
+      "ask_enabled_status": 5101,
+      "ask_llm": "",
+      "ask_llm_temperature": 0.3,
+      "ask_llm_system_prompt": "",
+      "content": ""
+    },
+    {
+      "outline_item_bid": "699209e09a544424bee95650d04f1eee",
+      "title": "Why choose AI-Shifu",
+      "type": 400,
+      "hidden": 0,
+      "parent_bid": "55caad2f122e43dca600603fab7b6a82",
+      "position": "0101",
+      "prerequisite_item_bids": "",
+      "llm": "",
+      "llm_temperature": 0.3,
+      "llm_system_prompt": "",
+      "ask_enabled_status": 5101,
+      "ask_llm": "",
+      "ask_llm_temperature": 0.3,
+      "ask_llm_system_prompt": "",
+      "content": "=== # Why Choose the AI-Shifu Platform ===\nGreet the user and welcome them to the AI-Shifu platform’s course-creation onboarding session!\n\n!===\nBefore we begin, please tell me a bit about yourself so I can better guide you.\nFirst, how should I address you?\n!===\n\n?[%{{sys_user_nickname}} ...Please enter your nickname]\n\nFollow the steps below when responding:\n1.\tGreet {{sys_user_nickname}} and give a positive compliment or interpretation of their nickname.\n2.\tAsk about their current personal background. Options include:\n\t•\tIndependent knowledge-based creator\n\t•\tMulti-platform content creator\n\t•\tTech company employee\n\t•\tUniversity lecturer\n\t•\tStay-at-home\n\n?[%{{sys_user_background}}Independent knowledge based creator | Multi platform content creator | Tech company employee | University lecturer | Stay at home  | ...Please your personal background]\n\n---\n\nFollow the steps below when responding:\n1.\tThe user’s personal background is {{sys_user_background}}. Based on this background, explain why using AI-Shifu to create courses is valuable. The explanation must include the following points:\n\t•\tCourses created with AI-Shifu offer stronger personalization and interactivity, leading to better teaching and learning outcomes. Key features include:\n    \t•\tFully personalized instruction, with all content tailored to the learner’s preferences\n    \t•\tRich interactive experiences throughout the learning process\n    \t•\tA 24/7 teaching assistant that allows learners to ask follow-up questions anytime\n\nNotes:\n\t•\tAll key features must be clearly presented as a list.\n\t•\tAlso explain that traditional course-creation and teaching methods cannot achieve these results, and that the advancement of AI technology makes this new experience possible. The AI-Shifu platform is built entirely on the latest AI capabilities.\n\t•\tFinally, let the user know they can visit [AI-Shifu](www.ai-shifu.com) for more details about AI-Shifu.\n\n\t2.\tThen output:\n=== You can adjust your personalized information anytime in the bottom-left corner of the learning page.  ===\n\t3.\tThen output:\n=== Now, let’s officially begin exploring how to create courses on the AI-Shifu platform! ==="
+    },
+    {
+      "outline_item_bid": "0dc31004a09d4aa8ba51e354d0f1780f",
+      "title": "How to create with AI-Shifu",
+      "type": 400,
+      "hidden": 0,
+      "parent_bid": "55caad2f122e43dca600603fab7b6a82",
+      "position": "0102",
+      "prerequisite_item_bids": "",
+      "llm": "",
+      "llm_temperature": 0.3,
+      "llm_system_prompt": "",
+      "ask_enabled_status": 5101,
+      "ask_llm": "",
+      "ask_llm_temperature": 0.3,
+      "ask_llm_system_prompt": "",
+      "content": "!=== \n# AI-Shifu’s Core Logic for Content Creation\nBefore we begin, let me ask you a question.\nHave you ever written a prompt for an AI before?\n!===\n?[%{{prompt_understanding}} Written prompts before | Heard of prompts but never written one | Never heard of prompts]\nFollow the steps below when generating content:\n1. The user’s familiarity with prompts is {{prompt_understanding}}. Based on this, explain the content-creation logic of AI-Shifu according to their actual experience level.\n\n2. ===![AI-Shifu creation.png](https://resource.ai-shifu.cn/37328c5cd8494677a4677c1c731ccf5f)===\n\n\n3. Emphasize:\n!===  \nSo the **core of content creation in AI-Shifu** is:\n    - You create *for the AI*, writing a “teaching guide” for the AI  \n    - The AI then completes the final teaching experience delivered to the learner  \n!===\n\n---\n\n!===\nNext, here’s a small exercise.\nOn the AI-Shifu platform, if you want to teach learners “What is AI?”, how would you write this “teaching guide”?\n!===\n\n?[%{{ai_intro_requirement}}...Please enter your answer]\n\nYou have given the user a question requiring them to write a prompt for the AI.\nYou need to judge whether their input is correct and provide feedback.\n\nUser input:\n- {{ai_intro_requirement}}\n\nJudgment rules:\nBelow are three criteria. If the user meets any two, the answer is considered correct:\n1. Tells the AI what action to perform, including a clear verb (e.g., introduce, summarize, translate, generate, explain).\n2. Tells the AI what the target object is (e.g., “introduce what AI is”—the object is AI).\n3. Tells the AI output requirements, specifying format, length, style, or audience (e.g., within 100 words, understandable for children, output in list format).\n\nFeedback rules:\n- If the answer is incorrect, explain the reason and provide suggestions for improvement.\n\n?[Continue learning]\n\n!=== \n## How to Produce Deterministic Output \n!===\nExplain the following to the user:\n1. First, describe when deterministic output is needed (i.e., when the AI should not improvise), such as:\n  - Objective factual data  \n  - Signature quotes with fixed wording  \n!===\n2. There are two ways to write deterministic content:\n  - For a single-line deterministic segment: use ```===deterministic content===```\n  - For multi-line deterministic content: use a separate ```!===``` as the start and end fence (each on its own line)\n\nIf you want the AI to output classic lines from the movie Forrest Gump, you can write:\n```\nForrest Gump classic quotes:\n!===\nLife is like a box of chocolates, you never know what you’re gonna get.\n!===\n```\nOr:\n```\nJenny classic quote: ===Run, Forrest, run ===\n!===\n```\n---\nBased on the user’s background {{sys_user_background}}, give the user a scenario requiring them to write one specific sentence using AI-Shifu’s deterministic-output format.\nOnly tell them which sentence to output, do not give extra explanation.\nAllow the user to answer freely.\n\n?[%{{deterministic_output_answer}}...Please enter your answer]\n\nNow judge the user’s answer: {{deterministic_output_answer}}\n\nThe answer is considered correct if it meets either of the following:\n- The input includes two ```===``` markers, with content between them.\n- The input includes two ```!===``` markers, each standing alone on its own line, with content between them.\n\nNotes:\n1. If the user includes only one ```===``` or ```!===```, the answer is incorrect.\n2. You only need to give the evaluation result — no need to ask the user to resubmit.\n\n?[ Review this lesson ]\n\n- Praise and encourage the user for completing today’s learning tasks.\n- !=== \n#  Let’s Review\nThis lesson covered two key parts:\n1. The essence of content creation on AI-Shifu is writing prompts *for the AI*, and the AI delivers the final learning content.\n2. When deterministic output is required, place the fixed content between ```!===``` or ```===``` markers.\n!==="
+    },
+    {
+      "outline_item_bid": "5232935eda3f4cdeb9ce6eef5f56ce82",
+      "title": "How to insert images and videos",
+      "type": 400,
+      "hidden": 0,
+      "parent_bid": "55caad2f122e43dca600603fab7b6a82",
+      "position": "0103",
+      "prerequisite_item_bids": "",
+      "llm": "",
+      "llm_temperature": 0.3,
+      "llm_system_prompt": "",
+      "ask_enabled_status": 5101,
+      "ask_llm": "",
+      "ask_llm_temperature": 0.3,
+      "ask_llm_system_prompt": "",
+      "content": "=== # How AI-Shifu Allows Your Course to Include Images and Videos ===\nStart with an introduction explaining that in modern teaching content, beyond text, images, and videos are becoming increasingly important.\n\nNote:\n- Do NOT mention how AI-Shifu technically supports images or videos in the opening.\n\n=== So you might be wondering: how can we make AI-Shifu insert images and videos into its output? ===\n\n---\n\n!===\n\n## How to Insert Images in AI-Shifu’s Output\n\nTo insert images into AI-Shifu’s output, the key is allowing AI-Shifu to return the image’s accessible URL.  \nThe simplest method is to use the visual creation view and its quick-insert options:\n\n1. In the creation area, type `/` to open the menu where you can insert an image  \n<img src=\"https://resource.ai-shifu.cn/7e679f6abf614f528c1f7c94bb5b28a3\" alt=\"add picture1.png\" title=\"add picture1.png\" width=\"50%\" />\n\n2. Select the image you want to import  \n<img src=\"https://resource.ai-shifu.cn/31a949462fd8462293f064db1c4dc874\" alt=\"add picture 2.png\" title=\"add picture 2.png\" width=\"50%\" />\n\n**Note**:\n- Normally, the inserted image information needs to be placed inside the deterministic-output markers ```!===```.  \n  Because AI-Shifu’s written content is designed for the AI to read, you must ensure the AI outputs the exact image information.  \n  For example:\n```\n!===\nimage information\n!===\n```\n\n!===\n\n?[Continue]\n\n!===\n\n## How to Insert Videos in AI-Shifu’s Output\n\nAI-Shifu currently supports inserting video links from **Bilibili** and **YouTube**.  \nUsing YouTube as an example:\n\n1. Copy the link of the video you want to insert  \n<img src=\"https://resource.ai-shifu.cn/39b88e942c9e4fb2bad1eac66413222a\" alt=\"youtube link.png\" title=\"youtube link.png\" width=\"50%\" />\n\n2. In the creation area, type `/` to open the menu where you can insert a video  \n<img src=\"https://resource.ai-shifu.cn/f1a57799649a493aab53406ce0d1746c\" alt=\"add video 1.png\" title=\"add video 1.png\" width=\"50%\" />\n\n3. Paste the video URL  \n<img src=\"https://resource.ai-shifu.cn/953f20df79bf4506a4a7846902c3216b\" alt=\"add video 2.png\" title=\"add video 2.png\" width=\"50%\" />\n\n**Note**:\n- Normally, video information also needs to be placed inside deterministic-output markers ```!===```.  \n  Since the content is for the AI to read, you must ensure the AI deterministically outputs the video information.  \n  For example:\n\n```  \n!===\nvideo information\n!===\n```\n\n!===\n\n?[Review this lesson]\n\n- First, praise and encourage the user for completing today’s learning.\n- Then output the following:\n\n!=== \n# Review\nThis lesson covered:\n1. How to insert images and videos in AI-Shifu’s output using the `/` quick-insert menu  \n2. **Important**: Image and video information must be placed inside deterministic-output markers `!===` to ensure the AI outputs them correctly.\n\n**Additional Notes:**  \nAI-Shifu displays output in Markdown format.  \nYou can directly use Markdown to produce images, tables, and many other document formats.  \nFor detailed Markdown guidance, see: [markdownguide](https://www.markdownguide.org)\n!==="
+    }
+  ],
+  "structure": {
+    "bid": "c2f25d53f3a84e049d768c7b367bcd3f",
+    "id": 305,
+    "type": "shifu",
+    "children": [
+      {
+        "bid": "55caad2f122e43dca600603fab7b6a82",
+        "id": 4741,
+        "type": "outline",
+        "children": [
+          {
+            "bid": "699209e09a544424bee95650d04f1eee",
+            "id": 6311,
+            "type": "outline",
+            "children": [],
+            "child_count": 5
+          },
+          {
+            "bid": "0dc31004a09d4aa8ba51e354d0f1780f",
+            "id": 6319,
+            "type": "outline",
+            "children": [],
+            "child_count": 13
+          },
+          {
+            "bid": "5232935eda3f4cdeb9ce6eef5f56ce82",
+            "id": 6335,
+            "type": "outline",
+            "children": [],
+            "child_count": 6
+          }
+        ],
+        "child_count": 0
+      }
+    ],
+    "child_count": 0
+  }
+}
