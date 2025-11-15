@@ -12,7 +12,6 @@
   "createSuccessDescription": "New Shifu has been created",
   "default": "Default",
   "errorSaveFailed": "Save failed: Invalid server response",
-  "expandCollapse": "Expand/Collapse",
   "favorites": "Favorites",
   "follow": "Follow",
   "home": "Home",
