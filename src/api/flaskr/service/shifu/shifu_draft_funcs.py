@@ -220,7 +220,7 @@ def save_shifu_draft_info(
         min_shifu_price = get_config("MIN_SHIFU_PRICE")
         if shifu_price > 0 and shifu_price < min_shifu_price:
             raise_error_with_args(
-                "server.shifu.shifuPriceTooLow", {"min_shifu_price": min_shifu_price}
+                "server.shifu.shifuPriceTooLow", min_shifu_price=min_shifu_price
             )
         if not shifu_draft:
             shifu_draft: DraftShifu = DraftShifu(
