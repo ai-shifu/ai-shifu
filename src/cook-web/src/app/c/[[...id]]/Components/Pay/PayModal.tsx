@@ -53,7 +53,7 @@ const CompletedSection = memo(() => {
           alt=''
         />
       </div>
-      <PayModalFooter />
+      <PayModalFooter className={styles.payModalFooter} />
     </div>
   );
 });

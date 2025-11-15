@@ -4,6 +4,9 @@
   height: 588px;
   padding: 0;
   border-radius: 20px;
+  .payModalFooter{
+    padding: 0 20px;
+  }
 
   :global(.ant-modal-content) {
     padding: 0;
