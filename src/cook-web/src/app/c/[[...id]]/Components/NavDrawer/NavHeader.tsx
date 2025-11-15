@@ -9,6 +9,7 @@ import LogoWithText from '@/c-components/logo/LogoWithText';
 import { useTracking, EVENT_NAMES } from '@/c-common/hooks/useTracking';
 
 import imgExpand from '@/c-assets/newchat/light/icon16-expand.png';
+import { PanelLeft } from 'lucide-react';
 
 export const NavHeader = ({
   className = '',
@@ -59,12 +60,9 @@ export const NavHeader = ({
           onClick={onToggleButtonClick}
           style={{ cursor: 'pointer', zIndex: 10 }}
         >
-          <Image
-            width={16}
-            height={16}
-            src={imgExpand.src}
-            alt={t('common.core.expandCollapse')}
-            className={clsx(styles.icon)}
+          <PanelLeft
+            className={styles.icon}
+            size={16}
           />
         </div>
       )}

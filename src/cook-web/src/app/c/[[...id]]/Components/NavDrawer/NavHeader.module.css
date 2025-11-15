@@ -25,8 +25,7 @@
 }
 .navHeader .actionBtn .icon {
   width: 16px;
-  transition: transform 0.3s ease;
-  transform: rotate(-180deg);
+  color: #0a0a0a;
 }
 .navHeader.collapse {
   padding: 15px 0;
@@ -36,7 +35,4 @@
 .navHeader.collapse .actionBtn {
   margin-top: 20px;
   margin-bottom: 20px;
-}
-.navHeader.collapse .actionBtn .icon {
-  transform: rotate(0deg);
 }

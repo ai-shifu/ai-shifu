@@ -54,7 +54,6 @@
   height: 100%;
   display: block;
   z-index: 1;
-  margin-top: 10px;
 }
 .navDrawerWrapper.mobile .navHeader {
   visibility: hidden;

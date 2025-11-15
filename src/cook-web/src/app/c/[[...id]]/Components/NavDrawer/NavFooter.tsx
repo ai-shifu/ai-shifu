@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useUserStore } from '@/store';
 
 import { Avatar, AvatarImage } from '@/components/ui/Avatar';
-
+import { ChevronsUpDown } from 'lucide-react';
 import imgUser from '@/c-assets/newchat/light/user.png';
 
 // @ts-expect-error EXPECT
@@ -15,7 +15,7 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
 
   const userInfo = useUserStore(state => state.userInfo);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
-  const avatar = userInfo?.avatar || imgUser.src;
+  const avatar = userInfo?.avatar || 'https://github.com/shadcn.png';
   const htmlRef = useRef(null);
 
   const containElement = elem => {
@@ -33,14 +33,20 @@ export const NavFooter = forwardRef(({ onClick, isCollapse = false }, ref) => {
       ref={htmlRef}
     >
       <div className={styles.userSection}>
-        <Avatar className='w-9 h-9'>
-          <AvatarImage src={avatar} />
-        </Avatar>
-        <div className={styles.userName}>
-          {isLoggedIn
-            ? userInfo?.name || t('module.user.defaultUserName')
-            : t('module.user.notLogin')}
+        <div className={styles.userInfo}>
+          <Avatar className='w-8 h-8'>
+            <AvatarImage src={avatar} />
+          </Avatar>
+          <div className={styles.userName}>
+            {isLoggedIn
+              ? userInfo?.name || t('module.user.defaultUserName')
+              : t('module.user.notLogin')}
+          </div>
         </div>
+        <ChevronsUpDown
+          size={16}
+          color='#0A0A0A'
+        />
       </div>
     </div>
   );

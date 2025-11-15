@@ -58,9 +58,9 @@ const calcNavWidth = frameLayout => {
   if (frameLayout === FRAME_LAYOUT_PAD_INTENSIVE) {
     return NAV_DRAWER_MAX_WIDTH;
   }
-  if (frameLayout === FRAME_LAYOUT_PAD) {
-    return '25%';
-  }
+  // if (frameLayout === FRAME_LAYOUT_PAD) {
+  //   return '25%';
+  // }
   return NAV_DRAWER_MAX_WIDTH;
 };
 

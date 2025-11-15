@@ -9,6 +9,7 @@ from werkzeug.datastructures import FileStorage
 from .import_user import import_user
 from .unified_migration_task import UnifiedMigrationTask, MigrationConfig
 from ..service.shifu.shifu_import_export_funcs import export_shifu, import_shifu
+from .update_shifu_demo import update_demo_shifu
 
 
 def setup_migration_logging():
@@ -388,3 +389,9 @@ def enable_commands(app: Flask):
         except Exception as e:
             click.echo(click.style(f"❌ Import failed: {e}", fg="red"))
             raise click.ClickException(f"Import failed: {e}")
+
+    @console.command(name="update_demo_shifu")
+    def update_demo_shifu_command():
+        """Update demo shifu"""
+        app.logger.info("Updating demo shifu...")
+        update_demo_shifu(app)

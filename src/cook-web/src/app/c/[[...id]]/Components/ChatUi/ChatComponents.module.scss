@@ -27,7 +27,7 @@
     height: 1.2rem;
   }
   :global(#chat-box-bottom) {
-    height: 80px;
+    height: 100px;
     width: 100%;
   }
   :global(.MessageContainer) {
@@ -167,7 +167,7 @@
   &.mobile {
     :global(.MessageList) {
       padding-top: 86px;
-      padding-bottom: 50px;
+      padding-bottom: 120px;
 
       :global(.Message.left) {
         :global(.Bubble) {

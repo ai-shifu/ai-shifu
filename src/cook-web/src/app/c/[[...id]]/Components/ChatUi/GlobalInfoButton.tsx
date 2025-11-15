@@ -102,15 +102,6 @@ const GlobalInfoButton = ({ className }) => {
         window.open('/privacy', '_blank', 'noopener,noreferrer');
       },
     },
-    {
-      key: '5',
-      label: t('component.navigation.shortcut'),
-      icon: <KeyboardIcon />,
-      onClick: () => {
-        onPopoverClose();
-        onShortcutModalOpen();
-      },
-    },
   ];
 
   const { inMacOs } = useUiLayoutStore(

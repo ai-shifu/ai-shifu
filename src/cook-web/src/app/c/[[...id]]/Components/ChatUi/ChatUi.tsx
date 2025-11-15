@@ -28,6 +28,7 @@ export const ChatUi = ({
   chapterUpdate,
   updateSelectedLesson,
   getNextLessonId,
+  isNavOpen = false,
 }) => {
   const { t } = useTranslation();
   const { frameLayout } = useUiLayoutStore(state => state);
@@ -38,12 +39,14 @@ export const ChatUi = ({
       previewMode: state.previewMode,
     })),
   );
+  const hideMobileFooter = frameLayout === FRAME_LAYOUT_MOBILE && isNavOpen;
 
   return (
     <div
       className={cn(
         styles.ChatUi,
         frameLayout === FRAME_LAYOUT_MOBILE ? styles.mobile : '',
+        hideMobileFooter ? styles.hideMobileFooter : '',
       )}
     >
       {frameLayout !== FRAME_LAYOUT_MOBILE && (
