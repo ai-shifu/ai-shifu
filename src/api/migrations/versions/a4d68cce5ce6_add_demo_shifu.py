@@ -6,15 +6,6 @@ Create Date: 2025-11-12 14:41:07.381333
 
 """
 
-import os
-from io import BytesIO
-from werkzeug.datastructures import FileStorage
-from flaskr.service.user.models import UserInfo
-from flaskr.dao import db
-from flaskr.service.shifu.models import AiCourseAuth
-from flaskr.util import generate_id
-
-
 # revision identifiers, used by Alembic.
 revision = "a4d68cce5ce6"
 down_revision = "21a3e778ef01"
@@ -23,51 +14,11 @@ depends_on = None
 
 
 def upgrade():
-    from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
     from flask import current_app as app
-    from flaskr.service.config.funcs import add_config
+    from flaskr.command.update_shifu_demo import update_demo_shifu
 
     with app.app_context():
-        demo_shifu_file = (
-            os.path.abspath(os.path.dirname(__file__)) + "/../cn_demo.json"
-        )
-        # Read file content first, then create FileStorage
-        with open(demo_shifu_file, "rb") as f:
-            file_content = f.read()
-
-        # Create FileStorage from bytes
-        file_storage = FileStorage(
-            stream=BytesIO(file_content),
-            filename=os.path.basename(demo_shifu_file),
-            name="file",
-        )
-
-        shifu_bid = import_shifu(app, None, file_storage, "system")
-
-        users = UserInfo.query.filter(UserInfo.is_creator == 1).all()
-        for user in users:
-            auth = AiCourseAuth.query.filter(
-                AiCourseAuth.user_id == user.user_id,
-                AiCourseAuth.course_id == shifu_bid,
-            ).first()
-            if not auth:
-                auth = AiCourseAuth(
-                    course_auth_id=generate_id(app),
-                    user_id=user.user_id,
-                    course_id=shifu_bid,
-                    auth_type="['view', 'edit', 'publish']",
-                    status=1,
-                )
-                db.session.add(auth)
-
-        add_config(
-            app,
-            "DEMO_SHIFU_BID",
-            shifu_bid,
-            is_secret=False,
-            remark="Demo shifu business identifier",
-        )
-        db.session.commit()
+        update_demo_shifu(app)
 
 
 def downgrade():
