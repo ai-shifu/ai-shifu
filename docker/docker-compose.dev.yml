@@ -2,7 +2,7 @@ services:
   ai-shifu-api-dev:
     container_name: ai-shifu-api-dev
     image: ai-shifu-api-dev:latest
-    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
+    command: ["sh", "-c", "until timeout 1 bash -c 'cat < /dev/null > /dev/tcp/ai-shifu-mysql/3306'; do sleep 1; done && flask db upgrade && flask console update_demo_shifu && cd /app && exec flask run --reload --debugger --host=0.0.0.0 --port=5800"]
     env_file:
       - ./.env
     volumes:
