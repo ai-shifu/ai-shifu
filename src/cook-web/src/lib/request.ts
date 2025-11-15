@@ -207,7 +207,13 @@ export class Request {
       requestConfig.headers = headers;
       requestConfig.body = body;
     } else {
-      requestConfig.body = JSON.stringify(body ?? {});
+      try {
+        requestConfig.body = JSON.stringify(body ?? {});
+      } catch (e) {
+        // Payload serialization failed (often due to passing event objects)
+        handleApiError(new ErrorWithCode('Invalid request payload', -1));
+        throw e;
+      }
       requestConfig.headers = {
         'Content-Type': 'application/json',
         ...headers,
@@ -262,12 +268,16 @@ export class Request {
     config: StreamRequestConfig = {},
     callback?: StreamCallback,
   ) {
-    const { url: fullUrl } = await this.prepareConfig(url, config);
+    const { url: fullUrl, config: preparedConfig } = await this.prepareConfig(
+      url,
+      config,
+    );
 
     try {
       const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
+        ...preparedConfig,
         ...rest,
         method: 'POST',
         body: JSON.stringify(body),
@@ -329,12 +339,16 @@ export class Request {
     config: StreamRequestConfig = {},
     callback?: StreamCallback,
   ) {
-    const { url: fullUrl } = await this.prepareConfig(url, config);
+    const { url: fullUrl, config: preparedConfig } = await this.prepareConfig(
+      url,
+      config,
+    );
 
     try {
       const { parseChunk, ...rest } = config as any;
       const controller = new AbortController();
       const response = await fetch(fullUrl, {
+        ...preparedConfig,
         ...rest,
         method: 'POST',
         body: JSON.stringify(body),

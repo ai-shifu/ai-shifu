@@ -1,0 +1,55 @@
+.courseCatalog {
+  margin-top: 10px;
+}
+.courseCatalog.mobile .titleRow .rightSection .resetButton {
+  display: flex;
+}
+.courseCatalog:hover .titleRow .rightSection .resetButton {
+  display: flex;
+}
+.courseCatalog.collapse .titleRow .collapseBtn {
+  transform: rotate(-180deg);
+}
+.courseCatalog.collapse .sectionList {
+  height: 0;
+  overflow: hidden;
+}
+.courseCatalog .titleRow {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  height: 24px;
+  overflow: hidden;
+  color: var(--base-sidebar-foreground, #0a0a0a);
+  text-overflow: ellipsis;
+  font-family: var(--font-font-sans, Geist);
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-medium, 500);
+  line-height: 100%;
+}
+.courseCatalog .titleRow .collapseBtn {
+  width: 16px;
+  transition: transform 0.2s ease-in;
+}
+.courseCatalog .titleRow .leftSection {
+  flex: 1 1 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.courseCatalog .titleRow .rightSection {
+  flex: 0 0 auto;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+}
+.courseCatalog .titleRow .rightSection .resetButton {
+  margin: 0 6px;
+  display: none;
+}
+.courseCatalog .sectionList {
+  padding-top: 10px;
+}

@@ -38,10 +38,18 @@
 
   &.selected {
     .textArea {
-      background-color: var(--color-2);
+      border-radius: var(--border-radius-rounded-md, 8px);
+      background: #e5e5e5;
 
       .courseTitle {
-        color: var(--color-4);
+        display: block;
+        overflow: hidden;
+        color: #0a0a0a;
+        font-family: 'PingFang SC';
+        font-size: var(--text-sm-font-size, 14px);
+        font-style: normal;
+        font-weight: 600;
+        line-height: 100%; /* 14px */
       }
     }
   }
@@ -128,6 +136,15 @@
 
       .courseTitle {
         display: inline;
+        overflow: hidden;
+        color: var(--base-sidebar-foreground, #0a0a0a);
+
+        /* text-sm/leading-none/normal */
+        font-family: var(--font-font-sans, Geist);
+        font-size: var(--text-sm-font-size, 14px);
+        font-style: normal;
+        font-weight: var(--font-weight-normal, 400);
+        line-height: 100%; /* 14px */
       }
     }
 

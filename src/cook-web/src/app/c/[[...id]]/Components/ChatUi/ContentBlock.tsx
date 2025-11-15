@@ -1,7 +1,9 @@
 import { memo, useCallback } from 'react';
 import { useLongPress } from 'react-use';
 import { isEqual } from 'lodash';
-import { ContentRender, OnSendContentParams } from 'markdown-flow-ui';
+// TODO@XJL
+// import ContentRender from '../../../../../../../../../markdown-flow-ui/src/components/ContentRender/ContentRender';
+import { ContentRender, type OnSendContentParams } from 'markdown-flow-ui';
 import { cn } from '@/lib/utils';
 import type { ChatContentItem } from './useChatLogicHook';
 
@@ -10,7 +12,7 @@ interface ContentBlockProps {
   mobileStyle: boolean;
   blockBid: string;
   confirmButtonText?: string;
-  onClickCustomButtonAfterContent: (blockBid: string) => void;
+  onClickCustomButtonAfterContent?: (blockBid: string) => void;
   onSend: (content: OnSendContentParams, blockBid: string) => void;
   onLongPress?: (event: any, item: ChatContentItem) => void;
 }
@@ -26,7 +28,7 @@ const ContentBlock = memo(
     onLongPress,
   }: ContentBlockProps) => {
     const handleClick = useCallback(() => {
-      onClickCustomButtonAfterContent(blockBid);
+      onClickCustomButtonAfterContent?.(blockBid);
     }, [blockBid, onClickCustomButtonAfterContent]);
 
     const handleLongPress = useCallback(

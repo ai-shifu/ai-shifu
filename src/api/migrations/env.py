@@ -340,6 +340,20 @@ def run_migrations_online() -> None:
 
         app_table_prefixes = get_app_table_prefixes()
 
+        # get all registered application table names
+        def get_app_table_names():
+            """get all registered application table names"""
+            table_names = set()
+            for mapper in db.Model.registry.mappers:
+                model_class = mapper.class_
+                # only check the models in the flaskr.service module
+                if model_class.__module__.startswith("flaskr.service"):
+                    table_name = mapper.local_table.name
+                    table_names.add(table_name)
+            return table_names
+
+        app_table_names = get_app_table_names()
+
         # the system tables
         system_tables = [
             "alembic_version",
@@ -361,7 +375,10 @@ def run_migrations_online() -> None:
                 return False
 
             # skip the tables that do not belong to the application (只对非删除操作执行此检查)
-            if not any(table_name.startswith(prefix) for prefix in app_table_prefixes):
+            # Check both: if table name matches directly OR if it starts with a known prefix
+            if table_name not in app_table_names and not any(
+                table_name.startswith(prefix) for prefix in app_table_prefixes
+            ):
                 return True
 
         # skip the empty or meaningless AlterColumnOp

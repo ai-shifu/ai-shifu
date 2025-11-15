@@ -106,6 +106,22 @@ def parse_shifu_mdflow(
         if data:
             mdflow = data
         markdown_flow = MarkdownFlow(mdflow)
-        variables = markdown_flow.extract_variables()
         blocks = markdown_flow.get_all_blocks()
-        return MdflowDTOParseResult(variables=variables, blocks_count=len(blocks))
+
+        raw_variables = markdown_flow.extract_variables() or []
+        profile_definitions = get_profile_item_definition_list(
+            app, outline_item.shifu_bid
+        )
+        definition_keys = [
+            item.profile_key for item in profile_definitions if item.profile_key
+        ]
+
+        dedup_vars: list[str] = []
+        seen = set()
+        for key in raw_variables + definition_keys:
+            if not key or key in seen:
+                continue
+            dedup_vars.append(key)
+            seen.add(key)
+
+        return MdflowDTOParseResult(variables=dedup_vars, blocks_count=len(blocks))

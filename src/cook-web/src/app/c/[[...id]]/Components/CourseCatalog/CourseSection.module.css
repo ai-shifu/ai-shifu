@@ -22,10 +22,18 @@
   background-color: rgba(0, 0, 0, 0);
 }
 .courseSection.selected .textArea {
-  background-color: var(--color-2);
+  border-radius: var(--border-radius-rounded-md, 8px);
+  background: #e5e5e5;
 }
 .courseSection.selected .textArea .courseTitle {
-  color: var(--color-4);
+  display: block;
+  overflow: hidden;
+  color: #0a0a0a;
+  font-family: 'PingFang SC';
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: 600;
+  line-height: 100%;
 }
 .courseSection.available:hover {
   cursor: pointer;
@@ -91,6 +99,13 @@
 }
 .courseSection .textArea .leftSection .courseTitle {
   display: inline;
+  overflow: hidden;
+  color: var(--base-sidebar-foreground, #0a0a0a);
+  font-family: var(--font-font-sans, Geist);
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-normal, 400);
+  line-height: 100%;
 }
 .courseSection .textArea .rightSection {
   flex: 0 0 auto;
@@ -113,12 +128,12 @@
   pointer-events: auto;
   box-shadow: 0 4px 12px rgba(63, 118, 255, 0.22);
 }
-.courseSection.available:hover,
-.courseSection.available:focus-within {
+.courseSection:not(.mobile).available:hover,
+.courseSection:not(.mobile).available:focus-within {
   cursor: pointer;
 }
-.courseSection.available:hover .textArea .rightSection,
-.courseSection.available:focus-within .textArea .rightSection {
+.courseSection:not(.mobile).available:hover .textArea .rightSection,
+.courseSection:not(.mobile).available:focus-within .textArea .rightSection {
   opacity: 1;
   pointer-events: auto;
   transform: translate(-4px, -50%);

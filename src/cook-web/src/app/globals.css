@@ -121,59 +121,6 @@ html {
 .content-render-theme {
   --primary: var(--primary-color);
   --primary-foreground: var(--primary-foreground-color);
-  .markdown-body input {
-    min-width: 380px;
-    font-size: 16px;
-    padding: 6px 12px;
-    height: 30px;
-    border-radius: var(--border-radius-rounded-md, 8px);
-    border: var(--border-width-border, 1px) solid var(--base-input, #e5e5e5);
-    /* shadow/xs */
-    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
-      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
-      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
-  }
-  .markdown-body input::selection {
-    background-color: #d6e4ff;
-  }
-  .markdown-body [type='button'] {
-    border-radius: var(--border-radius-rounded-md, 8px);
-    color: var(--base-foreground, #0a0a0a);
-    font-family: 'PingFang SC';
-    font-size: var(--text-xs-font-size, 14px);
-    font-style: normal;
-    padding: 0 var(--spacing-2, 12px);
-    height: 32px;
-    font-weight: 400;
-    line-height: var(--text-xs-line-height, 16px); /* 133.333% */
-    > svg {
-      width: 13px;
-      height: 13px;
-      margin-top: 1px;
-    }
-  }
-  .markdown-body input:focus {
-    border-color: var(--primary, #39f);
-    box-shadow: 0 0 0 2px rgba(57, 153, 255, 0.1);
-  }
-  .markdown-body .custom-variable-container span {
-    background: #fff;
-    box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
-      var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
-      var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
-  }
-  &.mobile {
-    .custom-variable-container {
-      width: 100%;
-      > span {
-        width: 100%;
-      }
-    }
-    .markdown-body input {
-      min-width: 0;
-      width: 100%;
-    }
-  }
   .content-render-custom-button-after-content {
     width: 58px;
     height: 20px;
@@ -189,4 +136,24 @@ html {
     background-color: rgba(26, 104, 235, var(--tw-bg-opacity, 1));
     color: rgba(255, 255, 255, var(--tw-text-opacity, 1));
   }
+
+  &.mobile {
+    .custom-variable-container {
+      width: 100%;
+      > span {
+        width: 100%;
+      }
+    }
+    .content-render .input-container {
+      width: 100%;
+    }
+    .markdown-body textarea {
+      min-width: 0;
+      width: 100%;
+    }
+  }
+}
+
+.field-sizing-content {
+  field-sizing: content;
 }

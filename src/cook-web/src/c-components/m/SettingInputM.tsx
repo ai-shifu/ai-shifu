@@ -23,16 +23,21 @@ export const SettingInputM = ({
   onChange,
   rules = [],
 }: SettingInputMProps) => {
-  const [_value, setValue] = useState(value);
+  const [_value, setValue] = useState<string>(value ?? '');
   const [isError, setIsError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
-    setValue(value);
+    setValue(value ?? '');
   }, [value]);
 
-  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
-    const val = event.target.value;
+  const handleChange = (
+    eventOrValue: string | ChangeEvent<HTMLInputElement>,
+  ) => {
+    const val =
+      typeof eventOrValue === 'string'
+        ? eventOrValue
+        : (eventOrValue?.target?.value ?? '');
     setIsError(false);
     setValue(val);
     onChange?.(val);
@@ -70,6 +75,8 @@ export const SettingInputM = ({
           onChange={handleChange}
           onBlur={_onBlur}
           placeholder={placeholder || title}
+          // @ts-expect-error EXPECT
+          clearable={true}
         />
       </div>
       <div

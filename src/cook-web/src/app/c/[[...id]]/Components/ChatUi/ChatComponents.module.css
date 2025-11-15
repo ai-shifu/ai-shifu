@@ -4,9 +4,6 @@
   position: relative;
   box-sizing: border-box;
 }
-.chatComponents :global(.content-render) {
-  margin: 12px 0;
-}
 .chatComponents :global(.content-render-theme) {
   position: relative;
 }

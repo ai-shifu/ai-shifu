@@ -1,11 +1,9 @@
 .askBlock {
   background: rgba(235, 235, 235, 0.5);
   border-radius: 8px;
-  margin-left: 20px;
-  margin-right: 20px;
 }
 .askBlock.mobile {
-  padding: 0 16px !important;
+  padding: 8px 0 0 0 !important;
 }
 .askBlock .messageList {
   display: flex;
@@ -33,6 +31,11 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
+.askBlock .isExpanded {
+  white-space: normal;
+  -webkit-line-clamp: unset;
+  max-height: none;
+}
 .askBlock .assistantMessage {
   display: flex;
   justify-content: flex-start;
@@ -42,10 +45,6 @@
   font-style: normal;
   font-weight: var(--font-weight-normal, 400);
   line-height: 24px;
-}
-.askBlock .assistantMessage :global(.content-render) {
-  padding: 0;
-  margin: 0;
 }
 .askBlock .userInput {
   display: flex;

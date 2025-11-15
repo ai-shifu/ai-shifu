@@ -1,4 +1,6 @@
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
 from flaskr.common.swagger import register_schema_to_swagger
 from pydantic import BaseModel, Field
 
@@ -341,6 +343,79 @@ class GeneratedBlockDTO(BaseModel):
         if self.block_type == BlockType.CONTENT:
             ret["like_status"] = self.like_status.value
         return ret
+
+
+class PlaygroundPreviewRequest(BaseModel):
+    content: Optional[str] = Field(
+        default=None, description="Markdown-Flow document content"
+    )
+    block_index: int = Field(..., description="Block index to preview")
+    context: Optional[List[Dict[str, str]]] = Field(
+        default=None, description="Conversation context messages"
+    )
+    variables: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Variables to replace inside Markdown-Flow document",
+    )
+    user_input: Optional[Dict[str, List[str]]] = Field(
+        default=None, description="User input when previewing interaction blocks"
+    )
+    document_prompt: Optional[str] = Field(
+        default=None, description="Document level system prompt"
+    )
+    interaction_prompt: Optional[str] = Field(
+        default=None, description="Interaction render prompt override"
+    )
+    interaction_error_prompt: Optional[str] = Field(
+        default=None, description="Interaction error prompt override"
+    )
+    model: Optional[str] = Field(
+        default=None, description="Target LLM model used during preview"
+    )
+    temperature: Optional[float] = Field(
+        default=None,
+        ge=0.0,
+        le=2.0,
+        description="LLM temperature override used during preview",
+    )
+
+    def get_document(self) -> str:
+        return self.content or ""
+
+
+class PreviewSSEMessageType(Enum):
+    CONTENT = "content"
+    INTERACTION = "interaction"
+    TEXT_END = "text_end"
+
+    def __json__(self):
+        return self.value
+
+
+class PreviewContentSSEData(BaseModel):
+    mdflow: str = Field(..., description="MarkdownFlow content chunk")
+
+
+class PreviewInteractionSSEData(BaseModel):
+    mdflow: str = Field(..., description="Rendered interaction content")
+    variable: str = Field(..., description="Target variable name for interaction")
+
+
+class PreviewTextEndSSEData(BaseModel):
+    mdflow: str = Field(default="", description="Text end marker payload")
+
+
+class PreviewSSEMessage(BaseModel):
+    generated_block_bid: str = Field(
+        ..., description="client-side identifier of the block", required=True
+    )
+    type: PreviewSSEMessageType = Field(..., description="SSE message type")
+    data: PreviewContentSSEData | PreviewInteractionSSEData | PreviewTextEndSSEData
+
+    def __json__(self):
+        payload = self.model_dump()
+        payload["type"] = self.type.value
+        return payload
 
 
 @register_schema_to_swagger
