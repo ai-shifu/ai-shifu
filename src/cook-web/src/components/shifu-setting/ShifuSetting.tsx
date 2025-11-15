@@ -261,7 +261,7 @@ export default function ShifuSettingDialog({
       return;
     }
     init();
-  }, [shifuId, open]);
+  }, [shifuId, open, init]);
 
   useEffect(() => {
     const subscription = form.watch((value: any) => {
