@@ -33,7 +33,7 @@ const MainInterface = ({
   ];
 
   const SidebarContent = () => (
-    <div className='flex flex-col h-full relative shadow-md rounded-2xl bg-background'>
+    <div className='flex flex-col h-full relative bg-background'>
       <h1 className='text-xl font-bold p-4'>
         <Image
           className='dark:invert'
@@ -77,7 +77,7 @@ const MainInterface = ({
 
   return (
     <div className='h-screen flex bg-stone-50'>
-      <div className='hidden md:flex w-64 border-r flex-col p-2'>
+      <div className='w-64'>
         <SidebarContent />
       </div>
       <div className='flex-1 p-5  overflow-hidden'>
