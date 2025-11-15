@@ -484,19 +484,21 @@ def _resolve_payment_channel(
 
     if target_provider == "stripe":
         normalized_channel = requested_channel.lower()
-        provider_channel = "payment_intent"
+        # Default to Checkout Session for backward compatibility.
+        provider_channel = "checkout_session"
         if ":" in normalized_channel:
             _, provider_channel = normalized_channel.split(":", 1)
         elif normalized_channel and normalized_channel != "stripe":
             provider_channel = normalized_channel
 
-        provider_channel = provider_channel or "payment_intent"
+        provider_channel = provider_channel or "checkout_session"
         if provider_channel in {"checkout", "checkout_session"}:
             provider_channel = "checkout_session"
         elif provider_channel in {"intent", "payment_intent"}:
             provider_channel = "payment_intent"
         else:
-            provider_channel = "payment_intent"
+            # Fallback to checkout session for unknown values.
+            provider_channel = "checkout_session"
         return "stripe", provider_channel
 
     # Ping++ requires explicit channel input.
