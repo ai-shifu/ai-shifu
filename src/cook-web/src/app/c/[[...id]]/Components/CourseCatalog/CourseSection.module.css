@@ -75,8 +75,8 @@
   background: var(--color-9);
 }
 .courseSection .iconWrapper .icon .bigIcon {
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
 }
 .courseSection .iconWrapper .bottomLine {
   flex: 1 1 auto;
@@ -96,6 +96,9 @@
 }
 .courseSection .textArea .leftSection {
   flex: 1 1 0;
+}
+.courseSection .textArea .leftSection.notPaid .courseTitle {
+  color: rgba(10, 10, 10, 0.45);
 }
 .courseSection .textArea .leftSection .courseTitle {
   display: inline;

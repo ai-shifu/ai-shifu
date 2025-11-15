@@ -431,6 +431,7 @@ export default function ChatPage() {
             userSettingBasicInfo={userSettingBasicInfo}
             updateSelectedLesson={updateSelectedLesson}
             getNextLessonId={getNextLessonId}
+            isNavOpen={navOpen}
           />
         ) : null}
 

@@ -27,8 +27,7 @@
     }
     .icon {
       width: 16px;
-      transition: transform 0.3s ease;
-      transform: rotate(-180deg);
+      color: #0a0a0a;
     }
   }
 
@@ -38,9 +37,6 @@
     flex-flow: column nowrap;
 
     .actionBtn {
-      .icon {
-        transform: rotate(0deg);
-      }
       margin-top: 20px;
       margin-bottom: 20px;
     }

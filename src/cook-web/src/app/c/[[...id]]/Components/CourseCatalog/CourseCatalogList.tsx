@@ -61,7 +61,6 @@ export const CourseCatalogList = ({
             />
             <div className={styles.titleName}>{courseName}</div>
           </div>
-          {getRightAreaControl()}
         </div>
         <div className={styles.listRow}>
           {catalogs.map(catalog => {

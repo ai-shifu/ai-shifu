@@ -8,12 +8,21 @@ import { AppContext } from '../AppContext';
 import Image from 'next/image';
 import imgLearningSelected from '@/c-assets/newchat/light/icon16-learning-selected.png';
 import imgLearning from '@/c-assets/newchat/light/icon16-learning.png';
+import { CircleCheck, CircleDotDashed } from 'lucide-react';
 import imgLearningCompletedSelected from '@/c-assets/newchat/light/icon16-learning-completed-selected.png';
 import imgLearningCompleted from '@/c-assets/newchat/light/icon16-learning-completed.png';
 import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
+import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useTranslation } from 'react-i18next';
 
 export const CourseSection = ({
   id,
@@ -27,6 +36,7 @@ export const CourseSection = ({
   onSelect,
   onTrySelect,
 }) => {
+  const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const { openPayModal } = useCourseStore(
@@ -93,6 +103,16 @@ export const CourseSection = ({
     e.stopPropagation();
   }, []);
 
+  const isNormalNotPaid = type === LEARNING_PERMISSION.NORMAL && !is_paid;
+
+  const leftSection = (
+    <div
+      className={cn(styles.leftSection, isNormalNotPaid ? styles.notPaid : '')}
+    >
+      <div className={styles.courseTitle}>{name}</div>
+    </div>
+  );
+
   return (
     <div
       className={classNames(
@@ -106,55 +126,47 @@ export const CourseSection = ({
       <div className={classNames(styles.iconWrapper, genIconClassName())}>
         <div className={styles.topLine}></div>
         <div className={styles.icon}>
-          {/* @ts-expect-error EXPECT */}
-          {(status_value === LESSON_STATUS_VALUE.NOT_START ||
-            status_value === LESSON_STATUS_VALUE.LOCKED) && (
-            <div className={styles.smallIcon}></div>
+          {type === LEARNING_PERMISSION.NORMAL && !is_paid ? (
+            <CircleDotDashed
+              className={styles.bigIcon}
+              color='rgba(10, 10, 10, 0.1)'
+            />
+          ) : (
+            <>
+              {status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING && (
+                <CircleDotDashed
+                  className={styles.bigIcon}
+                  color={selected ? '#0A0A0A' : 'rgba(10, 10, 10, 0.1)'}
+                />
+              )}
+
+              {status_value === LESSON_STATUS_VALUE.LEARNING && (
+                <CircleDotDashed className={styles.bigIcon} />
+              )}
+              {status_value === LESSON_STATUS_VALUE.COMPLETED && (
+                <CircleCheck className={styles.bigIcon} />
+              )}
+            </>
           )}
-          {(status_value === LESSON_STATUS_VALUE.LEARNING ||
-            status_value === LESSON_STATUS_VALUE.PREPARE_LEARNING) &&
-            (selected ? (
-              <Image
-                className={styles.bigIcon}
-                width={16}
-                height={16}
-                src={imgLearningSelected.src}
-                alt=''
-              />
-            ) : (
-              <Image
-                className={styles.bigIcon}
-                width={16}
-                height={16}
-                src={imgLearning.src}
-                alt=''
-              />
-            ))}
-          {status_value === LESSON_STATUS_VALUE.COMPLETED &&
-            (selected ? (
-              <Image
-                className={styles.bigIcon}
-                width={16}
-                height={16}
-                src={imgLearningCompletedSelected.src}
-                alt=''
-              />
-            ) : (
-              <Image
-                className={styles.bigIcon}
-                width={16}
-                height={16}
-                src={imgLearningCompleted.src}
-                alt=''
-              />
-            ))}
         </div>
         <div className={styles.bottomLine}></div>
       </div>
       <div className={styles.textArea}>
-        <div className={styles.leftSection}>
-          <div className={styles.courseTitle}>{name}</div>
-        </div>
+        {isNormalNotPaid ? (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>{leftSection}</TooltipTrigger>
+              <TooltipContent
+                side='top'
+                className='bg-[#0A0A0A] text-white border-transparent text-xs'
+              >
+                {t('module.lesson.tooltip.paidExclusive')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          leftSection
+        )}
         <div className={styles.rightSection}>
           {(status_value === LESSON_STATUS_VALUE.LEARNING ||
             status_value === LESSON_STATUS_VALUE.COMPLETED) && (

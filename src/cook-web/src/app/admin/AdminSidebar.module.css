@@ -1,0 +1,9 @@
+.navMenuPopup {
+  position: absolute;
+  width: 250px;
+  left: 50%;
+  transform: translate(-50%);
+  bottom: 90px;
+  top: auto;
+  z-index: 999;
+}

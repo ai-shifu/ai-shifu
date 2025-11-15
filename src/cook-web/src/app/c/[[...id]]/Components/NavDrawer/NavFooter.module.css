@@ -1,9 +1,14 @@
 .navFooter {
-  padding: 15px 0;
+  padding: 18px 0;
   display: flex;
   flex-flow: row nowrap;
   border-top: 1px solid #e5e5e5;
   font-size: var(--font-size-5);
+  align-items: center;
+}
+.navFooter .userInfo {
+  display: flex;
+  align-items: center;
 }
 .navFooter .userSection {
   padding: 0 18px;
@@ -11,6 +16,8 @@
   align-items: center;
   cursor: pointer;
   width: 100%;
+  display: flex;
+  justify-content: space-between;
 }
 .navFooter .userSection .userAvatar {
   width: 32px;
@@ -18,8 +25,14 @@
 }
 .navFooter .userSection .userName {
   margin-left: 8px;
-  color: var(--font-color-2);
-  font-size: var(--font-size-3);
+  overflow: hidden;
+  color: var(--base-sidebar-foreground, #0a0a0a);
+  text-overflow: ellipsis;
+  font-family: var(--font-font-sans, Geist);
+  font-size: var(--text-sm-font-size, 14px);
+  font-style: normal;
+  font-weight: var(--font-weight-semibold, 600);
+  line-height: 100%;
 }
 .navFooter.collapse .userSection {
   padding: 0 14px;
