@@ -119,7 +119,7 @@ export const usePaymentFlow = ({
         onOrderPaid?.();
       }
     },
-    [onOrderPaid, updateFromOrder],
+    [onOrderPaid],
   );
 
   const initOrderUniform = useCallback(async () => {
