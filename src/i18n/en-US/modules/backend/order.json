@@ -17,6 +17,10 @@
     "orderStatusSuccess": "Success",
     "orderStatusRefund": "Refund",
     "orderStatusToBePaid": "To be paid",
-    "orderStatusTimeout": "Expired"
+    "orderStatusTimeout": "Expired",
+    "payItemProduct": "Product",
+    "payItemBasePrice": "Base price",
+    "payItemPromotion": "Promotion",
+    "payItemCoupon": "Coupon"
   }
 }

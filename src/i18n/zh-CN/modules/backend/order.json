@@ -17,6 +17,10 @@
     "orderStatusSuccess": "购买成功",
     "orderStatusRefund": "退款",
     "orderStatusToBePaid": "待支付",
-    "orderStatusTimeout": "已过期"
+    "orderStatusTimeout": "已过期",
+    "payItemProduct": "商品",
+    "payItemBasePrice": "基础价格",
+    "payItemPromotion": "活动",
+    "payItemCoupon": "优惠"
   }
 }

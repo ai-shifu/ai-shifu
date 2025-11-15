@@ -3,7 +3,19 @@ import decimal
 import json
 from typing import Any, Dict, List, Optional, Tuple
 
+from flask import Flask
 
+from flaskr.common.config import get_config
+from flaskr.common.swagger import register_schema_to_swagger
+from flaskr.i18n import _
+from flaskr.service.active import (
+    query_active_record,
+    query_and_join_active,
+    query_to_failure_active,
+)
+from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
+from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
+from flaskr.service.learn.learn_funcs import get_shifu_info
 from flaskr.service.order.consts import (
     ORDER_STATUS_INIT,
     ORDER_STATUS_SUCCESS,
@@ -12,39 +24,28 @@ from flaskr.service.order.consts import (
     ORDER_STATUS_TIMEOUT,
     ORDER_STATUS_VALUES,
 )
-from flaskr.service.common.dtos import USER_STATE_PAID, USER_STATE_REGISTERED
-from flaskr.service.user.models import UserConversion
-from flaskr.service.user.repository import load_user_aggregate, set_user_state
-from flaskr.service.active import (
-    query_active_record,
-    query_and_join_active,
-    query_to_failure_active,
-)
-from flaskr.common.swagger import register_schema_to_swagger
-from flaskr.api.doc.feishu import send_notify
-from .models import Order, PingxxOrder, StripeOrder
-from flask import Flask
-from ...dao import db, redis_client
-from ..common.models import (
-    raise_error,
-)
-from ...util.uuid import generate_id as get_uuid
-from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
-import pytz
-from flaskr.service.learn.learn_funcs import get_shifu_info
-from flaskr.service.learn.learn_dtos import LearnShifuInfoDTO
-from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
 from flaskr.service.order.query_discount import query_discount_record
-from flaskr.common.config import get_config
-from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
-
-from .payment_providers import PaymentRequest, get_payment_provider
-from .payment_providers.base import (
+from flaskr.service.promo.consts import COUPON_TYPE_FIXED, COUPON_TYPE_PERCENT
+from flaskr.service.promo.models import Coupon, CouponUsage as CouponUsageModel
+from flaskr.service.user.models import UserConversion
+from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.service.user.repository import (
+    load_user_aggregate,
+    load_user_aggregate_by_identifier,
+    set_user_state,
+)
+from flaskr.api.doc.feishu import send_notify
+from flaskr.service.order.payment_providers import PaymentRequest, get_payment_provider
+from flaskr.service.order.payment_providers.base import (
     PaymentNotificationResult,
     PaymentRefundRequest,
 )
-from flaskr.service.user.repository import load_user_aggregate_by_identifier
-from flaskr.service.user.models import UserInfo as UserEntity
+from flaskr.util.uuid import generate_id as get_uuid
+from flaskr.dao import db, redis_client
+from flaskr.service.common.models import raise_error
+from flaskr.service.order.models import Order, PingxxOrder, StripeOrder
+import pytz
+from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
 
 
 @register_schema_to_swagger
@@ -239,16 +240,18 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         app.logger.info(f"shifu_info: {shifu_info}")
         if not shifu_info:
             raise_error("server.shifu.courseNotFound")
+
+        # By default, each user should only have one unpaid order per course (shifu).
+        # Unpaid orders are those in INIT or TO_BE_PAID status and not timed out.
         origin_record = (
             Order.query.filter(
                 Order.user_bid == user_id,
                 Order.shifu_bid == course_id,
-                Order.status != ORDER_STATUS_TIMEOUT,
+                Order.status.in_([ORDER_STATUS_INIT, ORDER_STATUS_TO_BE_PAID]),
             )
-            .order_by(Order.id.asc())
+            .order_by(Order.id.desc())
             .first()
         )
-        print("price: ", shifu_info.price)
         if origin_record:
             if origin_record.status != ORDER_STATUS_SUCCESS:
                 order_timeout_make_new_order = is_order_has_timeout(app, origin_record)
@@ -272,7 +275,6 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
             buy_record.status = ORDER_STATUS_INIT
             buy_record.order_bid = order_id
             buy_record.payable_price = decimal.Decimal(shifu_info.price)
-            print("buy_record: ", buy_record.payable_price)
         else:
             buy_record = origin_record
             order_id = origin_record.order_bid
@@ -283,7 +285,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
         )
         price_items = []
         price_items.append(
-            PayItemDto("商品", "基础价格", buy_record.payable_price, False, None)
+            PayItemDto(
+                _("server.order.payItemProduct"),
+                _("server.order.payItemBasePrice"),
+                buy_record.payable_price,
+                False,
+                None,
+            )
         )
         discount_value = decimal.Decimal(0.00)
         if active_records:
@@ -293,14 +301,13 @@ def init_buy_record(app: Flask, user_id: str, course_id: str, active_id: str = N
                 )
                 price_items.append(
                     PayItemDto(
-                        "活动",
+                        _("server.order.payItemPromotion"),
                         active_record.active_name,
                         active_record.price,
                         True,
                         None,
                     )
                 )
-        print("discount_value: ", discount_value)
         buy_record.paid_price = decimal.Decimal(
             buy_record.payable_price
         ) - decimal.Decimal(discount_value)
@@ -1246,7 +1253,11 @@ def calculate_discount_value(
             discount_value += active_record.price
             items.append(
                 PayItemDto(
-                    "活动", active_record.active_name, active_record.price, True, None
+                    _("server.order.payItemPromotion"),
+                    active_record.active_name,
+                    active_record.price,
+                    True,
+                    None,
                 )
             )
     if discount_records is not None and len(discount_records) > 0:
@@ -1264,7 +1275,7 @@ def calculate_discount_value(
                     discount_value += discount.value * price / 100
                 items.append(
                     PayItemDto(
-                        "优惠",
+                        _("server.order.payItemCoupon"),
                         discount.channel,
                         discount.value,
                         True,
@@ -1284,7 +1295,13 @@ def query_buy_record(app: Flask, record_id: str) -> AICourseBuyRecordDTO:
         if buy_record:
             item = []
             item.append(
-                PayItemDto("商品", "基础价格", buy_record.payable_price, False, None)
+                PayItemDto(
+                    _("server.order.payItemProduct"),
+                    _("server.order.payItemBasePrice"),
+                    buy_record.payable_price,
+                    False,
+                    None,
+                )
             )
             recaul_discount = buy_record.status != ORDER_STATUS_SUCCESS
             if buy_record.payable_price > 0:
