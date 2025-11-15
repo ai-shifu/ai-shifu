@@ -75,18 +75,18 @@ const SidebarContent = ({
           })}
         </nav>
       </div>
-      <div className='p-2 relative'>
-        <NavFooter
-          ref={footerRef}
-          onClick={onFooterClick}
-        />
-        <MainMenuModal
-          open={userMenuOpen}
-          onClose={onUserMenuClose}
-          className={userMenuClassName}
-          isAdmin
-        />
-      </div>
+      <NavFooter
+        ref={footerRef}
+        // @ts-expect-error EXPECT
+        onClick={onFooterClick}
+      />
+      {/* @ts-expect-error EXPECT */}
+      <MainMenuModal
+        open={userMenuOpen}
+        onClose={onUserMenuClose}
+        className={userMenuClassName}
+        isAdmin
+      />
     </div>
   );
 };

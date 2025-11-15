@@ -8,6 +8,7 @@ from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.util import generate_id
 from flaskr.service.config.funcs import add_config, get_config, update_config
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
+
 import json
 
 
