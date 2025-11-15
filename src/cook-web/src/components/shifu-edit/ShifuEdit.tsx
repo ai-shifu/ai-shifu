@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   Columns2,
@@ -29,6 +29,12 @@ import { EnvStoreState } from '@/c-types/store';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+  type ImperativePanelHandle,
+} from 'react-resizable-panels';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -97,6 +103,14 @@ const initializeEnvData = async (): Promise<void> => {
   await fetchEnvData();
 };
 
+// Outline tree width settings (in pixels)
+const OUTLINE_WIDTH = {
+  DEFAULT: 256,  // Default width (original design)
+  MIN: 180,      // Minimum width (content readable)
+  MAX: 400,      // Maximum width (not too wide)
+  COLLAPSED: 60, // Collapsed width (icon only)
+} as const;
+
 const ScriptEditor = ({ id }: { id: string }) => {
   const { t } = useTranslation();
   const profile = useUserStore(state => state.userInfo);
@@ -104,6 +118,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
+  const outlinePanelRef = useRef<ImperativePanelHandle>(null);
   const {
     items: previewItems,
     isLoading: previewLoading,
@@ -192,6 +207,23 @@ const ScriptEditor = ({ id }: { id: string }) => {
         behavior: 'smooth',
       });
     }, 800);
+  };
+
+  // Calculate percentage based on pixel width and current window size
+  const getPercentageFromPixels = (pixels: number): number => {
+    if (typeof window === 'undefined') return 20; // SSR fallback
+    const windowWidth = window.innerWidth;
+    const percentage = (pixels / windowWidth) * 100;
+    // Clamp to valid range (10-100)
+    return Math.max(10, Math.min(100, percentage));
+  };
+
+  // Handle double-click to reset panel to default size
+  const handleResetPanelSize = () => {
+    if (outlinePanelRef.current) {
+      const targetPercentage = getPercentageFromPixels(OUTLINE_WIDTH.DEFAULT);
+      outlinePanelRef.current.resize(targetPercentage);
+    }
   };
 
   useEffect(() => {
@@ -295,46 +327,62 @@ const ScriptEditor = ({ id }: { id: string }) => {
     <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
       <div className='flex-1 flex overflow-hidden scroll-y'>
-        <div
-          className={cn(
-            'p-4 bg-white flex flex-col h-full transition-[width] duration-200',
-            foldOutlineTree ? 'w-auto' : 'w-[256px]',
-          )}
-        >
-          <div className='flex items-center justify-between gap-3'>
+        <PanelGroup direction='horizontal' autoSaveId='shifu-editor-layout'>
+          <Panel
+            ref={outlinePanelRef}
+            defaultSize={getPercentageFromPixels(OUTLINE_WIDTH.DEFAULT)}
+            minSize={getPercentageFromPixels(foldOutlineTree ? OUTLINE_WIDTH.COLLAPSED : OUTLINE_WIDTH.MIN)}
+            maxSize={getPercentageFromPixels(OUTLINE_WIDTH.MAX)}
+          >
             <div
-              onClick={() => setFoldOutlineTree(!foldOutlineTree)}
-              className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
+              className={cn(
+                'p-4 bg-white flex flex-col h-full',
+                foldOutlineTree ? 'w-auto' : 'w-full',
+              )}
             >
-              <ListCollapse className='h-5 w-5' />
-            </div>
-            {!foldOutlineTree && (
-              <Button
-                variant='outline'
-                className='h-8 bottom-0 left-4 flex-1'
-                size='sm'
-                onClick={onAddChapter}
-              >
-                <Plus />
-                {t('module.shifu.newChapter')}
-              </Button>
-            )}
-          </div>
+              <div className='flex items-center justify-between gap-3'>
+                <div
+                  onClick={() => setFoldOutlineTree(!foldOutlineTree)}
+                  className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
+                >
+                  <ListCollapse className='h-5 w-5' />
+                </div>
+                {!foldOutlineTree && (
+                  <Button
+                    variant='outline'
+                    className='h-8 bottom-0 left-4 flex-1'
+                    size='sm'
+                    onClick={onAddChapter}
+                  >
+                    <Plus />
+                    {t('module.shifu.newChapter')}
+                  </Button>
+                )}
+              </div>
 
-          {!foldOutlineTree && (
-            <div className='mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-10'>
-              <ol className='text-sm'>
-                <OutlineTree
-                  items={chapters}
-                  onChange={newChapters => {
-                    actions.setChapters([...newChapters]);
-                  }}
-                />
-              </ol>
+              {!foldOutlineTree && (
+                <div className='mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-10'>
+                  <ol className='text-sm'>
+                    <OutlineTree
+                      items={chapters}
+                      onChange={newChapters => {
+                        actions.setChapters([...newChapters]);
+                      }}
+                    />
+                  </ol>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        <div className='flex-1 overflow-hidden relative text-sm'>
+          </Panel>
+
+          <PanelResizeHandle
+            className='w-[2px] bg-border hover:bg-primary hover:w-[4px] transition-all cursor-col-resize'
+            onDoubleClick={handleResetPanelSize}
+            data-tooltip={t('module.shifu.resizeHandle.doubleClickToReset', 'Double-click to reset')}
+          />
+
+          <Panel minSize={getPercentageFromPixels(600)}>
+            <div className='flex-1 overflow-hidden relative text-sm'>
           <div className='flex h-full overflow-hidden'>
             <div
               className={cn(
@@ -469,7 +517,9 @@ const ScriptEditor = ({ id }: { id: string }) => {
               </div>
             ) : null}
           </div>
-        </div>
+            </div>
+          </Panel>
+        </PanelGroup>
       </div>
     </div>
   );

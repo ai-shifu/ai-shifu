@@ -15,3 +15,54 @@
         var(--shadow-sm-2-color, rgba(0, 0, 0, 0.1));
   }
 }
+
+// Resizable panel handle styles
+[data-panel-resize-handle-id] {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 4px;
+    height: 40px;
+    background-color: transparent;
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+  }
+
+  &:hover::after,
+  &[data-resize-handle-active]::after {
+    background-color: hsl(var(--primary));
+  }
+
+  &[data-resize-handle-active] {
+    background-color: hsl(var(--primary) / 0.2) !important;
+  }
+
+  // Tooltip for double-click to reset
+  &::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, calc(-50% - 50px));
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+  }
+
+  &:hover::before {
+    opacity: 1;
+    transition-delay: 0.5s;
+  }
+}
