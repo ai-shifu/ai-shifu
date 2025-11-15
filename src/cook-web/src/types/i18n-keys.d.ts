@@ -219,6 +219,7 @@ export type I18nKey =
   | 'module.lesson.reset.confirmContent'
   | 'module.lesson.reset.confirmTitle'
   | 'module.lesson.reset.title'
+  | 'module.lesson.tooltip.paidExclusive'
   | 'module.pay.alipay'
   | 'module.pay.dialogTitle'
   | 'module.pay.finalPrice'

@@ -15,7 +15,14 @@ import { LEARNING_PERMISSION } from '@/c-api/studyV2';
 import { useUserStore } from '@/store';
 import { useCourseStore } from '@/c-store/useCourseStore';
 import { useShallow } from 'zustand/react/shallow';
-import {cn} from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { useTranslation } from 'react-i18next';
 
 export const CourseSection = ({
   id,
@@ -29,6 +36,7 @@ export const CourseSection = ({
   onSelect,
   onTrySelect,
 }) => {
+  const { t } = useTranslation();
   const { mobileStyle } = useContext(AppContext);
   const isLoggedIn = useUserStore(state => state.isLoggedIn);
   const { openPayModal } = useCourseStore(
@@ -95,6 +103,20 @@ export const CourseSection = ({
     e.stopPropagation();
   }, []);
 
+  const isNormalNotPaid =
+    type === LEARNING_PERMISSION.NORMAL && !is_paid;
+
+  const leftSection = (
+    <div
+      className={cn(
+        styles.leftSection,
+        isNormalNotPaid ? styles.notPaid : '',
+      )}
+    >
+      <div className={styles.courseTitle}>{name}</div>
+    </div>
+  );
+
   return (
     <div
       className={classNames(
@@ -126,9 +148,23 @@ export const CourseSection = ({
         <div className={styles.bottomLine}></div>
       </div>
       <div className={styles.textArea}>
-        <div className={cn(styles.leftSection, type === LEARNING_PERMISSION.NORMAL && !is_paid ? styles.notPaid : '')}>
-          <div className={styles.courseTitle}>{name}</div>
-        </div>
+        {isNormalNotPaid ? (
+          <TooltipProvider delayDuration={200}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                {leftSection}
+              </TooltipTrigger>
+              <TooltipContent
+                side='top'
+                className='bg-[#0A0A0A] text-white border-transparent text-xs'
+              >
+                {t('module.lesson.tooltip.paidExclusive')}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        ) : (
+          leftSection
+        )}
         <div className={styles.rightSection}>
           {(status_value === LESSON_STATUS_VALUE.LEARNING ||
             status_value === LESSON_STATUS_VALUE.COMPLETED) && (
