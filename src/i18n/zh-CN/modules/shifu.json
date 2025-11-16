@@ -2,7 +2,7 @@
   "__namespace__": "module.shifu",
   "newChapter": "添加章",
   "creationArea": {
-    "description": "给 AI 写创作指导，由 AI 完成演绎",
+    "description": "写清楚想要的内容，也可适当留白，让 AI 自己演绎",
     "title": "创作区",
     "modeText": "可视",
     "modeCode": "文本"
