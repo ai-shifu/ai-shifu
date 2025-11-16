@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import ChatComponents from './NewChatComp';
 import UserSettings from '../Settings/UserSettings';
 import { FRAME_LAYOUT_MOBILE } from '@/c-constants/uiConstants';
-import GlobalInfoButton from './GlobalInfoButton';
 import { useSystemStore } from '@/c-store/useSystemStore';
 import { useUiLayoutStore } from '@/c-store';
 
@@ -78,7 +77,6 @@ export const ChatUi = ({
         />
       )}
 
-      <GlobalInfoButton className={styles.globalInfoButton} />
       <div className={styles.footer}>
         <span className={styles.footerText}>
           {t('module.chat.aiGenerated')}
