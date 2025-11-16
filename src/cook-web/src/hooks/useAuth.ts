@@ -21,6 +21,7 @@ interface LoginResponse extends ApiResponse {
 interface UseAuthOptions {
   onSuccess?: (userInfo: UserInfo) => void;
   onError?: (error: any) => void;
+  loginContext?: string;
 }
 
 export function useAuth(options: UseAuthOptions = {}) {
@@ -100,7 +101,12 @@ export function useAuth(options: UseAuthOptions = {}) {
   ) => {
     try {
       const response = await callWithTokenRefresh(() =>
-        apiService.verifySmsCode({ mobile, sms_code, language }),
+        apiService.verifySmsCode({
+          mobile,
+          sms_code,
+          language,
+          login_context: options.loginContext,
+        }),
       );
 
       const success = await processLoginResponse(response);

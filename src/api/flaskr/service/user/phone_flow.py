@@ -21,7 +21,10 @@ from flaskr.service.user.consts import (
     USER_STATE_PAID,
 )
 from flaskr.service.user.models import UserInfo as UserEntity
-from flaskr.service.user.utils import generate_token
+from flaskr.service.user.utils import (
+    generate_token,
+    ensure_admin_creator_and_demo_permissions,
+)
 from flaskr.service.user.repository import (
     build_user_info_from_aggregate,
     build_user_profile_snapshot_from_aggregate,
@@ -159,6 +162,7 @@ def verify_phone_code(
     code: str,
     course_id: Optional[str] = None,
     language: Optional[str] = None,
+    login_context: Optional[str] = None,
 ) -> Tuple[UserToken, bool, Dict[str, Optional[str]]]:
     # Local import avoids circular dependency during module initialization.
     from flaskr.service.profile.funcs import (
@@ -261,6 +265,11 @@ def verify_phone_code(
             identifier=normalized_phone,
             metadata={"course_id": course_id, "language": language},
             verified=True,
+        )
+
+        # If configured, automatically grant creator and demo-course permissions
+        ensure_admin_creator_and_demo_permissions(
+            app, target_aggregate.user_bid, login_context
         )
 
         refreshed = load_user_aggregate(target_aggregate.user_bid)
