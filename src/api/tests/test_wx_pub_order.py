@@ -14,4 +14,6 @@ def test_buy_and_pay(app):
         course = AICourse.query.first()
         user_id = user.user_bid
         record = init_buy_record(app, user_id, course.course_id)
-        generate_charge(app, record.order_id, "wx_wap", "116.179.37.55")
+        generate_charge(
+            app, record.order_id, "wx_wap", "116.179.37.55", payment_channel=None
+        )

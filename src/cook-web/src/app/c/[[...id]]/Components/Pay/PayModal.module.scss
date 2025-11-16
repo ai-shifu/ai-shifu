@@ -4,6 +4,9 @@
   height: 588px;
   padding: 0;
   border-radius: 20px;
+  .payModalFooter {
+    padding: 0 20px;
+  }
 
   :global(.ant-modal-content) {
     padding: 0;
@@ -24,11 +27,18 @@
     .paySection {
       flex: 1 1 auto;
       padding-top: 40px;
+      padding-bottom: 24px;
       color: var(--color-20);
 
       .payInfoTitle {
-        font-size: var(--font-size-2);
+        color: #87532d;
+        font-family: Geist;
+        font-size: 20px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 100%; /* 20px */
         text-align: center;
+        padding-bottom: 20px;
       }
     }
 
@@ -44,12 +54,21 @@
         }
 
         .priceSign {
-          font-size: var(--font-size-28);
+          color: #7c502f;
+          font-family: Arial;
+          font-size: 32px;
+          font-style: normal;
+          font-weight: 700;
+          line-height: 100%; /* 32px */
         }
 
         .priceNumber {
-          font-size: var(--font-size-20);
-          font-weight: bold;
+          color: #7c502f;
+          font-family: Arial;
+          font-size: 40px;
+          font-style: normal;
+          font-weight: 700;
+          line-height: 100%;
         }
       }
     }
@@ -134,7 +153,6 @@
     }
 
     .channelSwitchWrapper {
-      margin-top: 20px;
       flex-flow: column nowrap;
       display: flex;
       justify-content: center;
@@ -147,18 +165,86 @@
       }
     }
 
+    .channelSelectors {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      margin-top: 60px;
+      &.pingxxSelected {
+        margin-top: 20px;
+      }
+    }
+
+    .stripeSelector {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      color: #000;
+      font-family: Geist;
+      font-size: 20px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 100%; /* 20px */
+    }
+
+    .stripePanel {
+      margin-top: 16px;
+      width: 100%;
+      max-width: 420px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .stripeHint {
+      color: rgba(0, 0, 0, 0.45);
+      font-family: Geist;
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 500;
+      line-height: 16px; /* 133.333% */
+      padding: 0 20px;
+      text-align: left;
+    }
+
+    .stripeCheckoutButton {
+      margin: 32px auto auto auto;
+      display: flex;
+      width: 230px;
+      height: var(--height-h-9, 36px);
+      padding: var(--spacing-2, 8px) var(--spacing-4, 16px);
+      justify-content: center;
+      align-items: center;
+      gap: var(--spacing-2, 8px);
+      flex-shrink: 0;
+      border-radius: var(--border-radius-rounded-md, 8px);
+      background: var(--base-primary, #171717);
+      box-shadow: var(--shadow-xs-offset-x, 0) var(--shadow-xs-offset-y, 1px)
+        var(--shadow-xs-blur-radius, 2px) var(--shadow-xs-spread-radius, 0)
+        var(--shadow-xs-color, rgba(0, 0, 0, 0.05));
+      color: var(--base-primary-foreground, #fafafa);
+
+      /* text-sm/leading-normal/medium */
+      font-family: var(--font-font-sans, Geist);
+      font-size: var(--text-sm-font-size, 14px);
+      font-style: normal;
+      font-weight: var(--font-weight-medium, 500);
+      line-height: var(--text-sm-line-height, 20px); /* 142.857% */
+    }
     .couponCodeWrapper {
       display: flex;
       justify-content: center;
       font-size: var(--font-size-5);
 
       .couponCodeButton {
-        width: 200px;
-        height: 40px;
-        color: var(--color-8);
-        backdrop-filter: blur(10px);
-        border-radius: 50px;
-        font-size: var(--font-size-5);
+        padding-top: 20px;
+        color: rgba(0, 0, 0, 0.65);
+        text-align: center;
+        font-family: Geist;
+        font-size: 14px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 100%; /* 14px */
       }
     }
 

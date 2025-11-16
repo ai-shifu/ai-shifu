@@ -9,36 +9,34 @@
   padding: 0;
 
   .protocolDesc {
-    color: var(--color-8);
+    color: rgba(0, 0, 0, 0.45);
+    font-family: Geist;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 18px; /* 150% */
   }
 
   .protocolLinks {
-    margin-top: 3px;
-
     .protocolLink {
       text-decoration: none;
     }
   }
 
   .virtualProductDesc {
-    margin: 0 auto;
-    width: 80%;
-    padding: 0;
-    font-size: var(--font-size-5);
-    color: var(--color-8);
-
+    margin: 50px auto auto auto;
+    color: rgba(0, 0, 0, 0.45);
+    font-family: Geist;
+    font-size: 12px;
+    font-style: normal;
+    font-weight: 500;
+    line-height: 18px; /* 150% */
     .descTitle {
       font-weight: bold;
-      margin-bottom: 10px;
     }
 
     .descPoint {
-      margin-bottom: 8px;
       line-height: 1.5;
-
-      &:last-child {
-        margin-bottom: 0;
-      }
     }
 
     .protocolLink {

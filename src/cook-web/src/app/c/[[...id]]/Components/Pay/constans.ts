@@ -1,6 +1,7 @@
 export const PAY_CHANNEL_WECHAT = 'wx_pub_qr';
 export const PAY_CHANNEL_ZHIFUBAO = 'alipay_qr';
 export const PAY_CHANNEL_WECHAT_JSAPI = 'wx_pub';
+export const PAY_CHANNEL_STRIPE = 'stripe:checkout_session';
 
 export const PAY_CHANNELS = [
   {
@@ -8,6 +9,7 @@ export const PAY_CHANNELS = [
     name: '微信支付',
   },
   { type: PAY_CHANNEL_ZHIFUBAO, name: '支付宝支付' },
+  { type: PAY_CHANNEL_STRIPE, name: 'Stripe' },
 ];
 
 export const getPayChannelOptions = () => {

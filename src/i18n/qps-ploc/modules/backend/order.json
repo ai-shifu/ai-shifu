@@ -17,6 +17,10 @@
     "orderStatusSuccess": "⟦Šųććēšš⟧",
     "orderStatusRefund": "⟦Řēƒųňđ⟧",
     "orderStatusToBePaid": "⟦Ŧø ƀē ƥåįđ⟧",
-    "orderStatusTimeout": "⟦Ēẋƥįřēđ⟧"
+    "orderStatusTimeout": "⟦Ēẋƥįřēđ⟧",
+    "payItemProduct": "⟦Ƥřøđųćŧ⟧",
+    "payItemBasePrice": "⟦Ƀåšē ƥřįćē⟧",
+    "payItemPromotion": "⟦Ƥřømøŧįøň⟧",
+    "payItemCoupon": "⟦Ćøųƥøň⟧"
   }
 }

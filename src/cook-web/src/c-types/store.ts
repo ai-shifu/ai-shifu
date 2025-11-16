@@ -13,6 +13,9 @@ export interface EnvStoreState {
   logoVertical: string;
   enableWxcode: string;
   homeUrl: string;
+  stripePublishableKey: string;
+  stripeEnabled: string;
+  paymentChannels: string[];
   updateCourseId: (courseId: string) => Promise<void>;
   updateDefaultLlmModel: (model: string) => Promise<void>;
   updateAppId: (appId: string) => Promise<void>;
@@ -25,6 +28,9 @@ export interface EnvStoreState {
   updateLogoVertical: (logo: string) => Promise<void>;
   updateEnableWxcode: (value: string) => Promise<void>;
   updateHomeUrl: (url: string) => Promise<void>;
+  updateStripePublishableKey: (key: string) => Promise<void>;
+  updateStripeEnabled: (value: string) => Promise<void>;
+  updatePaymentChannels: (channels: string[]) => Promise<void>;
 }
 
 export interface SystemStoreState {

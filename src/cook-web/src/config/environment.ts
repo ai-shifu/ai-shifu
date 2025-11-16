@@ -19,6 +19,11 @@ interface EnvironmentConfig {
   wechatAppId: string;
   enableWechatCode: boolean;
 
+  // Payment Configuration
+  stripePublishableKey: string;
+  stripeEnabled: boolean;
+  paymentChannels: string[];
+
   // UI Configuration
   alwaysShowLessonTree: boolean;
   logoHorizontal: string;
@@ -164,6 +169,51 @@ function getWeChatCodeEnabled(): boolean {
 }
 
 /**
+ * Gets Stripe publishable key
+ */
+function getStripePublishableKey(): string {
+  const runtimeKey = getRuntimeEnv('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY');
+  if (runtimeKey) {
+    return runtimeKey;
+  }
+  return process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+}
+
+/**
+ * Gets Stripe enable flag
+ */
+function getStripeEnabled(): boolean {
+  const runtimeEnabled = getRuntimeEnv('NEXT_PUBLIC_STRIPE_ENABLED');
+  if (runtimeEnabled !== undefined) {
+    return getBooleanValue(runtimeEnabled, false);
+  }
+  const value = process.env.NEXT_PUBLIC_STRIPE_ENABLED;
+  return getBooleanValue(value, false);
+}
+
+function parsePaymentChannels(value?: string): string[] {
+  if (!value) return ['pingxx', 'stripe'];
+  const channels = value
+    .split(',')
+    .map(item => item.trim().toLowerCase())
+    .filter(Boolean);
+  return channels.length > 0 ? channels : ['pingxx', 'stripe'];
+}
+
+function getPaymentChannels(): string[] {
+  const runtime =
+    getRuntimeEnv('PAYMENT_CHANNELS_ENABLED') ||
+    getRuntimeEnv('NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED');
+  if (runtime) {
+    return parsePaymentChannels(runtime);
+  }
+  const buildValue =
+    process.env.PAYMENT_CHANNELS_ENABLED ||
+    process.env.NEXT_PUBLIC_PAYMENT_CHANNELS_ENABLED;
+  return parsePaymentChannels(buildValue);
+}
+
+/**
  * Gets UI always show lesson tree
  */
 function getUIAlwaysShowLessonTree(): boolean {
@@ -301,6 +351,11 @@ export const environment: EnvironmentConfig = {
   // WeChat Integration
   wechatAppId: getWeChatAppId(),
   enableWechatCode: getWeChatCodeEnabled(),
+
+  // Payment Configuration
+  stripePublishableKey: getStripePublishableKey(),
+  stripeEnabled: getStripeEnabled(),
+  paymentChannels: getPaymentChannels(),
 
   // UI Configuration
   alwaysShowLessonTree: getUIAlwaysShowLessonTree(),

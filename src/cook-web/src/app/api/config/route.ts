@@ -16,6 +16,11 @@ export async function GET(request: NextRequest) {
     wechatAppId: environment.wechatAppId,
     enableWechatCode: environment.enableWechatCode,
 
+    // ===== Payment Configuration =====
+    stripePublishableKey: environment.stripePublishableKey,
+    stripeEnabled: environment.stripeEnabled,
+    paymentChannels: environment.paymentChannels,
+
     // ===== UI Configuration =====
     alwaysShowLessonTree: environment.alwaysShowLessonTree,
     logoHorizontal: environment.logoHorizontal,

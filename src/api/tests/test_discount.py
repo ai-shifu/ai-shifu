@@ -47,4 +47,6 @@ def test_buy_and_pay(app):
         ).first()
         record = init_buy_record(app, user_id, course.course_id)
         use_discount_code(app, user_id, discount_record.discount_code, record.order_id)
-        generate_charge(app, record.order_id, "alipay_qr", "36.112.103.90")
+        generate_charge(
+            app, record.order_id, "alipay_qr", "36.112.103.90", payment_channel=None
+        )

@@ -1,48 +1,75 @@
 import styles from './MainButtonM.module.scss';
 
-import { memo, forwardRef, useState } from 'react';
+import {
+  memo,
+  forwardRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type MouseEvent,
+} from 'react';
 import { Button } from '@/components/ui/Button';
 
 import clsx from 'clsx';
 
-export const MainButtonM = forwardRef((props, ref) => {
-  const [loading, setLoading] = useState(false);
+type ButtonComponentProps = ComponentPropsWithoutRef<typeof Button>;
 
-  // Prevent duplicate submissions
-  const _onClick = e => {
-    if (loading) {
-      return;
-    }
-    // @ts-expect-error EXPECT
-    const ret = props.onClick?.(e);
-    if (!(ret instanceof Promise)) {
-      return;
-    }
+type MainButtonMProps = Omit<ButtonComponentProps, 'onClick'> & {
+  fill?: 'solid' | 'none';
+  shape?: 'rounded' | 'rectangular';
+  onClick?: (event: MouseEvent<HTMLButtonElement>) => void | Promise<unknown>;
+};
 
-    setLoading(true);
-    ret
-      .then(() => {
-        setLoading(false);
-      })
-      .catch(() => {
-        setLoading(false);
-      });
-  };
+export const MainButtonM = forwardRef<HTMLButtonElement, MainButtonMProps>(
+  (
+    {
+      onClick,
+      className,
+      fill = 'solid',
+      shape = 'rounded',
+      color = 'primary',
+      ...rest
+    },
+    ref,
+  ) => {
+    const [loading, setLoading] = useState(false);
 
-  return (
-    <Button
-      // @ts-expect-error EXPECT
-      ref={ref}
-      color='primary'
-      fill='solid'
-      shape='rounded'
-      {...props}
-      onClick={_onClick}
-      // @ts-expect-error EXPECT
-      className={clsx(styles.mainButtonM, props.className)}
-    />
-  );
-});
+    // Prevent duplicate submissions
+    const handleClick = (event: MouseEvent<HTMLButtonElement>) => {
+      if (loading) {
+        return;
+      }
+      const result = onClick?.(event);
+      if (!result || !(result instanceof Promise)) {
+        return;
+      }
+
+      setLoading(true);
+      result
+        .then(() => {
+          setLoading(false);
+        })
+        .catch(() => {
+          setLoading(false);
+        });
+    };
+
+    const dataAttrs = {
+      'data-fill': fill,
+      'data-shape': shape,
+    };
+
+    return (
+      <Button
+        ref={ref}
+        color={color}
+        {...rest}
+        {...dataAttrs}
+        onClick={handleClick}
+        className={clsx(styles.mainButtonM, className)}
+      />
+    );
+  },
+);
 
 MainButtonM.displayName = 'MainButtonM';
 

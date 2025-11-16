@@ -37,6 +37,9 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoVertical,
     updateEnableWxcode,
     updateHomeUrl,
+    updateStripePublishableKey,
+    updateStripeEnabled,
+    updatePaymentChannels,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -63,6 +66,18 @@ const initializeEnvData = async (): Promise<void> => {
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateDefaultLlmModel(data?.defaultLlmModel || '');
         await updateHomeUrl(data?.homeUrl || '');
+        await updateStripePublishableKey(data?.stripePublishableKey || '');
+        await updateStripeEnabled(
+          data?.stripeEnabled !== undefined
+            ? data.stripeEnabled.toString()
+            : 'false',
+        );
+        await updatePaymentChannels(
+          Array.isArray(data?.paymentChannels) &&
+            data.paymentChannels.length > 0
+            ? data.paymentChannels
+            : (useEnvStore.getState() as EnvStoreState).paymentChannels,
+        );
       }
     } catch (error) {
       console.error(error);

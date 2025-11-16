@@ -15,6 +15,7 @@
     "outlineNotFound": "大纲不存在",
     "shifuNameTooLong": "师傅名称不能超过20个字符",
     "shifuDescriptionTooLong": "师傅描述不能超过500个字符",
-    "importFileInvalid": "导入文件无效"
+    "importFileInvalid": "导入文件无效",
+    "shifuPriceTooLow": "师傅价格不能低于{min_shifu_price}元"
   }
 }

@@ -496,6 +496,83 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         ),
         group="auth",
     ),
+    # Payment Providers
+    "PINGXX_SECRET_KEY": EnvVar(
+        name="PINGXX_SECRET_KEY",
+        default="",
+        description="Ping++ API secret key used for charge creation",
+        secret=True,
+        group="payment",
+    ),
+    "PINGXX_PRIVATE_KEY_PATH": EnvVar(
+        name="PINGXX_PRIVATE_KEY_PATH",
+        default="",
+        description="Filesystem path to the Ping++ RSA private key",
+        group="payment",
+    ),
+    "PINGXX_APP_ID": EnvVar(
+        name="PINGXX_APP_ID",
+        default="",
+        description="Ping++ application identifier",
+        group="payment",
+    ),
+    "STRIPE_SECRET_KEY": EnvVar(
+        name="STRIPE_SECRET_KEY",
+        default="",
+        description="Stripe secret API key for server-side requests",
+        secret=True,
+        group="payment",
+    ),
+    "STRIPE_PUBLISHABLE_KEY": EnvVar(
+        name="STRIPE_PUBLISHABLE_KEY",
+        default="",
+        description="Stripe publishable key shared with client applications",
+        group="payment",
+    ),
+    "STRIPE_WEBHOOK_SECRET": EnvVar(
+        name="STRIPE_WEBHOOK_SECRET",
+        default="",
+        description="Stripe webhook signing secret",
+        secret=True,
+        group="payment",
+    ),
+    "STRIPE_API_VERSION": EnvVar(
+        name="STRIPE_API_VERSION",
+        default="",
+        description="Stripe API version to lock requests against",
+        group="payment",
+    ),
+    "STRIPE_SUCCESS_URL": EnvVar(
+        name="STRIPE_SUCCESS_URL",
+        default="",
+        description="Stripe Checkout success redirect URL",
+        group="payment",
+    ),
+    "STRIPE_CANCEL_URL": EnvVar(
+        name="STRIPE_CANCEL_URL",
+        default="",
+        description="Stripe Checkout cancellation redirect URL",
+        group="payment",
+    ),
+    "STRIPE_DEFAULT_CURRENCY": EnvVar(
+        name="STRIPE_DEFAULT_CURRENCY",
+        default="usd",
+        description="Default currency code used for Stripe payments",
+        group="payment",
+    ),
+    "PAYMENT_CHANNELS_ENABLED": EnvVar(
+        name="PAYMENT_CHANNELS_ENABLED",
+        default="pingxx,stripe",
+        description="Comma-separated list of enabled payment providers (e.g., pingxx,stripe)",
+        group="payment",
+    ),
+    "PAY_ORDER_EXPIRE_TIME": EnvVar(
+        name="PAY_ORDER_EXPIRE_TIME",
+        default=600,
+        type=int,
+        description="Order expiration time in seconds before a new order is created",
+        group="payment",
+    ),
     # Alibaba Cloud Configuration
     "ALIBABA_CLOUD_SMS_ACCESS_KEY_ID": EnvVar(
         name="ALIBABA_CLOUD_SMS_ACCESS_KEY_ID",
@@ -755,6 +832,14 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         default="api.settings",
         description="Django settings module for testing",
         group="testing",
+    ),
+    # Minimum Shifu Price
+    "MIN_SHIFU_PRICE": EnvVar(
+        name="MIN_SHIFU_PRICE",
+        default=0.5,
+        type=float,
+        description="Minimum price of shifu",
+        group="shifu",
     ),
 }
 

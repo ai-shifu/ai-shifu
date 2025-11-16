@@ -51,6 +51,8 @@ interface Shifu {
   system_prompt?: string;
 }
 
+const MIN_SHIFU_PRICE = 0.5;
+
 export default function ShifuSettingDialog({
   shifuId,
   onSave,
@@ -99,7 +101,7 @@ export default function ShifuSettingDialog({
       .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
-      .min(1, t('module.shifuSetting.shifuPriceEmpty'))
+      .min(0.5, t('module.shifuSetting.shifuPriceEmpty'))
       .regex(/^\d+(\.\d{1,2})?$/, t('module.shifuSetting.shifuPriceFormat')),
     temperature: z
       .string()
@@ -271,6 +273,26 @@ export default function ShifuSettingDialog({
   const submitForm = useCallback(
     async (needClose = true) => {
       const isNameValid = await form.trigger('name');
+      const isPriceValid = await form.trigger('price');
+      if (!isPriceValid) {
+        if (needClose) {
+          setOpen(true);
+        }
+        return false;
+      }
+      const priceValue = parseFloat(form.getValues('price') || '0');
+      if (!Number.isNaN(priceValue) && priceValue < MIN_SHIFU_PRICE) {
+        form.setError('price', {
+          type: 'manual',
+          message: t('server.shifu.shifuPriceTooLow', {
+            min_shifu_price: MIN_SHIFU_PRICE,
+          }),
+        });
+        if (needClose) {
+          setOpen(true);
+        }
+        return false;
+      }
       if (!isNameValid) {
         if (needClose) {
           setOpen(true);
@@ -280,7 +302,7 @@ export default function ShifuSettingDialog({
       await onSubmit(form.getValues(), needClose);
       return true;
     },
-    [form, onSubmit, setOpen],
+    [form, onSubmit, setOpen, t],
   );
 
   useEffect(() => {

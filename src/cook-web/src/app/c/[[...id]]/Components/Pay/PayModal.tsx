@@ -1,6 +1,6 @@
 import styles from './PayModal.module.scss';
 
-import { memo, useState, useCallback, useEffect } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
@@ -15,30 +15,31 @@ import { Button } from '@/components/ui/Button';
 
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import CouponCodeModal from './CouponCodeModal';
-import { ORDER_STATUS, PAY_CHANNEL_WECHAT } from './constans';
 import {
-  getPayUrl,
-  initOrder,
-  initActiveOrder,
-  queryOrder,
-  applyDiscountCode,
-} from '@/c-api/order';
+  ORDER_STATUS,
+  PAY_CHANNEL_STRIPE,
+  PAY_CHANNEL_WECHAT,
+} from './constans';
+import type { StripePaymentPayload } from '@/c-api/order';
 
 import PayModalFooter from './PayModalFooter';
 import PayChannelSwitch from './PayChannelSwitch';
+import StripeCardForm from './StripeCardForm';
 import { getStringEnv } from '@/c-utils/envUtils';
 import { useUserStore } from '@/store';
 import { shifu } from '@/c-service/Shifu';
 import { getCourseInfo } from '@/c-api/course';
 import { useSystemStore } from '@/c-store/useSystemStore';
-import { useInterval } from 'react-use';
+import { useEnvStore } from '@/c-store/envStore';
+import { usePaymentFlow } from './hooks/usePaymentFlow';
+import { useToast } from '@/hooks/useToast';
+import { rememberStripeCheckoutSession } from '@/lib/stripe-storage';
 
 import paySucessBg from '@/c-assets/newchat/pay-success@2x.png';
-import payInfoBg from '@/c-assets/newchat/pay-info-bg.png';
+import payInfoBgCn from '@/c-assets/newchat/pay-info-bg-cn.png';
+import payInfoBgEn from '@/c-assets/newchat/pay-info-bg-en.png';
 
 const DEFAULT_QRCODE = 'DEFAULT_QRCODE';
-const MAX_TIMEOUT = 1000 * 60 * 3;
-const COUNTDOWN_INTERVAL = 1000;
 
 const CompletedSection = memo(() => {
   const { t } = useTranslation();
@@ -52,7 +53,7 @@ const CompletedSection = memo(() => {
           alt=''
         />
       </div>
-      <PayModalFooter />
+      <PayModalFooter className={styles.payModalFooter} />
     </div>
   );
 });
@@ -66,141 +67,173 @@ export const PayModal = ({
   payload = {},
 }) => {
   const { t } = useTranslation();
-  const [isLoading, setIsLoading] = useState(false);
-  const [initLoading, setInitLoading] = useState(true);
-  const [isTimeout, setIsTimeout] = useState(false);
-  const [isCompleted, setIsCompleted] = useState(false);
-
-  const [price, setPrice] = useState('');
-  const [qrUrl, setQrUrl] = useState(DEFAULT_QRCODE);
   const [payChannel, setPayChannel] = useState(PAY_CHANNEL_WECHAT);
-  const [interval, setInterval] = useState(null);
-  const [orderId, setOrderId] = useState('');
-  const [countDwon, setCountDown] = useState(MAX_TIMEOUT);
+  const [previewPrice, setPreviewPrice] = useState('0');
+  const [previewInitLoading, setPreviewInitLoading] = useState(true);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
-  const [couponCode, setCouponCode] = useState('');
-  const [originalPrice, setOriginalPrice] = useState('');
-  const [priceItems, setPriceItems] = useState([]);
+  const courseId = getStringEnv('courseId');
 
-  const isLoggedIn = useUserStore(state => state.isLoggedIn);
+  const { isLoggedIn, userInfo } = useUserStore(
+    useShallow(state => ({
+      isLoggedIn: state.isLoggedIn,
+      userInfo: state.userInfo,
+    })),
+  );
+
+  const {
+    orderId,
+    price,
+    originalPrice,
+    priceItems,
+    couponCode,
+    paymentInfo,
+    isLoading,
+    initLoading,
+    isTimeout,
+    isCompleted,
+    initializeOrder,
+    refreshPayment,
+    applyCoupon,
+    syncOrderStatus,
+  } = usePaymentFlow({
+    type,
+    payload,
+    courseId,
+    isLoggedIn,
+    onOrderPaid: () => {
+      onOk?.();
+    },
+  });
+
+  const displayPrice = isLoggedIn ? price : previewPrice;
+  const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
+  const effectiveLoading = isLoggedIn ? isLoading : previewLoading;
+  const ready = isLoggedIn ? !initLoading : !previewInitLoading;
+  const { toast } = useToast();
+  const initialPaymentRequestedRef = useRef(false);
+
+  const { stripePublishableKey, stripeEnabled, paymentChannels } = useEnvStore(
+    useShallow(state => ({
+      stripePublishableKey: state.stripePublishableKey,
+      stripeEnabled: state.stripeEnabled,
+      paymentChannels: state.paymentChannels,
+    })),
+  );
+  const normalizedPaymentChannels = useMemo(
+    () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
+    [paymentChannels],
+  );
+  const pingxxChannelEnabled = normalizedPaymentChannels.includes('pingxx');
+  const stripeChannelEnabled = normalizedPaymentChannels.includes('stripe');
+  const isStripeAvailable =
+    stripeChannelEnabled &&
+    stripeEnabled === 'true' &&
+    Boolean(stripePublishableKey);
+  const isStripeSelected = payChannel.startsWith('stripe');
+  const stripePayload = (paymentInfo.paymentPayload ||
+    {}) as StripePaymentPayload;
+  const stripeCheckoutUrl =
+    stripePayload.checkout_session_url || paymentInfo.qrUrl || '';
+  const stripeMode = (stripePayload.mode || '').toLowerCase();
 
   const { previewMode } = useSystemStore(
     useShallow(state => ({ previewMode: state.previewMode })),
   );
 
-  const initOrderUniform = useCallback(
-    async courseId => {
-      if (type === 'active') {
-        // @ts-expect-error EXPECT
-        return initActiveOrder({
-          courseId,
-          ...payload,
-        });
-      } else {
-        return initOrder(courseId);
-      }
-    },
-    [payload, type],
-  );
+  const resolveDefaultChannel = useCallback(() => {
+    if (pingxxChannelEnabled) {
+      return PAY_CHANNEL_WECHAT;
+    }
+    if (isStripeAvailable) {
+      return PAY_CHANNEL_STRIPE;
+    }
+    return PAY_CHANNEL_WECHAT;
+  }, [pingxxChannelEnabled, isStripeAvailable]);
 
-  useInterval(
-    async () => {
-      if (countDwon <= 0) {
-        setIsTimeout(true);
-        setInterval(null);
-      }
-      setCountDown(countDwon - COUNTDOWN_INTERVAL);
-
-      const resp = await queryOrder({ orderId });
-
-      if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-        setIsCompleted(true);
-        setInterval(null);
-        onOk?.();
-        return;
-      }
-
-      setOriginalPrice(resp.price);
-      setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
-      setPrice(resp.value_to_pay);
-    },
-    isLoggedIn ? interval : null,
-  );
-
-  const refreshOrderQrcode = useCallback(
-    async orderId => {
+  useEffect(() => {
+    const isCurrentSupported =
+      (isStripeSelected && isStripeAvailable) ||
+      (!isStripeSelected && pingxxChannelEnabled);
+    if (isCurrentSupported) {
+      return;
+    }
+    const fallbackChannel = resolveDefaultChannel();
+    if (fallbackChannel && fallbackChannel !== payChannel) {
+      setPayChannel(fallbackChannel);
       if (orderId) {
-        const qrcodeResp = await getPayUrl({
-          channel: payChannel,
-          orderId,
+        refreshPayment({
+          channel: fallbackChannel,
+          paymentChannel: fallbackChannel.startsWith('stripe')
+            ? 'stripe'
+            : undefined,
         });
-        setQrUrl(qrcodeResp.qr_url);
-        if (qrcodeResp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-          setIsCompleted(true);
-          setInterval(null);
-        } else {
-          setCountDown(MAX_TIMEOUT);
-          // @ts-expect-error EXPECT
-          setInterval(COUNTDOWN_INTERVAL);
-        }
       }
-    },
-    [payChannel],
-  );
+    }
+  }, [
+    isStripeSelected,
+    isStripeAvailable,
+    pingxxChannelEnabled,
+    resolveDefaultChannel,
+    payChannel,
+    orderId,
+    refreshPayment,
+  ]);
 
-  const courseId = getStringEnv('courseId');
   const loadPayInfo = useCallback(async () => {
-    setIsLoading(true);
-    setIsTimeout(false);
-    setQrUrl(DEFAULT_QRCODE);
-    setPrice('0');
-    setOrderId('');
-    setInterval(null);
-    setCouponCode('');
-    setOriginalPrice('');
-    const resp = await initOrderUniform(courseId);
-    setPrice(resp.value_to_pay);
-    setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
-    const orderId = resp.order_id;
-    setOrderId(orderId);
-    setOriginalPrice(resp.price);
-
-    if (
-      resp.status === ORDER_STATUS.BUY_STATUS_INIT ||
-      resp.status === ORDER_STATUS.BUY_STATUS_TO_BE_PAID
-    ) {
-      await refreshOrderQrcode(orderId);
+    let nextOrderId = orderId;
+    if (!nextOrderId) {
+      const snapshot = await initializeOrder();
+      nextOrderId = snapshot?.order_id || '';
     }
-
-    if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-      setIsCompleted(true);
+    if (!nextOrderId) {
+      return;
     }
-
-    setIsLoading(false);
-  }, [courseId, initOrderUniform, refreshOrderQrcode]);
+    let nextChannel = payChannel;
+    if (!pingxxChannelEnabled && isStripeAvailable) {
+      nextChannel = PAY_CHANNEL_STRIPE;
+      if (nextChannel !== payChannel) {
+        setPayChannel(nextChannel);
+      }
+    }
+    await refreshPayment({
+      channel: nextChannel,
+      paymentChannel: nextChannel.startsWith('stripe') ? 'stripe' : undefined,
+    });
+  }, [
+    initializeOrder,
+    isStripeAvailable,
+    orderId,
+    payChannel,
+    pingxxChannelEnabled,
+    refreshPayment,
+  ]);
 
   const loadCourseInfo = useCallback(async () => {
-    setIsLoading(true);
-    setIsTimeout(false);
-    setQrUrl(DEFAULT_QRCODE);
-    setPrice('0');
-    setOrderId('');
-    setInterval(null);
-    setCouponCode('');
-    setOriginalPrice('');
-
-    const resp = await getCourseInfo(courseId, previewMode);
-    setPrice(resp?.course_price);
-
-    setIsLoading(false);
+    setPreviewLoading(true);
+    setPreviewInitLoading(true);
+    setPreviewPrice('0');
+    try {
+      const resp = await getCourseInfo(courseId, previewMode);
+      setPreviewPrice(resp?.course_price);
+    } finally {
+      setPreviewLoading(false);
+      setPreviewInitLoading(false);
+    }
   }, [courseId, previewMode]);
 
   const onQrcodeRefresh = useCallback(() => {
-    loadPayInfo();
-  }, [loadPayInfo]);
+    if (!orderId) {
+      return;
+    }
+    refreshPayment({
+      channel: payChannel,
+      paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
+    });
+  }, [orderId, payChannel, refreshPayment]);
 
   let qrcodeStatus = 'active';
-  if (isLoading) {
+  if (effectiveLoading) {
     qrcodeStatus = 'loading';
   } else if (isTimeout) {
     qrcodeStatus = 'expired';
@@ -223,57 +256,90 @@ export const PayModal = ({
 
   const onCouponCodeOk = useCallback(
     async values => {
-      const { couponCode } = values;
-      try {
-        setCouponCode(couponCode);
-        const resp = await applyDiscountCode({ orderId, code: couponCode });
-
-        // Update price info immediately
-        setOriginalPrice(resp.price);
-        setPriceItems(resp.price_item?.filter(item => item.is_discount) || []);
-        setPrice(resp.value_to_pay);
-
-        // If fully discounted, mark as completed; otherwise refresh QR
-        if (resp.status === ORDER_STATUS.BUY_STATUS_SUCCESS) {
-          setIsCompleted(true);
-          setInterval(null);
-          onOk?.();
-        } else {
-          await refreshOrderQrcode(resp.order_id);
-        }
-
-        onCouponCodeModalClose();
-      } catch (e) {
-        // Error toast handled in request; keep modal open for correction
-      }
+      await applyCoupon({
+        code: values.couponCode,
+        channel: payChannel,
+        paymentChannel: payChannel.startsWith('stripe') ? 'stripe' : undefined,
+      });
+      onCouponCodeModalClose();
     },
-    [onCouponCodeModalClose, orderId, refreshOrderQrcode],
+    [applyCoupon, onCouponCodeModalClose, payChannel],
   );
 
-  const onPayChannelSelectChange = useCallback(e => {
-    setPayChannel(e.channel);
-  }, []);
+  const handleStripeSuccess = useCallback(async () => {
+    await syncOrderStatus();
+    toast({ title: t('module.pay.paySuccess') });
+  }, [syncOrderStatus, t, toast]);
+
+  const handleStripeCheckout = useCallback(() => {
+    if (stripeCheckoutUrl) {
+      if (stripePayload.checkout_session_id && orderId) {
+        rememberStripeCheckoutSession(
+          stripePayload.checkout_session_id,
+          orderId,
+        );
+      }
+      window.location.href = stripeCheckoutUrl;
+    }
+  }, [orderId, stripePayload.checkout_session_id, stripeCheckoutUrl]);
+
+  const handleStripeError = useCallback(
+    (message: string) => {
+      toast({
+        title: message,
+        variant: 'destructive',
+      });
+    },
+    [toast],
+  );
+
+  const onPayChannelSelectChange = useCallback(
+    ({ channel }: { channel: string }) => {
+      setPayChannel(channel);
+      if (!orderId) {
+        return;
+      }
+      refreshPayment({
+        channel,
+        paymentChannel: channel.startsWith('stripe') ? 'stripe' : undefined,
+      });
+    },
+    [orderId, refreshPayment],
+  );
 
   useEffect(() => {
     if (!open || !isLoggedIn) {
+      initialPaymentRequestedRef.current = false;
       return;
     }
+    if (initialPaymentRequestedRef.current) {
+      return;
+    }
+    initialPaymentRequestedRef.current = true;
     loadPayInfo();
-    setInitLoading(false);
   }, [isLoggedIn, loadPayInfo, open]);
 
   useEffect(() => {
-    if (!isLoggedIn) {
-      loadCourseInfo();
-      setInitLoading(false);
+    if (!orderId) {
+      initialPaymentRequestedRef.current = false;
     }
-  }, [isLoggedIn, loadCourseInfo]);
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!open || isLoggedIn) {
+      return;
+    }
+    loadCourseInfo();
+  }, [isLoggedIn, loadCourseInfo, open]);
 
   function handleOpenChange(open: boolean) {
     if (!open) {
+      initialPaymentRequestedRef.current = false;
       onCancel?.();
     }
   }
+
+  const payInfoBg = userInfo?.language === 'en-US' ? payInfoBgEn : payInfoBgCn;
 
   return (
     <>
@@ -288,7 +354,7 @@ export const PayModal = ({
           <DialogTitle className='sr-only'>
             {t('module.pay.dialogTitle')}
           </DialogTitle>
-          {!initLoading && (
+          {ready && (
             <div className={styles.payModalContent}>
               <div
                 className={styles.introSection}
@@ -298,28 +364,32 @@ export const PayModal = ({
                 <CompletedSection />
               ) : (
                 <div className={styles.paySection}>
-                  <div className={styles.payInfoTitle}>到手价格</div>
+                  <div className={styles.payInfoTitle}>
+                    {t('module.pay.finalPrice')}
+                  </div>
                   <div className={styles.priceWrapper}>
                     <div
                       className={cn(
                         styles.price,
-                        (isLoading || isTimeout) && styles.disabled,
+                        (effectiveLoading || isTimeout) && styles.disabled,
                       )}
                     >
                       <span className={styles.priceSign}>￥</span>
-                      <span className={styles.priceNumber}>{price}</span>
+                      <span className={styles.priceNumber}>{displayPrice}</span>
                     </div>
                   </div>
-                  {originalPrice && (
+                  {displayOriginalPrice && (
                     <div
                       className={styles.originalPriceWrapper}
                       style={{
-                        visibility:
-                          originalPrice === price ? 'hidden' : 'visible',
+                        display:
+                          displayOriginalPrice === displayPrice
+                            ? 'none'
+                            : 'block',
                       }}
                     >
                       <div className={styles.originalPrice}>
-                        {originalPrice}
+                        {displayOriginalPrice}
                       </div>
                     </div>
                   )}
@@ -332,11 +402,9 @@ export const PayModal = ({
                             key={index}
                           >
                             <div className={styles.priceItemName}>
-                              {/* @ts-expect-error EXPECT */}
                               {item.price_name}
                             </div>
                             <div className={styles.priceItemPrice}>
-                              {/* @ts-expect-error EXPECT */}
                               {item.price}
                             </div>
                           </div>
@@ -346,42 +414,91 @@ export const PayModal = ({
                   )}
                   {isLoggedIn ? (
                     <>
-                      <div className={cn(styles.qrcodeWrapper, 'relative')}>
-                        <QRCodeSVG
-                          value={qrUrl}
-                          size={175}
-                          level={'M'}
-                        />
-                        {qrcodeStatus !== 'active' ? (
-                          <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col items-center justify-center pointer-events-none bg-white/50 backdrop-blur-[1px] transition-opacity duration-200'>
-                            {qrcodeStatus === 'loading' ? (
-                              <LoaderIcon
-                                className={cn(
-                                  'animation-spin h-8 w-8 drop-shadow',
-                                  styles.price,
-                                )}
-                              />
-                            ) : null}
-                            {qrcodeStatus === 'error' ? (
-                              <Button
-                                className='pointer-events-auto bg-white/95 text-black shadow'
-                                variant='outline'
-                                onClick={onQrcodeRefresh}
-                              >
-                                <LoaderCircleIcon />
-                                点击刷新
-                              </Button>
-                            ) : null}
+                      <div
+                        className={`${styles.channelSelectors} ${pingxxChannelEnabled ? styles.pingxxSelected : ''}`}
+                      >
+                        {pingxxChannelEnabled ? (
+                          <div className={styles.channelSwitchWrapper}>
+                            <PayChannelSwitch
+                              channel={payChannel}
+                              onChange={onPayChannelSelectChange}
+                            />
+                          </div>
+                        ) : null}
+                        {isStripeAvailable ? (
+                          <div className={styles.stripeSelector}>
+                            <div
+                              onClick={() =>
+                                onPayChannelSelectChange({
+                                  channel: PAY_CHANNEL_STRIPE,
+                                })
+                              }
+                            >
+                              {t('module.pay.payChannelStripeCard')}
+                            </div>
                           </div>
                         ) : null}
                       </div>
-                      <div className={styles.channelSwitchWrapper}>
-                        <PayChannelSwitch
-                          channel={payChannel}
-                          // @ts-expect-error EXPECT
-                          onChange={onPayChannelSelectChange}
-                        />
-                      </div>
+                      {isStripeSelected ? (
+                        <div className={styles.stripePanel}>
+                          {stripeMode === 'checkout_session' ||
+                          !stripePayload.client_secret ? (
+                            <div className='space-y-3 text-center'>
+                              <p className={styles.stripeHint}>
+                                {t('module.pay.stripeCheckoutHint')}
+                              </p>
+                              <Button
+                                className={styles.stripeCheckoutButton}
+                                onClick={handleStripeCheckout}
+                                disabled={!stripeCheckoutUrl}
+                              >
+                                {t('module.pay.goToStripeCheckout')}
+                              </Button>
+                            </div>
+                          ) : (
+                            <StripeCardForm
+                              clientSecret={stripePayload.client_secret}
+                              publishableKey={stripePublishableKey || ''}
+                              onConfirmSuccess={handleStripeSuccess}
+                              onError={handleStripeError}
+                            />
+                          )}
+                        </div>
+                      ) : pingxxChannelEnabled ? (
+                        <div className={cn(styles.qrcodeWrapper, 'relative')}>
+                          <QRCodeSVG
+                            value={paymentInfo.qrUrl || DEFAULT_QRCODE}
+                            size={175}
+                            level={'M'}
+                          />
+                          {qrcodeStatus !== 'active' ? (
+                            <div className='absolute left-0 top-0 right-0 bottom-0 flex flex-col items-center justify-center pointer-events-none bg-white/50 backdrop-blur-[1px] transition-opacity duration-200'>
+                              {qrcodeStatus === 'loading' ? (
+                                <LoaderIcon
+                                  className={cn(
+                                    'animation-spin h-8 w-8 drop-shadow',
+                                    styles.price,
+                                  )}
+                                />
+                              ) : null}
+                              {qrcodeStatus === 'error' ? (
+                                <Button
+                                  className='pointer-events-auto bg-white/95 text-black shadow'
+                                  variant='outline'
+                                  onClick={onQrcodeRefresh}
+                                >
+                                  <LoaderCircleIcon />
+                                  {t('module.pay.clickRefresh')}
+                                </Button>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className={styles.stripeHint}>
+                          {t('module.pay.stripeError')}
+                        </div>
+                      )}
                       <div className={styles.couponCodeWrapper}>
                         <Button
                           variant='link'
@@ -396,7 +513,9 @@ export const PayModal = ({
                     </>
                   ) : (
                     <div className={styles.loginButtonWrapper}>
-                      <Button onClick={onLoginButtonClick}>登录</Button>
+                      <Button onClick={onLoginButtonClick}>
+                        {t('module.auth.login')}
+                      </Button>
                     </div>
                   )}
                   <PayModalFooter className={styles.payModalFooter} />
