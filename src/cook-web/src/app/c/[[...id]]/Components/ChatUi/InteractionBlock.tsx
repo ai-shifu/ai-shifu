@@ -202,9 +202,10 @@ export default function InteractionBlock({
         >
           <ThumbsUp
             size={16}
-            strokeWidth={isLike ? 0 : 2}
+            strokeWidth={2}
             stroke='currentColor'
             fill={isLike ? 'currentColor' : 'none'}
+            absoluteStrokeWidth={isLike}
             className={cn(
               'w-4',
               'h-4',
@@ -226,7 +227,8 @@ export default function InteractionBlock({
         >
           <ThumbsDown
             size={16}
-            strokeWidth={isDislike ? 0 : 2}
+            absoluteStrokeWidth={isDislike}
+            strokeWidth={2}
             stroke='currentColor'
             fill={isDislike ? 'currentColor' : 'none'}
             className={cn(
