@@ -18,6 +18,7 @@ from flaskr.service.shifu.shifu_history_manager import (
     save_outline_tree_history,
 )
 from flaskr.service.check_risk.funcs import check_text_with_risk_control
+from markdown_flow import MarkdownFlow
 
 
 def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
@@ -361,6 +362,7 @@ def import_shifu(
                 new_bid = old_to_new_bid_map.get(old_bid, old_bid)
                 item_type = struct_item.get("type", "")
 
+                child_count = 0
                 # For shifu, use the new shifu_bid
                 if item_type == "shifu":
                     new_bid = shifu_bid
@@ -368,6 +370,9 @@ def import_shifu(
                 elif item_type == "outline":
                     if old_bid in created_items:
                         item_id = created_items[old_bid].id
+                        mdflow = MarkdownFlow(created_items[old_bid].content)
+                        block_list = mdflow.get_all_blocks()
+                        child_count = len(block_list)
                     else:
                         return None
                 else:
@@ -385,7 +390,7 @@ def import_shifu(
                     id=item_id,
                     type=item_type,
                     children=children,
-                    child_count=len(children),
+                    child_count=child_count,
                 )
 
             new_structure = rebuild_structure(structure_data)
