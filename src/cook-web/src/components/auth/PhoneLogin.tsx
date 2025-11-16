@@ -19,9 +19,10 @@ import type { UserInfo } from '@/c-types';
 import { tokenTool } from '@/c-service/storeUtil';
 interface PhoneLoginProps {
   onLoginSuccess: (userInfo: UserInfo) => void;
+  loginContext?: string;
 }
 
-export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
+export function PhoneLogin({ onLoginSuccess, loginContext }: PhoneLoginProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -33,6 +34,7 @@ export function PhoneLogin({ onLoginSuccess }: PhoneLoginProps) {
   const { t } = useTranslation();
   const { loginWithSmsCode, sendSmsCode } = useAuth({
     onSuccess: onLoginSuccess,
+    loginContext,
   });
   const validatePhone = (phone: string) => {
     if (!phone) {

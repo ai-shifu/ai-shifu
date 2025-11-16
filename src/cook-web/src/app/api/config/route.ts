@@ -25,6 +25,7 @@ export async function GET(request: NextRequest) {
     alwaysShowLessonTree: environment.alwaysShowLessonTree,
     logoHorizontal: environment.logoHorizontal,
     logoVertical: environment.logoVertical,
+    logoUrl: environment.logoUrl,
 
     // ===== Analytics =====
     umamiScriptSrc: environment.umamiScriptSrc,

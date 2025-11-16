@@ -14,7 +14,7 @@ import {
 import { PhoneLogin } from '@/components/auth/PhoneLogin';
 import { EmailLogin } from '@/components/auth/EmailLogin';
 import { FeedbackForm } from '@/components/auth/FeedbackForm';
-import Image from 'next/image';
+import Image, { type StaticImageData } from 'next/image';
 import logoHorizontal from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import LanguageSelect from '@/components/language-select';
 import { useTranslation } from 'react-i18next';
@@ -33,6 +33,9 @@ export default function AuthPage() {
   const [authMode, setAuthMode] = useState<'login' | 'feedback'>('login');
   const [isI18nReady, setIsI18nReady] = useState(false);
   const userInfo = useUserStore(state => state.userInfo);
+  const [logoSrc, setLogoSrc] = useState<string | StaticImageData>(
+    environment.logoUrl || logoHorizontal,
+  );
 
   const [loginConfig, setLoginConfig] = useState(() => ({
     methods: environment.loginMethodsEnabled,
@@ -65,6 +68,7 @@ export default function AuthPage() {
           return;
         }
 
+        setLogoSrc(data?.logoUrl || environment.logoUrl || logoHorizontal);
         setLoginConfig({
           methods:
             normalizedMethods.length > 0
@@ -132,6 +136,11 @@ export default function AuthPage() {
     }
     return redirect;
   }, [searchParams]);
+
+  const loginContext = useMemo(() => {
+    const redirectPath = resolveRedirectPath();
+    return redirectPath.startsWith('/admin') ? 'admin' : 'default';
+  }, [resolveRedirectPath]);
 
   const handleAuthSuccess = () => {
     router.replace(resolveRedirectPath());
@@ -289,7 +298,12 @@ export default function AuthPage() {
     (method: LoginMethod) => {
       switch (method) {
         case 'phone':
-          return <PhoneLogin onLoginSuccess={handleAuthSuccess} />;
+          return (
+            <PhoneLogin
+              onLoginSuccess={handleAuthSuccess}
+              loginContext={loginContext}
+            />
+          );
         case 'email':
           return <EmailLogin onLoginSuccess={handleAuthSuccess} />;
         case 'google':
@@ -320,6 +334,7 @@ export default function AuthPage() {
   );
 
   const shouldShowTabs = availableMethods.length > 1;
+  const resolvedLogo = logoSrc || logoHorizontal;
 
   // Show loading state until translations are ready
   if (!isI18nReady || !language) {
@@ -329,7 +344,7 @@ export default function AuthPage() {
           <div className='flex flex-col items-center'>
             <Image
               className='dark:invert'
-              src={logoHorizontal}
+              src={resolvedLogo}
               alt='AI-Shifu'
               width={180}
               height={40}
@@ -352,7 +367,7 @@ export default function AuthPage() {
           <h2 className='text-primary flex items-center font-semibold pb-2  w-full justify-center'>
             <Image
               className='dark:invert'
-              src={logoHorizontal}
+              src={resolvedLogo}
               alt='AI-Shifu'
               width={180}
               height={40}

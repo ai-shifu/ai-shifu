@@ -28,6 +28,7 @@ interface EnvironmentConfig {
   alwaysShowLessonTree: boolean;
   logoHorizontal: string;
   logoVertical: string;
+  logoUrl: string;
 
   // Analytics & Tracking
   umamiScriptSrc: string;
@@ -260,6 +261,13 @@ function getUILogoVertical(): string {
 }
 
 /**
+ * Gets custom logo URL (runtime override)
+ */
+function getLogoUrl(): string {
+  return getRuntimeEnv('LOGO_URL') || process.env.LOGO_URL || '';
+}
+
+/**
  * Gets analytics Umami script
  */
 function getAnalyticsUmamiScript(): string {
@@ -404,6 +412,7 @@ export const environment: EnvironmentConfig = {
   alwaysShowLessonTree: getUIAlwaysShowLessonTree(),
   logoHorizontal: getUILogoHorizontal(),
   logoVertical: getUILogoVertical(),
+  logoUrl: getLogoUrl(),
 
   // Analytics & Tracking
   umamiScriptSrc: getAnalyticsUmamiScript(),

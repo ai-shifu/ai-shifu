@@ -17,11 +17,12 @@ export const LogoWithText = ({ direction, size = 64 }) => {
   const flexFlow = isRow ? 'row nowrap' : 'column nowrap';
   const logoHorizontal = useEnvStore(state => state.logoHorizontal);
   const logoVertical = useEnvStore(state => state.logoVertical);
+  const logoUrl = useEnvStore(state => state.logoUrl);
   const homeUrl = useEnvStore(state => state.homeUrl);
   const width = isRow ? size * 3.8125 : size;
   const height = isRow ? size : size * 2.5;
   const logoSrc = isRow
-    ? logoHorizontal || imgLogoRow.src
+    ? logoUrl || logoHorizontal || imgLogoRow.src
     : logoVertical || imgLogoColumn.src;
 
   return (

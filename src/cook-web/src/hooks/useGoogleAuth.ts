@@ -103,6 +103,10 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         }
 
         const redirectTarget = redirectPath || '/admin';
+        const loginContext =
+          redirectTarget && redirectTarget.startsWith('/admin')
+            ? 'admin'
+            : 'default';
         setGoogleOAuthRedirect(redirectTarget);
 
         const redirectUri = buildRedirectUri(redirectUriOverride);
@@ -110,7 +114,10 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
         await ensureGuestToken();
 
         const response = await callWithTokenRefresh(() =>
-          apiService.googleOauthStart({ redirect_uri: redirectUri }),
+          apiService.googleOauthStart({
+            redirect_uri: redirectUri,
+            login_context: loginContext,
+          }),
         );
         const payload = extractData<OAuthStartPayload>(response);
 

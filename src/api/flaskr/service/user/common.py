@@ -221,6 +221,7 @@ def verify_sms_code(
     chekcode: str,
     course_id: str = None,
     language: str = None,
+    login_context: Optional[str] = None,
 ) -> UserToken:
     provider = get_provider("phone")
     request = VerificationRequest(
@@ -230,6 +231,7 @@ def verify_sms_code(
             "user_id": user_id,
             "course_id": course_id,
             "language": language,
+            "login_context": login_context,
         },
     )
     auth_result = provider.verify(app, request)

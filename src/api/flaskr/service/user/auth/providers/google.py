@@ -32,7 +32,10 @@ from flaskr.service.user.repository import (
     upsert_credential,
 )
 from flaskr.service.user.consts import USER_STATE_REGISTERED
-from flaskr.service.user.utils import generate_token
+from flaskr.service.user.utils import (
+    generate_token,
+    ensure_admin_creator_and_demo_permissions,
+)
 from flaskr.service.common.dtos import UserToken
 
 
@@ -79,6 +82,7 @@ class GoogleAuthProvider(AuthProvider):
 
     def begin_oauth(self, app, metadata: Dict[str, Any]) -> Dict[str, Any]:
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
+        login_context = metadata.get("login_context")
         session = self._create_session(app, redirect_uri)
         authorization_url, state = session.create_authorization_url(
             AUTHORIZATION_ENDPOINT,
@@ -88,7 +92,12 @@ class GoogleAuthProvider(AuthProvider):
         current_app.logger.info("Google OAuth begin state=%s", state)
         redis.set(
             _state_storage_key(state),
-            json.dumps({"redirect_uri": redirect_uri}),
+            json.dumps(
+                {
+                    "redirect_uri": redirect_uri,
+                    "login_context": login_context,
+                }
+            ),
             ex=STATE_TTL,
         )
         return {"authorization_url": authorization_url, "state": state}
@@ -112,11 +121,13 @@ class GoogleAuthProvider(AuthProvider):
         redis.delete(storage_key)
 
         redirect_uri = None
+        login_context = None
         try:
             if stored_state_value:
                 state_payload = json.loads(stored_state_value)
                 if isinstance(state_payload, dict):
                     redirect_uri = state_payload.get("redirect_uri")
+                    login_context = state_payload.get("login_context")
         except Exception:  # noqa: BLE001 - defensive fallback
             current_app.logger.warning(
                 "Failed to parse Google OAuth state payload for key %s", storage_key
@@ -195,6 +206,11 @@ class GoogleAuthProvider(AuthProvider):
                 identifier=email,
                 metadata=profile,
                 verified=profile.get("email_verified", False),
+            )
+
+            # Optionally grant creator and demo-course permissions for admin logins
+            ensure_admin_creator_and_demo_permissions(
+                app, aggregate.user_bid, login_context
             )
 
             refreshed = load_user_aggregate(aggregate.user_bid)
