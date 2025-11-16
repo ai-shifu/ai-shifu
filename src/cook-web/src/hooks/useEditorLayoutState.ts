@@ -111,7 +111,7 @@ export const useEditorLayoutState = () => {
    */
   const getOutlineWidth = useCallback(() => {
     return layout.savedOutlineWidth || layout.outlineWidth;
-  }, [layout]);
+  }, [layout.savedOutlineWidth, layout.outlineWidth]);
 
   /**
    * Save current outline width before collapsing
