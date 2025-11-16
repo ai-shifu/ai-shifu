@@ -43,6 +43,18 @@ interface EnvironmentConfig {
 
   // Redirect Configuration
   homeUrl: string;
+
+  // Legal Documents Configuration
+  legalUrls: {
+    agreement: {
+      'zh-CN': string;
+      'en-US': string;
+    };
+    privacy: {
+      'zh-CN': string;
+      'en-US': string;
+    };
+  };
 }
 
 /**
@@ -346,6 +358,37 @@ function getHomeUrl(): string {
 }
 
 /**
+ * Gets legal document URLs for all supported languages
+ */
+function getLegalUrls(): {
+  agreement: { 'zh-CN': string; 'en-US': string };
+  privacy: { 'zh-CN': string; 'en-US': string };
+} {
+  return {
+    agreement: {
+      'zh-CN':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_ZH_CN') ||
+        process.env.LEGAL_AGREEMENT_URL_ZH_CN ||
+        '',
+      'en-US':
+        getRuntimeEnv('LEGAL_AGREEMENT_URL_EN_US') ||
+        process.env.LEGAL_AGREEMENT_URL_EN_US ||
+        '',
+    },
+    privacy: {
+      'zh-CN':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_ZH_CN') ||
+        process.env.LEGAL_PRIVACY_URL_ZH_CN ||
+        '',
+      'en-US':
+        getRuntimeEnv('LEGAL_PRIVACY_URL_EN_US') ||
+        process.env.LEGAL_PRIVACY_URL_EN_US ||
+        '',
+    },
+  };
+}
+
+/**
  * Environment configuration instance with new organized structure
  */
 export const environment: EnvironmentConfig = {
@@ -384,6 +427,9 @@ export const environment: EnvironmentConfig = {
 
   // Redirect Configuration
   homeUrl: getHomeUrl(),
+
+  // Legal Documents Configuration
+  legalUrls: getLegalUrls(),
 };
 
 export default environment;

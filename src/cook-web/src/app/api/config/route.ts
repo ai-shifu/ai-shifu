@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
 
     // ===== Redirect =====
     homeUrl: environment.homeUrl,
+
+    // ===== Legal Documents =====
+    legalUrls: environment.legalUrls,
   };
 
   return NextResponse.json(config);

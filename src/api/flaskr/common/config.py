@@ -131,6 +131,31 @@ Default: "phone" (phone-only login if not configured)""",
         description="Timezone setting for the application",
         group="app",
     ),
+    # Legal Documents Configuration
+    "LEGAL_AGREEMENT_URL_ZH_CN": EnvVar(
+        name="LEGAL_AGREEMENT_URL_ZH_CN",
+        default="",
+        description="Service agreement URL for Chinese (zh-CN) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_AGREEMENT_URL_EN_US": EnvVar(
+        name="LEGAL_AGREEMENT_URL_EN_US",
+        default="",
+        description="Service agreement URL for English (en-US) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_ZH_CN": EnvVar(
+        name="LEGAL_PRIVACY_URL_ZH_CN",
+        default="",
+        description="Privacy policy URL for Chinese (zh-CN) users. Leave empty to disable the link.",
+        group="legal",
+    ),
+    "LEGAL_PRIVACY_URL_EN_US": EnvVar(
+        name="LEGAL_PRIVACY_URL_EN_US",
+        default="",
+        description="Privacy policy URL for English (en-US) users. Leave empty to disable the link.",
+        group="legal",
+    ),
     # LLM Configuration
     "OPENAI_API_KEY": EnvVar(
         name="OPENAI_API_KEY",
