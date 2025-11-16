@@ -5,6 +5,9 @@
   padding: 0;
   border-radius: 20px;
 }
+.payModal .payModalFooter {
+  padding: 0 20px;
+}
 .payModal :global(.ant-modal-content) {
   padding: 0;
   border-radius: 20px;
@@ -97,6 +100,7 @@
   justify-content: center;
 }
 .payModal .payModalContent .originalPriceWrapper .originalPrice {
+  text-align: center;
   font-size: var(--font-size-5);
   color: var(--color-disabled-1);
   text-decoration: line-through;
