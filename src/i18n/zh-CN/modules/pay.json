@@ -31,5 +31,6 @@
   "stripeResultRedirectCountDown": "将在 {{seconds}} 秒后返回课程...",
   "stripeResultMissingOrder": "未找到对应订单，请重新进入课程或联系支持。",
   "stripeResultBackToChat": "返回课程",
-  "stripeResultHome": "返回首页"
+  "stripeResultHome": "返回首页",
+  "clickRefresh": "点击刷新"
 }

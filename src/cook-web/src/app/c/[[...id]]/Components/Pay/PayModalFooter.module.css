@@ -38,3 +38,6 @@
   text-decoration: none;
   margin-right: 5px;
 }
+:global(.hasPriceItems) .virtualProductDesc {
+  margin: 0 auto auto auto;
+}

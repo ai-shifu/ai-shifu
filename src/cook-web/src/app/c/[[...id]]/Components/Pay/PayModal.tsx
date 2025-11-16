@@ -514,11 +514,18 @@ export const PayModal = ({
                   ) : (
                     <div className={styles.loginButtonWrapper}>
                       <Button onClick={onLoginButtonClick}>
-                        {t('module.pay.login')}
+                        {t('module.auth.login')}
                       </Button>
                     </div>
                   )}
-                  <PayModalFooter className={styles.payModalFooter} />
+                  <PayModalFooter
+                    className={cn(
+                      styles.payModalFooter,
+                      priceItems && priceItems.length > 0
+                        ? 'hasPriceItems'
+                        : '',
+                    )}
+                  />
                 </div>
               )}
             </div>
