@@ -35,6 +35,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateBaseURL,
     updateLogoHorizontal,
     updateLogoVertical,
+    updateLogoUrl,
     updateEnableWxcode,
     updateHomeUrl,
     updateStripePublishableKey,
@@ -63,6 +64,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateBaseURL(data?.apiBaseUrl || '');
         await updateLogoHorizontal(data?.logoHorizontal || '');
         await updateLogoVertical(data?.logoVertical || '');
+        await updateLogoUrl(data?.logoUrl || '');
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateDefaultLlmModel(data?.defaultLlmModel || '');
         await updateHomeUrl(data?.homeUrl || '');
