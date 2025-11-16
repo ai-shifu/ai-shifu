@@ -514,7 +514,7 @@ export const PayModal = ({
                   ) : (
                     <div className={styles.loginButtonWrapper}>
                       <Button onClick={onLoginButtonClick}>
-                        {t('module.pay.login')}
+                        {t('module.auth.login')}
                       </Button>
                     </div>
                   )}
