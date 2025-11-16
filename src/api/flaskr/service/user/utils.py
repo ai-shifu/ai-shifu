@@ -374,4 +374,4 @@ def ensure_admin_creator_and_demo_permissions(
     )
 
     # Import or update shifu (don't commit inside transactional_session)
-    shifu_bid = import_shifu(app, None, file_storage, user_id, commit=False)
+    shifu_bid = import_shifu(app, None, file_storage, user_id, commit=True)
