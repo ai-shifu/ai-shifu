@@ -101,7 +101,7 @@ export default function ShifuSettingDialog({
       .max(20000, t('module.shifuSetting.shifuPromptMaxLength')),
     price: z
       .string()
-      .min(0.5, t('module.shifuSetting.shifuPriceEmpty'))
+      .min(MIN_SHIFU_PRICE, t('module.shifuSetting.shifuPriceEmpty'))
       .regex(/^\d+(\.\d{1,2})?$/, t('module.shifuSetting.shifuPriceFormat')),
     temperature: z
       .string()
@@ -126,7 +126,7 @@ export default function ShifuSettingDialog({
       description: '',
       model: '',
       systemPrompt: '',
-      price: '',
+      price: MIN_SHIFU_PRICE.toFixed(2),
       temperature: '',
     },
   });
@@ -245,7 +245,7 @@ export default function ShifuSettingDialog({
       form.reset({
         name: result.name,
         description: result.description,
-        price: (result.price ?? 0).toFixed(2),
+        price: (result.price || MIN_SHIFU_PRICE).toFixed(2),
         model: result.model || '',
         previewUrl: result.preview_url,
         url: result.url,
