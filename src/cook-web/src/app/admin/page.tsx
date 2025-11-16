@@ -289,7 +289,7 @@ const ScriptManagementPage = () => {
           <TabsContent value='favorites'></TabsContent>
         </Tabs>
         <div className='flex-1 overflow-auto'>
-          <div className='flex flex-wrap gap-4'>
+          <div className='flex flex-wrap gap-4 p-3'>
             {shifus.map(shifu => (
               <ShifuCard
                 id={shifu.bid + ''}
