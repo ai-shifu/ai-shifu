@@ -24,6 +24,7 @@ from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 from werkzeug.datastructures import FileStorage
 from io import BytesIO
 import os
+from pathlib import Path
 
 
 def get_user_openid(user):
@@ -333,10 +334,35 @@ def ensure_admin_creator_and_demo_permissions(
         return
     app.logger.info(f"Creating first lesson for user {user_id}")
     # Read file content
-    first_shifu_file_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "../en_first_shifu.json",
-    )
+    # Try multiple candidate paths to locate en_first_shifu.json
+    # In Docker: /app/flaskr/service/user/utils.py -> /app/en_first_shifu.json
+    # In local dev: src/api/flaskr/service/user/utils.py -> src/api/en_first_shifu.json
+    current_file = Path(__file__).resolve()
+    candidates = [
+        current_file.parent.parent.parent.parent
+        / "en_first_shifu.json",  # /app/en_first_shifu.json (Docker) or src/api/en_first_shifu.json (local)
+        Path("/app/en_first_shifu.json"),  # Absolute path in Docker container
+        current_file.parent.parent.parent
+        / "en_first_shifu.json",  # Fallback: /app/flaskr/en_first_shifu.json
+    ]
+
+    first_shifu_file_path = None
+    for candidate in candidates:
+        try:
+            candidate_resolved = candidate.resolve()
+            if candidate_resolved.exists() and candidate_resolved.is_file():
+                first_shifu_file_path = str(candidate_resolved)
+                break
+        except (OSError, RuntimeError):
+            # Skip invalid paths (e.g., symlink loops)
+            continue
+
+    if not first_shifu_file_path:
+        error_msg = f"Could not find en_first_shifu.json file. Tried: {[str(c) for c in candidates]}"
+        app.logger.error(error_msg)
+        raise FileNotFoundError(error_msg)
+
+    app.logger.info(f"Loading first shifu from: {first_shifu_file_path}")
     with open(first_shifu_file_path, "rb") as f:
         file_content = f.read()
 
