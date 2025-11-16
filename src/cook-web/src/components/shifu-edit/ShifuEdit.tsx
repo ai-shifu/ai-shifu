@@ -41,6 +41,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateBaseURL,
     updateLogoHorizontal,
     updateLogoVertical,
+    updateLogoUrl,
     updateEnableWxcode,
     updateHomeUrl,
   } = useEnvStore.getState() as EnvStoreState;
@@ -64,6 +65,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateBaseURL(data?.apiBaseUrl || '');
         await updateLogoHorizontal(data?.logoHorizontal || '');
         await updateLogoVertical(data?.logoVertical || '');
+        await updateLogoUrl(data?.logoUrl || '');
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateHomeUrl(data?.homeUrl || '');
       }

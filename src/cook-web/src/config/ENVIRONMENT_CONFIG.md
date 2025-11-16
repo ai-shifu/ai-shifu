@@ -32,6 +32,7 @@
 | `NEXT_PUBLIC_UI_ALWAYS_SHOW_LESSON_TREE` | 是否始终显示课程树 | `false`  |
 | `NEXT_PUBLIC_UI_LOGO_HORIZONTAL`         | 水平Logo URL       | 空字符串 |
 | `NEXT_PUBLIC_UI_LOGO_VERTICAL`           | 垂直Logo URL       | 空字符串 |
+| `LOGO_URL`                               | 运行时Logo URL     | 空字符串 |
 
 ### 5. 分析统计 (Analytics)
 
@@ -113,6 +114,7 @@ export async function GET() {
   "alwaysShowLessonTree": "true",
   "logoHorizontal": "",
   "logoVertical": "",
+  "logoUrl": "",
   "umamiScriptSrc": "https://umami.ai-shifu.com/script.js",
   "umamiWebsiteId": "f3108c8f-6898-4404-b6d7-fd076ad011db",
   "enableEruda": "false",
