@@ -29,7 +29,7 @@ export default function GoogleCallbackPage() {
       console.info('[Google OAuth] running');
       try {
         const fallbackRedirect =
-          redirect && redirect.startsWith('/') ? redirect : '/admin';
+          redirect && redirect.startsWith('/') ? redirect : undefined;
         console.info('[Google OAuth] exchanging token');
         const result = await finalizeGoogleLogin({
           code,
