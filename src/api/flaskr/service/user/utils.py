@@ -13,6 +13,13 @@ from ...dao import redis_client as redis, db
 from flaskr.api.sms.aliyun import send_sms_code_ali
 from .models import UserVerifyCode
 
+import json
+
+from flaskr.service.config.funcs import get_config as get_dynamic_config
+from flaskr.service.shifu.models import AiCourseAuth
+from flaskr.service.user.repository import mark_user_roles
+from flaskr.util import generate_id
+
 
 def get_user_openid(user):
     if hasattr(user, "user_open_id"):
@@ -252,3 +259,63 @@ def create_and_commit_user_verify_code(
     db.session.add(user_verify_code)
     db.session.commit()
     return user_verify_code
+
+
+def ensure_admin_creator_and_demo_permissions(
+    app: Flask, user_id: str, login_context: str | None = None
+) -> None:
+    """
+    Ensure that an admin-login user is a creator and has demo course permissions.
+
+    This helper is controlled by the ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO flag and
+    is intended for demo/staging environments.
+    """
+    # Only apply when the feature flag is enabled
+    if not app.config.get("ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO", False):
+        return
+
+    # Only act on explicit admin logins
+    if login_context != "admin":
+        return
+
+    # Mark user as creator
+    mark_user_roles(user_id, is_creator=True)
+
+    # Grant demo course permissions if demo shifus are configured
+    demo_ids = set()
+    for key in ("DEMO_SHIFU_BID", "DEMO_EN_SHIFU_BID"):
+        bid = get_dynamic_config(app, key)
+        if bid:
+            demo_ids.add(bid)
+
+    if not demo_ids:
+        # No demo courses configured; nothing more to do
+        return
+
+    full_auth_types = json.dumps(["view", "edit", "publish"])
+
+    for shifu_bid in demo_ids:
+        auth = AiCourseAuth.query.filter(
+            AiCourseAuth.user_id == user_id,
+            AiCourseAuth.course_id == shifu_bid,
+        ).first()
+        if auth:
+            updated = False
+            if auth.auth_type != full_auth_types:
+                auth.auth_type = full_auth_types
+                updated = True
+            if auth.status != 1:
+                auth.status = 1
+                updated = True
+            if updated:
+                db.session.flush()
+        else:
+            auth = AiCourseAuth(
+                course_auth_id=generate_id(app),
+                user_id=user_id,
+                course_id=shifu_bid,
+                auth_type=full_auth_types,
+                status=1,
+            )
+            db.session.add(auth)
+            db.session.flush()

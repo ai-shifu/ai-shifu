@@ -281,6 +281,7 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
             sms_code = request.get_json().get("sms_code", None)
             course_id = request.get_json().get("course_id", None)
             language = request.get_json().get("language", None)
+            login_context = request.get_json().get("login_context", None)
             user_id = (
                 None if getattr(request, "user", None) is None else request.user.user_id
             )
@@ -288,7 +289,15 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
                 raise_param_error("mobile")
             if not sms_code:
                 raise_param_error("sms_code")
-            ret = verify_sms_code(app, user_id, mobile, sms_code, course_id, language)
+            ret = verify_sms_code(
+                app,
+                user_id,
+                mobile,
+                sms_code,
+                course_id,
+                language,
+                login_context,
+            )
             db.session.commit()
             resp = make_response(make_common_response(ret))
             return resp
@@ -531,6 +540,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         redirect_uri = request.args.get("redirect_uri")
         if redirect_uri:
             metadata["redirect_uri"] = redirect_uri
+        login_context = request.args.get("login_context")
+        if login_context:
+            metadata["login_context"] = login_context
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],
