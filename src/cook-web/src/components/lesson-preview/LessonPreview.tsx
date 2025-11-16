@@ -37,7 +37,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
   const showEmpty = !loading && items.length === 0;
   return (
     <div className={cn(styles.lessonPreview, 'flex h-full flex-col text-sm')}>
-      <div className='flex flex-wrap items-baseline gap-2'>
+      <div className='flex flex-wrap items-baseline gap-2 pt-[5px]'>
         <h2 className='text-base font-semibold text-foreground'>
           {t('module.shifu.previewArea.title')}
         </h2>
@@ -45,7 +45,7 @@ const LessonPreview: React.FC<LessonPreviewProps> = ({
           {t('module.shifu.previewArea.description')}
         </p>
       </div>
-      <div className='mt-4 flex-1 overflow-hidden rounded-xl border bg-white'>
+      <div className='mt-[10px] flex-1 overflow-hidden rounded-xl border bg-white'>
         {loading && items.length === 0 ? (
           <div className='flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-muted-foreground'>
             <Loader2 className='h-6 w-6 animate-spin text-muted-foreground' />

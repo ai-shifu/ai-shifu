@@ -411,7 +411,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
         {/* Resize Handle (only shown when outline tree is expanded) */}
         {!foldOutlineTree && (
           <PanelResizeHandle
-            className='group relative w-[10px] bg-transparent cursor-col-resize flex items-center justify-center'
+            className='group relative bg-transparent cursor-col-resize flex items-center justify-center'
             onDoubleClick={handleResizeHandleDoubleClick}
           >
             {/* Visual indicator (thin line) */}

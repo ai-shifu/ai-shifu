@@ -9,7 +9,7 @@ import NavFooter from '@/app/c/[[...id]]/Components/NavDrawer/NavFooter';
 import MainMenuModal from '@/app/c/[[...id]]/Components/NavDrawer/MainMenuModal';
 import { useDisclosure } from '@/c-common/hooks/useDisclosure';
 import { useTranslation } from 'react-i18next';
-import logo from '@/c-assets/logos/ai-shifu-logo-black.svg';
+import logo from '@/c-assets/logos/ai-shifu-logo-horizontal.png';
 import adminSidebarStyles from './AdminSidebar.module.scss';
 import styles from './layout.module.scss';
 import { cn } from '@/lib/utils';
