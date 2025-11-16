@@ -91,12 +91,12 @@ def _ensure_creator_permissions(app: Flask, shifu_bid: str):
                 course_auth_id=generate_id(app),
                 user_id=user.user_bid,
                 course_id=shifu_bid,
-                auth_type=json.dumps(["view", "edit", "publish"]),
+                auth_type=json.dumps(["view"]),
                 status=1,
             )
             db.session.add(auth)
         else:
-            auth.auth_type = json.dumps(["view", "edit", "publish"])
+            auth.auth_type = json.dumps(["view"])
             auth.status = 1
         db.session.commit()
 

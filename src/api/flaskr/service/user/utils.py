@@ -292,7 +292,7 @@ def ensure_admin_creator_and_demo_permissions(
         # No demo courses configured; nothing more to do
         return
 
-    full_auth_types = json.dumps(["view", "edit", "publish"])
+    full_auth_types = json.dumps(["view"])
 
     for shifu_bid in demo_ids:
         auth = AiCourseAuth.query.filter(
