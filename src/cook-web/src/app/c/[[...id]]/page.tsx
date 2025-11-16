@@ -170,7 +170,7 @@ export default function ChatPage() {
       return;
     }
     if (previewMode) {
-      document.title = `${t('module.preview.preview')} - ${courseName}`;
+      document.title = `${t('module.preview.previewAll')} - ${courseName}`;
       return;
     }
     document.title = courseName;

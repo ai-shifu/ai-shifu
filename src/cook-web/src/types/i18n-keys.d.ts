@@ -252,7 +252,7 @@ export type I18nKey =
   | 'module.permission.permission.requestSuccess'
   | 'module.permission.permission.requestTitle'
   | 'module.permission.user.login'
-  | 'module.preview.preview'
+  | 'module.preview.previewAll'
   | 'module.profiles.add'
   | 'module.profiles.addNewVariable'
   | 'module.profiles.cancel'

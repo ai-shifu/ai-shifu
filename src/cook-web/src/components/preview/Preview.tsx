@@ -42,7 +42,7 @@ const PreviewSettingsModal = () => {
       loading={loading}
     >
       {loading ? null : <PlayIcon className='h-4 w-4' />}{' '}
-      {t('module.preview.preview')}
+      {t('module.preview.previewAll')}
     </Button>
   );
 };
