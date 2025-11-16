@@ -1,13 +1,7 @@
 'use client';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
-import {
-  Columns2,
-  ListCollapse,
-  Loader2,
-  Plus,
-  Sparkles,
-} from 'lucide-react';
+import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
 import { useUserStore } from '@/store';
 import OutlineTree from '@/components/outline-tree';
