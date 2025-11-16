@@ -113,6 +113,7 @@
       justify-content: center;
 
       .originalPrice {
+        text-align: center;
         font-size: var(--font-size-5);
         color: var(--color-disabled-1);
         text-decoration: line-through;
