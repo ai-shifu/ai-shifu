@@ -186,6 +186,10 @@ docker/milvus_data/
 # Logs
 src/api/logs/
 
+# Docker secret/test keys
+docker/pingxx_test_key.gem
+docker/pingxx_test_key.pem
+
 ###############################################################################
 # Never ignore these files (exceptions to above rules)
 ###############################################################################
