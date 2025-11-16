@@ -76,6 +76,7 @@
     "react-hotkeys-hook": "^5.1.0",
     "react-i18next": "^15.5.1",
     "react-markdown": "^10.1.0",
+    "react-resizable-panels": "^3.0.6",
     "react-syntax-highlighter": "^16.1.0",
     "react-use": "^17.6.0",
     "rehype-raw": "^7.0.0",
