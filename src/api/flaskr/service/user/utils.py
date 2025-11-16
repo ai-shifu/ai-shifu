@@ -18,7 +18,12 @@ import json
 from flaskr.service.config.funcs import get_config as get_dynamic_config
 from flaskr.service.shifu.models import AiCourseAuth
 from flaskr.service.user.repository import mark_user_roles
+from flaskr.service.shifu.models import DraftShifu
 from flaskr.util import generate_id
+from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
+from werkzeug.datastructures import FileStorage
+from io import BytesIO
+import os
 
 
 def get_user_openid(user):
@@ -319,3 +324,28 @@ def ensure_admin_creator_and_demo_permissions(
             )
             db.session.add(auth)
             db.session.flush()
+    # create first lesson
+    draft_shifu = DraftShifu.query.filter(
+        DraftShifu.created_user_bid == user_id
+    ).first()
+    if draft_shifu:
+        db.session.flush()
+        return
+    app.logger.info(f"Creating first lesson for user {user_id}")
+    # Read file content
+    first_shifu_file_path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        "../en_first_shifu.json",
+    )
+    with open(first_shifu_file_path, "rb") as f:
+        file_content = f.read()
+
+    # Create FileStorage from bytes
+    file_storage = FileStorage(
+        stream=BytesIO(file_content),
+        filename=os.path.basename(first_shifu_file_path),
+        name="file",
+    )
+
+    # Import or update shifu (don't commit inside transactional_session)
+    shifu_bid = import_shifu(app, None, file_storage, user_id, commit=False)
