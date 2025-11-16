@@ -43,6 +43,7 @@ class PhoneAuthProvider(AuthProvider):
             request.code,
             course_id=request.metadata.get("course_id"),
             language=request.metadata.get("language"),
+            login_context=request.metadata.get("login_context"),
         )
 
         aggregate = load_user_aggregate(user_token.userInfo.user_id)

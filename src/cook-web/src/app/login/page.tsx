@@ -137,6 +137,11 @@ export default function AuthPage() {
     return redirect;
   }, [searchParams]);
 
+  const loginContext = useMemo(() => {
+    const redirectPath = resolveRedirectPath();
+    return redirectPath.startsWith('/admin') ? 'admin' : 'default';
+  }, [resolveRedirectPath]);
+
   const handleAuthSuccess = () => {
     router.replace(resolveRedirectPath());
   };
@@ -293,7 +298,12 @@ export default function AuthPage() {
     (method: LoginMethod) => {
       switch (method) {
         case 'phone':
-          return <PhoneLogin onLoginSuccess={handleAuthSuccess} />;
+          return (
+            <PhoneLogin
+              onLoginSuccess={handleAuthSuccess}
+              loginContext={loginContext}
+            />
+          );
         case 'email':
           return <EmailLogin onLoginSuccess={handleAuthSuccess} />;
         case 'google':

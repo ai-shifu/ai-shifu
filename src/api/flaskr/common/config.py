@@ -496,6 +496,18 @@ Generate secure key: python -c "import secrets; print(secrets.token_urlsafe(32))
         ),
         group="auth",
     ),
+    "ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO": EnvVar(
+        name="ADMIN_LOGIN_GRANT_CREATOR_WITH_DEMO",
+        default=False,
+        type=bool,
+        description=(
+            "When enabled, users logging in from the admin interface are "
+            "automatically marked as creators and granted demo course "
+            "permissions (DEMO_SHIFU_BID / DEMO_EN_SHIFU_BID if configured). "
+            "Intended for demo and staging environments only."
+        ),
+        group="auth",
+    ),
     # Payment Providers
     "PINGXX_SECRET_KEY": EnvVar(
         name="PINGXX_SECRET_KEY",
