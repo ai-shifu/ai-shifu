@@ -122,7 +122,11 @@ def export_shifu(app: Flask, shifu_id: str, file_path: str) -> str:
 
 
 def import_shifu(
-    app: Flask, shifu_id: Optional[str], file: FileStorage, user_id: str
+    app: Flask,
+    shifu_id: Optional[str],
+    file: FileStorage,
+    user_id: str,
+    commit: bool = True,
 ) -> str:
     """
     Import a shifu from a JSON file.
@@ -399,6 +403,9 @@ def import_shifu(
                 outline_tree = new_structure.children if new_structure.children else []
                 save_outline_tree_history(app, user_id, shifu_bid, outline_tree)
 
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
 
         return shifu_bid
