@@ -163,6 +163,15 @@ export const useEditorLayoutState = () => {
     [getOutlineWidth],
   );
 
+  /**
+   * Default layout array used when resetting the splitter
+   */
+  const getDefaultLayoutArray = useCallback((): number[] => {
+    const outlineWidth = LAYOUT_CONFIG.OUTLINE_DEFAULT_SIZE;
+    const editorWidth = 100 - outlineWidth;
+    return [outlineWidth, editorWidth];
+  }, []);
+
   return {
     layout,
     handleLayoutChange,
@@ -171,6 +180,7 @@ export const useEditorLayoutState = () => {
     clearSavedWidth,
     restoreDefaultLayout,
     getLayoutArray,
+    getDefaultLayoutArray,
     config: LAYOUT_CONFIG,
   };
 };

@@ -106,11 +106,13 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   // Layout state management with localStorage persistence
   const {
+    layout,
     handleLayoutChange,
     saveCurrentWidth,
     clearSavedWidth,
     restoreDefaultLayout,
     getLayoutArray,
+    getDefaultLayoutArray,
     config: layoutConfig,
   } = useEditorLayoutState();
 
@@ -308,11 +310,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
     restoreDefaultLayout();
     // Immediately apply the default layout using imperative API
     if (panelGroupRef.current) {
-      const defaultLayout = [
-        layoutConfig.OUTLINE_DEFAULT_SIZE,
-        100 - layoutConfig.OUTLINE_DEFAULT_SIZE,
-      ];
-      panelGroupRef.current.setLayout(defaultLayout);
+      panelGroupRef.current.setLayout(getDefaultLayoutArray());
     }
   };
 
@@ -323,26 +321,23 @@ const ScriptEditor = ({ id }: { id: string }) => {
     if (willCollapse) {
       // About to collapse: save current width
       saveCurrentWidth();
-    } else {
-      // About to expand: clear saved width after restoring
-      // (will be cleared after setLayout completes)
     }
 
     setFoldOutlineTree(willCollapse);
-
-    // Critical: Use setTimeout to ensure state update completes first
-    setTimeout(() => {
-      if (panelGroupRef.current) {
-        const targetLayout = getLayoutArray(willCollapse);
-        panelGroupRef.current.setLayout(targetLayout);
-
-        // Clear saved width after successful expand
-        if (!willCollapse) {
-          clearSavedWidth();
-        }
-      }
-    }, 0);
   };
+
+  useEffect(() => {
+    if (panelGroupRef.current) {
+      const targetLayout = getLayoutArray(foldOutlineTree);
+      panelGroupRef.current.setLayout(targetLayout);
+    }
+  }, [foldOutlineTree, getLayoutArray]);
+
+  useEffect(() => {
+    if (!foldOutlineTree && layout.savedOutlineWidth !== undefined) {
+      clearSavedWidth();
+    }
+  }, [foldOutlineTree, layout.savedOutlineWidth, clearSavedWidth]);
 
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
