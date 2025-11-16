@@ -1,12 +1,10 @@
 'use client';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import {
   Columns2,
   ListCollapse,
   Loader2,
-  PanelRightClose,
-  PanelRightOpen,
   Plus,
   Sparkles,
 } from 'lucide-react';
@@ -29,6 +27,13 @@ import { EnvStoreState } from '@/c-types/store';
 import { getBoolEnv } from '@/c-utils/envUtils';
 import LessonPreview from '@/components/lesson-preview';
 import { usePreviewChat } from '@/components/lesson-preview/usePreviewChat';
+import {
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
+  ImperativePanelGroupHandle,
+} from 'react-resizable-panels';
+import { useEditorLayoutState } from '@/hooks/useEditorLayoutState';
 
 const initializeEnvData = async (): Promise<void> => {
   const {
@@ -104,6 +109,19 @@ const ScriptEditor = ({ id }: { id: string }) => {
   const [editMode, setEditMode] = useState<EditMode>('quickEdit' as EditMode);
   const [isPreviewPanelOpen, setIsPreviewPanelOpen] = useState(false);
   const [isPreviewPreparing, setIsPreviewPreparing] = useState(false);
+
+  // Layout state management with localStorage persistence
+  const {
+    handleLayoutChange,
+    saveCurrentWidth,
+    clearSavedWidth,
+    restoreDefaultLayout,
+    getLayoutArray,
+    config: layoutConfig,
+  } = useEditorLayoutState();
+
+  // Ref for imperative control of PanelGroup (required for setLayout() calls)
+  const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
   const {
     items: previewItems,
     isLoading: previewLoading,
@@ -291,50 +309,132 @@ const ScriptEditor = ({ id }: { id: string }) => {
 
   const previewDisabledReason = t('module.shifu.previewArea.disabled');
 
+  // Handle double-click on resize handle to restore default width
+  const handleResizeHandleDoubleClick = () => {
+    restoreDefaultLayout();
+    // Immediately apply the default layout using imperative API
+    if (panelGroupRef.current) {
+      const defaultLayout = [
+        layoutConfig.OUTLINE_DEFAULT_SIZE,
+        100 - layoutConfig.OUTLINE_DEFAULT_SIZE,
+      ];
+      panelGroupRef.current.setLayout(defaultLayout);
+    }
+  };
+
+  // Toggle outline tree collapse/expand
+  const toggle = () => {
+    const willCollapse = !foldOutlineTree;
+
+    if (willCollapse) {
+      // About to collapse: save current width
+      saveCurrentWidth();
+    } else {
+      // About to expand: clear saved width after restoring
+      // (will be cleared after setLayout completes)
+    }
+
+    setFoldOutlineTree(willCollapse);
+
+    // Critical: Use setTimeout to ensure state update completes first
+    setTimeout(() => {
+      if (panelGroupRef.current) {
+        const targetLayout = getLayoutArray(willCollapse);
+        panelGroupRef.current.setLayout(targetLayout);
+
+        // Clear saved width after successful expand
+        if (!willCollapse) {
+          clearSavedWidth();
+        }
+      }
+    }, 0);
+  };
+
   return (
     <div className='flex flex-col h-screen bg-gray-50'>
       <Header />
-      <div className='flex-1 flex overflow-hidden scroll-y'>
-        <div
+      <PanelGroup
+        direction='horizontal'
+        className='flex-1 overflow-hidden'
+        ref={panelGroupRef}
+        onLayout={handleLayoutChange}
+      >
+        {/* Left Panel: Outline Tree */}
+        <Panel
+          id='outline-panel'
+          order={1}
+          defaultSize={getLayoutArray(foldOutlineTree)[0]}
+          minSize={
+            foldOutlineTree
+              ? layoutConfig.OUTLINE_COLLAPSED_SIZE
+              : layoutConfig.OUTLINE_MIN_SIZE
+          }
+          maxSize={
+            foldOutlineTree
+              ? layoutConfig.OUTLINE_COLLAPSED_SIZE
+              : layoutConfig.OUTLINE_MAX_SIZE
+          }
+          collapsible={false}
           className={cn(
-            'p-4 bg-white flex flex-col h-full transition-[width] duration-200',
-            foldOutlineTree ? 'w-auto' : 'w-[256px]',
+            'bg-white',
+            // Only transition max-width and opacity for collapse/expand animation
+            // Remove transition-all to avoid interfering with drag responsiveness
+            'transition-[max-width,opacity] duration-200',
+            foldOutlineTree && 'max-w-[60px]',
           )}
         >
-          <div className='flex items-center justify-between gap-3'>
-            <div
-              onClick={() => setFoldOutlineTree(!foldOutlineTree)}
-              className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
-            >
-              <ListCollapse className='h-5 w-5' />
-            </div>
-            {!foldOutlineTree && (
-              <Button
-                variant='outline'
-                className='h-8 bottom-0 left-4 flex-1'
-                size='sm'
-                onClick={onAddChapter}
+          <div className='p-4 flex flex-col h-full'>
+            <div className='flex items-center justify-between gap-3'>
+              <div
+                onClick={toggle}
+                className='rounded border bg-white p-1 cursor-pointer text-sm hover:bg-gray-200'
               >
-                <Plus />
-                {t('module.shifu.newChapter')}
-              </Button>
+                <ListCollapse className='h-5 w-5' />
+              </div>
+              {!foldOutlineTree && (
+                <Button
+                  variant='outline'
+                  className='h-8 bottom-0 left-4 flex-1'
+                  size='sm'
+                  onClick={onAddChapter}
+                >
+                  <Plus />
+                  {t('module.shifu.newChapter')}
+                </Button>
+              )}
+            </div>
+
+            {!foldOutlineTree && (
+              <div className='mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-10'>
+                <ol className='text-sm'>
+                  <OutlineTree
+                    items={chapters}
+                    onChange={newChapters => {
+                      actions.setChapters([...newChapters]);
+                    }}
+                  />
+                </ol>
+              </div>
             )}
           </div>
+        </Panel>
 
-          {!foldOutlineTree && (
-            <div className='mt-4 flex-1 min-h-0 overflow-y-auto overflow-x-hidden pb-10'>
-              <ol className='text-sm'>
-                <OutlineTree
-                  items={chapters}
-                  onChange={newChapters => {
-                    actions.setChapters([...newChapters]);
-                  }}
-                />
-              </ol>
-            </div>
-          )}
-        </div>
-        <div className='flex-1 overflow-hidden relative text-sm'>
+        {/* Resize Handle (only shown when outline tree is expanded) */}
+        {!foldOutlineTree && (
+          <PanelResizeHandle
+            className='w-[2px] bg-gray-200 hover:bg-blue-500 active:bg-blue-600 transition-colors cursor-col-resize'
+            onDoubleClick={handleResizeHandleDoubleClick}
+          />
+        )}
+
+        {/* Right Panel: Editor + Preview */}
+        <Panel
+          id='editor-panel'
+          order={2}
+          defaultSize={getLayoutArray(foldOutlineTree)[1]}
+          minSize={30}
+          className='overflow-hidden relative text-sm'
+        >
           <div className='flex h-full overflow-hidden'>
             <div
               className={cn(
@@ -469,8 +569,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
               </div>
             ) : null}
           </div>
-        </div>
-      </div>
+        </Panel>
+      </PanelGroup>
     </div>
   );
 };
