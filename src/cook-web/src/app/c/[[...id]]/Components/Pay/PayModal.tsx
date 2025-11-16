@@ -518,7 +518,14 @@ export const PayModal = ({
                       </Button>
                     </div>
                   )}
-                  <PayModalFooter className={cn(styles.payModalFooter, priceItems && priceItems.length > 0 ? 'hasPriceItems' : '')} />
+                  <PayModalFooter
+                    className={cn(
+                      styles.payModalFooter,
+                      priceItems && priceItems.length > 0
+                        ? 'hasPriceItems'
+                        : '',
+                    )}
+                  />
                 </div>
               )}
             </div>
