@@ -41,6 +41,7 @@ interface UseGoogleAuthOptions {
 interface StartGoogleLoginOptions {
   redirectPath?: string;
   redirectUriOverride?: string;
+  language?: string;
 }
 
 interface FinalizeGoogleLoginOptions {
@@ -96,6 +97,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
     async ({
       redirectPath,
       redirectUriOverride,
+      language,
     }: StartGoogleLoginOptions = {}) => {
       try {
         if (typeof window === 'undefined') {
@@ -117,6 +119,7 @@ export function useGoogleAuth(options: UseGoogleAuthOptions = {}) {
           apiService.googleOauthStart({
             redirect_uri: redirectUri,
             login_context: loginContext,
+            language,
           }),
         );
         const payload = extractData<OAuthStartPayload>(response);

@@ -105,7 +105,7 @@ def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
             LogDraftStruct.query.filter_by(
                 shifu_bid=shifu_bid,
             )
-            .order_by(LogDraftStruct.created_at.desc())
+            .order_by(LogDraftStruct.id.desc())
             .first()
         )
         if not shifu_history:
