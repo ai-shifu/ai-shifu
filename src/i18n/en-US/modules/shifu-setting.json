@@ -35,5 +35,6 @@
   "keywords": "Keywords",
   "inputKeywords": "Enter keyword and press Enter",
   "addKeyword": "Add Keyword",
-  "price": "Price"
+  "price": "Price",
+  "priceUnit": "Unit"
 }

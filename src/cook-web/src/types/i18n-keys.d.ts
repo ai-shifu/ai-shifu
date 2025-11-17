@@ -369,6 +369,7 @@ export type I18nKey =
   | 'module.shifuSetting.placeholder'
   | 'module.shifuSetting.previewUrl'
   | 'module.shifuSetting.price'
+  | 'module.shifuSetting.priceUnit'
   | 'module.shifuSetting.selectModelHint'
   | 'module.shifuSetting.selected'
   | 'module.shifuSetting.shifuAvatar'

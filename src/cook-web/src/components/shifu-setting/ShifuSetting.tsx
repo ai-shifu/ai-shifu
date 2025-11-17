@@ -733,14 +733,18 @@ export default function ShifuSettingDialog({
                   <FormItem className='space-y-2 mb-4'>
                   <FormLabel className='text-sm font-medium text-foreground'>
                       <span className='flex items-center gap-2'>
-                        <span>{t('module.shifuSetting.price')}</span>
-                        {currencySymbol ? (
-                          <span className='text-muted-foreground text-sm'>
-                            {currencySymbol}
+                        <span>{t('module.shifuSetting.price')}
+                          {/* {currencySymbol ? (
+                          <span className='text-muted-foreground text-sm pl-1'>
+                            （{t('module.shifuSetting.priceUnit')}：{currencySymbol}）
                           </span>
-                        ) : null}
+                        ) : null} */}
+                        </span>
                       </span>
                     </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                    {t('module.shifuSetting.priceUnit')}: {currencySymbol}
+                    </p>
                     <FormControl>
                       <Input
                         className='h-9'

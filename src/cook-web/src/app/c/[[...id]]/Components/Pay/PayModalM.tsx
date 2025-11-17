@@ -121,13 +121,15 @@ export const PayModalM = ({
   const displayPrice = isLoggedIn ? price : previewPrice;
   const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
   const ready = isLoggedIn ? !hookInitLoading : !previewInitLoading;
-  const { stripePublishableKey, stripeEnabled, paymentChannels } = useEnvStore(
-    useShallow(state => ({
-      stripePublishableKey: state.stripePublishableKey,
-      stripeEnabled: state.stripeEnabled,
-      paymentChannels: state.paymentChannels,
-    })),
-  );
+  const { stripePublishableKey, stripeEnabled, paymentChannels, currencySymbol } =
+    useEnvStore(
+      useShallow(state => ({
+        stripePublishableKey: state.stripePublishableKey,
+        stripeEnabled: state.stripeEnabled,
+        paymentChannels: state.paymentChannels,
+        currencySymbol: state.currencySymbol || '¥',
+      })),
+    );
   const initialPaymentRequestedRef = useRef(false);
   const normalizedPaymentChannels = useMemo(
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),

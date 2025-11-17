@@ -35,5 +35,6 @@
   "keywords": "关键词",
   "inputKeywords": "输入关键词后回车",
   "addKeyword": "添加关键词",
-  "price": "价格"
+  "price": "价格",
+  "priceUnit": "单位"
 }
