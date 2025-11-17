@@ -153,7 +153,6 @@ def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
         None
     """
     history = get_shifu_history(app, shifu_bid)
-    app.logger.info(f"save_shifu_history: {history.to_json()}")
     history.id = id
     __save_shifu_history(app, user_id, shifu_bid, history)
 
