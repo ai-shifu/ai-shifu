@@ -13,6 +13,7 @@ from urllib.parse import urljoin
 from flask import current_app, request
 
 from flaskr.dao import redis_client as redis
+from flaskr.service.common.models import raise_error
 from flaskr.service.user.auth.base import (
     AuthProvider,
     AuthResult,
@@ -42,7 +43,9 @@ from flaskr.service.common.dtos import UserToken
 AUTHORIZATION_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 USERINFO_ENDPOINT = "https://openidconnect.googleapis.com/v1/userinfo"
-STATE_TTL = 300
+# Lifetime (in seconds) for Google OAuth state stored in Redis.
+# Extended to reduce spurious "state expired" failures for slower user flows.
+STATE_TTL = 900
 
 
 def _state_storage_key(state: str) -> str:
@@ -154,10 +157,13 @@ class GoogleAuthProvider(AuthProvider):
         return {"authorization_url": authorization_url, "state": state}
 
     def handle_oauth_callback(self, app, request: OAuthCallbackRequest) -> AuthResult:
-        if not request.code:
-            raise RuntimeError("Missing authorization code")
-        if not request.state:
-            raise RuntimeError("Missing state")
+        if not request.code or not request.state:
+            current_app.logger.warning(
+                "Google OAuth callback missing code or state: has_code=%s, has_state=%s",
+                bool(request.code),
+                bool(request.state),
+            )
+            raise_error("server.user.googleOAuthStateInvalid")
 
         storage_key = _state_storage_key(request.state)
         current_app.logger.info("Google OAuth callback state=%s", request.state)
@@ -168,7 +174,7 @@ class GoogleAuthProvider(AuthProvider):
             current_app.logger.warning(
                 "Google OAuth state missing for key %s", storage_key
             )
-            raise RuntimeError("Invalid or expired OAuth state")
+            raise_error("server.user.googleOAuthStateInvalid")
         redis.delete(storage_key)
 
         redirect_uri = None
