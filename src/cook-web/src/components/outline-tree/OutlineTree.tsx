@@ -64,19 +64,20 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
   const { items, onChange, onChapterSelect } = props;
   const { actions, focusId } = useShifu();
   const TreeItemWithSelect = useMemo(() => {
-    const ForwardRefComponent = React.forwardRef<HTMLDivElement, TreeItemComponentProps<Outline>>(
-      (minimalProps, ref) => (
-        <MinimalTreeItemComponent
-          {...minimalProps}
-          ref={ref}
-          onChapterSelect={onChapterSelect}
-        />
-      ),
-    );
+    const ForwardRefComponent = React.forwardRef<
+      HTMLDivElement,
+      TreeItemComponentProps<Outline>
+    >((minimalProps, ref) => (
+      <MinimalTreeItemComponent
+        {...minimalProps}
+        ref={ref}
+        onChapterSelect={onChapterSelect}
+      />
+    ));
     ForwardRefComponent.displayName = 'TreeItemWithSelect';
     return ForwardRefComponent;
   }, [onChapterSelect]);
-  
+
   const onItemsChanged = async (
     data: TreeItems<Outline>,
     reason: ItemChangedReason<Outline>,
