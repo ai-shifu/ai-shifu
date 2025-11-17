@@ -113,11 +113,17 @@ export const PayModal = ({
   const { toast } = useToast();
   const initialPaymentRequestedRef = useRef(false);
 
-  const { stripePublishableKey, stripeEnabled, paymentChannels } = useEnvStore(
+  const {
+    stripePublishableKey,
+    stripeEnabled,
+    paymentChannels,
+    currencySymbol,
+  } = useEnvStore(
     useShallow(state => ({
       stripePublishableKey: state.stripePublishableKey,
       stripeEnabled: state.stripeEnabled,
       paymentChannels: state.paymentChannels,
+      currencySymbol: state.currencySymbol || '¥',
     })),
   );
   const normalizedPaymentChannels = useMemo(
@@ -374,7 +380,7 @@ export const PayModal = ({
                         (effectiveLoading || isTimeout) && styles.disabled,
                       )}
                     >
-                      <span className={styles.priceSign}>￥</span>
+                      <span className={styles.priceSign}>{currencySymbol}</span>
                       <span className={styles.priceNumber}>{displayPrice}</span>
                     </div>
                   </div>

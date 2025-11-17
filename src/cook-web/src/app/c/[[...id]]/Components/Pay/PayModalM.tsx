@@ -121,11 +121,17 @@ export const PayModalM = ({
   const displayPrice = isLoggedIn ? price : previewPrice;
   const displayOriginalPrice = isLoggedIn ? originalPrice : previewPrice;
   const ready = isLoggedIn ? !hookInitLoading : !previewInitLoading;
-  const { stripePublishableKey, stripeEnabled, paymentChannels } = useEnvStore(
+  const {
+    stripePublishableKey,
+    stripeEnabled,
+    paymentChannels,
+    currencySymbol,
+  } = useEnvStore(
     useShallow(state => ({
       stripePublishableKey: state.stripePublishableKey,
       stripeEnabled: state.stripeEnabled,
       paymentChannels: state.paymentChannels,
+      currencySymbol: state.currencySymbol || '¥',
     })),
   );
   const initialPaymentRequestedRef = useRef(false);
@@ -381,7 +387,9 @@ export const PayModalM = ({
                     </div>
                     <div className={styles.priceWrapper}>
                       <div className={cn(styles.price)}>
-                        <span className={styles.priceSign}>￥</span>
+                        <span className={styles.priceSign}>
+                          {currencySymbol}
+                        </span>
                         <span className={styles.priceNumber}>
                           {displayPrice}
                         </span>

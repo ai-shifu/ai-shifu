@@ -50,6 +50,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoUrl,
     updateEnableWxcode,
     updateHomeUrl,
+    updateCurrencySymbol,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -74,6 +75,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateLogoUrl(data?.logoUrl || '');
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateHomeUrl(data?.homeUrl || '');
+        await updateCurrencySymbol(data?.currencySymbol || '¥');
       }
     } catch (error) {
       console.error(error);

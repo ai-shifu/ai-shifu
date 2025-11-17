@@ -28,6 +28,7 @@
   font-style: normal;
   font-weight: 700;
   line-height: 100%;
+  padding-right: 3px;
 }
 .payModalContent .priceWrapper .price .priceNumber {
   color: #7c502f;

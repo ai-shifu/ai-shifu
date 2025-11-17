@@ -14,6 +14,7 @@ interface EnvironmentConfig {
   // Content & Course Configuration
   courseId: string;
   defaultLlmModel: string;
+  currencySymbol: string;
 
   // WeChat Integration
   wechatAppId: string;
@@ -358,6 +359,13 @@ function getHomeUrl(): string {
 }
 
 /**
+ * Gets currency symbol
+ */
+function getCurrencySymbol(): string {
+  return getRuntimeEnv('CURRENCY_SYMBOL') || process.env.CURRENCY_SYMBOL || '¥';
+}
+
+/**
  * Gets legal document URLs for all supported languages
  */
 function getLegalUrls(): {
@@ -427,6 +435,7 @@ export const environment: EnvironmentConfig = {
 
   // Redirect Configuration
   homeUrl: getHomeUrl(),
+  currencySymbol: getCurrencySymbol(),
 
   // Legal Documents Configuration
   legalUrls: getLegalUrls(),
