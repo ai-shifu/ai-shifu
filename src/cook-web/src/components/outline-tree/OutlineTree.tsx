@@ -5,7 +5,7 @@ import {
   TreeItemComponentProps,
   TreeItems,
 } from '../dnd-kit-sortable-tree';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Outline } from '@/types/shifu';
 import { cn } from '@/lib/utils';
 import {
@@ -48,6 +48,7 @@ interface ICataTreeProps {
   items: TreeItems<Outline>;
   onChange?: (data: TreeItems<Outline>) => void;
   onAddNodeClick?: (node: Outline) => void;
+  onChapterSelect?: () => void;
 }
 
 const getReorderOutlineDto = (items: TreeItems<Outline>) => {
@@ -60,8 +61,23 @@ const getReorderOutlineDto = (items: TreeItems<Outline>) => {
 };
 
 export const CataTree = React.memo((props: ICataTreeProps) => {
-  const { items, onChange } = props;
+  const { items, onChange, onChapterSelect } = props;
   const { actions, focusId } = useShifu();
+  const TreeItemWithSelect = useMemo(() => {
+    const ForwardRefComponent = React.forwardRef<
+      HTMLDivElement,
+      TreeItemComponentProps<Outline>
+    >((minimalProps, ref) => (
+      <MinimalTreeItemComponent
+        {...minimalProps}
+        ref={ref}
+        onChapterSelect={onChapterSelect}
+      />
+    ));
+    ForwardRefComponent.displayName = 'TreeItemWithSelect';
+    return ForwardRefComponent;
+  }, [onChapterSelect]);
+
   const onItemsChanged = async (
     data: TreeItems<Outline>,
     reason: ItemChangedReason<Outline>,
@@ -80,7 +96,7 @@ export const CataTree = React.memo((props: ICataTreeProps) => {
       items={items}
       indentationWidth={20}
       onItemsChanged={onItemsChanged}
-      TreeItemComponent={MinimalTreeItemComponent}
+      TreeItemComponent={TreeItemWithSelect}
       dropAnimation={null}
     />
   );
@@ -91,6 +107,7 @@ CataTree.displayName = 'CataTree';
 export type TreeItemProps = {
   currentNode?: Outline;
   onChange?: (node: Outline, value: string) => void;
+  onChapterSelect?: () => void;
 };
 
 const MinimalTreeItemComponent = React.forwardRef<
@@ -154,6 +171,7 @@ const MinimalTreeItemComponent = React.forwardRef<
     if (props.item.depth == 0) {
       await actions.setCurrentNode(props.item);
       actions.setBlocks([]);
+      props.onChapterSelect?.();
       return;
     }
 
