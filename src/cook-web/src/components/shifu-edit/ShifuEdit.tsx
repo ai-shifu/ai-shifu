@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
@@ -227,15 +227,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return next;
     });
   };
-
-  const handleChapterSelect = () => {
+  
+  const handleChapterSelect = useCallback (() => {
     if (!isPreviewPanelOpen) {
       return;
     }
     setIsPreviewPanelOpen(false);
     stopPreview();
     resetPreview();
-  };
+  }, [isPreviewPanelOpen, stopPreview, resetPreview]);
 
   const handlePreview = async () => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
