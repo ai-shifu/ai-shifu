@@ -4,7 +4,7 @@
   "shifuDescriptionEmpty": "Description cannot be empty",
   "shifuDescriptionMaxLength": "Description cannot exceed 500 characters",
   "shifuNameEmpty": "Name cannot be empty",
-  "shifuNameMaxLength": "Name cannot exceed 100 characters",
+  "shifuNameMaxLength": "Name cannot exceed {{maxLength}} characters",
   "shifuPriceEmpty": "Price cannot be empty",
   "shifuPriceFormat": "Price must be a valid number",
   "shifuTemperatureFormat": "Temperature must be a valid number",
@@ -35,5 +35,6 @@
   "keywords": "Keywords",
   "inputKeywords": "Enter keyword and press Enter",
   "addKeyword": "Add Keyword",
-  "price": "Price"
+  "price": "Price",
+  "priceUnit": "Unit"
 }

@@ -48,3 +48,35 @@ class TestResolvePaymentChannel:
         )
         assert provider == "stripe"
         assert sub_channel == "payment_intent"
+
+    def test_stripe_only_configuration_overrides_pingxx_default(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "stripe"
+            return default
+
+        monkeypatch.setattr("flaskr.service.order.funs.get_config", fake_get_config)
+
+        provider, sub_channel = _resolve_payment_channel(
+            payment_channel_hint=None,
+            channel_hint="",
+            stored_channel="pingxx",
+        )
+        assert provider == "stripe"
+        # Sub-channel is determined by Stripe defaults (implementation detail).
+        assert sub_channel in {"checkout_session", "payment_intent"}
+
+    def test_disabled_payment_channel_raises_for_explicit_request(self, monkeypatch):
+        def fake_get_config(key, default=None):
+            if key == "PAYMENT_CHANNELS_ENABLED":
+                return "stripe"
+            return default
+
+        monkeypatch.setattr("flaskr.service.order.funs.get_config", fake_get_config)
+
+        with pytest.raises(AppException):
+            _resolve_payment_channel(
+                payment_channel_hint="pingxx",
+                channel_hint="wx_pub_qr",
+                stored_channel="pingxx",
+            )

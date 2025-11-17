@@ -12,6 +12,7 @@ import { clearGoogleOAuthSession } from '@/lib/google-oauth-session';
 // Helper function to register as guest user
 const registerAsGuest = async (): Promise<string> => {
   // Always fetch a fresh guest token to avoid expiration issues
+  tokenTool.remove();
   const res = await registerTmp({ temp_id: genUuid() });
   const token = res.token;
   tokenTool.set({ token, faked: true });
@@ -87,21 +88,39 @@ export const useUserStore = create<
 
     // Public API: Logout user
     logout: async (reload = true) => {
-      clearGoogleOAuthSession();
-      await registerAsGuest();
-      set(() => ({
-        userInfo: null,
-      }));
+      let didTriggerReload = false;
+      const resetLogoutFlag = () => {
+        if (typeof window !== 'undefined') {
+          window.__IS_LOGGING_OUT__ = false;
+        }
+      };
 
-      get()._updateUserStatus();
+      if (typeof window !== 'undefined') {
+        window.__IS_LOGGING_OUT__ = true;
+      }
 
-      if (reload) {
-        const url = removeParamFromUrl(window.location.href, [
-          'code',
-          'state',
-          'redirect',
-        ]);
-        window.location.assign(url);
+      try {
+        clearGoogleOAuthSession();
+        await registerAsGuest();
+        set(() => ({
+          userInfo: null,
+        }));
+
+        get()._updateUserStatus();
+
+        if (reload && typeof window !== 'undefined') {
+          const url = removeParamFromUrl(window.location.href, [
+            'code',
+            'state',
+            'redirect',
+          ]);
+          window.location.assign(url);
+          didTriggerReload = true;
+        }
+      } finally {
+        if (!didTriggerReload) {
+          resetLogoutFlag();
+        }
       }
     },
 
@@ -157,13 +176,17 @@ export const useUserStore = create<
           // @ts-expect-error EXPECT
           // Only reset to guest if it's a clear authentication error (not network or server issues)
           if (err.status === 403 || err.code === 1005 || err.code === 1001) {
-            await registerAsGuest();
+            const tokenDataAfterFailure = tokenTool.get();
+            if (!tokenDataAfterFailure.faked) {
+              await registerAsGuest();
+            }
             set(() => ({
               userInfo: null,
             }));
           } else {
             // For other errors (network, server errors), preserve existing token state
             // but still update the status based on token data
+            // eslint-disable-next-line no-console
             console.warn(
               'Failed to fetch user info, but preserving login state:',
               err,

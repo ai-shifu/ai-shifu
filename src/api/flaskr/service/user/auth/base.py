@@ -56,6 +56,10 @@ class OAuthCallbackRequest(_BaseDTO):
     raw_request_args: Dict[str, Any] = Field(
         default_factory=dict, description="Complete callback request arguments"
     )
+    current_user_id: Optional[str] = Field(
+        None,
+        description="User ID resolved from temporary token, if any",
+    )
 
 
 class AuthResult(_BaseDTO):

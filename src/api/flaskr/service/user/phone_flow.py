@@ -269,7 +269,7 @@ def verify_phone_code(
 
         # If configured, automatically grant creator and demo-course permissions
         ensure_admin_creator_and_demo_permissions(
-            app, target_aggregate.user_bid, login_context
+            app, target_aggregate.user_bid, target_aggregate.language, login_context
         )
 
         refreshed = load_user_aggregate(target_aggregate.user_bid)

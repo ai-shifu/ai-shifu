@@ -1,5 +1,11 @@
 'use client';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from 'react';
 import { Button } from '@/components/ui/Button';
 import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
@@ -44,6 +50,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoUrl,
     updateEnableWxcode,
     updateHomeUrl,
+    updateCurrencySymbol,
   } = useEnvStore.getState() as EnvStoreState;
 
   const fetchEnvData = async (): Promise<void> => {
@@ -68,6 +75,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateLogoUrl(data?.logoUrl || '');
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateHomeUrl(data?.homeUrl || '');
+        await updateCurrencySymbol(data?.currencySymbol || '¥');
       }
     } catch (error) {
       console.error(error);
@@ -227,6 +235,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return next;
     });
   };
+
+  const handleChapterSelect = useCallback(() => {
+    if (!isPreviewPanelOpen) {
+      return;
+    }
+    setIsPreviewPanelOpen(false);
+    stopPreview();
+    resetPreview();
+  }, [isPreviewPanelOpen, stopPreview, resetPreview]);
 
   const handlePreview = async () => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
@@ -403,6 +420,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     onChange={newChapters => {
                       actions.setChapters([...newChapters]);
                     }}
+                    onChapterSelect={handleChapterSelect}
                   />
                 </ol>
               </div>

@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Button } from '@/components/ui/Button';
 import { useTranslation } from 'react-i18next';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 
 interface FormSchema {
   shifu_name: string;
@@ -42,7 +43,12 @@ export const CreateShifuDialog = ({
     name: z
       .string()
       .min(1, t('component.createShifuDialog.nameRequired'))
-      .max(20, t('component.createShifuDialog.nameMaxLength')),
+      .max(
+        TITLE_MAX_LENGTH,
+        t('component.createShifuDialog.nameMaxLength', {
+          maxLength: TITLE_MAX_LENGTH,
+        }),
+      ),
     description: z
       .string()
       .max(500, t('component.createShifuDialog.descriptionMaxLength'))
@@ -104,7 +110,7 @@ export const CreateShifuDialog = ({
                         'component.createShifuDialog.namePlaceholder',
                       )}
                       {...field}
-                      maxLength={20}
+                      maxLength={TITLE_MAX_LENGTH}
                     />
                   </FormControl>
                   <FormMessage />

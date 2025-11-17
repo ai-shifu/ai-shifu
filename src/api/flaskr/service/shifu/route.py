@@ -29,8 +29,12 @@ Author: yfge
 Date: 2025-08-07
 """
 
-from flask import Flask, request, current_app
+import os
+import tempfile
+from pathlib import Path
 from urllib.parse import urlsplit
+
+from flask import Flask, request, current_app, send_file, after_this_request
 from .funcs import (
     mark_or_unmark_favorite_shifu,
     upload_file,
@@ -44,6 +48,7 @@ from flaskr.service.common.models import raise_param_error, raise_error
 from .consts import UNIT_TYPE_GUEST
 from functools import wraps
 from enum import Enum
+from flaskr.service.shifu.shifu_import_export_funcs import export_shifu
 
 
 from flaskr.service.shifu.shifu_draft_funcs import (
@@ -1090,5 +1095,48 @@ def register_shifu_routes(app: Flask, path_prefix="/api/shifu"):
         if not url:
             raise_param_error("url is required")
         return make_common_response(get_video_info(app, user_id, url))
+
+    @app.route(path_prefix + "/shifus/<shifu_bid>/export", methods=["GET"])
+    @ShifuTokenValidation(ShifuPermission.VIEW)
+    def export_shifu_api(shifu_bid: str):
+        """
+        export shifu
+        ---
+        tags:
+            - shifu
+        parameters:
+            - name: shifu_bid
+              type: string
+              required: true
+        responses:
+            200:
+                description: export shifu success
+                content:
+                    application/octet-stream:
+                        schema:
+                            type: string
+                            format: binary
+        """
+        temp_dir = tempfile.mkdtemp(prefix="shifu_export_")
+        file_path = Path(temp_dir) / f"{shifu_bid}.json"
+        export_shifu(app, shifu_bid, str(file_path))
+
+        @after_this_request
+        def cleanup(response):
+            try:
+                os.remove(file_path)
+                os.rmdir(temp_dir)
+            except OSError:
+                current_app.logger.warning(
+                    "Failed to cleanup shifu export temp files", exc_info=True
+                )
+            return response
+
+        return send_file(
+            file_path,
+            mimetype="application/json",
+            as_attachment=True,
+            download_name=f"{shifu_bid}.json",
+        )
 
     return app

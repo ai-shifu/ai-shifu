@@ -4,6 +4,7 @@
     "userNotFound": "没有找到用户",
     "userNotLogin": "用户没有登录",
     "userTokenExpired": "Token失效",
+    "googleOAuthStateInvalid": "Google 登录状态已失效或无效，请重新尝试。",
     "emailSendFailed": "邮件发送失败",
     "emailSendTooFrequent": "邮件发送过于频繁",
     "emailVerificationSubject": "AI-Shifu: 您的验证码",

@@ -4,6 +4,7 @@
     "userNotFound": "⟦Ųšēř Ňøŧ Ғøųňđ⟧",
     "userNotLogin": "⟦Ųšēř Ňøŧ Ŀøǥǥēđ Įň⟧",
     "userTokenExpired": "⟦Ŧøķēň Ēẋƥįřēđ⟧",
+    "googleOAuthStateInvalid": "⟦Ǵøøǵŀē ŀøǥįň ħåš ēẋƥįřēđ øř įņṽåŀįđ, ƥŀēåšē ŧřŷ åǵåįň.⟧",
     "emailSendFailed": "⟦Ēmåįŀ šēňđ ƒåįŀēđ⟧",
     "emailSendTooFrequent": "⟦Ēmåįŀš šēňŧ ŧøø ƒřēɋųēňŧŀŷ⟧",
     "emailVerificationSubject": "⟦ÅĮ-Šħįƒų: Ŷøųř Ṽēřįƒįćåŧįøň Ćøđē⟧",

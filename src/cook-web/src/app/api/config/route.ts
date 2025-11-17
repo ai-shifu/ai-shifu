@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     // ===== Redirect =====
     homeUrl: environment.homeUrl,
+    currencySymbol: environment.currencySymbol,
 
     // ===== Legal Documents =====
     legalUrls: environment.legalUrls,

@@ -543,6 +543,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         login_context = request.args.get("login_context")
         if login_context:
             metadata["login_context"] = login_context
+        ui_language = request.args.get("language")
+        if ui_language:
+            metadata["language"] = ui_language
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],
@@ -552,12 +555,19 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
 
     @app.route(path_prefix + "/oauth/google/callback", methods=["GET"])
     @bypass_token_validation
+    @optional_token_validation
     def google_oauth_callback():
         provider = get_provider("google")
+        current_user = getattr(request, "user", None)
+        current_user_id = None
+        if current_user is not None:
+            current_user_id = getattr(current_user, "user_id", None)
+
         callback_request = OAuthCallbackRequest(
             state=request.args.get("state"),
             code=request.args.get("code"),
             raw_request_args=request.args.to_dict(flat=True),
+            current_user_id=current_user_id,
         )
         try:
             auth_result = provider.handle_oauth_callback(app, callback_request)

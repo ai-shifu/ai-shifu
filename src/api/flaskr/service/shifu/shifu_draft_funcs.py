@@ -11,7 +11,7 @@ from ...dao import db
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from .consts import STATUS_DRAFT
+from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args
 from .utils import (
@@ -110,8 +110,10 @@ def create_shifu_draft(
 
         if not shifu_name:
             raise_error("server.shifu.shifuNameRequired")
-        if len(shifu_name) > 20:
-            raise_error("server.shifu.shifuNameTooLong")
+        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+            )
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
 
@@ -132,7 +134,7 @@ def create_shifu_draft(
             keywords=",".join(shifu_keywords) if shifu_keywords else "",
             llm=shifu_model or "",
             llm_temperature=shifu_temperature or 0.3,
-            price=shifu_price or 0.0,
+            price=shifu_price or get_config("MIN_SHIFU_PRICE"),
             deleted=0,  # not deleted
             created_user_bid=user_id,
             created_at=now_time,
@@ -216,6 +218,14 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        # Validate input lengths
+        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+            )
+        if len(shifu_description) > 500:
+            raise_error("server.shifu.shifuDescriptionTooLong")
+
         shifu_draft = get_latest_shifu_draft(shifu_id)
         min_shifu_price = get_config("MIN_SHIFU_PRICE")
         if shifu_price < min_shifu_price:
@@ -381,6 +391,14 @@ def save_shifu_draft_detail(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        # Validate input lengths
+        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+            )
+        if len(shifu_description) > 500:
+            raise_error("server.shifu.shifuDescriptionTooLong")
+
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if shifu_draft:
             old_check_str = shifu_draft.get_str_to_check()

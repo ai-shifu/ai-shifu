@@ -243,6 +243,19 @@ export default function AuthPage() {
     }
   }, [language, ready]);
 
+  useEffect(() => {
+    if (!language || !ready) {
+      return;
+    }
+
+    const resolvedLanguage = i18n.resolvedLanguage ?? i18n.language;
+    if (resolvedLanguage !== language) {
+      return;
+    }
+
+    document.title = t('module.auth.title');
+  }, [language, ready, t]);
+
   // useEffect(() => {
   //   if (!isInitialized || !isLoggedIn) {
   //     return;
@@ -281,13 +294,17 @@ export default function AuthPage() {
 
     try {
       setIsGoogleLoading(true);
-      await startGoogleLogin({ redirectPath: resolveRedirectPath() });
+      await startGoogleLogin({
+        redirectPath: resolveRedirectPath(),
+        language: language ?? undefined,
+      });
     } catch (error) {
       setIsGoogleLoading(false);
     }
   }, [
     googleTermsAccepted,
     isGoogleEnabled,
+    language,
     resolveRedirectPath,
     startGoogleLogin,
     t,

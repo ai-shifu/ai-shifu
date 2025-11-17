@@ -36,6 +36,7 @@ import api from '@/api';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 
 interface Shifu {
   description: string;
@@ -63,6 +64,7 @@ export default function ShifuSettingDialog({
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
+  const currencySymbol = useEnvStore(state => state.currencySymbol);
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel = defaultLlmModel;
   const isCjk = /[\u4e00-\u9fff]/.test(baseSelectModelHint);
@@ -90,7 +92,12 @@ export default function ShifuSettingDialog({
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
-      .max(100, t('module.shifuSetting.shifuNameMaxLength')),
+      .max(
+        TITLE_MAX_LENGTH,
+        t('module.shifuSetting.shifuNameMaxLength', {
+          maxLength: TITLE_MAX_LENGTH,
+        }),
+      ),
     description: z
       .string()
       .min(0, t('module.shifuSetting.shifuDescriptionEmpty'))
@@ -377,7 +384,7 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Input
                         {...field}
-                        maxLength={100}
+                        maxLength={TITLE_MAX_LENGTH}
                         placeholder={t('module.shifuSetting.placeholder')}
                       />
                     </FormControl>
@@ -725,8 +732,20 @@ export default function ShifuSettingDialog({
                 render={({ field }) => (
                   <FormItem className='space-y-2 mb-4'>
                     <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.price')}
+                      <span className='flex items-center gap-2'>
+                        <span>
+                          {t('module.shifuSetting.price')}
+                          {/* {currencySymbol ? (
+                          <span className='text-muted-foreground text-sm pl-1'>
+                            （{t('module.shifuSetting.priceUnit')}：{currencySymbol}）
+                          </span>
+                        ) : null} */}
+                        </span>
+                      </span>
                     </FormLabel>
+                    <p className='text-xs text-muted-foreground'>
+                      {t('module.shifuSetting.priceUnit')}: {currencySymbol}
+                    </p>
                     <FormControl>
                       <Input
                         className='h-9'

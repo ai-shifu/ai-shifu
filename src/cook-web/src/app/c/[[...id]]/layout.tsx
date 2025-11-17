@@ -38,6 +38,7 @@ const initializeEnvData = async (): Promise<void> => {
     updateLogoUrl,
     updateEnableWxcode,
     updateHomeUrl,
+    updateCurrencySymbol,
     updateStripePublishableKey,
     updateStripeEnabled,
     updatePaymentChannels,
@@ -68,6 +69,7 @@ const initializeEnvData = async (): Promise<void> => {
         await updateEnableWxcode(data?.enableWechatCode?.toString() || 'true');
         await updateDefaultLlmModel(data?.defaultLlmModel || '');
         await updateHomeUrl(data?.homeUrl || '');
+        await updateCurrencySymbol(data?.currencySymbol || '¥');
         await updateStripePublishableKey(data?.stripePublishableKey || '');
         await updateStripeEnabled(
           data?.stripeEnabled !== undefined
