@@ -243,6 +243,14 @@ export default function AuthPage() {
     }
   }, [language, ready]);
 
+  useEffect(() => {
+    if (!language) {
+      return;
+    }
+
+    document.title = language.startsWith('zh') ? '登录' : 'Login';
+  }, [language]);
+
   // useEffect(() => {
   //   if (!isInitialized || !isLoggedIn) {
   //     return;
