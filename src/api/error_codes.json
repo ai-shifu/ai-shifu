@@ -9,6 +9,7 @@
   "server.user.smsSendFrequently": 1012,
   "server.user.smsSendExpired": 1013,
   "server.user.smsCheckError": 1014,
+  "server.user.googleOAuthStateInvalid": 1015,
 
   "server.common.unknownError": 9999,
   "server.common.paramsError": 2001,
