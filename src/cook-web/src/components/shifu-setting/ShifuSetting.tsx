@@ -36,6 +36,7 @@ import api from '@/api';
 
 import ModelList from '@/components/model-list';
 import { useEnvStore } from '@/c-store';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 
 interface Shifu {
   description: string;
@@ -90,7 +91,12 @@ export default function ShifuSettingDialog({
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
-      .max(100, t('module.shifuSetting.shifuNameMaxLength')),
+      .max(
+        TITLE_MAX_LENGTH,
+        t('module.shifuSetting.shifuNameMaxLength', {
+          maxLength: TITLE_MAX_LENGTH,
+        }),
+      ),
     description: z
       .string()
       .min(0, t('module.shifuSetting.shifuDescriptionEmpty'))
@@ -377,7 +383,7 @@ export default function ShifuSettingDialog({
                     <FormControl>
                       <Input
                         {...field}
-                        maxLength={100}
+                        maxLength={TITLE_MAX_LENGTH}
                         placeholder={t('module.shifuSetting.placeholder')}
                       />
                     </FormControl>
