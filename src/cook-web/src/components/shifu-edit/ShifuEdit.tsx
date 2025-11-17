@@ -1,5 +1,11 @@
 'use client';
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  useCallback,
+} from 'react';
 import { Button } from '@/components/ui/Button';
 import { Columns2, ListCollapse, Loader2, Plus, Sparkles } from 'lucide-react';
 import { useShifu } from '@/store';
@@ -227,8 +233,8 @@ const ScriptEditor = ({ id }: { id: string }) => {
       return next;
     });
   };
-  
-  const handleChapterSelect = useCallback (() => {
+
+  const handleChapterSelect = useCallback(() => {
     if (!isPreviewPanelOpen) {
       return;
     }
