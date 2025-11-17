@@ -374,7 +374,7 @@ export const PayModal = ({
                         (effectiveLoading || isTimeout) && styles.disabled,
                       )}
                     >
-                      <span className={styles.priceSign}>￥</span>
+                      <span className={styles.priceSign}>{currencySymbol}</span>
                       <span className={styles.priceNumber}>{displayPrice}</span>
                     </div>
                   </div>

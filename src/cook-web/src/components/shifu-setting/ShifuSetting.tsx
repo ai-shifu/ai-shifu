@@ -64,6 +64,7 @@ export default function ShifuSettingDialog({
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
   const defaultLlmModel = useEnvStore(state => state.defaultLlmModel);
+  const currencySymbol = useEnvStore(state => state.currencySymbol);
   const baseSelectModelHint = t('module.shifuSetting.selectModelHint');
   const resolvedDefaultModel = defaultLlmModel;
   const isCjk = /[\u4e00-\u9fff]/.test(baseSelectModelHint);
@@ -730,8 +731,15 @@ export default function ShifuSettingDialog({
                 name='price'
                 render={({ field }) => (
                   <FormItem className='space-y-2 mb-4'>
-                    <FormLabel className='text-sm font-medium text-foreground'>
-                      {t('module.shifuSetting.price')}
+                  <FormLabel className='text-sm font-medium text-foreground'>
+                      <span className='flex items-center gap-2'>
+                        <span>{t('module.shifuSetting.price')}</span>
+                        {currencySymbol ? (
+                          <span className='text-muted-foreground text-sm'>
+                            {currencySymbol}
+                          </span>
+                        ) : null}
+                      </span>
                     </FormLabel>
                     <FormControl>
                       <Input

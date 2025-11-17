@@ -381,7 +381,7 @@ export const PayModalM = ({
                     </div>
                     <div className={styles.priceWrapper}>
                       <div className={cn(styles.price)}>
-                        <span className={styles.priceSign}>￥</span>
+                        <span className={styles.priceSign}>{currencySymbol}</span>
                         <span className={styles.priceNumber}>
                           {displayPrice}
                         </span>

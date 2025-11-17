@@ -14,6 +14,7 @@ export interface EnvStoreState {
   logoUrl: string;
   enableWxcode: string;
   homeUrl: string;
+  currencySymbol: string;
   stripePublishableKey: string;
   stripeEnabled: string;
   paymentChannels: string[];
@@ -30,6 +31,7 @@ export interface EnvStoreState {
   updateLogoUrl: (logo: string) => Promise<void>;
   updateEnableWxcode: (value: string) => Promise<void>;
   updateHomeUrl: (url: string) => Promise<void>;
+  updateCurrencySymbol: (symbol: string) => Promise<void>;
   updateStripePublishableKey: (key: string) => Promise<void>;
   updateStripeEnabled: (value: string) => Promise<void>;
   updatePaymentChannels: (channels: string[]) => Promise<void>;
