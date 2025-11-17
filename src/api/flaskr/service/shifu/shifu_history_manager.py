@@ -105,7 +105,7 @@ def get_shifu_history(app, shifu_bid: str) -> HistoryItem:
             LogDraftStruct.query.filter_by(
                 shifu_bid=shifu_bid,
             )
-            .order_by(LogDraftStruct.created_at.desc())
+            .order_by(LogDraftStruct.id.desc())
             .first()
         )
         if not shifu_history:
@@ -153,6 +153,7 @@ def save_shifu_history(app: Flask, user_id: str, shifu_bid: str, id: int):
         None
     """
     history = get_shifu_history(app, shifu_bid)
+    app.logger.info(f"save_shifu_history: {history.to_json()}")
     history.id = id
     __save_shifu_history(app, user_id, shifu_bid, history)
 
