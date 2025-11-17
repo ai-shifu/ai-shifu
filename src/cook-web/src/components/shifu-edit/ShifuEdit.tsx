@@ -228,6 +228,15 @@ const ScriptEditor = ({ id }: { id: string }) => {
     });
   };
 
+  const handleChapterSelect = () => {
+    if (!isPreviewPanelOpen) {
+      return;
+    }
+    setIsPreviewPanelOpen(false);
+    stopPreview();
+    resetPreview();
+  };
+
   const handlePreview = async () => {
     if (!canPreview || !currentShifu?.bid || !currentNode?.bid) {
       return;
@@ -403,6 +412,7 @@ const ScriptEditor = ({ id }: { id: string }) => {
                     onChange={newChapters => {
                       actions.setChapters([...newChapters]);
                     }}
+                    onChapterSelect={handleChapterSelect}
                   />
                 </ol>
               </div>
