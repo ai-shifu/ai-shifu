@@ -56,7 +56,7 @@ const handleBusinessCode = (response: any) => {
 
   if (response.code !== 0) {
     // Special status codes do not show toast
-    if (![1001].includes(response.code)) {
+    if (![1001, 1004, 1005].includes(response.code)) {
       handleApiError(error);
     }
 
