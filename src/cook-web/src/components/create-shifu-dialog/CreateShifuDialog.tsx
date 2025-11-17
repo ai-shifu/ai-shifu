@@ -43,7 +43,12 @@ export const CreateShifuDialog = ({
     name: z
       .string()
       .min(1, t('component.createShifuDialog.nameRequired'))
-      .max(TITLE_MAX_LENGTH, t('component.createShifuDialog.nameMaxLength')),
+      .max(
+        TITLE_MAX_LENGTH,
+        t('component.createShifuDialog.nameMaxLength', {
+          maxLength: TITLE_MAX_LENGTH,
+        }),
+      ),
     description: z
       .string()
       .max(500, t('component.createShifuDialog.descriptionMaxLength'))

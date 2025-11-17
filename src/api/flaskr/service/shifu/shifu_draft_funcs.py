@@ -111,7 +111,9 @@ def create_shifu_draft(
         if not shifu_name:
             raise_error("server.shifu.shifuNameRequired")
         if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
-            raise_error("server.shifu.shifuNameTooLong")
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+            )
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")
 
@@ -216,6 +218,14 @@ def save_shifu_draft_info(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        # Validate input lengths
+        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+            )
+        if len(shifu_description) > 500:
+            raise_error("server.shifu.shifuDescriptionTooLong")
+
         shifu_draft = get_latest_shifu_draft(shifu_id)
         min_shifu_price = get_config("MIN_SHIFU_PRICE")
         if shifu_price < min_shifu_price:
@@ -381,6 +391,14 @@ def save_shifu_draft_detail(
         ShifuDetailDto: Shifu detail dto
     """
     with app.app_context():
+        # Validate input lengths
+        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
+            raise_error_with_args(
+                "server.shifu.shifuNameTooLong", max_length=SHIFU_NAME_MAX_LENGTH
+            )
+        if len(shifu_description) > 500:
+            raise_error("server.shifu.shifuDescriptionTooLong")
+
         shifu_draft = get_latest_shifu_draft(shifu_id)
         if shifu_draft:
             old_check_str = shifu_draft.get_str_to_check()

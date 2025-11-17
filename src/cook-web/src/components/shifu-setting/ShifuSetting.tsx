@@ -91,7 +91,12 @@ export default function ShifuSettingDialog({
     name: z
       .string()
       .min(1, t('module.shifuSetting.shifuNameEmpty'))
-      .max(TITLE_MAX_LENGTH, t('module.shifuSetting.shifuNameMaxLength')),
+      .max(
+        TITLE_MAX_LENGTH,
+        t('module.shifuSetting.shifuNameMaxLength', {
+          maxLength: TITLE_MAX_LENGTH,
+        }),
+      ),
     description: z
       .string()
       .min(0, t('module.shifuSetting.shifuDescriptionEmpty'))

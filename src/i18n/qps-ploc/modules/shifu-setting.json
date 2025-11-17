@@ -4,7 +4,7 @@
   "shifuDescriptionEmpty": "⟦Đēšćřįƥŧįøň ćåňňøŧ ƀē ēmƥŧŷ⟧",
   "shifuDescriptionMaxLength": "⟦Đēšćřįƥŧįøň ćåňňøŧ ēẋćēēđ 500 ćħåřåćŧēřš⟧",
   "shifuNameEmpty": "⟦Ňåmē ćåňňøŧ ƀē ēmƥŧŷ⟧",
-  "shifuNameMaxLength": "⟦Ňåmē ćåňňøŧ ēẋćēēđ 100 ćħåřåćŧēřš⟧",
+  "shifuNameMaxLength": "⟦Ňåmē ćåňňøŧ ēẋćēēđ {{maxLength}} ćħåřåćŧēřš⟧",
   "shifuPriceEmpty": "⟦Ƥřįćē ćåňňøŧ ƀē ēmƥŧŷ⟧",
   "shifuPriceFormat": "⟦Ƥřįćē mųšŧ ƀē å ṽåŀįđ ňųmƀēř⟧",
   "shifuTemperatureFormat": "⟦Ŧēmƥēřåŧųřē mųšŧ ƀē å ṽåŀįđ ňųmƀēř⟧",
