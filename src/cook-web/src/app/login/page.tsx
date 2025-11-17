@@ -244,12 +244,17 @@ export default function AuthPage() {
   }, [language, ready]);
 
   useEffect(() => {
-    if (!language) {
+    if (!language || !ready) {
       return;
     }
 
-    document.title = language.startsWith('zh') ? '登录' : 'Login';
-  }, [language]);
+    const resolvedLanguage = i18n.resolvedLanguage ?? i18n.language;
+    if (resolvedLanguage !== language) {
+      return;
+    }
+
+    document.title = t('module.auth.title');
+  }, [language, ready, t]);
 
   // useEffect(() => {
   //   if (!isInitialized || !isLoggedIn) {
