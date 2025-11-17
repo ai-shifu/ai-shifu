@@ -134,7 +134,7 @@ def create_shifu_draft(
             keywords=",".join(shifu_keywords) if shifu_keywords else "",
             llm=shifu_model or "",
             llm_temperature=shifu_temperature or 0.3,
-            price=shifu_price or 0.0,
+            price=shifu_price or get_config("MIN_SHIFU_PRICE"),
             deleted=0,  # not deleted
             created_user_bid=user_id,
             created_at=now_time,
