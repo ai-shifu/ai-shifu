@@ -219,6 +219,11 @@ class GoogleAuthProvider(AuthProvider):
         email = email.lower()
         credential = find_credential(provider_name=self.provider_name, identifier=email)
 
+        origin_user_id = getattr(request, "current_user_id", None)
+        origin_aggregate = (
+            load_user_aggregate(origin_user_id) if origin_user_id else None
+        )
+
         aggregate = None
         created_user = False
         credential_record = None
@@ -231,6 +236,9 @@ class GoogleAuthProvider(AuthProvider):
                 aggregate = load_user_aggregate_by_identifier(
                     email, providers=["email"]
                 )
+
+            if not aggregate and origin_aggregate:
+                aggregate = origin_aggregate
 
             if aggregate:
                 entity = get_user_entity_by_bid(
@@ -250,9 +258,21 @@ class GoogleAuthProvider(AuthProvider):
                     if language:
                         updates["language"] = language
                     update_user_entity_fields(entity, **updates)
+
+                    # Ensure an email credential exists for the resolved user
+                    upsert_credential(
+                        app,
+                        user_bid=aggregate.user_bid,
+                        provider_name="email",
+                        subject_id=email,
+                        subject_format="email",
+                        identifier=email,
+                        metadata={},
+                        verified=profile.get("email_verified", False),
+                    )
             else:
                 defaults = {
-                    "user_bid": secrets.token_hex(16),
+                    "user_bid": origin_user_id or secrets.token_hex(16),
                     "nickname": profile.get("name") or "",
                     "avatar": profile.get("picture"),
                     "language": language,
