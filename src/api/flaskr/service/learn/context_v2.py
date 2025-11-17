@@ -657,7 +657,9 @@ class RunScriptContextV2:
                     q.put(child)
         return outline_struct
 
-    def _get_run_script_info(self, attend: LearnProgressRecord) -> RunScriptInfo:
+    def _get_run_script_info(
+        self, attend: LearnProgressRecord, is_ask: bool = False
+    ) -> RunScriptInfo:
         outline_item_id = attend.outline_item_bid
         outline_item_info: OutlineItemDtoWithMdflow = get_outline_item_dto_with_mdflow(
             self.app, outline_item_id, self._preview_mode
@@ -670,7 +672,7 @@ class RunScriptContextV2:
         self.app.logger.info(
             f"attend position: {attend.block_position} blocks:{len(block_list)}"
         )
-        if attend.block_position >= len(block_list):
+        if attend.block_position >= len(block_list) and not is_ask:
             return None
         return RunScriptInfo(
             attend=attend,
@@ -709,7 +711,7 @@ class RunScriptContextV2:
         )
         self._trace_args["session_id"] = self._current_attend.progress_record_bid
         outline_updates = self._get_next_outline_item()
-        if len(outline_updates) > 0:
+        if len(outline_updates) > 0 and self._input_type != "ask":
             yield from self._render_outline_updates(outline_updates, new_chapter=False)
             db.session.flush()
             self._current_attend = self._get_current_attend(self._outline_item_info.bid)
@@ -723,7 +725,9 @@ class RunScriptContextV2:
                 self._can_continue = False
                 return
 
-        run_script_info: RunScriptInfo = self._get_run_script_info(self._current_attend)
+        run_script_info: RunScriptInfo = self._get_run_script_info(
+            self._current_attend, is_ask=self._input_type == "ask"
+        )
         if run_script_info is None:
             self.app.logger.warning("run script is none")
             yield from self._emit_next_chapter_interaction(self._current_attend)
