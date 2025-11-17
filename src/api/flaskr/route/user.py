@@ -543,6 +543,9 @@ def register_user_handler(app: Flask, path_prefix: str) -> Flask:
         login_context = request.args.get("login_context")
         if login_context:
             metadata["login_context"] = login_context
+        ui_language = request.args.get("language")
+        if ui_language:
+            metadata["language"] = ui_language
         result = provider.begin_oauth(app, metadata)
         dto = OAuthStartDTO(
             authorization_url=result["authorization_url"],

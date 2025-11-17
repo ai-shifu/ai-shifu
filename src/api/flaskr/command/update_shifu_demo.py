@@ -10,6 +10,7 @@ from flaskr.service.config.funcs import add_config, get_config, update_config
 from flaskr.service.shifu.shifu_import_export_funcs import import_shifu
 
 import json
+from pathlib import Path
 
 
 def _process_demo_shifu(
@@ -31,10 +32,10 @@ def _process_demo_shifu(
     existing_shifu_bid = get_config(app, config_key)
 
     # Read file content
-    # File is in src/api/ directory, command is in src/api/flaskr/command/
-    demo_file_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))), demo_file
-    )
+    # File is in src/api/demo_shifus/ directory, command is in src/api/flaskr/command/
+    current_file = Path(__file__).resolve()
+    # From src/api/flaskr/command/ to src/api/: go up 2 levels (command -> flaskr -> api)
+    demo_file_path = current_file.parent.parent.parent / "demo_shifus" / demo_file
     with open(demo_file_path, "rb") as f:
         file_content = f.read()
 

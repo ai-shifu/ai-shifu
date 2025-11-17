@@ -268,7 +268,7 @@ def create_and_commit_user_verify_code(
 
 
 def ensure_admin_creator_and_demo_permissions(
-    app: Flask, user_id: str, login_context: str | None = None
+    app: Flask, user_id: str, language: str, login_context: str | None = None
 ) -> None:
     """
     Ensure that an admin-login user is a creator and has demo course permissions.
@@ -338,12 +338,21 @@ def ensure_admin_creator_and_demo_permissions(
     # In Docker: /app/flaskr/service/user/utils.py -> /app/en_first_shifu.json
     # In local dev: src/api/flaskr/service/user/utils.py -> src/api/en_first_shifu.json
     current_file = Path(__file__).resolve()
+
+    if language == "zh-CN":
+        first_shifu_file_name = "cn_first_shifu.json"
+    elif language == "en-US":
+        first_shifu_file_name = "en_first_shifu.json"
+    else:
+        first_shifu_file_name = "en_first_shifu.json"
+
     candidates = [
         current_file.parent.parent.parent.parent
-        / "en_first_shifu.json",  # /app/en_first_shifu.json (Docker) or src/api/en_first_shifu.json (local)
-        Path("/app/en_first_shifu.json"),  # Absolute path in Docker container
-        current_file.parent.parent.parent
-        / "en_first_shifu.json",  # Fallback: /app/flaskr/en_first_shifu.json
+        / "demo_shifus"
+        / first_shifu_file_name,
+        Path(
+            f"/app/demo_shifus/{first_shifu_file_name}"
+        ),  # Absolute path in Docker container
     ]
 
     first_shifu_file_path = None

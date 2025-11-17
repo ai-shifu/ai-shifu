@@ -50,6 +50,37 @@ def _state_storage_key(state: str) -> str:
     return f"{prefix}google_oauth_state:{state}"
 
 
+def _extract_browser_language() -> Optional[str]:
+    """Extract a reasonable UI language from the incoming request.
+
+    Priority:
+    1. First language in the Accept-Language header
+    2. None if header is missing or cannot be parsed
+    """
+    accept_language = request.headers.get("Accept-Language")
+    if not accept_language:
+        return None
+
+    # Example header: "zh-CN,zh;q=0.9,en;q=0.8"
+    first_part = accept_language.split(",")[0].strip()
+    if not first_part:
+        return None
+
+    # Strip any quality value if present, e.g. "en-US;q=0.9" -> "en-US"
+    language_token = first_part.split(";")[0].strip()
+    if not language_token:
+        return None
+
+    # Normalize case for language-region tags, e.g. "en-us" -> "en-US"
+    segments = language_token.split("-")
+    if len(segments) == 1:
+        return segments[0].lower()
+
+    primary = segments[0].lower()
+    region = segments[1].upper()
+    return f"{primary}-{region}"
+
+
 def _resolve_redirect_uri(app, explicit_uri: Optional[str] = None) -> str:
     if explicit_uri:
         return explicit_uri
@@ -84,20 +115,40 @@ class GoogleAuthProvider(AuthProvider):
         redirect_uri = _resolve_redirect_uri(app, metadata.get("redirect_uri"))
         login_context = metadata.get("login_context")
         session = self._create_session(app, redirect_uri)
+
+        # Prefer explicit UI language from frontend (current interface language),
+        # and fall back to browser Accept-Language header if not provided.
+        ui_language_from_frontend = metadata.get("language")
+        ui_language = ui_language_from_frontend or _extract_browser_language()
+
+        create_url_kwargs: Dict[str, Any] = {
+            "prompt": "consent",
+            "access_type": "offline",
+        }
+        # Google respects both "hl" and (for some flows) "ui_locales".
+        if ui_language:
+            create_url_kwargs["hl"] = ui_language
+            create_url_kwargs["ui_locales"] = ui_language
+
         authorization_url, state = session.create_authorization_url(
             AUTHORIZATION_ENDPOINT,
-            prompt="consent",
-            access_type="offline",
+            **create_url_kwargs,
         )
         current_app.logger.info("Google OAuth begin state=%s", state)
+        state_payload: Dict[str, Any] = {
+            "redirect_uri": redirect_uri,
+            "login_context": login_context,
+        }
+        # Persist the interface language so we can use it
+        # when creating or updating the user record.
+        if ui_language_from_frontend:
+            state_payload["language"] = ui_language_from_frontend
+        elif ui_language:
+            state_payload["language"] = ui_language
+
         redis.set(
             _state_storage_key(state),
-            json.dumps(
-                {
-                    "redirect_uri": redirect_uri,
-                    "login_context": login_context,
-                }
-            ),
+            json.dumps(state_payload),
             ex=STATE_TTL,
         )
         return {"authorization_url": authorization_url, "state": state}
@@ -122,12 +173,14 @@ class GoogleAuthProvider(AuthProvider):
 
         redirect_uri = None
         login_context = None
+        language: Optional[str] = None
         try:
             if stored_state_value:
                 state_payload = json.loads(stored_state_value)
                 if isinstance(state_payload, dict):
                     redirect_uri = state_payload.get("redirect_uri")
                     login_context = state_payload.get("login_context")
+                    language = state_payload.get("language")
         except Exception:  # noqa: BLE001 - defensive fallback
             current_app.logger.warning(
                 "Failed to parse Google OAuth state payload for key %s", storage_key
@@ -144,6 +197,13 @@ class GoogleAuthProvider(AuthProvider):
         resp = session.get(USERINFO_ENDPOINT)
         resp.raise_for_status()
         profile = resp.json()
+
+        # If Google returns a locale and we do not yet have a language
+        # from the stored state, fall back to the profile locale.
+        if not language:
+            profile_locale = profile.get("locale")
+            if isinstance(profile_locale, str) and profile_locale:
+                language = profile_locale.replace("_", "-")
 
         subject_id = profile.get("sub")
         email = profile.get("email")
@@ -181,13 +241,15 @@ class GoogleAuthProvider(AuthProvider):
                     picture = profile.get("picture")
                     if picture and not aggregate.avatar:
                         updates["avatar"] = picture
+                    if language:
+                        updates["language"] = language
                     update_user_entity_fields(entity, **updates)
             else:
                 defaults = {
                     "user_bid": secrets.token_hex(16),
                     "nickname": profile.get("name") or "",
                     "avatar": profile.get("picture"),
-                    "language": None,
+                    "language": language,
                     "state": USER_STATE_REGISTERED,
                 }
                 aggregate, created_user = ensure_user_for_identifier(
@@ -210,7 +272,7 @@ class GoogleAuthProvider(AuthProvider):
 
             # Optionally grant creator and demo-course permissions for admin logins
             ensure_admin_creator_and_demo_permissions(
-                app, aggregate.user_bid, login_context
+                app, aggregate.user_bid, aggregate.language, login_context
             )
 
             refreshed = load_user_aggregate(aggregate.user_bid)
