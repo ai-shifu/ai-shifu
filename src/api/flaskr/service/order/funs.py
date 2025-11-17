@@ -408,10 +408,18 @@ def generate_charge(
         if body is None or body == "":
             body = shifu_info.title
         order_no = str(get_uuid(app))
+
+        # Only treat stored payment channel as a hint once a payment attempt has
+        # been made. For newly initialized orders, we rely on explicit hints and
+        # configuration to choose the provider so that model defaults do not
+        # force an unintended channel.
+        stored_payment_channel = (
+            buy_record.payment_channel if buy_record.status != ORDER_STATUS_INIT else ""
+        )
         payment_channel, provider_channel = _resolve_payment_channel(
             payment_channel_hint=payment_channel,
             channel_hint=channel,
-            stored_channel=buy_record.payment_channel,
+            stored_channel=stored_payment_channel or None,
         )
         buy_record.payment_channel = payment_channel
         db.session.flush()
@@ -471,17 +479,66 @@ def _resolve_payment_channel(
     requested_payment_channel = (payment_channel_hint or "").strip().lower()
     requested_channel = (channel_hint or "").strip()
 
+    # Read enabled payment providers from configuration.
+    enabled_raw = str(get_config("PAYMENT_CHANNELS_ENABLED", "pingxx,stripe") or "")
+    enabled_providers = {
+        item.strip().lower() for item in enabled_raw.split(",") if item.strip()
+    } or {"pingxx", "stripe"}
+
+    # If using the default configuration, automatically disable providers that
+    # are missing required credentials so that environments with only Stripe
+    # (or only Ping++) configured do not accidentally use the wrong channel.
+    if enabled_raw.strip().lower() == "pingxx,stripe":
+        if "pingxx" in enabled_providers:
+            pingxx_key = str(get_config("PINGXX_SECRET_KEY", "") or "")
+            pingxx_app = str(get_config("PINGXX_APP_ID", "") or "")
+            pingxx_key_path = str(get_config("PINGXX_PRIVATE_KEY_PATH", "") or "")
+            if not (pingxx_key and pingxx_app and pingxx_key_path):
+                enabled_providers.discard("pingxx")
+        if "stripe" in enabled_providers:
+            stripe_key = str(get_config("STRIPE_SECRET_KEY", "") or "")
+            if not stripe_key:
+                enabled_providers.discard("stripe")
+        if not enabled_providers:
+            enabled_providers = {"pingxx", "stripe"}
+
     provider_from_channel = ""
     if ":" in requested_channel:
-        provider_from_channel = requested_channel.split(":", 1)[0].strip().lower()
+        prefix, _ = requested_channel.split(":", 1)
+        prefix = prefix.strip().lower()
+        if prefix in {"stripe", "pingxx"}:
+            provider_from_channel = prefix
     elif requested_channel.lower() in {"stripe", "pingxx"}:
         provider_from_channel = requested_channel.lower()
+    elif requested_channel:
+        # Non-empty channel without explicit provider prefix is treated as a
+        # Ping++ sub-channel (e.g., wx_pub_qr, alipay_qr).
+        provider_from_channel = "pingxx"
 
     target_provider = requested_payment_channel or provider_from_channel
-    if not target_provider:
-        target_provider = (stored_channel or "pingxx").strip().lower()
 
+    # Fallback to stored provider or configuration defaults when no explicit
+    # provider has been requested.
+    if not target_provider:
+        stored = (stored_channel or "").strip().lower()
+        if stored in {"pingxx", "stripe"} and stored in enabled_providers:
+            target_provider = stored
+        else:
+            if not enabled_providers:
+                raise_error("server.pay.payChannelNotSupport")
+            if len(enabled_providers) == 1:
+                target_provider = next(iter(enabled_providers))
+            elif "stripe" in enabled_providers:
+                target_provider = "stripe"
+            elif "pingxx" in enabled_providers:
+                target_provider = "pingxx"
+            else:
+                raise_error("server.pay.payChannelNotSupport")
+
+    # Validate requested provider name and configuration.
     if target_provider not in {"pingxx", "stripe"}:
+        raise_error("server.pay.payChannelNotSupport")
+    if target_provider not in enabled_providers:
         raise_error("server.pay.payChannelNotSupport")
 
     if target_provider == "stripe":
