@@ -11,7 +11,7 @@ from ...dao import db
 from datetime import datetime
 from .dtos import ShifuDto, ShifuDetailDto
 from ...util import generate_id
-from .consts import STATUS_DRAFT
+from .consts import STATUS_DRAFT, SHIFU_NAME_MAX_LENGTH
 from ..check_risk.funcs import check_text_with_risk_control
 from ..common.models import raise_error, raise_error_with_args
 from .utils import (
@@ -110,7 +110,7 @@ def create_shifu_draft(
 
         if not shifu_name:
             raise_error("server.shifu.shifuNameRequired")
-        if len(shifu_name) > 20:
+        if len(shifu_name) > SHIFU_NAME_MAX_LENGTH:
             raise_error("server.shifu.shifuNameTooLong")
         if len(shifu_description) > 500:
             raise_error("server.shifu.shifuDescriptionTooLong")

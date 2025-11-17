@@ -82,3 +82,9 @@ SHIFU_EDIT_STATUS_HISTORY = 6101
 SHIFU_EDIT_STATUS_DRAFT = 6102
 
 STATUS_DRAFT = 0
+
+
+# Validation constraints
+# Maximum length for shifu name/title
+# Must match TITLE_MAX_LENGTH constant in frontend (src/cook-web/src/c-constants/uiConstants.ts)
+SHIFU_NAME_MAX_LENGTH = 100

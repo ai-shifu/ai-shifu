@@ -3,6 +3,7 @@ import { debounce } from 'lodash';
 import { Input } from '../ui/Input';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { TITLE_MAX_LENGTH } from '@/c-constants/uiConstants';
 interface InlineInputProps {
   isEdit?: boolean;
   value: string;
@@ -81,7 +82,7 @@ export const InlineInput: React.FC<InlineInputProps> = ({
     <div className={cn('inline-block w-full', className)}>
       {isEditing ? (
         <Input
-          maxLength={100}
+          maxLength={TITLE_MAX_LENGTH}
           ref={inputRef}
           value={inputValue}
           onChange={handleChange}

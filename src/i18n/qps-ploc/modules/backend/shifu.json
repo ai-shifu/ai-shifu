@@ -13,7 +13,7 @@
     "shifuNameRequired": "⟦Šħįƒų ňåmē įš řēɋųįřēđ⟧",
     "shifuNameAlreadyExists": "⟦Šħįƒų ňåmē åŀřēåđŷ ēẋįšŧš⟧",
     "outlineNotFound": "⟦Øųŧŀįňē ňøŧ ƒøųňđ⟧",
-    "shifuNameTooLong": "⟦Šħįƒų ňåmē įš ŧøø ŀøňǥ (måẋ 20 ćħåřåćŧēřš)⟧",
+    "shifuNameTooLong": "⟦Šħįƒų ňåmē įš ŧøø ŀøňǥ (måẋ 100 ćħåřåćŧēřš)⟧",
     "shifuDescriptionTooLong": "⟦Šħįƒų đēšćřįƥŧįøň įš ŧøø ŀøňǥ (måẋ 500 ćħåřåćŧēřš)⟧",
     "importFileInvalid": "⟦Īňƥųŧ ēɱǥ ŀøňǥ įš įɴƥųŧ⟧",
     "shifuPriceTooLow": "⟦Šħįƒų ƥŗįƈē įš ŧøø ŀøňǥ (mįñ {min_shifu_price})⟧"

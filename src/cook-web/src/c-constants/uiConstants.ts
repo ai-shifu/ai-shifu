@@ -62,3 +62,8 @@ export const wechatLogin = ({
   const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${appId}&redirect_uri=${_redirectUrl}&response_type=code&scope=${scope}&state=${state}#wechat_redirect`;
   window.location.assign(url);
 };
+
+/**
+ * Maximum character length for titles (Shifu name, Chapter name, Lesson name)
+ */
+export const TITLE_MAX_LENGTH = 100;
