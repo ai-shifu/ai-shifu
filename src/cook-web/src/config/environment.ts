@@ -362,11 +362,7 @@ function getHomeUrl(): string {
  * Gets currency symbol
  */
 function getCurrencySymbol(): string {
-  return (
-    getRuntimeEnv('CURRENCY_SYMBOL') ||
-    process.env.CURRENCY_SYMBOL ||
-    '¥'
-  );
+  return getRuntimeEnv('CURRENCY_SYMBOL') || process.env.CURRENCY_SYMBOL || '¥';
 }
 
 /**

@@ -113,15 +113,19 @@ export const PayModal = ({
   const { toast } = useToast();
   const initialPaymentRequestedRef = useRef(false);
 
-  const { stripePublishableKey, stripeEnabled, paymentChannels, currencySymbol } =
-    useEnvStore(
-      useShallow(state => ({
-        stripePublishableKey: state.stripePublishableKey,
-        stripeEnabled: state.stripeEnabled,
-        paymentChannels: state.paymentChannels,
-        currencySymbol: state.currencySymbol || '¥',
-      })),
-    );
+  const {
+    stripePublishableKey,
+    stripeEnabled,
+    paymentChannels,
+    currencySymbol,
+  } = useEnvStore(
+    useShallow(state => ({
+      stripePublishableKey: state.stripePublishableKey,
+      stripeEnabled: state.stripeEnabled,
+      paymentChannels: state.paymentChannels,
+      currencySymbol: state.currencySymbol || '¥',
+    })),
+  );
   const normalizedPaymentChannels = useMemo(
     () => (paymentChannels || []).map(channel => channel.trim().toLowerCase()),
     [paymentChannels],
