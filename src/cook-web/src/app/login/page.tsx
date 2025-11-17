@@ -296,7 +296,7 @@ export default function AuthPage() {
       setIsGoogleLoading(true);
       await startGoogleLogin({
         redirectPath: resolveRedirectPath(),
-        language,
+        language: language ?? undefined,
       });
     } catch (error) {
       setIsGoogleLoading(false);
@@ -304,6 +304,7 @@ export default function AuthPage() {
   }, [
     googleTermsAccepted,
     isGoogleEnabled,
+    language,
     resolveRedirectPath,
     startGoogleLogin,
     t,

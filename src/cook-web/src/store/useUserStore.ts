@@ -164,6 +164,7 @@ export const useUserStore = create<
           } else {
             // For other errors (network, server errors), preserve existing token state
             // but still update the status based on token data
+            // eslint-disable-next-line no-console
             console.warn(
               'Failed to fetch user info, but preserving login state:',
               err,
