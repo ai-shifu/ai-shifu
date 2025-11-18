@@ -6,6 +6,7 @@ import { initReactI18next } from 'react-i18next';
 
 import UnifiedI18nBackend from '@/lib/unified-i18n-backend';
 import { defaultLocale, localeCodes, namespaces } from '@/lib/i18n-locales';
+import { setI18nLoading } from '@/store/useI18nLoadingStore';
 
 const fileNamespaces = namespaces.length ? namespaces : ['common'];
 const namespaceList = [
@@ -51,6 +52,7 @@ const detectedBrowserLanguage =
 export const browserLanguage = normalizeLanguage(detectedBrowserLanguage);
 
 if (typeof window !== 'undefined' && !i18n.isInitialized) {
+  setI18nLoading(true);
   i18n
     // ICU messageformat support to match server-side formatting features
     .use(new ICU())
@@ -79,5 +81,20 @@ if (typeof window !== 'undefined' && !i18n.isInitialized) {
       },
     });
 }
+
+type ChangeLanguage = typeof i18n.changeLanguage;
+const originalChangeLanguage = i18n.changeLanguage.bind(i18n) as ChangeLanguage;
+
+i18n.changeLanguage = ((...args: Parameters<ChangeLanguage>) => {
+  setI18nLoading(true);
+  const result = originalChangeLanguage(...args);
+  if (result && typeof (result as Promise<unknown>).finally === 'function') {
+    return (result as Promise<unknown>).finally(() => {
+      setI18nLoading(false);
+    }) as ReturnType<ChangeLanguage>;
+  }
+  setI18nLoading(false);
+  return result;
+}) as ChangeLanguage;
 
 export default i18n;
